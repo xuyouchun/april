@@ -1,0 +1,24 @@
+#! /bin/sh
+
+home=`dirname $0`
+source $home/xfunctions
+
+##-------- ---------- ---------- ---------- ----------
+
+options=''
+longoptions='home:';
+_expand_args "$options" "$longoptions" "$*" "__g_";
+
+if ! _is_defined __g_home; then
+	__g_home=".";
+fi;
+
+##-------- ---------- ---------- ---------- ----------
+
+read first_line;
+cmd=`echo "$first_line" | sed -n "s/^#![ ]*\(.*\)/\1/p"`
+
+echo $__g_home >> /tmp/a
+
+$__g_home/$cmd
+

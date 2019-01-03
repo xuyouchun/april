@@ -1,0 +1,187 @@
+#! /bin/bash
+
+function _assert_true()
+{
+    exit_code=$?;
+    message=$1;
+
+    if [ "$exit_code" != 0 ]; then
+        echo $message;
+        exit $exit_code;
+    fi;
+}
+
+
+function _is_defined()
+{
+    local name=$1;
+    eval "(set -u; : $"$name") > /dev/null 2>&1";
+}
+
+
+function __check_getopt_version()
+{
+    local getopt=`which getopt`
+
+    $getopt --test
+    if [ "$?" != "4" ];then
+        brew -v > /dev/null
+        if [ "$?" != "0" ];then
+            echo 'Please install brew for Mac: ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"'
+        fi;
+        echo 'Please install gnu-getopt for Mac: brew install gnu-getopt'
+        return 1;
+    fi;
+}
+
+
+function _parse_args()
+{
+    local options=$1
+    local longoptions=$2
+    local args=$3
+
+    if ! __check_getopt_version; then
+        return $?;
+    fi;
+
+    local getopt=`which getopt`
+    local cmd_getopt=$getopt;
+
+    if [ "$args" == "" ]; then
+        return 0;
+    fi;
+
+    if [ "$options" != "" ]; then
+        cmd_getopt="$cmd_getopt -q -o $options";
+    else
+        cmd_getopt="$cmd_getopt -q -o 0";
+    fi;
+
+    if [ "$longoptions" != "" ]; then
+        cmd_getopt="$cmd_getopt --longoptions $longoptions";
+    fi;
+
+    cmd_getopt="$cmd_getopt -- $args";
+
+    local ret_args="`$cmd_getopt`";
+    if [ $? != 0 ]; then
+        echo 'Argument error';
+        return 1;
+    fi;
+
+    eval set -- "$ret_args";
+
+    # Read Result
+    local ret_s=''
+
+    rt=$"\n"
+    function ___append_result()
+    {
+        local key=$1
+        local value=$2
+
+        if [ "$ret_s" == "" ]; then
+            ret_s="$key=$value"
+        else
+            ret_s="$ret_s$rt$key=$value"
+        fi;
+    }
+
+    while true; do
+
+        local name="$1";
+        local value='unknown';
+        shift;
+
+        case "$name" in
+            --)
+                break;
+            ;;
+
+            -?)
+                key=`echo $name | sed -e s/^-//`;
+                if echo "$options" |  egrep "$key::?" > /dev/null; then
+                    value=yes
+                elif echo "$options" | grep "$key" > /dev/null; then
+                    value=no
+                fi;
+            ;;
+
+            --*)
+                key=`echo $name | sed -e s/^--//`;
+                if echo "$longoptions" | egrep "(^|,)$key::?(,|$)" > /dev/null; then
+                    value=yes
+                elif echo "$longoptions" | egrep "(^|,)$key(,|$)" > /dev/null; then
+                    value=no
+                fi;
+            ;;
+
+            *)
+                echo unknown argument $name;
+                return 1;
+            ;;
+        esac;
+
+        case "$value" in
+            unknown)
+                echo unknown argument $name;
+                return 1;
+            ;;
+
+            yes)
+                value=$1;
+                shift;
+            ;;
+
+            no)
+                value='';
+            ;;
+        esac;
+
+        ___append_result "$key" "$value";
+
+    done;
+
+    ___append_result "__args__" "$*";
+    ___append_result "__options__" "";
+
+    echo "$ret_s";
+    return 0;
+}
+
+
+function _set_vars()
+{
+    local prefix="$1";
+    local vars="$2";
+
+    vars="`echo "$vars" | sed -e s/^/$prefix/`";
+    eval $(echo "$vars" | while read var; do
+        if echo "$var" | grep '=' > /dev/null; then
+            name=`echo "$var" | cut -d = -f 1`;
+            value=`echo "$var" | cut -d = -f 2-`;
+        else
+            name=$var;
+            value='';
+        fi;
+        name=`echo $name | sed -e s/-/_/`;
+        echo "$name=\"$value\"";
+    done);
+}
+
+
+function _expand_args()
+{
+    local options=$1
+    local longoptions=$2
+    local args=$3
+    local prefix=$4
+
+    ret_args="`_parse_args "$options" "$longoptions" "$args"`"
+    _assert_true "$ret_args";
+
+    _set_vars "$prefix" "$ret_args";
+}
+
+

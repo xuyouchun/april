@@ -1,0 +1,266 @@
+#! tools/text2cpp.py
+
+//-------- ---------- ---------- ---------- ----------
+__pattern
+
+#----------------------------------------
+
+$import: (from from:$mname)? import import:$mname (as name)? \; ;
+
+$cvalue: cvalue | true | false | null;
+
+$index:      $_single_expression [ $arguments? ] ;
+
+$_function_name_expression: (
+    name $generic_args? | base | this | $index | $function | $new | $type_cast_exp
+);
+
+$function: $_function_name_expression \( $arguments? \) ;
+
+$new:           new $type_name (\( $arguments? \) | (\( $arguments? \))? { $_init_args? }) ;
+$array_initializer: { ($__item: $array_initializer | $expression) (, $__item)* } ;
+$array_lengths: $expression? (, $expression? )* ;
+$new_array:     new $type_name [ $array_lengths? ] $array_initializer? ;
+$type_of:       typeof \( $type_name \) ;
+$default_value: default \( $type_name \) ;
+$type_name_exp: $type_name ;
+$type_cast_exp: \( $type_name \) $_single_expression ;
+
+$_single_expression: ($__item:
+      name | $cvalue | base | this
+    | $index | $function | $new | $new_array | $type_of | $type_cast_exp
+    | $default_value | $type_name_exp 
+    | \( $_expression (, $_expression)* \)
+    ) (. $__item)*
+;
+
+$_expression: 
+    $_single_expression
+    (
+        (
+             \+ | -   | \*  | /   | %
+          | \+= | -=  | \*= | /=  | %=
+          | =   | ==  | !=  | `>  | >= | `< | <=
+          | <<  | <<= | >>  | >>=
+          | &&  | \|\|
+          | \|  | ^   | &   | \|= | &= | ^=
+          | as  | is
+        ) $_expression                              # binary operator
+      | \? $_expression `\: $_expression            # xxx? xxx : xxx          ? :
+      | (\+\+ | --)                                 # right unary operator
+    )*
+    | (`\+ | `- | `\+\+ | `-- | ! | ~ ) $_expression  # left unary operator
+;
+
+$expression:  $_expression ;
+$expressions: $expression (, $expression) *;
+
+$namespace:
+    namespace $mname
+    {
+        $using*
+        ($namespace | $type | $type_def)*
+    }
+;
+
+$using: using (name =)? $mname \; ;
+
+$mname: name ( . name ) * ;
+
+$decorate: 
+    (
+       public | private | protected | internal
+      |  ($__complex: protected (&|\|)? internal | internal (&|\|)? protected)
+      | static | sealed | abstract | readonly | const | new | abstract | override | virtual | extern
+    )*
+;
+
+$_enum_fields:
+    ( ($__item: $attributes name (= $expression)?) (, $__item)* ,? )?
+;
+
+$type:
+    $attributes
+    $decorate
+    (
+        (class | struct | interface) name $generic_params? (\: base:$type_name (, base:$type_name)*)?
+            $generic_constraints
+        {
+            ($method | $field | $property | $event | $type | $_fields | $type_def) * 
+        }
+    |
+        enum name (\: underlying:$type_name)?
+        {
+            $_enum_fields
+        }
+    ) \;?
+;
+
+$type_name_unit: name $generic_args? ;
+
+$general_type_name:
+        (global? \:\:)? $type_name_unit (. $type_name_unit)*
+     |  void | object
+     |  char | string | byte | sbyte | short | ushort | int | uint | long | ulong | bool
+     |  double | float | decimal
+;
+
+$array_type_name: $type_name [ $expression? (, $expression?) * ] ;       # Array
+
+$uncertain_type_name: var ;
+
+$type_name: $general_type_name | $array_type_name | $uncertain_type_name ;
+
+$type_def_param:  name;
+$type_def_params: < $type_def_param (, $type_def_param)* > ;
+$type_def: typedef $type_name name $type_def_params? \; ;
+
+$generic_param:  $attributes name;
+$generic_params: < $generic_param (, $generic_param)* > ;
+
+$generic_constraint: where name \: ($__item: $type_name | class | struct) (, $__item *)*  ;
+$generic_constraints: $generic_constraint * ;
+
+$generic_arg:  $type_name;
+$generic_args: < $generic_arg? (, $generic_arg?) * !:> ;
+
+$param:  $attributes (out | ref | params)? $type_name name (= $expression)? ;
+$params: $param (, $param)* ;
+
+$argument:  $attributes (out | ref)? (name \:)? $expression ;
+$arguments: $argument (, $argument)* ;
+
+$_init_arg: (name =)? $expression | { ($_init_arg (, $_init_arg)* ,?)? } ;
+$_init_args: $_init_arg (, $_init_arg) * ,? ; 
+
+$_attribute_type_name : $general_type_name;
+
+$_attribute_group:
+    [ ($__item: $_attribute_type_name (
+	\(
+		(($arguments | ($__assign: name = $expression)) (, $__assign)*)?
+	\) )?) (, $__item)* ]
+;
+
+$attributes: ($attribute | $_attribute_group) * ;
+
+$method_body: ({ $statement* } | \;) ;
+
+$method:
+    $attributes
+    $decorate
+    ret:$type_name? ~ ? (owner:$type_name .)? name $generic_params? \( $params? \)
+        ( \: base \( $arguments? \) )?
+    $method_body
+;
+
+$_fields:
+    $attributes
+    $decorate
+    $type_name ($__item: $attributes name (= $expression)? ) (, $__item)* \;
+;
+
+$_fake_method:
+    $attributes $decorate (get | set | add | remove) ($method_body | \;)
+;
+
+$property:
+    $attributes
+    $decorate
+    ret:$type_name ((owner:$type_name .)? name | this [ $params ])
+    {
+        $_fake_method *
+    }
+;
+
+$event:
+    $attributes
+    $decorate event
+    ret:$type_name (owner:$type_name .)? name
+    ({
+        $_fake_method *
+    } | \; )
+;
+
+$while_st:
+    while \( $expressions \)
+    $statement
+;
+
+$do_while_st:
+    do
+        $statement
+    while \( $expressions \) \;
+;
+
+$for_st:
+    for \( ($defination_st | initialize:$expressions \; | \;)?
+        condition:$expressions? \; increase:$expressions? \)
+    $statement
+;
+
+$for_each_st:
+    foreach \( $type_name name in $expression \)
+    $statement
+;
+
+$if_st:
+    if \( $expressions \)
+        if_body:$statement
+    (else else_body:$statement)?
+;
+
+$statements: $statement * ;
+
+$case:
+    ((case $expression | default) \:)+
+        $statements
+;
+
+$switch_st:
+    switch \( $expressions \)
+    {
+        $case *
+    }
+;
+
+$catch:
+    catch ( \( $type_name name? \) )?
+        $statement
+;
+
+$try_st:
+    try
+        try:$statement
+    $catch *
+    (finally
+        finally:$statement)?
+;
+
+$defination_st:
+    $type_name ($__item: name (= $expression)?) (, $__item)* \;
+;
+
+$expression_st: $expression \; ;
+$type_def_st:   $type_def ;
+
+$break_st:      break \; ;
+$continue_st:   continue \; ;
+$throw_st:      throw $expression? \; ;
+$return_st:     return $expression? \; ;
+$goto_st:       goto name \; ;
+
+$empty_st:      \; ;
+$statement_group_st: { $statement * } ;
+
+$statement:
+    $do_while_st | $while_st | $for_st | $for_each_st
+  | $if_st | $switch_st | $try_st | $empty_st
+  | $break_st | $continue_st | $throw_st | $return_st | $goto_st
+  | $expression_st | $defination_st | $type_def_st
+  | $statement_group_st
+;
+
+$: $import* $using* ($namespace | $type | $type_def)* ;
+
+

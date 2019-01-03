@@ -1,0 +1,135 @@
+
+.PHONY: all clean rebuild distclean run restart test test.%
+.PHONY: $(REL_MODULES)
+
+# Variables
+CMD_CC       ?= g++
+CMD_AR		 ?= ar
+CMD_RM		 ?= rm -f
+CMD_CP		 ?= cp
+CMD_MV		 ?= mv
+
+EXTERN_LDFLAGS  ?=
+EXTERN_CPPFLAGS ?=
+EXTERN_LIBS     ?=
+
+VERSION      ?=
+RUN_ARGS     ?=
+REL_MODULES  ?=
+
+__REL_MODULES = $(addsuffix .*, $(addprefix $(LIBS_PATH)/lib, $(REL_MODULES)))
+
+CC			  = $(CMD_CC)
+AR			  = $(CMD_AR)
+
+OPTIMIZE     ?= 0
+
+LDFLAGS      ?= $(GLOBAL_LDFLAGS) $(EXTERN_LDFLAGS)
+LIBS         ?= $(GLOBAL_LIBS) $(EXTERN_LIBS)
+INCLUDES     ?= $(addprefix -I, $(INC_PATH)) -I$(BASE_PATH) \
+                 -I$(OS_PATH) -I$(ARCH_PATH) -I$(GLOBAL_PATH)
+CPPFLAGS     ?= -O$(OPTIMIZE) -std=c++14 $(GLOBAL_CPPFLAGS) $(EXTERN_CPPFLAGS) $(INCLUDES) 
+
+__CPP_FILES  ?= $(wildcard *.cpp)
+SRC_FILES    ?= $(__CPP_FILES)
+OBJ_FILES    ?= $(__CPP_FILES:.cpp=.o)
+
+__CSEC_FILES ?= $(wildcard *.src)
+CSEC_FILES   ?= $(__CSEC_FILES:.src=.csec)
+
+__CONFIG_H    = $(BASE_PATH)/include/config.h
+
+TARGET_TYPE  ?= static
+
+
+# Version
+ifeq ($(VERSION), )
+    __VERSION_SUFFIX =
+else
+    __VERSION_SUFFIX = .$(VERSION)
+endif
+
+
+# Build
+ifeq ($(TARGET_TYPE), static)
+    __TARGET      = lib$(MODULE).a$(__VERSION_SUFFIX)
+    __TARGET_PATH = $(LIBS_PATH)
+    __BUILD_CMD   = $(AR) -cr $(__TARGET_PATH)/$(__TARGET) $(OBJ_FILES) $(__REL_MODULES);
+    __REL_FILES   =
+    __RUN_CMD     = true
+else
+ifeq ($(TARGET_TYPE), shared)
+    __TARGET      = lib$(MODULE).so$(__VERSION_SUFFIX)
+    __TARGET_PATH = $(LIBS_PATH)
+    __BUILD_CMD   = $(CMD_CC) $(CPPFLAGS) $(LDFLAGS) $(LIBS) -shared -fPIC -o $(__TARGET_PATH)/$(__TARGET) $(OBJ_FILES) $(__REL_MODULES);
+    __REL_FILES   =$(__REL_MODULES)
+    __RUN_CMD     = true
+else
+ifeq ($(TARGET_TYPE), execute)
+    __TARGET      = $(MODULE)$(__VERSION_SUFFIX)
+    __TARGET_PATH = $(BIN_PATH)
+    __BUILD_CMD   = $(CMD_CC) $(CPPFLAGS) $(LDFLAGS) $(LIBS) -o $(__TARGET_PATH)/$(__TARGET) $(OBJ_FILES) $(__REL_MODULES);
+    __REL_FILES   = $(__REL_MODULES)
+    __RUN_CMD     = $(__TARGET_PATH)/$(__TARGET)
+else
+    __TARGET      = $(MODULE)
+    __TARGET_PATH =
+    __BUILD_CMD   = echo target type "$(TARGET_TYPE)" not supported; exit 1;
+    __RUN_CMD     = false
+endif
+endif
+endif
+
+# Dependences
+all: $(__TARGET_PATH)/$(__TARGET) 
+
+
+$(__TARGET_PATH)/$(__TARGET): $(__CONFIG_H) Makefile.dep $(CSEC_FILES) $(OBJ_FILES) $(REL_MODULES)
+	@mkdir -p $(__TARGET_PATH) > /dev/null 2>&1;
+	$(__BUILD_CMD)
+
+# Makefile.dep
+Makefile.dep: $(CSEC_FILES)
+	$(CMD_CC) -MM $(INCLUDES) $(SRC_FILES) > ./Makefile.dep 2> /dev/null || true;
+	@if ! test -s ./Makefile.dep; then rm -f ./Makefile.dep > /dev/null; fi;
+
+
+-include Makefile.dep
+
+# config.h
+$(__CONFIG_H):
+	@printf " \n\
+	#define CONFIG_NULLPTR_SUPPORTED $(CONFIG_NULLPTR_SUPPORTED)	\n\
+	#define CONFIG_BASE_NAMESPACE $(CONFIG_BASE_NAMESPACE) 	        \n\
+	" > $(__CONFIG_H)
+
+# *.csec
+%.csec: %.src
+	$(BASE_PATH)/tools/csec < "$^" > "$@" --home "$(BASE_PATH)"
+
+# clean
+clean:
+	$(CMD_RM) $(__TARGET) $(OBJ_FILES) *.csec
+	$(CMD_RM) $(__TARGET_PATH)/$(__TARGET)
+
+# distclean
+distclean: clean
+	$(RM) Makefile.dep
+	$(RM) $(__CONFIG_H)
+
+
+# rebuild
+rebuild: distclean all
+
+
+# run
+run: all
+	@if [ "$(__RUN_CMD)" != "" ]; then		    \
+		echo Run $(MODULE) $(RUN_ARGS) ...;	    \
+		$(__RUN_CMD)  $(RUN_ARGS);		        \
+	fi;
+
+# restart
+restart: distclean run
+
+

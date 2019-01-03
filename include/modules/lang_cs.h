@@ -1,0 +1,79 @@
+
+#ifndef __LANG_CS_H__
+#define __LANG_CS_H__
+
+#include <compile.h>
+#include <modules/lang_cs/__cs_token_type.h>
+
+namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+
+    ////////// ////////// ////////// ////////// //////////
+
+    namespace
+    {
+        using namespace core;
+        using namespace compile;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    class cs_lang_t : public object_t, public lang_t
+    {
+    public:
+        cs_lang_t(const lang_create_args_t & args);
+
+        virtual lang_service_t * get_service(lang_service_type_t service_type) override;
+        virtual lang_id_t get_id() override;
+
+        static const char_t * const __default_name__;
+
+    private:
+        object_t * __service;
+        pool_t __pool;
+        lang_id_t __lang_id;
+
+        template<typename service_t> service_t * __get_service();
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    X_ENUM_(cs_log_code_t, sizeof(common_log_code_t))
+
+        // informations
+        __info__    = 10000,
+
+        // warnings
+        __warning__ = 14000,
+
+        // errors
+        __error__   = 17000,
+
+        unexpected  = 17100,
+
+        // the end
+        __the_end__ = 20000,
+
+    X_ENUM_END
+
+    #undef __LogCode
+
+    ////////// ////////// ////////// ////////// //////////
+
+    class cs_token_enumerator_t : public token_enumerator_base_t
+    {
+    public:
+        template<typename ... args_t>
+        cs_token_enumerator_t(args_t && ... args)
+            : token_enumerator_base_t(std::forward<args_t>(args) ...)
+        { }
+
+        virtual token_t * next() override;
+    };
+
+    typedef ttoken_reader_t<cs_token_enumerator_t> cs_token_reader_t;
+
+    ////////// ////////// ////////// ////////// //////////
+
+} } }  // X_ROOT_NS::modules::lang_cs
+
+#endif  // __LANG_CS_H__

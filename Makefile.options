@@ -1,0 +1,24 @@
+
+# Basic 
+ARCH		  = x86_64
+OS			  = linux
+COMPILE       = default
+
+# Paths
+BASE_PATH	  = $(shell pwd)
+MODULES_PATH  = $(BASE_PATH)/modules
+KMODULES_PATH = $(BASE_PATH)
+
+# Modules
+KMODULES = global common algorithm arch os lib
+MODULES  = $(notdir $(wildcard $(MODULES_PATH)/*))
+
+# Compile
+GLOBAL_LDFLAGS  = 
+GLOBAL_LIBS     = -lpthread -lboost_log -lboost_system -lboost_filesystem
+GLOBAL_CPPFLAGS = -DBOOST_LOG_DYN_LINK -DBOOST_FILESYSTEM_DYN_LINK
+
+# Options
+CONFIG_BASE_NAMESPACE       ?= jc
+CONFIG_NULLPTR_SUPPORTED    ?= 1
+

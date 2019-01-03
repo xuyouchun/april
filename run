@@ -1,0 +1,21 @@
+#! /bin/sh
+
+source ./tools/xfunctions
+
+options='dr::'
+longoptions='debug,run::';
+_expand_args "$options" "$longoptions" "$*" "__g_";
+
+__projects=($__g___args__);
+__options=($__g___options__);
+
+echo $__projects
+
+if [ "${#__projects[@]}" -eq 0 ]; then
+    __projects=( default );
+fi;
+
+__projects=(`echo "${__projects[@]}" | xargs -n 1 printf 'test.%s.run '`);
+
+./make ${__projects[@]} ${__options} "--run=$__g_run"
+
