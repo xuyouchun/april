@@ -1425,10 +1425,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt_header_t * mt_header;
             header_mgr.append(nullptr, &mt_header);
 
-            mt_header->name         = __S(this->__assembly.name);
-            mt_header->version      = this->__assembly.version;
-            mt_header->information  = __S(this->__assembly.information);
-
             // tables
             auto & table_mgr = __mt_manager<__tidx_t::table>();
             size_t offset = __table_size(__tidx_t::header) + __table_size(__tidx_t::table);

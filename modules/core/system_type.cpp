@@ -548,7 +548,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 {
                     auto & ls = not_allowed_list;
                     string_t names = al::join_str(ls.begin(), ls.end(), _T(", "));
-                    __CplLogError(now_allowed, names);
+                    __CplLogError(not_allowed, names);
                 }
 
                 #undef      __NotAllowed
