@@ -5,6 +5,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Empty values.
     template<typename t>
     struct __empty_value_t
     {
@@ -27,6 +28,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Checks limit.
     #define __CheckLimit(value, max_value, name)                        \
         do                                                              \
         {                                                               \
@@ -39,6 +41,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     #define __S(s) this->__heap.append_string(s)
 
+    // Searches metadata by specified entity.
+    // Returns metadata if found.
     #define __SearchRet(mgr, entity)                    \
         do                                              \
         {                                               \
@@ -50,6 +54,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return ref;                             \
         } while(false)
 
+    // Checks if it's empty.
+    // Raise exception if empty.
     #define __CheckEmptyV(element, value, element_name, field_name)     \
         do                                                              \
         {                                                               \
@@ -58,9 +64,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     _T("") field_name);                                 \
         } while(false)
 
+    // Checks empty.
     #define __CheckEmpty(element, field, element_name, field_name)      \
             __CheckEmptyV(element, element->field, element_name, field_name)
-
 
     #define __Unexpected() X_UNEXPECTED()
 
@@ -68,11 +74,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Base class of assembly writer.
     template<typename writer_t, __lv_t lv, __lv_t rlv = lv>
     class __assembly_writer_super_t { };
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Base class of assembly writer.
     template<typename writer_t, __lv_t rlv>
     class __assembly_writer_super_t<writer_t, 0, rlv>
             : public compile_assembly_layout_t<al::spool_t, rlv, default_mt_template_t>
@@ -80,21 +88,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef compile_assembly_layout_t<al::spool_t, rlv, default_mt_template_t> __super_t;
 
     public:
+
+        // Constructors.
         __assembly_writer_super_t(xostream_t & stream, assembly_t & assembly, logger_t & logger)
             : __super_t(assembly.get_xpool()), __stream(stream)
             , __assembly(assembly), __logger(logger)
         { }
 
     protected:
-        xostream_t & __stream;
-        assembly_t & __assembly;
-        logger_t   & __logger;
+        xostream_t & __stream;      // Output stream.
+        assembly_t & __assembly;    // Assembly.
+        logger_t   & __logger;      // Logger.
 
+        // Returns whether it is references from other assembly.
         bool __is_extern(member_t * member)
         {
-            return get_assembly(member) != &__assembly;
+            assembly_t * assembly = get_assembly(member);
+            return assembly != nullptr && assembly != &__assembly;
         }
 
+        // Assigns assembly metadata.
         void __assign_mt(mt_assembly_t * mt, assembly_t * assembly)
         {
             mt->name        = __S(assembly->name);
@@ -103,6 +116,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->info        = __S(assembly->information);
         }
 
+        // Assigns assembly ref metadata.
         void __assign_mt(mt_assembly_ref_t * mt, assembly_reference_t * reference)
         {
             __CheckEmpty(reference, assembly, "reference", "assembly");
@@ -112,6 +126,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->package = __S(reference->package_name);
         }
 
+        // Sorts members. 
         template<typename _members_t> void __sort_members(_members_t & members)
         {
             al::sort(members, [](auto m1, auto m2) {
@@ -119,6 +134,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Assigns generic type metadata.
         void __assign_mt(mt_type_t * mt, general_type_t * type)
         {
             mt->name  = __S(type->name);
@@ -154,6 +170,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->vtype           = (uint8_t)type->vtype;
         }
 
+        // Assigns type_ref metadata.
         void __assign_mt(mt_type_ref_t * mt, general_type_t * type)
         {
             mt->assembly = __W->__commit_extern_assembly(type->assembly);
@@ -168,6 +185,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Assigns generic type metadata.
         void __assign_mt(mt_generic_type_t * mt, generic_type_t * type)
         {
             __CheckEmpty(type, template_, "type", "template");
@@ -177,6 +195,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->host      = __W->__commit_type(type->host_type);
         }
 
+        // Assigns array type metadata.
         void __assign_mt(mt_array_type_t * mt, array_type_t * type)
         {
             __CheckEmpty(type, element_type, "type", "element type");
@@ -185,6 +204,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->dimension    = type->dimension;
         }
 
+        // Assigns method ref metadata.
         void __assign_mt(mt_method_ref_t * mt, method_t * method)
         {
             mt->host    = __W->__commit_type(method->host_type);
@@ -195,6 +215,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->generic_param_count = method->generic_param_count();
         }
 
+        // Assigns method ref param metadata.
         void __assign_mt(mt_method_ref_param_t * mt, param_t * param)
         {
             mt->ptype = param->ptype;
@@ -204,7 +225,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             {
                 case gtype_t::generic_param: {
                     generic_param_t * p = (generic_param_t *)type;
-                    mt->type = ref_t(p->index, 0, (uint32_t)mt_type_extra_t::generic_param_index);
+                    mt->type = ref_t(p->index, 1, (uint32_t)mt_type_extra_t::generic_param_index);
                 }   break;
 
                 default:
@@ -213,6 +234,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Assigns attribute metadata.
         void __assign_mt(mt_attribute_t * mt, attribute_t * attr)
         {
             type_t * attr_type = to_type(attr->type_name);
@@ -234,6 +256,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->flag.compile_time = is_compile_time_attribute(this->__xpool, attr);
         }
 
+        // Assigns attribute argument metadata.
         void __assign_mt(mt_attribute_argument_t * mt, argument_t * arg, type_t * param_type)
         {
             mt->name        = __S(arg->name);
@@ -241,17 +264,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->value       = __W->__commit_constant(arg->expression, param_type);
         }
 
+        // Assigns generic param metadata.
         void __assign_mt(mt_generic_param_t * mt, generic_param_t * generic_param)
         {
             mt->name = __S(generic_param->name);
             mt->attributes = __W->__commit_attributes(generic_param->attributes);
         }
 
+        // Assigns generic argument metadata.
         void __assign_mt(mt_generic_argument_t * mt, type_t * type)
         {
             mt->type = __W->__commit_type(type);
         }
 
+        // Assigns type def param metadata.
         void __assign_mt(mt_type_def_param_t * mt, type_def_param_t * param)
         {
             __CheckEmpty(param, name, "type def param", "name");
@@ -260,6 +286,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->attributes = __W->__commit_attributes(param->attributes);
         }
 
+        // Assigns method metadata.
         void __assign_mt(mt_method_t * mt, method_t * method)
         {
             mt->name = __S(method->name);
@@ -286,6 +313,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->body       = res_t::null;
         }
 
+        // Assigns generic method metadata.
+        void __assign_mt(mt_generic_method_t * mt, generic_method_t * method, type_t * host)
+        {
+            mt->host      = __W->__commit_type(host);
+            mt->template_ = __W->__commit_method(method->template_);
+            mt->args      = __W->__commit_generic_arguments(method->args);
+        }
+
+        // Assigns generic method metadata.
+        void __assign_mt(mt_generic_method_t * mt, method_t * template_, type_t * host)
+        {
+            mt->host      = __W->__commit_type(host);
+            mt->template_ = __W->__commit_method(template_);
+        }
+
+        // Assigns param metadata.
         void __assign_mt(mt_param_t * mt, param_t * param)
         {
             __CheckEmpty(param, name, "param", "name");
@@ -300,6 +343,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->attributes    = __W->__commit_attributes(param->attributes);
         }
 
+        // Assigns property metadata.
         void __assign_mt(mt_property_t * mt, property_t * property)
         {
             if(property->decorate)
@@ -318,6 +362,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->set_method = __W->__commit_method(property->set_method);
         }
 
+        // Assigns field metadata.
         void __assign_mt(mt_field_t * mt, field_t * field)
         {
             if(field->decorate)
@@ -334,6 +379,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->init_value = __W->__commit_constant(field->init_value, field_type);
         }
 
+        // Assigns event metadata.
         void __assign_mt(mt_event_t * mt, event_t * event)
         {
             if(event->decorate)
@@ -351,6 +397,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->remove_method = __W->__commit_method(event->remove_method);
         }
 
+        // Assigns type def metadata.
         void __assign_mt(mt_type_def_t * mt, type_def_t * type_def)
         {
             type_t * type = to_type(type_def->type_name);
@@ -370,6 +417,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Base class of assembly writer.
     template<typename writer_t, __lv_t rlv>
     class __assembly_writer_super_t<writer_t, 1, rlv>
         : public __assembly_writer_super_t<writer_t, 0, rlv>
@@ -378,12 +426,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     public:
         using __super_t::__super_t;
-
-    protected:
     };
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Assembly writer.
     template<__lv_t lv>
     class __assembly_writer_t : public __assembly_writer_super_t<__assembly_writer_t<lv>, lv>
     {
@@ -401,6 +448,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
         using __super_t::__super_t;
 
+        // Build and write to a stream.
         void write()
         {
             __commit_eobjects();
@@ -417,21 +465,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         struct __assign_item_t { __tidx_t tidx; void * mt, * entity, * extern_; };
         std::queue<__assign_item_t> __assign_queue;
 
+        // Enque a assign item.
         void __enque_assign(__tidx_t tidx, void * mt, void * entity, void * extern_ = nullptr)
         {
             __assign_queue.push(__assign_item_t { tidx, mt, entity, extern_ });
         }
 
+        // Returns metadata manager.
         template<__tidx_t tidx> mt_manager_t<tidx, __mt_t<tidx>> & __mt_manager()
         {
             return __super_t::template __mt_manager<tidx>();
         }
 
+        // Returns current null.
         template<__tidx_t tidx> ref_t __current_null()
         {
             return __mt_manager<tidx>().current_null();
         }
 
+        // Commits eobjects.
         void __commit_eobjects()
         {
             this->__assembly.types.each_general_types([this](general_type_t * general_type) {
@@ -446,6 +498,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __assign_mts();
         }
 
+        // Assigns metadata.
         void __assign_mts()
         {
             // assign
@@ -491,6 +544,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     __AssignMtCase(type_def)
                     __AssignMtCase(method_ref)
                     __AssignMtCase(method_ref_param)
+                    //__AssignMtCase(generic_method)
 
                     default:
                         __Unexpected();
@@ -503,6 +557,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Commits assembly.
         ref_t __commit_assembly()
         {
             auto & mgr = __mt_manager<__tidx_t::assembly>();
@@ -515,6 +570,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits extern assembly.
         ref_t __commit_extern_assembly(assembly_t * assembly)
         {
             auto & mgr = __mt_manager<__tidx_t::assembly_ref>();
@@ -534,6 +590,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits general types.
         ref_t __commit_general_type(general_type_t * type)
         {
             if(type->assembly == &this->__assembly)
@@ -542,6 +599,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __commit_extern_general_type(type);
         }
 
+        // Commits internal general type.
         ref_t __commit_internal_general_type(general_type_t * type)
         {
             auto & mgr = __mt_manager<__tidx_t::type>();
@@ -556,6 +614,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits extern general type.
         ref_t __commit_extern_general_type(general_type_t * type)
         {
             auto & mgr = __mt_manager<__tidx_t::type_ref>();
@@ -571,6 +630,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits generic type.
         ref_t __commit_generic_type(generic_type_t * type)
         {
             auto & mgr = __mt_manager<__tidx_t::generic_type>();
@@ -584,6 +644,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits array type.
         ref_t __commit_array_type(array_type_t * type)
         {
             auto & mgr = __mt_manager<__tidx_t::array_type>();
@@ -597,6 +658,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits attributes.
         ref_t __commit_attributes(attributes_t * attributes)
         {
             auto & mgr = __mt_manager<__tidx_t::attribute>();
@@ -611,6 +673,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits attribute arguments.
         ref_t __commit_attribute_arguments(arguments_t * arguments, method_t * method)
         {
             if(method->param_count() != __size(arguments))
@@ -637,6 +700,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits generic param.
         ref_t __commit_generic_param(generic_param_t * param)
         {
             auto & mgr = __mt_manager<__tidx_t::generic_param>();
@@ -645,6 +709,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __Unexpected();
         }
 
+        // Commits generic params.
         ref_t __commit_generic_params(generic_params_t * params)
         {
             auto & mgr = __mt_manager<__tidx_t::generic_param>();
@@ -659,6 +724,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits generic arguments.
         ref_t __commit_generic_arguments(type_collection_t & types)
         {
             auto & mgr = __mt_manager<__tidx_t::generic_argument>();
@@ -669,6 +735,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits type def param.
         ref_t __commit_type_def_param(type_def_param_t * param)
         {
             auto & mgr = __mt_manager<__tidx_t::type_def_param>();
@@ -677,6 +744,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __Unexpected();
         }
 
+        // Commits type def params.
         ref_t __commit_type_def_params(type_def_params_t * params)
         {
             auto & mgr = __mt_manager<__tidx_t::type_def_param>();
@@ -691,11 +759,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits null type.
         ref_t __commit_null_type(null_type_t * type)
         {
             return ref_t::null;
         }
 
+        // Commits type.
         ref_t __commit_type(type_t * type)
         {
             if(type == nullptr)
@@ -728,11 +798,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref_t::null;
         }
 
+        // Returns whether it's a internal type.
         bool __is_internal_type(type_t * type)
         {
             return is_general(type) && ((general_type_t *)type)->assembly == &this->__assembly;
         }
 
+        // Commits nest types.
         template<typename _types_t>
         ref_t __commit_nest_types(_types_t & types)
         {
@@ -748,6 +820,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits super types.
         template<typename _type_names_t>
         ref_t __commit_super_type_names(_type_names_t & type_names)
         {
@@ -766,6 +839,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits methods.
         template<typename _methods_t>
         ref_t __commit_methods(_methods_t & methods)
         {
@@ -781,6 +855,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commit method.
         ref_t __commit_method(method_t * method)
         {
             if(method == nullptr)
@@ -791,8 +866,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 auto & mgr = __mt_manager<__tidx_t::method>();
                 __SearchRet(mgr, method);
 
-                __commit_type(method->host_type);
-                __SearchRet(mgr, method);
+                type_t * host_type = method->host_type;
+                if(method->this_family() == member_family_t::impl)
+                    return __commit_impl_method((impl_method_t *)method);
+
+                if(host_type != nullptr)
+                {
+                    switch(host_type->this_gtype())
+                    {
+                        case gtype_t::general:
+                            __commit_type(method->host_type);
+                            __SearchRet(mgr, method);
+                            __Unexpected();
+
+                        case gtype_t::generic:
+                            __Unexpected();
+
+                        default:
+                            __Unexpected();
+                    }
+                }
 
                 __Unexpected();
             }
@@ -802,6 +895,67 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Returns Impl method.
+        static method_base_t * __raw_method_of(impl_method_t * impl_method)
+        {
+            method_base_t * raw = impl_method->raw;
+            _A(raw != nullptr);
+
+            if(raw->this_family() == member_family_t::impl)
+                return __raw_method_of((impl_method_t *)raw);
+
+            return raw;
+        }
+
+        // Commits impl method.
+        ref_t __commit_impl_method(impl_method_t * impl_method)
+        {
+            if(impl_method == nullptr)
+                return ref_t::null;
+
+            method_base_t * raw = __raw_method_of(impl_method);
+            type_t * host = impl_method->host_type;
+
+            switch(raw->this_family())
+            {
+                case member_family_t::generic:
+                    return __commit_generic_method((generic_method_t *)raw, host);
+
+                case member_family_t::general: {
+                    auto & mgr = __mt_manager<__tidx_t::generic_method>();
+                    __SearchRet(mgr, (generic_method_t *)impl_method);
+
+                    mt_generic_method_t * mt_generic_method;
+                    ref_t ref = mgr.append((generic_method_t *)impl_method, &mt_generic_method);
+                    __assign_mt(mt_generic_method, (method_t *)raw, host);
+
+                    return ref;
+                }
+
+                default:
+                    __Unexpected();
+            }
+        }
+
+        // Commits generic method.
+        ref_t __commit_generic_method(generic_method_t * method, type_t * host = nullptr)
+        {
+            if(method == nullptr)
+                return ref_t::null;
+
+            auto & mgr = __mt_manager<__tidx_t::generic_method>();
+            __SearchRet(mgr, method);
+
+            mt_generic_method_t * mt_generic_method;
+            ref_t ref = mgr.append(method, &mt_generic_method);
+
+            __assign_mt(mt_generic_method, method, host);
+            //__enque_assign(__tidx_t::generic_method, mt_generic_method, method);
+
+            return ref;
+        }
+
+        // Commits params
         template<typename _params_t>
         ref_t __commit_params(_params_t & params)
         {
@@ -813,6 +967,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits params.
         template<typename _params_t>
         ref_t __commit_params(_params_t * params)
         {
@@ -822,6 +977,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __commit_params(*params);
         }
 
+        // Commits param.
         ref_t __commit_param(param_t * param)
         {
             auto & mgr = __mt_manager<__tidx_t::param>();
@@ -830,6 +986,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __Unexpected();
         }
 
+        // Commits properties.
         template<typename _properties_t>
         ref_t __commit_properties(_properties_t & properties)
         {
@@ -842,6 +999,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits property.
         ref_t __commit_property(property_t * property)
         {
             auto & mgr = __mt_manager<__tidx_t::property>();
@@ -852,6 +1010,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __Unexpected();
         }
 
+        // Commits fields.
         template<typename _fields_t>
         ref_t __commit_fields(_fields_t & fields)
         {
@@ -863,6 +1022,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commit field.
         ref_t __commit_field(field_t * field)
         {
             auto & mgr = __mt_manager<__tidx_t::field>();
@@ -873,6 +1033,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __Unexpected();
         }
 
+        // Commit events.
         template<typename _events_t>
         ref_t __commit_events(_events_t & events)
         {
@@ -883,6 +1044,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits event.
         ref_t __commit_event(event_t * event)
         {
             auto & mgr = __mt_manager<__tidx_t::event>();
@@ -894,6 +1056,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __Unexpected();
         }
 
+        // Commits type defs.
         template<typename _type_defs_t>
         ref_t __commit_type_defs(_type_defs_t & type_defs)
         {
@@ -905,6 +1068,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits type def.
         ref_t __commit_type_def(type_def_t * type_def)
         {
             auto & mgr = __mt_manager<__tidx_t::type_def>();
@@ -921,6 +1085,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits constants.
         ref_t __commit_constant(expression_t * exp, type_t ** out_type)
         {
             if(exp == nullptr)
@@ -938,6 +1103,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __commit_constant(value, out_type);
         }
 
+        // Commits constant.
         ref_t __commit_constant(const cvalue_t & value, type_t ** out_type)
         {
             auto & mgr = __mt_manager<__tidx_t::constant>();
@@ -967,6 +1133,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Checks whether two types are compatible.
         void __check_type_compatible(type_t * from, type_t * to)
         {
             if(to == nullptr)
@@ -976,6 +1143,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 throw _ED(__e_t::unexpected_const_type, from, to);
         }
 
+        // Commits constant value with expected tpye.
         template<typename value_t>
         ref_t __commit_constant_with_expect(value_t && value, type_t * expect_type)
         {
@@ -988,16 +1156,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits constant value.
         ref_t __commit_constant(expression_t * exp, type_t * expect_type)
         {
             return __commit_constant_with_expect(exp, expect_type);
         }
 
+        // Commits constant value.
         ref_t __commit_constant(const cvalue_t & value, type_t * expect_type)
         {
             return __commit_constant_with_expect(value, expect_type);
         }
 
+        // Assigns uint64 constant value.
         void __assign_uint64(mt_manager_t<__tidx_t::constant> & mgr,
                                                     mt_constant_t & c, uint64_t v)
         {
@@ -1020,6 +1191,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Assigns constant number.
         ref_t __commit_constant_number(__constant_mgr_t & mgr, const tvalue_t & value)
         {
             mt_constant_t * c;
@@ -1085,6 +1257,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits constant string.
         ref_t __commit_constant_string(__constant_mgr_t & mgr, const char_t * string)
         {
             mt_constant_t * c;
@@ -1096,6 +1269,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits constant type.
         ref_t __commit_constant_type(__constant_mgr_t & mgr, type_t * type)
         {
             mt_constant_t * c;
@@ -1107,6 +1281,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits null.
         ref_t __commit_constant_null(__constant_mgr_t & mgr)
         {
             mt_constant_t * c;
@@ -1117,6 +1292,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // On load ref for specified entity.
         virtual ref_t on_load_ref(__tidx_t tidx, void * entity) override
         {
             if(entity == nullptr)
@@ -1136,16 +1312,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 case __tidx_t::field:
                     return __commit_field((field_t *)entity);
 
+                case __tidx_t::generic_method:
+                    return __commit_generic_method((generic_method_t *)entity);
+
                 default:
                     return ref_t::null;
             }
         }
 
+        // On load ref for specified type.
         virtual ref_t on_load_type_ref(type_t * type) override
         {
             return __commit_type(type);
         }
 
+        // Commits method ref.
         ref_t __commit_method_ref(method_t * method)
         {
             auto & mgr = __mt_manager<__tidx_t::method_ref>();
@@ -1159,6 +1340,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits method ref params.
         ref_t __commit_method_ref_params(method_t * method)
         {
             auto & mgr = __mt_manager<__tidx_t::method_ref_param>();
@@ -1174,6 +1356,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        // Commits field ref.
         ref_t __commit_field_ref(field_t * field)
         {
             auto & mgr = __mt_manager<__tidx_t::field_ref>();
@@ -1186,6 +1369,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Compiles methods.
         void __compile()
         {
             for(__compile_element_t & e : __compile_elements)
@@ -1196,6 +1380,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __assign_mts();
         }
 
+        // Compiles method.
         res_t __compile_method(method_t * method)
         {
             xil_pool_t pool;
@@ -1216,12 +1401,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return this->__heap.append_block(bytes, size);
         }
 
+        // Returns table size of specified table index.
         size_t __table_size(__tidx_t tidx)
         {
             mt_manager_object_t * mt_obj = __mt_manager((int)tidx);
             return mt_obj->row_size(lv) * mt_obj->row_count();
         }
 
+        // Fills metadatas.
         void __fill_metadatas()
         {
             // guide
@@ -1265,6 +1452,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __CheckLimit(mt_header->heap_size, JC_MAX_HEAP_SIZE, _T("heap size"));
         }
 
+        // Writes to stream.
         void __write()
         {
             int table_count = this->value_of(__ln_t::table_count);
@@ -1284,6 +1472,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Writes assembly to a stream.
     void assembly_write(xostream_t & stream, assembly_t & assembly, __lv_t lv, logger_t & logger)
     {
         switch(lv)

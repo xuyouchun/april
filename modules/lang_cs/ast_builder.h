@@ -21,6 +21,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     typedef common_log_code_t       __cc_t;
     typedef xbranch_value_t         __xc_value_t;
 
+    // Base class of ast builder.
     template<typename _ast_t, typename _self_t,
         typename _base_t = x_ast_builder_base_t<_ast_t, _self_t>
     >

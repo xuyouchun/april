@@ -2,8 +2,11 @@
 #ifndef __COMMON_ENUM_H__
 #define __COMMON_ENUM_H__
 
-
 namespace X_ROOT_NS {
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // An enum info structure that contains name, title, desc of a enum value.
 
     template<typename enum_t>
     struct enum_info_t
@@ -19,6 +22,8 @@ namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // 
+
     template<typename enum_t>
     struct __enum_init_item_t
     {
@@ -33,6 +38,8 @@ namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // An enum info map helping search an enum value by title or name.
+
     template<typename enum_t>
     struct __enum_info_map
     {
@@ -43,6 +50,8 @@ namespace X_ROOT_NS {
 
     namespace
     {
+        // Init enum info map by give arguments.
+
         template<typename enum_t>
         void __init_enum_info_map(std::map<enum_t, const enum_info_t<enum_t> *> & map,
             enum_info_t<enum_t> * buffer, __enum_init_item_t<enum_t> & item)
@@ -66,6 +75,8 @@ namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Init enum info map by give arguments.
+
     template<typename enum_t, typename ... args_t>
     const __enum_info_map<enum_t> * __init_enum_info_map(args_t ... args)
     {
@@ -87,9 +98,10 @@ namespace X_ROOT_NS {
 
     enum class enum_search_type_t { name, title, all };
 
-    template<typename enum_t>
-    struct __enum_op_t
+    // A set of enum tools.
+    template<typename enum_t> struct __enum_op_t
     {
+        // Searchs enum info by title/name.
         static const enum_info_t<enum_t> & search(const char_t * s, enum_search_type_t search_type)
         {
             if(!s)
@@ -97,6 +109,7 @@ namespace X_ROOT_NS {
             return search(string_t(s), search_type);
         }
 
+        // Searchs enum info by title/name.
         static const enum_info_t<enum_t> & search(const string_t & s, enum_search_type_t search_type)
         {
             const enum_info_t<enum_t> * enum_info;
@@ -121,6 +134,7 @@ namespace X_ROOT_NS {
             return enum_info? *enum_info : _enum(enum_t::__unknown__);
         }
 
+        // Tries to search a enum info by title/name, return nullptr when not found.
         static const enum_info_t<enum_t> * __try_search(
                 std::map<string_t, const enum_info_t<enum_t> *> & map, const string_t & s)
         {
@@ -130,6 +144,7 @@ namespace X_ROOT_NS {
     };
 
     //-------- ---------- ---------- ---------- ----------
+    // Macro definations of enum type. a set of functions.
 
     #define X_ENUM_INFO_DECLARE(enum_t)                                                 \
         const enum_info_t<enum_t> & _enum(enum_t value);                                \
@@ -160,6 +175,7 @@ namespace X_ROOT_NS {
     #define X_C(name, args...) __X_C__(name, ##args),
     #define X_D(name, desc)    __X_C__(name, _S(name), desc),
 
+    // Defines title/name/description for enum types.
     #define X_ENUM_INFO(enum_t)                                                         \
                                                                                         \
         const enum_info_t<enum_t> & _enum(enum_t value)                                 \
@@ -227,6 +243,7 @@ namespace X_ROOT_NS {
                 X_C(__unknown__)                                                        \
                 X_C(__default__)                                                        \
 
+    // The end of X_ENUM_INFO
     #define X_ENUM_INFO_END                                                             \
             __X_C__(__end__) );                                                         \
             return *map;                                                                \
@@ -240,10 +257,12 @@ namespace X_ROOT_NS {
             __unknown__ = -1,                                                           \
             __default__ = 0,                                                            \
 
+    // The end of X_ENUM
     #define X_ENUM_END                                                                  \
             __end__,                                                                    \
         };
 
+    // Defines a enum type.
     #define X_ENUM(enum_t)  X_ENUM_(enum_t, 1)
 
     #define X_EN(type, name_)  \

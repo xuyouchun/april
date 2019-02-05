@@ -9,13 +9,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Method reader.
     class method_reader_t : public object_t
     {
     public:
+
+        // Constructor.
         method_reader_t(memory_t * memory, const byte_t * bytes, size_t length)
             : __memory(memory), __bytes(bytes), __bytes_end(bytes + length)
         { }
 
+        // Enums variables.
         template<typename f_t> void each_variable(f_t f)
         {
             method_variable_stub_t * stub = __read_stub<method_variable_stub_t>();
@@ -33,6 +37,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
         }
 
+        // Enums switch tables.
         template<typename f_t> void each_switch_table(f_t f)
         {
             method_switch_table_stub_t * stub = __read_stub<method_switch_table_stub_t>();
@@ -59,6 +64,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
         }
 
+        // Enums all xils.
         template<typename f_t> void each_xil(f_t f)
         {
             method_xil_stub_t * stub = __read_stub<method_xil_stub_t>();
@@ -75,9 +81,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
     private:
-        memory_t * __memory;
-        const byte_t * __bytes, * __bytes_end;
+        memory_t * __memory;                        // Memory management.
+        const byte_t * __bytes, * __bytes_end;      // Buffer.
 
+        // Reads next entity.
         template<typename t> t __read()
         {
             if(__bytes_end - __bytes < sizeof(t))
@@ -88,6 +95,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return value;
         }
 
+        // Reads next stub.
         template<typename _stub_t> _stub_t * __read_stub()
         {
             if(__bytes >= __bytes_end)
@@ -106,20 +114,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    exec_method_t * parse_commands(executor_env_t & env,
-                    rt_assembly_t * assembly, rt_type_t * type, rt_method_t * method)
+    // Parses commands.
+    exec_method_t * parse_commands(executor_env_t & env, rt_method_t * method,
+                                                         rt_type_t ** generic_types)
     {
-        _A(assembly != nullptr);
-        _A(type != nullptr);
+        rt_type_t * type = method->get_host_type();
+        assembly_analyzer_t analyzer = to_analyzer(env, type);
+
+        _PF(_T("parse_commands: %1%.%2%"), type->get_name(env), analyzer.get_name(method));
+
         _A(method != nullptr);
 
-        //_PF(_T("\nparse method: %1%.%2%"), assembly.get_name(type), assembly.get_name(method));
+        rt_assembly_t * assembly = type->get_assembly();
 
         rt_bytes_t body = assembly->get_method_body(method);
         memory_t * memory = env.get_memory();
 
-        command_creating_context_t creating_ctx(env, assembly, method);
+        command_creating_context_t creating_ctx(env, assembly, method, generic_types);
         method_reader_t reader(memory, body.bytes, body.length);
+
+        //generic_context_t gctx((*method)->generic_params.count);
 
         // Read local variables
         uint16_t ref_objects = 0;

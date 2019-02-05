@@ -29,6 +29,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     __SimpleAst(_decorate_complex)
 
+    // Decorate complex ast node
     class _decorate_complex_ast_node_t : public __AstName(_decorate_complex)
     {
         typedef __AstName(_decorate_complex) __super_t;
@@ -42,14 +43,17 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // _attribute_group_assign
 
+    // Attribute group assign.
     __Ast(_attribute_group_assign)
 
+        // Expression.
         expression,
 
     __EndAst(_attribute_group_assign)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Attribute group assign ast node.
     class _attribute_group_assign_ast_node_t : public __AstName(_attribute_group_assign)
                                              , public argument_ast_t
     {
@@ -58,10 +62,16 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     public:
         using __super_t::__super_t;
 
+        // Sets name.
         void set_name(name_t name, __el_t * el);
+
+        // Commit this node.
         virtual void on_commit() override;
+
+        // Returns this eobject.
         virtual argument_t * to_eobject() override;
 
+        // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
@@ -79,6 +89,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Attribute group ast node.
     class _attribute_group_ast_node_t : public __AstName(_attribute_group)
                                       , public eobjects_ast_t<attribute_t *>
     {
@@ -87,16 +98,22 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     public:
         using __super_t::__super_t;
 
+        // Commits this node.
         virtual void on_commit() override;
 
+        // Returns eobject count.
         virtual size_t eobject_count() const override;
+
+        // Returns eobject at specified index.
         virtual attribute_t * eobject_at(size_t index) const override;
 
+        // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Attribute group item ast node.
     class _attribute_group_item_ast_node_t : public attribute_ast_node_t
     {
         typedef attribute_ast_node_t __super_t;
@@ -104,11 +121,13 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     public:
         using __super_t::__super_t;
 
+        // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Attribute type name ast node.
     class _attribute_type_name_ast_node_t : public type_name_ast_node_t
     {
         typedef type_name_ast_node_t __super_t;
@@ -116,10 +135,15 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     public:
         using __super_t::__super_t;
 
+        // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
+
+        // Walks confirm step.
         void __walk_confirm(ast_walk_context_t & context);
+
+        // Ascertains type.
         ascertain_type_error_t __ascertain_type(ast_walk_context_t & context,
                                                 general_type_name_t * type_name);
     };
@@ -137,6 +161,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Defination statement item ast node.
     class _defination_st_item_ast_node_t : public __AstName(_defination_st_item)
                                          , public defination_statement_item_ast_t
     {
@@ -145,11 +170,16 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     public:
         __Using(_defination_st_item);
 
+        // Sets name.
         void set_name(name_t name, __el_t * el);
 
+        // Commits this node.
         virtual void on_commit() override;
+
+        // Returns this eobject.
         virtual defination_statement_item_t * to_eobject() override;
 
+        // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
@@ -159,6 +189,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // _fake_method
 
+    // Fake method ast node.
     class _fake_method_ast_node_t : public method_ast_node_t
     {
         typedef method_ast_node_t __super_t;
@@ -180,6 +211,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Fields ast node.
     class _fields_ast_node_t : public __AstName(_fields)
                              , public fields_ast_t
     {
@@ -188,11 +220,16 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     public:
         using __super_t::__super_t;
 
+        // Commits this node.
         virtual void on_commit() override;
 
+        // Returns eobject count.
         virtual size_t eobject_count() const override;
+
+        // Returns eobject at specified index.
         virtual field_t * eobject_at(size_t index) const override;
 
+        // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
     };
 
@@ -204,6 +241,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // _enum_fields
 
+    // Enum fields ast node.
     class _enum_fields_ast_node_t : public _fields_ast_node_t
     {
         typedef _fields_ast_node_t __super_t;
@@ -215,6 +253,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // _enum_fields_item
 
+    // Enum fields item ast node.
     class _enum_fields_item_ast_node_t : public _fields_item_ast_node_t
     {
         typedef _fields_item_ast_node_t __super_t;
@@ -226,6 +265,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // _single_expression
 
+    // Simple expression ast node.
     class _single_expression_ast_node_t : public expression_ast_node_t
     {
         typedef expression_ast_node_t __super_t;
@@ -237,6 +277,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // _function_name_expression
 
+    // Function name expression ast node.
     class _function_name_expression_ast_node_t : public expression_ast_node_t
     {
         typedef expression_ast_node_t __super_t;
@@ -250,11 +291,14 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // __default_array_lengths_ast_node_t
 
+    // Default array lengths ast node.
     class __default_array_lengths_ast_node_t : public array_lengths_ast_node_t
     {
         typedef array_lengths_ast_node_t __super_t;
 
     public:
+
+        // Constructor.
         template<typename ... args_t>
         __default_array_lengths_ast_node_t(args_t && ... args)
             : __super_t(std::forward<args_t>(args) ...)

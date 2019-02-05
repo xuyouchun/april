@@ -102,9 +102,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __is_extern(ctx.statement_ctx, member);
     }
 
-    ref_t __search_method_ref(__sctx_t & ctx, method_t * method);
+    ref_t __search_method_ref(__sctx_t & ctx, method_base_t * method);
 
-    X_INLINE ref_t __search_method_ref(__cctx_t & ctx, method_t * method)
+    X_INLINE ref_t __search_method_ref(__cctx_t & ctx, method_base_t * method)
     {
         return __search_method_ref(ctx.statement_ctx, method);
     }

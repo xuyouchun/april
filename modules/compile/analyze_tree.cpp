@@ -31,90 +31,127 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze node repeat types.
     X_ENUM_INFO(analyze_node_repeat_type_t)
 
+        // Repeat once.
         X_C(once,       _T("once"))
+
+        // Repeats any times.
         X_C(star,       _T("*"))
+
+        // Repeats more than one times.
         X_C(plus,       _T("+"))
+
+        // No repeat or Repeats one time.
         X_C(question,   _T("?"))
 
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Analyze tree error codes.
     X_ENUM_INFO(analyze_tree_error_t)
 
+        // Format error.
         X_C(format_error,           _T("format error"))
+
+        // Unknown branch.
         X_C(unknown_branch,         _T("unknown branch"))
+
+        // Unknown token.
         X_C(unknown_token,          _T("unknown token %1%"))
+
+        // Parse error.
         X_C(parse_error,            _T("parse error"))
+
+        // Stack closed.
         X_C(stack_closed,           _T("stack closed"))
+
+        // Unknown element type.
         X_C(unknown_element_type,   _T("unknown element type"))
+
+        // Overflow.
         X_C(overflow,               _T("overflow"))
 
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Analyze element types
     X_ENUM_INFO(analyzer_element_type_t)
 
+        // A token.
         X_C(token,      _T("token"))
+
+        // A ast node.
         X_C(ast_node,   _T("ast_node"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns whether it is an unknown value.
     __AlwaysInline bool __is_unknown(__node_value_t value)
     {
         return value == __unknown_node_value;
     }
 
+    // Returns whether it is an unknow value.
     __AlwaysInline bool __is_unknown(const __node_key_t & key)
     {
         return __is_unknown(key.value);
     }
 
+    // Returns whether it is a normal node.
     __AlwaysInline analyze_normal_node_t * __to_normal(analyze_node_t * node)
     {
         return as<analyze_normal_node_t *>(node);
     }
 
+    // Convert to normal node, returns nullptr when convert failed.
     __AlwaysInline const analyze_normal_node_t * __to_normal(const analyze_node_t * node)
     {
         return as<const analyze_normal_node_t *>(node);
     }
 
+    // Returns whether it is a branch node.
     __AlwaysInline bool __is_branch(const analyze_node_t * node)
     {
         return node->this_type() == __node_type_t::branch;
     }
 
+    // Returns whether it is a branch ref node.
     __AlwaysInline bool __is_branch_ref(const analyze_node_t * node)
     {
         return node->this_type() == __node_type_t::branch_ref;
     }
 
+    // Returns whether it is a root node.
     __AlwaysInline bool __is_root(__node_value_t value)
     {
         return value == (__node_value_t)special_node_value_t::root;
     }
 
+    // Returns whether it is a root node.
     __AlwaysInline bool __is_root(const analyze_node_t * node)
     {
         return __is_root(node->key.value);
     }
 
+    // Returns whether it is an end node.
     __AlwaysInline bool __is_end(const __node_key_t & key)
     {
         return key.type == __node_type_t::end;
     }
 
+    // Returns whether it is an end node.
     __AlwaysInline bool __is_end(const analyze_node_t * node)
     {
         return __is_end(node->key);
     }
 
+    // Returns it's owner branch.
     __AlwaysInline analyze_branch_node_t * __owner_branch(__node_unit_t & unit)
     {
         analyze_node_t * node = *unit;
@@ -123,11 +160,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return ((analyze_end_node_t *)node)->owner_branch;
     }
 
+    // Returns it's owner branch.
     __AlwaysInline __node_value_t __owner_branch_value(__node_unit_t & unit)
     {
         return __owner_branch(unit)->key.value;
     }
 
+    // Sets merge identity.
     __AlwaysInline void __set_merge_identity(__stack_node_t * s)
     {
         __merge_identity_t id = ((__merge_identity_t)(*s)->current << 3)
@@ -144,12 +183,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     const unsigned long __StackBufferMaxStep = 256;
 
+    // Stack normal buffer.
     struct __stack_normal_buffer_t
     {
         analyze_node_t * from, * to;
         //int16_t hstep;
     };
 
+    // Stack branch switched buffer.
     struct __stack_branch_switched_buffer_t
     {
         analyze_node_t * from;
@@ -162,11 +203,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyze_node_t * entrance;
     };
 
+    // Returns whether it is branch switched.
     __AlwaysInline bool __branch_switched(void ** stack)
     {
         return (unsigned long)stack[1] < __StackBufferMaxStep;
     }
 
+    // Returns next stack ndoe.
     __AlwaysInline const analyze_node_t * __next_stack_node(void ** stack)
     {
         return __branch_switched(stack)?
@@ -174,6 +217,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             ((__stack_normal_buffer_t *)stack)->to;
     }
 
+    // Returns stack step.
     __AlwaysInline int16_t __stack_step(void ** stack)
     {
         return __branch_switched(stack)?
@@ -195,6 +239,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
     */
 
+    // Returns tack path.
     __AlwaysInline void * __stack_path(void ** stack)
     {
         return __branch_switched(stack)?
@@ -202,12 +247,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             (void *)((__stack_normal_buffer_t *)stack)->to;
     }
 
+    // Returns stack entrance.
     __AlwaysInline const analyze_node_t * __stack_entrance(void ** stack)
     {
         return __branch_switched(stack)?
             ((__stack_branch_switched_buffer_t *)stack)->entrance : nullptr;
     }
 
+    // Returns whether two stack are equals.
     __AlwaysInline bool __stack_equals(void ** stack1, void ** stack2)
     {
         if(stack1[0] != stack2[0] || stack1[1] != stack2[1])
@@ -224,6 +271,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return true;
     }
 
+    // Returns the end node.
     __AlwaysInline const analyze_end_node_t * __get_end_node(const analyze_node_t * node)
     {
         const analyze_normal_node_t * normal_node = __to_normal(node);
@@ -236,11 +284,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // analyze_nodes_t
 
+    // Appends node.
     void analyze_nodes_t::append(analyze_node_t * node/*, __hstep_t hstep*/)
     {
         append(__node_unit_t(node/*, hstep*/));
     }
 
+    // Appends node.
     void analyze_nodes_t::append(const __node_unit_t & u)
     {
         __last = u;
@@ -265,6 +315,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Appends nodes.
     void analyze_nodes_t::append(analyze_nodes_t & nodes)
     {
         for(__node_unit_t u : nodes)
@@ -273,6 +324,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Removes node unit.
     bool analyze_nodes_t::remove(const __node_unit_t & u)
     {
         if(__node_units.erase(u) > 0)
@@ -285,6 +337,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Replaces a node collection to another.
     bool analyze_nodes_t::replace(const __node_unit_t & old, const __node_unit_t & new_)
     {
         if(remove(old))
@@ -296,6 +349,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Returns whether contains the node.
     bool analyze_nodes_t::contains(const __node_unit_t & u)
     {
         if(u == nullptr)
@@ -304,6 +358,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __node_units.find(u) != __node_units.end();
     }
 
+    // Swap two nodes.
     void analyze_nodes_t::swap(analyze_nodes_t & other)
     {
         std::swap(__node_units, other.__node_units);
@@ -311,6 +366,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         std::swap(__end,  other.__end);
     }
 
+    // Clear nodes.
     void analyze_nodes_t::clear()
     {
         __node_units.clear();
@@ -321,11 +377,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // analyze_node_t
 
+    // Returns whether two nodes are equals.
     bool analyze_node_t::equals(const analyze_node_t & node) const
     {
         return this == &node;
     }
 
+    // Returns whether a node is less than another.
     bool analyze_node_t::less(const analyze_node_t & node) const
     {
         __node_type_t type1 = node_type(), type2 = node.node_type();
@@ -335,6 +393,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return (void *)this < (void *)&node;
     }
 
+    // Converts to string.
     const string_t analyze_node_t::to_string() const
     {
         string_t str = this->__to_string();
@@ -354,6 +413,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // analyze_tree_build_context_t
 
+    // Returns path node from cache.
     analyze_path_node_t * analyze_tree_build_context_t::get_node_from_cache(
                                                const __path_node_cache_key_t & key)
     {
@@ -364,6 +424,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Returns path node from cache.
     analyze_path_node_t * analyze_tree_build_context_t::get_node_from_cache(
                                         const std::vector<analyze_node_t *> & nodes)
     {
@@ -379,18 +440,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return get_node_from_cache(cache_key);
     }
 
+    // Adds path node to cache.
     void analyze_tree_build_context_t::add_node_to_cache(analyze_path_node_t * node)
     {
         _A(node != nullptr);
         __path_node_cache[node->to_cache_key()] = node;
     }
 
+    // Adds a branch.
     void analyze_tree_build_context_t::add_branch(analyze_branch_node_t * branch)
     {
         _A(branch != nullptr);
         __branch_map[branch->key.value] = branch;
     }
 
+    // Gets branch of specified node value.
     analyze_branch_node_t * analyze_tree_build_context_t::get_branch(
                                                         __node_value_t value) const
     {
@@ -401,6 +465,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Creates new analyze node with subnodes.
     template<typename itor_t>
     analyze_node_t ** analyze_tree_build_context_t::to_stack_path(itor_t begin, itor_t end)
     {
@@ -426,6 +491,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return path;
     }
 
+    // Returns length of a array.
     size_t analyze_tree_build_context_t::__len(void ** arr)
     {
         void ** arr1 = arr;
@@ -435,6 +501,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Picks a standalone child.
     static analyze_node_t * __pick_standalone_child(analyze_node_t * owner,
                                                     analyze_nodes_t & nodes)
     {
@@ -453,6 +520,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return ret_node;
     }
 
+    // Returns whether it is a final node.
     static bool __is_final_node(analyze_normal_node_t * normal_node)
     {
         for(analyze_node_t * node : normal_node->nodes)
@@ -464,6 +532,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return true;
     }
 
+    // Combines repeat types.
     static __repeat_type_t __combine_repeat_type(__repeat_type_t type1, __repeat_type_t type2)
     {
         if(type2 == __repeat_type_t::once)
@@ -494,6 +563,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return type2;
     }
 
+    // Substract repeat types.
     static __repeat_type_t __substract_repeat_type(__repeat_type_t type1, __repeat_type_t type2)
     {
         if(type2 == __repeat_type_t::once)      // (A)*
@@ -564,11 +634,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Picks a standalone child.
     static analyze_node_t * __pick_standalone_child(analyze_branch_node_t * branch)
     {
         return __pick_standalone_child(branch, branch->subnodes);
     }
 
+    // Returns a standalone child.
     static analyze_node_t * __get_standalone_child(analyze_branch_node_t * branch)
     {
         analyze_nodes_t & subnodes = branch->subnodes;
@@ -581,6 +653,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Returns branch repeat type.
     static __repeat_type_t __get_branch_repeat_type(analyze_branch_node_t * branch)
     {
         analyze_node_t * standalone_node = __get_standalone_child(branch);
@@ -592,6 +665,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Context for exchanging analyze tree.
     struct analyze_tree_exchange_context_t
     {
         analyze_tree_exchange_context_t(analyze_tree_build_context_t * build_context)
@@ -601,16 +675,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         std::map<analyze_branch_node_t *, bool> illusory_nodes;
     };
 
+    // Exchanges analyze tree.
     void __exchange(analyze_tree_exchange_context_t & context,
                                         analyze_branch_node_t * branch);
 
+    // Revise repeat branch.
     void __revise_repeat(analyze_branch_node_t * branch);
 
+    // Deal with left cycle.
     void __process_left_cycle(analyze_tree_build_context_t & context,
                                         analyze_branch_node_t * branch);
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Build analyze tree.
     analyze_root_node_t * analyze_tree_builder_t::build()
     {
         analyze_root_node_t * root = nullptr;
@@ -705,6 +783,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return root;
     }
 
+    // Split tag.
     template<typename f_t> void __split_tag(const string_t & tag, f_t f)
     {
         char_t s[tag.length() + 1], * p0 = s;
@@ -731,6 +810,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Analyze tag.
     void __analyze_tag(string_t & tag, string_t * out_flag, __weight_t * out_weight)
     {
         __split_tag(tag, [&out_weight, &out_flag](const char_t * s, size_t len) {
@@ -769,6 +849,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         });
     }
 
+    // Reads token.
     string_t analyze_tree_builder_t::__read_token(string_t & out_tag)
     {
         stringstream_t ss;
@@ -817,8 +898,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return std::move(s);
     }
 
-
-
+    // Reads branch.
     analyze_branch_node_t * analyze_tree_builder_t::__read_branch(
             __read_branch_context_t & ctx, const string_t & branch_name,
             const string_t & current_name, int level, bool inner)
@@ -990,12 +1070,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return current;
     }
 
+    // Reads branch.
     analyze_branch_node_t * analyze_tree_builder_t::__read_branch(__read_branch_context_t & ctx,
                                         const string_t & branch_name, int level)
     {
         return __read_branch(ctx, branch_name, branch_name, level);
     }
 
+    // Reads name.
     string_t analyze_tree_builder_t::__read_name()
     {
         const char_t * p = __p;
@@ -1003,6 +1085,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return string_t(p, __p);
     }
 
+    // Reads subname.
     string_t analyze_tree_builder_t::__read_subname()
     {
         const char_t * p = __p;
@@ -1025,6 +1108,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return _T("");
     }
 
+    // Returns whether it is an expected char.
     bool analyze_tree_builder_t::__is_expect(char_t c)
     {
         if(skip_whitespace(__p) && *__p == c)
@@ -1036,6 +1120,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Returns next char.
     char_t analyze_tree_builder_t::__next_char()
     {
         if(!skip_whitespace(__p))
@@ -1044,6 +1129,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return *__p++;
     }
 
+    // Returns an expected char, raises exception if it's unexpected.
     void analyze_tree_builder_t::__expect(char_t c)
     {
         if(!__is_expect(c))
@@ -1053,6 +1139,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Skip comment.
     bool analyze_tree_builder_t::__skip_comment()
     {
         while(*++__p)
@@ -1067,12 +1154,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Skips whitespace with excepted.
     void analyze_tree_builder_t::__skip_whitespace_with_expect()
     {
         if(!skip_whitespace(__p))
             throw _E(__e_t::format_error);
     }
 
+    // Join branch names.
     string_t analyze_tree_builder_t::__join_branch_name(
                                     const string_t & name1, const string_t & name2)
     {
@@ -1085,6 +1174,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return name1 + _T(".") + name2;
     }
 
+    // Returns branch value.
     __node_value_t analyze_tree_builder_t::__branch_value(const string_t & name, bool auto_create)
     {
         return al::map_get(__branch_node_value_map, name, [&] () {
@@ -1106,6 +1196,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         });
     }
 
+    // Print branches.
     void analyze_tree_builder_t::__print_branches()
     {
         struct item_t { string_t name; __node_value_t value; };
@@ -1123,6 +1214,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns token value of name.
     __node_value_t analyze_tree_builder_t::__token_value(const string_t & name)
     {
         return al::map_get(__token_node_value_map, name, [&] () {
@@ -1137,6 +1229,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         });
     }
 
+    // Returns branch name of node value.
     const string_t & analyze_tree_builder_t::__branch_name(const __node_value_t & value)
     {
         auto it = __branch_node_name_map.find(value);
@@ -1146,6 +1239,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return empty_str;
     }
 
+    // Returns token name of node value.
     const string_t & analyze_tree_builder_t::__token_name(const __node_value_t & value)
     {
         auto it = __token_node_name_map.find(value);
@@ -1157,29 +1251,35 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Node equals wrapper for compare.
     struct __node_equals_wrapper_t
     {
+        // Constructor.
         __node_equals_wrapper_t(const analyze_node_t * node)
             : node(node) { }
 
         const analyze_node_t * node;
 
+        // Returns whether a wrapper is less than another.
         bool operator < (const __node_equals_wrapper_t & other) const
         {
             return node->less(*other.node);
         }
 
+        // Returns whether two wrappers are equals.
         bool operator == (const __node_equals_wrapper_t & other) const
         {
             return node->equals(*other.node);
         }
     };
 
+    // Wraps a node.
     __AlwaysInline __node_equals_wrapper_t __wrap(const analyze_node_t * node)
     {
         return __node_equals_wrapper_t(node);
     }
 
+    // Compare two nodes.
     __AlwaysInline int __cmp(const analyze_node_t * node1, const analyze_node_t * node2)
     {
         __node_equals_wrapper_t w1 = __wrap(node1), w2 = __wrap(node2);
@@ -1188,9 +1288,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze tree exchange.
     class analyze_tree_exchange_t
     {
     public:
+
+        // Constructor.
         analyze_tree_exchange_t(analyze_tree_exchange_context_t & context,
                 analyze_branch_node_t * branch)
             : __context(context), __build_context(context.build_context)
@@ -1199,6 +1302,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             _A(branch != nullptr);
         }
 
+        // Do exchange.
         void exchange()
         {
             __exchange_branch(__branch);
@@ -1225,11 +1329,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         std::queue<analyze_normal_node_t *> __exchange_queue;
         std::map<analyze_nodes_t *, __empty_node_data_t> __empty_node_map;
 
+        // Returns new empty node.
         analyze_empty_node_t * __new_empty_node()
         {
             return __build_context->new_node<analyze_empty_node_t>();
         }
 
+        // Exchange branch.
         void __exchange_branch(analyze_branch_node_t * branch)
         {
             for(__node_unit_t u : branch->subnodes)
@@ -1249,6 +1355,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             branch->nodes.clear();
         }
 
+        // Exchange empty.
         void __exchange_empty()
         {
             for(auto & it : __empty_node_map)
@@ -1266,6 +1373,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Exchange normal node.
         void __exchange(analyze_normal_node_t * normal_node)
         {
             analyze_nodes_t nodes;
@@ -1283,6 +1391,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Pushes a node unit.
         void __push(__node_unit_t u)
         {
             analyze_normal_node_t * normal_node;
@@ -1292,6 +1401,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __exchange_queue.push(normal_node);
         }
 
+        // Joins two nodes.
         void __join(analyze_normal_node_t * prenode, __node_unit_t u/*, __hstep_t hstep = 0*/)
         {
             switch(u->node_type())
@@ -1352,6 +1462,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Returns repeat type.
         __repeat_type_t __get_repeat_type(analyze_node_t * node)
         {
             __repeat_type_t repeat_type = node->repeat_type;
@@ -1368,6 +1479,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __substract_repeat_type(repeat_type, branch->repeat_type);
         }
 
+        // Join subnodes.
         void __join_subnodes(analyze_normal_node_t * prenode, analyze_nodes_t & subnodes/*,
                                                                         __hstep_t hstep*/)
         {
@@ -1405,6 +1517,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Joins node.
         void __join_node(analyze_normal_node_t * prenode, analyze_node_t * node/*, __hstep_t hstep*/)
         {
             prenode->nodes.append(node/*, hstep*/);
@@ -1416,6 +1529,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Argumenst for determined whether it's illusory.
         struct __is_illusory_args_t
         {
             std::set<analyze_node_t *> walk_set;
@@ -1426,6 +1540,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         };
 
+        // Returns whether it's illusory.
         bool __is_illusory(analyze_node_t * node)
         {
             if(al::in(node->repeat_type, __repeat_type_t::star, __repeat_type_t::question))
@@ -1444,6 +1559,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Returns whether the branch ref is illusory.
         bool __do_is_illusory(analyze_branch_ref_node_t * branch_ref)
         {
             analyze_branch_node_t * branch = __build_context->get_branch(branch_ref->branch_value);
@@ -1453,6 +1569,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __do_is_illusory(branch);
         }
 
+        // Returns whether a branch node is illusory.
         bool __do_is_illusory(analyze_branch_node_t * branch)
         {
             std::map<analyze_branch_node_t *, bool> & illusory_nodes = __context.illusory_nodes;
@@ -1468,6 +1585,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return is_illusory;
         }
 
+        // Returns nodes is ilusory.
         bool __do_is_illusory(__is_illusory_args_t & args, analyze_nodes_t & nodes)
         {
             for(analyze_node_t * node : nodes)
@@ -1485,6 +1603,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return false;
         }
 
+        // Returns whether node is illusory.
         bool __do_is_illusory(__is_illusory_args_t & args, analyze_node_t * node)
         {
             if(args.record(node))
@@ -1501,8 +1620,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         typedef std::vector<analyze_node_t *> __analyze_node_vector_t;
 
+        // Arguments for building relation.
         struct __build_relation_args_t
         {
+            // Constructor.
             __build_relation_args_t(analyze_branch_node_t * branch)
                 : branch(branch) { }
 
@@ -1511,17 +1632,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             std::set<analyze_node_t *> walk_set;
             std::map<analyze_node_t *, analyze_node_t *> exchange_map;
 
+            // Records a node.
             bool record(analyze_node_t * node)
             {
                 return walk_set.insert(node).second;
             }
 
+            // Adds exchange.
             void add_exchange(analyze_node_t * from, analyze_node_t * to)
             {
                 exchange_map[from] = to;
             }
         };
 
+        // Merges branch.
         void __merge_branch(analyze_branch_node_t * branch)
         {
             while(__do_merge_branch(branch))
@@ -1530,6 +1654,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Merges branch.
         bool __do_merge_branch(analyze_branch_node_t * branch)
         {
             __build_relation_args_t args(branch);
@@ -1539,6 +1664,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return args.exchange_map.size() > 0;
         }
 
+        // Builds relations.
         void __build_relations(__build_relation_args_t & args, analyze_nodes_t & nodes)
         {
             for(analyze_node_t * node : nodes)
@@ -1547,6 +1673,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Builds relations.
         void __build_relation(__build_relation_args_t & args, analyze_node_t * node)
         {
             if(args.record(node))
@@ -1557,6 +1684,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Builds relations.
         void __build_relation(__build_relation_args_t & args, analyze_normal_node_t * normal_node)
         {
             for(analyze_node_t * node : normal_node->nodes)
@@ -1577,6 +1705,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Merge nodes.
         void __merge_nodes(__build_relation_args_t & args)
         {
             struct item_t
@@ -1610,6 +1739,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Merges nodes.
         template<typename itor_t>
         void __merge(__build_relation_args_t & args, itor_t begin, itor_t end)
         {
@@ -1623,6 +1753,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Merges nodes.
         template<typename itor_t>
         analyze_node_t * __merge(itor_t begin, itor_t end)
         {
@@ -1658,6 +1789,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return normal_node;
         }
 
+        // Arguments for building relation exchange.
         struct __build_relation_exchange_args_t
         {
             __build_relation_exchange_args_t(
@@ -1673,6 +1805,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         };
 
+        // Relation exchange.
         void __relation_exchange(__build_relation_exchange_args_t & args, analyze_node_t * node)
         {
             if(args.record(node))
@@ -1683,6 +1816,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Relation exchange.
         void __relation_exchange(__build_relation_exchange_args_t & args, analyze_nodes_t & nodes)
         {
             for(auto it : args.exchange_map)
@@ -1699,6 +1833,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Arguments for remove redundance empty nodes.
         struct __remove_redundance_empty_node_args_t
         {
             std::set<analyze_node_t *> walk_set;
@@ -1709,12 +1844,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         };
 
+        // Removes redundance empty nodes.
         void __remove_redundance_empty_nodes(analyze_branch_node_t * branch)
         {
             __remove_redundance_empty_node_args_t args;
             __remove_redundance_empty_nodes(args, branch->subnodes);
         }
 
+        // Removes redundance empty nodes.
         void __remove_redundance_empty_node(__remove_redundance_empty_node_args_t & args,
                                                                     analyze_node_t * node)
         {
@@ -1726,6 +1863,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Removes redundance empty nodes.
         void __remove_redundance_empty_nodes(__remove_redundance_empty_node_args_t & args,
                                                         analyze_nodes_t & nodes)
         {
@@ -1751,6 +1889,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Prints analyze branch.
         void __print(analyze_branch_node_t * branch)
         {
             _P(_T("\nBRANCH:"), _str(branch));
@@ -1760,6 +1899,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __print(branch, printed_set);
         }
 
+        // Prints analyze node.
         void __print(analyze_node_t * node, std::set<analyze_node_t *> & printed_set)
         {
             analyze_normal_node_t * normal_node;
@@ -1782,6 +1922,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Prints analyze node.
         void __print_node(analyze_node_t * node, analyze_nodes_t & nodes)
         {
             for(__node_unit_t u : nodes)
@@ -1791,11 +1932,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    // Exchange branch node.
     void __exchange(analyze_tree_exchange_context_t & context, analyze_branch_node_t * branch)
     {
         analyze_tree_exchange_t(context, branch).exchange();
     }
 
+    // Revise repeat types.
     void __revise_repeat_type(analyze_branch_node_t * branch)
     {
         analyze_node_t * standalone_child = __get_standalone_child(branch);
@@ -1823,6 +1966,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Revise repeat branch nodes.
     void __revise_repeat(analyze_branch_node_t * branch)
     {
         __revise_repeat_type(branch);
@@ -1841,13 +1985,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Revise left cyclies.
     class __left_cycle_t
     {
     public:
+
+        // Constructor.
         __left_cycle_t(analyze_tree_build_context_t & context, analyze_branch_node_t * branch)
             : __context(context), __branch(branch)
         { }
 
+        // Execute it.
         void execute()
         {
             __execute_left_cycle_process(__branch->subnodes);
@@ -1867,6 +2015,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         };
 
+        // Do execute left cycle process.
         void __execute_left_cycle_process(analyze_nodes_t & nodes)
         {
             for(analyze_node_t * node : nodes)
@@ -1902,12 +2051,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Returns whether it is has left cycles.
         bool __exists_left_cycle(analyze_branch_ref_node_t * ref_node)
         {
             __ctx_t ctx;
             return __exists_left_cycle(ctx, ref_node);
         }
 
+        // Returns whether it is has left cycles.
         bool __exists_left_cycle(__ctx_t & ctx, analyze_branch_ref_node_t * ref_node)
         {
             analyze_branch_node_t * ref_branch = __get_branch(ref_node->branch_value);
@@ -1932,12 +2083,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return false;
         }
 
+        // Returns whether it is dead cycle.
         bool __is_dead_cycle(analyze_branch_ref_node_t * ref_node)
         {
             __ctx_t ctx;
             return __is_dead_cycle(ctx, ref_node);
         }
 
+        // Returns whether it is dead cycle.
         bool __is_dead_cycle(__ctx_t & ctx, analyze_branch_ref_node_t * ref_node)
         {
             analyze_branch_node_t * ref_branch = __get_branch(ref_node->branch_value);
@@ -1963,13 +2116,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return false;
         }
 
+        // Returns analyze branch for specified node value.
         analyze_branch_node_t * __get_branch(__node_value_t value)
         {
             return __context.get_branch(value);
         }
     };
 
-
+    // Process left cycles.
     void __process_left_cycle(analyze_tree_build_context_t & context, analyze_branch_node_t * branch)
     {
         __left_cycle_t(context, branch).execute();
@@ -1977,6 +2131,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Parses analyze tree.
     analyze_tree_t * parse_analyze_tree(const char_t * pattern, memory_t * memory,
             analyze_tree_builder_provider_t * provider)
     {
@@ -2000,6 +2155,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // analyze_path_node_stack_t
 
+    // Returns nodes of specified stack type.
     __stack_range_t analyze_path_node_stack_t::all(__stack_type_t type) const
     {
         __stack_unit_t * units = (__stack_unit_t *)this->units;
@@ -2019,6 +2175,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Creates a new analyze path node stack.
     analyze_path_node_stack_t * analyze_path_node_stack_t::new_stack(
             analyze_tree_build_context_t * context,
             const analyze_node_t * head, __node_count_t count)
@@ -2029,6 +2186,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return memory_t::new_obj<analyze_path_node_stack_t>(size, context->memory, head, count);
     }
 
+    // Assigns path node.
     template<typename itor_t> void analyze_path_node_stack_t::assign(
                     analyze_tree_build_context_t * context, itor_t begin, itor_t end)
     {
@@ -2040,6 +2198,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         });
     }
 
+    // Returns a new stack.
     template<typename itor_t>
     analyze_path_node_stack_t * analyze_path_node_stack_t::new_stack(
             analyze_tree_build_context_t * context,
@@ -2064,12 +2223,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // analyze_path_node_stacks_t
 
+    // When build completed.
     void analyze_path_node_stacks_t::on_build_complete(analyze_tree_build_context_t * build_context,
                                                                                 size_t count)
     {
         //_P(_T("on_build_complete, count ="), count);
     }
 
+    // Returns path node stack of specified head.
     __AlwaysInline const __path_node_stack_t * analyze_path_node_stacks_t::stack_of(
                                                     const analyze_node_t * head) const
     {
@@ -2089,6 +2250,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     size_t analyze_path_node_t::__counter = 0;
 
+    // Returns stacks of specified path node.
     __AlwaysInline const __path_node_stacks_t * analyze_path_node_t::stacks_of(
                                             const analyze_path_node_t * src) const
     {
@@ -2112,6 +2274,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Prints stack.
     static void __print_stack(const analyze_node_t * const * stack)
     {
         std::wcout << (*stack)->to_string() 
@@ -2130,11 +2293,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Appends stacks.
     void analyze_path_node_t::append_stacks(analyze_path_node_t * src, std::vector<void **> & stacks)
     {
         append_stacks(__build_stacks(src, stacks));
     }
 
+    // Appends stacks.
     void analyze_path_node_t::append_stacks(__path_node_stacks_t * stacks)
     {
         if(__stacks_count != __use_stacks_map)
@@ -2166,6 +2331,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Build stacks.
     __path_node_stacks_t * analyze_path_node_t::__build_stacks(analyze_path_node_t * src,
             std::vector<void **> & stacks)
     {
@@ -2194,6 +2360,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return node_stacks;
     }
 
+    // Build stacks.
     __path_node_stack_t * analyze_path_node_t::__build_stack(analyze_node_t * head,
                                 __stack_nodes_itor_t begin, __stack_nodes_itor_t end)
     {
@@ -2203,6 +2370,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // analyze_normal_path_node_t
 
+    // Enters a specified key, returns the path node.
     analyze_path_node_t * analyze_normal_path_node_t::enter(const __node_key_t & key)
     {
         __ensure_init();
@@ -2216,6 +2384,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Returns a string of descripts sub nodes.
     string_t analyze_normal_path_node_t::all_subnodes_string()
     {
         __ensure_init();
@@ -2234,6 +2403,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return ss.str();
     }
 
+    // Appends subnodes.
     void analyze_normal_path_node_t::__append_subnodes(__append_ctx_t & ctx,
                                 analyze_nodes_t & nodes, analyze_node_t * parent)
     {
@@ -2268,6 +2438,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Appends branch subnodes.
     void analyze_normal_path_node_t::__append_branch_subnodes(__append_ctx_t & ctx,
                                         __node_unit_t u, analyze_branch_node_t * branch)
     {
@@ -2276,6 +2447,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.branch_stack_pop();
     }
 
+    // Appends current stack.
     bool analyze_normal_path_node_t::__append_current_stack(__append_ctx_t & ctx,
                                     __build_node_info_t & info, __node_unit_t new_top)
     {
@@ -2286,6 +2458,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return success;
     }
 
+    // Append subnodes.
     void analyze_normal_path_node_t::__append_subnodes(__append_ctx_t & ctx, __node_unit_t u)
     {
         analyze_normal_node_t * normal_node = __to_normal(*u);
@@ -2299,6 +2472,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Gets branch nodes.
     analyze_branch_node_t * analyze_normal_path_node_t::__get_branch_node(__node_value_t value)
     {
         analyze_branch_node_t * branch = __build_context->get_branch(value);
@@ -2308,6 +2482,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return branch;
     }
 
+    // Initialize.
     void analyze_normal_path_node_t::__initialize()
     {
         __append_ctx_t ctx;
@@ -2352,6 +2527,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Prints this normal path node.
     void analyze_normal_path_node_t::__print()
     {
         for(auto it : __subnode_map)
@@ -2360,6 +2536,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Appends stack.
     bool analyze_normal_path_node_t::__build_node_info_t::append_stack(void ** stack)
     {
         if(!__exist_stack(stack))
@@ -2371,6 +2548,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Returns whether the stack is exists.
     bool analyze_normal_path_node_t::__build_node_info_t::__exist_stack(void ** stack)
     {
         for(void ** stack0 : stacks)
@@ -2384,6 +2562,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Append current branch stack.
     void ** analyze_normal_path_node_t::__append_ctx_t::current_branch_stack(
                                                 analyze_tree_build_context_t * context)
     {
@@ -2432,6 +2611,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return buffer;
     }
 
+    // Pushes a node unit.
     void analyze_normal_path_node_t::__append_ctx_t::branch_stack_push(
                                     __node_unit_t u, __node_unit_t entrance)
     {
@@ -2441,12 +2621,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         branch_stack.push_back(u);
     }
 
+    // Returns current branch stack string.
     string_t analyze_normal_path_node_t::__append_ctx_t::current_branch_stack_string()
     {
         return al::join_str(branch_stack.begin(), branch_stack.end(), _T(" -> "), 
             [](analyze_node_t * node) { return node->to_string(); });
     }
 
+    // Pops a node unit.
     void analyze_normal_path_node_t::__append_ctx_t::branch_stack_pop()
     {
         branch_stack.pop_back();
@@ -2454,6 +2636,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             this->entrance = nullptr;
     }
 
+    // Prints stack.
     void analyze_normal_path_node_t::__append_ctx_t::print_stack() const
     {
         for(auto it_begin = branch_stack.begin(), it = it_begin;
@@ -2469,10 +2652,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Callback action type.
     X_ENUM_INFO(analyze_callback_action_t)
 
+        // Branch matched.
         X_C(branch_matched)
 
+        // Analyze end.
         X_C(analyze_end)
 
     X_ENUM_INFO_END
@@ -2480,6 +2666,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // __stack_node_value_t
 
+    // Converts an action to string.
     static string_t __action_to_string(__stack_node_action_t * action)
     {
         stringstream_t ss;
@@ -2507,6 +2694,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return ss.str();
     }
 
+    // Converts stack node value to string.
     __stack_node_value_t::operator string_t() const
     {
         //return _str(node);
@@ -2530,22 +2718,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // __stack_node_action_type_t
 
+    // Stack node action types.
     X_ENUM_INFO(__stack_node_action_type_t)
 
+        // Assign key.
         X_C(assign_key)
 
+        // Raise matched event.
         X_C(raise_matched_event)
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Execute the matched event action.
     void __stack_node_raise_matched_event_action_t::execute()
     {
         __matched_item_t it(__branch_ref, __begin_tag);
         __context.__do_branch_matched_callback(it, __end_tag);
     }
 
+    // Returns next action index.
     __AlwaysInline static int __next_action_index(__stack_node_action_t * action)
     {
         while(action != nullptr)
@@ -2561,6 +2754,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return 1;
     }
 
+    // Returns action index.
     __AlwaysInline int __stack_node_raise_matched_event_action_t::action_index() const
     {
         __self_t * action = const_cast<__self_t *>(this);
@@ -2573,6 +2767,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return action->__action_index;
     }
 
+    // Returns action back track.
     __AlwaysInline static int __action_back_track(
                         __stack_node_raise_matched_event_action_t * action)
     {
@@ -2598,6 +2793,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return 0;
     }
 
+    // Returns back track.
     __AlwaysInline int __stack_node_raise_matched_event_action_t::back_track() const
     {
         __self_t * action = const_cast<__self_t *>(this);
@@ -2613,6 +2809,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // analyze_context_t
 
+    // Constructor.
     analyze_context_t::analyze_context_t(lang_t * lang, analyze_tree_t * tree,
                                          analyze_callback_t * callback)
         : __lang(lang), __callback(callback), __tree(tree)
@@ -2627,6 +2824,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __reset();
     }
 
+    // Resets
     void analyze_context_t::__reset()
     {
         __stack_root = al::new_lr_tree_root<__stack_node_value_t>(&__sn_heap,
@@ -2645,6 +2843,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __leafs.push_back(current_node);
     }
 
+    // Matches the next token.
     void analyze_context_t::go(const __node_key_t * keys, __tag_t * tag,
                                              __node_value_t * out_value)
     {
@@ -2705,13 +2904,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             std::wcout << _T("LEAFS 5: ") << __leafs << std::endl;
 #endif
 
-            if(__leafs.size() == 0)
-                throw _EF(__e_t::parse_error, _T("parse error: at end"));
-
             if(__leafs.size() >= 2)
                 throw _EF(__e_t::parse_error, _T("parse error: conflict"));
 
-            __execute_actions();
+            if(__leafs.size() > 0)
+                __execute_actions();
 
             __do_branch_matched_callback(__matched_item_t(__tree->root, nullptr), nullptr);
             __do_end_callback();
@@ -2731,6 +2928,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
     */
 
+    // When pushes a node to stack.
     __AlwaysInline void analyze_context_t::__stack_push(__stack_push_args_t & args,
                                                         __stack_node_t * stack_node)
     {
@@ -2758,6 +2956,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __remove_leaf(stack_node);
     }
 
+    // Join actions.
     __AlwaysInline static __stack_node_action_t * __join_actions(__stack_node_action_t * action1,
                                                   __stack_node_action_t * action2)
     {
@@ -2778,6 +2977,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return action1;
     }
 
+    // Returns next begin index.
     __AlwaysInline static int __next_begin_index(__stack_node_action_t * action)
     {
         while(action != nullptr)
@@ -2793,6 +2993,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return 0;
     }
 
+    // Checks the node node.
     __AlwaysInline void analyze_context_t::__check_end_node(__check_end_node_args_t & args,
         __stack_node_t * parent, __stack_node_t * current, __node_unit_t end_unit,
         __stack_node_action_t * next_action, int weight /*, __hstep_t hstep, __affinity_t affinity*/)
@@ -2920,6 +3121,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // When stack grows.
     __AlwaysInline void analyze_context_t::__stack_grow(__stack_grow_args_t & args,
                                                         __stack_node_t * stack_node)
     {
@@ -2949,12 +3151,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __do_stack_grow(args, stack_node, stack_items);
     }
 
+    // Do stack grow.
     __AlwaysInline void analyze_context_t::__do_stack_grow(__stack_grow_args_t & args,
                             __stack_node_t * stack_node, const __stack_item_t & stack_item)
     {
         __do_stack_grow(args, stack_node, __stack_items_t({ stack_item }));
     }
 
+    // Do stack grow.
     __AlwaysInline void analyze_context_t::__do_stack_grow(__stack_grow_args_t & args,
                     __stack_node_t * stack_node, const __stack_items_t & stack_items)
     {
@@ -3040,6 +3244,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Record stack units.
     __AlwaysInline size_t analyze_context_t::__stack_push_task_t::record_stack_unit(
                                                         const __stack_unit_t & unit)
     {
@@ -3056,24 +3261,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return stack_paths.size() - 1;
     }
 
+    // Returns current state.
     analyze_context_t::__stack_push_task_state_t
                 analyze_context_t::__stack_push_task_t::current_state()
     {
         return stack_paths.size();
     }
 
+    // Restore to the specified state.
     void analyze_context_t::__stack_push_task_t::restore(
             const analyze_context_t::__stack_push_task_state_t & state)
     {
         stack_paths.truncate(state);
     }
 
+    // Checks stack unit.
     __AlwaysInline bool analyze_context_t::__stack_grow_args_t::check_stack_unit(
                                                         const __stack_unit_t & unit)
     {
         return task.record_stack_unit(unit) >= apply_state;
     }
 
+    // Returns action index at a leaf.
     __AlwaysInline static int __leaf_action_index(__stack_node_t * leaf)
     {
         __stack_node_action_t * action = (*leaf)->action;
@@ -3090,6 +3299,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return 0;
     }
 
+    // Returns back track of a leaf.
     __AlwaysInline static int __leaf_action_back_track(__stack_node_t * leaf)
     {
         __stack_node_action_t * action = (*leaf)->action;
@@ -3106,6 +3316,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return 0;
     }
 
+    // Returns first action of a leaf.
     __AlwaysInline static __stack_node_raise_matched_event_action_t * __leaf_first_action(
                                                                 __stack_node_t * leaf)
     {
@@ -3130,7 +3341,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if((v2) < (v1)) return false;       \
         } while(0)
 
-   __AlwaysInline static bool __leaf_less(__stack_node_t * leaf1, __stack_node_t * leaf2)
+    // Returns whether a leaf is less than another leaf.
+    __AlwaysInline static bool __leaf_less(__stack_node_t * leaf1, __stack_node_t * leaf2)
     {
         typedef __stack_node_action_type_t atype_t;
         typedef __stack_node_raise_matched_event_action_t action_t;
@@ -3185,6 +3397,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     #undef __LessReturn
 
+    // Prints identity.
     static void __print_identity(const __stack_node_t * s)
     {
         printf(_T("-- %1% | %2% :"),
@@ -3199,6 +3412,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _P();
     }
 
+    // Prints leaf identities.
     static void __print_leaf_identities(__leafs_t & leafs)
     {
         for(__stack_node_t * n : leafs)
@@ -3209,6 +3423,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     #define __I(n)   ((*(n))->merge_identity)
 
+    // Sorts leafs.
     __AlwaysInline void __sort_leafs(__leafs_t & leafs)
     {
         leafs.sort([](__stack_node_t * n1, __stack_node_t * n2) {
@@ -3216,6 +3431,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         });
     }
 
+    // Merges leafs.
     __AlwaysInline void analyze_context_t::__merge_leafs()
     {
         if(__leafs.size() <= 1)
@@ -3234,6 +3450,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         //__print_leaf_identities(__leafs);
     }
 
+    // Prints actions.
     void __print_actions(__stack_node_action_t * action)
     {
         if(action != nullptr)
@@ -3244,6 +3461,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Picks final leafs.
     void analyze_context_t::__pick_final_leafs()
     {
         //_P(_T("__pick_final_leafs"));
@@ -3268,6 +3486,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     #undef __I
 
+    // Stack pop.
     void analyze_context_t::__stack_pop(__stack_pop_args_t & args, __stack_node_t * stack_node)
     {
         __stack_node_t * parent = stack_node;
@@ -3276,6 +3495,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __do_stack_pop(args, stack_node);
     }
 
+    // Do stack pop.
     void analyze_context_t::__do_stack_pop(__stack_pop_args_t & args, __stack_node_t * stack_node)
     {
         __stack_node_t * parent = stack_node->parent;
@@ -3331,6 +3551,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __remove_leaf(stack_node);
     }
 
+    // Executes actions.
     void analyze_context_t::__execute_actions()
     {
         __stack_node_t * leaf = __leafs[0];
@@ -3347,6 +3568,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Executes action.
     __AlwaysInline bool analyze_context_t::__execute_actions(__stack_node_t * leaf)
     {
         __stack_node_action_t * action = (*leaf)->action;
@@ -3359,6 +3581,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Executes action.
     __AlwaysInline void analyze_context_t::__execute_action(__stack_node_action_t * action)
     {
         if(action != nullptr)
@@ -3370,18 +3593,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Append leafs.
     template<typename itor_t>
     __AlwaysInline void analyze_context_t::__append_leafs(itor_t begin, itor_t end)
     {
         std::copy(begin, end, std::back_inserter(__leafs));
     }
 
+    // Append leafs.
     template<typename container_t>
     __AlwaysInline void analyze_context_t::__append_leafs(container_t & container)
     {
         __append_leafs(container.begin(), container.end());
     }
 
+    // Removes leaf unitl prediacte function.
     template<typename pred_t>
     __AlwaysInline void analyze_context_t::__remove_leaf_until(
                                         __stack_node_t * stack_node, pred_t pred)
@@ -3394,23 +3620,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Removes specified node.
     __AlwaysInline void analyze_context_t::__remove_leaf(__stack_node_t * stack_node)
     {
         __remove_leaf_until(stack_node, [](__stack_node_t *) { return false; });
     }
 
+    // Removes stack node.
     __AlwaysInline void analyze_context_t::__remove_stack_node(__stack_node_t * stack_node)
     {
         stack_node->remove();
         __stack_node_factory.release(stack_node);
     }
 
+    // Creates new stack node.
     template<typename stack_node_value_t>
     __AlwaysInline __stack_node_t * analyze_context_t::__new_stack_node(stack_node_value_t && value)
     {
         return __stack_node_factory.new_obj(std::forward<stack_node_value_t>(value));
     }
 
+    // Execute callback when matched or completed.
     __AlwaysInline void analyze_context_t::__do_callback(analyze_callback_args_t & args)
     {
         if(__callback != nullptr)
@@ -3419,6 +3649,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Execute end callback.
     void analyze_context_t::__do_end_callback()
     {
         typedef analyze_end_analyze_callback_args_t args_t;
@@ -3428,6 +3659,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __do_callback(args);
     }
 
+    // Execute branch matched callback.
     void analyze_context_t::__do_branch_matched_callback(
                         const __matched_item_t & matched_item, __tag_t * tag)
     {
@@ -3441,6 +3673,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns whether it's invisible, e.g. comments.
     bool analyze_context_t::__is_invisible(token_value_t value)
     {
         const token_property_t * token_property = __token_property_cache.get_property(value);
@@ -3449,6 +3682,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Apend node action.
     void analyze_context_t::__append_node_action(__stack_node_t * node,
                                  __stack_node_action_t * action, bool push_back)
     {
@@ -3463,6 +3697,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Creates a new raise matched event action.
     __stack_node_raise_matched_event_action_t * analyze_context_t::__new_raise_matched_event_action(
             const analyze_branch_ref_node_t * branch_ref, __tag_t * begin_tag, __tag_t * end_tag,
             __stack_node_action_t * next_action)
@@ -3483,6 +3718,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return action;
     }
 
+    // Appends a new stack node.
     void analyze_context_t::__stack_push_args_t::append_new_stack_node(__stack_node_t * leaf)
     {
         new_stack_nodes.push_back(leaf);
@@ -3496,6 +3732,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns token reader of language.
     token_reader_t * __token_reader_context_t::token_reader_of(lang_id_t lang_id)
     {
         return al::map_get(__token_reader_cache, lang_id, [this, lang_id]() {
@@ -3506,6 +3743,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns whether two elements are equals.
     bool analyzer_element_t::operator == (const analyzer_element_t & other) const
     {
         if(type != other.type)
@@ -3524,6 +3762,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns whether two elements are node equals.
     bool analyzer_element_t::operator != (const analyzer_element_t & other) const
     {
         return !operator == (other);
@@ -3531,19 +3770,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze element read models.
     X_ENUM_INFO(analyzer_element_read_model_t)
 
+        // Normal.
         X_C(normal)
 
+        // Read all
         X_C(all)
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
-    ast_node_t * __analyze_ast(__token_reader_context_t & context,
-                                                        code_section_t ** &p_section);
+    // Analyzes ast node.
+    ast_node_t * __analyze_ast(__token_reader_context_t & context, code_section_t ** &p_section);
 
+    // Constructor of analyzer element reader.
     analyzer_element_reader_t::analyzer_element_reader_t(__token_reader_context_t & context,
                                                          code_section_t ** &p_section)
         : __context(context)
@@ -3553,6 +3796,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __enumerator = __reader->read(__section->code, __section->length);
     }
 
+    // Returns element at specified tag.
     __AlwaysInline analyzer_element_t & analyzer_element_reader_t::element_at(
                                                 __tag_t * tag, __model_t model)
     {
@@ -3563,6 +3807,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return item;
     }
 
+    // Returns next element at specifed tag.
     __AlwaysInline analyzer_element_t * analyzer_element_reader_t::next()
     {
         while(__index >= __items.size())
@@ -3576,6 +3821,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return &item;
     }
 
+    // Returns next tag of specified tag.
     __AlwaysInline __tag_t * analyzer_element_reader_t::next(__tag_t * tag, __model_t model)
     {
         __item_t & item = __items[tag->index];
@@ -3586,6 +3832,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __items[tag->index + 1].get_tag();
     }
 
+    // Reads next element.
     __AlwaysInline bool analyzer_element_reader_t::__read_next_element()
     {
         token_t * token = __enumerator->next();
@@ -3616,6 +3863,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Appends ast node.
     void analyzer_element_reader_t::append_ast(__tag_t * from_tag, __tag_t * end_tag,
                 ast_node_t * ast_node, const analyze_node_t * node)
     {
@@ -3632,6 +3880,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         item.flag = flag;
     }
 
+    // Gets root ast node.
     ast_node_t * analyzer_element_reader_t::get_root_ast()
     {
         if(__items.size() == 0)
@@ -3646,6 +3895,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Do analyzer.
     void __analyzer_t::analyze()
     {
         analyzer_element_t * element;
@@ -3672,6 +3922,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __push_end(&element->tag);
     }
 
+    // Pushes token.
     void __analyzer_t::__push_token(token_t * token, __tag_t * tag)
     {
         if(token->value != unknown_token_value)
@@ -3696,6 +3947,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns possible value count.
     size_t __analyzer_t::__possible_value_count(const token_value_t * possible_values)
     {
         const token_value_t * value = possible_values;
@@ -3707,23 +3959,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return value - possible_values;
     }
 
+    // Pushes an ast node.
     void __analyzer_t::__push_ast_node(ast_node_t * node, __tag_t * tag)
     {
         
     }
 
+    // Pushes with key and tag.
     void __analyzer_t::__push(__node_key_t key, __tag_t * tag)
     {
         __node_key_t keys[] = { key, __empty_node_key };
         __push(keys, tag);
     }
 
+    // Pushes with keys and tag.
     void __analyzer_t::__push(const __node_key_t * keys, __tag_t * tag,
                                                 __node_value_t * out_value)
     {
         __context.go(keys, tag, out_value);
     }
 
+    // Pushes end.
     void __analyzer_t::__push_end(__tag_t * tag)
     {
         __push(__end_node_key, tag);
@@ -3732,6 +3988,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // analyzer_t
 
+    // Do analyze
     void analyzer_t::analyze(analyzer_element_reader_t * reader, analyze_callback_t * callback)
     {
         _A(reader != nullptr);
@@ -3742,9 +3999,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze tree builder provider.
     class __analyze_tree_builder_provider_t : public analyze_tree_builder_provider_t
     {
     public:
+
+        // Constructors.
         __analyze_tree_builder_provider_t(global_context_t & context,
             lang_statement_analyze_service_t * service)
             : __context(context), __service(service)
@@ -3752,6 +4012,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             _A(service != nullptr);
         }
 
+        // Returns node value.
         virtual __node_value_t get_node_value(const string_t & name,
                                                     __node_type_t node_type) override
         {
@@ -3765,6 +4026,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Creates analyzer of language.
     analyzer_t * __create_analyzer(global_context_t & global_context, lang_id_t lang_id)
     {
         lang_t * lang = global_context.lang_of(lang_id);
@@ -3783,6 +4045,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return global_context.new_obj<analyzer_t>(lang, tree);
     }
 
+    // Gets analyzer of language.
     analyzer_t * __get_analyzer(global_context_t & global_context, lang_id_t lang_id)
     {
         return global_context.from_cache<analyzer_t>(lang_id, [&global_context, lang_id] {
@@ -3792,15 +4055,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze callback.
     class __analyze_callback_t : public object_t, public analyze_callback_t
     {
     public:
+
+        // Constructors.
         __analyze_callback_t(compile_context_t & context, lang_t * lang,
                 analyzer_element_reader_t & reader)
             : __ast_factory(*context.new_obj<ast_context_t>(context, lang), reader)
             , __reader(reader)
         { }
 
+        // On call back.
         virtual void on_call(void * sender, analyze_callback_args_t & args) override
         {
             switch(args.action)
@@ -3830,6 +4097,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Returns analyze result.
         ast_node_t * get_result()
         {
             return __ast_factory.get_result();
@@ -3842,6 +4110,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyzes ast node.
     ast_node_t * __analyze_ast(__token_reader_context_t & context, 
                                                         code_section_t ** & p_section)
     {
@@ -3858,12 +4127,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return callback.get_result();
     }
 
+    // Analyzes ast node.
     ast_node_t * __analyze_ast(compile_context_t & context, code_section_t ** p_section)
     {
         __token_reader_context_t reader_context(context);
         return __analyze_ast(reader_context, p_section);
     }
 
+    // Analyzes ast node.
     ast_node_t * analyze_ast(compile_context_t & context, code_t * code)
     {
         _A(code != nullptr);
@@ -3880,8 +4151,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Ast build error codes.
     X_ENUM_INFO(ast_build_error_code_t)
 
+        // Build failed.
         X_C(build_failed)
 
     X_ENUM_INFO_END

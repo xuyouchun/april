@@ -7,23 +7,28 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Mutex lock
     #define X_LOCK(mtx, args...)    \
             ::std::lock_guard<decltype(mtx)> X_TEMP_VAR(mtx, ##args)
     #define _L(mtx, args...)     X_LOCK(mtx, ##args)
 
+    // Unique lock
     #define X_UNIQUE_LOCK(mtx, name, args...)   \
             ::std::unique_lock<decltype(mtx)> name(mtx, ##args)
     #define _UL(mtx, name, args...)     X_UNIQUE_LOCK(mtx, name, ##args)
 
+    // Object lock
     #define X_LOCK_OBJECT(obj, args...) \
             ::X_ROOT_NS::algorithm::object_lock_guard_t<> X_TEMP_VAR(obj, ##args)
 
     #define _OL(obj, args...) X_LOCK_OBJECT(obj, ##args)
 
+    // Lock self in class member method.
     #define X_LOCK_THIS X_LOCK_OBJECT(this)
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The atomic operation for two lockers.
     template<typename lock1_t, typename lock2_t>
     void unlock_and_lock(lock1_t & lock1, lock2_t & lock2)
     {
@@ -34,6 +39,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The base class to provide ability of lazy initialize.
     class initializer_t
     {
     protected:
@@ -51,12 +57,15 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // A Semaphore to provide a number of signals to control the concurrency.
+
     struct semaphore_t
     {
         typedef uint32_t signal_count_t;
         semaphore_t(signal_count_t signal_count=1);
         ~semaphore_t();
 
+        // Acquire a signal.
         template<typename _duration_t>
         bool acquire(const _duration_t & timeout)
         {
@@ -85,8 +94,13 @@ namespace X_ROOT_NS { namespace algorithm {
             return success;
         }
 
+        // Acquire a signal.
         bool acquire();
+
+        // Try to acquire a signal.
         bool try_acquire();
+
+        // Release a signal.
         void release();
 
     private:
@@ -95,6 +109,7 @@ namespace X_ROOT_NS { namespace algorithm {
         volatile signal_count_t __waiting_count = 0;
         std::recursive_mutex __mutex;
 
+        // Try to acquire a signal.
         bool __try_acquire();
 
         std::condition_variable __condition_var;
@@ -116,6 +131,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename t> class respool_t;
     typedef std::mutex __default_object_lock_mutex_t;
 
+    // Management of object locks.
     template<typename mutex_t=__default_object_lock_mutex_t>
     class object_lock_manager_t
     {
@@ -125,6 +141,7 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef respool_t<__mutex_wrap_t> __respool_t;
 
     public:
+        // Acquire the lock for the owner.
         void enter(void * owner)
         {
             _UL(__mutex, guard);
@@ -135,6 +152,7 @@ namespace X_ROOT_NS { namespace algorithm {
             unlock_and_lock(guard, mutex_wrap.mutex);
         }
 
+        // Release the lock for the owner.
         void exit(void * owner)
         {
             _L(__mutex);
@@ -150,6 +168,7 @@ namespace X_ROOT_NS { namespace algorithm {
             mutex_wrap.mutex.unlock();
         }
 
+        // The sigleton instance.
         static __self_t * instance()
         {
             static __self_t * lm = new __self_t();
@@ -157,6 +176,8 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
     private:
+
+        // The mutex object wrapper.
         struct __mutex_wrap_t : public object_t
         {
             __mutex_wrap_t() { }
@@ -172,6 +193,8 @@ namespace X_ROOT_NS { namespace algorithm {
         std::mutex __mutex;
         __respool_t __pool;
 
+        // Returns the mutex wrapper for the owner.
+        // Auto create if not exists. ( when auto_create is true. )
         __mutex_wrap_t & __get_mutex_wrap(void * owner, bool auto_create=false)
         {
             if(__exited_count >= 10)
@@ -191,6 +214,7 @@ namespace X_ROOT_NS { namespace algorithm {
             return *(__mutex_map[key] = __pool.acquire());
         }
 
+        // Cleanup locks where ref_count is 0.
         void __clean_up()
         {
             std::map<__key_t, __mutex_wrap_t *> new_map;
@@ -208,6 +232,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Object locker wrapper. implemenation of lock / unlock.
     template<typename mutex_t = __default_object_lock_mutex_t>
     struct __object_locker_wrapper_t
     {
@@ -226,11 +251,13 @@ namespace X_ROOT_NS { namespace algorithm {
             obj.__owner = nullptr;
         }
 
+        // Lock
         void lock()
         {
             __lm.enter(__owner);
         }
 
+        // Unlock
         void unlock()
         {
             if(__owner)
@@ -266,11 +293,15 @@ namespace X_ROOT_NS { namespace algorithm {
         lock_impl_t __impl;
     };
 
-    template<typename mutex_t = __default_object_lock_mutex_t> using object_lock_guard_t
-        = __object_lock_impl_t<mutex_t, ::std::lock_guard<__object_locker_wrapper_t<mutex_t>>>;
+    // Object lock guard.
+    template<typename _mutex_t = __default_object_lock_mutex_t>
+    using object_lock_guard_t = __object_lock_impl_t<
+        _mutex_t, ::std::lock_guard<__object_locker_wrapper_t<_mutex_t>>
+    >;
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Provides the ability to lazy initializing.
     template<typename t>
     class lazy_t
     {
@@ -281,6 +312,7 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename init_func_t>
         lazy_t(init_func_t func) : __init_func(func) { }
 
+        // Returns value, do initialize at the first time.
         operator t()
         {
             std::call_once(__once_flag, &__self_t::__initialize, this);
@@ -292,6 +324,7 @@ namespace X_ROOT_NS { namespace algorithm {
         std::once_flag __once_flag;
         __init_func_t __init_func;
 
+        // Do init it.
         void __initialize()
         {
             __value = __init_func();
@@ -299,6 +332,8 @@ namespace X_ROOT_NS { namespace algorithm {
     };
 
     //-------- ---------- ---------- ---------- ----------
+
+    // Provides the ability to lazy initializing. ( for pointer. )
 
     template<typename t>
     class lazy_t<t *>
@@ -310,6 +345,7 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename init_func_t>
         lazy_t(init_func_t func) : __init_func(func) { }
 
+        // Returns value, do initialize at the first time.
         operator t*()
         {
             std::call_once(__once_flag, &__self_t::__initialize, this);
@@ -321,11 +357,13 @@ namespace X_ROOT_NS { namespace algorithm {
             return (t *)*this;
         }
 
+        // Returns if two objects are equals.
         bool operator == (const t * other)
         {
             return (t *)*this == other;
         }
 
+        // Returns if two objects are not equals.
         bool operator != (const t * other)
         {
             return ! operator == (other);
@@ -336,6 +374,7 @@ namespace X_ROOT_NS { namespace algorithm {
         std::once_flag __once_flag;
         __init_func_t __init_func;
 
+        // Do init it.
         void __initialize()
         {
             __value = __init_func();

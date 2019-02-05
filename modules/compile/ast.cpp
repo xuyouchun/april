@@ -12,65 +12,173 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     X_ENUM_INFO(xbranch_value_t)
 
+        // Asts
         X_C(asts,                       _T("asts"))
+
+        // Namespace
         X_C(namespace_,                 _T("namespace"))
+
+        // Multi-name
         X_C(mname,                      _T("mname"))
+
+        // Array type name
         X_C(array_type_name,            _T("array_type_name"))
+
+        // General type name.
         X_C(general_type_name,          _T("general_type_name"))
+
+        // Type name unit.
         X_C(type_name_unit,             _T("type_name_unit"))
+
+        // Uncertain type name.
         X_C(uncertain_type_name,        _T("uncertain_type_name"))
+
+        // Typedef.
         X_C(type_def,                   _T("type_def"))
+
+        // Typedef param.
         X_C(type_def_param,             _T("type_def_param"))
+
+        // Typedef params.
         X_C(type_def_params,            _T("type_def_params"))
+
+        // Typeof
         X_C(type_of,                    _T("type_of"))
+
+        // Expressions.
         X_C(expressions,                _T("expressions"))
+
+        // Argument.
         X_C(argument,                   _T("argument"))
+
+        // Arguments.
         X_C(arguments,                  _T("arguments"))
+
+        // Param.
         X_C(param,                      _T("param"))
+
+        // Params.
         X_C(params,                     _T("params"))
+
+        // Generic param.
         X_C(generic_param,              _T("generic_param"))
+
+        // Generic params.
         X_C(generic_params,             _T("generic_params"))
+
+        // Generic constraint.
         X_C(generic_constraint,         _T("generic_constraint"))
+
+        // Generic constraints.
         X_C(generic_constraints,        _T("generic_constraints"))
+
+        // Generic argument.
         X_C(generic_arg,                _T("generic_arg"))
+
+        // Generic arguments.
         X_C(generic_args,               _T("generic_args"))
+
+        // Decorate.
         X_C(decorate,                   _T("decorate"))
+
+        // Method body.
         X_C(method_body,                _T("method_body"))
+
+        // Statements.
         X_C(statements,                 _T("statements"))
+
+        // Expression statement.
         X_C(expression_st,              _T("expression_st"))
+
+        // Typedef statement.
         X_C(type_def_st,                _T("type_def_st"))
+
+        // Defination statement.
         X_C(defination_st,              _T("defination_st"))
+
+        // Break statement.
         X_C(break_st,                   _T("break_st"))
+
+        // Continue statement.
         X_C(continue_st,                _T("continue_st"))
+
+        // Throw statement.
         X_C(throw_st,                   _T("throw_st"))
+
+        // Goto statement.
         X_C(goto_st,                    _T("goto_st"))
+
+        // Return statement.
         X_C(return_st,                  _T("return_st"))
+
+        // Do...while statement.
         X_C(do_while_st,                _T("do_while_st"))
+
+        // Loop...until statement.
+        X_C(loop_until_st,              _T("loop_until_st"))
+
+        // While statement.
         X_C(while_st,                   _T("while_st"))
+
+        // For statement.
         X_C(for_st,                     _T("for_st"))
+
+        // For...each statement.
         X_C(for_each_st,                _T("for_each_st"))
+
+        // If statement.
         X_C(if_st,                      _T("if_st"))
+
+        // Switch statement.
         X_C(switch_st,                  _T("switch_st"))
+
+        // Case statement.
         X_C(case_,                      _T("case_"))
+
+        // Try statement.
         X_C(try_st,                     _T("try_st"))
+
+        // Catch statement.
         X_C(catch_,                     _T("catch_"))
+
+        // Statement group statement.
         X_C(statement_group_st,         _T("statement_group_st"))
+
+        // Typename expression.
         X_C(type_name_exp,              _T("type_name_exp"))
+
+        // Type cast expression.
         X_C(type_cast_exp,              _T("type_cast_exp"))
+
+        // Function calling expression.
         X_C(function,                   _T("function"))
+
+        // Index expression.
         X_C(index,                      _T("index"))
+
+        // New expression.
         X_C(new_,                       _T("new"))
+
+        // Array initializer.
         X_C(array_initializer,          _T("array_initializer"))
+
+        // Array lengths.
         X_C(array_lengths,              _T("array_lengths"))
+
+        // New array expression.
         X_C(new_array,                  _T("new_array"))
+
+        // Default value expression.
         X_C(default_value,              _T("default_value"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Ast error codes.
     X_ENUM_INFO(ast_error_code_t)
 
+        // Multi-name empty.
         X_C(mname_empty, _T("mname_empty"))
 
     X_ENUM_INFO_END
@@ -79,124 +187,180 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     X_ENUM_INFO(common_log_code_t)
 
+        // Duplicated.
         X_D(duplicate,  _T("duplicate %1% \"%2%\""))
 
+        // Name empty.
         X_D(name_empty, _T("%1% name missing"))
 
+        // Unexpected first char in a name.
         X_D(name_unexpected_first_char,
                 _T("unexpected first character \"%1%\" in name \"%2%\""))
 
+        // Unexpected char in a name.
         X_D(name_unexpected_char,
                 _T("unexpected character \"%1%\" in name \"%2%\""))
 
+        // Assembly name missing.
         X_D(assembly_name_missing, _T("package name missing"))
 
+        // Namespace name missing.
         X_D(namespace_name_missing, _T("namespace missing"))
 
+        // Type name missing.
         X_D(type_name_missing,  _T("%1% type name missing"))
 
+        // Argument missing.
         X_D(argument_missing,   _T("argument missing"))
 
+        // Condition missing.
         X_D(condition_missing,  _T("%1% condition missing"))
 
+        // Argument type error.
         X_D(argument_type_error,    _T("%1% argument type must be variable"))
 
+        // Unexpected param in default value.
         X_D(unexpected_param_default_value, _T("%1%"))
 
+        // Body missing.
         X_D(body_missing,  _T("%1% body missing"))
 
+        // Iterator missing.
         X_D(iterator_missing, _T("%1% iterator missing"))
 
+        // Statement missing.
         X_D(statement_missing, _T("statement missing"))
 
+        // Expression missing.
         X_D(expression_missing, _T("%1% expression missing"))
 
+        // Catch or finally missing.
         X_D(catch_or_finally_missing, _T("try and finally blocks are both empty"))
 
+        // Array lengths missing.
         X_D(array_lengths_missing, _T("array '%1%' length missing"))
 
+        // Unexpected params.
         X_D(unexpected_params, _T("unexpected %1% params"))
 
+        // Generic arguments redundance in function.
         X_D(function_generic_args_redundance, _T("function generic arguments redundance"))
 
+        // Unexpected variable defination.
         X_D(unexpected_variable_defination, _T("variables cannot define here: \"%1%\""))
 
+        // Unexpected field defination.
         X_D(unexpected_field_defination, _T("fields cannot define here: \"%1%\""))
 
+        // Unexpected property defination.
         X_D(unexpected_property_defination, _T("properties cannot define here: \"%1%\""))
 
+        // Unexpected param defination.
         X_D(unexpected_param_defination, _T("parameters cannot define here: \"%1%\""))
 
+        // Unexpected import.
         X_D(unexpected_import, _T("unexpected import \"%1%\""))
 
+        // A reference of itself.
         X_D(assembly_reference_itself, _T("assembly \"%1%\" reference to itself"))
 
+        // Assembly circular reference.
         X_D(assembly_circular_reference, _T("assembly \"%1%\" circle reference"))
 
+        // Assembly not found.
         X_D(assembly_not_found, _T("assembly \"%1%\" not found"))
 
+        // Unexpected using namespace.
         X_D(unexpected_using_namespace, _T("unexpected using namespace \"%1%\""))
 
+        // Variable defination duplicated.
         X_D(variable_defination_duplicate, _T("variable \"%1%\" duplicate"))
 
+        // Variable undefined.
         X_D(variable_undefined, _T("variable \"%1%\" undefined"))
 
+        // Type undefined.
         X_D(type_undefined, _T("type \"%1%\" undefined"))
 
+        // Typedef unsolved.
         X_D(type_def_unsolved, _T("typedef \"%1%\" unsolved"))
 
+        // Type defination duplicated.
         X_D(type_defination_duplicate, _T("type \"%1%\" defination duplicate"))
 
+        // Typedef defination duplicated.
         X_D(type_def_defination_duplicate, _T("typedef \"%1%\" defination duplicate"))
 
+        // Type undetermind.
         X_D(type_undetermind, _T("type undetermind for \"%1%\""))
 
+        // Unexpected symbol.
         X_D(unexpected_symbol, _T("unexpected symbol, \"%1%\""))
 
+        // Unexpected expression.
         X_D(unexpected_expression, _T("unexpected expression, \"%1%\""))
 
+        // Member not found.
         X_D(member_not_found, _T("member \"%1%\" undefined in type \"%2%\""))
 
+        // Method not found.
         X_D(method_not_found, _T("method \"%1%\" undefined in type \"%2%\""))
 
+        // Method not match.
         X_D(method_not_match, _T("no matching member function for call to \"%1%\" in type \"%2%\""))
 
+        // Attribute constructor not match.
         X_D(attribute_constructor_not_match, _T("no matching attribute \"%1%\" constructor: (%2%)"))
 
+        // Type consturctor not matched.
         X_D(type_constructor_not_match, _T("no matching type \"%1%\" constructor: (%2%)"))
 
+        // Method conflict.
         X_D(method_conflict, _T("method \"%1%\" conflict in type \"%2%\": %3%"))
 
+        // Constructor method should no return type.
         X_D(constructor_method_should_no_return_type,
                                 _T("constructor method %1% should no return type"))
 
+        // Destructor method should no return type.
         X_D(destructor_method_should_no_return_type,
                                 _T("destructor method %1% should no return type"))
 
+        // Static constructor method should no return type.
         X_D(static_constructor_method_should_no_return_type,
                                 _T("static constructor method %1% should no return type"))
 
+        // Destructor method should no params.
         X_D(destructor_method_should_no_params,
                                 _T("destructor method %1% should no params"))
 
+        // Static constructor method should no params.
         X_D(static_constructor_method_should_no_params,
                                 _T("static constructor method %1% should no params"))
 
+        // Constructor method not found.
         X_D(constructor_method_not_found,
                                 _T("constructor method %1%(%2%) not found"))
 
+        // Partial specialization not supported.
         X_D(partial_specialization_not_supported,
                                 _T("partial specialization of generic type not supported"))
 
+        // No base type.
         X_D(no_base_type, _T("type '%1%' has no base type"))
 
+        // Expected array length.
         X_D(expected_array_length, _T("expected array length"))
+
+        // Array initializer error.
+        X_D(array_initializer_error, _T("array initializer error: %1%"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
     // common functions
 
+    // Returns whether it's a compile time attribute.
     static bool __is_compile_time_attribute(attribute_t * attr)
     {
         general_type_name_t * type_name = as<general_type_name_t *>(attr->type_name);
@@ -206,6 +370,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // module
 
+    // Walk this node.
     void __module_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch((walk_step_t)step)
@@ -224,6 +389,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Walk this node.
     void __module_ast_node_t::do_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::do_walk(context, step, tag);
@@ -233,12 +399,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // mname
 
+    // Appends a part.
     void mname_ast_node_t::append_part(name_t name, __el_t * el)
     {
         this->__validate_name(name, el);
         __this_mname()->append_part(name);
     }
 
+    // Commits this node.
     void mname_ast_node_t::on_commit()
     {
         __this_mname()->commit(__global_context().xpool.spool);
@@ -250,11 +418,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         new ((void *)__emname) emname_t(mname);
     }
 
+    // Returns this eobject.
     emname_t * mname_ast_node_t::to_eobject()
     {
         return __this_emname();
     }
 
+    // Walks this node.
     void mname_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -263,11 +433,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // expressions
 
+    // Commits this node.
     void expressions_ast_node_t::on_commit()
     {
         this->transform_child_to(expressions, __expressions);
     }
 
+    // Returns this eobject.
     expression_t * expressions_ast_node_t::to_eobject()
     {
         if(__expressions.expression_count() == 1)
@@ -279,6 +451,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return &__expressions;
     }
 
+    // Walk this node.
     void expressions_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -287,16 +460,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_name
 
+    // Commits this node.
     void type_name_ast_node_t::on_commit()
     {
         this->__check_empty(to_eobject(), this, __c_t::type_name_missing, _T(""));
     }
 
+    // Returns this eobject.
     type_name_t * type_name_ast_node_t::to_eobject()
     {
         return __to_eobject<type_name_t *>(underlying);
     }
 
+    // Walks this node.
     void type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -304,15 +480,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Global types
     X_ENUM_INFO(global_type_t)
 
+        // Root. e.g. System.Text
         X_C(root,       _T("root"))
+
+        // Global, e.g. ::System.Text
         X_C(global,     _T("global"))
 
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Converts to string.
     type_name_unit_t::operator string_t() const
     {
         if(args == nullptr)
@@ -321,6 +502,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return _F(_T("%1%<%2%>"), _str(name), _str(args));
     }
 
+    // Converts to string.
     X_DEFINE_TO_STRING(general_type_name_t)
     {
         return al::join_str(units.begin(), units.end(), _T("."),
@@ -328,6 +510,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         );
     }
 
+    // Converts to string.
     X_DEFINE_TO_STRING(array_type_name_t)
     {
         stringstream_t ss;
@@ -351,6 +534,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_name_unit_t
 
+    // Returns whether it's partial specialization.
     template<typename args_t>
     bool __is_partial_specialization(const args_t & args)
     {
@@ -374,6 +558,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Returns whether it's partial specialization.
     bool type_name_unit_t::is_partial_specialization() const
     {
         return args != nullptr && __is_partial_specialization(*args);
@@ -382,21 +567,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // general_type_name
 
+    // Sets global type.
     void general_type_name_ast_node_t::set_global_type(global_type_t global_type)
     {
         __type_name.global_type = global_type;
     }
 
+    // Commits this node.
     void general_type_name_ast_node_t::on_commit()
     {
         this->transform_child_to(units, __type_name.units);
     }
 
+    // Returns this eobject.
     type_name_t * general_type_name_ast_node_t::to_eobject()
     {
         return &__type_name;
     }
 
+    // Walks this node.
     void general_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch((walk_step_t)step)
@@ -414,6 +603,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Walks confirm step.
     void general_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
         if(__type_name.type == nullptr)
@@ -425,21 +615,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_name_unit
 
+    // Sets name.
     void type_name_unit_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__type_name_unit.name, name, el, _T("type"));
     }
 
+    // Commits this node.
     void type_name_unit_ast_node_t::on_commit()
     {
         __type_name_unit.args = __to_eobject<generic_args_t *>(generic_args);
     }
 
+    // Returns this eobject.
     type_name_unit_t * type_name_unit_ast_node_t::to_eobject()
     {
         return &__type_name_unit;
     }
 
+    // Walks this node.
     void type_name_unit_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__type_name_unit.name, this, __c_t::name_empty, _T("type name unit"));
@@ -450,6 +644,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // array_type_name
 
+    // Commits this node.
     void array_type_name_ast_node_t::on_commit()
     {
         this->transform_child_to(dimensions, __type_name.dimensions);
@@ -457,11 +652,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __type_name.element_type_name = __to_eobject<type_name_t *>(element_type_name);
     }
 
+    // Returns this eobject.
     type_name_t * array_type_name_ast_node_t::to_eobject()
     {
         return &__type_name;
     }
 
+    // Walks this node.
     void array_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch((walk_step_t)step)
@@ -481,6 +678,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Walks confirm step.
     void array_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
         array_type_name_t * type_name = &__type_name;
@@ -494,13 +692,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // uncertain_type_name
 
+    // Commits the node.
     void uncertain_type_name_ast_node_t::on_commit() { }
 
+    // Returns this eobject.
     type_name_t * uncertain_type_name_ast_node_t::to_eobject()
     {
         return __type_name;
     }
 
+    // Walks this node.
     void uncertain_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         _P(_T("uncertain"));
@@ -510,21 +711,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_def_param
 
+    // Sets name.
     void type_def_param_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__type_def_param.name, name, el, _T("typedef param"));
     }
 
+    // Commits this node.
     void type_def_param_ast_node_t::on_commit()
     {
 
     }
 
+    // Returns this eobject.
     type_def_param_t * type_def_param_ast_node_t::to_eobject()
     {
         return &__type_def_param;
     }
 
+    // Walks this node.
     void type_def_param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__type_def_param.name, _T("typedef param"));
@@ -535,16 +740,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_def_params
 
+    // Commits this node.
     void type_def_params_ast_node_t::on_commit()
     {
         this->transform_child_to(params, __type_def_params);
     }
 
+    // Returns this eobject.
     type_def_params_t * type_def_params_ast_node_t::to_eobject()
     {
         return &__type_def_params;
     }
 
+    // Walks this node.
     void type_def_params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -553,22 +761,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_def
 
+    // Sets name.
     void type_def_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__type_def.name, name, el, _T("typedef"));
     }
 
+    // Commits this node.
     void type_def_ast_node_t::on_commit()
     {
         __type_def.type_name  = __to_eobject<type_name_t *>(type_name);
         __type_def.params     = __to_eobject<type_def_params_t *>(params);
     }
 
+    // Returns this eobject.
     type_def_t * type_def_ast_node_t::to_eobject()
     {
         return &__type_def;
     }
 
+    // Walks this node.
     void type_def_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push(to_eobject());
@@ -590,16 +802,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_of
 
+    // Commits this node.
     void type_of_ast_node_t::on_commit()
     {
         __type_of.type_name = __to_eobject<type_name_t *>(type_name);
     }
 
+    // Returns this eobject.
     expression_t * type_of_ast_node_t::to_eobject()
     {
         return &__type_of;
     }
 
+    // Walks this node.
     void type_of_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__type_of.type_name, this, __c_t::type_name_missing, _T("typeof"));
@@ -610,27 +825,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // argument
 
+    // Sets name.
     void argument_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__argument.name, name, el, _T("argument"));
     }
 
+    // Sets argument type.
     void argument_ast_node_t::set_argument_type(param_type_t atype, __el_t * el)
     {
         this->__assign(__argument.atype, atype, el, _T("argument type"));
     }
 
+    // Commits this node.
     void argument_ast_node_t::on_commit()
     {
         __argument.expression = __to_eobject<expression_t *>(expression);
         __argument.attributes = __to_eobject_with_owner<attributes_t *>(attributes, &__argument);
     }
 
+    // Returns this eobject.
     argument_t * argument_ast_node_t::to_eobject()
     {
         return &__argument;
     }
 
+    // Walks this node.
     void argument_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -651,16 +871,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // arguments
 
+    // Commits this node.
     void arguments_ast_node_t::on_commit()
     {
         this->transform_child_to(arguments, __arguments);
     }
 
+    // Walks this node.
     void arguments_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
     }
 
+    // Returns this eobject.
     arguments_t * arguments_ast_node_t::to_eobject()
     {
         return &__arguments;
@@ -669,21 +892,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // cvalue
 
+    // Walks this node.
     void cvalue_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
     }
 
+    // Returns this eobject.
     cvalue_t * cvalue_ast_node_t::to_eobject()
     {
         return &__value;
     }
 
+    // Sets value.
     void cvalue_ast_node_t::set_value(const cvalue_t & value)
     {
         __value = value;
     }
 
+    // Sets value.
     void cvalue_ast_node_t::set_value(const token_data_t & data)
     {
         switch(data.value_type)
@@ -708,6 +935,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // decorate
 
+    // Bit field wrapper.
     template<typename getf_t, typename setf_t>
     struct __bit_field_wrap_t
     {
@@ -724,6 +952,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         bool operator != (const __value_t & value) const { return !operator == (value); }
     };
 
+    // Bit field wrapper.
     template<typename getf_t, typename setf_t>
     auto __bit_field_wrap(getf_t getf, setf_t setf)
     {
@@ -736,66 +965,79 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 [this](auto value) { obj.field = value; }       \
         )
 
+    // Walks this node.
     void decorate_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
     }
 
+    // Sets access.
     void decorate_ast_node_t::set_access(access_value_t value, __el_t * el)
     {
         this->__assign(__BitField(__decorate, access), value, el, _T("access"));
     }
 
+    // Sets static.
     void decorate_ast_node_t::set_static(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_static), true, el, _T("static"));
     }
 
+    // Sets sealed.
     void decorate_ast_node_t::set_sealed(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_sealed), true, el, _T("sealed"));
     }
 
+    // Sets override.
     void decorate_ast_node_t::set_override(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_override), true, el, _T("override"));
     }
 
+    // Sets virtual.
     void decorate_ast_node_t::set_virtual(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_virtual), true, el, _T("virtual"));
     }
 
+    // Sets abstract.
     void decorate_ast_node_t::set_abstract(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_abstract), true, el, _T("abstract"));
     }
 
+    // Sets new.
     void decorate_ast_node_t::set_new(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_new), true, el, _T("new"));
     }
 
+    // Sets readonly.
     void decorate_ast_node_t::set_readonly(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_readonly), true, el, _T("readonly"));
     }
 
+    // Sets constant.
     void decorate_ast_node_t::set_const(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_const), true, el, _T("const"));
     }
 
+    // Sets extern.
     void decorate_ast_node_t::set_extern(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_extern), true, el, _T("extern"));
     }
 
+    // Commits this node.
     void decorate_ast_node_t::on_commit()
     {
 
     }
 
+    // Returns this eobject.
     decorate_t * decorate_ast_node_t::to_eobject()
     {
         return &__decorate;
@@ -804,16 +1046,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // statements
 
+    // Commits this node.
     void statements_ast_node_t::on_commit()
     {
         this->transform_child_to(statements, __statements);
     }
 
+    // Returns this eobject.
     statements_t * statements_ast_node_t::to_eobject()
     {
         return &__statements;
     }
 
+    // Walks this node.
     void statements_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -822,16 +1067,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // method_body
 
+    // Commits this node.
     void method_body_ast_node_t::on_commit()
     {
         this->transform_child_to(statements, __body.statements);
     }
 
+    // Returns this eobject.
     method_body_t * method_body_ast_node_t::to_eobject()
     {
         return &__body;
     }
 
+    // Walks this node.
     void method_body_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -840,6 +1088,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // expression
 
+    // Appends token.
     void expression_ast_node_t::append_token(token_t * token)
     {
         _A(token != nullptr);
@@ -847,11 +1096,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __es.push_back(__el_t(token));
     }
 
+    // Appends name.
     void expression_ast_node_t::append_name(name_t name, token_t * token)
     {
         __es.push_back(__el_t(token, name));
     }
 
+    // Appends expression.
     void expression_ast_node_t::append_expression(ast_node_t * node)
     {
         _A(node != nullptr);
@@ -862,6 +1113,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->append_child(nodes, node);
     }
 
+    // Appends constant value.
     void expression_ast_node_t::append_cvalue(ast_node_t * node)
     {
         _A(node != nullptr);
@@ -872,16 +1124,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->append_child(nodes, node);
     }
 
+    // Commits this node.
     void expression_ast_node_t::on_commit()
     {
         __expression = __parse_expression(__es);
     }
 
+    // Returns this eobject.
     expression_t * expression_ast_node_t::to_eobject()
     {
         return __expression;
     }
 
+    // Walks this node.
     void expression_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch((walk_step_t)step)
@@ -905,17 +1160,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // statement
 
+    // Commits this node.
     void statement_ast_node_t::on_commit()
     {
         if(this->child_at(underlying) == nullptr)
             this->__log(this, __c_t::statement_missing);
     }
 
+    // Returns this eobject.
     statement_t * statement_ast_node_t::to_eobject()
     {
         return __to_eobject<statement_t *>(underlying);
     }
 
+    // Walks this node.
     void statement_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -924,22 +1182,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // import
 
+    // Sets alias.
     void import_ast_node_t::set_alias(name_t alias, __el_t * el)
     {
         this->__assign_name(__import.alias, alias, el, _T("import alias"));
     }
 
+    // Commits this node.
     void import_ast_node_t::on_commit()
     {
         __import.package  = __to_eobject<emname_t *>(package);
         __import.assembly = __to_eobject<emname_t *>(assembly);
     }
 
+    // Returns this eobject.
     import_t * import_ast_node_t::to_eobject()
     {
         return &__import;
     }
 
+    // Walks this node.
     void import_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         import_t * import = to_eobject();
@@ -1007,22 +1269,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // using
 
+    // Sets alias.
     void using_ast_node_t::set_alias(name_t name, __el_t * el)
     {
         this->__validate_name(name, el);
         __using_namespace.alias = name;
     }
 
+    // Commits this node.
     void using_ast_node_t::on_commit()
     {
         __using_namespace.ns = __to_eobject<emname_t *>(ns);
     }
 
+    // Returns this eobject.
     using_namespace_t * using_ast_node_t::to_eobject()
     {
         return &__using_namespace;
     }
 
+    // Walks this node.
     void using_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if(!__using_namespace.ns)
@@ -1048,6 +1314,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // namespace
 
+    // Commits this node.
     void namespace_ast_node_t::on_commit()
     {
         __namespace.name = __to_eobject<emname_t *>(name);
@@ -1057,11 +1324,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->transform_child_to(type_defs,  __namespace.type_defs);
     }
 
+    // Returns this eobject.
     namespace_t * namespace_ast_node_t::to_eobject()
     {
         return &__namespace;
     }
 
+    // Walks this node.
     void namespace_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push(this->to_eobject());
@@ -1071,15 +1340,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Method utils.
     class __method_utils_t : public __utils_t
     {
         typedef __utils_t __super_t;
 
     public:
+
+        // Constructor.
         __method_utils_t(ast_context_t & ctx, ast_walk_context_t & wctx)
             : __super_t(ctx), __wctx(wctx)
         { }
 
+        // Revise constructor.
         void revise_constructor(method_t & method, arguments_t * args, __el_t * node = nullptr)
         {
             method_t * base_ctor = __get_base_contructor(args, node);
@@ -1124,6 +1397,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     private:
         ast_walk_context_t & __wctx;
 
+        // Returns base constructor.
         method_t * __get_base_contructor(arguments_t * args, __el_t * node)
         {
             type_t * type = __wctx.current_type();
@@ -1150,21 +1424,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type
 
+    // Sets name.
     void type_ast_node_t::set_name(const name_t & name, __el_t * el)
     {
         this->__assign_name(__type.name, name, el, _T("type"));
     }
 
+    // Sets ttype.
     void type_ast_node_t::set_ttype(ttype_t ttype, __el_t * el)
     {
         __type.ttype = ttype;
     }
 
+    // Appends member.
     void type_ast_node_t::append_member(member_t * member)
     {
         __type.append_member(member);
     }
 
+    // Commits this node.
     void type_ast_node_t::on_commit()
     {
         __type.params     = __to_eobject<generic_params_t *>(generic_params);
@@ -1180,11 +1458,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->transform_child_to(super_type_names,  __type.super_type_names);
     }
 
+    // Returns this eobject.
     type_t * type_ast_node_t::to_eobject()
     {
         return &__type;
     }
 
+    // Walks this node.
     void type_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch((walk_step_t)step)
@@ -1203,6 +1483,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Walks default step.
     void type_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
     {
         general_type_t * type = (general_type_t *)to_eobject();
@@ -1227,11 +1508,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Walks analysis step.
     void type_ast_node_t::__walk_analysis(ast_walk_context_t & context, method_t * method)
     {
         __method_utils_t(__context, context).revise_constructor(*method, nullptr);
     }
 
+    // Appends default constructor.
     method_t * type_ast_node_t::__append_default_constructor()
     {
         method_t * method = __new_obj<method_t>();
@@ -1249,21 +1532,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // generic_param
 
+    // Sets name.
     void generic_param_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__param.name, name, el, _T("template param"));
     }
 
+    // Commits this node.
     void generic_param_ast_node_t::on_commit()
     {
         __param.attributes = __to_eobject_with_owner<attributes_t *>(attributes, &__param);
     }
 
+    // Returns this eobject.
     generic_param_t * generic_param_ast_node_t::to_eobject()
     {
         return &__param;
     }
 
+    // Walks this node.
     void generic_param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__param.name, _T("template param"));
@@ -1274,16 +1561,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // generic_params
 
+    // Commits this node.
     void generic_params_ast_node_t::on_commit()
     {
         this->transform_child_to(params, __generic_params);
     }
 
+    // Returns this eobject.
     generic_params_t * generic_params_ast_node_t::to_eobject()
     {
         return &__generic_params;
     }
 
+    // Walks this node.
     void generic_params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1292,27 +1582,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // generic_constraint
 
+    // Sets constraint.
     void generic_constraint_ast_node_t::set_constraint(generic_constraint_ttype_t cttype,
                                                             __el_t * el)
     {
         this->__assign(__generic_constraint.cttype, cttype, el, _T("constraint type"), true);
     }
 
+    // Sets name.
     void generic_constraint_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__generic_constraint.param_name, name, el, _T("generic param"));
     }
 
+    // Commits this node.
     void generic_constraint_ast_node_t::on_commit()
     {
         this->transform_child_to(type_names, __generic_constraint.type_names);
     }
 
+    // Returns this eobject.
     generic_constraint_t * generic_constraint_ast_node_t::to_eobject()
     {
         return &__generic_constraint;
     }
 
+    // Walks this node.
     void generic_constraint_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1321,16 +1616,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // generic_constraints
 
+    // Commits this node.
     void generic_constraints_ast_node_t::on_commit()
     {
         this->transform_child_to(constraints, __generic_constraints);
     }
 
+    // Returns this eobject.
     generic_constraints_t * generic_constraints_ast_node_t::to_eobject()
     {
         return &__generic_constraints;
     }
 
+    // Walks this node.
     void generic_constraints_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1339,16 +1637,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // generic_arg
 
+    // Commits this node.
     void generic_arg_ast_node_t::on_commit()
     {
         __arg.type_name = __to_eobject<type_name_t *>(type_name);
     }
 
+    // Returns this eobject.
     generic_arg_t * generic_arg_ast_node_t::to_eobject()
     {
         return &__arg;
     }
 
+    // Walks this node.
     void generic_arg_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__arg.type_name, this, __c_t::type_name_missing, _T("generic argument"));
@@ -1359,16 +1660,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // generic_args
 
+    // Commits this node.
     void generic_args_ast_node_t::on_commit()
     {
         this->transform_child_to(generic_args, __args);
     }
 
+    // Returns this eobject.
     generic_args_t * generic_args_ast_node_t::to_eobject()
     {
         return &__args;
     }
 
+    // Walks this node.
     void generic_args_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if(__args.empty())
@@ -1383,16 +1687,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // param
 
+    // Sets name.
     void param_ast_node_t::set_name(const name_t & name, __el_t * el)
     {
         this->__assign_name(__param.name, name, el, _T("param"));
     }
 
+    // Sets param type.
     void param_ast_node_t::set_param_type(param_type_t ptype, __el_t * el)
     {
         this->__assign(__param.ptype, ptype, el, _T("param type"));
     }
 
+    // Commits this node.
     void param_ast_node_t::on_commit()
     {
         __param.type_name     = __to_eobject<type_name_t *>(type_name);
@@ -1400,11 +1707,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __param.attributes    = __to_eobject_with_owner<attributes_t *>(attributes, &__param);
     }
 
+    // Returns this eobject.
     param_t * param_ast_node_t::to_eobject()
     {
         return &__param;
     }
 
+    // Walks this node.
     void param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch((walk_step_t)step)
@@ -1448,16 +1757,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // params
 
+    // Commits this node.
     void params_ast_node_t::on_commit()
     {
         this->transform_child_to(params, __params);
     }
 
+    // Returns this eobject.
     params_t * params_ast_node_t::to_eobject()
     {
         return &__params;
     }
 
+    // Walks this node.
     void params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1466,12 +1778,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // attribute
 
+    // Commits this node.
     void attribute_ast_node_t::on_commit()
     {
         __attr.type_name = __to_eobject<type_name_t *>(type_name);
         __attr.arguments = __to_eobject<arguments_t *>(arguments);
     }
 
+    // Returns this eobject.
     attribute_t * attribute_ast_node_t::to_eobject()
     {
         if(__is_compile_time_attribute(&__attr))
@@ -1480,6 +1794,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return &__attr;
     }
 
+    // Walks this node.
     void attribute_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch((walk_step_t)step)
@@ -1505,11 +1820,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns compile time attribute.
     attribute_t * attribute_ast_node_t::__get_compile_time_attribute()
     {
         return __get_xpool().get_compile_time_attribute();
     }
 
+    // Analyze attribute constructor.
     void attribute_ast_node_t::__analyze_attribute_constructor()
     {
         type_name_t * type_name = __attr.type_name;
@@ -1554,16 +1871,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // attributes
 
+    // Commits this node.
     void attributes_ast_node_t::on_commit()
     {
         this->transform_child_to(attributes, __attributes);
     }
 
+    // Returns this eobject.
     attributes_t * attributes_ast_node_t::to_eobject()
     {
         return &__attributes;
     }
 
+    // Walks this node.
     void attributes_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1572,6 +1892,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // if
 
+    // Walks this node.
     void if_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1580,6 +1901,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // for
 
+    // Walks this node.
     void for_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1588,6 +1910,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // while
 
+    // Walks this node.
     void while_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1596,6 +1919,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // switch
 
+    // Walks this node.
     void switch_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1604,6 +1928,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // loop
 
+    // Walks this node.
     void loop_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1612,6 +1937,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // break
 
+    // Walks this node.
     void break_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1620,6 +1946,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // continue
 
+    // Walks this node.
     void continue_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1628,6 +1955,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // return
 
+    // Walks this node.
     void return_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1636,16 +1964,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // expression_st
 
+    // Walks this node.
     void expression_st_ast_node_t::on_commit()
     {
         __statement.expression = __to_eobject<expression_t *>(expression);
     }
 
+    // Returns this eobject.
     statement_t * expression_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void expression_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.expression, this, __c_t::expression_missing,
@@ -1656,16 +1987,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_def_st
 
+    // Commits this node.
     void type_def_st_ast_node_t::on_commit()
     {
         __statement.type_def = __to_eobject<type_def_t *>(type_def);
     }
 
+    // Returns this eobject.
     statement_t * type_def_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void type_def_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.type_def, this, __c_t::statement_missing);
@@ -1676,17 +2010,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // defination_st
 
+    // Commits this node.
     void defination_st_ast_node_t::on_commit()
     {
         __statement.type_name = __to_eobject<type_name_t *>(type_name);
         this->transform_child_to(items, __statement);
     }
 
+    // Returns this eobject.
     statement_t * defination_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void defination_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.type_name, this, __c_t::type_name_missing,
@@ -1725,11 +2062,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // break_st
 
+    // Returns this eobject.
     statement_t * break_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void break_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1738,11 +2077,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // continue_st
 
+    // Returns this eobject.
     statement_t * continue_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node. 
     void continue_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1751,16 +2092,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // throw_st
 
+    // Commits this node.
     void throw_st_ast_node_t::on_commit()
     {
         __statement.expression = __to_eobject<expression_t *>(expression);
     }
 
+    // Returns this eobject.
     statement_t * throw_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void throw_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1769,21 +2113,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // goto_st
 
+    // Sets label.
     void goto_st_ast_node_t::set_label(const name_t & label, __el_t * el)
     {
         this->__assign_name(__statement.label, label, el, _T("label"));
     }
 
+    // Commits this node.
     void goto_st_ast_node_t::on_commit()
     {
 
     }
 
+    // Returns this eobject.
     statement_t * goto_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void goto_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__statement.label, _T("label"));
@@ -1794,16 +2142,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // return_st
 
+    // Commits this node.
     void return_st_ast_node_t::on_commit()
     {
         __statement.expression = __to_eobject<expression_t *>(expression);
     }
 
+    // Returns this eobject.
     statement_t * return_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Wallks this node.
     void return_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1812,17 +2163,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // do_while_st
 
+    // Commits this node.
     void do_while_st_ast_node_t::on_commit()
     {
         __statement.condition = __to_eobject<expression_t *>(condition);
         __statement.body      = __to_eobject<statement_t *>(body);
     }
 
+    // Returns this eobject.
     statement_t * do_while_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void do_while_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.condition, this, __c_t::condition_missing, _T("do while"));
@@ -1832,19 +2186,47 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // loop_until_st
+
+    // Commits this node.
+    void loop_until_st_ast_node_t::on_commit()
+    {
+        __statement.condition = __to_eobject<expression_t *>(condition);
+        __statement.body      = __to_eobject<statement_t *>(body);
+    }
+
+    // Returns this eobject.
+    statement_t * loop_until_st_ast_node_t::to_eobject()
+    {
+        return &__statement;
+    }
+
+    // Walks this node.
+    void loop_until_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        this->__check_empty(__statement.condition, this, __c_t::condition_missing, _T("loop until"));
+        this->__check_empty(__statement.body, this, __c_t::body_missing, _T("loop until"));
+
+        __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // while_st
 
+    // Commits this node.
     void while_st_ast_node_t::on_commit()
     {
         __statement.condition = __to_eobject<expression_t *>(condition);
         __statement.body      = __to_eobject<statement_t *>(body);
     }
 
+    // Returns this eobject.
     statement_t * while_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void while_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.condition, this, __c_t::condition_missing, _T("while"));
@@ -1856,6 +2238,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // for_st
 
+    // Commits this node.
     void for_st_ast_node_t::on_commit()
     {
         auto init_statement = __try_to_eobject<statement_t *>(initialize);
@@ -1869,26 +2252,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __statement.body       = __to_eobject<statement_t *>(body);
     }
 
+    // Returns this eobject.
     statement_t * for_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void for_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.body, this, __c_t::body_missing, _T("while"));
 
-        __super_t::on_walk(context, step, tag);
+        if(__statement.defination_initialize != nullptr)
+        {
+            context.push_new_region();
+            __super_t::on_walk(context, step, tag);
+            context.pop();
+        }
+        else
+        {
+            __super_t::on_walk(context, step, tag);
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
     // for_each_st
 
+    // Set variables.
     void for_each_st_ast_node_t::set_variable(name_t name, __el_t * el)
     {
         this->__assign_name(__statement.variable, name, el, _T("var"));
     }
 
+    // Commits this node.
     void for_each_st_ast_node_t::on_commit()
     {
         __statement.iterator   = __to_eobject<expression_t *>(iterator);
@@ -1896,11 +2292,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __statement.body       = __to_eobject<statement_t *>(body);
     }
 
+    // Returns this eobject.
     statement_t * for_each_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void for_each_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__statement.variable, _T("variable"));
@@ -1913,6 +2311,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // if_st
 
+    // Commits this node.
     void if_st_ast_node_t::on_commit()
     {
         __statement.condition   = __to_eobject<expression_t *>(condition);
@@ -1923,11 +2322,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->__check_empty(__statement.if_body, this, __c_t::body_missing, _T("if"));
     }
 
+    // Returns this eobject.
     statement_t * if_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void if_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -1936,17 +2337,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // switch_st
 
+    // Commits this node.
     void switch_st_ast_node_t::on_commit()
     {
         __statement.expression = __to_eobject<expression_t *>(expression);
         this->transform_child_to(cases, __statement.cases);
     }
 
+    // Returns this eobject.
     statement_t * switch_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void switch_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.expression, this, __c_t::expression_missing, _T("switch"));
@@ -1957,6 +2361,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // case
 
+    // Appends default expression.
     void case_ast_node_t::append_default(__el_t * el)
     {
         auto * exp_node = to_fake_ast<(__value_t)__cvalue_t::expression>(
@@ -1966,17 +2371,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->append_child(constants, exp_node);
     }
 
+    // Commits this node.
     void case_ast_node_t::on_commit()
     {
         this->transform_child_to(constants, __case.constants);
         __case.statements = __to_eobject<statements_t *>(statements);
     }
 
+    // Returns this eobject.
     case_t * case_ast_node_t::to_eobject()
     {
         return &__case;
     }
 
+    // Walks this node.
     void case_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__case.constants, this, __c_t::expression_missing, _T("case"));
@@ -1987,6 +2395,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // try_st
 
+    // Commits this node.
     void try_st_ast_node_t::on_commit()
     {
         __statement.try_statement     = __to_eobject<statement_t *>(try_);
@@ -1995,11 +2404,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->transform_child_to(catches, __statement.catches);
     }
 
+    // Returns this eobject.
     statement_t * try_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void try_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
 
@@ -2014,23 +2425,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // catch
 
+    // Sets variable.
     void catch_ast_node_t::set_variable(name_t variable, __el_t * el)
     {
         this->__assign_name(__catch.variable, variable, el, _T("variable"));
         __variable_el = el;
     }
 
+    // Commits this node.
     void catch_ast_node_t::on_commit()
     {
         __catch.type_name = __to_eobject<type_name_t *>(type_name);
         __catch.body      = __to_eobject<statement_t *>(body);
     }
 
+    // Returns this eobject.
     catch_t * catch_ast_node_t::to_eobject()
     {
         return &__catch;
     }
 
+    // Walks this node.
     void catch_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if(__catch.type_name == nullptr && !__catch.variable.empty())
@@ -2044,11 +2459,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // empty_st
 
+    // Returns this eobject.
     statement_t * empty_st_ast_node_t::to_eobject()
     {
         return &__statement;
     }
 
+    // Walks this node.
     void empty_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -2057,16 +2474,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // statement_group_st
 
+    // Commits this node.
     void statement_group_st_ast_node_t::on_commit()
     {
         this->transform_child_to(statements, __statement_group);
     }
 
+    // Returns this eobject.
     statement_t * statement_group_st_ast_node_t::to_eobject()
     {
         return &__statement_group;
     }
 
+    // Walks this node.
     void statement_group_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push_new_region();
@@ -2077,16 +2497,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_name_exp
 
+    // Commits this node.
     void type_name_exp_ast_node_t::on_commit()
     {
         __expression.type_name = __to_eobject<type_name_t *>(type_name);
     }
 
+    // Returns this eobject.
     expression_t * type_name_exp_ast_node_t::to_eobject()
     {
         return &__expression;
     }
 
+    // Walks this node.
     void type_name_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -2095,17 +2518,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type_cast_exp
 
+    // Commits this node.
     void type_cast_exp_ast_node_t::on_commit()
     {
         __expression.type_name  = __to_eobject<type_name_t *>(type_name);
         __expression.expression = __to_eobject<expression_t *>(expression);
     }
 
+    // Returns this eobject.
     expression_t * type_cast_exp_ast_node_t::to_eobject()
     {
         return &__expression;
     }
 
+    // Walks this node.
     void type_cast_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -2114,6 +2540,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // function
 
+    // Commits this node.
     void function_ast_node_t::on_commit()
     {
         __expression.namex         = __to_eobject<expression_t *>(namex);
@@ -2122,11 +2549,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __expression.set_arguments(__to_eobject<arguments_t *>(arguments));
     }
 
+    // Returns this eobject.
     expression_t * function_ast_node_t::to_eobject()
     {
         return &__expression;
     }
 
+    // Walks this node.
     void function_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__expression.namex, _T("function"));
@@ -2142,21 +2571,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // index
 
+    // Commits this node.
     void index_ast_node_t::on_commit()
     {
-        __expression.namex     = __to_eobject<expression_t *>(namex);
+        __expression.set_namex(__to_eobject<expression_t *>(namex));
 
         __expression.set_arguments(__to_eobject<arguments_t *>(arguments));
     }
 
+    // Returns this eobject.
     expression_t * index_ast_node_t::to_eobject()
     {
         return &__expression;
     }
 
+    // Walks this node.
     void index_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        this->__check_name_empty(__expression.namex, _T("index"));
+        this->__check_name_empty(__expression.namex(), _T("index"));
 
         __super_t::on_walk(context, step, tag);
     }
@@ -2164,17 +2596,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // new
 
+    // Commits this node.
     void new_ast_node_t::on_commit()
     {
         __expression.type_name = __to_eobject<type_name_t *>(type_name);
         __expression.set_arguments(__to_eobject<arguments_t *>(arguments));
     }
 
+    // Returns this eobject.
     expression_t * new_ast_node_t::to_eobject()
     {
         return &__expression;
     }
 
+    // Walks this node.
     void new_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__expression.type_name, this, __c_t::type_name_missing,
@@ -2213,6 +2648,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // new_array
 
+    // Commits this node.
     void new_array_ast_node_t::on_commit()
     {
         __expression.type_name = __to_eobject<type_name_t *>(type_name);
@@ -2220,6 +2656,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __expression.initializer = __to_eobject<array_initializer_t *>(initializer);
     }
 
+    // Returns this eobject.
     expression_t * new_array_ast_node_t::to_eobject()
     {
         return &__expression;
@@ -2227,6 +2664,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     const array_length_t unkown_array_length = -1;
 
+    // Walks this eobject.
     void new_array_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__expression.type_name, this, __c_t::type_name_missing,
@@ -2256,10 +2694,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns length of specified dimension.
     array_length_t new_array_ast_node_t::__get_length(dimension_t dimension)
     {
         array_initializer_t * initializer = __expression.initializer;
-        _PP((void *)initializer);
 
         while(dimension-- > 0 && initializer != nullptr)
         {
@@ -2279,6 +2717,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // array_initializer
 
+    // Commits this node.
     void array_initializer_ast_node_t::on_commit()
     {
         this->each_child_node<ast_node_t>(elements, [&](ast_node_t * node) {
@@ -2301,29 +2740,43 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         });
     }
 
+    // Returns this eobject.
     array_initializer_t * array_initializer_ast_node_t::to_eobject()
     {
         return &__initializer;
     }
 
+    // Walks this node.
     void array_initializer_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        try
+        {
+            __initializer.check();
+        }
+        catch(logic_error_t<array_initialize_check_error_code_t> & e)
+        {
+            this->__log(this, __c_t::array_initializer_error, _str(e));
+        }
+
         __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
     // array_lengths
 
+    // Commits this node.
     void array_lengths_ast_node_t::on_commit()
     {
         this->transform_child_to(lengths, __lengths);
     }
 
+    // Returns this eobject.
     array_lengths_t * array_lengths_ast_node_t::to_eobject()
     {
         return &__lengths;
     }
 
+    // Walks this node.
     void array_lengths_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __super_t::on_walk(context, step, tag);
@@ -2332,16 +2785,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // default_value
 
+    // Commits this node.
     void default_value_ast_node_t::on_commit()
     {
         __expression.type_name = __to_eobject<type_name_t *>(type_name);
     }
 
+    // Returns this eobject.
     expression_t * default_value_ast_node_t::to_eobject()
     {
         return &__expression;
     }
 
+    // Walks this node.
     void default_value_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__expression.type_name, this, __c_t::type_name_missing,
@@ -2353,11 +2809,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // field
 
+    // Sets name.
     void field_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__field.name, name, el, _T("field"));
     }
 
+    // Commits this node.
     void field_ast_node_t::on_commit()
     {
         __field.decorate   = __to_eobject<decorate_t *>(decorate);
@@ -2366,11 +2824,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __field.attributes = __to_eobject_with_owner<attributes_t *>(attributes, &__field);
     }
 
+    // Returns this eobject.
     field_t * field_ast_node_t::to_eobject()
     {
         return &__field;
     }
 
+    // Walks this node.
     void field_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push(this->to_eobject());
@@ -2393,16 +2853,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // method
 
+    // Sets name.
     void method_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__method.name, name, el, _T("method"));
     }
 
+    // Sets trait.
     void method_ast_node_t::set_trait(method_trait_t trait, __el_t * el)
     {
         this->__assign(__method.trait, trait, el, _T("method trait"));
     }
 
+    // Commits it.
     void method_ast_node_t::on_commit()
     {
         __method.type_name       = __to_eobject<type_name_t *>(type_name);
@@ -2414,11 +2877,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __method.body            = __to_eobject<method_body_t *>(body);
     }
 
+    // Returns this eobject.
     method_t * method_ast_node_t::to_eobject()
     {
         return &__method;
     }
 
+    // Walks this node.
     void method_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch((walk_step_t)step)
@@ -2441,6 +2906,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Walks the default step.
     void method_ast_node_t::__walk_default(ast_walk_context_t & context)
     {
         type_t * type = context.current_type();
@@ -2535,6 +3001,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Walks the analysis step.
     void method_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         switch(__method.trait)
@@ -2559,11 +3026,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // property
 
+    // Sets name.
     void property_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__property.name, name, el, _T("property"));
     }
 
+    // Commits this node.
     void property_ast_node_t::on_commit()
     {
         __property.type_name  = __to_eobject<type_name_t *>(type_name);
@@ -2575,11 +3044,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __property.attributes = __to_eobject_with_owner<attributes_t *>(attributes, &__property);
     }
 
+    // Returns this eobject.
     property_t * property_ast_node_t::to_eobject()
     {
         return &__property;
     }
 
+    // Appends method.
     bool __append_method(ast_context_t & cctx, ast_walk_context_t & wctx, method_t * method)
     {
         type_t * type = wctx.current_type();
@@ -2593,6 +3064,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return true;
     }
 
+    // Walk this node.
     void property_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if(!__property.name.empty())
@@ -2643,11 +3115,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // event
 
+    // Sets name.
     void event_ast_node_t::set_name(name_t name, __el_t * el)
     {
         this->__assign_name(__event.name, name, el, _T("event"));
     }
 
+    // Commits this node.
     void event_ast_node_t::on_commit()
     {
         __event.type_name       = __to_eobject<type_name_t *>(type_name);
@@ -2658,11 +3132,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __event.attributes      = __to_eobject_with_owner<attributes_t *>(attributes, &__event);
     }
 
+    // Returns this eobject.
     event_t * event_ast_node_t::to_eobject()
     {
         return &__event;
     }
 
+    // Walks this node.
     void event_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__event.name, _T("event"));

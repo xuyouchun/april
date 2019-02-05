@@ -8,6 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     const ref_t ref_t::null(0, 0, 0);
     const res_t res_t::null(0);
 
+    // Converts ref_t to a string.
     ref_t::operator string_t() const
     {
         if(*this == ref_t::null)
@@ -29,6 +30,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Converts res_t to a string.
     res_t::operator string_t() const
     {
         if(*this == res_t::null)
@@ -37,11 +39,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return _F(_T("%1%"), pos);
     }
 
+    // Returns the begin iterator.
     ref_iterator_t ref_t::begin() const { return ref_iterator_t(ref_t(index, 1, extra)); }
+
+    // Returns the end iterator.
     ref_iterator_t ref_t::end()   const { return ref_iterator_t(ref_t(index + count, 1, extra)); }
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Xil command.
     X_ENUM_INFO(xil_command_t)
 
         X_C(empty,          _T("empty"))
@@ -68,10 +74,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(new_,           _T("new"))
 
+        X_C(copy,           _T("copy"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Xil algorithm command.
     X_ENUM_INFO(xil_al_command_t)
 
         X_C(empty,          _T("empty"))
@@ -92,6 +101,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Xil bit command.
     X_ENUM_INFO(xil_bit_command_t)
 
         X_C(bit_and,        _T("bit_and"))
@@ -106,6 +116,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Xil Cmp command.
     X_ENUM_INFO(xil_cmp_command_t)
 
         X_C(empty,          _T("empty"))
@@ -126,6 +137,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Xil logic command.
     X_ENUM_INFO(xil_logic_command_t)
 
         X_C(empty,          _T("empty"))
@@ -140,6 +152,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Xil type.
     X_ENUM_INFO(xil_type_t)
 
         X_C(empty,          _T("empty"))
@@ -176,6 +189,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_INFO_END
 
+    // Converts vtype to xil_type.
     xil_type_t to_xil_type(vtype_t vtype)
     {
         switch(vtype)
@@ -222,6 +236,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case vtype_t::ptr:
                 return xil_type_t::ptr;
 
+            case vtype_t::string:
+                return xil_type_t::string;
+
             default:
                 return xil_type_t::__unknown__;
         }
@@ -229,6 +246,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Method call type.
     X_ENUM_INFO(xil_call_type_t)
 
         X_C(empty,          _T("empty"))
@@ -245,6 +263,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Simple xil.
     X_ENUM_INFO(xil_smp_t)
 
         X_C(empty,          _T("empty"))
@@ -257,6 +276,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Jmp direction.
     X_ENUM_INFO(xil_jmp_direction_t)
 
         X_C(near_backward,  _T("near_backward"))
@@ -271,6 +291,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Jmp condition.
     X_ENUM_INFO(xil_jmp_condition_t)
 
         X_C(none,           _T("none"))
@@ -285,6 +306,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Storage type.
     X_ENUM_INFO(xil_storage_type_t)
 
         X_C(empty,          _T("empty"))
@@ -297,12 +319,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(constant,       _T("constant"))
 
+        X_C(array_element,  _T("array_element"))
+
         X_C(duplicate,      _T("duplicate"))
 
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // New type.
     X_ENUM_INFO(xil_new_type_t)
 
         X_C(default_,       _T("default"))
@@ -311,8 +336,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_INFO_END
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Copy type.
+    X_ENUM_INFO(xil_copy_type_t)
+
+        X_C(block_copy,     _T("block_copy"))
+
+        X_C(stack_copy,     _T("stack_copy"))
+
+        X_C(res_copy,       _T("res_copy"))
+
+    X_ENUM_INFO_END
+
     ////////// ////////// ////////// ////////// //////////
 
+    // Convert xil to a string.
     template<typename _xil_t>
     string_t __xil_value_to_string(const _xil_t & xil, xil_type_t xil_type)
     {
@@ -369,6 +408,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // push_xil_t
 
+    // Converts push_xil_t to a string.
     push_xil_t::operator string_t() const
     {
         switch(stype())
@@ -381,6 +421,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             case xil_storage_type_t::field:
                 return _F(_T("push field (%1%)%2%"), dtype(), field_ref());
+
+            case xil_storage_type_t::array_element:
+                return _F(_T("push array element (%1%)%2%"), dtype(), type_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("push constant (%1%)%2%"),
@@ -396,6 +439,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Converts pop_xil_t to a string.
     pop_xil_t::operator string_t() const
     {
         switch(stype())
@@ -408,6 +453,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             case xil_storage_type_t::field:
                 return _F(_T("pop field (%1%)%2%"), dtype(), field_ref());
+
+            case xil_storage_type_t::array_element:
+                return _F(_T("pop array element (%1%)%2%"), dtype(), type_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("pop constant (%1%)%2%"),
@@ -427,6 +475,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // pick_xil_t
 
+    // Converts pick_xil_t to a string.
     pick_xil_t::operator string_t() const
     {
         switch(stype())
@@ -439,6 +488,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             case xil_storage_type_t::field:
                 return _F(_T("pick field %1%(%2%)"), dtype(), field_ref());
+
+            case xil_storage_type_t::array_element:
+                return _F(_T("pick array element %1%(%2%)"), dtype(), type_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("pick constant (%1%)%2%"),
@@ -453,6 +505,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // al_xil_t
 
+    // Converts algorithm xil to a string.
     al_xil_t::operator string_t() const
     {
         return _F(_T("%1% %2% %3%"), cmd(), dtype1(), dtype2());
@@ -461,6 +514,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // bit_xil_t
 
+    // Converts bit xil to a string.
     bit_xil_t::operator string_t() const
     {
         return _F(_T("%1% %2% %3%"), cmd(), dtype1(), dtype2());
@@ -469,6 +523,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // logic_xil_t
 
+    // Converts logic xil to a string.
     logic_xil_t::operator string_t() const
     {
         return _F(_T("%1%"), cmd());
@@ -477,6 +532,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // cmp_xil_t
 
+    // Converts cmp xil to a string.
     cmp_xil_t::operator string_t() const
     {
         return _F(_T("%1% %2% %3%"), cmd(), dtype1(), dtype2());
@@ -485,6 +541,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // call_xil_t
 
+    // Converts call xil to a string.
     call_xil_t::operator string_t() const
     {
         return _F(_T("call %1% %2%"), call_type(), *(ref_t *)&method);
@@ -493,9 +550,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // smp_xil_t
 
+    // Converts simple xil to a string.
     smp_xil_t::operator string_t() const
     {
-        //return _str(smp());
         switch(smp())
         {
             case xil_smp_t::empty:
@@ -515,11 +572,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // jmp_xil_t
 
+    // Converts jmp xil to a string.
     jmp_xil_t::operator string_t() const
     {
         return _F(_T("jmp %1% %2%"), condition(), step());
     }
 
+    // Sets jmp xil step.
     void jmp_xil_t::set_step(int32_t step)
     {
         enum { positive, negative } sign = (step >= 0)? positive :
@@ -541,6 +600,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Returns jmp step.
     int32_t jmp_xil_t::step() const
     {
         switch(direction())
@@ -562,6 +622,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Sets switch-case table index.
     void jmp_xil_t::set_tbl(int32_t index)
     {
         if(index < 0 || index > (int32_t)max_value<byte_t>())
@@ -570,6 +631,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __extra[0] = (byte_t)index;
     }
 
+    // Returns switch-case table index.
     int32_t jmp_xil_t::tbl() const
     {
         return __extra[0];
@@ -577,6 +639,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Converts new_xil_t to string.
     new_xil_t::operator string_t() const
     {
         switch(new_type())
@@ -594,12 +657,34 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Converts copy xil to a string.
+    copy_xil_t::operator string_t() const
+    {
+        switch(copy_type())
+        {
+            case xil_copy_type_t::stack_copy:
+                return _T("stack copy");
+
+            case xil_copy_type_t::block_copy:
+                return _T("block copy");
+
+            case xil_copy_type_t::res_copy:
+                return _T("res copy");
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Converts xil to a string.
     string_t __to_string(const xil_t * xil)
     {
         if(xil == nullptr)
             return _T("<NULL>");
 
-        switch((xil_command_t)((const xil_base_t *)xil)->cmd1)
+        switch((xil_command_t)((const xil_base_t *)xil)->command())
         {
             case xil_command_t::empty:
                 return _T("<EMPTY>");
@@ -637,16 +722,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_command_t::new_:
                 return _str(*(const new_xil_t *)xil);
 
+            case xil_command_t::copy:
+                return _str(*(const copy_xil_t *)xil);
+
             default:
                 return _T("<UNKNOWN>");
         }
     }
 
+    // Returns size of xil_t.
     size_t __size_of(const xil_t * xil)
     {
         _A(xil != nullptr);
 
-        switch((xil_command_t)((const xil_base_t *)xil)->cmd1)
+        switch(((const xil_base_t *)xil)->command())
         {
             case xil_command_t::empty:
                 return 1;
@@ -684,11 +773,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_command_t::new_:
                 return size_of(*(const new_xil_t *)xil);
 
+            case xil_command_t::copy:
+                return size_of(*(const copy_xil_t *)xil);
+
             default:
                 X_UNEXPECTED();
         }
     }
 
+    // Reads a xil.
     bool xil_reader_t::read(const xil_base_t ** out_xil)
     {
         if(__bytes >= __bytes_end)
@@ -704,6 +797,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Writes xils to a buffer.
     size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer)
     {
         method_xil_stub_t stub;
@@ -723,15 +817,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-    xil_call_type_t call_type_of_method(method_t * method)
+    // Returns method call type.
+    xil_call_type_t call_type_of_method(method_base_t * method)
     {
-        if(method->is_extern())
+        method_t * m = to_general(method);
+
+        if(m->is_extern())
             return xil_call_type_t::internal;
 
-        if(method->is_static())
+        if(m->is_static())
             return xil_call_type_t::static_;
 
-        if(method->is_virtual() || method->is_override())
+        if(m->is_virtual() || m->is_override() || m->is_abstract())
             return xil_call_type_t::virtual_;
 
         return xil_call_type_t::instance;

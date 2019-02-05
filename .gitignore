@@ -2,6 +2,7 @@
 *.dep
 *.sw*
 *.csec
+*.apl
 libs/
 bin/
 include/config.h

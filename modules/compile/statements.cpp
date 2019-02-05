@@ -15,30 +15,35 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     namespace xilx
     {
+        // Appends jmp xilx.
         point_jmp_xilx_t * append_jmp(__context_t & ctx, __exit_point_type_t type,
                                 xil_jmp_condition_t jmp_condition)
         {
             return append_xilx<point_jmp_xilx_t>(ctx, type, jmp_condition);
         }
 
+        // Appends jmp xilx.
         local_label_jmp_xilx_t * append_jmp(__context_t & ctx, local_label_t label,
                                 xil_jmp_condition_t jmp_condition)
         {
             return append_xilx<local_label_jmp_xilx_t>(ctx, label, jmp_condition);
         }
 
+        // Appends jmp xilx.
         global_label_jmp_xilx_t * append_jmp(__context_t & ctx, name_t name,
                                 xil_jmp_condition_t jmp_condition)
         {
             return append_xilx<global_label_jmp_xilx_t>(ctx, name, jmp_condition);
         }
 
+        // Appends jmp xilx.
         global_label_jmp_xilx_t * append_jmp(__context_t & ctx, const string_t & name,
                                 xil_jmp_condition_t jmp_condition)
         {
             return append_jmp(ctx, ctx.to_name(name), jmp_condition);
         }
 
+        // Appends switch jmp xilx.
         switch_jmp_xilx_t * __append_switch(__context_t & ctx, switch_table_t * tbl)
         {
             return append_xilx<switch_jmp_xilx_t>(ctx, tbl);
@@ -46,16 +51,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Appends global label.
         global_label_xilx_t * append_global_label(__context_t & ctx, name_t name)
         {
             return append_xilx<global_label_xilx_t>(ctx, name);
         }
 
+        // Appends global label.
         global_label_xilx_t * append_global_label(__context_t & ctx, const string_t & name)
         {
             return append_global_label(ctx, ctx.to_name(name));
         }
 
+        // Appens local lable.
         local_label_xilx_t * append_local_label(__context_t & ctx, local_label_t flag)
         {
             return append_xilx<local_label_xilx_t>(ctx, flag);
@@ -63,6 +71,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Sets point.
         local_label_xilx_t * set_point(__context_t & ctx, __exit_point_type_t point_type)
         {
             local_label_xilx_t * label = append_xilx<local_label_xilx_t>(
@@ -76,6 +85,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Appends condition.
         void append_condition(__context_t & ctx, expression_t * condition)
         {
             if(condition != nullptr)
@@ -86,12 +96,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Compiles statement.
     void compile_statement(__context_t & ctx, statement_t * statement)
     {
         if(statement != nullptr)
             statement->compile(ctx);
     }
 
+    // Compiles statements.
     void compile_statements(__context_t & ctx, statements_t * statements)
     {
         if(statements != nullptr)
@@ -105,6 +117,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Exit point mask.
     X_ENUM(__exit_point_mask_t)
 
         #define __EMask(v)  (1 << (int)v)
@@ -115,6 +128,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     X_ENUM_END
 
+    // Exit point mask.
     X_ENUM_INFO(__exit_point_mask_t)
 
         X_C(self,       _T("self"))
@@ -125,6 +139,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef __exit_point_mask_t __e_mask_t;
 
+    // Returns exit point mask of point type.
     __exit_point_mask_t __e_mask(__exit_point_type_t point_type)
     {
         return (__exit_point_mask_t)__EMask(point_type);
@@ -132,6 +147,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Statement region.
     template<__exit_point_mask_t ... _masks>
     class __statement_region_t : public statement_region_t
     {
@@ -141,6 +157,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
         using __super_t::__super_t;
 
+        // Sets point.
         virtual void set_point(__exit_point_type_t type, statement_point_t * label) override
         {
             if(!__is_supported(type))
@@ -149,6 +166,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __super_t::set_point(type, label);
         }
 
+        // Gets point.
         virtual statement_point_t * get_point(__exit_point_type_t type) override
         {
             statement_point_t * point;
@@ -171,6 +189,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
     private:
+
+        // Returns whether specified type is supported.
         bool __is_supported(__exit_point_type_t type)
         {
             return enum_has_flag(mask, __e_mask(type));
@@ -179,6 +199,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Executes the expression.
     cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp)
     {
         if(exp == nullptr)
@@ -188,11 +209,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return exp->execute(ectx);
     }
 
+    // Executes the expression.
     cvalue_t execute_expression(expression_compile_context_t & ctx, expression_t * exp)
     {
         return execute_expression(ctx.statement_ctx, exp);
     }
 
+    // Executes the expression.
     cvalue_t execute_expression(expression_execute_context_t & ctx, expression_t * exp)
     {
         if(exp == nullptr)
@@ -203,6 +226,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles the statement.
     void statement_base_t::compile(statement_compile_context_t & ctx)
     {
         on_compile(ctx);
@@ -210,6 +234,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Pushes a statement.
     void statement_group_t::push_back(statement_t * statement)
     {
         _A(statement != nullptr);
@@ -217,6 +242,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __statements.push_back(statement);
     }
 
+    // Compiles this statement group.
     void statement_group_t::on_compile(statement_compile_context_t & ctx)
     {
         for(statement_t * statement : __statements)
@@ -227,6 +253,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this expression statement.
     void expression_statement_t::on_compile(statement_compile_context_t & ctx)
     {
         if(expression != nullptr)
@@ -235,6 +262,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void type_def_statement_t::on_compile(statement_compile_context_t & ctx)
     {
 
@@ -242,6 +270,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Converts to string.
     X_DEFINE_TO_STRING(defination_statement_item_t)
     {
         if(expression == nullptr)
@@ -250,6 +279,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return _F(_T("%1% = %2%"), _str(name), _str(expression));
     }
 
+    // Converts to string.
     X_DEFINE_TO_STRING(defination_statement_t)
     {
         string_t names = al::join_str(items.begin(), items.end(), _T(", "),
@@ -259,6 +289,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return _F(_T("%1% %2%"), _str(type_name), names);
     }
 
+    // Assign expression.
     class __assign_expression_t : public expression_t
     {
     public:
@@ -281,12 +312,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     } __assign_expression_instance;
 
+    // Sets parent of expression.
     void set_assign_parent(expression_t * exp)
     {
         if(exp != nullptr)
             exp->parent = &__assign_expression_instance;
     }
 
+    // Compiles this statement.
     void defination_statement_t::on_compile(statement_compile_context_t & ctx)
     {
         for(defination_statement_item_t * item : items)
@@ -305,6 +338,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void break_statement_t::on_compile(statement_compile_context_t & ctx) 
     {
         append_jmp(ctx, __exit_point_type_t::break_);
@@ -312,6 +346,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void continue_statement_t::on_compile(statement_compile_context_t & ctx) 
     {
         append_jmp(ctx, __exit_point_type_t::continue_);
@@ -319,6 +354,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void throw_statement_t::on_compile(statement_compile_context_t & ctx) 
     {
         
@@ -326,6 +362,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void goto_statement_t::on_compile(statement_compile_context_t & ctx) 
     {
         append_jmp(ctx, label);
@@ -333,6 +370,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void return_statement_t::on_compile(statement_compile_context_t & ctx) 
     {
         if(expression != nullptr)
@@ -352,6 +390,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Compiles this statement.
     void do_while_statement_t::on_compile(statement_compile_context_t & ctx) 
     {
         ctx.begin_region<__do_while_statement_region_t>();
@@ -382,10 +421,46 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef __statement_region_t<
         __e_mask_t::continue_, __e_mask_t::break_
+    > __loop_until_statement_region_t;
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Compiles this statement.
+    void loop_until_statement_t::on_compile(statement_compile_context_t & ctx) 
+    {
+        ctx.begin_region<__loop_until_statement_region_t>();
+
+        set_point(ctx, __exit_point_type_t::continue_);
+        compile_statement(ctx, body);
+
+        cvalue_t condition_value = execute_expression(ctx, condition);
+        if(condition_value == false || condition == nullptr)
+        {
+            append_jmp(ctx, __exit_point_type_t::continue_);
+        }
+        else if(condition_value == true)
+        {
+            // do nothing
+        }
+        else
+        {
+            append_condition(ctx, condition);
+            append_jmp(ctx, __exit_point_type_t::continue_, xil_jmp_condition_t::false_);
+        }
+
+        set_point(ctx, __exit_point_type_t::break_);
+        ctx.end_region();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    typedef __statement_region_t<
+        __e_mask_t::continue_, __e_mask_t::break_
     > __while_statement_region_t;
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Compiles this statement.
     void while_statement_t::on_compile(statement_compile_context_t & ctx)
     {
         cvalue_t condition_value = execute_expression(ctx, condition);
@@ -418,6 +493,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Compiles this statement.
     void for_statement_t::on_compile(statement_compile_context_t & ctx)
     {
         ctx.begin_region<__for_statement_region_t>();
@@ -467,6 +543,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void for_each_statement_t::on_compile(statement_compile_context_t & ctx)
     {
 
@@ -478,6 +555,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Compiles this statement.
     void if_statement_t::on_compile(statement_compile_context_t & ctx)
     {
         cvalue_t condition_value = execute_expression(ctx, condition);
@@ -524,6 +602,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef __statement_region_t<__e_mask_t::break_> __switch_statement_region_t;
 
+    // Compiles this statement.
     void switch_statement_t::on_compile(statement_compile_context_t & ctx)
     {
         if(expression == nullptr)
@@ -547,6 +626,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     }
 
+    // Compiles as switch statement.
     void switch_statement_t::__compile_as_switch(statement_compile_context_t & ctx, int row_count)
     {
         ctx.begin_region<__switch_statement_region_t>();
@@ -603,6 +683,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.end_region();
     }
 
+    // Reads a constant int value.
     int32_t switch_statement_t::__read_const_int(statement_compile_context_t & ctx,
                                                  expression_t * exp)
     {
@@ -650,6 +731,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns rows of cases.
     int switch_statement_t::__get_rows()
     {
         int count = 0;
@@ -666,6 +748,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return count;
     }
 
+    // Compiles as statement.
     void switch_statement_t::__compile_as_statement(statement_compile_context_t & ctx)
     {
         append_xilx<expression_xilx_t>(ctx, expression);
@@ -685,6 +768,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.end_region();
     }
 
+    // Compiles as if statement.
     void switch_statement_t::__compile_as_if(statement_compile_context_t & ctx)
     {
         statements_t * if_statements = nullptr, * else_statements = nullptr;
@@ -751,6 +835,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void try_statement_t::on_compile(statement_compile_context_t & ctx)
     {
 
@@ -758,6 +843,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles this statement.
     void empty_statement_t::on_compile(statement_compile_context_t & ctx)
     {
         // do nothing

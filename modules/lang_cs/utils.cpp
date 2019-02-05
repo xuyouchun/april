@@ -8,6 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Initialize code char property.
     void __code_char_property_t::init(enumerator_t & e)
     {
         typedef __code_char_flag_t f_t;
@@ -23,6 +24,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Initialize token property.
     void __cs_token_property_t::init(enumerator_t & e)
     {
         using namespace std::placeholders;

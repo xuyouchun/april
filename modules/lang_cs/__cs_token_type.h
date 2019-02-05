@@ -6,7 +6,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Word Type
+    // Word Types
     X_ENUM_(cs_token_value_t, sizeof(int16_t))
 
         //-------- ---------- ---------- ---------- ----------
@@ -120,16 +120,22 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Cs operators.
     X_ENUM_(cs_operator_t, sizeof(int16_t))
 
+        // ?
         question_mark = (int)core::operator_t::__user_defined__,
 
+        // :
         question_colon,
 
+        // as
         as,
         
+        // is
         is,
 
+        // ,
         comma,
 
     X_ENUM_END

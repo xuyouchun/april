@@ -6,6 +6,8 @@ namespace X_ROOT_NS { namespace algorithm {
 
     template<typename _property_t> struct property_enumerator_t;
 
+    // Property management for a set of objects / values.
+
     template<typename _property_t, size_t _size>
     struct properties_t
     {
@@ -15,32 +17,38 @@ namespace X_ROOT_NS { namespace algorithm {
 
         static const size_t size = _size;
 
+        // Constructor
         properties_t()
         {
             property_enumerator_t<property_t> enumerator(__properties);
             property_t::init(enumerator);
         }
 
+        // Get property of specified object.
         X_INLINE property_t & get_property(const object_t & obj)
         {
             return __properties[property_t::to_index(obj)];
         }
 
+        // Get property of specified object.
         X_INLINE const property_t & get_property(const object_t & obj) const
         {
             return __properties[property_t::to_index(obj)];
         }
 
+        // Get property of specified object.
         X_INLINE property_t & operator[](const object_t & obj)
         {
             return get_property(obj);
         }
 
+        // Get property of specified object.
         X_INLINE const property_t & operator[](const object_t & obj) const
         {
             return get_property(obj);
         }
 
+        // Returns if a object is over limit.
         X_INLINE static bool overlimit(const object_t & obj)
         {
             return property_t::to_index(obj) >= _size;
@@ -52,6 +60,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Base class of object property.
     template<typename _property_t, typename _object_t>
     struct property_t
     {
@@ -60,13 +69,16 @@ namespace X_ROOT_NS { namespace algorithm {
         template<size_t size=(size_t)max_value<_object_t>()>
             using properties_t = properties_t<_property_t, size>;
 
+        // Do initialize
         static void init(enumerator_t & e) { }
 
+        // Converts object to index.
         static size_t to_index(const object_t & p)
         {
             return (size_t)p;
         }
 
+        // Gets the object at the index.
         static object_t from_index(size_t index)
         {
             return (object_t)index;
@@ -75,6 +87,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Base class of object property with flags.
     template<typename _property_t, typename _object_t, typename _flag_t=int32_t>
     struct flag_property_t : public property_t<_property_t, _object_t>
     {
@@ -82,23 +95,28 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef property_enumerator_t<_property_t> enumerator_t;
         typedef _flag_t flag_t;
 
+        // Constructor
         flag_property_t() : __flag(_flag_t()) { }
 
+        // Sets flag
         void set_flag(flag_t flag)
         {
             *(__flag_int_t *)&__flag |= (__flag_int_t)flag;
         }
 
+        // Clears flag
         void clear_flag(flag_t flag)
         {
             *(__flag_int_t *)&__flag &= ~(__flag_int_t)flag;
         }
 
+        // Returns whether the property has specified flag.
         bool has_flag(flag_t flag) const
         {
             return *(__flag_int_t *)&__flag & (__flag_int_t)flag;
         }
 
+        // Batch set flags.
         static void set_flag(enumerator_t & e,
             const _object_t & start, const _object_t & end, flag_t flag)
         {
@@ -107,6 +125,7 @@ namespace X_ROOT_NS { namespace algorithm {
             });
         }
 
+        // Batch set flags.
         template<size_t n>
         static void set_flag(enumerator_t & e, const _object_t (&objs)[n], flag_t flag)
         {
@@ -115,6 +134,7 @@ namespace X_ROOT_NS { namespace algorithm {
             });
         }
 
+        // Batch set flags.
         static void set_flag(enumerator_t & e, const _object_t & obj, flag_t flag)
         {
             e.each([flag](const _object_t & obj, _property_t & p) {
@@ -122,6 +142,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }, obj);
         }
 
+        // Batch set flags.
         template<typename ... args_t>
         static void set_flag(enumerator_t & e, flag_t flag, args_t ... args)
         {
@@ -137,6 +158,8 @@ namespace X_ROOT_NS { namespace algorithm {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Property enumerator for walking all properties.
+
     template<typename _property_t>
     struct property_enumerator_t
     {
@@ -144,10 +167,12 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef _property_t property_t;
         typedef typename _property_t::object_t object_t;
 
+        // Constructor.
         template<size_t size>
         property_enumerator_t(property_t (&properties)[size])
             : __properties(properties), __size(size) { }
 
+        // Walks all properties.
         template<typename func_t>
         void each(func_t func)
         {
@@ -157,6 +182,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }
         }
 
+        // Walks specified properties.
         template<typename func_t, typename ... objs_t>
         void each(func_t func, const object_t & obj, objs_t ... objs)
         {
@@ -164,12 +190,14 @@ namespace X_ROOT_NS { namespace algorithm {
             each(func, objs ...);
         }
 
+        // Walks specified property.
         template<typename func_t>
         void each(func_t func, const object_t & obj)
         {
             func(obj, __properties[property_t::to_index(obj)]);
         }
 
+        // Walks specified properties.
         template<typename func_t>
         void each(const object_t & start, const object_t & end, func_t func)
         {
@@ -182,6 +210,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }
         }
 
+        // Walks specified properties.
         template<typename func_t, size_t n>
         void each(const object_t (&objs)[n], func_t func)
         {
@@ -192,6 +221,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }
         }
 
+        // Gets property for a object.
         property_t & operator [](const object_t & obj)
         {
             return __properties[property_t::to_index(obj)];

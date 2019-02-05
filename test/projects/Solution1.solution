@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<solution>
+
+    <name>Solution1</name>
+    <projects>
+
+        <project>
+            <path>../../core_lib/System/System.project</path>
+        </project>
+
+        <project>
+            <path>Project1/Project1.project</path>
+        </project>
+
+    </projects>
+
+</solution>
+

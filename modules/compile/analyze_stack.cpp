@@ -16,28 +16,45 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze stack error codes.
     X_ENUM_INFO(analyze_stack_error_t)
 
+        // Format error.
         X_C(format_error,                _T("format error, at %1%"))
+
+        // Unknown element type.
         X_C(unknown_element_type,        _T("unknown element type"))
+
+        // Unknown token property.
         X_C(unknown_token_property,      _T("unknown token property: token = %1%"))
+
+        // Unknown operator property.
         X_C(unknown_operator_property,   _T("unknown operator property: token = %1%"))
+
+        // Unknown expression property.
         X_C(unknown_expression_property, _T("unknown expression property: token = %1%"))
+
+        // Adhere overflow.
         X_C(adhere_overflow,             _T("adhere overflow: token = %1%"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze stack element types.
     X_ENUM_INFO(analyze_stack_element_type_t)
 
+        // Token.
         X_C(token)
+
+        // Name.
         X_C(expression)
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns whether two elements are equals.
     bool analyze_stack_element_t::operator == (const analyze_stack_element_t & other) const
     {
         if(type != other.type)
@@ -59,11 +76,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns whether two elements are not equals.
     bool analyze_stack_element_t::operator != (const analyze_stack_element_t & other) const
     {
         return !operator == (other);
     }
 
+    // Converts to a string.
     analyze_stack_element_t::operator string_t() const
     {
         switch(type)
@@ -82,18 +101,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // The end element.
     const analyze_stack_element_t analyze_stack_element_t::end(
             analyze_stack_element_type_t::__unknown__
     );
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Builds expression with context and arguments.
     __expression_t * analyze_stack_context_t::build_expression(
             lang_expression_build_context_t & ctx, const lang_expression_build_args_t & args)
     {
         return __service_helper.build_expression(ctx, args);
     }
 
+    // Returns operator property.
     const operator_property_t * analyze_stack_context_t::__get_operator_property(
                                                             token_value_t value)
     {
@@ -110,6 +132,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Creates default expression.
     __expression_t * __lang_expression_build_context_t::
                         create_default_expression(const lang_expression_build_args_t & args)
     {
@@ -140,6 +163,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze.
     __expression_t * analyze_stack_t::analyze()
     {
         __stack_element_t element;
@@ -184,6 +208,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __combine_all();
     }
 
+    // Pushes a token.
     void analyze_stack_t::__push_token(token_t * token)
     {
         _A(token != nullptr);
@@ -209,6 +234,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Pushes an operator.
     void analyze_stack_t::__push_operator(token_t * token)
     {
         //_PF(_T("push operator: %1%"), (string_t)*token);
@@ -216,6 +242,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __push_operator(property, token);
     }
 
+    // Pushes an operator.
     void analyze_stack_t::__push_operator(operator_t op)
     {
         //_PF(_T("push operator: %1%"), op);
@@ -223,6 +250,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __push_operator(property, nullptr);
     }
 
+    // Pushes an operator.
     void analyze_stack_t::__push_operator(const operator_property_t * property, token_t * token)
     {
         if(property->adhere > property->arity)
@@ -243,6 +271,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __right_placeholder = right_placeholder;
     }
 
+    // Combines expressions.
     void analyze_stack_t::__combine_expressions(operator_priority_t until_priority)
     {
         while(!__op_stack.empty() && __low_privilege(until_priority,
@@ -258,6 +287,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns top operator property.
     const operator_property_t * analyze_stack_t::__top_op_property()
     {
         if(__op_stack.empty())
@@ -270,6 +300,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __context->get_operator_property(op.token->value);
     }
 
+    // Combines expressions.
     expression_t * analyze_stack_t::__combine_expressions(const operator_property_t * property,
                                                                 token_t * token)
     {
@@ -329,6 +360,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __combine_expression(property, token, (expression_t **)exps);
     }
 
+    // Combines expressions.
     __expression_t * analyze_stack_t::__combine_expression(
             const operator_property_t * property, token_t * token, expression_t ** expressions)
     {
@@ -345,6 +377,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return expression;
     }
 
+    // Returns right placeholder.
     int analyze_stack_t::__get_right_placeholder(token_t * token)
     {
         const operator_property_t * property = __context->get_operator_property(token->value);
@@ -356,11 +389,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return right_placeholder;
     }
 
+    // Pushes a name.
     void analyze_stack_t::__push_name(token_t * token, const name_t & name)
     {
         __push_expression(__context->to_exp(nullptr, name));
     }
 
+    // Pushes an expression box.
     void analyze_stack_t::__push_expression_box(token_t * token)
     {
         const expression_box_property_t * property
@@ -374,6 +409,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __push_expression(expression);
     }
 
+    // Pushes an expression.
     void analyze_stack_t::__push_expression(__expression_t * expression)
     {
         //_PF(_T("push expression: %1%"), expression);
@@ -386,6 +422,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __exp_stack.push(__exp_t(expression));
     }
 
+    // Pop expressions.
     expression_t * analyze_stack_t::__pop_expression()
     {
         if(__exp_stack.empty())
@@ -394,6 +431,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __exp_stack.pop_back().exp;
     }
 
+    // Combine all expressions.
     expression_t * analyze_stack_t::__combine_all()
     {
         __combine_expressions(__lowest_priority);

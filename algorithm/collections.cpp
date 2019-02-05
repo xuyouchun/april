@@ -3,9 +3,9 @@
 
 namespace X_ROOT_NS { namespace algorithm {
 
-
     ////////// ////////// ////////// ////////// //////////
 
+    // Constructor
     xheap_t::xheap_t(const string_t & name) : __name(name)
     {
         for(size_t index = 0; index < array_size(__row_collections); index++)
@@ -18,6 +18,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     }
 
+    // Allocates memory with specified size. ( memory_t::alloc )
     void * xheap_t::alloc(size_t size, memory_flag_t flag)
     {
         size_t new_size = _alignf(size);
@@ -62,16 +63,19 @@ namespace X_ROOT_NS { namespace algorithm {
         return placeholder;
     }
 
+    // Frees the specified memory. ( memory_t::free )
     void xheap_t::free(void * p)
     {
         // do nothing
     }
 
+    // Realloc specified memory with the given size. ( memory_t::realloc, not supported )
     void * xheap_t::realloc(void * p, size_t size,  memory_flag_t flag)
     {
         throw _E(common_error_code_t::not_supported);
     }
 
+    // Deallocator
     xheap_t::~xheap_t()
     {
         for(object_t * obj : __large_objs)
@@ -104,11 +108,9 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-    bit_array_t::bit_array_t(size_t init_length) : __bit_length(init_length)
-    {
+    bit_array_t::bit_array_t(size_t init_length) : __bit_length(init_length) { }
 
-    }
-
+    // Sets/clear flag at the specified index.
     void bit_array_t::set(size_t index, bool value)
     {
         __check_length(index + 1);
@@ -122,6 +124,8 @@ namespace X_ROOT_NS { namespace algorithm {
             item &= ~flag;
     }
 
+    // Gets flag at the specified index.
+    // Returns not_found value when not found.
     bool bit_array_t::get(size_t index) const
     {
         if(__data == nullptr || __data_length_of(index + 1) > __data_length)
@@ -133,6 +137,8 @@ namespace X_ROOT_NS { namespace algorithm {
         return item & flag;
     }
 
+    // Gets index of next true bit from the specified index.
+    // Returns not_found value when not found.
     size_t bit_array_t::index_of(bool value, size_t from) const
     {
         if(from >= __bit_length)
@@ -158,6 +164,7 @@ namespace X_ROOT_NS { namespace algorithm {
         return not_found;
     }
 
+    // Checks and resizes memory to store bits of the specified count.
     X_INLINE void bit_array_t::__check_length(size_t bit_length)
     {
         if(bit_length <= __bit_length && __data != nullptr)
@@ -186,6 +193,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     }
 
+    // Position of underlying integer address that containing the specified bit.
     X_INLINE bit_array_t::__underlying_t & bit_array_t::__pos_of(size_t index,
                                             __underlying_t * out_flag) const
     {
@@ -193,11 +201,13 @@ namespace X_ROOT_NS { namespace algorithm {
         return __data[index / __underlying_bits];
     }
 
+    // Length of underlying integer enough to store specified bit counts.
     X_INLINE size_t bit_array_t::__data_length_of(size_t bit_length)
     {
         return _alignf(bit_length, __underlying_size) / 8;
     }
 
+    // Next index of true bit from the specified index.
     X_INLINE size_t bit_array_t::__index_of_true(__underlying_t value, size_t from, size_t end)
     {
         if(from >= __underlying_bits)
@@ -224,6 +234,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     }
 
+    // Returns the unserlying interger value of the bit range.
     X_INLINE bit_array_t::__underlying_t bit_array_t::__cut(
                         __underlying_t value, size_t from, size_t to)
     {

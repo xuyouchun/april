@@ -10,18 +10,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-    X_INTERFACE rt_assembly_ref_loader_t
-    {
-        virtual rt_assembly_t * load_asembly_ref() = 0;
-    };
+    // Loads assembly from stream.
+    rt_assembly_t * load_assembly(rt_context_t & ctx, xistream_t & stream);
 
-    ////////// ////////// ////////// ////////// //////////
+    // Loads assembly from assembly file.
+    rt_assembly_t * load_assembly(rt_context_t & ctx, const string_t & path);
 
-    rt_assembly_t * load_assembly(rt_context_t & ctx, xistream_t & stream,
-            rt_assembly_ref_loader_t * ref_loader = nullptr);
-
+    // Loads assembly by path and assembly name.
     rt_assembly_t * load_assembly(rt_context_t & ctx, const string_t & path,
-            rt_assembly_ref_loader_t * ref_loader = nullptr);
+            const string_t & package, const string_t & name);
 
     ////////// ////////// ////////// ////////// //////////
 

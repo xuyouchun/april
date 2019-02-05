@@ -11,6 +11,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Generic system expression.
     template<typename _expression_t>
     class system_expression_t : public _expression_t
     {
@@ -35,149 +36,198 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Binary expression.
     __SystemExpressionT(binary_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Unitary expression.
     __SystemExpressionT(unitary_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Name expression.
     __SystemExpressionT(name_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
-
-    private:
-        void __compile_variable(expression_compile_context_t & ctx, xil_pool_t & pool);
-        void __compile_local_variable(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                                    local_variable_t * variable);
-
-        void __compile_param_variable(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                                    param_variable_t * variable);
-
-        void __compile_field_variable(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                                    field_variable_t * field);
-
-        void __compile_property_variable(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                                    property_variable_t * property);
-
-        void __compile_type(expression_compile_context_t & ctx, xil_pool_t & pool);
-        void __compile_type_def(expression_compile_context_t & ctx, xil_pool_t & pool);
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Constant value expression.
     __SystemExpressionT(cvalue_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Function expression.
     __SystemExpressionT(function_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Type cast expression.
     __SystemExpressionT(type_cast_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Type name expression.
     __SystemExpressionT(type_name_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Index expression.
     __SystemExpressionT(index_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
+
+        // Compile array index.
+        void __compile_array_index(expression_compile_context_t & ctx, xil_pool_t & pool,
+                                    array_index_variable_t * variable);
+
+        // Compile property index.
+        void __compile_property_index(expression_compile_context_t & ctx, xil_pool_t & pool,
+                                    property_index_variable_t * variable);
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // New expression.
     __SystemExpressionT(new_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // New array expression.
     __SystemExpressionT(new_array_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Default value expression.
     __SystemExpressionT(default_value_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Type of expression.
     __SystemExpressionT(type_of_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // This expression.
     __SystemExpressionT(this_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Base expression.
     __SystemExpressionT(base_expression_t)
 
+        // Execute the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool) override;
 
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns whether the expression is effective.
+    // Xil will not generated when it is not effective.
     bool is_effective(expression_t * exp);
 
     ////////// ////////// ////////// ////////// //////////
@@ -187,6 +237,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Creates new expression.
     template<typename _expression_t, typename ... args_t>
     expression_t * new_expression(memory_t * memory, args_t && ... args)
     {
@@ -194,6 +245,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return memory_t::new_obj<expression_t>(memory, std::forward<args_t>(args) ...);
     }
 
+    // Creates new expression.
     template<typename _expression_t, typename ... args_t>
     expression_t * new_expression(memory_t * memory, operator_property_t * op_property,
                                                                 args_t && ... args)
@@ -203,6 +255,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         );
     }
 
+    // Creates new expression.
     template<typename _expression_t, typename ... args_t>
     expression_t * new_expression(memory_t * memory, operator_t op, args_t && ... args)
     {

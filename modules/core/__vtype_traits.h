@@ -7,6 +7,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Picks first type that not void.
     template<typename ... ts>
     using __pick_type_t = pick_type_t<ts ...>;
 
@@ -17,6 +18,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<vtype_t v, vtype_t ... vs> struct __vtypes_t { __VTypeT vtype = v; };
         template<vtype_t ... vs> struct __vtypes_t<vtype_t::void_, vs ...> : __vtypes_t<vs ...> { };
         template<> struct __vtypes_t<vtype_t::void_> { __VTypeT vtype = vtype_t::void_; };
+
         #undef __VTypeT
     }
 
@@ -25,6 +27,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Defines each vtypes.
     #define __EachVTypes                \
         __VType(int8)                   \
         __VType(uint8)                  \
@@ -41,6 +44,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Defines binary operations.
     #define __EachBinaryOperators               \
         __Op(operator_t::add)                   \
         __Op(operator_t::sub)                   \
@@ -69,8 +73,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __Op(operator_t::equal)                 \
         __Op(operator_t::not_equal)             \
         __Op(operator_t::logic_and)             \
-        __Op(operator_t::loginc_or)
+        __Op(operator_t::logic_or)
 
+    // Defines unitary operations.
     #define __EachUnitaryOperators              \
         __Op(operator_t::left_increment)        \
         __Op(operator_t::right_increment)       \
@@ -85,6 +90,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     namespace
     {
+        // vtype trait
         template<vtype_t _vtype>
         struct __vtype_trait_t
         {
@@ -92,6 +98,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             typedef void numeric_t;
         };
 
+        // Defines vtype traits.
         #define __DefineVTypeTrait(name)                            \
             template<>                                              \
             struct __vtype_trait_t<vtype_t::name##_>                \
@@ -114,7 +121,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         template<typename numeric_t> struct __rvtype_trait_t { };
 
-         #define __DefineRVTypeTrait(name)                          \
+        // Defines rvtype traits.
+        #define __DefineRVTypeTrait(name)                           \
             template<>                                              \
             struct __rvtype_trait_t<name##_t>                       \
             {                                                       \
@@ -127,6 +135,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         #undef __VType
     }
 
+    // vtype of numeric.
     template<typename numeric_t>
     constexpr vtype_t vtype = __rvtype_trait_t<numeric_t>::vtype;
 
@@ -152,6 +161,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return op v;                                        \
             __EndDefineUnitaryOp()
 
+        // Unitary operations.
         __DefineUnitaryOp(positive, +) 
         __DefineUnitaryOp(minus, -) 
         __DefineUnitaryOp(bit_not, ~) 
@@ -189,6 +199,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 }                                                   \
             };
 
+        // Defines binary operations.
         __DefineBinaryOp(add, +)
         __DefineBinaryOp(sub, -)
         __DefineBinaryOp(mul, *)
@@ -228,6 +239,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     namespace
     {
+        // Base class of unitary operation.
         template<operator_t _op, vtype_t _t, vtype_t _t1>
         struct __unitary_operator_base_t
         {
@@ -249,6 +261,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Unitary operation.
         template<operator_t _op, vtype_t _t1>
         struct __unitary_operator_t
             : __unitary_operator_base_t<_op, vtype_t::__unknown__, _t1>
@@ -328,6 +341,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         #undef __UnitaryOp
     }
 
+    // Returns vtype of unitary expression.
     constexpr vtype_t get_unitary_vtype(operator_t op, vtype_t vtype)
     {
         #define __V(op, vtype)  (((uint32_t)op << 16) | (uint32_t)vtype)
@@ -354,6 +368,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     namespace
     {
+        // Base class of binary operation.
         template<operator_t _op, vtype_t _t, vtype_t _t1, vtype_t _t2>
         struct __binary_operator_base_t
         {
@@ -377,6 +392,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Binary operation.
         template<operator_t _op, vtype_t _t1, vtype_t _t2>
         struct __binary_operator_t
             : __binary_operator_base_t<_op, vtype_t::__unknown__, _t1, _t2>
@@ -400,6 +416,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         const vtype_t __use_vtype2 = (vtype_t)-101;
         const vtype_t __use_default_ret = vtype_t::void_;
 
+        // Returns return vtype.
         static constexpr vtype_t __pick_ret_vtype(vtype_t ret, vtype_t vtype1, vtype_t vtype2)
         {
             if(ret == __use_vtype1)
@@ -602,6 +619,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         #undef __BinaryOp
     }
 
+    // Returns vtype of binary expression.
     constexpr vtype_t get_binary_vtype(operator_t op, vtype_t vtype1, vtype_t vtype2)
     {
         #define __V(op, vtype1, vtype2) \
@@ -637,6 +655,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns operator of a xil_al_command.
     constexpr operator_t to_operator(xil_al_command_t cmd)
     {
         switch(cmd)
@@ -667,6 +686,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Returns operator of a xil_bit_command.
     constexpr operator_t to_operator(xil_bit_command_t cmd)
     {
         switch(cmd)
@@ -694,6 +714,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Returns operator of a xil_cmp_command.
     constexpr operator_t to_operator(xil_cmp_command_t cmd)
     {
         switch(cmd)
@@ -721,6 +742,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Returns a operator of a logic command.
     constexpr operator_t to_operator(xil_logic_command_t cmd)
     {
         switch(cmd)
@@ -739,6 +761,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Return vtype of a xil data type.
     constexpr vtype_t to_vtype(xil_type_t dtype)
     {
         switch(dtype)
@@ -795,9 +818,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Unitary operator.
     template<operator_t _op, vtype_t _t1>
     using unitary_operator_t = __unitary_operator_t<_op, _t1>;
 
+    // Binary operator.
     template<operator_t _op, vtype_t _t1, vtype_t _t2>
     using binary_operator_t = __binary_operator_t<_op, _t1, _t2>;
 

@@ -4,14 +4,18 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Runtime lib manager.
     class rtlib_manager_t : public object_t
     {
     public:
+
+        // Constructor.
         rtlib_manager_t()
         {
             __append_libfuncs();
         }
 
+        // Gets function of specified name.
         libfunc_t get_func(const string_t & name)
         {
             auto it = __func_map.find(name);
@@ -24,11 +28,13 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     private:
         std::map<string_t, libfunc_t> __func_map;
 
+        // Appends lib function.
         void __append_libfunc(const string_t & name, libfunc_t libfunc)
         {
             __func_map[name] = libfunc;
         }
 
+        // Appends lib functions.
         void __append_libfuncs()
         {
             __append_libfunc(_T("Write"), write);
@@ -40,6 +46,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Gets lib function.
     libfunc_t get_libfunc(const string_t & name)
     {
         static rtlib_manager_t rtlib_manager;

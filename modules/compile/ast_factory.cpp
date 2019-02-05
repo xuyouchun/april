@@ -12,6 +12,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Root ast node.
     class __root_ast_node_t : public document_ast_node_t
     {
         typedef document_ast_node_t __super_t;
@@ -26,6 +27,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Root ast builder.
     class __root_ast_builder_t : public tast_builder_t<__root_ast_node_t>
     {
         typedef tast_builder_t<__root_ast_node_t> __super_t;
@@ -33,13 +35,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
         using __super_t::__super_t;
 
+        // Applies token.
         virtual void apply_token(token_t * token, __apply_token_args_t & args) override { }
 
+        // Applies ast node.
         virtual void apply_ast(ast_node_t * node, __apply_ast_args_t & args) override
         {
             (*this)->append(node);
         }
 
+        // Completed.
         virtual void completed(__completed_args_t & args) override
         {
             (*this)->on_commit();
@@ -48,6 +53,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // When branch matched.
     void ast_factory_t::on_branch_matched(const analyze_node_t * node,
             __node_value_t value, __tag_t * from_tag, __tag_t * end_tag)
     {
@@ -62,11 +68,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Analyze end notifiy.
     void ast_factory_t::on_end()
     {
 
     }
 
+    // Builds ast nodes.
     ast_node_t * ast_factory_t::__build_ast(lang_ast_build_args_t & args)
     {
         if((__node_value_t)args.node_value == __root_node_value)
@@ -75,6 +83,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __build_service->build_ast(__ast_context, args);
     }
 
+    // Returns the analyze result.
     ast_node_t * ast_factory_t::get_result()
     {
         return __reader.get_root_ast();
@@ -82,6 +91,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns node flag.
     static const char_t * __get_node_flag(analyzer_element_t & element)
     {
         const analyze_node_t * node = element.matched_node;
@@ -91,6 +101,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return node->flag.c_str();
     }
 
+    // Builds ast node.
     ast_node_t * ast_builder_t::build()
     {
         ast_node_t * node = this->create();

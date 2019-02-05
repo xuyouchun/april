@@ -6,15 +6,24 @@ namespace X_ROOT_NS { namespace modules {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Assembly magic code.
     #define JC_ASSEMBLY_FLAG    _T("955825bf-d13a-4d1c-90d5-478e62ceaab6")
-    #define JC_ASSEMBLY_EXT     _T("jcd")
 
+    // Assembly default file extention
+    #define JC_ASSEMBLY_EXT     _T("apl")
+
+    // Max heap size when running assembly.
     #define JC_MAX_HEAP_SIZE    (64 * 1024 * 1024)
 
-    #define JC_COMPILE_ATTRIBUTE_NAME _T("__compile_attribute__")
+    // Compiler attribute name.
+    #define JC_COMPILE_ATTRIBUTE_NAME _T("__") JC_ASSEMBLY_FLAG _T("__")
+
+    // Current assembly version.
+    #define JC_VERSION          _T("0.1")
 
     ////////// ////////// ////////// ////////// //////////
 
+    // a runtime object reference.
     struct rt_ref_t
     {
         rt_ref_t() = default;
@@ -29,6 +38,7 @@ namespace X_ROOT_NS { namespace modules {
         rt_ref_t operator = (void * ptr) { this->ptr = ptr; return *this; }
     };
 
+    // Writes a runtime object reference to a stream.
     template<typename _stream_t>
     _stream_t & operator << (_stream_t & stream, rt_ref_t ref)
     {
@@ -37,11 +47,17 @@ namespace X_ROOT_NS { namespace modules {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Object reference size.
     const size_t rt_ref_size = sizeof(rt_ref_t);
 
+    // Stack unit size.
     typedef arch_uint_t rt_stack_unit_t;
 
+    // Array length.
     typedef int32_t array_length_t;
+
+    // Max array dimension.
+    const size_t max_array_dimension = 32;
 
     ////////// ////////// ////////// ////////// //////////
 

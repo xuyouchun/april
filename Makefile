@@ -4,8 +4,12 @@ OPTIONS_FILE ?= Makefile.options.me
 -include $(OPTIONS_FILE)
 -include Makefile.options
 
+MODULE_ROLES  = $(addsuffix .%, $(MODULES)) $(MODULES)
+KMODULE_ROLES = $(addsuffix .%, $(KMODULES)) $(KMODULES)
+ROLES = $(MODULE_ROLES) $(KMODULE_ROLES)
+
 .PHONY: all clean rebuild distclean run restart test test.%
-.PHONY: $(MODULES) $(KMODULES)
+.PHONY: $(ROLES)
 
 OPTIONS       ?=
 
@@ -37,9 +41,9 @@ __ARGS += KMODULES="$(KMODULES)"
 __ARGS += RUN_ARGS="$(RUN_ARGS)"
 
 __DEFAULT_TARGET_TYPE = static
-__BUILD_MODULE_ARGS   = TARGET_TYPE=$(__DEFAULT_TARGET_TYPE) $(__ARGS)
-__BUILD_KMODULE_ARGS  = TARGET_TYPE=$(__DEFAULT_TARGET_TYPE) $(__ARGS)
-__BUILD_TEST_ARGS     = TARGET_TYPE=execute MODULES="$(MODULES) $(KMODULES)" $(__ARGS)
+__BUILD_MODULE_ARGS   = DEFAULT_TARGET_TYPE=$(__DEFAULT_TARGET_TYPE) $(__ARGS)
+__BUILD_KMODULE_ARGS  = DEFAULT_TARGET_TYPE=$(__DEFAULT_TARGET_TYPE) $(__ARGS)
+__BUILD_TEST_ARGS     = DEFAULT_TARGET_TYPE=execute MODULES="$(MODULES) $(KMODULES)" $(__ARGS)
 __CONFIGS             = CONFIG_NULLPTR_SUPPORTED=$(CONFIG_NULLPTR_SUPPORTED) \
                         CONFIG_BASE_NAMESPACE=$(CONFIG_BASE_NAMESPACE)
 
@@ -47,20 +51,32 @@ __CONFIGS             = CONFIG_NULLPTR_SUPPORTED=$(CONFIG_NULLPTR_SUPPORTED) \
 all: $(KMODULES) $(MODULES)
 
 $(KMODULES):
-	$(MAKE) $(OPTIONS) -C $(KMODULES_PATH)/$@ MODULE=$@ $(__BUILD_KMODULE_ARGS) $(__CONFIGS);
+	$(MAKE) $(OPTIONS) -C $(KMODULES_PATH)/$@ all MODULE=$@ $(__BUILD_KMODULE_ARGS) $(__CONFIGS);
+
+$(addsuffix .%, $(KMODULES)):
+	PROJECT=$(shell echo "$@" | awk -F '.' '{print $$1}');  					\
+	METHOD=$(shell echo "$@" | awk -F '.' '{print $$2}');						\
+	$(MAKE) $(OPTIONS) -C $(KMODULES_PATH)/$$PROJECT $$METHOD MODULE=$$PROJECT 	\
+			$(__BUILD_KMODULE_ARGS) $(__CONFIGS);
 
 $(MODULES):
-	$(MAKE) $(OPTIONS) -C $(MODULES_PATH)/$@ MODULE=$@ $(__BUILD_MODULE_ARGS) $(__CONFIGS);
+	$(MAKE) $(OPTIONS) -C $(MODULES_PATH)/$@ all MODULE=$@ $(__BUILD_MODULE_ARGS) $(__CONFIGS);
+
+$(addsuffix .%, $(MODULES)):
+	PROJECT=$(shell echo "$@" | awk -F '.' '{print $$1}');  					\
+	METHOD=$(shell echo "$@" | awk -F '.' '{print $$2}');						\
+	$(MAKE) $(OPTIONS) -C $(MODULES_PATH)/$$PROJECT $$METHOD MODULE=$$PROJECT 	\
+			$(__BUILD_MODULE_ARGS) $(__CONFIGS);
 
 # clean distclean rebuild restart
 clean distclean rebuild restart:
-	@for module in $(KMODULES); do				                        \
-		$(MAKE) $(OPTIONS) -C $(KMODULES_PATH)/$$module $@              \
-                MODULE=$$module $(__BUILD_MODULE_ARGS) $(__CONFIGS); 	\
+	@for module in $(KMODULES); do				                        		\
+		$(MAKE) $(OPTIONS) -C $(KMODULES_PATH)/$$module $@              		\
+                MODULE=$$module $(__BUILD_MODULE_ARGS) $(__CONFIGS); 			\
 	done;
-	@for module in $(MODULES); do				                        \
-		$(MAKE) $(OPTIONS) -C $(MODULES_PATH)/$$module $@               \
-                MODULE=$$module $(__BUILD_MODULE_ARGS) $(__CONFIGS);    \
+	@for module in $(MODULES); do				                        		\
+		$(MAKE) $(OPTIONS) -C $(MODULES_PATH)/$$module $@               		\
+                MODULE=$$module $(__BUILD_MODULE_ARGS) $(__CONFIGS);    		\
 	done;
 
 # test
@@ -68,8 +84,8 @@ test: test.default
 
 # test.%
 test.%:
-	PROJECT=$(shell echo "$@" | awk -F '.' '{print $$2}');  	\
-	METHOD=$(shell echo "$@" | awk -F '.' '{print $$3}');		\
-	$(MAKE) $(OPTIONS) -C $(TEST_PATH)/$$PROJECT $$METHOD MODULE=test$$PROJECT \
+	PROJECT=$(shell echo "$@" | awk -F '.' '{print $$2}');  					\
+	METHOD=$(shell echo "$@" | awk -F '.' '{print $$3}');						\
+	$(MAKE) $(OPTIONS) -C $(TEST_PATH)/$$PROJECT $$METHOD MODULE=test$$PROJECT 	\
             $(__BUILD_TEST_ARGS) $(__CONFIGS);
 

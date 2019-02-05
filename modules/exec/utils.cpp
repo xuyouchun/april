@@ -12,7 +12,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    rt_assembly_t * get_assembly(rt_assemblies_t & assemblies,
+    // Gets assembly for specified package and name.
+    rt_assembly_t * get_assembly(exec_assemblies_t & assemblies,
                                     const string_t & package, const string_t & name)
     {
         _A(name.length() > 0);
@@ -27,12 +28,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // exec_switch_manager_t
 
+    // Appends switch table.
     void exec_switch_manager_t::append_table(exec_switch_table_t * tbl)
     {
         _A(tbl != nullptr);
         __tables.push_back(tbl);
     }
 
+    // Gets switch table for specified index.
     exec_switch_table_t * exec_switch_manager_t::get_table(int index)
     {
         if(index >= __tables.size())

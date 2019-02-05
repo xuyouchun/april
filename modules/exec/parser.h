@@ -8,7 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
 
     exec_method_t * parse_commands(executor_env_t & env,
-        rt_assembly_t * assembly, rt_type_t * type, rt_method_t * method);
+            rt_method_t * method, rt_type_t ** generic_types = nullptr);
 
     ////////// ////////// ////////// ////////// //////////
 

@@ -3,12 +3,22 @@
 
 namespace X_ROOT_NS { namespace modules { namespace compile {
 
+    // Ascertains type.
     type_t * __ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx, name_t name);
+
+    // Ascertains type.
     type_t * __ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                 general_type_name_t * type_name);
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns xpool of ast context.
+    static xpool_t & __xpool(ast_context_t & cctx)
+    {
+        return cctx.compile_context.global_context.xpool;
+    }
+
+    // Converts multi-name to sid.
     sid_t mname_to_sid(const mname_t * mname)
     {
         if(mname == nullptr)
@@ -17,17 +27,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return mname->sid;
     }
 
+    // Converts namespace to multi-name.
     const mname_t * ns_to_full_name(namespace_t * ns)
     {
         return ns? ns->full_name : nullptr;
     }
 
+    // Returns expression type.
     type_t * get_expression_type(ast_context_t & cctx, expression_t * expression)
     {
-        xpool_t & xpool = cctx.compile_context.global_context.xpool;
-        return get_expression_type(xpool, expression);
+        return get_expression_type(__xpool(cctx), expression);
     }
 
+    // Fills argument types.
     void __fill_atypes(ast_context_t & cctx, atypes_t & atypes, arguments_t * arguments)
     {
         if(arguments == nullptr)
@@ -43,14 +55,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // __multi_units_t
 
+    // Multi-units container.
     struct __multi_units_t
     {
         typedef general_type_name_t::unit_iterator_t __unit_iterator_t;
 
+        // Constructor.
         __multi_units_t(const mname_t * mname, __unit_iterator_t begin, __unit_iterator_t end)
             : __mname(mname), __begin(begin), __end(end)
         { }
 
+        // Constructor.
         __multi_units_t(const mname_t * mname, general_type_name_t * type_name)
             : __multi_units_t(mname, type_name->begin(), type_name->end())
         { }
@@ -58,23 +73,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const mname_t * __mname;
         __unit_iterator_t __begin, __end;
 
+        // Returns part count.
         size_t __mname_part_count()
         {
             return __mname? __mname->part_count() : 0;
         }
 
+        // Iterator of units.
         struct __itor_t : iterator_base_t<__itor_t>
         {
+            // Constructor.
             __itor_t(__multi_units_t & units, int index) : __units(units)
             {
                 __assign_index(index);
             }
 
+            // Returns whether the index is in the units.
             bool __in_mname() { return __index < __units.__mname_part_count(); }
 
             __multi_units_t & __units;
             int __index;
 
+            // Assigns index.
             void __assign_index(int index)
             {
                 __index = index;
@@ -91,6 +111,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 byte_t             unit[sizeof(type_name_unit_t)];
             };
 
+            // Returns typename unit.
             type_name_unit_t * get()
             {
                 if(__in_mname())
@@ -99,25 +120,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return punit;
             }
 
+            // Moves to next iterator.
             void increase(int inc)
             {
                 __assign_index(__index + inc);
             }
 
+            // Returns whether two iterators are equals.
             bool equals(const __itor_t & it) const
             {
                 return __index == it.__index;
             }
         };
 
+        // Returns the begin iterator.
         __itor_t begin() { return __itor_t(*this, 0); }
 
+        // Returns the end iterator.
         __itor_t end()
         {
             return __itor_t(*this, __mname_part_count() + (__end - __begin));
         }
     };
 
+    // Writes units to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, __multi_units_t & units)
     {
@@ -136,28 +162,37 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // type resolver
 
+    // Ascertain type error codes.
     X_ENUM_INFO(ascertain_type_error_t)
 
+        // Unknown type.
         X_D(unknown_type,           _T("unknown type: %1%"))
 
+        // Element type empty.
         X_C(element_type_empty,     _T("array element type empty"))
 
+        // Element type not supported.
         X_C(element_type_not_supported,  _T("array element type not supported"))
 
+        // Typedef unsolved.
         X_C(type_def_unsolved,      _T("type def unsolved"))
 
     X_ENUM_INFO_END
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Type resolver.
     class __type_resolver_t
     {
     public:
+
+        // Constructor.
         __type_resolver_t(ast_context_t & cctx, ast_walk_context_t & wctx,
                                             general_type_name_t * type_name)
             : __cctx(cctx), __wctx(wctx), __type_name(type_name)
         { }
 
+        // Ascertains type.
         type_t * ascertain_type()
         {
             return __ascertain_type();
@@ -177,6 +212,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         struct __find_ret_t { type_t * type;  bool success; };
 
+        // Ascertains type.
         type_t * __ascertain_type()
         {
             __current_type = as<general_type_t *>(__wctx.current_type());
@@ -190,6 +226,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __ascertain_general_type();
         }
 
+        // Ascertains param types.
         generic_param_t * __ascertain_param_type()
         {
             if(__type_name->units.size() != 1)
@@ -222,6 +259,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return nullptr;
         }
 
+        // Ascertains general type.
         type_t * __ascertain_general_type()
         {
             const mname_t * current_ns = ns_to_full_name(__wctx.current_namespace());
@@ -301,6 +339,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return nullptr;
         }
 
+        // Transforms generic argument.
         type_t * __transform_generic_arg(generic_arg_t * arg)
         {
             if(arg == nullptr || arg->type_name == nullptr)
@@ -319,6 +358,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return type;
         }
 
+        // Gets current typedef.
         type_def_t * __get_current_type_def()
         {
             if(__current_type_def == __EmptyTypeDef)
@@ -327,6 +367,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __current_type_def;
         }
 
+        // Gets type by namespace and name.
         type_t * __get_type(assembly_t * assembly, sid_t ns, sid_t name,
                 size_t generic_param_count, type_t * host_type, type_name_unit_t * unit = nullptr)
         {
@@ -375,6 +416,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return nullptr;
         }
 
+        // Finds nest type.
         template<typename itor_t>
         __find_ret_t __find_nest_type(assembly_t * assembly, const mname_t * ns,
                                                 type_t * type, itor_t begin, itor_t end)
@@ -437,6 +479,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __find_ret_t { nullptr, false };
         }
 
+        // Search global types.
         template<typename itor_t>
         __find_ret_t __search_global_type(itor_t begin, itor_t end)
         {
@@ -466,6 +509,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __find_ret_t { nullptr, false };
         }
 
+        // Determines whether imports starts with specified prefix.
         template<typename itor_t>
         int __import_starts_with(import_t * import, itor_t begin, itor_t end)
         {
@@ -485,6 +529,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return 0;
         }
 
+        // Determines whether the assembly name starts with specified prefix.
         template<typename itor_t>
         bool __starts_with(const mname_t * assembly_name, itor_t begin, itor_t end)
         {
@@ -501,6 +546,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return it != end;
         }
 
+        // Searches types from specified assembly.
         template<typename itor_t>
         __find_ret_t __search_type(assembly_t * assembly, const mname_t * ns,
                                                     itor_t begin, itor_t end)
@@ -522,6 +568,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __find_ret_t { nullptr, false };
         }
 
+        // Finds type from specified assembly.
         template<typename itor_t>
         __find_ret_t __find_type(assembly_t * assembly, const mname_t * ns,
                                                     itor_t type_begin, itor_t type_end)
@@ -546,6 +593,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __find_ret_t { nullptr, false };
         }
 
+        // Assigns type def param.
         type_t * __assign_type_def_param(type_t * type, type_name_unit_t * unit,
                                                     type_t * host_type = nullptr)
         {
@@ -634,6 +682,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return current_type;
         }
 
+        // Creates a new generic type.
         generic_type_t * __new_generic_type(general_type_t * template_, type_name_unit_t * unit,
                                                                         type_t * host_type)
         {
@@ -650,12 +699,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __new_generic_type(template_, xtypes, host_type);
         }
 
+        // Creates a new generic type.
         generic_type_t * __new_generic_type(general_type_t * template_, xtype_collection_t & xtypes,
                                                                         type_t * host_type)
         {
             return __wctx.assembly.types.new_generic_type(template_, xtypes, host_type);
         }
 
+        // Creates a new array type.
         array_type_t * __new_array_type(type_t * element_type, dimension_t dimension)
         {
             return __wctx.assembly.types.new_array_type(element_type, dimension);
@@ -666,12 +717,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Ascertains type.
     type_t * __ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                 general_type_name_t * type_name)
     {
         return __type_resolver_t(cctx, wctx, type_name).ascertain_type();
     }
 
+    // Ascertains type.
     type_t * ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                 general_type_name_t * type_name)
     {
@@ -683,6 +736,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return type;
     }
 
+    // Ascertains type.
     type_t * __ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx, name_t name)
     {
         general_type_name_t type_name;
@@ -692,6 +746,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __ascertain_type(cctx, wctx, &type_name);
     }
 
+    // Ascertains type.
     type_t * ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                 name_t name)
     {
@@ -703,6 +758,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return type;
     }
 
+    // Ascertains type.
     type_t * ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                 array_type_name_t * type_name)
     {
@@ -727,13 +783,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Type for walks expression.
     class __walk_expression_t
     {
     public:
+
+        // Constructor.
         __walk_expression_t(ast_context_t & cctx, ast_walk_context_t & wctx)
             : __cctx(cctx), __wctx(wctx), __region(wctx.current_region())
         { }
 
+        // Walks expression.
         void walk(expression_t * exp)
         {
             __walk(exp);
@@ -744,6 +804,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ast_walk_context_t  & __wctx;
         variable_region_t   * __region;
 
+        // Checks walk expression
         bool __check_walk(expression_t * exp)
         {
             if(exp->walked)
@@ -759,6 +820,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 if(!__check_walk(exp))  return;     \
             } while(false)
 
+        // Walks expression.
         void __walk(expression_t * exp)
         {
             __CheckWalk(exp);
@@ -801,6 +863,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 }   break;
 
+                case expression_family_t::index: {
+                    __walk_index((index_expression_t *)exp);
+                }   break;
+
                 default:
                     break;
             }
@@ -808,17 +874,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __each(exp);
         }
 
+        // Avoid to walk expression.
         void __avoid_walk(expression_t * exp)
         {
             if(exp != nullptr)
                 exp->walked = true;
         }
 
+        // Enums expression.
         void __each(expression_t * exp)
         {
             each_expression(exp, [this](expression_t * exp0) { __walk(exp0); });
         }
 
+        // Walks name expression.
         void __walk_name(name_expression_t * name_exp, type_t * parent_type = nullptr)
         {
             if(name_exp->variable != nullptr)
@@ -840,6 +909,33 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Walks index expression.
+        void __walk_index(index_expression_t * index_exp)
+        {
+            expression_t * body_exp = index_exp->namex();
+            __walk(body_exp);
+
+            variable_t * variable = to_variable(body_exp);
+            if(variable == nullptr)
+                return;
+
+            arguments_t * arguments = index_exp->arguments();
+            __walk_arguments(arguments);
+
+            type_t * body_type = variable->get_type();
+            if(is_array(body_type))
+            {
+                index_exp->variable = __new_obj<array_index_variable_t>(
+                    variable, arguments
+                );
+            }
+            else    // index
+            {
+                // TODO: property index
+            }
+        }
+
+        // Walks type.
         bool __walk_type(name_expression_t * name_exp)
         {
             type_t * type = __ascertain_type(__cctx, __wctx, name_exp->name);
@@ -855,6 +951,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         enum class __exp2_walked_t { yes, no };
 
+        // Walks Binary expression member.
         void __walk_member(binary_expression_t * exp)
         {
             expression_t * exp1 = exp->exp1(), * exp2 = exp->exp2();
@@ -865,6 +962,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __walk(exp2);
         }
 
+        // Walks member.
         __exp2_walked_t __walk_member(expression_t * exp1, expression_t * exp2)
         {
             type_t * type = get_expression_type(__cctx, exp1);
@@ -893,6 +991,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __exp2_walked_t::no;
         }
 
+        // Walks field.
         __exp2_walked_t __walk_fieldx(type_t * type, name_expression_t * name_exp)
         {
             name_t name = name_exp->name;
@@ -935,6 +1034,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __exp2_walked_t::no;
         }
 
+        // Walks function.
         void __walk_function(function_expression_t * function_exp, type_t * type = nullptr)
         {
             expression_t * namex_exp = function_exp->namex;
@@ -985,6 +1085,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Tries to get method.
         common_error_code_t __try_get_method(type_t * type, analyze_member_args_t & args,
                                                                 method_t ** out_method)
         {
@@ -1000,6 +1101,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return common_error_code_t::__default__;
         }
 
+        // Walks arguments.
         void __walk_arguments(arguments_t * arguments)
         {
             if(arguments == nullptr)
@@ -1009,6 +1111,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __walk(argument->expression);
         }
 
+        // Walks methods.
         void __walk_method(type_t * type, name_t name, function_expression_t * function_exp)
         {
             //_PF(_T("type: %1%, name: %2%, function_exp: %3%"), type, name, function_exp);
@@ -1065,8 +1168,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 return;
             }
+            else
+            {
+                type_collection_t tc;
 
-            function_exp->method = method;
+                if(function_exp->generic_args == nullptr)
+                    al::copy(am_args.out_arg_types, std::back_inserter(tc));
+                else
+                    fill_type_collection(tc, function_exp->generic_args);
+
+                if(tc.empty())
+                    function_exp->method = method;
+                else
+                    function_exp->method = __xpool(__cctx).new_generic_method(method, tc);
+            }
 
             if(!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)
             {
@@ -1081,6 +1196,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Walks method expression.
         void __walk_new(new_expression_t * exp)
         {
             type_name_t * type_name = exp->type_name;
@@ -1089,10 +1205,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 ast_log(__cctx, exp, __c_t::type_name_missing, _T("object creation"));
                 return;
             }
-
-
         }
 
+        // Creates a new object.
         template<typename t, typename ... args_t>
         t * __new_obj(args_t && ... args)
         {
@@ -1102,6 +1217,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         #undef __CheckWalk
     };
 
+    // Walks expression.
     void walk_expression(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                 expression_t * expression)
     {
@@ -1113,6 +1229,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // find_method
 
+    // Finds method.
     method_t * find_method(ast_context_t & cctx, type_t * type, method_trait_t trait, name_t name,
                         generic_args_t * generic_args, atypes_t * atypes)
     {
@@ -1124,6 +1241,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return (method_t *)type->get_member(args);
     }
 
+    // Finds method.
     method_t * find_method(ast_context_t & cctx, type_t * type, method_trait_t trait, name_t name,
                         generic_args_t * generic_args, arguments_t * arguments)
     {
@@ -1133,36 +1251,42 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return find_method(cctx, type, trait, name, generic_args, &atypes);
     }
 
+    // Finds a constructor.
     method_t * find_constructor(ast_context_t & cctx, type_t * type, atypes_t * atypes)
     {
         return find_method(cctx, type, method_trait_t::constructor, name_t::null,
                                                                 nullptr, atypes);
     }
 
+    // Finds a constructor.
     method_t * find_constructor(ast_context_t & cctx, type_t * type, arguments_t * arguments)
     {
         return find_method(cctx, type, method_trait_t::constructor, name_t::null,
                                                                 nullptr, arguments);
     }
 
+    // Finds static constructor.
     method_t * find_static_constructor(ast_context_t & cctx, type_t * type)
     {
         return find_method(cctx, type, method_trait_t::static_constructor, name_t::null,
                                                                 nullptr, (atypes_t *)nullptr);
     }
 
+    // Finds desctructor.
     method_t * find_destructor(ast_context_t & cctx, type_t * type, arguments_t * arguments)
     {
         return find_method(cctx, type, method_trait_t::destructor, name_t::null,
                                                                 nullptr, (atypes_t *)nullptr);
     }
 
+    // Finds methods.
     void find_methods(ast_context_t & cctx, type_t * type, method_trait_t trait, name_t name,
                         generic_args_t * generic_args, arguments_t * arguments)
     {
 
     }
 
+    // Converts to argument types string.
     string_t to_arg_types_str(ast_context_t & cctx, arguments_t * arguments)
     {
         if(arguments == nullptr || arguments->empty())

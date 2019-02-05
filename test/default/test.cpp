@@ -34,62 +34,6 @@ using namespace jc::modules::rt;
 
 using namespace std::placeholders;
 
-void __analyze()
-{
-    memory_t * memory = new al::xheap_t();
-    simple_lang_factory_t * lang_factory = memory->new_obj<simple_lang_factory_t>();
-
-    lang_factory->register_lang_t<cs_lang_t>();
-    lang_factory->register_lang_t<lq_lang_t>();
-
-    compiler_t * compiler = memory->new_obj<compiler_t>(lang_factory);
-    global_context_t & global_context = compiler->get_context();
-
-    int times = 1;
-    double total_time = 0.0;
-    for(int k = 0; k < times; k++)
-    {
-        const char_t * path = _T("/Users/xuyc/code/test1.cs");
-        //const char_t * path = _T("/Users/xuyc/code.cs");
-        //const char_t * path = _T("/Users/xuyc/code/cs2.cs");
-        file_t * file = file_t::load(global_context, memory, lib::path_t(path));
-
-        project_t * project = memory->new_obj<project_t>(global_context, _T("project1"));
-        solution_t * solution = memory->new_obj<solution_t>(global_context, _T("solution1"));
-
-        project->append_file(file);
-        solution->append_project(project);
-
-        clock_t start = clock();
-        
-        assemblies_t * assemblies = compiler->compile(nullptr, solution);
-
-        clock_t ends = clock();
-        if(k > 0)
-            total_time += (double)(ends - start);
-
-        //std::cout << "Running Time : " << (double)(ends - start) / times / CLOCKS_PER_SEC
-        //        << std::endl << std::endl;
-    }
-
-    if(times > 1)
-    {
-        std::cout << "\n\nAvavge Running Time : " << total_time / (times - 1) / CLOCKS_PER_SEC
-                << std::endl << std::endl;
-    }
-}
-
-void __test()
-{
-    /*
-    string_t seq = _T("111|13|2|5000");
-    std::basic_regex<char_t> rgx(_T("\\d{1,}"));
-
-    bool is_match = al::regex_is_match(seq, _T("\\d{1,}"));
-    std::wcout << _T("is_match:") << is_match << std::endl;
-    */
-}
-
 void __analyze2()
 {
     memory_t * memory = new al::xheap_t();

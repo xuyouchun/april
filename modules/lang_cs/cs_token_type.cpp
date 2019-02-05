@@ -6,6 +6,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     #define __K(name)        X_C(k_##name, _S(name))
     #define __C(name, desc)  X_C(name, desc)
 
+    // Cs Token values.
     X_ENUM_INFO(cs_token_value_t)
 
         // keywords: a...
@@ -117,16 +118,22 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Cs Operators.
     X_ENUM_INFO(cs_operator_t)
 
+        // ?
         X_C(question_mark,  _T("question_mark"))
 
+        // :
         X_C(question_colon, _T("question_colon"))
 
+        // as
         X_C(as,             _T("as"))
 
+        // is
         X_C(is,             _T("is"))
 
+        // ,
         X_C(comma,          _T("comma"))
 
     X_ENUM_INFO_END

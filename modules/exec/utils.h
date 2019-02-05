@@ -32,7 +32,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    rt_assembly_t * get_assembly(rt_assemblies_t & assemblies,
+    rt_assembly_t * get_assembly(exec_assemblies_t & assemblies,
                                     const string_t & package, const string_t & name);
 
     string_t join_method_name(const string_t & assembly,

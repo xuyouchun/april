@@ -5,16 +5,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     #define __Unexpected() X_UNEXPECTED()
 
+    // Check ref limit.
     #define __CheckRefLimit(ref, limit, name)                           \
         do {                                                            \
             if(ref.count > 0 && ref.index + ref.count - 1 >= limit)     \
                 throw _ED(__e_t::overlimit, name);                      \
         } while(false)
 
+    #define __FakeEntryPoint    ((method_t *)0x01)
+
     typedef assembly_error_code_t __e_t;
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns a format error.
     static logic_error_t<__e_t> __format_error(const string_t & s)
     {
         return _E(__e_t::format_error, s);
@@ -22,11 +26,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Base class of assembly reader.
     template<typename reader_t, __lv_t lv, __lv_t rlv = lv>
     class __assembly_reader_super_t { };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Metadata.
     template<__tidx_t tidx> struct __mt_t : mt_t<tidx>
     {
         typedef __mt_t<tidx> __self_t;
@@ -40,6 +46,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Metadata reader template.
     struct __mt_reader_template_t
     {
         template<__tidx_t tidx> using mt_t = __mt_t<tidx>;
@@ -48,6 +55,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // __assembly_reader_super_t
 
+    // Base class of a assembly reader.
     template<typename reader_t, __lv_t rlv>
     class __assembly_reader_super_t<reader_t, 0, rlv>
             : public compile_assembly_layout_t<al::spool_t, rlv, __mt_reader_template_t>
@@ -59,6 +67,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         using __mt_t = typename __mt_reader_template_t::template mt_t<tidx>;
 
     public:
+
+        // Constructors.
         __assembly_reader_super_t(xistream_t & stream, assembly_t & assembly,
                 assembly_loader_t * loader)
             : __super_t(assembly.get_xpool()), __assembly(assembly), __stream(stream)
@@ -66,13 +76,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             , __res_reader(this->__heap, assembly.get_xpool().spool)
         { }
 
-        void read()
+        // Read metadatas.
+        void read(bool brief)
         {
-            read_metadata<rlv, __self_t::value_of(__ln_t::table_count), __mt_reader_template_t>(
-                __stream, this->__mt_objects, this->__heap
-            );
-
-            __build_entities();
+            if(!brief)
+            {
+                __read_metadata<>(&this->__heap);
+                __build_entities();
+            }
+            else
+            {
+                __read_metadata<__tidx_t::assembly>(nullptr);
+                __load_assembly_brief();
+            }
         }
 
     protected:
@@ -81,8 +97,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xistream_t        & __stream;
 
     private:
+
+        // Returns table count.
+        static constexpr int __table_count()
+        {
+            return __self_t::value_of(__ln_t::table_count);
+        }
+
+        // Read metadata.
+        template<__tidx_t _read_to = (__tidx_t)(__table_count() - 1)>
+        void __read_metadata(mt_heap_t * heap)
+        {
+            read_metadata<rlv, __table_count(), __mt_reader_template_t, _read_to>(
+                __stream, this->__mt_objects, heap
+            );
+        }
+
         template<typename entity_t> using __list_t = std::vector<entity_t>;
 
+        // Attribue list
         class __attribute_list_t : public __list_t<attribute_t *>
         {
             typedef __list_t<attribute_t *> __super_t;
@@ -90,8 +123,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             typedef size_type               __size_t;
 
         public:
+
+            // Constructor.
             __attribute_list_t(__owner_t * owner) : __owner(owner) { }
 
+            // Returns attribute at specified pos.
             attribute_t * operator [] (__size_t pos)
             {
                 attribute_t * attr = __super_t::operator[](pos);
@@ -107,6 +143,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Logger.
         class __logger_t : public logger_t
         {
         public:
@@ -120,6 +157,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Generic param placeholder type.
         class __generlc_param_placeholder_type_t : public type_t
         {
             typedef type_t __super_t;
@@ -138,6 +176,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             virtual const string_t to_full_name() const override { return (string_t)*this; }
             virtual const string_t to_short_name() const override { return (string_t)*this; }
             virtual name_t get_name() const override { return name_t::null; }
+            virtual const string_t to_identity() const override { return _T("<placeholder>"); }
 
             operator string_t() const { return _T("__generlc_param_placeholder_type_t"); }
         };
@@ -148,77 +187,88 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         std::map<type_t *, type_name_t *> __type_name_map;
         std::map<decorate_value_t, decorate_t *> __decorate_map;
 
-        __list_t<assembly_t *>          __assembly_refs;
-        __list_t<general_type_t *>      __type_refs;
-        __list_t<method_t *>            __method_refs;
-        __list_t<field_t *>             __field_refs;
-        __list_t<property_t *>          __property_refs;
-        __list_t<event_t *>             __event_refs;
+        __list_t<assembly_t *>          __assembly_refs;        // Assembly refs
+        __list_t<general_type_t *>      __type_refs;            // Type refs.
+        __list_t<method_t *>            __method_refs;          // Method refs.
+        __list_t<field_t *>             __field_refs;           // Field refs.
+        __list_t<property_t *>          __property_refs;        // Property refs.
+        __list_t<event_t *>             __event_refs;           // Event refs.
 
-        __list_t<general_type_t *>      __general_types;
-        __list_t<generic_type_t *>      __generic_types;
-        __list_t<array_type_t *>        __array_types;
+        __list_t<general_type_t *>      __general_types;        // General types.
+        __list_t<generic_type_t *>      __generic_types;        // Generic types.
+        __list_t<array_type_t *>        __array_types;          // Array types.
+        __list_t<generic_method_t *>    __generic_methods;      // Generic methods.
 
-        __list_t<type_t *>              __super_types;
-        __list_t<general_type_t *>      __nest_types;
-        __list_t<method_t *>            __methods;
-        __list_t<field_t *>             __fields;
-        __list_t<property_t *>          __properties;
-        __list_t<event_t *>             __events;
+        __list_t<type_t *>              __super_types;          // Super types.
+        __list_t<general_type_t *>      __nest_types;           // Nest types.
+        __list_t<method_t *>            __methods;              // Methods.
+        __list_t<field_t *>             __fields;               // Fields.
+        __list_t<property_t *>          __properties;           // Properties.
+        __list_t<event_t *>             __events;               // Events.
 
-        __list_t<type_def_t *>          __type_defs;
-        __list_t<type_def_param_t *>    __type_def_params;
+        __list_t<type_def_t *>          __type_defs;            // Typedefs.
+        __list_t<type_def_param_t *>    __type_def_params;      // Typedef params.
 
-        __list_t<param_t *>             __params;
-        __list_t<generic_param_t *>     __generic_params;
-        __attribute_list_t              __attributes;
-        __list_t<argument_t *>          __attribute_arguments;
+        __list_t<param_t *>             __params;               // Params.
+        __list_t<generic_param_t *>     __generic_params;       // Generic params.
+        __attribute_list_t              __attributes;           // Attributes.
+        __list_t<argument_t *>          __attribute_arguments;  // Attribute arguments.
 
-        __list_t<expression_t *>        __constants;
+        __list_t<expression_t *>        __constants;            // Constants.
 
-        std::set<attribute_t *>         __compile_time_attributes;
+        std::set<attribute_t *>         __compile_time_attributes; 
+                                                                // Compile time attributes.
 
-        std::vector<generic_args_t *>   __generic_args_array;
-        std::vector<type_t *>           __generlc_param_placeholder_types;
-        pool_t                          __pool;
+        std::vector<generic_args_t *>   __generic_args_array;   // Generic argument array.
+        std::vector<type_t *>           __generlc_param_placeholder_types; 
+                                                                // Generic param placehoder.
 
-        __logger_t                      __logger;
+        pool_t                          __pool;                 // Pool.
 
-        res_reader_t<al::spool_t>       __res_reader;
+        __logger_t                      __logger;               // Logger.
+
+        res_reader_t<al::spool_t>       __res_reader;           // Resourc reader.
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Returns metadata manager.
         template<__tidx_t tidx> mt_manager_t<tidx, __mt_t<tidx>> & __mt_manager()
         {
             return __super_t::template __mt_manager<tidx>();
         }
 
+        // Creates a new object.
         template<typename t, typename ... args_t>
         t * __new_obj(args_t && ... args)
         {
             return __super_t::template __new_obj<t>(std::forward<args_t>(args) ...);
         }
 
+        // Returns metadata of ref.
         template<__tidx_t tidx> mt_t<tidx> & __mt(ref_t ref)
         {
             return __mt_manager<tidx>().get(ref);
         }
 
+        // Returns whether it's null or empty.
         bool __is_null_or_empty(sid_t sid)
         {
             return sid.is_null() || sid.is_empty();
         }
 
+        // Gets sid_t of res_t.
         sid_t __to_sid(res_t res)
         {
             return __res_reader.read_sid(res);
         }
 
+        // Gets name_t of res_t.
         name_t __to_name(res_t res)
         {
             return name_t(__to_sid(res));
         }
 
+        // Returns mname of sid.
         const mname_t * __to_mname(sid_t sid)
         {
             if(__is_null_or_empty(sid))
@@ -228,12 +278,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return mname_t::parse(mctx, (string_t)sid);
         }
 
+        // Returns mname of res.
         const mname_t * __to_mname(res_t res)
         {
             sid_t sid = __to_sid(res);
             return __to_mname(sid);
         }
 
+        // Returns namespace_t of ns.
         namespace_t * __to_namespace(sid_t ns)
         {
             if(ns == sid_t::null)
@@ -243,6 +295,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return nullptr;
         }
 
+        // Returns namespace_t of res.
         namespace_t * __to_namespace(res_t res)
         {
             if(res == res_t::null)
@@ -258,6 +311,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ns;
         }
 
+        // Returns typename of type.
         type_name_t * __to_type_name(type_t * type)
         {
             if(type == nullptr)
@@ -273,11 +327,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return type_name;
         }
 
+        // Returns typename of ref.
         type_name_t * __to_type_name(ref_t ref)
         {
             return __to_type_name(__get_type(ref));
         }
 
+        // Returns type of ref.
         type_t * __get_type(ref_t ref)
         {
             if(ref == ref_t::null)
@@ -310,6 +366,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Returns generic type of ref.
         generic_type_t * __get_generic_type(ref_t ref)
         {
             __CheckRefLimit(ref, __generic_types.size(), _T("generic type"));
@@ -345,6 +402,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return generic_type;
         }
 
+        // Returns array type of ref.
         array_type_t * __get_array_type(ref_t ref)
         {
             __CheckRefLimit(ref, __array_types.size(), _T("array type"));
@@ -365,16 +423,50 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return array_type;
         }
 
+        // Returns generic method of ref.
+        generic_method_t * __get_generic_method(ref_t ref)
+        {
+            __CheckRefLimit(ref, __generic_methods, _T("generic method"));
+
+            generic_method_t * generic_method = __generic_methods[ref.index];
+            if(generic_method == nullptr)
+            {
+                auto & mgr = __mt_manager<__tidx_t::generic_method>();
+
+                mt_generic_type_t & mt = mgr[ref];
+                method_t * template_ = __get_method(mt.template_);
+                _A(template_ != nullptr);
+
+                ref_t arg_ref = mt.args;
+                auto & arg_mgr = __mt_manager<__tidx_t::generic_argument>();
+
+                __CheckRefLimit(arg_ref, arg_mgr.count(), _T("generic argument"));
+
+                type_collection_t args;
+                arg_mgr.each(arg_ref, [this, &args](int index, mt_generic_argument_t & mt) {
+                    return args.push_back(__get_type(mt.type)), true;
+                });
+
+                generic_method = this->__xpool.new_generic_method(template_, args);
+                __generic_methods[ref.index] = generic_method;
+            }
+
+            return generic_method;
+        }
+
+        // Returns whether it's a interal type.
         bool __is_internal_type(ref_t ref)
         {
             return (mt_type_extra_t)ref.extra == mt_type_extra_t::general;
         }
 
+        // Returns whether it's a compile time attribute.
         bool __is_compile_time_attribute(attribute_t * attribute)
         {
             return __compile_time_attributes.find(attribute) != __compile_time_attributes.end();
         }
 
+        // Returns a constant type.
         cvalue_t __read_const_type(const mt_constant_t & mt)
         {
             ref_t ref = *(ref_t *)mt.data2;
@@ -383,6 +475,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return to_cvalue(type);
         }
 
+        // Returns a constant value.
         cvalue_t __new_cvalue(const mt_constant_t & mt)
         {
             cvalue_type_t cvalue_type = to_cvalue_type(mt.constant_type);
@@ -394,6 +487,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Bind entities.
         void __build_entities()
         {
             #define __Bind(func)       \
@@ -401,6 +495,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             __set_placeholders_null<__tidx_t::generic_type>(__generic_types);
             __set_placeholders_null<__tidx_t::array_type>(__array_types);
+            __set_placeholders_null<__tidx_t::generic_method>(__generic_methods);
             __set_placeholders<__tidx_t::type>(__general_types);
 
             __set_placeholders<__tidx_t::method>(__methods);
@@ -461,6 +556,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //-------- ---------- ---------- ---------- ----------
         // __get
 
+        // Returns entity at specified ref.
         template<__tidx_t tidx, typename entity_t = typename mt_t<tidx>::entity_t>
         auto __get(__list_t<entity_t> & entities, ref_t ref, const char_t * name)
         {
@@ -471,26 +567,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return entities[ref.index];
         }
 
+        // Returns method of specified ref.
         method_t * __get_method(ref_t ref)
         {
             return __get<__tidx_t::method>(__methods, ref, _T("method"));
         }
 
+        // Returns generic param of specified ref.
         generic_param_t * __get_generic_param(ref_t ref)
         {
             return __get<__tidx_t::generic_param>(__generic_params, ref, _T("generic param"));
         }
 
+        // Returns type def param of specified ref.
         type_def_param_t * __get_type_def_param(ref_t ref)
         {
             return __get<__tidx_t::type_def_param>(__type_def_params, ref, _T("typedef param"));
         }
 
+        // Returns constant of specified ref.
         expression_t * __get_constant(ref_t ref)
         {
             return __get<__tidx_t::constant>(__constants, ref, _T("constant"));
         }
 
+        // Returns assembly of specified ref.
         assembly_t * __get_assembly_ref(ref_t ref)
         {
             return __get<__tidx_t::assembly_ref>(__assembly_refs, ref, _T("assembly"));
@@ -499,11 +600,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //-------- ---------- ---------- ---------- ----------
         // __to_entities
 
+        // Converts to entity collection.
         template<typename _entities_t, __tidx_t tidx, typename _list_t,
             typename entity_t = typename mt_t<tidx>::entity_t
         >
-        _entities_t * __to_entities(_list_t & all_entities, ref_t refs,
-                                                            const char_t * name)
+        _entities_t * __to_entities(_list_t & all_entities, ref_t refs, const char_t * name)
         {
             if(refs == ref_t::null)
                 return nullptr;
@@ -520,6 +621,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return entities;
         }
 
+        // Convert to entity collection with owner.
         template<typename _entities_t, __tidx_t tidx, typename _list_t,
             typename entity_t = typename mt_t<tidx>::entity_t
         >
@@ -536,6 +638,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return entities;
         }
 
+        // Converts to generic params.
         generic_params_t * __to_generic_params(ref_t refs)
         {
             return __to_entities<generic_params_t, __tidx_t::generic_param>(
@@ -543,6 +646,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             );
         }
 
+        // Converts to attribute arguments.
         arguments_t * __to_attribute_arguments(ref_t refs)
         {
             return __to_entities<arguments_t, __tidx_t::attribute_argument>(
@@ -550,6 +654,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             );
         }
 
+        // Converts to params.
         params_t * __to_params(ref_t refs)
         {
             return __to_entities<params_t, __tidx_t::param>(
@@ -557,6 +662,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             );
         }
 
+        // Converts to typedef params.
         type_def_params_t * __to_type_def_params(ref_t refs)
         {
             return __to_entities<type_def_params_t, __tidx_t::type_def_param>(
@@ -564,6 +670,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             );
         }
 
+        // Converts to attributes.
         attributes_t * __to_attributes(ref_t refs, eobject_t * owner)
         {
             return __to_entities_with_owner<attributes_t, __tidx_t::attribute>(
@@ -571,6 +678,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             );
         }
 
+        // Converts to decorate.
         decorate_t * __to_decorate(__decorate_t decorate)
         {
             decorate_value_t value = (decorate_value_t)decorate;
@@ -590,6 +698,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //-------- ---------- ---------- ---------- ----------
         // __import ...
 
+        // Import assembly refs.
         void __import_assembly_refs()
         {
             for(mt_assembly_ref_t * mt : __mt_manager<__tidx_t::assembly_ref>())
@@ -611,6 +720,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Import type refs.
         void __import_type_refs()
         {
             __set_placeholders_null<__tidx_t::type_ref>(__type_refs);
@@ -621,6 +731,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Import type ref.
         general_type_t * __import_type_ref(size_t index)
         {
             general_type_t * type = __type_refs[index];
@@ -668,6 +779,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return type;
         }
 
+        // Import field refs.
         void __import_field_refs()
         {
             for(mt_field_ref_t * mt : __mt_manager<__tidx_t::field_ref>())
@@ -676,6 +788,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Gets generic param placeholder type.
         type_t * __get_generlc_param_placeholder_type(int index)
         {
             while(__generlc_param_placeholder_types.size() < index + 1)
@@ -694,6 +807,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         #define __GenericParamType(index) (__get_generlc_param_placeholder_type(index))
 
+        // Gets import method param type.
         type_t * __get_import_method_param_type(ref_t ref)
         {
             switch((mt_type_extra_t)ref.extra)
@@ -706,6 +820,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Imports method refs.
         void __import_method_refs()
         {
             for(mt_method_ref_t * mt : __mt_manager<__tidx_t::method_ref>())
@@ -754,6 +869,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Creates a generic arguments of specified count.
         generic_args_t * __to_generic_args(int args_count)
         {
             if(args_count == 0)
@@ -772,6 +888,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __generic_args_array[args_count - 1];
         }
 
+        // Builds generic arguments of specified count.
         generic_args_t * __build_generic_args(int args_count)
         {
             generic_args_t * args = __pool.template new_obj<generic_args_t>();
@@ -785,6 +902,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return args;
         }
 
+        // Import property refs.
         void __import_property_refs()
         {
             for(mt_property_ref_t * mt : __mt_manager<__tidx_t::property_ref>())
@@ -793,6 +911,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Import event refs.
         void __import_event_refs()
         {
             for(mt_event_ref_t * mt : __mt_manager<__tidx_t::event_ref>())
@@ -804,6 +923,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //-------- ---------- ---------- ---------- ----------
         // __load ...
 
+        // Load super types.
         void __load_super_types()
         {
             auto & mgr = __mt_manager<__tidx_t::super_type>();
@@ -813,6 +933,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Load nest types.
         void __load_nest_types()
         {
             auto & mgr = __mt_manager<__tidx_t::nest_type>();
@@ -829,6 +950,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Load constants.
         void __load_constants()
         {
             std::map<cvalue_t, expression_t *> map;
@@ -854,7 +976,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
-        void __load_assembly()
+        // Returns assembly metadata.
+        mt_assembly_t & __mt_assembly()
         {
             auto & mgr = __mt_manager<__tidx_t::assembly>();
 
@@ -865,7 +988,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 throw __format_error(_T("multiply assembly information"));
 
             mt_assembly_t & mt_assembly = mgr[0];
+            return mt_assembly;
+        }
 
+        // Loads assembly.
+        void __load_assembly()
+        {
+            mt_assembly_t & mt_assembly = __mt_assembly();
             const mname_t * mname0 = __to_mname(mt_assembly.name);
 
             if(__assembly.name != nullptr && __assembly.name != __to_mname(mt_assembly.name))
@@ -873,13 +1002,24 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             __assembly.name        = __to_mname(mt_assembly.name);
             __assembly.version     = mt_assembly.version;
-            __assembly.entry_point = __get_method(mt_assembly.entry_point);
             __assembly.information = __to_sid(mt_assembly.info);
+
+            __assembly.entry_point = __get_method(mt_assembly.entry_point);
+        }
+
+        // Load assembly brief.
+        void __load_assembly_brief()
+        {
+            mt_assembly_t & mt_assembly = __mt_assembly();
+
+            if(mt_assembly.entry_point != ref_t::null)
+                __assembly.entry_point = __FakeEntryPoint;
         }
 
         //-------- ---------- ---------- ---------- ----------
         // __set_placeholders && __fill ...
 
+        // Sets placeholders.
         template<__tidx_t tidx, typename entity_t = typename mt_t<tidx>::entity_t>
         void __set_placeholders(std::vector<entity_t> & entities)
         {
@@ -890,6 +1030,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Sets placeholders to nullptr.
         template<__tidx_t tidx, typename entity_t = typename mt_t<tidx>::entity_t>
         void __set_placeholders_null(std::vector<entity_t> & entities)
         {
@@ -899,6 +1040,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Fills entities.
         template<__tidx_t tidx, typename _list_t, typename entity_t = typename mt_t<tidx>::entity_t>
         void __fill_entities(_list_t & entities, __list_t<entity_t> & all_entities,
                                                     ref_t refs, const char_t * name)
@@ -913,6 +1055,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Fills members.
         template<__tidx_t tidx, typename _list_t, typename entity_t = typename mt_t<tidx>::entity_t>
         void __fill_members(type_t * host_type, _list_t & members,
                 __list_t<entity_t> & all_members, ref_t refs, const char_t * name)
@@ -924,6 +1067,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Fills type names.
         template<__tidx_t tidx, typename _list_t>
         void __fill_type_names(__list_t<type_t *> & all_types, _list_t & type_names, ref_t refs,
                                                                         const char_t * name)
@@ -945,6 +1089,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //-------- ---------- ---------- ---------- ----------
         // __build ...
 
+        // Build entities.
         template<__tidx_t tidx, typename f_t, typename entity_t = typename mt_t<tidx>::entity_t>
         void __build(__list_t<entity_t> & all_entities, f_t f)
         {
@@ -959,6 +1104,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Build general type.
         void __build_general_type(mt_type_t & mt_type, general_type_t * type)
         {
             type->name      = __to_name(mt_type.name);
@@ -968,12 +1114,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             type->params    = __to_generic_params(mt_type.generic_params);
         }
 
+        // Fill nest types of general type.
         void __fill_general_type_nest_types(mt_type_t & mt_type, general_type_t * type)
         {
             __fill_members<__tidx_t::type>(type, type->nest_types, __nest_types,
                                                 mt_type.nest_types, _T("nest type"));
         }
 
+        // Fill members of general type.
         void __fill_general_type_members(mt_type_t & mt_type, general_type_t * type)
         {
             __fill_members<__tidx_t::method>(type, type->methods, __methods,
@@ -999,12 +1147,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             type->namespace_ = __to_namespace(mt_type.namespace_);
         }
 
+        // Builds array type.
         void __build_array_type(mt_array_type_t & mt, array_type_t * type)
         {
             type->element_type = __get_type(mt.element_type);
             type->dimension    = mt.dimension;
         }
 
+        // Builds filed.
         void __build_field(mt_field_t & mt, field_t * field)
         {
             field->name             = __to_name(mt.name);
@@ -1015,6 +1165,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             field->init_value       = __get_constant(mt.init_value);
         }
 
+        // Builds method.
         void __build_method(mt_method_t & mt, method_t * method)
         {
             method->name            = __to_name(mt.name);
@@ -1027,6 +1178,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             method->trait           = mt.trait;
         }
 
+        // Builds property.
         void __build_property(mt_property_t & mt, property_t * property)
         {
             property->name          = __to_name(mt.name);
@@ -1040,6 +1192,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             property->set_method    = __get_method(mt.set_method);
         }
 
+        // Builds event.
         void __build_event(mt_event_t & mt, event_t * event)
         {
             event->name             = __to_name(mt.name);
@@ -1052,6 +1205,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             event->remove_method    = __get_method(mt.remove_method);
         }
 
+        // Builds typedef.
         void __build_type_def(mt_type_def_t & mt, type_def_t * type_def)
         {
             type_def->name          = __to_name(mt.name);
@@ -1062,12 +1216,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             type_def->namespace_    = __to_namespace(mt.namespace_);
         }
 
+        // Builds typedef param.
         void __build_type_def_param(mt_type_def_param_t & mt, type_def_param_t * type_def_param)
         {
             type_def_param->name        = __to_name(mt.name);
             type_def_param->attributes  = __to_attributes(mt.attributes, type_def_param);
         }
 
+        // Builds param.
         void __build_param(mt_param_t & mt, param_t * param)
         {
             param->name             = __to_name(mt.name);
@@ -1077,6 +1233,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             param->default_value    = __get_constant(mt.default_value);
         }
 
+        // Builds attribute.
         void __build_attribute(mt_attribute_t & mt, attribute_t * attribute)
         {
             attribute->type_name   = __to_type_name(mt.type);
@@ -1087,6 +1244,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 __compile_time_attributes.insert(attribute);
         }
 
+        // Builds attribute argument.
         void __build_attribute_argument(mt_attribute_argument_t & mt, argument_t * argument)
         {
             argument->name          = __to_name(mt.name);
@@ -1094,6 +1252,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             argument->name_type     = mt.name_type;
         }
 
+        // Builds generic param.
         void __build_generic_param(mt_generic_param_t & mt, generic_param_t * generic_param)
         {
             generic_param->name = __to_name(mt.name);
@@ -1103,6 +1262,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //-------- ---------- ---------- ---------- ----------
         // commit
 
+        // Commits entities.
         template<__tidx_t tidx, typename entity_t = typename mt_t<tidx>::entity_t>
         void __commit(__list_t<entity_t> & entities)
         {
@@ -1113,6 +1273,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Commits general types.
         void __commit_general_types()
         {
             eobject_commit_context_t ctx(this->__xpool, __logger);
@@ -1127,6 +1288,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Converts namespace to a sid.
         sid_t __ns_to_sid(namespace_t * ns)
         {
             if(ns != nullptr)
@@ -1141,6 +1303,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return sid_t::null;
         }
 
+        // Commits type defs.
         void __commit_type_defs()
         {
             for(type_def_t * type_def : __type_defs)
@@ -1155,6 +1318,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // layout 1
 
+    // Base class of assembly reader.
     template<typename reader_t, __lv_t rlv>
     class __assembly_reader_super_t<reader_t, 1, rlv>
             : public __assembly_reader_super_t<reader_t, 0, rlv>
@@ -1168,6 +1332,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // __assembly_reader_t
 
+    // Assembly reader.
     template<__lv_t lv>
     class __assembly_reader_t : public __assembly_reader_super_t<__assembly_reader_t<lv>, lv>
     {
@@ -1179,6 +1344,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Read guid of assembly.
     void assembly_read_guide(xistream_t & stream, mt_guide_t * guide)
     {
         __entity_operation_t<mt_guide_t>::read(stream, *guide);
@@ -1187,8 +1353,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             throw __format_error(_T("unexpected assembly flag"));
     }
 
+    // Read assembly.
     void assembly_read(xistream_t & stream, assembly_t & assembly,
-                                        assembly_loader_t * loader, __lv_t * out_lv)
+                assembly_loader_t * loader, __lv_t * out_lv, bool brief)
     {
         mt_guide_t guide;
         assembly_read_guide(stream, &guide);
@@ -1196,12 +1363,49 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch(guide.layout)
         {
             case 1:
-                __assembly_reader_t<1>(stream, assembly, loader).read();
+                __assembly_reader_t<1>(stream, assembly, loader).read(brief);
                 break;
 
             default:
                 throw _ED(__e_t::unsupported_layout, guide.layout);
         }
+    }
+
+    // Gets assembly type.
+    assembly_type_t get_assembly_type(xistream_t & stream)
+    {
+        pool_t pool;
+        xpool_t xpool(&pool);
+        assembly_t assembly(xpool, nullptr);
+
+        try
+        {
+            assembly_read(stream, assembly, nullptr, nullptr, true);
+            if(assembly.entry_point != nullptr)
+                return assembly_type_t::executable;
+
+            return assembly_type_t::dynamic_library;
+        }
+        catch(logic_error_t<__e_t> & e)
+        {
+            if(e.code == __e_t::unsupported_layout)
+                return assembly_type_t::unknown;
+
+            throw;
+        }
+    }
+
+    // Gets assembly type.
+    assembly_type_t get_assembly_type(const string_t & path)
+    {
+        file_xistream_t stream;
+        stream.open(path);
+
+        X_TRY_R
+            return get_assembly_type(stream);
+        X_FINALLY
+            stream.completed();
+        X_TRY_END
     }
 
     ////////// ////////// ////////// ////////// //////////

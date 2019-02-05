@@ -12,28 +12,38 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Execute error codes.
     X_ENUM_INFO(exec_error_code_t)
 
+        // Assembly not found.
         X_D(assembly_not_found, _T("assembly '%1% not found"))
 
+        // Assembly no entry point.
         X_D(assembly_no_entry_point, _T("assembly '%1%' has no entry point"))
 
+        // Method no body.
         X_D(method_no_body, _T("method '%1% has no body"))
 
+        // Internal function not found.
         X_D(internal_function_not_found, _T("internal funciton '%1%' not found"))
 
+        // Method parse error: unexpected index.
         X_D(method_parse_error__unexpected_index, _T("method parse error: unexpected index"))
 
+        // Switch table index overflow.
         X_D(switch_table_index_overflow, _T("switch table index overflow"))
 
+        // Type not found.
         X_D(type_not_found, _T("type '%1%' not found"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Execute environment codes.
     X_ENUM_INFO(exec_env_code_t)
 
+        // At the end of commands.
         X_C(end,        _T("end"))
 
     X_ENUM_INFO_END
@@ -41,6 +51,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // command_execute_context_t
 
+    // Pushes calling context.
     void command_execute_context_t::push_calling(command_t ** command)
     {
         stack.push(stack.lp());
@@ -50,12 +61,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         stack.set_lp(stack.top());
     }
 
+    // Pops calling context.
     void command_execute_context_t::pop_calling()
     {
         current = stack.pop<command_t **>();
         stack.set_lp(stack.pop<rt_stack_unit_t *>());
     }
 
+    // Pops calling context.
     void command_execute_context_t::pop_calling(const __calling_stub_t * p)
     {
         current = p->current;
@@ -65,19 +78,35 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // executor_env_t
 
-    exec_method_t * executor_env_t::exec_method_of(rt_method_t * rt_method,
-                                     rt_type_t * rt_type, rt_assembly_t * rt_assembly)
+    // Execute method of runtime method.
+    exec_method_t * executor_env_t::exec_method_of(rt_method_t * rt_method)
     {
         _A(rt_method != nullptr);
-        _A(rt_type != nullptr);
-        _A(rt_assembly != nullptr);
 
-        auto it = __method_map.find(rt_method);
+        auto it = __method_map.find((void *)rt_method);
         if(it != __method_map.end())
             return it->second;
 
-        exec_method_t * exec_method = parse_commands(*this, rt_assembly, rt_type, rt_method);
-        __method_map[rt_method] = exec_method;
+        exec_method_t * exec_method = parse_commands(*this, rt_method);
+        __method_map[(void *)rt_method] = exec_method;
+
+        return exec_method;
+    }
+
+    // Execute method of runtime generic method.
+    exec_method_t * executor_env_t::exec_method_of(rt_generic_method_t * rt_generic_method)
+    {
+        _A(rt_generic_method != nullptr);
+
+        auto it = __method_map.find((void *)rt_generic_method);
+        if(it != __method_map.end())
+            return it->second;
+
+        exec_method_t * exec_method = parse_commands(*this,
+            rt_generic_method->template_, rt_generic_method->atypes
+        );
+
+        __method_map[(void *)rt_generic_method] = exec_method;
 
         return exec_method;
     }
@@ -85,17 +114,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // executor_t
 
+    // Executes commands.
     void executor_t::execute()
     {
-        rt_assembly_t * main_assembly = env.assembly_provider->load_main_assembly();
+        rt_assembly_t * main_assembly = env.assemblies.load_main_assembly();
         rt_method_t * entry_point = main_assembly->get_entry_point();
 
         if(entry_point == nullptr)
             throw _ED(exec_error_code_t::assembly_no_entry_point, main_assembly);
 
-        command_creating_context_t creating_ctx(
-            env, main_assembly, entry_point
-        );
+        command_creating_context_t creating_ctx(env, main_assembly, entry_point);
 
         command_t * commands[] = {
             new_static_call_command(creating_ctx,  (*main_assembly)->entry_point),
@@ -106,6 +134,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __execute_method(exec_ctx, commands);
     }
 
+    // Executes method.
     void executor_t::__execute_method(command_execute_context_t & ctx, command_t ** commands)
     {
         ctx.current = commands;
@@ -118,7 +147,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #if __Debug
                 #define __ExecuteCommand()                                      \
-                    _P(*ctx.current);                                           \
+                    _P((*ctx.current)->to_string(ctx));                         \
                     __ExecuteCmd
             #else
                 #define __ExecuteCommand()                                      \
@@ -146,7 +175,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    void rt_assemblies_t::append(rt_assembly_t * assembly, 
+    // Appends a assembly.
+    void exec_assemblies_t::append(rt_assembly_t * assembly, 
                                 const string_t & package, const string_t & name)
     {
         _A(assembly != nullptr);
@@ -159,7 +189,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __last = assembly;
     }
 
-    rt_assembly_t * rt_assemblies_t::get(const string_t & package, const string_t & name)
+    // Gets a assembly by package and name.
+    rt_assembly_t * exec_assemblies_t::get(const string_t & package, const string_t & name)
     {
         auto it = __map.find(__key_t(package, name));
         if(it == __map.end())
@@ -170,71 +201,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    class __rt_assembly_provider_t : public rt_assembly_provider_t
+    // Executes with specified context.
+    void execute(rt_context_t & ctx)
     {
-    public:
-        __rt_assembly_provider_t(rt_assemblies_t & assemblies, rt_assembly_t & entrypoint)
-            : __assemblies(assemblies), __entrypoint(entrypoint)
-        { }
-
-        virtual rt_assembly_t * load_main_assembly() override
-        {
-            __revise_assembly(&__entrypoint);
-            return &__entrypoint;
-        }
-
-        virtual rt_assembly_t * load_assembly(const string_t & package,
-                                              const string_t & name) override
-        {
-            rt_assembly_t * assembly = get_assembly(__assemblies, package, name);
-            __revise_assembly(assembly);
-
-            return assembly;
-        }
-
-        virtual rt_assembly_t * at(int index) override
-        {
-            if(index < 0 || index >= __assembly_vector.size())
-                throw _EC(overflow);
-
-            return __assembly_vector[index];
-        }
-
-    private:
-        rt_assemblies_t & __assemblies;
-        rt_assembly_t &   __entrypoint;
-
-        std::vector<rt_assembly_t * > __assembly_vector;
-
-        void __revise_assembly(rt_assembly_t * assembly)
-        {
-            if(assembly->index < 0)
-            {
-                assembly->index = __assembly_vector.size();
-                __assembly_vector.push_back(assembly);
-            }
-        }
-    };
-
-    void execute(rt_context_t & ctx, rt_assemblies_t & assemblies, rt_assembly_t & entrypoint)
-    {
-        __rt_assembly_provider_t rt_assembly_provider(assemblies, entrypoint);
-        executor_t(ctx, &rt_assembly_provider).execute();
-    }
-
-    void execute(rt_context_t & ctx, rt_assembly_t & assembly)
-    {
-        rt_assemblies_t assemblies;
-        assemblies.append(&assembly);
-
-        execute(ctx, assemblies, assembly);
-    }
-
-    void execute(rt_context_t & ctx, rt_assemblies_t & assemblies)
-    {
-        _A(assemblies.size() > 0);
-
-        execute(ctx, assemblies, *assemblies.last());
+        executor_t(ctx).execute();
     }
 
     ////////// ////////// ////////// ////////// //////////

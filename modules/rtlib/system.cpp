@@ -4,6 +4,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Write.
     struct __write_args_t
     {
         rstring_t s;
@@ -17,6 +18,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // TestAdd.
     struct __test_add_args_t
     {
         rint32_t    a, b;
@@ -31,6 +33,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // WriteInt32.
     struct __write_int32_t
     {
         rint32_t    v;
@@ -44,6 +47,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // WriteBoolean.
     struct __write_boolean_t
     {
         rbool_t    v;

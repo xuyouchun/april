@@ -38,9 +38,9 @@ __CSEC_FILES ?= $(wildcard *.src)
 CSEC_FILES   ?= $(__CSEC_FILES:.src=.csec)
 
 __CONFIG_H    = $(BASE_PATH)/include/config.h
+DEFAULT_TARGET_TYPE ?= static
 
-TARGET_TYPE  ?= static
-
+TARGET_TYPE  ?= $(DEFAULT_TARGET_TYPE)
 
 # Version
 ifeq ($(VERSION), )
@@ -81,8 +81,11 @@ endif
 endif
 
 # Dependences
-all: $(__TARGET_PATH)/$(__TARGET) 
+all: $(REL_MODULES) $(__TARGET_PATH)/$(__TARGET) 
 
+# Rel Modules
+$(REL_MODULES):
+	$(MAKE) -C $(BASE_PATH) $@;
 
 $(__TARGET_PATH)/$(__TARGET): $(__CONFIG_H) Makefile.dep $(CSEC_FILES) $(OBJ_FILES) $(REL_MODULES)
 	@mkdir -p $(__TARGET_PATH) > /dev/null 2>&1;
@@ -124,9 +127,9 @@ rebuild: distclean all
 
 # run
 run: all
-	@if [ "$(__RUN_CMD)" != "" ]; then		    \
-		echo Run $(MODULE) $(RUN_ARGS) ...;	    \
-		$(__RUN_CMD)  $(RUN_ARGS);		        \
+	@if [ "$$?" == "0" ] && [ "$(__RUN_CMD)" != "" ]; then		    \
+		echo Run $(MODULE) $(RUN_ARGS) ...;	    					\
+		$(__RUN_CMD)  $(RUN_ARGS);		        					\
 	fi;
 
 # restart

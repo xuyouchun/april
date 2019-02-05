@@ -3,7 +3,7 @@
 #define __COMMON_STRING_H__
 
 ////////// ////////// ////////// ////////// //////////
-// convert functions
+// String convert functions
 
 namespace X_ROOT_NS
 {
@@ -23,18 +23,21 @@ namespace X_ROOT_NS
 
         template<size_t char_size> struct __string_info_t { };
 
+        // Defines character type of u8string.
         template<> struct __string_info_t<__u8string_size>
         {
             typedef std::string string_type;
             typedef typename string_type::value_type char_type;
         };
 
+        // Defines character type of u16string.
         template<> struct __string_info_t<__u16string_size>
         {
             typedef std::u16string string_type;
             typedef typename string_type::value_type char_type;
         };
 
+        // Defines character type of u32string.
         template<> struct __string_info_t<__u32string_size>
         {
             typedef std::u32string string_type;
@@ -48,14 +51,15 @@ namespace X_ROOT_NS
         const std::codecvt_mode __codecvt_mode = (std::codecvt_mode)std::little_endian;
         const unsigned long __max_code = 0x10ffff;
 
+        // String converter of utf8
         template<typename c_t>
         using __codecvt_utf8 = std::codecvt_utf8<c_t, __max_code, __codecvt_mode>;
 
+        // String converter of utf16
         template<typename c_t>
         using __codecvt_utf16 = std::codecvt_utf16<c_t, __max_code, __codecvt_mode>;
 
         // __string_convert_function_t
-
         template<typename ch_t, typename codecvt_t>
         class __string_convert_function_t
         {
@@ -65,6 +69,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Converts bytes to string.
         template<typename from_ch_t, typename to_ch_t, typename codecvt_t>
         class __string_convert_from_bytes_t
             : public __string_convert_function_t<to_ch_t, codecvt_t>
@@ -79,6 +84,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Converts string to bytes.
         template<typename from_ch_t, typename to_ch_t, typename codecvt_t>
         class __string_convert_to_bytes_t
             : public __string_convert_function_t<from_ch_t, codecvt_t>
@@ -93,6 +99,7 @@ namespace X_ROOT_NS
             }
         };
 
+        // Conters string to bytes (char).
         template<typename from_ch_t, typename codecvt_t>
         class __string_convert_to_bytes_t<from_ch_t, char, codecvt_t>
             : public __string_convert_function_t<from_ch_t, codecvt_t>
@@ -107,6 +114,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // An empty convert function.
         template<typename ch_t>
         class __string_convert_empty_function_t
         {
@@ -119,7 +127,7 @@ namespace X_ROOT_NS
         };
 
         ////////// ////////// ////////// ////////// //////////
-        // __string_convert_base_t
+        // The base converter.
 
         template<typename from_ch_t, typename to_ch_t, typename function_t>
         class __string_convert_base_t : public function_t
@@ -133,6 +141,7 @@ namespace X_ROOT_NS
         };
 
         //-------- ---------- ---------- ---------- ----------
+        // The ex-base converter. with more functions to convert bytes to string.
 
         template<typename from_ch_t, typename to_ch_t, typename function_t>
         class __string_convert_base_ex_t : public function_t
@@ -170,28 +179,28 @@ namespace X_ROOT_NS
         ////////// ////////// ////////// ////////// //////////
         // __string_convert_t
 
-        template<typename from_ch_t, typename to_ch_t>
-        class __string_convert_t { };
+        template<typename from_ch_t, typename to_ch_t> class __string_convert_t { };
 
         //-------- ---------- ---------- ---------- ----------
 
-        // from/to char
-        template<typename from_ch_t>
-        class __string_convert_t<from_ch_t, char>
-            : public __string_convert_base_t<from_ch_t, char, \
+        // Converts to char
+        template<typename from_ch_t> class __string_convert_t<from_ch_t, char>
+            : public __string_convert_base_t<from_ch_t, char,
                     __string_convert_to_bytes_t<from_ch_t, char, __codecvt_utf8<from_ch_t>>>
         { };
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Converts from char
         template<typename to_ch_t>
         class __string_convert_t<char, to_ch_t>
-            : public __string_convert_base_t<char, to_ch_t, \
+            : public __string_convert_base_t<char, to_ch_t,
                     __string_convert_from_bytes_t<char, to_ch_t, __codecvt_utf8<to_ch_t>>>
         { };
 
         //-------- ---------- ---------- ---------- ----------
 
+        // From char to char. (no convertion)
         template<>
         class __string_convert_t<char, char>
             : public __string_convert_base_t<char, char, __string_convert_empty_function_t<char>>
@@ -199,7 +208,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
-        // from/to char16_t
+        // Converts char32 to char16
         template<>
         class __string_convert_t<char32_t, char16_t>
             : public __string_convert_base_t<char32_t, char16_t, \
@@ -208,6 +217,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Converts char16 to char32
         template<>
         class __string_convert_t<char16_t, char32_t>
             : public __string_convert_base_ex_t<char16_t, char32_t, \
@@ -216,6 +226,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Converts char16 to wchar_t
         template<>
         class __string_convert_t<char16_t, wchar_t>
             : public __string_convert_base_ex_t<char16_t, wchar_t, \
@@ -224,6 +235,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Converts char16 to char16. (no convertion)
         template<>
         class __string_convert_t<char16_t, char16_t>
             : public __string_convert_base_t<char16_t, char16_t,
@@ -232,6 +244,8 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Converts char32 to char32. (no convertion)
+
         template<>
         class __string_convert_t<char32_t, char32_t>
             : public __string_convert_base_t<char32_t, char32_t,
@@ -239,6 +253,8 @@ namespace X_ROOT_NS
         { };
 
         //-------- ---------- ---------- ---------- ----------
+
+        // Converts wchar_t to __wchar_t (determines by the platform).
 
         template<>
         class __string_convert_t<wchar_t, __wchar_t>
@@ -266,6 +282,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Converts __wchar_t (determines by the platform) to wchar_t.
         template<>
         class __string_convert_t<__wchar_t, wchar_t>
         {
@@ -292,6 +309,7 @@ namespace X_ROOT_NS
 
         ////////// ////////// ////////// ////////// //////////
 
+        // A function wrapper for convertion.
         template<typename from_ch_t, typename to_ch_t>
         class __string_convert_call_t
         {
@@ -306,6 +324,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // A function wrapper for convertion. ( for wchar_t )
         template<typename to_ch_t>
         class __string_convert_call_t<wchar_t, to_ch_t>
         {
@@ -336,6 +355,7 @@ namespace X_ROOT_NS
 
         //-------- ---------- ---------- ---------- ----------
 
+        // A function wrapper for convertion. ( From wchar_t to wchar_t. no convertion. )
         template<>
         class __string_convert_call_t<wchar_t, wchar_t>
         {
@@ -349,6 +369,7 @@ namespace X_ROOT_NS
 
     }
 
+    // Converts string from a char type to another char type.
     template<typename from_ch_t, typename to_ch_t, typename ... args_t>
     std::basic_string<to_ch_t> string_convert(args_t && ... args)
     {
@@ -356,8 +377,9 @@ namespace X_ROOT_NS
         return f(std::forward<args_t>(args) ...);
     }
 
-
     ////////// ////////// ////////// ////////// //////////
+    // Picks a char type for a string. 
+    // (string type defined in std library, or a simple char pointer. )
 
     namespace
     {
@@ -377,6 +399,8 @@ namespace X_ROOT_NS
         };
     }
 
+    // Picks a char type for a string.
+    // ( string type defined in std library, or a simple char pointer. )
     template<typename _string_t>
     using char_type_t = typename __string_char_type_t<_string_t>::char_t;
 }

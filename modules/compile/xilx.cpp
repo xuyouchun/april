@@ -10,6 +10,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Pop local xil.
     struct __pop_local_xil_t : xil_extra_t<pop_xil_t>
     {
         typedef xil_extra_t<pop_xil_t> __super_t;
@@ -21,6 +22,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    // Pick local xil.
     struct __pick_local_xil_t : xil_extra_t<pick_xil_t>
     {
         typedef xil_extra_t<pick_xil_t> __super_t;
@@ -34,6 +36,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Pop argument xil.
     struct __pop_argument_xil_t : xil_extra_t<pop_xil_t>
     {
         typedef xil_extra_t<pop_xil_t> __super_t;
@@ -45,6 +48,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    // Pick argument xil.
     struct __pick_argument_xil_t : xil_extra_t<pick_xil_t>
     {
         typedef xil_extra_t<pick_xil_t> __super_t;
@@ -58,6 +62,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Pop field xil.
     struct __pop_field_xil_t : xil_extra_t<pop_xil_t>
     {
         typedef xil_extra_t<pop_xil_t> __super_t;
@@ -69,6 +74,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    // Pick field xil.
     struct __pick_field_xil_t : xil_extra_t<pick_xil_t>
     {
         typedef xil_extra_t<pick_xil_t> __super_t;
@@ -82,6 +88,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Jmp xil.
     struct __jmp_xil_t : xil_extra_t<jmp_xil_t>
     {
         typedef xil_extra_t<jmp_xil_t> __super_t;
@@ -89,11 +96,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         using __super_t::__super_t;
     };
 
+    // Appends jmp xil.
     jmp_xil_t * xil::append_jmp_xil(xil_pool_t & pool, xil_jmp_condition_t condition)
     {
         return pool.append<__jmp_xil_t>(condition);
     }
 
+    // Switch xil.
     struct __switch_xil_t : xil_extra_t<jmp_xil_t>
     {
         typedef xil_extra_t<jmp_xil_t> __super_t;
@@ -104,11 +113,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    // Appends label xil.
     smp_xil_t * xil::append_label_xil(xil_pool_t & pool)
     {
         return pool.append<smp_xil_t>(xil_smp_t::label);
     }
 
+    // Appends label xil.
     smp_xil_t * xil::append_label_xil(statement_compile_context_t & ctx,
                                     xil_pool_t & pool, jmp_xil_t * jmp_xil)
     {
@@ -122,6 +133,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return label_xil;
     }
 
+    // Append ret xil.
     smp_xil_t * xil::append_ret(xil_pool_t & pool)
     {
         return pool.append<smp_xil_t>(xil_smp_t::ret);
@@ -130,6 +142,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // local_assign_xilx_t
 
+    // Writes assign xil for local variable.
     void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, local_variable_t * local,
                                                                   bool pick)
     {
@@ -200,6 +213,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         #undef __Append
     }
 
+    // Writes assign xil for param variable.
     void xil::write_assign_xil(__sctx_t & sctx, xil_pool_t & pool, param_variable_t * param_var,
                                                                    bool pick)
     { 
@@ -276,6 +290,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         #undef __Append
     }
 
+    // Writes assign xil for field variable.
     void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, field_variable_t * field_var,
                                                                   bool pick)
     {
@@ -350,6 +365,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     }
 
+    // Writes assign xils.
     void local_assign_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
     {
         write_assign_xil(ctx, pool, local);
@@ -357,6 +373,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Writes ret xil.
     void return_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
     {
         xil::append_ret(pool);
@@ -365,11 +382,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // expression_xilx_t
 
+    // Writes xils to pool.
     void expression_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
     {
         __compile(ctx, pool, __expression);
     }
 
+    // Compiles xilx.
     void expression_xilx_t::__compile(__context_t & ctx, xil_pool_t & pool,
                                                     expression_t * expression)
     {
@@ -380,6 +399,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // label_xilx_t
 
+    // Writes xils to pool.
     void global_label_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
     {
 
@@ -387,6 +407,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Writes local label xils to pool.
     void local_label_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
     {
         xil_t * xil = append_label_xil(pool);
@@ -407,6 +428,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Writes xils to pool.
     void local_label_jmp_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
     {
         __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_condition);
@@ -415,6 +437,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Writes xils to pool.
     void global_label_jmp_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
     {
 
@@ -422,6 +445,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Writes xils to pool.
     void switch_jmp_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
     {
         __switch_xil_t * xil = pool.append<__switch_xil_t>(table->index);

@@ -10,16 +10,19 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns vtype of cs_condition_expression.
     vtype_t cs_condition_expression_t::get_vtype() const
     {
         return value1()->get_vtype();
     }
 
+    // Returns type of cs_condigion_expression.
     type_t * cs_condition_expression_t::get_type(xpool_t & xpool) const
     {
         return value1()->get_type(xpool);
     }
 
+    // Compiles this expression.
     void cs_condition_expression_t::compile(expression_compile_context_t & ctx,
                                                 xil_pool_t & pool)
     {
@@ -60,6 +63,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
     }
 
+    // Executes this expression.
     cvalue_t cs_condition_expression_t::execute(expression_execute_context_t & ctx)
     {
         cvalue_t condition_value = execute_expression(ctx, this->condition());
@@ -75,6 +79,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles single expression.
     static void __compile_single_expression(expression_compile_context_t & ctx,
                                             xil_pool_t & pool, expression_t * exp)
     {
@@ -89,6 +94,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
     }
 
+    // Compiles this expression.
     void cs_expressions_t::compile(expression_compile_context_t & ctx, xil_pool_t & pool)
     {
         _A(this->expression_count() > 0);
@@ -103,6 +109,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         last_exp->compile(ctx, pool);
     }
 
+    // Executes this expression.
     cvalue_t cs_expressions_t::execute(expression_execute_context_t & ctx)
     {
         return cvalue_t::nan;

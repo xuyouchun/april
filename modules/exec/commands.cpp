@@ -1,5 +1,6 @@
 #include "commands.h"
 #include <rtlib.h>
+#include <mm.h>
 #include "utils.h"
 #include "parser.h"
 
@@ -20,6 +21,29 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     typedef rt_stack_unit_t __unit_t;
     const msize_t __stack_stub_size = unit_size_of(sizeof(__calling_stub_t));
+
+    ////////// ////////// ////////// ////////// //////////
+
+    namespace
+    {
+        template<xil_type_t _xil_type> struct __vnum_traits_t
+        {
+            typedef vnum_t<to_vtype(_xil_type)> num_t;
+        };
+
+        template<> struct __vnum_traits_t<xil_type_t::string>
+        {
+            typedef rt_ref_t num_t;
+        };
+
+        template<> struct __vnum_traits_t<xil_type_t::object>
+        {
+            typedef rt_ref_t num_t;
+        };
+    }
+
+    template<xil_type_t _xil_type>
+    using __vnum_t = typename __vnum_traits_t<_xil_type>::num_t;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -48,13 +72,46 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    namespace
+    {
+        template<bool _first_is_nokey, typename ... _args_t>
+        struct __command_key_impl_t : std::tuple<_args_t ...>
+        {
+            typedef std::tuple<_args_t ...> __super_t;
+
+            template<typename ... _targs_t>
+            __command_key_impl_t(_targs_t && ... args)
+                : __super_t(std::forward<_args_t>(args) ...)
+            { }
+        };
+
+        template<typename ... _args_t>
+        struct __command_key_impl_t<true, _args_t ...> : std::tuple<_args_t ...>
+        {
+            typedef std::tuple<_args_t ...> __super_t;
+
+            template<typename ... _targs_t>
+            __command_key_impl_t(__nokey_t, _targs_t && ... args)
+                : __super_t(std::forward<_args_t>(args) ...)
+            { }
+        };
+    }
+
+    template<typename ... _args_t>
+    using __command_key_t = __command_key_impl_t<
+        std::is_same<typeat<0, _args_t ...>, __nokey_t>::value,
+        _args_t ...
+    >;
+
+    //-------- ---------- ---------- ---------- ----------
+
     template<typename _command_template_t, typename ... _template_keys_t>
     class __command_manager_t : public object_t
     {
     public:
         template<typename ... args_t> class with_args_t
         {
-            typedef std::tuple<_template_keys_t ..., args_t ...> __key_t;
+            typedef __command_key_t<_template_keys_t ..., args_t ...> __key_t;
 
         public:
             with_args_t(memory_t * memory) : __memory(memory) { }
@@ -76,6 +133,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return command;
             }
 
+            template<typename ... _others_t>
+            command_t * get_command(_others_t && ... others)
+            {
+                return get_command<__nokey_t, _others_t ...>(
+                    std::forward<_others_t>(others) ...
+                );
+            }
+
         private:
             std::map<__key_t, command_t *> __map;
             memory_t * __memory;
@@ -87,7 +152,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __command_base_t : public command_t
     {
     public:
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _T("[command]");
         }
@@ -101,7 +166,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
         virtual void execute(command_execute_context_t & ctx) override { }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _T("[empty]");
         }
@@ -120,7 +185,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             throw _E(exec_env_code_t::end);
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _T("[end]");
         }
@@ -146,61 +211,52 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    #define __Local(type_t, offset)    *(type_t *)((byte_t *)ctx.stack.lp() + offset)
+    namespace
+    {
+        template<xil_type_t _xil_type>
+        struct __const_vnum_traits_t : __vnum_traits_t<_xil_type> { };
 
-    #define __BeginConstantPushCommand(d, v_t)                                  \
-        template<> class __push_command_t<xil_storage_type_t::constant, xil_type_t::d> \
-            : public __command_base_t                                           \
-        {                                                                       \
-            typedef v_t __value_t;                                              \
-        public:                                                                 \
-            __push_command_t(__value_t value) : __value(value) { }              \
-                                                                                \
-            virtual void execute(command_execute_context_t & ctx) override      \
-            {
-
-                // Method Body
-
-    #define __EndConstantPushCommand()                                          \
-            }                                                                   \
-                                                                                \
-            virtual const string_t to_string() const override                   \
-            {                                                                   \
-                return _F(_T("push constant %1%"), __value);                    \
-            }                                                                   \
-                                                                                \
-        private:                                                                \
-            __value_t __value;                                                  \
+        template<> struct __const_vnum_traits_t<xil_type_t::string>
+        {
+            typedef const char_t * num_t;
         };
 
+        template<> struct __const_vnum_traits_t<xil_type_t::object>
+        {
+            typedef void * num_t;
+        };
+    }
+
+    template<xil_type_t _xil_type>
+    using __const_vnum_t = typename __const_vnum_traits_t<_xil_type>::num_t;
+
     //-------- ---------- ---------- ---------- ----------
 
-    #define __ConstantPushCommand(d, v_t)                                       \
-        __BeginConstantPushCommand(d, v_t)                                      \
-            ctx.stack.push(__value);                                            \
-        __EndConstantPushCommand()
+    #define __Local(type_t, offset)    *(type_t *)((byte_t *)ctx.stack.lp() + offset)
 
-    //-------- ---------- ---------- ---------- ----------
+    template<xil_type_t _xil_type>
+    class __push_command_t<xil_storage_type_t::constant, _xil_type>
+        : public __command_base_t
+    {
+        typedef __command_base_t            __super_t;
+        typedef __const_vnum_t<_xil_type>   __value_t;
 
-    __ConstantPushCommand(string, const char_t *)
+    public:
+        __push_command_t(__value_t value) : __value(value) { }
 
-    __ConstantPushCommand(int8,   int8_t)
-    __ConstantPushCommand(uint8,  uint8_t)
+        virtual void execute(command_execute_context_t & ctx) override
+        {
+            ctx.stack.push(__value);
+        }
 
-    __ConstantPushCommand(int16,  int16_t)
-    __ConstantPushCommand(uint16, uint16_t)
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
+        {
+            return _F(_T("push constant %1%"), __value);
+        }
 
-    __ConstantPushCommand(int32,  int32_t)
-    __ConstantPushCommand(uint32, uint32_t)
-
-    __ConstantPushCommand(int64,  int64_t)
-    __ConstantPushCommand(uint64, uint64_t)
-
-    __ConstantPushCommand(float_, float_t)
-    __ConstantPushCommand(double_, double_t)
-
-    __ConstantPushCommand(char_, char_t)
-    __ConstantPushCommand(bool_, bool_t)
+    private:
+        __value_t __value;
+    };
 
     // define other types ...
 
@@ -219,7 +275,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            virtual const string_t to_string() const override                   \
+            virtual const string_t to_string(command_execute_context_t & ctx) const override \
             {                                                                   \
                 return _F(_T("push %1% %2%"), xil_storage_type_t::s, __offset); \
             }                                                                   \
@@ -265,6 +321,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.stack.push(__Local(rt_ref_t, __offset));
     __EndPushCommand()
 
+    __BeginPushCommand(local, string, rt_ref_t)
+        ctx.stack.push(__Local(rt_ref_t, __offset));
+    __EndPushCommand()
+
     #undef __LocalPushCommand
 
     //-------- ---------- ---------- ---------- ----------
@@ -280,7 +340,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            virtual const string_t to_string() const override                   \
+            virtual const string_t to_string(command_execute_context_t & ctx) const override \
             {                                                                   \
                 return _F(_T("push argument %1%"), __offset);                   \
             }                                                                   \
@@ -326,6 +386,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
     __EndPushCommand()
 
+    __BeginPushCommand(argument, string, rt_ref_t)
+        ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
+    __EndPushCommand()
+
     #undef __ArgumentPushCommand
 
     //-------- ---------- ---------- ---------- ----------
@@ -347,7 +411,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            virtual const string_t to_string() const override                   \
+            virtual const string_t to_string(command_execute_context_t & ctx) const override \
             {                                                                   \
                 return _F(_T("push field %1%"), __offset);                      \
             }                                                                   \
@@ -391,6 +455,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset));
     __EndPushCommand()
 
+    __BeginPushCommand(field, string, rt_ref_t)
+        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset));
+    __EndPushCommand()
+
     #undef __FieldPushCommand
 
     //-------- ---------- ---------- ---------- ----------
@@ -405,7 +473,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             );
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _T("duplicate");
         }
@@ -413,6 +481,67 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     } __duplicate_command;
 
     //-------- ---------- ---------- ---------- ----------
+
+    #define __RtTypeOf(rt_ref)  (*((rt_type_t **)(void *)rt_ref - 1))
+
+    template<xil_type_t _xil_type>
+    class __push_command_t<xil_storage_type_t::array_element, _xil_type>
+        : public __command_base_t
+    {
+        typedef __command_base_t __super_t;
+
+    public:
+        __push_command_t(dimension_t dimension) : __dimension(dimension) { }
+
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
+        {
+            return _F(_T("push array element (%1%)"), _xil_type);
+        }
+
+        virtual void execute(command_execute_context_t & ctx) override
+        {
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            array_length_t index;
+
+            if(__dimension == 1)
+            {
+                //array_length_t length = *mm::get_array_lengths(array_ref);
+                array_length_t index  = ctx.stack.pop<array_length_t>();
+                typedef __vnum_t<_xil_type> element_t;
+
+                ctx.stack.push<element_t>(
+                    mm::get_array_element<element_t>(array_ref, index)
+                );
+            }
+            else
+            {
+                X_UNEXPECTED();
+                /*
+                array_length_t * p_length = (array_length_t *)((byte_t *)obj - 1);
+
+                for(dimension_t dimension = 1; dimension < __dimension; dimension++)
+                {
+                    index *= *--p_length;
+                }
+                */
+            }
+        }
+
+    private:
+        dimension_t __dimension;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    static dimension_t __array_dimension(__context_t & ctx, ref_t type_ref)
+    {
+        rt_type_t * rt_type = ctx.get_type(type_ref);
+        _A(rt_type->get_kind() == rt_type_kind_t::array);
+
+        rt_array_type_t * arr_type = (rt_array_type_t *)rt_type;
+
+        return (*arr_type)->dimension;
+    }
 
     static command_t * __new_push_command(__context_t & ctx, const push_xil_t & xil)
     {
@@ -455,6 +584,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         static __command_manager_t<
             __push_command_template_t, xil_storage_type_t, xil_type_t
         >::with_args_t<msize_t> __field_command_manager;
+
+        static __command_manager_t<
+            __push_command_template_t, xil_storage_type_t, xil_type_t
+        >::with_args_t<dimension_t> __push_array_element_command_manager;
 
         if(xil.stype() == xil_storage_type_t::duplicate)
             return &__duplicate_command;
@@ -521,6 +654,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseLocal(bool_)
 
             __CaseLocal(object)
+            __CaseLocal(string)
 
             #undef __CaseLocal
 
@@ -551,6 +685,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseArgument(bool_)
 
             __CaseArgument(object)
+            __CaseArgument(string)
 
             #undef __CaseArgument
 
@@ -582,14 +717,48 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseField(bool_)
 
             __CaseField(object)
+            __CaseField(string)
+
+            #undef __CaseField
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // array element
 
+            #define __CaseArrayElement(d)                                               \
+                case __V(xil_storage_type_t::array_element, xil_type_t::d):             \
+                    return __push_array_element_command_manager.template get_command<   \
+                        xil_storage_type_t::array_element, xil_type_t::d                \
+                    >(__array_dimension(ctx, xil.type_ref()));
+
+            __CaseArrayElement(int8)
+            __CaseArrayElement(uint8)
+
+            __CaseArrayElement(int16)
+            __CaseArrayElement(uint16)
+
+            __CaseArrayElement(int32)
+            __CaseArrayElement(uint32)
+
+            __CaseArrayElement(int64)
+            __CaseArrayElement(uint64)
+
+            __CaseArrayElement(float_)
+            __CaseArrayElement(double_)
+
+            __CaseArrayElement(char_)
+            __CaseArrayElement(bool_)
+
+            __CaseArrayElement(object)
+            __CaseArrayElement(string)
+
+            #undef __CaseArrayElement
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // TODO: case other types ...
 
 
             default:
-                _P(xil.stype(), xil.dtype());
+                _PF(_T("stype: %1%, dtype: %2%"), xil.stype(), xil.dtype());
                 X_UNEXPECTED();
 
         }
@@ -612,7 +781,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __pop_command_t(__offset_t offset) : __offset(offset) { }           \
                                                                                 \
-            virtual const string_t to_string() const override                   \
+            virtual const string_t to_string(command_execute_context_t & ctx) const override \
             {                                                                   \
                 return _F(_T("pop %1% %2%"), xil_storage_type_t::s, __offset);  \
             }                                                                   \
@@ -661,6 +830,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __Local(rt_ref_t, __offset) = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
+    __BeginPopCommand(local, string)
+        __Local(rt_ref_t, __offset) = ctx.stack.pop<rt_ref_t>();
+    __EndPopCommand();
+
     //-------- ---------- ---------- ---------- ----------
 
     #define __ArgumentPopCommand(type_t, type)                                  \
@@ -690,6 +863,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
+    __BeginPopCommand(argument, string)
+        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pop<rt_ref_t>();
+    __EndPopCommand();
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -724,6 +900,62 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
         *field = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand()
+
+    __BeginPopCommand(field, string)
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        *field = ctx.stack.pop<rt_ref_t>();
+    __EndPopCommand()
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<xil_type_t _xil_type>
+    class __pop_command_t<xil_storage_type_t::array_element, _xil_type>
+        : public __command_base_t
+    {
+    public:
+        __pop_command_t(dimension_t dimension) : __dimension(dimension) { }
+
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
+        {
+            return _F(_T("pop array element"));
+        }
+
+        virtual void execute(command_execute_context_t & ctx) override
+        {
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+
+            if(__dimension == 1)
+            {
+                //array_length_t length = *mm::get_array_lengths(array_ref);
+                array_length_t index  = ctx.stack.pop<array_length_t>();
+
+                typedef __vnum_t<_xil_type> element_t;
+
+                mm::set_array_element<element_t>(
+                    array_ref, index, ctx.stack.pop<element_t>()
+                );
+            }
+            else
+            {
+                X_UNEXPECTED();
+
+                /*
+                array_length_t * p_length = (array_length_t *)((byte_t *)obj - 1);
+
+                for(dimension_t dimension = 1; dimension < __dimension; dimension++)
+                {
+                    index *= *--p_length;
+                }
+                */
+            }
+
+        }
+
+    private:
+        dimension_t __dimension;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
 
     struct __pop_command_template_t
     {
@@ -798,6 +1030,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __pop_command_template_t, xil_storage_type_t, xil_type_t
         >::with_args_t<msize_t> __field_command_manager;
 
+        static __command_manager_t<
+            __pop_command_template_t, xil_storage_type_t, xil_type_t
+        >::with_args_t<dimension_t> __array_element_command_manager;
+
         if(xil.stype() == xil_storage_type_t::empty)
             return __empty_command_manager.template get_command<__nokey>(
                 __unit_size_of_pop_empty(ctx, xil)
@@ -834,6 +1070,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseLocal(bool_)
 
             __CaseLocal(object)
+            __CaseLocal(string)
 
             #undef __CaseLocal
 
@@ -862,6 +1099,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseArgument(bool_)
 
             __CaseArgument(object)
+            __CaseArgument(string)
 
             #undef __CaseArgument
             
@@ -890,8 +1128,40 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseField(bool_)
 
             __CaseField(object)
+            __CaseField(string)
 
             #undef __CaseField
+
+            #define __CaseArrayElement(d)                                           \
+                case __V(xil_storage_type_t::array_element, xil_type_t::d):         \
+                    return __array_element_command_manager.template get_command<    \
+                        xil_storage_type_t::array_element, xil_type_t::d            \
+                    >(__array_dimension(ctx, xil.type_ref()));                      \
+                    break;
+
+            __CaseArrayElement(int8)
+            __CaseArrayElement(uint8)
+
+            __CaseArrayElement(int16)
+            __CaseArrayElement(uint16)
+
+            __CaseArrayElement(int32)
+            __CaseArrayElement(uint32)
+
+            __CaseArrayElement(int64)
+            __CaseArrayElement(uint64)
+
+            __CaseArrayElement(float_)
+            __CaseArrayElement(double_)
+
+            __CaseArrayElement(char_)
+            __CaseArrayElement(bool_)
+
+            __CaseArrayElement(object)
+            __CaseArrayElement(string)
+
+            #undef __CaseArrayElement
+
             #undef __Case
 
             default:
@@ -916,7 +1186,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __pick_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            virtual const string_t to_string() const override                   \
+            virtual const string_t to_string(command_execute_context_t & ctx) const override \
             {                                                                   \
                 return _F(_T("pick %1% %2%"), xil_storage_type_t::s, __offset); \
             }                                                                   \
@@ -1030,6 +1300,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #undef __Local
 
     ////////// ////////// ////////// ////////// //////////
+
+    __AlwaysInline static void __pre_new(command_execute_context_t & ctx, rt_type_t * type)
+    {
+        _A(type != nullptr);
+        type->pre_new(ctx.env);
+    }
+
+    __AlwaysInline static void __pre_static_call(command_execute_context_t & ctx, rt_type_t * type)
+    {
+        _A(type != nullptr);
+        type->pre_static_call(ctx.env);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // Class __call_command_t
 
     typedef rtlib::libfunc_t __libfunc_t;
@@ -1052,7 +1336,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             ctx.stack.pop(__stack_unit_size);
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _F(_T("call internal %1%"), (void *)__func);
         }
@@ -1066,11 +1350,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         template<__nokey_t nokey, typename ... args_t>
         static auto new_command(memory_t * memory, __libfunc_t libfunc,
-                    __context_t & ctx, rt_assembly_t * rt_assembly, rt_method_t * rt_method)
+                        __context_t & ctx, rt_method_t * rt_method)
         {
             typedef __internal_call_command_t<nokey> this_command_t;
             this_command_t * cmd = memory_t::new_obj<this_command_t>(
-                memory, libfunc, __get_method_stack_unit_size(ctx, rt_assembly, rt_method)
+                memory, libfunc, __get_method_stack_unit_size(ctx, rt_method)
             );
 
             return cmd;
@@ -1081,13 +1365,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return _alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
         }
 
-        static int __get_method_stack_unit_size(__context_t & ctx, rt_assembly_t * rt_assembly,
-                                                              rt_method_t * rt_method)
+        static int __get_method_stack_unit_size(__context_t & ctx, rt_method_t * rt_method)
         {
             int unit_size = 0;
+            rt_assembly_t * rt_assembly = rt_method->get_assembly();
+
             assembly_analyzer_t analyzer(ctx, rt_assembly);
-            rt_assembly->each_params((*rt_method)->params,
-                                [rt_assembly, &analyzer, &unit_size](int, auto & param) {
+            rt_assembly->each_params((*rt_method)->params, [&](int, auto & param) {
+
                 rt_type_t * param_type = analyzer.get_type(param.type);
                 switch((mt_type_extra_t)param.type.extra)
                 {
@@ -1114,24 +1399,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     static command_t * __new_internal_call_command(__context_t & ctx, const call_xil_t & xil)
     {
-        static __command_manager_t<__internal_call_command_template_t, __nokey_t>
-            ::with_args_t<__libfunc_t> __internal_call_command_manager;
+        static __command_manager_t<
+            __internal_call_command_template_t, __nokey_t
+        >::with_args_t<__libfunc_t> __internal_call_command_manager;
 
         ref_t method_ref = (ref_t)xil.method;
-        _A((mt_member_extra_t)method_ref.extra == mt_member_extra_t::import);
 
-        rt_assembly_t * ref_assembly;
-        rt_general_type_t * ref_type;
-
-        rt_method_t * rt_method = ctx.get_method(method_ref, &ref_type, &ref_assembly);
-        rt_sid_t method_name = ref_assembly->get_name(rt_method);
+        rt_method_t * rt_method = ctx.get_method(method_ref);
+        rt_sid_t method_name = rt_method->get_name();
 
         __libfunc_t libfunc = rtlib::get_libfunc(method_name);
         if(libfunc == nullptr)
             throw _ED(exec_error_code_t::internal_function_not_found, method_name);
 
         command_t * cmd = __internal_call_command_manager.template get_command<__nokey>(
-            __Mv(libfunc), ctx, ref_assembly, rt_method
+            __Mv(libfunc), ctx, rt_method
         );
 
         return cmd;
@@ -1139,17 +1421,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    template<typename _rt_method_t>
     class __call_command_base_t : public __command_base_t
     {
     public:
-        __call_command_base_t(rt_method_t * rt_method, rt_type_t * rt_type,
-                                                    rt_assembly_t * rt_assembly)
-            : __rt_method(rt_method),  __rt_type(rt_type), __rt_assembly(rt_assembly)
+        __call_command_base_t(_rt_method_t * rt_method) : __rt_method(rt_method)
         { }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
-            return _F(_T("call %1%"), this->__get_name());
+            return _F(_T("call %1%"), this->__get_name(ctx));
         }
 
     protected:
@@ -1161,89 +1442,101 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return __method;
         }
 
-        string_t __get_name() const
+        string_t __get_name(command_execute_context_t & ctx) const
         {
-            return __rt_assembly->get_name(__rt_method);
+            return __rt_method->get_name();
         }
 
-    private:
-        exec_method_t  * __method = nullptr;
+        _rt_method_t * __rt_method;
 
-        rt_method_t    * __rt_method;
-        rt_type_t      * __rt_type;
-        rt_assembly_t  * __rt_assembly;
+        rt_type_t * get_type() { return __rt_method->get_host_type(); }
+
+    private:
+        exec_method_t * __method = nullptr;
 
         exec_method_t * __parse_method(command_execute_context_t & ctx)
         {
-            return ctx.env.exec_method_of(__rt_method, __rt_type, __rt_assembly);
+            return ctx.env.exec_method_of(__rt_method);
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<__nokey_t>
-    class __static_call_command_t : public __call_command_base_t
+    template<typename _rt_method_t>
+    class __static_call_command_t : public __call_command_base_t<_rt_method_t>
     {
-        typedef __call_command_base_t __super_t;
+        typedef __call_command_base_t<_rt_method_t> __super_t;
 
     public:
         using __super_t::__super_t;
 
         virtual void execute(command_execute_context_t & ctx) override
         {
+            __pre_static_call(ctx, this->get_type());
+
             exec_method_t * method = this->__get_method(ctx);
             ctx.push_calling(method->commands);
             ctx.stack.increase_top(method->stack_unit_size);
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
-            return _F(_T("call static %1%"), this->__get_name());
+            return _F(_T("call static %1%"), this->__get_name(ctx));
         }
     };
 
+    template<typename _rt_method_t>
     struct __static_call_command_template_t
     {
-        template<__nokey_t nokey, typename ... args_t>
-        static auto new_command(memory_t * memory, rt_method_t * rt_method,
-                    __context_t & ctx, rt_type_t * rt_type, rt_assembly_t * rt_assembly)
+        template<__nokey_t, typename ... args_t>
+        static auto new_command(memory_t * memory, _rt_method_t * rt_method, __context_t & ctx)
         {
-            typedef __static_call_command_t<nokey> this_command_t;
-            return memory_t::new_obj<this_command_t>(memory,
-                    rt_method, rt_type, rt_assembly
-            );
+            typedef __static_call_command_t<_rt_method_t> this_command_t;
+            return memory_t::new_obj<this_command_t>(memory, rt_method);
         }
     };
 
     command_t * new_static_call_command(__context_t & ctx, ref_t method_ref)
     {
-        static __command_manager_t<__static_call_command_template_t, __nokey_t>
-            ::with_args_t<rt_method_t *> __static_call_command_manager;
+        if((mt_member_extra_t)method_ref.extra == mt_member_extra_t::generic)
+        {
+            static __command_manager_t<
+                __static_call_command_template_t<rt_generic_method_t>, __nokey_t
+            >::with_args_t<rt_generic_method_t *> __static_generic_call_command_manager;
 
-        rt_assembly_t * rt_assembly;
-        rt_general_type_t * rt_type;
+            rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
+            _PF(_T("---- new_static_call_command: %1% %2%"), rt_generic_method->get_name(), method_ref);
 
-        rt_method_t * rt_method = ctx.get_method(method_ref, &rt_type, &rt_assembly);
+            return __static_generic_call_command_manager.template get_command<__nokey>(
+                __Mv(rt_generic_method), ctx
+            );
+        }
+        else
+        {
+            static __command_manager_t<
+                __static_call_command_template_t<rt_method_t>, __nokey_t
+            >::with_args_t<rt_method_t *> __static_call_command_manager;
 
-        return __static_call_command_manager.template get_command<__nokey>(
-            __Mv(rt_method), ctx, rt_type, rt_assembly
-        );
+            rt_method_t * rt_method = ctx.get_method(method_ref);
+            return __static_call_command_manager.template get_command<__nokey>(
+                __Mv(rt_method), ctx
+            );
+        }
     }
 
     static command_t * __new_static_call_command(__context_t & ctx, const call_xil_t & xil)
     {
         ref_t method_ref = (ref_t)xil.method;
-        _A((mt_member_extra_t)method_ref.extra == mt_member_extra_t::internal);
 
         return new_static_call_command(ctx, method_ref);
     }
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<__nokey_t>
-    class __instance_call_command_t : public __call_command_base_t
+    template<typename _rt_method_t>
+    class __instance_call_command_t : public __call_command_base_t<_rt_method_t>
     {
-        typedef __call_command_base_t __super_t;
+        typedef __call_command_base_t<_rt_method_t> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -1255,40 +1548,35 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             ctx.stack.increase_top(method->stack_unit_size);
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
-            return _F(_T("call instance %1%"), this->__get_name());
+            return _F(_T("call instance %1%"), this->__get_name(ctx));
         }
     };
 
+    template<typename _rt_method_t>
     struct __instance_call_command_template_t
     {
         template<__nokey_t nokey, typename ... args_t>
-        static auto new_command(memory_t * memory, rt_method_t * rt_method,
-                        __context_t & ctx, rt_type_t * rt_type, rt_assembly_t * rt_assembly)
+        static auto new_command(memory_t * memory, _rt_method_t * rt_method, __context_t & ctx)
         {
-            typedef __instance_call_command_t<nokey> this_command_t;
-            return memory_t::new_obj<this_command_t>(memory,
-                    rt_method, rt_type, rt_assembly
-            );
+            typedef __instance_call_command_t<_rt_method_t> this_command_t;
+            return memory_t::new_obj<this_command_t>(memory, rt_method);
         }
     };
 
     static command_t * __new_instance_call_command(__context_t & ctx, const call_xil_t & xil)
     {
         ref_t method_ref = (ref_t)xil.method;
-        _A((mt_member_extra_t)method_ref.extra == mt_member_extra_t::internal);
 
-        static __command_manager_t<__instance_call_command_template_t, __nokey_t>
-            ::with_args_t<rt_method_t *> __instance_call_command_manager;
+        static __command_manager_t<
+            __instance_call_command_template_t<rt_method_t>, __nokey_t
+        >::with_args_t<rt_method_t *> __instance_call_command_manager;
 
-        rt_assembly_t * rt_assembly;
-        rt_general_type_t * rt_type;
-
-        rt_method_t * rt_method = ctx.get_method(method_ref, &rt_type, &rt_assembly);
+        rt_method_t * rt_method = ctx.get_method(method_ref);
 
         return __instance_call_command_manager.template get_command<__nokey>(
-            __Mv(rt_method), ctx, rt_type, rt_assembly
+            __Mv(rt_method), ctx
         );
     }
 
@@ -1297,10 +1585,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     assembly_analyzer_t __assembly_analyzer(command_execute_context_t & ctx,
                                             rt_assembly_t * current_assembly)
     {
-        return assembly_analyzer_t(
-            ctx.env.pool, current_assembly, ctx.env.assembly_provider, ctx.env.get_memory()
-        );
+        return assembly_analyzer_t(ctx.env, current_assembly);
     }
+
+    assembly_analyzer_t __assembly_analyzer(command_execute_context_t & ctx,
+                                            rt_type_t * rt_type)
+    {
+        return __assembly_analyzer(ctx, rt_type->get_assembly());
+    }
+
+    //-------- ---------- ---------- ---------- ----------
 
     template<__nokey_t>
     class __virtual_call_command_t : public __command_base_t
@@ -1313,21 +1607,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         virtual void execute(command_execute_context_t & ctx) override
         {
             rt_ref_t rt_ref = __Argument(rt_ref_t, 0);
-            rt_type_t * rt_type = *((rt_type_t **)(void *)rt_ref - 1);
+            rt_type_t * rt_type = __RtTypeOf(rt_ref);
 
             rt_vtable_t * vtbl = get_vtable(rt_type);
             rt_vfunction_t func = vtbl->functions[__offset];
 
             if(!func.is_method())
             {
-                rt_general_type_t * rt_type;
-                rt_assembly_t * rt_assembly = ctx.env.assembly_provider->at(func.assembly_idx);
+                rt_assembly_t * rt_assembly = ctx.env.assemblies.at(func.assembly_idx);
 
                 rt_method_t * rt_method = __assembly_analyzer(ctx, rt_assembly).get_method(
-                    ref_t(func.method_idx), &rt_type
+                    ref_t(func.method_idx)
                 );
 
-                func.method = ctx.env.exec_method_of(rt_method, rt_type, rt_assembly);
+                func.method = ctx.env.exec_method_of(rt_method);
             }
 
             exec_method_t * method = (exec_method_t *)func.method;
@@ -1335,7 +1628,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             ctx.stack.increase_top(method->stack_unit_size);
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _F(_T("call virtual %1%"), __offset);
         }
@@ -1360,14 +1653,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ref_t method_ref = (ref_t)xil.method;
         _A((mt_member_extra_t)method_ref.extra == mt_member_extra_t::internal);
 
-        static __command_manager_t<__virtual_call_command_template_t, __nokey_t>
-            ::with_args_t<int> __virtual_call_command_manager;
+        static __command_manager_t<
+            __virtual_call_command_template_t, __nokey_t
+        >::with_args_t<int> __virtual_call_command_manager;
 
-        rt_assembly_t * rt_assembly;
-        rt_general_type_t * rt_type;
-
-        rt_method_t * rt_method = ctx.get_method(method_ref, &rt_type, &rt_assembly);
-        int offset = ctx.get_virtual_method_offset(ctx, rt_type, method_ref);
+        rt_method_t * rt_method = ctx.get_method(method_ref);
+        int offset = ctx.get_virtual_method_offset(ctx, method_ref);
 
         return __virtual_call_command_manager.template get_command<__nokey>(
             __Mv(offset), ctx
@@ -1423,7 +1714,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             );
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _str(cmd);
         }
@@ -1465,7 +1756,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             );
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _str(cmd);
         }
@@ -1918,7 +2209,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             copy_array<_ret_size>(p + __total_unit_ret_size, p - _ret_size);
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _T("ret");
         }
@@ -2119,7 +2410,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _F(_T("%1% %2%"), __jmp_condition_t(), __step);
         }
@@ -2162,7 +2453,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 ctx.current += __table->default_step - 1;
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
             return _T("switch");
         }
@@ -2219,38 +2510,27 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
     }
 
-    ////////// ////////// ////////// ////////// //////////
-
-    __AlwaysInline static void __init_type(executor_env_t & env, rt_type_t * type,
-                                           rt_assembly_t * assembly)
-    {
-        assembly_analyzer_t analyzer(env.pool, assembly, env.assembly_provider, env.get_memory());
-        type->pre_new(analyzer);
-    }
-
     template<xil_new_type_t _new_type> class __new_command_t { };
 
     template<>
     class __new_command_t<xil_new_type_t::default_> : public __command_base_t
     {
     public:
-        __new_command_t(rt_type_t * type, rt_assembly_t * assembly)
-            : __type(type), __assembly(assembly) { }
+        __new_command_t(rt_type_t * type) : __type(type) { }
 
         virtual void execute(command_execute_context_t & ctx) override
         {
-            __init_type(ctx.env, __type, __assembly);
+            __pre_new(ctx, __type);
             ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__type));
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
-            return _F(_T("new %1%"), __assembly->get_name(__type));
+            return _F(_T("new %1%"), __assembly_analyzer(ctx, __type).get_name(__type));
         }
 
     private:
-        rt_type_t      * __type;
-        rt_assembly_t  * __assembly;
+        rt_type_t * __type;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2259,20 +2539,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __new_command_t<xil_new_type_t::array> : public __command_base_t
     {
     public:
-        __new_command_t(rt_type_t * type, rt_assembly_t * assembly)
-            : __type(_M(rt_array_type_t *, type)), __assembly(assembly) { }
+        __new_command_t(rt_type_t * type) : __type(_M(rt_array_type_t *, type)) { }
 
         virtual void execute(command_execute_context_t & ctx) override
         {
-            __init_type(ctx.env, __type, __assembly);
+            __pre_new(ctx, __type);
             dimension_t dimension = (*__type)->dimension;
-            _PP(dimension);
 
             array_length_t lengths[dimension];
             for(int * len = lengths + dimension - 1; len >= lengths; len--)
             {
                 *len = ctx.stack.pop<int32_t>();
-                _PP(*len);
             }
 
             ctx.stack.push(
@@ -2280,14 +2557,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             );
         }
 
-        virtual const string_t to_string() const override
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
         {
-            return _F(_T("new array %1%"), __assembly->get_name(__type));
+            return _F(_T("new array %1%"), __assembly_analyzer(ctx, __type).get_name(__type));
         }
 
     private:
         rt_array_type_t * __type;
-        rt_assembly_t   * __assembly;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2311,9 +2587,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<rt_type_t *> __command_manager;
 
         ref_t type_ref = xil.type_ref();
-        rt_assembly_t * assembly;
 
-        rt_type_t * type = ctx.get_type(type_ref, &assembly);
+        rt_type_t * type = ctx.get_type(type_ref);
         if(type == nullptr)
             throw _ED(exec_error_code_t::type_not_found, type_ref);
 
@@ -2321,13 +2596,125 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             case xil_new_type_t::default_:
                 return __command_manager.template get_command<xil_new_type_t::default_>(
-                    __Mv(type), assembly
+                    __Mv(type)
                 );
 
             case xil_new_type_t::array:
                 return __command_manager.template get_command<xil_new_type_t::array>(
-                    __Mv(type), assembly
+                    __Mv(type)
                 );
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    class __copy_command_base_t : public __command_base_t
+    {
+    public:
+        virtual const string_t to_string(command_execute_context_t & ctx) const override
+        {
+            return _T("copy");
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<xil_copy_type_t _copy_type> class __copy_command_t { };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<>
+    class __copy_command_t<xil_copy_type_t::stack_copy> : public __copy_command_base_t
+    {
+        typedef __copy_command_base_t __super_t;
+
+    public:
+        __copy_command_t(xil_type_t dtype) : __dtype(dtype) { }
+
+        virtual void execute(command_execute_context_t & ctx) override
+        {
+            
+        }
+
+    private:
+        xil_type_t __dtype;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<>
+    class __copy_command_t<xil_copy_type_t::block_copy> : public __copy_command_base_t
+    {
+        typedef __copy_command_base_t __super_t;
+
+    public:
+        __copy_command_t() { }
+
+        virtual void execute(command_execute_context_t & ctx) override
+        {
+            
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<>
+    class __copy_command_t<xil_copy_type_t::res_copy> : public __copy_command_base_t
+    {
+        typedef __copy_command_base_t __super_t;
+
+    public:
+        __copy_command_t(res_t res) : __res(res) { }
+
+        virtual void execute(command_execute_context_t & ctx) override
+        {
+            
+        }
+
+    private:
+        res_t __res;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<xil_copy_type_t _copy_type>
+    struct __copy_command_template_t
+    {
+        template<__nokey_t _nokey, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
+        {
+            typedef __copy_command_t<_copy_type> this_command_t;
+            return memory_t::new_obj<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    static command_t * __new_copy_command(__context_t & ctx, const copy_xil_t & xil)
+    {
+        static __command_manager_t<
+            __copy_command_template_t<xil_copy_type_t::stack_copy>, __nokey_t
+        >::with_args_t<xil_type_t> __stack_copy_command_manager;
+
+        static __command_manager_t<
+            __copy_command_template_t<xil_copy_type_t::res_copy>, __nokey_t
+        >::with_args_t<res_t> __res_copy_command_manager;
+
+        static __copy_command_t<xil_copy_type_t::block_copy> __block_copy_command;
+
+        switch(xil.copy_type())
+        {
+            case xil_copy_type_t::stack_copy:
+                return __stack_copy_command_manager.template get_command<__nokey>(xil.dtype());
+
+            case xil_copy_type_t::block_copy:
+                return &__block_copy_command;
+
+            case xil_copy_type_t::res_copy:
+                return __res_copy_command_manager.template get_command<__nokey>(xil.res());
 
             default:
                 X_UNEXPECTED();
@@ -2342,8 +2729,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     command_t * new_command(command_creating_context_t & ctx, const xil_base_t * xil)
     {
-        //_P(_T(">> new_command: "), (xil_command_t)xil->cmd1);
-        switch((xil_command_t)xil->cmd1)
+        _P(_T(">> new_command: "), (xil_command_t)xil->command());
+        switch(xil->command())
         {
             case xil_command_t::empty:
                 return &__empty_command;
@@ -2380,6 +2767,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_command_t::new_:
                 return __new_new_command(ctx, *(const new_xil_t *)xil);
+
+            case xil_command_t::copy:
+                return __new_copy_command(ctx, *(const copy_xil_t *)xil);
 
             default:
                 X_UNEXPECTED();

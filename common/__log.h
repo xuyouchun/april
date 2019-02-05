@@ -4,6 +4,9 @@
 
 namespace X_ROOT_NS {
 
+    ////////// ////////// ////////// ////////// //////////
+
+    // Log types
     enum class log_type_t
     {
         empty       =   0,
@@ -27,22 +30,27 @@ namespace X_ROOT_NS {
 
     namespace __
     {
+        // Writes log to the stream that given by log type.
         void write(log_type_t type, const wchar_t * s);
-
     }
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Sets log mask to open/close output of specified log type.
     void set_log_mask(log_type_t mask);
 
+    // Gets the current log mask.
     log_type_t get_log_mask();
 
+    // Switch output of specified log type.
     void switch_log(log_type_t type, bool open);
 
+    // Gets the specified if a log type is setted.
     bool test_log_mask(log_type_t type);
  
     //-------- ---------- ---------- ---------- ----------
 
+    // Writes log with the given format.
     template<typename format_t, typename ... args_t>
     void logf(log_type_t type, const format_t & format, args_t ... args)
     {
@@ -53,6 +61,7 @@ namespace X_ROOT_NS {
         }
     }
 
+    // Writes log that composited by give arguments.
     template<typename ... args_t>
     void log(log_type_t type, args_t ... args)
     {
@@ -64,6 +73,7 @@ namespace X_ROOT_NS {
     }
 
     //-------- ---------- ---------- ---------- ----------
+    // Defines a set of log functions.
 
     #define __X_DEFINE_LOG_FUNC(name, type)                 \
         template<typename ... args_t>                       \
@@ -84,6 +94,8 @@ namespace X_ROOT_NS {
     __X_DEFINE_LOG_FUNC(log_warning, warning)
     __X_DEFINE_LOG_FUNC(log_error,   error)
     __X_DEFINE_LOG_FUNC(log_fatal,   fatal)
+
+    #undef __X_DEFINE_LOG_FUNC
 }
 
 #endif // __COMMON_LOG_H__

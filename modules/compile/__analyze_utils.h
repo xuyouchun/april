@@ -10,6 +10,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Code position.
     struct codepos_t
     {
         size_t line, col;
@@ -22,9 +23,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Code position helper.
+    // Helps to find code position.
     class codepos_helper_t : public object_t
     {
     public:
+
+        // Constructor.
         codepos_helper_t(const char_t * code, size_t length = max_value<size_t>())
             : __code(code), __length(length)
         {
@@ -44,16 +49,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Token pool.
     class token_pool_t : public object_t
     {
     public:
+
+        // Constructor.
         token_pool_t();
         virtual ~token_pool_t() override;
 
+        // Push a token.
         size_t push(token_t * token);
+
+        // Returns the token at specified index.
         token_t * operator[](size_t index) const;
+
+        // Returns pool size.
         size_t size() const { return __tokens.size(); }
 
+        // Writes to a stream.
         template<typename stream_t>
         void write_to(stream_t & stream, size_t begin_index, size_t end_index = max_value<size_t>())
         {
@@ -75,11 +89,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Finds the element which match the predicate.
     template<typename itor_t, typename pred_t>
     bool walk(itor_t & p, pred_t pred)
     {
         char_t c;
-        while((c = *p))
+        while((c = *p) != _T('\0'))
         {
             if(!pred(p))
                 return true;
@@ -89,6 +104,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Skips specified character.
+    // Returns false if not found.
     template<typename itor_t>
     bool skip_char(itor_t & p, char_t c)
     {
@@ -101,12 +118,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Skips next whitespace.
+    // Returns false if whitespace is not found.
     template<typename itor_t>
     bool skip_whitespace(itor_t & p)
     {
         return walk(p, [](itor_t & p) { return al::is_whitespace(*p); });
     }
 
+    // Read next token.
+    // Returns false if at the end of the sequence.
     template<typename itor_t>
     bool read_token(itor_t & p)
     {

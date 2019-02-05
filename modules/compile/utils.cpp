@@ -9,6 +9,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Constructor.
     code_section_builder_t::code_section_builder_t(global_context_t & global_context,
             const char_t * code, lang_id_t default_lang,
             std::vector<code_section_t *> & sections, pool_t & pool)
@@ -18,7 +19,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(code != nullptr);
     }
 
-   void code_section_builder_t::build()
+    // Builds code sections.
+    void code_section_builder_t::build()
     {
         __build([this](const char_t * start, const char_t * end, lang_id_t lang, int depth) {
             this->__sections.push_back(
@@ -27,6 +29,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         });
     }
 
+    // Build code sections with callback.
     template<typename callback_t>
     void code_section_builder_t::__build(callback_t callback)
     {
@@ -79,6 +82,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Skips specified char.
     bool code_section_builder_t::__skip_char(char_t c0)
     {
         char_t c;
@@ -98,6 +102,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Read language.
     string_t code_section_builder_t::__read_lang()
     {
         if(al::is_whitespace(*__p))
@@ -117,6 +122,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     __char_properties_t __char_properties;
 
+    // Initialize char properties.
     void char_property_t::init(enumerator_t & e)
     {
         set_flag(e, __char_flag_t::analyze_tree_token_end,
@@ -126,11 +132,29 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    ref_t __search_method_ref(__sctx_t & ctx, method_t * method)
+    // Searches method ref.
+    ref_t __search_method_ref(__sctx_t & ctx, method_base_t * method)
     {
-        ref_t ref = __is_extern(ctx, method)?
-            __ref_of<mt_table_index_t::method_ref>(ctx, method) :
-            __ref_of<mt_table_index_t::method>(ctx, method);
+        ref_t ref = ref_t::null;
+
+        switch(method->this_family())
+        {
+            case member_family_t::general:
+            case member_family_t::impl: {
+                method_t * m = (method_t *)method;
+                ref = __is_extern(ctx, m)?
+                    __ref_of<mt_table_index_t::method_ref>(ctx, m) :
+                    __ref_of<mt_table_index_t::method>(ctx, m);
+            }   break;
+
+            case member_family_t::generic: {
+                generic_method_t * m = (generic_method_t *)method;
+                ref = __ref_of<mt_table_index_t::generic_method>(ctx, m);
+            }   break;
+
+            default:
+                X_UNEXPECTED();
+        }
 
         if(ref == ref_t::null)
             throw _ECF(not_found, _T("method ref of '%1%' not found"), method);
@@ -138,6 +162,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return ref;
     }
 
+    // Searches field ref.
     ref_t __search_field_ref(__sctx_t & ctx, field_t * field)
     {
         ref_t ref = __is_extern(ctx, field)?

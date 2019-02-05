@@ -1,8 +1,8 @@
+
 /*
     XuYouChun
 
     The common header file.  Defines common macros, basic data structures and functions.
-
 */
 
 
@@ -68,6 +68,7 @@
     #define X_ALWAYS_INLINE X_INLINE
 #endif
 
+namespace __root_ns = ::X_ROOT_NS;
 
 // Defines a constant unicode string.
 #define _T(s)               X_UNICODE_STR(s)
@@ -76,30 +77,30 @@
 #define _S(s)               X_CONVERT_TO_STR(s)
 
 // Format a string with specified arguments.
-#define _F(format, args...) ::X_ROOT_NS::sprintf(format, ##args)
+#define _F(format, args...) __root_ns::sprintf(format, ##args)
 
 // Defines an exception by specified error code, the exception type depended on the error code.
 #define _E(code, args...)   X_ERROR(code, ##args)
 
 // Defines a common exception with specified common error code .
-#define _EC(code, args...)  X_ERROR(::X_ROOT_NS::common_error_code_t::code, ##args)
+#define _EC(code, args...)  X_ERROR(__root_ns::common_error_code_t::code, ##args)
 
 // Defines an exception with specified error code and formated string.
-#define _EF(code, format, args...)  X_ERROR(code, ::X_ROOT_NS::sprintf(format, ##args))
+#define _EF(code, format, args...)  X_ERROR(code, __root_ns::sprintf(format, ##args))
 
 // Defines a common exception with specified common error code and formated string.
-#define _ECF(code, format, args...) X_ERROR(::X_ROOT_NS::common_error_code_t::code, \
-                                                ::X_ROOT_NS::sprintf(format, ##args))
+#define _ECF(code, format, args...) X_ERROR(__root_ns::common_error_code_t::code, \
+                                                __root_ns::sprintf(format, ##args))
 
 // Defines an exception with specified error code, its error message depeneded on the description
 //    of the error code, which defined by macro X_D.
-#define _ED(code, args...)  X_ERROR(code, ::X_ROOT_NS::sprintf(_desc(code), ##args))
+#define _ED(code, args...)  X_ERROR(code, __root_ns::sprintf(_desc(code), ##args))
 
 // An expression assertion.
 #define _A(x, args...)      X_ASSERT(x, ##args)
 
 // Print expressions, multiple expressions splited by spaces.
-#define _P                  ::X_ROOT_NS::println
+#define _P                  __root_ns::println
 
 // Print an expression, with the expression as prefix.
 #define _PP(s)              _P(_T("") #s ":", s)
@@ -108,7 +109,7 @@
 #define _PF(s, args...)     _P(sprintf(_T("") s, ##args))
 
 // Default value for the specified type.
-#define X_DEFAULT(type)     (::X_ROOT_NS::def_value<type>())
+#define X_DEFAULT(type)     (__root_ns::def_value<type>())
 
 // Simplification of X_DEFAULT
 #define _D(type)            X_DEFAULT(type)
@@ -130,6 +131,14 @@
 
 // Gets a static array elements' count.
 #define X_ARRAY_SIZE(arr)   (sizeof(arr) / sizeof((arr)[0]))
+
+// Macros for try ... finally grammar in c++.
+#define X_TRY       __root_ns::try_finally([&]() {
+#define X_TRY_R     return __root_ns::try_finally_r([&]() {
+#define X_FINALLY   }, [&]() {
+#define X_TRY_END   });
+
+////////// ////////// ////////// ////////// //////////
 
 namespace X_ROOT_NS {
 
@@ -565,11 +574,11 @@ namespace X_ROOT_NS {
         template<typename numeric_t> numeric_t get_value() const
         {
             if(__value_t<numeric_t>::value_type == type)
-                return ::X_ROOT_NS::get_value<numeric_t>(value);
+                return __root_ns::get_value<numeric_t>(value);
 
             #define __X_CASE(type)                              \
                 case value_type_t::type##_:                     \
-                    return static_cast<numeric_t>(::X_ROOT_NS::get_value<type##_t>(value));
+                    return static_cast<numeric_t>(__root_ns::get_value<type##_t>(value));
 
             switch(type)
             {
@@ -595,8 +604,8 @@ namespace X_ROOT_NS {
 
             #define __X_CASE(type)                                          \
                 case value_type_t::type##_:                                 \
-                    return ::X_ROOT_NS::get_value<type##_t>(value)          \
-                        == ::X_ROOT_NS::get_value<type##_t>(other.value);
+                    return __root_ns::get_value<type##_t>(value)            \
+                        == __root_ns::get_value<type##_t>(other.value);
 
             switch(type)
             {
@@ -618,8 +627,8 @@ namespace X_ROOT_NS {
 
             #define __X_CASE(type)                                          \
                 case value_type_t::type##_:                                 \
-                    return ::X_ROOT_NS::get_value<type##_t>(value)          \
-                        < ::X_ROOT_NS::get_value<type##_t>(other.value);
+                    return __root_ns::get_value<type##_t>(value)            \
+                        < __root_ns::get_value<type##_t>(other.value);
 
             switch(type)
             {
@@ -641,8 +650,8 @@ namespace X_ROOT_NS {
 
             #define __X_CASE(type)                                          \
                 case value_type_t::type##_:                                 \
-                    return ::X_ROOT_NS::get_value<type##_t>(value)          \
-                        <= ::X_ROOT_NS::get_value<type##_t>(other.value);
+                    return __root_ns::get_value<type##_t>(value)            \
+                        <= __root_ns::get_value<type##_t>(other.value);
 
             switch(type)
             {
@@ -1204,7 +1213,7 @@ namespace X_ROOT_NS {
     // A macro of _error function.
 
     #define X_ERROR(code, args...)                                          \
-        ::X_ROOT_NS::_error(code, ##args, _T(__FILE__), __LINE__)
+        __root_ns::_error(code, ##args, _T(__FILE__), __LINE__)
 
     ////////// ////////// ////////// ////////// //////////
     // X_ASSERT
@@ -1212,7 +1221,7 @@ namespace X_ROOT_NS {
     #define X_ASSERT(x, args...)                                            \
         do {                                                                \
             if(!(x)) {                                                      \
-                ::X_ROOT_NS::__raise_assert_error(_T("") #x,                \
+                __root_ns::__raise_assert_error(_T("") #x,                  \
                                     _T(__FILE__), __LINE__, ##args);        \
             }                                                               \
         } while(0)
@@ -1271,38 +1280,59 @@ namespace X_ROOT_NS {
         const __creator_empty_args_t __creator_empty_args;
     }
 
+    // An object creator interface
+    // Provide various implements for creating/destorying an object.
+
     template<typename obj_t, typename args_t = __creator_empty_args_t>
     X_INTERFACE creator_t
     {
+        // Creates an object, using the specified memory manager.
         virtual obj_t * create(memory_t * memory, const args_t & args = __creator_empty_args) = 0;
+
+        // Destroys an object, using the specified memory manager.
         virtual void destory(memory_t * memory, obj_t * obj) = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // An object clonable interface
+    // Provide various implements for cloning an object.
+
     template<typename obj_t>
     X_INTERFACE clonable_t
     {
+        // Clones the object, using the spcified memory manager.
         virtual obj_t * clone(memory_t * memory) const = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // An object equals interface
+    // Provide various implements for comparing two objects.
+
     template<typename obj_t>
     X_INTERFACE equals_t
     {
+        // Determines if self object is equals than the specified object.
         virtual bool equals(const obj_t & obj) const = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // An object less interface
+    // Provide various implements for comparing two objects.
+
     template<typename obj_t>
     X_INTERFACE less_t
     {
+        // Determines if self object is less than the specified object.
         virtual bool less(const obj_t & obj) const = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------
+
+    // An key/value object interface.
+    // Provides the ability for searching value by the spcified key.
 
     template<typename _key_t, typename _value_t>
     X_INTERFACE kv_object_t
@@ -1310,25 +1340,31 @@ namespace X_ROOT_NS {
         typedef _key_t   key_t;
         typedef _value_t value_t;
 
+        // Gets value of the specified key.
         virtual value_t get(const key_t & key) = 0;
+
+        // Sets value for the specified key.
         virtual void set(const key_t & key, value_t & value) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
-    // enum
+    // Enum operations
 
+    // Enum bit-or, no arguments, returns empty.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_or()
     {
         return (enum_t)0;
     }
 
+    // Enum bit-or, only one arguments, returns it.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_or(enum_t v)
     {
         return v;
     }
 
+    // Enum bit-or, two arguments, returns the bit-or result.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_or(enum_t v1, enum_t v2)
     {
@@ -1336,30 +1372,39 @@ namespace X_ROOT_NS {
         return (enum_t)((t)v1 | (t)v2);
     }
 
+    // Enum bit-or, more than two arguments, returns the bit-or result of all values.
     template<typename enum_t, typename ... args_t>
     X_INLINE constexpr enum_t enum_or(enum_t v1, enum_t v2, args_t ... args)
     {
         return enum_or(enum_or(v1, v2), args ...);
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Add flags to the specified enum. equals bit-or operation.
     template<typename enum_t, typename ... args_t>
     X_INLINE constexpr enum_t enum_add_flag(enum_t & v, enum_t v1, args_t ... args)
     {
         return (v = enum_or(v, v1, args ...));
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Enum bit-and, no arguments, returns empty.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_and()
     {
         return (enum_t)0;
     }
 
+    // Enum bit-and, only one arguments, returns it.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_and(enum_t v)
     {
         return v;
     }
 
+    // Enum bit-and, two arguments, returns the bit-and result.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_and(enum_t v1, enum_t v2)
     {
@@ -1367,31 +1412,40 @@ namespace X_ROOT_NS {
         return (enum_t)((t)v1 & (t)v2);
     }
 
+    // Enum bit-and, more than two arguments, returns the bit-and result of all values.
     template<typename enum_t, typename ... args_t>
     X_INLINE constexpr enum_t enum_and(enum_t v1, enum_t v2, args_t ... args)
     {
         return enum_and(enum_and(v1, v2), args ...);
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Remove flag from the specified enum.
     template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_remove_flag(enum_t v, enum_t v1, args_t ... args)
+    X_INLINE constexpr enum_t enum_remove_flag(enum_t & v, enum_t v1, args_t ... args)
     {
         typedef int_type_t<sizeof(enum_t)> t;
         return (v = enum_and(v, (enum_t)~(t)v1, (enum_t)~(t)args ...));
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Enum bit-xor, no arguments, returns empty.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_xor()
     {
         return (enum_t)0;
     }
 
+    // Enum bit-xor, only one arguments, returns it.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_xor(enum_t v)
     {
         return v;
     }
 
+    // Enum bit-xor, two arguments, returns the bit-xor result.
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_xor(enum_t v1, enum_t v2)
     {
@@ -1399,12 +1453,16 @@ namespace X_ROOT_NS {
         return (enum_t)((t)v1 ^ (t)v2);
     }
 
+    // Enum bit-xor, more than two arguments, returns the bit-xor result of all values.
     template<typename enum_t, typename ... args_t>
     X_INLINE constexpr enum_t enum_xor(enum_t v1, enum_t v2, args_t ... args)
     {
         return enum_xor(enum_xor(v1, v2), args ...);
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Enum bit-not
     template<typename enum_t>
     X_INLINE constexpr enum_t enum_not(enum_t v)
     {
@@ -1412,12 +1470,16 @@ namespace X_ROOT_NS {
         return (enum_t)(~(t)v);
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Determines if the specivied value has the specified flag.
     template<typename enum_t>
     X_INLINE constexpr bool enum_has_flag(enum_t v, enum_t flag)
     {
         return enum_and(v, flag) != (enum_t)0;
     }
 
+    // Determines if the specivied value matchs the specified flag.
     template<typename enum_t>
     X_INLINE constexpr bool enum_match_flag(enum_t v, enum_t flag)
     {
@@ -1426,6 +1488,7 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // An box wrapper for object_t
     template<typename t>
     class box_t : public object_t
     {
@@ -1440,12 +1503,14 @@ namespace X_ROOT_NS {
         t value;
     };
 
+    // Creates an box wrapper for the specified value.
 	template<typename t>
 	X_INLINE auto _box(t && value)
 	{
         return new box_t<std::remove_reference_t<t>>(std::forward<t>(value));
 	}
 
+    // Gets the value of the specified boxed object.
 	template<typename t>
 	X_INLINE t & _unbox(object_t *& obj)
 	{
@@ -1459,6 +1524,7 @@ namespace X_ROOT_NS {
 		throw _E(common_error_code_t::convert_error);
 	}
 
+    // Gets the value of the specified boxed object.
 	template<typename t>
 	X_INLINE t & _unbox(box_t<t> * obj)
 	{
@@ -1467,6 +1533,7 @@ namespace X_ROOT_NS {
         return obj->value;
 	}
 
+    // Gets the value of the specified boxed object.
 	template<>
 	X_INLINE object_t *& _unbox<object_t *>(object_t *& obj)
 	{
@@ -1475,6 +1542,7 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Gives the ability of key/value storage for the object.
     template<typename _key_t=string_t, typename _value_t=object_t *>
     class metadata_t
     {
@@ -1484,11 +1552,13 @@ namespace X_ROOT_NS {
     public:
         metadata_t() { }
 
+        // Adds a key/value pair metadata.
         void add(key_t && key, value_t && value)
         {
             __data[std::forward<_key_t>(key)] = std::forward<_value_t>(value);
         }
 
+        // Removes a key/value pair metadata.
         void remove(const key_t & key)
         {
 			auto it = __data.find(key);
@@ -1496,6 +1566,7 @@ namespace X_ROOT_NS {
                 __data.erase(it);
         }
 
+        // Gets the value for the specified key.
         value_t & get(const key_t & key)
         {
             value_t * value;
@@ -1505,6 +1576,9 @@ namespace X_ROOT_NS {
 			throw _E(common_error_code_t::not_found);
         }
 
+        // Tries to get value for the specified key.
+        // Returns true if found, the value is returned by out_value.
+        // Returns false if not found.
         bool try_get(const key_t & key, value_t ** out_value=nullptr)
         {
 			auto it = __data.find(key);
@@ -1524,6 +1598,9 @@ namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Gives the ability of key/value storage for the object.
+    // When value is object_t *
+
     template<typename _key_t>
     class metadata_t<_key_t, object_t *>
     {
@@ -1534,12 +1611,14 @@ namespace X_ROOT_NS {
 
         metadata_t() { }
 
+        // Adds a key/value pair metadata.
         void add(key_t && key, object_t * value)
         {
             remove(key);
             __data[std::forward<_key_t>(key)] = __value_wrapper_t { value, false };
         }
 
+        // Adds a key/value pair metadata.
 		template<typename t>
         t & add(key_t && key, t && value)
         {
@@ -1561,6 +1640,7 @@ namespace X_ROOT_NS {
             return _unbox<std::remove_reference_t<t>>(pair.second.value);
         }
 
+        // Removes a key/value pair metadata.
         void remove(const key_t & key)
         {
 			auto it = __data.find(key);
@@ -1568,6 +1648,7 @@ namespace X_ROOT_NS {
                 __erase(it);
         }
 
+        // Gets the value for the specified key.
 		template<typename t>
         t & get(const key_t & key)
         {
@@ -1578,6 +1659,8 @@ namespace X_ROOT_NS {
 			throw _E(common_error_code_t::not_found);
         }
 
+        // Gets the value for the specified key.
+        // Auto create it when not found.
         template<typename t, typename key_t_, typename creator_t>
         t & get(key_t_ && key, creator_t creator)
         {
@@ -1589,6 +1672,8 @@ namespace X_ROOT_NS {
             return add(std::forward<key_t>(key), creator());
         }
 
+        // Gets the value for the specified key.
+        // Auto create it when not found.
         template<typename t, typename key_t_>
         t & get(key_t_ && key, bool auto_create)
         {
@@ -1598,6 +1683,9 @@ namespace X_ROOT_NS {
             return get<t>(key);
         }
 
+        // Tries to get value for the specified key.
+        // Returns true if found, the value is returned by out_value.
+        // Returns false if not found.
         template<typename t>
         bool try_get(const key_t & key, t ** out_value=nullptr)
         {
@@ -1612,6 +1700,7 @@ namespace X_ROOT_NS {
             return false;
         }
 
+        // Deallocator, delete all values. (inherited by object_t)
         ~metadata_t()
         {
             for(auto it = __data.begin(), it_end = __data.end();
@@ -1633,6 +1722,8 @@ namespace X_ROOT_NS {
         std::map<const key_t, __value_wrapper_t> __data; 
         typedef typename decltype(__data)::iterator itor_t;
 
+        // When remove an key/value pair.
+        // Delete the object. (inherited by object_t)
         void __erase(itor_t it)
         {
             if(it->second.boxed)
@@ -1643,14 +1734,17 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Flags when creates objects.
     X_ENUM(memory_flag_t)
 
+        // If inherited by object_t.
         is_object       = 1 << 0,
 
     X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // The wrapper of object, used when creates an object that not inherited by object_t.
     template<typename t>
     class obj_wrap_t : public t, public object_t
     {
@@ -1659,13 +1753,20 @@ namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // An memory manager interface.
     X_INTERFACE memory_t
     {
+        // Allocates an object
         virtual void * alloc(size_t size, memory_flag_t flag = memory_flag_t::__default__) = 0;
+
+        // Frees an object
         virtual void   free(void * obj)   = 0;
+
+        // Reallocates an object
         virtual void * realloc(void * obj, size_t size,
                                memory_flag_t flag = memory_flag_t::__default__) = 0;
 
+        // Creates an object with specified arguments.
         template<typename obj_t, typename ... args_t>
         obj_t * new_obj(args_t && ... args)
         {
@@ -1675,6 +1776,7 @@ namespace X_ROOT_NS {
             return new(buffer) obj_t(std::forward<args_t>(args) ...);
         }
 
+        // Creates an object with specified size and arguments.
         template<typename obj_t, typename ... args_t>
         obj_t * new_obj_with_size(size_t size, args_t && ... args)
         {
@@ -1684,6 +1786,8 @@ namespace X_ROOT_NS {
             return new(buffer) obj_t(std::forward<args_t>(args) ...);
         }
 
+        // Static member. 
+        // Creates an object with specified arguments.
         template<typename obj_t, typename ... args_t>
         static obj_t * new_obj(memory_t * memory, args_t && ... args)
         {
@@ -1695,6 +1799,8 @@ namespace X_ROOT_NS {
             return memory->new_obj<obj_t>(std::forward<args_t>(args) ...);
         }
 
+        // Static member.
+        // Creates an object with specified size and arguments.
         template<typename obj_t, typename ... args_t>
         static obj_t * new_obj(size_t size, memory_t * memory, args_t && ... args)
         {
@@ -1706,6 +1812,7 @@ namespace X_ROOT_NS {
             return memory->new_obj_with_size<obj_t>(size, std::forward<args_t>(args) ...);
         }
 
+        // Deletes an object
         void delete_obj(object_t * obj)
         {
             _A(obj != nullptr);
@@ -1714,6 +1821,7 @@ namespace X_ROOT_NS {
             free((void *)obj);
         }
 
+        // Static member.  Deletes an object.
         static void delete_obj(memory_t * memory, object_t * obj)
         {
             if(!memory)
@@ -1722,6 +1830,8 @@ namespace X_ROOT_NS {
             memory->delete_obj(obj);
         }
 
+        // Static member.
+        // Allocates memory of specified size.
         static void * alloc(memory_t * memory, size_t size,
                 memory_flag_t flag = memory_flag_t::__default__)
         {
@@ -1731,6 +1841,8 @@ namespace X_ROOT_NS {
             return memory->alloc(size, flag);
         }
 
+        // Static member.
+        // Creates multiy objects of specified count.
         template<typename obj_t>
         static obj_t * alloc_objs(memory_t * memory, size_t count,
                                   memory_flag_t flag = memory_flag_t::__default__)
@@ -1739,6 +1851,8 @@ namespace X_ROOT_NS {
             return (obj_t *)alloc(memory, sizeof(obj_t) * count, flag);
         }
 
+        // Static member.
+        // Frees specified object.
         static void free(memory_t * memory, void * obj)
         {
             if(!memory)
@@ -1750,6 +1864,7 @@ namespace X_ROOT_NS {
     private:
         static memory_t * __default_memory();
 
+        // Auto detemined the memory_flag_t.
         template<typename obj_t>
         static memory_flag_t __revise_memory_flag(memory_flag_t flag = memory_flag_t::__default__)
         {
@@ -1770,9 +1885,13 @@ namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // An interface of reading stream.
     X_INTERFACE xistream_t
     {
+        // Read bytes specified size from the stream.
         virtual size_t read(byte_t * buffer, size_t size) = 0;
+
+        // Completed notify.
         virtual void completed() = 0;
 
         template<typename t> xistream_t & operator >> (t & v)
@@ -1783,17 +1902,23 @@ namespace X_ROOT_NS {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // An implemention of xistream_t for file.
     class file_xistream_t : public object_t, public xistream_t
     {
         typedef std::ios_base __i;
         typedef std::ios_base::openmode __open_mode_t;
 
     public:
+        // Read bytes of specified size from the stream.
         virtual size_t read(byte_t * buffer, size_t size) override;
+
+        // Completed notify.
         virtual void completed() override;
 
+        // Opens the specified file for reading, throw exceptions when failed.
         void open(const string_t & path, __open_mode_t open_mode = __i::in | __i::binary);
 
+        // Dealloctor
         virtual ~file_xistream_t() override;
 
     private:
@@ -1802,11 +1927,15 @@ namespace X_ROOT_NS {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // An interface for writing stream.
     X_INTERFACE xostream_t
     {
         typedef byte_t char_type;
 
+        // Writes bytes to the stream.
         virtual void write(const byte_t * buffer, size_t size) = 0;
+
+        // Completed notify.
         virtual void completed() = 0;
 
         template<typename t> xostream_t & operator << (const t & v)
@@ -1817,18 +1946,24 @@ namespace X_ROOT_NS {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // An implemention of xistream_t for file.
     class file_xostream_t : public object_t, public xostream_t
     {
         typedef std::ios_base __i;
         typedef std::ios_base::openmode __open_mode_t;
 
     public:
+        // Writes bytes to the stream.
         virtual void write(const byte_t * buffer, size_t length) override;
+
+        // Completed notify.
         virtual void completed() override;
 
+        // Opens the specified file for writing, throw exceptions when failed.
         void open(const string_t & path,
             __open_mode_t open_mode = __i::out | __i::trunc | __i::binary);
 
+        // Dealloctor
         virtual ~file_xostream_t() override;
 
     private:
@@ -1837,10 +1972,12 @@ namespace X_ROOT_NS {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // An interface for reading/writing stream.
     X_INTERFACE xiostream_t : xistream_t, xostream_t { };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // The xstream implemention base for the specified stream.
     template<typename _stream_t>
     class xstream_impl_base_t
     {
@@ -1852,6 +1989,8 @@ namespace X_ROOT_NS {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // The xistream implemention for the specified reading stream.
+
     template<typename _istream_t>
     class xistream_impl_t : virtual public xstream_impl_base_t<_istream_t>
     {
@@ -1860,6 +1999,7 @@ namespace X_ROOT_NS {
     public:
         using __super_t::__super_t;
 
+        // Read bytes of specified size from the stream.
         virtual size_t read(const byte_t * buffer, size_t size) override
         {
             __super_t::stream.read(buffer, size);
@@ -1869,6 +2009,8 @@ namespace X_ROOT_NS {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // The xistream implemention for the specified writing stream.
+
     template<typename _ostream_t>
     class xostream_impl_t : virtual public xstream_impl_base_t<_ostream_t>
     {
@@ -1877,6 +2019,7 @@ namespace X_ROOT_NS {
     public:
         using __super_t::__super_t;
 
+        // Writes bytes to the stream.
         virtual void write(const byte_t * buffer, size_t size) override
         {
             __super_t::stream.write(buffer, size);
@@ -1884,6 +2027,7 @@ namespace X_ROOT_NS {
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // The xstream implemention for the specified stream.
 
     template<typename _stream_t>
     class xstream_impl_t : virtual public xistream_impl_t<_stream_t>
@@ -1895,10 +2039,17 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The default memory management.
+
     class default_memory_t : public object_t, public memory_t
     {
+        // allocates memory of specified size.
         virtual void * alloc(size_t size, memory_flag_t flag = memory_flag_t::__default__) override;
+
+        // Frees memory.
         virtual void   free(void * obj) override;
+
+        // Reallocates memory with specified size.
         virtual void * realloc(void * obj, size_t size,
                                memory_flag_t flag = memory_flag_t::__default__) override;
 
@@ -1908,34 +2059,42 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Supports the ability of memory management for an object.
+
     class memory_base_t
     {
     protected:
+        // Constructor
         memory_base_t(memory_t * memory = nullptr)
             : __memory(memory) { }
 
+        // Creates an object with specified arguments.
         template<typename obj_t, typename ... args_t>
         obj_t * __new_obj(args_t && ... args)
         {
             return memory_t::new_obj<obj_t>(__memory, std::forward<args_t>(args) ...);
         }
 
+        // Deletes an object.
         void __delete_obj(object_t * obj)
         {
             memory_t::delete_obj(__memory, obj);
         }
 
+        // Allocates memory of specified size.
         void * __alloc(size_t size, memory_flag_t flag = memory_flag_t::__default__)
         {
             return memory_t::alloc(__memory, size, flag);
         }
 
+        // Allocates memory for the specified object with specified size.
         template<typename obj_t>
         obj_t * __alloc_objs(size_t count, memory_flag_t flag = memory_flag_t::__default__)
         {
             return memory_t::alloc_objs<obj_t>(__memory, count, flag);
         }
 
+        // Frees memory.
         void __free(void * obj)
         {
             memory_t::free(__memory, obj);
@@ -1946,24 +2105,29 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // A default implemenation of creator_t.
+
     template<typename obj_t, typename args_t = __creator_empty_args_t>
     class default_creator_t : public object_t, public creator_t<obj_t, args_t>
     {
         typedef default_creator_t<obj_t, args_t> __self_t;
 
     public:
+        // Creates an object with the specified memory manager.
         virtual obj_t * create(memory_t * memory, const args_t & args) override
         {
             _A(memory != nullptr);
             return memory->new_obj<obj_t>();
         }
 
+        // Deletes an object with the specified memory manager.
         virtual void destory(memory_t * memory, obj_t * obj) override
         {
             _A(memory != nullptr);
             memory->delete_obj(obj);
         }
 
+        // An sigleton instance
         static __self_t * instance()
         {
             static __self_t * creator = new __self_t();
@@ -1973,41 +2137,55 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // An object pool, be used for store objects that deallocated at the end of lifecycle.
     class pool_t : public object_t, public memory_t
     {
     public:
+
+        // Returns all objects in the pool.
         auto all()
         {
             return _range(__objects);
         }
 
+        // Allocates memory of specified size.
         virtual void * alloc(size_t size, memory_flag_t flag = memory_flag_t::__default__) override;
+
+        // Free memory of the given object.
         virtual void   free(void * obj) override;
+
+        // Reallocates memory for the given object to the specified size.
         virtual void * realloc(void * obj, size_t size,
                                memory_flag_t flag = memory_flag_t::__default__) override;
 
+        // Deallocator, delete all objects in the pool.
         virtual ~pool_t() override;
 
     private:
-        std::map<unsigned long, object_t *> __objects;
+        std::set<object_t *> __objects;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
     namespace
     {
+        // The pool wrapper provides the ability of pool management for an object.
+        // Objects in the pool will deallocated with the owner object.
+
         template<typename obj_t, typename _pool_t=pool_t>
         class __pool_wrapper_t : public obj_t
         {
         public:
             using obj_t::obj_t;
 
+            // Creates an object with the given arguments.
             template<typename _obj_t, typename ... args_t>
             _obj_t * new_obj(args_t && ... args)
             {
                 return __pool.template new_obj<_obj_t>(std::forward<args_t>(args) ...);
             }
 
+            // Returns the pool.
             _pool_t * get_pool() { return &__pool; }
 
         private:
@@ -2015,9 +2193,11 @@ namespace X_ROOT_NS {
         };
     }
 
+    // Defines the new type with the ability of pool management.
     template<typename obj_t, typename _pool_t=pool_t>
-        using pw_t = ::X_ROOT_NS::__pool_wrapper_t<obj_t, _pool_t>;
+    using pw_t = __root_ns::__pool_wrapper_t<obj_t, _pool_t>;
 
+    // Creates an object with ablility of pool management.
     template<typename obj_t, typename _pool_t=pool_t, typename ... args_t>
     __pool_wrapper_t<obj_t> * new_wrap(args_t && ... args)
     {
@@ -2025,6 +2205,8 @@ namespace X_ROOT_NS {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // The super type of comparable object that defines lots of compare operators.
 
     template<typename self_t, typename underlying_t>
     struct compare_operators_t
@@ -2074,7 +2256,7 @@ namespace X_ROOT_NS {
     };
 
     ////////// ////////// ////////// ////////// //////////
-    // callback
+    // A callback interface, be used for event handles.
 
     template<typename args_t>
     X_INTERFACE callback_t
@@ -2084,11 +2266,12 @@ namespace X_ROOT_NS {
             on_call(this, args);
         }
 
+        // Called when an event raised.
         virtual void on_call(void * sender, args_t & args) = 0;
     };
 
     //-------- ---------- ---------- ---------- ---------- 
-    // callback args
+    // Callback args
 
     template<typename _action_t>
     struct callback_args_t
@@ -2101,6 +2284,8 @@ namespace X_ROOT_NS {
     };
 
     //-------- ---------- ---------- ---------- ---------- 
+
+    // Callback args with data of given type.
 
     template<typename _action_t, typename _data_t>
     struct tcallback_args_t : public callback_args_t<_action_t>
@@ -2118,8 +2303,11 @@ namespace X_ROOT_NS {
 
     namespace
     {
+        // Defines operations of convertion a object to string.
+
         enum class __object_type_t { unknown, string, object, string_like, enum_ };
 
+        // Determines the object types.
         template<typename t>
         constexpr X_INLINE __object_type_t __to_object_type()
         {
@@ -2127,23 +2315,29 @@ namespace X_ROOT_NS {
                 std::remove_reference_t<std::remove_pointer_t<t>>
             > _t;
 
+            // An enum value
             if(std::is_enum<_t>::value)
                 return __object_type_t::enum_;
 
+            // A string
             if(std::is_same<_t, string_t>::value)
                 return __object_type_t::string;
 
+            // An object. ( inherited by object_t. )
             if(std::is_convertible<_t, object_t>())
                 return __object_type_t::object;
 
+            // Can converted to string.
             if(std::is_convertible<_t, string_t>())
                 return __object_type_t::string_like;
 
+            // Unknown
             return __object_type_t::unknown;
         }
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // The description string for a null object.
         const string_t __null_str = _T("<NULL>");
 
         template<typename _obj_t, __object_type_t> struct __to_str_t
@@ -2157,6 +2351,7 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // Converts an enum value to string.
         template<typename _obj_t>
         struct __to_str_t<_obj_t, __object_type_t::enum_>
         {
@@ -2168,6 +2363,7 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // Converts an enum value (pointer) to string.
         template<typename _obj_t>
         struct __to_str_t<_obj_t *, __object_type_t::enum_>
         {
@@ -2182,6 +2378,7 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // Converts a string like object (operator string_t() defined) to string.
         template<typename _obj_t>
         struct __to_str_t<_obj_t, __object_type_t::string_like>
         {
@@ -2193,6 +2390,7 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // Converts a string like object (pointer, operator string_t() defined) to string.
         template<typename _obj_t>
         struct __to_str_t<_obj_t *, __object_type_t::string_like>
         {
@@ -2207,6 +2405,7 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // Returns the string object.
         template<typename _obj_t>
         struct __to_str_t<_obj_t, __object_type_t::string>
         {
@@ -2218,6 +2417,7 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // Returns the string object (pointer).
         template<typename _obj_t>
         struct __to_str_t<_obj_t *, __object_type_t::string>
         {
@@ -2232,6 +2432,7 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // Convert an object to string.
         template<typename _obj_t>
         struct __to_str_t<_obj_t, __object_type_t::object>
         {
@@ -2243,6 +2444,7 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ---------- 
 
+        // Convert an object to string (pointer).
         template<typename _obj_t>
         struct __to_str_t<_obj_t *, __object_type_t::object>
         {
@@ -2256,6 +2458,7 @@ namespace X_ROOT_NS {
         };
     }
 
+    // Converts an object to string.
     template<typename _obj_t>
     X_INLINE const string_t _str(const _obj_t & obj)
     {
@@ -2264,6 +2467,7 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Converts an object to int value with the same size.
     template<typename t> auto _int(const t & value)
     {
         typedef int_type_t<sizeof(t)> int_t;
@@ -2271,6 +2475,8 @@ namespace X_ROOT_NS {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Output value wrapper, the base class that be used for write a value as specified format.
 
     template<typename t>
     struct __output_wrapper_t
@@ -2285,6 +2491,8 @@ namespace X_ROOT_NS {
     };
 
     //-------- ---------- ---------- ---------- ---------- 
+
+    // Converts a value to hex string, be used for write a value to a stream as hex format.
 
     template<typename t>
     struct __hex_output_wrapper_t : __output_wrapper_t<t>
@@ -2320,6 +2528,7 @@ namespace X_ROOT_NS {
 
     namespace
     {
+        // Convert a char to hex value, returns -1 when converts fault.
         constexpr int __digit_value(char_t c)
         {
             if(c <= _T('9') && c >= _T('0'))
@@ -2335,16 +2544,21 @@ namespace X_ROOT_NS {
         }
     }
 
+    ////////// ////////// ////////// ////////// //////////
+
+    // Guid structure.
     struct guid_t : compare_operators_t<guid_t, std::tuple<uint64_t, uint64_t>>
     {
         uint8_t __data[16];
 
+        // Equals operator.
         bool operator == (const guid_t & other)
         {
             return *(const int64_t *)this == *(const int64_t *)&other
                     && *((const int64_t *)this + 1) == *((const int64_t *)&other + 1);
         }
 
+        // Converts guid structure to string.
         operator string_t () const
         {
             stringstream_t ss;
@@ -2360,8 +2574,10 @@ namespace X_ROOT_NS {
             return ss.str();
         }
 
+        // An empty guid structure.
         static const guid_t empty;
 
+        // Parses a string to guid_t structure.
         static constexpr guid_t parse(const char_t * s)
         {
             if(s == nullptr)
@@ -2397,6 +2613,8 @@ namespace X_ROOT_NS {
             return g;
         }
 
+        // An identity tuple converter, be used for compare to guid objects by two long values.
+        // Used by compare_operators_t base class.
         operator std::tuple<uint64_t, uint64_t>() const
         {
             return std::tuple<uint64_t, uint64_t>(
@@ -2407,6 +2625,7 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // A buffer structure contains byte_t * pointer and the size.
     struct buffer_t
     {
         buffer_t() = default;
@@ -2420,6 +2639,7 @@ namespace X_ROOT_NS {
 
     namespace
     {
+        // Converts digit number to char.
         X_INLINE char_t __digit_to_char(int value)
         {
             if(value <= 9)
@@ -2429,6 +2649,7 @@ namespace X_ROOT_NS {
         }
     }
 
+    // Write a buffer to the given stream.
     template<typename _stream_t>
     _stream_t & operator << (_stream_t & stream, const buffer_t & buffer)
     {
@@ -2453,6 +2674,46 @@ namespace X_ROOT_NS {
         #undef __ToChars
 
         return stream;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // A grammar for try ... finally statement.
+    template<typename try_function_t, typename finally_function_t>
+    void try_finally(try_function_t try_function, finally_function_t finally_function)
+    {
+        try
+        {
+            try_function();
+        }
+        catch(...)
+        {
+            finally_function();
+            throw;
+        }
+
+        finally_function();
+    }
+
+    // A grama for try ... finally statement, with a return value.
+    template<typename try_function_t, typename finally_function_t>
+    auto try_finally_r(try_function_t try_function, finally_function_t finally_function)
+    {
+        typedef decltype(try_function()) ret_t;
+        ret_t r;
+
+        try
+        {
+            r = try_function();
+        }
+        catch(...)
+        {
+            finally_function();
+            throw;
+        }
+
+        finally_function();
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////

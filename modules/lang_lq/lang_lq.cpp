@@ -13,16 +13,19 @@ namespace X_ROOT_NS { namespace modules { namespace lang_lq {
         return context->new_obj<lq_codedom_analyzer_t>(context);
     }*/
 
+    // Constructor.
     lq_lang_t::lq_lang_t(const lang_create_args_t & args) : __lang_id(args.lang_id)
     {
 
     }
 
+    // Gets service.
     lang_service_t * lq_lang_t::get_service(lang_service_type_t service_type)
     {
         return nullptr;
     }
 
+    // Gets language id.
     lang_id_t lq_lang_t::get_id()
     {
         return __lang_id;

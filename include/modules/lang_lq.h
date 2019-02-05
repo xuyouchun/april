@@ -16,12 +16,18 @@ namespace X_ROOT_NS { namespace modules { namespace lang_lq {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Language lq.
     class lq_lang_t : public lang_t, public object_t
     {
     public:
+
+        // Constructor.
         lq_lang_t(const lang_create_args_t & args);
 
+        // Gets service.
         virtual lang_service_t * get_service(lang_service_type_t service_type) override;
+
+        // Gets language id.
         virtual lang_id_t get_id() override;
 
         static const char_t * const __default_name__;

@@ -7,12 +7,15 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Resource pool for keep release objects into pool, then used for next creating.
+
     template<typename resource_object_t>
     class resource_pool_t : public object_t
     {
         typedef uint_type_t<sizeof(resource_object_t *)> __key_t;
 
     public:
+        // Constructor, with specified memory managerment and creator.
         resource_pool_t(memory_t * memory, creator_t * creator,
                     size_t capacity=std::max<size_t>::value)
             : __memory(memory), __creator(creator), __capacity(capacity)
@@ -21,12 +24,14 @@ namespace X_ROOT_NS { namespace algorithm {
             _A(creator != nullptr);
         }
 
+        // Acquires a object, Creates when the pool is empty.
         resource_object_t * acquire()
         {
             mutex_lock_t _1(__mutex);
             return __acquire(); 
         }
 
+        // Releases a object, Then put it into the pool.
         void release(resource_object_t * obj)
         {
             _A(obj != nullptr);
@@ -35,6 +40,7 @@ namespace X_ROOT_NS { namespace algorithm {
             return __release();
         }
 
+        // Destructor, Releases all objects in the pool.
         virtual ~resource_pool_t() override
         {
             mutex_lock_t _1(__mutex);
@@ -49,6 +55,7 @@ namespace X_ROOT_NS { namespace algorithm {
         volatile size_t __count = 0;
         std::mutex __mutex;
 
+        // Acquires a object, Creates when the pool is empty.
         resource_object_t * __acquire()
         {
             if(__set.size() == 0)
@@ -66,6 +73,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }
         }
 
+        // Releases a object, then put it into the pool.
         void __release(resource_object_t * obj)
         {
             _A(obj != nullptr);

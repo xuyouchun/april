@@ -17,12 +17,18 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // CS language.
     class cs_lang_t : public object_t, public lang_t
     {
     public:
+
+        // Constructor.
         cs_lang_t(const lang_create_args_t & args);
 
+        // Returns service of type.
         virtual lang_service_t * get_service(lang_service_type_t service_type) override;
+
+        // Returns language id.
         virtual lang_id_t get_id() override;
 
         static const char_t * const __default_name__;
@@ -37,6 +43,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Cs log code.
     X_ENUM_(cs_log_code_t, sizeof(common_log_code_t))
 
         // informations
@@ -48,6 +55,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         // errors
         __error__   = 17000,
 
+        // Unexpected.
         unexpected  = 17100,
 
         // the end
@@ -59,14 +67,18 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Cs token enumerator.
     class cs_token_enumerator_t : public token_enumerator_base_t
     {
     public:
+
+        // Constructor.
         template<typename ... args_t>
         cs_token_enumerator_t(args_t && ... args)
             : token_enumerator_base_t(std::forward<args_t>(args) ...)
         { }
 
+        // Returns next token.
         virtual token_t * next() override;
     };
 

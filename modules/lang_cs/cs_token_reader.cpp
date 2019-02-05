@@ -50,6 +50,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         } while(false)
 
 
+    // Returns the next token.
     token_t * cs_token_enumerator_t::next()
     {
         if(!__skip_whitespace())

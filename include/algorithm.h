@@ -8,13 +8,16 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Algorithm error codes
+
     X_ENUM(algorighm_error_code_t)
         
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////
 
-    //      max
+    // Returns the max value of given values.
+
     template<typename t>
     X_INLINE constexpr decltype(auto) max(t && value)
     {
@@ -35,7 +38,8 @@ namespace X_ROOT_NS { namespace algorithm {
 
     //-------- ---------- ---------- ---------- ----------
 
-    //      min
+    // Returns the min value of given values.
+
     template<typename t>
     X_INLINE constexpr decltype(auto) min(t && value)
     {
@@ -56,14 +60,14 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // max_size
+    // Return the max size of give value types.
     template<typename ... t>
     X_INLINE constexpr auto max_size()
     {
         return max(sizeof(t) ...);
     }
 
-    // min_size
+    // Return the min size of give value types.
     template<typename ... t>
     X_INLINE constexpr auto min_size()
     {
@@ -71,6 +75,8 @@ namespace X_ROOT_NS { namespace algorithm {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Detemines wheather a value in the given values.
 
     template<typename t, typename t1>
     X_INLINE bool in(t && value, t1 && value1)
@@ -86,6 +92,9 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compares given values.
+    // Return -1(less), 1(greater), 0(equals).
+
     template<typename t>
     X_INLINE int cmp(const t & t1, const t & t2)
     {
@@ -99,6 +108,8 @@ namespace X_ROOT_NS { namespace algorithm {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Selects a value from the given list, comparing by specified function.
 
     template<typename itor_t, typename cmp_t>
     itor_t select(itor_t begin, itor_t end, cmp_t cmp_func)
@@ -122,24 +133,28 @@ namespace X_ROOT_NS { namespace algorithm {
         return select(container.begin(), container.end(), cmp_func);
     }
 
+    // Selects the min value from the given list.
     template<typename itor_t>
     X_INLINE itor_t select_min(itor_t begin, itor_t end)
     {
         return select(begin, end, [](auto x, auto y) { return x < y; });
     }
 
+    // Selects the min value from the given container.
     template<typename container_t>
     X_INLINE auto select_min(container_t & container)
     {
         return select_min(container.begin(), container.end());
     }
 
+    // Selects the max value from the give list.
     template<typename itor_t>
     X_INLINE itor_t select_max(itor_t begin, itor_t end)
     {
         return select(begin, end, [](auto x, auto y) { return y < x; });
     }
 
+    // Selects the max value from the give container.
     template<typename container_t>
     X_INLINE auto select_max(container_t & container)
     {
@@ -148,6 +163,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Splits the given list by specified predicate function.
     template<typename itor_t, typename pred_t, typename callback_t>
     void split_if(itor_t begin, itor_t end, pred_t pred, callback_t callback)
     {
@@ -167,6 +183,7 @@ namespace X_ROOT_NS { namespace algorithm {
         callback(it0, end);
     }
 
+    // Splits the give list by specified separator.
     template<typename itor_t, typename separator_t, typename callback_t>
     void split(itor_t begin, itor_t end, const separator_t & separator, callback_t callback)
     {
@@ -175,6 +192,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Copies data with specified length to a destinate pointer.
     template<typename t>
     void copy_array(const t * src, t * dst, size_t length)
     {
@@ -187,6 +205,8 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     }
 
+    // Assigns values to the given variables.
+
     template<typename dst_itor_t> void assign(dst_itor_t itor) { }
 
     template<typename dst_itor_t, typename item_t, typename ... rest_t>
@@ -195,6 +215,8 @@ namespace X_ROOT_NS { namespace algorithm {
         *itor++ = item;
         assign(itor, std::forward<rest_t>(rest) ...);
     }
+
+    // Enumerator given values by calling specified callback function.
 
     template<typename f_t> void each(f_t f) { }
     template<typename item_t, typename f_t> void each(f_t f, item_t item) { f(item); }
@@ -206,6 +228,7 @@ namespace X_ROOT_NS { namespace algorithm {
         each(f, rest ...);
     }
 
+    // Splits the ordered list by keys that selected by key selector.
     template<typename itor_t, typename key_selector_t, typename proc_t>
     void split_array(itor_t begin, itor_t end, key_selector_t key_selector, proc_t proc)
     {
@@ -231,18 +254,21 @@ namespace X_ROOT_NS { namespace algorithm {
         proc(key0, it0, it);
     }
 
+    // Splits the ordered container by keys that selected by key selector.
     template<typename container_t, typename key_selector_t, typename proc_t>
     void split_array(const container_t & container, key_selector_t key_selector, proc_t proc)
     {
         return split_array(container.begin(), container.end(), key_selector, proc);
     }
 
+    // Splits the ordered container.
     template<typename itor_t, typename proc_t>
     void split_array(itor_t begin, itor_t end, proc_t proc)
     {
         return split_array(begin, end, [](auto it) { return it; }, proc);
     }
 
+    // Splits the ordered given container.
     template<typename container_t, typename proc_t>
     void split_array(const container_t & container, proc_t proc)
     {
@@ -250,6 +276,8 @@ namespace X_ROOT_NS { namespace algorithm {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Assigns values to the given list items.
 
     template<typename t>
     void assign_array(t * dst, const t & value, size_t length)
@@ -267,6 +295,8 @@ namespace X_ROOT_NS { namespace algorithm {
     {
         assign_array(arr, value, size);
     }
+
+    // Sets the given list items to zero.
 
     template<typename t>
     void zero_array(t * dst, size_t length)
@@ -321,6 +351,8 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     }
 
+    // Sets the specified buffer to zero.
+
     template<size_t size>
     void zero_bytes(byte_t * bytes)
     {
@@ -342,6 +374,10 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // A multikey structure contains various values that can compare.
+    // Be used for key of map that contains various values.
+    // etc. array [ 1, 2, 3 ] can compare with [ 4, 5 ].
+
     template<
         typename container_t,
         typename t = typename container_t::value_type
@@ -357,6 +393,14 @@ namespace X_ROOT_NS { namespace algorithm {
         multikey_t(container_t && data)
             : __data(std::forward<container_t>(data)) { }
 
+        template<typename _itor_t>
+        multikey_t(_itor_t first, _itor_t last)
+            : __data(_range(first, last)) { }
+
+        const container_t & data() const { return __data; }
+
+        auto begin() const { return __data.begin(); }
+        auto end()   const { return __data.end();   }
 
         bool operator < (const __self_t & other) const
         {
@@ -411,6 +455,7 @@ namespace X_ROOT_NS { namespace algorithm {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // Index wrapper wraps an index that can be enumerated.
 
     template<typename index_t = size_t>
     class index_wrapper_t : public compare_operators_t<index_wrapper_t<index_t>, index_t>
@@ -445,14 +490,18 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Assigns value to given variable pointer if it is not nullptr.
     template<typename t>
-    X_INLINE void assign_value(t * out, const t & value)
+    X_INLINE X_ALWAYS_INLINE void assign_value(t * out, const t & value)
     {
         if(out != nullptr)
             *out = value;
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Convets a integer value to a compress format.
+    // This can use less storage space for a ingeter value.
 
     template<typename t>
     size_t to_varint(t value, byte_t * buffer)
@@ -474,6 +523,8 @@ namespace X_ROOT_NS { namespace algorithm {
 
         return length;
     }
+
+    // Converts a compress format interge to it's raw value
 
     template<typename t>
     t from_varint(const byte_t * buffer, size_t * out_length = nullptr)

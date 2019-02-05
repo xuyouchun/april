@@ -13,14 +13,17 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Cs log codes.
     X_ENUM_INFO(cs_log_code_t)
 
+        // Unexpected.
         X_D(unexpected,     _T("unexpected \"%1%\""))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Constructor.
     cs_lang_t::cs_lang_t(const lang_create_args_t & args) : __lang_id(args.lang_id)
     {
         __service = memory_t::new_obj<cs_lang_service_t>(
@@ -28,6 +31,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         );
     }
 
+    // Returns service of specified type.
     lang_service_t * cs_lang_t::get_service(lang_service_type_t service_type)
     {
         typedef lang_service_type_t t;
@@ -57,12 +61,14 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
     }
 
+    // Returns service.
     template<typename service_t>
     service_t * cs_lang_t::__get_service()
     {
         return (service_t *)(cs_lang_service_t *)__service;
     }
 
+    // Returns language id.
     lang_id_t cs_lang_t::get_id()
     {
         return __lang_id;

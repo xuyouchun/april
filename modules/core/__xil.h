@@ -10,112 +10,136 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // xil_t
 
+    // Xil commands
     __Enum(xil_command_t)
 
+        // Empty xil.
         empty           = 0,
 
+        // Pushes a value to stack.
         push            = 1,
 
+        // Pops a value from stack and remove it.
         pop             = 2,
 
+        // Picks a value to stack and don't remove it.
         pick            = 3,
 
+        // Calls a function.
         call            = 4,
 
+        // Jmps to a specified position.
         jmp             = 5,
 
+        // Simple commands: e.g. return.
         smp             = 6,
 
+        // Algorithm: + - * / etc.
         al              = 7,
 
+        // Compare: > < == etc.
         cmp             = 8,
 
+        // Logic: && || !
         logic           = 9,
 
+        // Bit: & | ~
         bit             = 10,
 
+        // Creates a object or a array.
         new_            = 11,
+
+        // Extern flag.
+        external        = 15,
+
+        // Copy block.
+        copy            = external,
 
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Algorithm command.
     __Enum(xil_al_command_t)
 
         empty           = 0,
 
-        add             = 1,
+        add             = 1,        // +
+    
+        sub             = 2,        // -
 
-        sub             = 2,
+        mul             = 3,        // *
 
-        mul             = 3,
+        div             = 4,        // /
 
-        div             = 4,
+        mod             = 5,        // %
 
-        mod             = 5,
+        minus           = 6,        // -
 
-        minus           = 6,
-
-        positive        = 7,
+        positive        = 7,        // +
 
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Bit command.
     __Enum(xil_bit_command_t)
 
         empty           = 0,
 
-        bit_and         = 1,
+        bit_and         = 1,        // &
 
-        bit_or          = 2,
+        bit_or          = 2,        // |
 
-        bit_not         = 3,
+        bit_not         = 3,        // ~
 
-        bit_xor         = 4,
+        bit_xor         = 4,        // ^
 
-        left_shift      = 5,
+        left_shift      = 5,        // <<
 
-        right_shift     = 6,
+        right_shift     = 6,        // >>
 
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Compare command.
     __Enum(xil_cmp_command_t)
 
         empty           = 0,
 
-        greater         = 1,
+        greater         = 1,        // >
 
-        greater_equal   = 2,
+        greater_equal   = 2,        // >=
 
-        less            = 3,
+        less            = 3,        // <
 
-        less_equal      = 4,
+        less_equal      = 4,        // <=
 
-        equal           = 5,
+        equal           = 5,        // ==
 
-        not_equal       = 6,
+        not_equal       = 6,        // !=
 
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Logic command.
     __Enum(xil_logic_command_t)
 
         empty           = 0,
 
-        and_            = 1,
+        and_            = 1,        // &&
 
-        or_             = 2,
+        or_             = 2,        // ||
 
-        not_            = 3,
+        not_            = 3,        // !
 
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Xil types
     __Enum(xil_type_t)
 
         empty           = 0,
@@ -152,21 +176,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     __EnumEnd
 
+    // Converts a vtype to xil_type.
     xil_type_t to_xil_type(vtype_t vtype);
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Method calling type.
     __Enum(xil_call_type_t)
 
         empty           = 0,
 
-        virtual_        = 1,
+        virtual_        = 1,        // Virtual call
 
-        instance        = 2,
+        instance        = 2,        // Instance call
 
-        static_         = 3,
+        static_         = 3,        // Static call
 
-        internal        = 4,
+        internal        = 4,        // Internal call, defined in core library.
 
     __EnumEnd
 
@@ -176,9 +202,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         empty           = 0,
 
-        label           = 1,
+        label           = 1,        // Label
 
-        ret             = 2,
+        ret             = 2,        // Return
 
     __EnumEnd
 
@@ -186,13 +212,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     __Enum(xil_jmp_direction_t)
 
-        near_backward   = 0,
+        near_backward   = 0,        // Near backward jmp.
 
-        near_forward    = 1,
+        near_forward    = 1,        // Near forward jmp.
 
-        backward        = 2,
+        backward        = 2,        // Backward jmp.
 
-        forward         = 3,
+        forward         = 3,        // Forward jmp.
 
     __EnumEnd
 
@@ -200,13 +226,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     __Enum(xil_jmp_condition_t)
 
-        none    = __default__,
+        none    = __default__,      // Jmp
 
-        true_   = 1,
+        true_   = 1,                // Jmp when true.
 
-        false_  = 2,
+        false_  = 2,                // Jmp when false.
 
-        switch_ = 3,
+        switch_ = 3,                // Switch...case.
 
     __EnumEnd
 
@@ -216,15 +242,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         empty           = 0,
 
-        local           = 1,
+        local           = 1,        // Local variable.
 
-        argument        = 2,
+        argument        = 2,        // Argument.
 
-        field           = 3,
+        field           = 3,        // Field
 
-        constant        = 4,
+        constant        = 4,        // Constant
 
-        duplicate       = 5,
+        array_element   = 14,       // Array element
+
+        duplicate       = 15,       // Duplicate top unit of the stack.
 
     __EnumEnd
 
@@ -232,16 +260,30 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     __Enum(xil_new_type_t)
 
-        default_        = __default__,
+        default_        = __default__,  // Creates a new object.
 
-        array           = 1,
+        array           = 1,            // Creates a new array.
+
+    __EnumEnd
+
+    //-------- ---------- ---------- ---------- ----------
+
+    __Enum(xil_copy_type_t)
+
+        block_copy      = __default__,  // Copy a block.
+
+        stack_copy      = 1,            // Copy from stack.
+
+        res_copy        = 2,            // Copy from resource.
 
     __EnumEnd
 
     ////////// ////////// ////////// ////////// //////////
 
-    xil_call_type_t call_type_of_method(method_t * method);
+    class method_base_t;
+    xil_call_type_t call_type_of_method(method_base_t * method);
 
+    // Trace write xil, for debug.
     template<typename _xil_t>
     void __trace_write_xil(const _xil_t & xil)
     {
@@ -251,6 +293,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // struct ref_t
 
+    // Object reference.
     struct ref_iterator_t;
     struct ref_t : compare_operators_t<ref_t, uint32_t>
     {
@@ -260,8 +303,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef ref_t           value_type;
         typedef ref_iterator_t  iterator;
 
+        // Constructors.
         ref_t() = default;
-        constexpr ref_t(uint32_t index, uint32_t count = 1, int32_t extra = 0)
+        constexpr explicit ref_t(uint32_t index, uint32_t count = 1, int32_t extra = 0)
             : index(index), extra(extra), count(count)
         { }
 
@@ -269,51 +313,70 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         uint32_t    extra   : 3;
         uint32_t    count   : 9;
 
+        // Converts to a string.
         operator string_t() const;
 
+        // Converts to a uint32 alue.
         operator uint32_t() const { return *(uint32_t *)this; }
 
+        // Returns ref_t of specified offset.
         ref_t operator [] (size_t offset) const
         {
             return ref_t(index + offset, 1, extra);
         }
 
+        // Returns difference of two refs.
         int operator - (ref_t f) const { return index - f.index; }
 
+        // Moves to next ref_t.
         ref_t & operator ++ () { index++; return *this; }
+
+        // Moves to next ref_t.
         ref_t   operator ++ (int) { ref_t f = *this; index++; return f; }
 
+        // Returns whether two refs are equals.
         bool operator == (ref_t f) const
         {
             return __super_t::operator == (f) || (count == 0 && f.count == 0);
         }
 
+        // Returns whether two refs are not equals.
         bool operator != (ref_t f) const
         {
             return ! operator == (f);
         }
 
+        // Returns size of a ref.
         size_t size() const { return count; }
+
+        // Returns whether the ref is empty.
         bool empty() const { return count == 0; }
 
+        // Returns the begin iterator.
         ref_iterator_t begin() const;
+
+        // Returns the end iterator.
         ref_iterator_t end()   const;
 
         static const ref_t null;
     };
 
+    // Returns reference iterator.
     struct ref_iterator_t : iterator_base_t<ref_iterator_t>
     {
         typedef ref_iterator_t __self_t;
         ref_iterator_t(const ref_t & ref) : __ref(ref) { }
 
+        // Returns ref.
         ref_t operator * () const { return __ref; }
 
+        // Move to a position by offset.
         void increase(int inc)
         {
             __ref.index += inc;
         }
 
+        // Returns whether two iterators are equals.
         bool equals(const __self_t & it) const
         {
             return __ref == it.__ref;
@@ -322,6 +385,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ref_t __ref;
     };
 
+    // Writes a ref to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, ref_t r)
     {
@@ -329,6 +393,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         stream << *(uint32_t *)&r;
     }
 
+    // Reads ref from a stream.
     template<typename stream_t>
     stream_t & operator >> (stream_t & stream, ref_t & r)
     {
@@ -339,22 +404,28 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // struct res_t
 
+    // Ref of resource.
     struct res_t : compare_operators_t<res_t, uint32_t>
     {
         res_t() = default;
-        constexpr res_t(uint32_t pos) : pos(pos) { }
+        constexpr explicit res_t(uint32_t pos) : pos(pos) { }
 
         uint32_t    pos;
 
+        // Converts to a string.
         operator string_t() const;
 
+        // Returns whether a res is empty.
         bool empty() const { return pos == 0; }
 
+        // The empty res reference.
         static const res_t null;
 
+        // Converts to a uint32 value.
         operator uint32_t() const { return *(uint32_t *)this; }
     };
 
+    // Writes a res to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, res_t r)
     {
@@ -362,6 +433,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         stream << *(uint32_t *)&r;
     }
 
+    // Reads a res from a stream.
     template<typename stream_t>
     stream_t & operator >> (stream_t & stream, res_t & r)
     {
@@ -373,12 +445,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     namespace
     {
-        template<size_t size>
-        struct __array_t
+        // Byte array.
+        template<size_t size> struct __array_t
         {
             byte_t data[size];
         };
 
+        // Descripts a object as a byte array.
         template<typename _obj_t>
         struct __array_object_t : __array_t<sizeof(_obj_t)>
         {
@@ -388,16 +461,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             using __super_t::__super_t;
 
+            // Constructor
             __array_object_t(const _obj_t & obj)
             {
                 *(_obj_t *)__super_t::data = obj;
             }
 
+            // Returns the object.
             operator _obj_t & () const
             {
                 return *(_obj_t *)__super_t::data;
             }
 
+            // Assigns a object.
             __self_t & operator = (const _obj_t & obj)
             {
                 *(_obj_t *)__super_t::data = obj;
@@ -405,29 +481,54 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         };
 
-        typedef __array_object_t<ref_t> __ref_t;
-        typedef __array_object_t<res_t> __res_t;
+        typedef __array_object_t<ref_t> __ref_t;    // Object reference.
+        typedef __array_object_t<res_t> __res_t;    // Resource reference.
     }
 
     template<typename _obj_t> using array_object_t = __array_object_t<_obj_t>;
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Xil header.
     struct xil_header_t
     {
-        template<typename cmd1_t, typename cmd2_t>
-        xil_header_t(cmd1_t cmd1, cmd2_t cmd2)
-            : cmd1((byte_t)cmd1), cmd2((byte_t)cmd2) { }
+        // Constructor.
+        template<typename cmd2_t>
+        xil_header_t(xil_command_t cmd1, cmd2_t cmd2)
+            : __cmd1((byte_t)cmd1), __cmd2((byte_t)cmd2)
+        {
+            _A((byte_t)cmd1 < (byte_t)xil_command_t::external);
+        }
 
-        template<typename cmd1_t>
-        xil_header_t(cmd1_t cmd1) : cmd1((byte_t)cmd1), cmd2(0) { }
+        // Constructor.
+        xil_header_t(xil_command_t cmd1)
+            : __cmd1((byte_t)cmd1 >= 16? (byte_t)xil_command_t::external : (byte_t)cmd1)
+            , __cmd2((byte_t)cmd1 >= 16? (byte_t)cmd1 - 16 : 0)
+        { }
 
-        byte_t cmd1    : 4;
-        byte_t cmd2    : 4;
+        // Returns command.
+        xil_command_t command() const
+        {
+            if((xil_command_t)__cmd1 == xil_command_t::external)
+                return (xil_command_t)(__cmd1 + 16);
+
+            return (xil_command_t)__cmd1;
+        }
+
+        // Data, used by sub classes.
+        byte_t hdata() const { return __cmd2; }
+
+        // Set data, used by sub classes.
+        void set_hdata(byte_t d) { __cmd2 = d; }
+
+    private:
+        byte_t __cmd1    : 4;
+        byte_t __cmd2    : 4;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Base class of xils.
     struct xil_base_t : xil_header_t, xil_t
     {
         template<typename ... cmds_t>
@@ -436,8 +537,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Defines size of entity.
     #define __XilSize(entity_t)  ((size_t)&((entity_t *)nullptr)->____end)
 
+    // Begins a xil structure.
     #define __BeginXil(name)                                        \
         struct name##_xil_t : xil_base_t                            \
         {                                                           \
@@ -447,6 +550,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //   ...
 
+    // Ends a xil structure.
     #define __EndXil                                                \
         };
 
@@ -454,6 +558,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     template<typename _xil_t> struct __max_size_of_t { };
 
+    // Defines max size of a type.
     #define __DefineMaxSize(_type_t, _max)              \
         template<> struct __max_size_of_t<_type_t>      \
     {                                                   \
@@ -463,9 +568,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }                                               \
     };
 
+    // Defines max size of a type.
     #define __MaxSizeOf(_type_t)                        \
         (__max_size_of_t<_type_t>::value())
 
+    // Returns size of a xil type.
     constexpr size_t size_of(xil_type_t type)
     {
         switch(type)
@@ -502,6 +609,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Defines max size of xil type.
     __DefineMaxSize(xil_type_t, 8)
 
     ////////// ////////// ////////// ////////// //////////
@@ -513,8 +621,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         uint8_t index           : 4;
     */
 
+    // Push xil.
     __BeginXil(push)
 
+        // Constructor.
         push_xil_t(xil_storage_type_t stype, xil_type_t dtype = xil_type_t::empty)
             : __super_t(xil_command_t::push, stype), __dtype((byte_t)dtype) { }
 
@@ -523,14 +633,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         byte_t __extra[0];
 
-        xil_storage_type_t stype() const { return (xil_storage_type_t)cmd2; }
+        // Returns storage type.
+        xil_storage_type_t stype() const { return (xil_storage_type_t)hdata(); }
+
+        // Returns data type.
         xil_type_t dtype() const { return (xil_type_t)__dtype; }
 
+        // Returns identity for local / param variables.
         uint16_t get_identity() const
         {
             return identity < 15? identity : get_extra<uint16_t>();
         }
 
+        // Sets identity for local / param variables.
         void set_identity(uint16_t identity)
         {
             if(identity < 15)
@@ -544,20 +659,32 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Returns field ref.
         ref_t field_ref() const { return *(ref_t *)__extra; }
+
+        // Sets field ref.
         void set_field_ref(ref_t ref) { *(ref_t *)__extra = ref; }
 
+        // Returns type ref.
+        ref_t type_ref() const { return *(ref_t *)__extra; }
+
+        // Sets type ref.
+        void set_type_ref(ref_t type_ref) { *(ref_t *)__extra = type_ref; }
+
+        // Returns extra data.
         template<typename t> const t & get_extra() const
         {
             return *(t *)__extra;
         }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Returns size of push_xil_t.
     constexpr size_t size_of(const push_xil_t & xil)
     {
         size_t size = 0;
@@ -570,6 +697,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::field:
+            case xil_storage_type_t::array_element:
                 size += sizeof(__ref_t);
                 break;
 
@@ -588,10 +716,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return size + sizeof(push_xil_t);
     }
 
+    // Defines max size of push_xil_t.
     __DefineMaxSize(push_xil_t,
         sizeof(push_xil_t) + max(__MaxSizeOf(xil_type_t), sizeof(uint16_t), sizeof(__ref_t))
     )
 
+    // Writes a push_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const push_xil_t & xil)
     {
@@ -608,11 +738,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         uint8_t index           : 4;
     */
 
+    // Pop xil.
     __BeginXil(pop)
 
+        // Constructors.
         pop_xil_t(xil_storage_type_t stype, xil_type_t dtype)
             : __super_t(xil_command_t::pop, stype), __dtype((byte_t)dtype) { }
 
+        // Constructors.
         pop_xil_t(ref_t struct_type_ref)
             : __super_t(xil_command_t::pop, xil_storage_type_t::empty)
             , __dtype((byte_t)xil_type_t::empty)
@@ -625,14 +758,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         byte_t __extra[0];
 
-        xil_storage_type_t stype() const { return (xil_storage_type_t)cmd2; }
+        // Returns storage type. local / param.
+        xil_storage_type_t stype() const { return (xil_storage_type_t)hdata(); }
+
+        // Returns data type.
         xil_type_t dtype() const { return (xil_type_t)__dtype; }
 
+        // Returns identity for local / param variables.
         uint16_t get_identity() const
         {
             return identity < 15? identity : get_extra<uint16_t>();
         }
 
+        // Sets identity form local / param variables.
         void set_identity(uint16_t identity)
         {
             if(identity < 15)
@@ -646,21 +784,30 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Returns type ref.
         ref_t type_ref() const { return *(ref_t *)__extra; }
+
+        // Sets type ref.
         void set_type_ref(ref_t type_ref) { *(ref_t *)__extra = type_ref; }
 
+        // Returns field ref.
         ref_t field_ref() const { return *(ref_t *)__extra; }
+
+        // Sets field ref.
         void set_field_ref(ref_t ref) { *(ref_t *)__extra = ref; }
 
+        // Returns extra data.
         template<typename t> const t & get_extra() const
         {
             return *(t *)__extra;
         }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns size of a pop_xil_t.
     constexpr size_t size_of(const pop_xil_t & xil)
     {
         size_t size = 0;
@@ -678,6 +825,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::field:
+            case xil_storage_type_t::array_element:
                 size += sizeof(__ref_t);
                 break;
 
@@ -688,10 +836,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return size + sizeof(pop_xil_t);
     }
 
+    // Defines max size of pop_xil_t.
     __DefineMaxSize(pop_xil_t,
         sizeof(pop_xil_t) + max(__MaxSizeOf(xil_type_t), sizeof(uint16_t), sizeof(__ref_t))
     )
 
+    // Writes a pop_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const pop_xil_t & xil)
     {
@@ -708,8 +858,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         uint8_t index           : 4;
     */
 
+    // Pick xil.
     __BeginXil(pick)
 
+        // Constructor.
         pick_xil_t(xil_storage_type_t stype, xil_type_t dtype)
             : __super_t(xil_command_t::pick, stype), __dtype((byte_t)dtype) { }
 
@@ -718,14 +870,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         byte_t __extra[0];
 
-        xil_storage_type_t stype() const { return (xil_storage_type_t)cmd2; }
+        // Returns storage type.
+        xil_storage_type_t stype() const { return (xil_storage_type_t)hdata(); }
+
+        // Returns data type.
         xil_type_t dtype() const { return (xil_type_t)__dtype; }
 
+        // Returns identity for local / param variables.
         uint16_t get_identity() const
         {
             return identity < 15? identity : get_extra<uint16_t>();
         }
 
+        // Sets identity for local / param variables.
         void set_identity(uint16_t identity)
         {
             if(identity < 15)
@@ -739,18 +896,30 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Returns field ref.
         ref_t field_ref() const { return *(ref_t *)__extra; }
+
+        // Sets field ref.
         void set_field_ref(ref_t ref) { *(ref_t *)__extra = ref; }
 
+        // Returns type ref.
+        ref_t type_ref() const { return *(ref_t *)__extra; }
+
+        // Sets type ref.
+        void set_type_ref(ref_t ref) { *(ref_t *)__extra = ref; }
+
+        // Returns extra data.
         template<typename t> const t & get_extra() const
         {
             return *(t *)__extra;
         }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns size of pick_xil_t.
     constexpr size_t size_of(const pick_xil_t & xil)
     {
         size_t size = 0;
@@ -763,6 +932,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::field:
+            case xil_storage_type_t::array_element:
                 size += sizeof(__ref_t);
                 break;
 
@@ -773,10 +943,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return size + sizeof(pick_xil_t);
     }
 
+    // Defines max size of pick_xil_t.
     __DefineMaxSize(pick_xil_t,
         sizeof(pick_xil_t) + max(__MaxSizeOf(xil_type_t), sizeof(uint16_t), sizeof(__ref_t))
     )
 
+    // Writes pick_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const pick_xil_t & xil)
     {
@@ -793,8 +965,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_type_t dtype2   : 4;
     */
 
+    // Algorithm command.
     __BeginXil(al)
 
+        // Constructor.
         al_xil_t(xil_al_command_t cmd, xil_type_t dtype1,
                                        xil_type_t dtype2 = xil_type_t::__default__)
             : __super_t(xil_command_t::al, cmd)
@@ -803,22 +977,30 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         byte_t  __dtype1 : 4;
         byte_t  __dtype2 : 4;
 
+        // First data type.
         xil_type_t dtype1() const { return (xil_type_t)__dtype1; }
+
+        // Second data type.
         xil_type_t dtype2() const { return (xil_type_t)__dtype2; }
 
-        xil_al_command_t cmd() const { return (xil_al_command_t)this->cmd2; }
+        // Algorithm command.
+        xil_al_command_t cmd() const { return (xil_al_command_t)this->hdata(); }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns size of al_xil_t.
     constexpr size_t size_of(const al_xil_t & xil)
     {
         return sizeof(al_xil_t);
     }
 
+    // Returns max size of al_xil_t.
     __DefineMaxSize(al_xil_t, sizeof(al_xil_t));
 
+    // Writes a al_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const al_xil_t & xil)
     {
@@ -833,8 +1015,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_bit_command_t       : 4;
     */
 
+    // Bit xil.
     __BeginXil(bit)
 
+        // Constructor.
         bit_xil_t(xil_bit_command_t cmd, xil_type_t dtype1,
                                          xil_type_t dtype2 = xil_type_t::__default__)
             : __super_t(xil_command_t::bit, cmd)
@@ -843,20 +1027,27 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         byte_t  __dtype1 : 4;
         byte_t  __dtype2 : 4;
 
+        // The first data type.
         xil_type_t dtype1() const { return (xil_type_t)__dtype1; }
+
+        // The second data type.
         xil_type_t dtype2() const { return (xil_type_t)__dtype2; }
 
-        xil_bit_command_t cmd() const { return (xil_bit_command_t)this->cmd2; }
+        // Algorighm cmmand.
+        xil_bit_command_t cmd() const { return (xil_bit_command_t)this->hdata(); }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns sizeof a bit_xil_t.
     constexpr size_t size_of(const bit_xil_t & xil)
     {
         return sizeof(bit_xil_t);
     }
 
+    // Defines max size of bit_xil_t.
     __DefineMaxSize(bit_xil_t, sizeof(bit_xil_t));
 
     template<typename stream_t>
@@ -873,24 +1064,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_logic_command_t     : 4;
     */
 
+    // Logic xil.
     __BeginXil(logic)
 
+        // Constructor.
         logic_xil_t(xil_logic_command_t cmd)
             : __super_t(xil_command_t::logic, cmd) { }
 
-        xil_logic_command_t cmd() const { return (xil_logic_command_t)this->cmd2; }
+        // Logic command.
+        xil_logic_command_t cmd() const { return (xil_logic_command_t)this->hdata(); }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns size of a logic xil.
     constexpr size_t size_of(const logic_xil_t & xil)
     {
         return sizeof(logic_xil_t);
     }
 
+    // Returns max size of logic xil.
     __DefineMaxSize(logic_xil_t, sizeof(logic_xil_t));
 
+    // Writes a logic_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const logic_xil_t & xil)
     {
@@ -907,8 +1105,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_type_t dtype2   : 4;
     */
 
+    // Compare xil.
     __BeginXil(cmp)
 
+        // Constructor.
         cmp_xil_t(xil_cmp_command_t cmd, xil_type_t dtype1, xil_type_t dtype2)
             : __super_t(xil_command_t::cmp, cmd)
             , __dtype1((byte_t)dtype1), __dtype2((byte_t)dtype2) { }
@@ -916,23 +1116,30 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         byte_t  __dtype1 : 4;
         byte_t  __dtype2 : 4;
 
+        // The first data type.
         xil_type_t dtype1() const { return (xil_type_t)__dtype1; }
+
+        // The second data type.
         xil_type_t dtype2() const { return (xil_type_t)__dtype2; }
 
+        // Command.
+        xil_cmp_command_t cmd() const { return (xil_cmp_command_t)this->hdata(); }
 
-        xil_cmp_command_t cmd() const { return (xil_cmp_command_t)this->cmd2; }
-
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns size of a cmp_xil_t.
     constexpr size_t size_of(const cmp_xil_t & xil)
     {
         return sizeof(cmp_xil_t);
     }
 
+    // Defines max size of cmp_xil_t.
     __DefineMaxSize(cmp_xil_t, sizeof(cmp_xil_t));
 
+    // Writes a cmp_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const cmp_xil_t & xil)
     {
@@ -948,26 +1155,33 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ref_t method            : 32;
     */
 
+    // Method call xil.
     __BeginXil(call)
 
+        // Constructor.
         call_xil_t(xil_call_type_t call_type, ref_t method)
             : __super_t(xil_command_t::call, call_type), method(method) { }
 
         __ref_t method;
 
-        xil_call_type_t call_type() const { return (xil_call_type_t)cmd2; }
+        // Call type.
+        xil_call_type_t call_type() const { return (xil_call_type_t)hdata(); }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns size of a call_xil_t.
     constexpr size_t size_of(const call_xil_t & xil)
     {
         return sizeof(call_xil_t);
     }
 
+    // Returns max size of call_xil_t.
     __DefineMaxSize(call_xil_t, sizeof(call_xil_t));
 
+    // Writes a call_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const call_xil_t & xil)
     {
@@ -982,22 +1196,28 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_smp_t               : 4;
     */
 
+    // Simple xil.
     __BeginXil(smp)
 
+        // Constructor.
         smp_xil_t(xil_smp_t smp)
             : __super_t(xil_command_t::smp, smp) { }
 
-        xil_smp_t smp() const { return (xil_smp_t)cmd2; }
+        // Command.
+        xil_smp_t smp() const { return (xil_smp_t)hdata(); }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns size of smp_xil_t.
     constexpr size_t size_of(const smp_xil_t & xil)
     {
         return sizeof(smp_xil_t);
     }
 
+    // Defines max size of xil_smp_t.
     __DefineMaxSize(xil_smp_t, 1)
 
     ////////// ////////// ////////// ////////// //////////
@@ -1008,8 +1228,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_jmp_condition_t     : 2;
     */
 
+    // Jmp xil.
     __BeginXil(jmp)
 
+        // Constructor.
         jmp_xil_t(xil_jmp_condition_t condition, int step = 0)
             : __super_t(xil_command_t::jmp, 0)
         {
@@ -1017,38 +1239,50 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             set_step(step);
         }
 
+        // Returns jmp direction.
         xil_jmp_direction_t direction() const
         {
-            return (xil_jmp_direction_t)((byte_t)cmd2 >> 2);
+            return (xil_jmp_direction_t)((byte_t)hdata() >> 2);
         }
 
+        // Sets jmp direction.
         void set_direction(xil_jmp_direction_t direction)
         {
-            cmd2 = (((byte_t)cmd2 & 0x03) | ((byte_t)direction << 2));
+            set_hdata((((byte_t)hdata() & 0x03) | ((byte_t)direction << 2)));
         }
 
+        // Returns jmp condition.
         xil_jmp_condition_t condition() const
         {
-            return (xil_jmp_condition_t)((byte_t)cmd2 & 0x03);
+            return (xil_jmp_condition_t)((byte_t)hdata() & 0x03);
         }
 
+        // Sets jmp condition.
         void set_condition(xil_jmp_condition_t condition)
         {
-            cmd2 = (((byte_t)cmd2 & 0x0C) | (byte_t)condition);
+            set_hdata((((byte_t)hdata() & 0x0C) | (byte_t)condition));
         }
 
         byte_t  __extra[0];
 
+        // Sets step.
         void set_step(int32_t step);
+
+        // Returns step.
         int32_t step() const;
 
+        // Sets switch-case table index.
         void set_tbl(int32_t index);
+
+        // Returns switch-case table index.
         int32_t tbl() const;
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Returns jmp xil step size.
     constexpr X_INLINE size_t jmp_xil_step_size(const jmp_xil_t & x)
     {
         if(x.condition() == xil_jmp_condition_t::switch_)
@@ -1065,6 +1299,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Jmp xil step size.
     struct __jmp_xil_step_size_t
     {
         static size_t size_of(jmp_xil_t & x)
@@ -1073,13 +1308,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     };
 
+    // Returns size of jmp xil.
     constexpr size_t size_of(const jmp_xil_t & xil)
     {
         return sizeof(jmp_xil_t) + jmp_xil_step_size(xil);
     }
 
+    // Defines jmp_xil_t.
     __DefineMaxSize(jmp_xil_t, 4)
 
+    // Writes a jmp_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const jmp_xil_t & xil)
     {
@@ -1095,30 +1333,40 @@ namespace X_ROOT_NS { namespace modules { namespace core {
        ref_t                        : 4;
     */
 
+    // New xil.
     __BeginXil(new)
 
+        // Constructor.
         new_xil_t(xil_new_type_t new_type = xil_new_type_t::default_)
             : __super_t(xil_command_t::new_, new_type)
         { }
 
         __ref_t __type_ref;
 
+        // Returns type_ref.
         ref_t type_ref() const { return *(ref_t *)&__type_ref; }
+
+        // Sets type_ref.
         void set_type_ref(ref_t ref) { *(ref_t *)&__type_ref = ref; }
 
-        xil_new_type_t new_type() const { return (xil_new_type_t)this->cmd2; }
+        // New type type.
+        xil_new_type_t new_type() const { return (xil_new_type_t)this->hdata(); }
 
+        // Converts to a string.
         operator string_t() const;
 
     __EndXil
 
+    // Return size of a new_xil_t.
     constexpr size_t size_of(const new_xil_t & xil)
     {
         return sizeof(new_xil_t);
     }
 
+    // Defines max size of new_xil_t.
     __DefineMaxSize(new_xil_t, sizeof(new_xil_t))
 
+    // Writes new_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const new_xil_t & xil)
     {
@@ -1127,7 +1375,77 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // copy_xil_t
 
+    // Copy xil.
+    __BeginXil(copy)
+
+        // Constructors.
+        copy_xil_t(xil_copy_type_t copy_type, xil_type_t dtype)
+            : __super_t(xil_command_t::copy)
+            , __copy_type((byte_t)copy_type), __dtype((byte_t)dtype)
+        { }
+
+        // Returns copy type.
+        xil_copy_type_t copy_type() const { return (xil_copy_type_t)__copy_type; }
+
+        // Returns data type.
+        xil_type_t dtype() const { return (xil_type_t)__dtype; }
+
+        byte_t  __copy_type : 4;
+        byte_t  __dtype     : 4;
+
+        byte_t __extra[0];
+
+        // Returns res.
+        res_t res() const { return *(res_t *)__extra; }
+
+        // Sets res.
+        void set_res(res_t res) { *(res_t *)__extra = res; }
+
+        // Converts to a string.
+        operator string_t() const;
+
+    __EndXil
+
+    // Returns size of copy_xil_t.
+    constexpr size_t size_of(const copy_xil_t & xil)
+    {
+        size_t size = sizeof(copy_xil_t);
+
+        switch(xil.copy_type())
+        {
+            case xil_copy_type_t::stack_copy:
+                break;
+
+            case xil_copy_type_t::block_copy:
+                break;
+
+            case xil_copy_type_t::res_copy:
+                size += sizeof(res_t);
+                break;
+
+            default:
+                break;
+        }
+
+        return size;
+    }
+
+    // Defines max size of copy_xil_t.
+    __DefineMaxSize(copy_xil_t, sizeof(copy_xil_t) + sizeof(res_t))
+
+    // Writes copy_xil_t to a stream.
+    template<typename stream_t>
+    stream_t & operator << (stream_t & stream, const copy_xil_t & xil)
+    {
+        __trace_write_xil(xil);
+        return stream.write((const byte_t *)&xil, size_of(xil)), stream;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Returns max size of a type.
     template<typename _type_t>
     constexpr size_t max_size_of()
     {
@@ -1136,6 +1454,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Xil extra.
     template<typename _xil_t>
     struct xil_extra_t : _xil_t
     {
@@ -1152,15 +1471,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Xil reader.
     class xil_reader_t : public object_t
     {
     public:
+
+        // Constructor.
         xil_reader_t(const byte_t * bytes, size_t length)
             : __bytes(bytes), __bytes_end(bytes + length)
         {
             _A(bytes != nullptr);
         }
 
+        // Constructor.
         xil_reader_t(const byte_t * bytes, const byte_t * bytes_end)
             : __bytes(bytes), __bytes_end(bytes_end)
         {
@@ -1168,6 +1491,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             _A(bytes_end != nullptr);
         }
 
+        // Read next xil.
         bool read(const xil_base_t ** out_xil);
 
     private:
@@ -1179,19 +1503,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class xil_pool_t;
     class xil_buffer_t;
 
+    // Write xils to buffer.
     size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer);
 
+    // Returns command of a xil.
     X_INLINE xil_command_t command_of(const xil_t * xil)
     {
-        return (xil_command_t)((const xil_base_t *)xil)->cmd1;
+        return (xil_command_t)((const xil_base_t *)xil)->command();
     }
 
+    // Returns sub command of a xil.
     template<typename _cmd_t>
     X_INLINE _cmd_t sub_command_of(const xil_t * xil)
     {
-        return (_cmd_t)((const xil_base_t *)xil)->cmd2;
+        return (_cmd_t)((const xil_base_t *)xil)->hdata();
     }
 
+    // Returns whether the xil is a label.
     X_INLINE bool is_label(const xil_t * xil)
     {
         return command_of(xil) == xil_command_t::smp

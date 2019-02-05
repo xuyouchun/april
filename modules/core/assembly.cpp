@@ -8,6 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // assembly_references_t
 
+    // Add a reference.
     assembly_reference_t * assembly_references_t::add_reference(
                             __package_name_t package_name, assembly_t * assembly)
     {
@@ -28,6 +29,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return ref;
     }
 
+    // Get assembly reference for a assembly.
     assembly_reference_t * assembly_references_t::get_reference(assembly_t * assembly)
     {
         auto it = __assembly_reference_relation.find(assembly);
@@ -40,6 +42,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // types_t
 
+    // Returns value from a map.
     template<typename _map_t, typename _key_t = typename _map_t::key_type,
                               typename _value_t = typename _map_t::mapped_type>
     _value_t __get_type(const _map_t & map, const _key_t & key)
@@ -52,6 +55,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return nullptr;
     }
 
+    // Append a value to a map.
     template<typename _map_t, typename _key_t = typename _map_t::key_type,
                               typename _value_t = typename _map_t::mapped_type>
     bool __append(_map_t & map, const _key_t & key, _value_t && value)
@@ -60,16 +64,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return map.insert(pair_t(key, value)).second;
     }
 
+    // Converts mname to a sid.
     static sid_t __to_sid(const mname_t * mname)
     {
         return mname? mname->sid : sid_t::null;
     }
 
+    // Converts namespace to a sid.
     static sid_t __to_sid(namespace_t * ns)
     {
         return ns? __to_sid(ns->full_name) : sid_t::null;
     }
 
+    // Converts namespace to a sid.
     static sid_t __ns_to_sid(type_t * type, sid_t default_ = sid_t::null)
     {
         if(type == nullptr)
@@ -83,6 +90,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __to_sid(_M(general_type_t *, type)->namespace_);
     }
 
+    // Appends a type.
     bool types_t::append_type(general_type_t * type)
     {
         _A(type != nullptr);
@@ -95,6 +103,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __append(__general_types, key, type);
     }
 
+    // Appends typedef.
     bool types_t::append_type_def(sid_t ns, type_def_t * type_def)
     {
         _A(type_def != nullptr);
@@ -106,6 +115,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __append(__type_defs, key, type_def);
     }
 
+    // Gets general type by namespace, name, etc.
     general_type_t * types_t::get_general_type(sid_t ns, sid_t name,
             size_t template_param_count, type_t * host_type)
     {
@@ -118,6 +128,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         );
     }
 
+    // Gets typedef by namespace, name, etc.
     type_def_t * types_t::get_type_def(sid_t ns, sid_t name,
                     size_t template_param_count, type_t * host_type)
     {
@@ -126,6 +137,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ));
     }
 
+    // Gets generic type by template, types and host type.
     generic_type_t * types_t::get_generic_type(general_type_t * template_,
                                         xtype_collection_t & types, type_t * host_type)
     {
@@ -136,6 +148,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ));
     }
 
+    // Creates a generic type.
     generic_type_t * types_t::new_generic_type(general_type_t * template_,
                                         xtype_collection_t & types, type_t * host_type)
     {
@@ -154,6 +167,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return generic_type;
     }
 
+    // Creates a array type.
     array_type_t * types_t::new_array_type(type_t * type, size_t dimension)
     {
         if(type == nullptr)
@@ -172,11 +186,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // assembly_t
 
+    // Writes the assembly to a stream.
     void assembly_t::write(xostream_t & stream, logger_t & logger)
     {
         assembly_write(stream, *this, __current_lv, logger);
     }
 
+    // Loads assembly from a stream.
     void assembly_t::load(xistream_t & stream, assembly_loader_t * loader)
     {
         assembly_read(stream, *this, loader);
@@ -185,6 +201,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ///////// ////////// ////////// ////////// //////////
     // assemblies_t
 
+    // Append a assembly.
     void assemblies_t::append(assembly_t * assembly)
     {
         _A(assembly != nullptr);
@@ -194,6 +211,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __assemblies.push_back(assembly);
     }
 
+    // Returns assembly by its name.
     assembly_t * assemblies_t::get(const mname_t * name)
     {
         auto it = __assembly_sid_map.find(to_sid(name));
@@ -203,6 +221,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return nullptr;
     }
 
+    // Returns assembly by its name.
     assembly_t * assemblies_t::get(const string_t & name)
     {
         auto it = __assembly_string_map.find(name);

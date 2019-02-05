@@ -17,12 +17,16 @@ namespace X_ROOT_NS { namespace arch { namespace types {
     typedef unsigned long long   uint64_t;
     typedef unsigned long        size_t;
 
+    // Strings
     typedef wchar_t              char_t;
     typedef ::std::basic_string<char_t>        string_t;
     typedef ::std::basic_ostringstream<char_t> stringstream_t;
+
+    // Streams
     typedef decltype(::std::wcout)             ostream_t;
     typedef decltype(::std::wcin)              istream_t;
 
+    // Streams
     extern istream_t & cin;
     extern ostream_t & cout;
     extern ostream_t & cerr;

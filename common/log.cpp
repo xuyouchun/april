@@ -1,4 +1,11 @@
 
+/*
+    XuYouChun
+
+    Defines a set of tools of log functions.
+*/
+
+
 #include <common.h>
 #include <boost/log/trivial.hpp>
 
@@ -10,6 +17,7 @@ namespace X_ROOT_NS {
 
     namespace __
     {
+        // Writes log to the stream that given by log type.
         void write(log_type_t type, const wchar_t * s)
         {
             switch(type)
@@ -45,18 +53,23 @@ namespace X_ROOT_NS {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Log mask to open/close outpt of any log type.
     log_type_t __log_mask = log_type_t::all;
 
+    // Sets log mask to open/close output of specified log type.
     void set_log_mask(log_type_t mask)
     {
         __log_mask = mask;
     }
 
+    // Gets the current log mask.
     log_type_t get_log_mask()
     {
         return __log_mask;
     }
 
+    // Switch output of specified log type.
     void switch_log(log_type_t type, bool open)
     {
         typedef int_type_t<sizeof(type)> t;
@@ -67,6 +80,7 @@ namespace X_ROOT_NS {
             mask &= ~(t)type;
     }
 
+    // Gets the specified if a log type is setted.
     bool test_log_mask(log_type_t type)
     {
         return (int)get_log_mask() & (int)type;

@@ -6,6 +6,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Initializes the character properties.
     void __char_property_t::init(enumerator_t & e)
     {
         typedef flag_t f_t;
@@ -52,6 +53,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns the length of a string.
     size_t strlen(const char_t * s)
     {
         _A(s != nullptr);
@@ -63,6 +65,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     }
 
+    // Copys a string to specified destination.
     char_t * strcpy(char_t * dst, const char_t * src)
     {
         _A(dst != nullptr);
@@ -76,6 +79,7 @@ namespace X_ROOT_NS { namespace algorithm {
         return dst;
     }
 
+    // Connects two strings.
     char_t * strcat(char_t * dst, const char_t * src)
     {
         _A(dst != nullptr);
@@ -86,11 +90,13 @@ namespace X_ROOT_NS { namespace algorithm {
 
     namespace
     {
+        // String compare results.
         enum __str_equals_ret
         {
-            yes, no, nolonger
+            yes, no, nolonger   // equals, not equals, no longer equals.
         };
 
+        // Returns whether two strings are equals.
         template<typename equals_t>
         X_INLINE __str_equals_ret __str_equals(const char_t * s, const char_t * s0)
         {
@@ -103,6 +109,7 @@ namespace X_ROOT_NS { namespace algorithm {
             return *s0? __str_equals_ret::nolonger : __str_equals_ret::yes;
         }
 
+        // Finds the substring, returns nullptr if not found.
         template<typename equals_t>
         const char_t * __strstr(const char_t * s, const char_t * s0)
         {
@@ -127,6 +134,7 @@ namespace X_ROOT_NS { namespace algorithm {
             return nullptr;
         }
 
+        // Finds the characher, returns nullptr if not found.
         template<typename equals_t>
         const char_t * __strchr(const char_t * s, char_t c)
         {
@@ -142,6 +150,7 @@ namespace X_ROOT_NS { namespace algorithm {
             return nullptr;
         }
 
+        // Compares two strings.
         template<typename equals_t>
         const cmp_t __strcmp(const char_t * s1, const char_t * s2)
         {
@@ -162,26 +171,32 @@ namespace X_ROOT_NS { namespace algorithm {
             }
         }
 
+        // Strings operation.
         struct __char_op_t
         {
+            // Returns whether two char are equals.
             X_INLINE static bool equals(char_t c1, char_t c2)
             {
                 return c1 == c2;
             }
 
+            // Returns whether a char is greather than another.
             X_INLINE static bool greater_than(char_t c1, char_t c2)
             {
                 return c1 > c2;
             }
         };
 
+        // Strings operation. ( ignore case )
         struct __char_ignorecase_op_t
         {
+            // Returns whether two char are equals. ignore case.
             X_INLINE static bool equals(char_t c1, char_t c2)
             {
                 return c1 == c2 || to_upper(c1) == to_upper(c2);
             }
 
+            // Returns whether a char is greather than another. ignore case.
             X_INLINE static bool greater_than(char_t c1, char_t c2)
             {
                 return to_upper(c1) > to_upper(c2);
@@ -189,42 +204,61 @@ namespace X_ROOT_NS { namespace algorithm {
         };
     }
 
+    // Returns the position of the substring.
+    // Returns nullptr if not found.
     const char_t * strstr(const char_t * s, const char_t * s0)
     {
         return __strstr<__char_op_t>(s, s0);
     }
 
+    // Returns the position of the substring, ignore case.
+    // Returns nullptr if not found.
     const char_t * stristr(const char_t * s, const char_t * s0)
     {
         return __strstr<__char_ignorecase_op_t>(s, s0);
     }
 
+    // Returns the position of the specified char.
+    // Returns nullptr if not found.
     const char_t * strchr(const char_t * s, char_t c)
     {
         return __strchr<__char_op_t>(s, c);
     }
 
+    // Returns the position of the specified char, ignore case. 
+    // Returns nullptr if not found.
     const char_t * strichr(const char_t * s, char_t c)
     {
         return __strchr<__char_ignorecase_op_t>(s, c);
     }
 
+    // Compare results.
     X_ENUM_INFO(cmp_t)
+
+        // Equals
         X_C(equals,     _T("equals"))
+
+        // Greater
         X_C(greater,    _T("greater"))
+
+        // Less
         X_C(less,       _T("less"))
+
     X_ENUM_INFO_END
 
+    // Compares two strings.
     cmp_t strcmp(const char_t * s1, const char_t * s2)
     {
         return __strcmp<__char_op_t>(s1, s2);
     }
 
+    // Compares two strings, ignore case.
     cmp_t stricmp(const char_t * s1, const char_t * s2)
     {
         return __strcmp<__char_ignorecase_op_t>(s1, s2);
     }
 
+    // Write a escape format of char to a stream.
     X_ALWAYS_INLINE void __escape_char(stringstream_t & ss, char_t c)
     {
         switch(c)
@@ -289,6 +323,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     }
 
+    // Converts a string to is escape format.
     string_t escape_string(const char_t * s, int length)
     {
         if(s == nullptr || s[0] == _T('\0'))

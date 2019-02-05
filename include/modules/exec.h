@@ -21,28 +21,38 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Execute error codes.
     X_ENUM(exec_error_code_t)
 
+        // Assembly not found.
         assembly_not_found,
 
+        // Assembly no entry point.
         assembly_no_entry_point,
 
+        // Method no body.
         method_no_body,
 
+        // Internal function not found.
         internal_function_not_found,
 
+        // Method parse error: unexpected index.
         method_parse_error__unexpected_index,
 
+        // Switch table index overflow.
         switch_table_index_overflow,
 
+        // Type not found.
         type_not_found,
 
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Execute env codes.
     X_ENUM(exec_env_code_t)
 
+        // At the end of commands.
         end,
 
     X_ENUM_END
@@ -51,34 +61,41 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     namespace
     {
+        // Aligns forward.
         template<typename t> constexpr size_t __alignf()
         {
             return _alignf(sizeof(t), sizeof(rt_stack_unit_t));
         }
 
+        // Stack operations.
         template<typename t, bool tiny> struct __stack_operation_t
         {
+            // Pushes a unit.
             __AlwaysInline static void push(rt_stack_unit_t * top, t value)
             {
                 *(t *)top = value;
             }
 
+            // Pops a unit.
             __AlwaysInline static t pop(rt_stack_unit_t * top)
             {
                 return *(t *)(top - __alignf<t>() / sizeof(rt_stack_unit_t));
             }
         };
 
+        // Stack operations. when value size is less or equals than unit.
         template<typename t> struct __stack_operation_t<t, true>
         {
             union __tmp_t { t value; rt_stack_unit_t unit; };
 
+            // Pushes a unit.
             __AlwaysInline static void push(rt_stack_unit_t * top, t value)
             {
                 __tmp_t tmp = { value };
                 *top = reinterpret_cast<rt_stack_unit_t>(tmp.unit);
             }
 
+            // Pops a unit.
             __AlwaysInline static t pop(rt_stack_unit_t * top)
             {
                 return ((__tmp_t *)(top - 1))->value;
@@ -88,21 +105,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Executor stack.
     class executor_stack_t : public object_t, public no_copy_ctor_t
     {
     public:
+
+        // Constructor.
         executor_stack_t(rt_stack_unit_t * buffer)
             : __buffer(buffer), __top(buffer), __lp(buffer)
         {
             _A(buffer != nullptr);
         }
 
+        // Pushes a value.
         template<typename t> __AlwaysInline void push(const t & value)
         {
             __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::push(__top, value);
             __top += __alignf<t>() / sizeof(rt_stack_unit_t);
         }
 
+        // Pops a value.
         template<typename t> __AlwaysInline t pop()
         {
             t value = __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop(__top);
@@ -111,35 +133,50 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return value;
         }
 
+        // Pops units of specified count.
         template<typename t> __AlwaysInline rt_stack_unit_t * pop(int count)
         {
             return __top -= __alignf<t>() / sizeof(rt_stack_unit_t) * count;
         }
 
+        // Pops units of specified count.
         template<int count, typename t = rt_stack_unit_t>
         __AlwaysInline rt_stack_unit_t * pop()
         {
             return __top -= __alignf<t>() / sizeof(rt_stack_unit_t) * count;
         }
 
+        // Picks top unit.
         template<typename t> __AlwaysInline t pick()
         {
             return __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop(__top);
         }
 
+        // Picks top unit.
         template<typename t> __AlwaysInline t pick(int offset)
         {
             return __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop(__top + offset);
         }
 
+        // The top unit.
         __AlwaysInline rt_stack_unit_t * top() { return __top; }
+
+        // Sets the top unit.
         __AlwaysInline void set_top(rt_stack_unit_t * top) { __top = top; }
+
+        // Pops units of specified count.
         __AlwaysInline rt_stack_unit_t * pop(size_t unit_size) { return __top -= unit_size; }
 
+        // Increases top of unit size.
         __AlwaysInline void increase_top(size_t unit_size) { __top += unit_size; }
+
+        // Increases top of unit size.
         template<size_t unit_size> __AlwaysInline void increase_top() { __top += unit_size; }
 
+        // Local variables top.
         __AlwaysInline rt_stack_unit_t * lp() { return __lp; }
+
+        // Sets local variables top.
         __AlwaysInline void set_lp(rt_stack_unit_t * lp) { __lp = lp; }
 
     private:
@@ -149,6 +186,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns a string hashcode.
     template<typename _size_t>
     __AlwaysInline _size_t __hash(_size_t hash, _size_t v)
     {
@@ -166,6 +204,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         return hash;
     }
 
+    // Returns a string hashcode.
     template<typename _size_t, typename _char_t>
     _size_t elf_hash(const _char_t * s, size_t length)
     {
@@ -230,11 +269,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         };
     }
 
+    // Runtime string pool.
     class rt_string_pool_t : public object_t
     {
     public:
         rt_string_pool_t() { }
 
+        // Gets the specified string.
         rt_string_t * get(const char_t * s, rt_length_t length);
 
     private:
@@ -250,16 +291,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     class command_t;
 
+    // Calling stub.
     struct __calling_stub_t
     {
-        rt_stack_unit_t *   lp;
-        command_t **        current;
+        rt_stack_unit_t *   lp;         // Local variables top.
+        command_t **        current;    // Current command.
     };
 
     class executor_env_t;
+
+    // Context of command executing.
     class command_execute_context_t : public object_t, public no_copy_ctor_t
     {
     public:
+
+        // Constructor.
         command_execute_context_t(rt_heap_t * heap, executor_env_t & env,
                     size_t stack_size = __default_stack_size)
             : stack(__stack_buffer = memory_t::alloc_objs<rt_stack_unit_t>(nullptr, stack_size))
@@ -268,19 +314,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             _A(heap != nullptr);
         }
 
-        executor_stack_t stack;
-        rt_string_pool_t string_pool;
-        rt_heap_t *      heap;
-        executor_env_t & env;
+        executor_stack_t stack;             // Stack.
+        rt_string_pool_t string_pool;       // String pool.
+        rt_heap_t *      heap;              // Runtime heap.
+        executor_env_t & env;               // Executing environment.
 
-        command_t ** current = nullptr;
+        command_t ** current = nullptr;     // Current command.
 
+        // Pushes calling context.
         void push_calling(command_t ** command);
+
+        // Pops calling context.
         void pop_calling();
+
+        // Pops calling context.
         void pop_calling(const __calling_stub_t * p);
 
+        // Creates a new runtime string.
         rt_string_t * new_rt_string(const char_t * s);
 
+        // Destructor.
         virtual ~command_execute_context_t() override
         {
             memory_t::free(nullptr, __stack_buffer);
@@ -293,31 +346,30 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    class command_t : public object_t
+    // Command.
+    class command_t
     {
         typedef command_t __self_t;
         typedef object_t  __super_t;
 
     public:
+
+        // Executes this command.
         virtual void execute(command_execute_context_t & ctx) = 0;
+
+        // Returns this string.
+        virtual const string_t to_string(command_execute_context_t & ctx) const = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // exec_method_t
 
-    class commands_t : public object_t
-    {
-    public:
-        commands_t(command_t * commands) : __commands(commands) { }
-
-    private:
-        command_t * __commands;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-
+    // Executes method.
     class exec_method_t : public object_t
     {
     public:
+
+        // Constructor.
         exec_method_t(command_t ** commands, uint16_t ref_objects, msize_t stack_unit_size)
             : commands(commands), ref_objects(ref_objects), stack_unit_size(stack_unit_size)
         {
@@ -331,15 +383,24 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // exec_assemblies_t
 
-    class rt_assemblies_t : public object_t
+    // Executing assemblies.
+    class exec_assemblies_t : public object_t
     {
     public:
+
+        // Appends a assembly.
         void append(rt_assembly_t * assembly, const string_t & name = _T(""),
                                               const string_t & package = _T(""));
+
+        // Gets a assembly by package and name.
         rt_assembly_t * get(const string_t & package, const string_t & name);
 
+        // Returns size.
         size_t size() const { return __map.size(); }
+
+        // Last assembly.
         rt_assembly_t * last() const { return __last; }
 
     private:
@@ -350,39 +411,41 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // executor_env_t
 
-    class executor_env_t : public object_t
+    // Executor environment.
+    class executor_env_t : public analyzer_env_t, public no_copy_ctor_t
     {
+        typedef analyzer_env_t __super_t;
+        typedef executor_env_t __self_t;
+
     public:
-        executor_env_t(memory_t * memory, rt_assembly_provider_t * assembly_provider)
-            : assembly_provider(assembly_provider)
-            , __memory(memory)
-        {
-            _A(assembly_provider != nullptr);
-        }
+        using __super_t::__super_t;
 
-        rt_assembly_provider_t * const assembly_provider;
-        rt_pool_t pool;
+        // Execute method of runtime method.
+        exec_method_t * exec_method_of(rt_method_t * rt_method);
 
-        memory_t * get_memory() { return __memory; }
-
-        exec_method_t * exec_method_of(rt_method_t * rt_method, rt_type_t * type,
-                                                     rt_assembly_t * rt_assembly);
+        // Execute method of runtime generic method.
+        exec_method_t * exec_method_of(rt_generic_method_t * rt_generic_method);
 
     private:
-        memory_t * __memory;
-        std::map<rt_method_t *, exec_method_t * > __method_map;
+        std::map<void *, exec_method_t *> __method_map;
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // executor_t
 
+    // Executor.
     class executor_t : public object_t
     {
     public:
-        executor_t(rt_context_t & ctx, rt_assembly_provider_t * assembly_provider)
-            : env(ctx.memory, assembly_provider), __ctx(ctx)
+
+        // Constructor.
+        executor_t(rt_context_t & ctx)
+            : env(ctx.memory, ctx.rpool, ctx.assemblies), __ctx(ctx)
         { }
 
+        // Executes commands.
         void execute();
 
         executor_env_t env;
@@ -390,14 +453,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     private:
         rt_context_t & __ctx;
 
+        // Executes method.
         void __execute_method(command_execute_context_t & ctx, command_t ** commands);
     };
 
     ////////// ////////// ////////// ////////// //////////
 
-    void execute(rt_context_t & ctx, rt_assemblies_t & assemblies, rt_assembly_t & entrypoint);
-    void execute(rt_context_t & ctx, rt_assembly_t & assembly);
-    void execute(rt_context_t & ctx, rt_assemblies_t & assemblies);
+    // Executes with specified context.
+    void execute(rt_context_t & ctx);
 
     ////////// ////////// ////////// ////////// //////////
 

@@ -7,6 +7,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns the position of the character pointer.
     codepos_t codepos_helper_t::pos_of(const char_t * p)
     {
         _A(p != nullptr);
@@ -36,6 +37,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return codepos_t { 0, 0 };
     }
 
+    // Ensures it's initialized.
     void codepos_helper_t::__ensure_initialized()
     {
         if(__initialized)
@@ -72,6 +74,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     }
 
+    // Pushes a token.
     size_t token_pool_t::push(token_t * token)
     {
         _A(token != nullptr);
@@ -80,6 +83,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __tokens.size() - 1;
     }
 
+    // Returns the token at specified index.
     token_t * token_pool_t::operator[](size_t index) const
     {
         _A(index < __tokens.size());

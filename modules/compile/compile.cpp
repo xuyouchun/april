@@ -4,63 +4,150 @@
 #include <algorithm.h>
 #include "utils.h"
 
-
 namespace X_ROOT_NS { namespace modules { namespace compile {
 
     using namespace core;
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compile error codes.
     X_ENUM_INFO(compile_error_code_t)
+
+        // Unknown language.
         X_C(unknown_lang,                   _T("unknown language name"))
+
+        // Empty language.
         X_C(empty_lang,                     _T("language name empty"))
+
+        // Format error.
         X_C(format_error,                   _T("format error"))
+
+        // Service not supported.
         X_C(service_not_supported,          _T("service not supported"))
+
+        // Assembly curcular referenced.
         X_C(assembly_circular_reference,    _T("assembly circular reference"))
+
+        // Assembly not found.
         X_C(assembly_not_found,             _T("assembly_not_found"))
+
+        // Assign expression type error.
         X_D(assign_expression_type_error,
-                    _T("assign left expression should be a variable: found '%1%'"))
+                    _T("assign left expression should be a variable/index: found '%1%'"))
+
+        // Variable cannot determinded.
+        X_D(variable_cannot_determined,     _T("variable connot determined"))
+
+        // Index body missing.
+        X_D(index_body_missing,             _T("index '%1%' body missing"))
+
+        // Index arguent missing.
+        X_D(index_arguments_missing,        _T("index '%1%' arguments missing"))
+
+        // Index type undeterminded.
+        X_D(index_type_undetermined,        _T("index '%1%' type undetermined"))
+
+        // Unexpected jmp operation.
         X_D(unexpected_jmp,                 _T("unexpected jmp '%1%'"))
+
+        // Jmp point no found.
         X_D(jmp_point_not_found,            _T("jmp point '%1%' not found"))
+
+        // Expression missing.
         X_D(expession_missing,              _T("%1% expression missing"))
+
+        // Duplicate switch case.
         X_D(duplicate_case,                 _T("duplicate case '%1%'"))
+
+        // Expected constant value.
         X_D(expected_constant_value,        _T("expected constant value"))
+
+        // Expected constant value type.
         X_D(expected_constant_value_type,   _T("expected constant value type: '%1%'"))
 
+        // Type missing.
         X_D(type_missing,                   _T("type missing"))
+
+        // Type error.
+        X_D(type_error,                     _T("type error, expected %1%"))
+
+        // Unexpected member.
         X_D(unexpected_member,              _T("unexpected member '%1%'"))
+
+        // Unknown field.
         X_D(unknown_field,                  _T("unknown field '%1%'"))
+
+        // Unknown field type.
         X_D(unknown_field_type,             _T("unknown field '%1%' type"))
 
+        // Expected a instance method.
         X_D(expected_instance_method,       _T("'%1%' is not an instance method"))
+
+        // Unknown method.
         X_D(unknown_method,                 _T("unknown method '%1%'"))
+
+        // Unknown property.
         X_D(unknown_property,               _T("unknown property '%1%'"))
+
+        // Property cannot be read.
         X_D(property_cannot_be_read,        _T("property '%1%' cannot be read"))
+
+        // Property cannot be write.
         X_D(property_cannot_be_write,       _T("property '%1%' cannot be write"))
+
+        // Host type missing.
         X_D(host_type_missing,              _T("member '%1%' host type missing"))
+
+        // Constructor missing.
         X_D(constructor_missing,            _T("constructor of type '%1%' missing"))
+
+        // Unexpected constructor prototype: should no return type.
         X_D(unexpected_constructor_prototype__should_no_return_type,
                                             _T("constructor '%1%' should no return type"))
+
+        // Unexpected constructor prototype: should not a virtual method.
         X_D(unexpected_constructor_prototype__should_no_virtual,
                                             _T("constructor '%1%' should no vitual"))
+
+        // Unexpected constructor prototype: shoud not a static method.
         X_D(unexpected_constructor_prototype__should_no_virtual,
                                             _T("constructor '%1%' should no static"))
 
+        // Unexpected host type.
         X_D(unexpected_host_type,           _T("member '%1%' has unexpected host type '%2%'"))
 
+        // No default value.
         X_D(no_default_value,               _T("type '%1%' has no default value"))
+
+        // Unknown array length.
         X_D(unknown_array_length,           _T("unknown array length: '%1%'"))
+
+        // Index man expression missing.
+        X_D(index_main_expression_missing,  _T("index main expression missing"))
+
+        // Element type of array undeterminded.
+        X_D(element_type_undeterminded,     _T("index element type underterminded"))
 
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Analyze node types
     X_ENUM_INFO(analyze_node_type_t)
 
+        // Empty node.
         X_C(empty,          _T("empty"))
+
+        // Token node.
         X_C(token,          _T("token"))
+
+        // Branch node.
         X_C(branch,         _T("branch"))
+
+        // Branch ref node.
         X_C(branch_ref,     _T("branch_ref"))
+
+        // End node.
         X_C(end,            _T("end"))
 
     X_ENUM_INFO_END
@@ -69,6 +156,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef code_object_metadata_key_t __mt_key_t;
 
+    // Returns entity of code_object.
     template<typename mt_t>
     mt_t & __mt_obj(code_object_t * code_object)
     {
@@ -78,6 +166,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Compile file.
     struct __mt_compile_file_t
     {
         static const __mt_key_t key = (__mt_key_t)1979;
@@ -87,13 +176,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Code object metadata key.
     X_ENUM_INFO(code_object_metadata_key_t)
+
+        // Path
         X_C(path,   _T("path"))
+
+        // Title
         X_C(title,  _T("title"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Load source file by path and name.
     file_t * file_t::load(global_context_t & global_context,
             memory_t * memory, const lib::path_t & path, const char_t * lang, const char_t * name)
     {
@@ -103,18 +199,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         string_t s_name = !al::is_empty(name)? string_t(name) : lib::filename(path);
         string_t s_lang = !al::is_empty(lang)? string_t(lang) : lib::fileext(path);
 
-        file_t * file = memory->new_obj<file_t>(global_context, s_name);
+        file_t * file = memory_t::new_obj<file_t>(memory, global_context, lib::to_str(path), s_name);
         lang_id_t lang_id = global_context.lang_id_of(s_lang);
-        file->code = memory->new_obj<code_t>(global_context, std::move(code), lang_id);
-
-        typedef code_object_metadata_key_t mtkey_t;
-        file->metadata.add(mtkey_t::path, path);
+        file->code = memory_t::new_obj<code_t>(memory, global_context, std::move(code), lang_id);
 
         return file;
     }
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns code sections.
     range_t<code_t::__itor_t> code_t::sections()
     {
         if(!__sections.size())
@@ -125,6 +219,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return _range(__sections);
     }
 
+    // Builds ast nodes.
     ast_node_t * code_t::build_ast(compile_context_t & context)
     {
         return analyze_ast(context, this);
@@ -132,26 +227,43 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Appends a file.
     void project_t::append_file(file_t * file)
     {
         _A(file != nullptr);
 
-        auto name = file->name;
-        __files[name] = file;
+        __file_map[file->path] = file;
+        __files.push_back(file);
     }
 
-    file_t * project_t::get_file(const string_t & name)
+    // Gets a file.
+    file_t * project_t::get_file(const string_t & path) const
     {
-        auto it = __files.find(name);
-        if(it != __files.end())
+        auto it = __file_map.find(path);
+        if(it != __file_map.end())
             return it->second;
 
         return nullptr;
     }
 
+    // Gets a file at index.
+    file_t * project_t::at(size_t index) const
+    {
+        _A(index < file_count());
+
+        return __files[index];
+    }
+
+    // Returns whether a path exists in the project.
+    bool project_t::exists(const string_t & path) const
+    {
+        return get_file(path) != nullptr;
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // ref_assembly_t
 
+    // Converts ref_assembly_t to a stirng.
     X_DEFINE_TO_STRING(ref_assembly_t)
     {
         if(package.empty())
@@ -163,6 +275,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // ref_assemblies_t
 
+    // Appends a ref of assembly.
     void ref_assemblies_t::append_ref_assembly(ref_assembly_t * ref_assembly)
     {
         _A(ref_assembly != nullptr);
@@ -177,6 +290,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __ref_assemblies[key] = ref_assembly;
     }
 
+    // Gets a ref of assembly.
     ref_assembly_t * ref_assemblies_t::get_ref_assembly(const string_t & package,
                                                         const string_t & name)
     {
@@ -192,6 +306,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // file_ref_assembly_t
 
+    // Read assembly bytes.
     size_t file_ref_assembly_t::read(byte_t * buffer, size_t size)
     {
         __ensure_open();
@@ -199,11 +314,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __file_stream.read(buffer, size);
     }
 
+    // Completed notify.
     void file_ref_assembly_t::completed()
     {
         __file_stream.completed();
     }
 
+    // Ensures file is opened.
     void file_ref_assembly_t::__ensure_open()
     {
         if(!__opened)
@@ -220,41 +337,59 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Appends a project.
     void solution_t::append_project(project_t * project)
     {
         _A(project != nullptr);
 
         auto name = project->name;
-        __projects[name] = project;
+        __project_map[name] = project;
+        __projects.push_back(project);
     }
 
-    project_t * solution_t::get_project(const string_t & name)
+    // Gets a project by a name.
+    project_t * solution_t::get_project(const string_t & name) const
     {
-        auto it = __projects.find(name);
-        if(it != __projects.end())
+        auto it = __project_map.find(name);
+        if(it != __project_map.end())
             return it->second;
 
         return nullptr;
     }
 
+    // Returns project at specified index.
+    project_t * solution_t::at(size_t index) const
+    {
+        _A(index < project_count());
+
+        return __projects[index];
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
+    // Language service types.
     X_ENUM_INFO(lang_service_type_t)
 
+        // Token reader service.
         X_C(token_read)
 
+        // Token property service.
         X_C(token_property)
 
+        // Operator property service.
         X_C(operator_property)
 
+        // Expression build service.
         X_C(expression_build)
 
+        // Statement analyze service.
         X_C(statement_analyze)
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Constructor.
     global_context_t::global_context_t(lang_factory_t * lang_factory)
         : lang_factory(lang_factory), xpool(&__heap)
     {
@@ -263,11 +398,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         xpool.mname_cache = from_cache<mname_cache_t>();
         xpool.generic_type_cache = from_cache<generic_type_cache_t>();
         xpool.array_type_cache = from_cache<array_type_cache_t>();
+        xpool.generic_method_cache = from_cache<generic_method_cache_t>();
         xpool.assembly_reference_cache = from_cache<assembly_reference_cache_t>();
 
         xpool.initialize();
     }
 
+    // Returns language of specified id.
     lang_t * global_context_t::lang_of(lang_id_t lang_id)
     {
         return al::map_get(__lang_map, lang_id, [lang_id, this] {  // TODO: thread safe
@@ -275,6 +412,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         });
     }
 
+    // Returns language id of specified name.
     lang_id_t global_context_t::lang_id_of(const string_t & lang_name)
     {
         lang_id_t lang_id = lang_factory->get_lang_id(lang_name);
@@ -292,6 +430,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     enum class __assembly_status_t { init, loading, completed };
 
+    // Assembly
     class compiler_t::__assembly_t : public assembly_t
     {
     public:
@@ -302,13 +441,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Context for building asts.
     class compiler_t::__building_context_t
     {
     public:
+
+        // Constructor.
         __building_context_t(assemblies_t * assemblies) : assemblies(assemblies) { }
 
+        // Assemblies
         assemblies_t * assemblies;
 
+        // Begin compile.
         bool begin_compile(ast_project_t * cproject)
         {
             _A(cproject != nullptr);
@@ -316,6 +460,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __compiling_assemblies.insert(to_sid(cproject->name)).second;
         }
 
+        // End compile.
         void end_compile(__assembly_t * assembly)
         {
             _A(assembly != nullptr);
@@ -324,16 +469,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             assemblies->append(assembly);
         }
 
+        // Returns whether the project is compiling.
         bool is_compiling(const mname_t * name)
         {
             return __compiling_assemblies.find(to_sid(name)) != __compiling_assemblies.end();
         }
 
+        // Returns whether the project is compiled.
         bool is_compiled(const mname_t * name)
         {
             return assemblies->get(name) != nullptr;
         }
 
+        // Returns assembly of specified package and name.
         __assembly_t * get_ref_assembly(const mname_t * package, const mname_t * name)
         {
             __ref_assembly_key_t key(to_sid(package), to_sid(name));
@@ -345,6 +493,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return it->second;
         }
 
+        // Add reference of assembly.
         void add_ref_assembly(const mname_t * package, const mname_t * name, __assembly_t * assembly)
         {
             _A(assembly != nullptr);
@@ -362,9 +511,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Assembly loader.
     class compiler_t::__assembly_loader_t : public assembly_loader_t
     {
     public:
+
+        // Constructor.
         __assembly_loader_t(__building_context_t & bctx, compiler_t * compiler,
                 compile_context_t & context, ast_solution_t * csolution,
                 ref_assemblies_t * ref_assemblies)
@@ -372,6 +524,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             , __ref_assemblies(ref_assemblies)
         { }
 
+        // Load assembly.
         virtual assembly_t * load_assembly(const mname_t * package_name,
                                            const mname_t * assembly_name) override
         {
@@ -403,6 +556,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         xpool_t & __xpool() { return __context.global_context.xpool; }
 
+        // Loads assembly.
         __assembly_t * __load_assembly(const mname_t * package_name, const mname_t * assembly_name)
         {
             if(package_name == nullptr)
@@ -411,6 +565,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __load_assembly_from_package(package_name, assembly_name);
         }
 
+        // Loads assembly.
         __assembly_t * __load_assembly(const mname_t * assembly_name)
         {
             assembly_t * assembly = __bctx.assemblies->get(assembly_name);
@@ -424,6 +579,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __load_assembly_from_package(nullptr, assembly_name);
         }
 
+        // Loads assembly from package.
         __assembly_t * __load_assembly_from_package(const mname_t * package_name,
                                                     const mname_t * assembly_name)
         {
@@ -457,6 +613,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return assembly;
         }
 
+        // Builds project.
         __assembly_t * __build_project(ast_project_t * cproject)
         {
             return __compiler->__compile_project(__bctx, __context, cproject, this);
@@ -465,6 +622,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Creates an assembly output stream.
     xostream_t * file_assembly_writer_t::new_stream(
                             compile_context_t & ctx, ast_project_t * cproject)
     {
@@ -479,12 +637,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef std::ios_base __i;
 
         fs->open(path, __i::out | __i::trunc | __i::binary);
+        cproject->assembly_path = path;
 
         return fs;
     }   
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Creates an assembly output stream for a project.
     xostream_t * compile_context_t::create_output_stream(ast_project_t * project)
     {
         if(__writer == nullptr)
@@ -493,6 +653,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __writer->new_stream(*this, project);
     }
 
+    // An empty assembly output stream.
     class __empty_xostream_t : public xostream_t
     {
     public:
@@ -502,6 +663,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Converts name to a mname.
     const mname_t * __to_mname(global_context_t & gctx, const string_t & name)
     {
         return mname_t::parse(
@@ -509,6 +671,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         );
     }
 
+    // Builds ast nodes.
     ast_solution_t * compiler_t::build_ast(compile_context_t & context, solution_t * solution)
     {
         _A(solution != nullptr);
@@ -517,32 +680,36 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __to_mname(__global_context, solution->name)
         );
 
-        for(auto pair : solution->projects())
+        __code_relation_map[csolution] = solution;
+
+        for(project_t * project : solution->projects())
         {
-            project_t * project = pair.second;
             ast_project_t * cproject = __build_project(context, project);
+            __code_relation_map[cproject] = project;
             csolution->add_project(cproject);
         }
 
         return csolution;
     }
 
+    // Builds project.
     ast_project_t * compiler_t::__build_project(compile_context_t & context, project_t * project)
     {
         ast_project_t * cproject = context.new_obj<ast_project_t>(
             __to_mname(__global_context, project->name)
         );
 
-        for(auto pair : project->files())
+        for(file_t * file : project->files())
         {
-            file_t * file = pair.second;
             ast_file_t * cfile = __build_file(context, file);
             cproject->add_file(cfile);
+            __code_relation_map[cfile] = file;
         }
 
         return cproject;
     }
 
+    // Builds file.
     ast_file_t * compiler_t::__build_file(compile_context_t & context, file_t * file)
     {
         _A(file->code != nullptr);
@@ -552,6 +719,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         );
     }
 
+    // Compiles a solution.
     assemblies_t * compiler_t::compile(compile_context_t & context, ast_solution_t * csolution,
                                                         ref_assemblies_t * ref_assemblies)
     {
@@ -564,12 +732,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         for(ast_project_t * cproject : *csolution)
         {
             if(!bctx.is_compiling(cproject->name) && !bctx.is_compiled(cproject->name))
-                __compile_project(bctx, context, cproject, &assembly_loader);
+            {
+                assembly_t * assembly = __compile_project(bctx, context, cproject, &assembly_loader);
+            }
         }
 
         return assemblies;
     }
 
+    // Compiles solution.
     assemblies_t * compiler_t::compile(memory_t * memory, solution_t * solution,
                                                         const string_t & output_path)
     {
@@ -580,6 +751,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return compile(memory, solution, writer);
     }
 
+    // Compiles project.
     compiler_t::__assembly_t * compiler_t::__compile_project(__building_context_t & bctx,
         compile_context_t & context, ast_project_t * cproject, assembly_loader_t * assembly_loader)
     {
@@ -622,9 +794,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         bctx.end_compile(assembly);
 
+        project_t * project = (project_t *)__code_relation_map[cproject];
+        _A(project != nullptr);
+
+        project->assembly      = assembly;
+        project->assembly_path = cproject->assembly_path;
+
         return assembly;
     }
 
+    // Compiles solution.
     assemblies_t * compiler_t::compile(memory_t * memory, solution_t * solution,
                                                     assembly_writer_t * writer)
     {
@@ -636,6 +815,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return compile(*context, csolution, &solution->ref_assemblies);
     }
 
+    // Creates a new compile context.
     compile_context_t * compiler_t::new_compile_context(memory_t * memory,
                                                     assembly_writer_t * writer)
     {
@@ -645,15 +825,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // Compile log
     
+    // Compile log codes.
     X_ENUM_INFO(compile_log_code_t)
 
+        // Writes assembly error.
         X_D(write_assembly_error, _T("write assembly %1% fail: %2%"))
+
+        // No assembly name.
         X_D(no_assembly_name, _T("write assembly fail: no assembly name"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Creates a language with specified arguments.
     lang_t * simple_lang_factory_t::create_lang(memory_t * memory, const lang_create_args_t & args)
     {
         _A(memory != nullptr);
@@ -676,6 +861,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return lang;
     }
 
+    // Registes a language with name and creator.
     lang_id_t simple_lang_factory_t::register_lang(const char_t * name, lang_creator_t * creator)
     {
         _A(!al::is_empty(name));
@@ -691,12 +877,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return lang_id;
     }
 
+    // Returns language id of name.
     lang_id_t simple_lang_factory_t::get_lang_id(const string_t & name)
     {
         auto it = __name_id_map.find(name);
         return it != __name_id_map.end()? it->second : unknown_lang_id;
     }
 
+    // Returns language name of language id.
     const string_t simple_lang_factory_t::get_lang_name(lang_id_t lang_id)
     {
         auto it = __id_name_map.find(lang_id);
@@ -708,50 +896,52 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     #define __RequireService(service) (require_service<lang_##service##_service_t>())
 
-    // token read service
+    // Token read service
     token_reader_t * lang_service_helper_t::create_token_reader(token_reader_context_t & context)
     {
         return __RequireService(token_read)->create_token_reader(context);
     }
 
-    // token property service
+    // Token property service
     const token_property_t * lang_service_helper_t::get_token_property(token_value_t value)
     {
         return __RequireService(token_property)->get_token_property(value);
     }
 
-    // operator property service
+    // Operator property service
     const operator_property_t * lang_service_helper_t::get_operator_property(token_value_t value)
     {
         return __RequireService(operator_property)->get_operator_property(value);
     }
 
-    // expression build service
+    // Expression build service
     const expression_box_property_t * lang_service_helper_t::get_expression_box_property(
                                                                         token_value_t value)
     {
         return __RequireService(expression_build)->get_expression_box_property(value);
     }
 
+    // Building expressions.
     expression_t * lang_service_helper_t::build_expression(
         lang_expression_build_context_t & ctx, const lang_expression_build_args_t & args)
     {
         return __RequireService(expression_build)->build_expression(ctx, args);
     }
 
-    // statement analyze service
+    // Statement analyze service
     const string_t lang_service_helper_t::get_analyze_pattern(global_context_t & context)
     {
         return __RequireService(statement_analyze)->get_analyze_pattern(context);
     }
 
+    // Returns node value.
     analyze_node_value_t lang_service_helper_t::get_node_value(global_context_t & context,
                                 const string_t & name, analyze_node_type_t node_type)
     {
         return __RequireService(statement_analyze)->get_node_value(context, name, node_type);
     }
 
-    // ast build service
+    // Ast build service
     ast_node_t * lang_service_helper_t::build_ast(ast_context_t & context, 
                                                             lang_ast_build_args_t & args)
     {

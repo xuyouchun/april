@@ -8,74 +8,95 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
     
+    // Runtime error codes.
     X_ENUM_INFO(rt_error_code_t)
 
+        // Assembly not found.
         X_D(assembly_not_found,         _T("assembly '%1%' not found"))
 
+        // Assembly format error.
         X_D(assembly_format_error,      _T("%1%"))
 
+        // Method not found.
         X_D(method_not_found,           _T("method '%1%' not found"))
 
+        // Field not found.
         X_D(field_not_found,            _T("field '%1%' not found"))
 
+        // Local index out of range.
         X_D(local_index_out_of_range,   _T("local variable index out of range"))
 
+        // Argument index out of range.
         X_D(argument_index_out_of_range, _T("argument index out of range"))
 
+        // Virtual method not found.
         X_D(virtual_method_not_found,   _T("virtual method '%1%' not found"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Storage types.
     X_ENUM_INFO(storage_type_t)
 
+        // Reference types.
         X_C(ref,        _T("ref"))
 
+        // Value types.
         X_C(value,      _T("value"))
 
+        // Mixture of reference and value types.
         X_C(mixture,    _T("mixture"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Runtime type kinds.
     X_ENUM_INFO(rt_type_kind_t)
 
+        // General type
         X_C(general,    _T("general"))
 
+        // Generic type
         X_C(generic,    _T("generic"))
 
+        // Array type
         X_C(array,      _T("array"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Options for searching method.
     X_ENUM_INFO(search_method_options_t)
 
+        // Default.
         X_C(default_,       _T("default"))
 
+        // Only search virtual method.
         X_C(only_virtual,   _T("only_virtual"))
 
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns whether a method is virtual.
     static bool __is_virtual(decorate_t decorate)
     {
-         return decorate.is_virtual || (!decorate.is_override && decorate.is_abstract);
+        return decorate.is_virtual || (!decorate.is_override && decorate.is_abstract);
     }
 
+    // Returns whether a method is override.
     static bool __is_override(decorate_t decorate)
     {
         return decorate.is_override;
     }
 
     ////////// ////////// ////////// ////////// //////////
-
     // rt_string_t
 
+    // Compare two strings.
     int rt_string_t::compare (const rt_string_t & str) const
     {
         if(__reference_equals(str))
@@ -84,6 +105,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return __compare(str);
     }
 
+    // Returns whether two strings are equals.
     bool rt_string_t::equals(const rt_string_t & str) const
     {
         if(length != str.length)
@@ -95,11 +117,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return __compare(str) == 0;
     }
 
+    // Returns whether two strings are the same reference.
     bool rt_string_t::__reference_equals(const rt_string_t & str) const
     {
         return s == str.s;
     }
 
+    // Compares two strings.
     int rt_string_t::__compare(const rt_string_t & str) const
     {
         rt_size_t min_length = al::min(length, str.length);
@@ -114,15 +138,16 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     }
 
     //-------- ---------- ---------- ---------- ----------
-
     // rt_spool_t
 
+    // Converts string to sid.
     rt_sid_t rt_spool_t::to_sid(const rt_string_t & s)
     {
         auto it = __string_set.insert(s);
         return rt_sid_t(&(*it.first));
     }
 
+    // Converts string to sid.
     rt_sid_t rt_spool_t::to_sid(const string_t & s)
     {
         rt_string_t str(s.c_str(), s.length());
@@ -138,95 +163,148 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // rt_pool_t
+
+    // Revise key of generic method.
+    generic_method_key_t rt_pool_t::revise_key(const generic_method_key_t & key,
+                                               rt_type_t ** types, int count)
+    {
+        return new_key<rpool_key_type_t::generic_method>(
+            key.template_(), __find_generic_args_key(key, types, count)
+        );
+    }
+
+    // Finds generic arguments key.
+    __rt_generic_args_key_t rt_pool_t::__find_generic_args_key(
+            const generic_method_key_t & key, rt_type_t ** types, int count)
+    {
+        auto it = __types_map.find(key.args_key());
+
+        if(it != __types_map.end())
+            return *it;
+
+        rt_type_t ** new_types = __types_heap.acquire(count);
+        std::copy(types, types + count, new_types);
+
+        __rt_generic_args_key_t new_args_key = __rt_generic_args_key_t(
+                new_types, new_types + count
+         );
+
+        __types_map.insert(new_args_key);
+        return new_args_key;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // rt_type_t
 
-    msize_t rt_type_t::get_size(assembly_analyzer_t & analyzer, storage_type_t * out_storage_type)
+    // Returns size of runtime type.
+    msize_t rt_type_t::get_size(analyzer_env_t & env, storage_type_t * out_storage_type)
     {
-        this->get_size(analyzer);
+        this->get_size(env);
         al::assign_value(out_storage_type, __storage_type);
 
         return __size;
     }
 
-    msize_t rt_type_t::get_size(assembly_analyzer_t & analyzer)
+    // Returns size of runtime type.
+    msize_t rt_type_t::get_size(analyzer_env_t & env)
     {
         if(__size == unknown_msize)
-            __size = this->on_caculate_size(analyzer, &__storage_type);
+            __size = this->on_caculate_size(env, &__storage_type);
 
         return __size;
+    }
+
+    // Analyzes runtime type.
+    assembly_analyzer_t rt_type_t::__analyzer(analyzer_env_t & env)
+    {
+        return assembly_analyzer_t(env, this->get_assembly());
     }
 
     ////////// ////////// ////////// ////////// //////////
     // rt_general_type_t
 
-    void rt_general_type_t::pre_new(assembly_analyzer_t & analyzer)
+    // Pre new object.
+    void rt_general_type_t::pre_new(analyzer_env_t & env)
     {
         if(__size != unknown_msize)
             return;
 
         // size
-        msize_t size = this->get_size(analyzer);
+        msize_t size = this->get_size(env);
 
         // build_vtbl;
-        this->__build_vtbl(analyzer);
+        this->__build_vtbl(env);
 
         // execute static constructor
+        this->pre_static_call(env);
     }
 
-    rt_sid_t rt_general_type_t::get_name(rt_assembly_t * assembly)
+    // Pre calling static method.
+    void rt_general_type_t::pre_static_call(analyzer_env_t & env)
     {
-        _A(assembly != nullptr);
 
+    }
+
+    // Returns name of general type.
+    rt_sid_t rt_general_type_t::get_name(analyzer_env_t & env)
+    {
         return assembly->to_sid(mt->name);
     }
 
-    ttype_t rt_general_type_t::get_ttype(assembly_analyzer_t & analyzer)
+    // Returns ttype.
+    ttype_t rt_general_type_t::get_ttype(analyzer_env_t & env)
     {
         return (ttype_t)mt->ttype;
     }
 
-    void rt_general_type_t::each_field(assembly_analyzer_t & analyzer, each_field_t f)
+    // Enums all fields.
+    void rt_general_type_t::each_field(analyzer_env_t & env, each_field_t f)
     {
         for(ref_t field_ref : mt->fields)
         {
-            if(!f(field_ref, analyzer.current->get_field(field_ref)))
+            if(!f(field_ref, assembly->get_field(field_ref)))
                 break;
         }
     }
 
-    void rt_general_type_t::each_method(assembly_analyzer_t & analyzer, each_method_t f)
+    // Enums all methods.
+    void rt_general_type_t::each_method(analyzer_env_t & env, each_method_t f)
     {
         for(ref_t method_ref : mt->methods)
         {
-            if(!f(method_ref, analyzer.current->get_method(method_ref)))
+            if(!f(method_ref, assembly->get_method(method_ref)))
                 break;
         }
     }
 
-    rt_type_t * rt_general_type_t::get_base_type(assembly_analyzer_t & analyzer,
-                                              rt_assembly_t ** out_assembly)
+    // Gets base type.
+    rt_type_t * rt_general_type_t::get_base_type(analyzer_env_t & env)
     {
         ref_t super_types = mt->super_types;
         if(super_types == ref_t::null)
             return nullptr;
 
-        rt_super_type_t * super_type = analyzer.current->get_super_type(super_types[0]);
+        rt_super_type_t * super_type = assembly->get_super_type(super_types[0]);
         _A(super_type != nullptr);
 
-        rt_type_t * base_type = analyzer.get_type((*super_type)->type, out_assembly);
+        assembly_analyzer_t analyzer = __analyzer(env);
+        rt_type_t * base_type = analyzer.get_type((*super_type)->type);
         _A(base_type != nullptr);
 
-        if(base_type->get_ttype(analyzer) == ttype_t::class_)
+        if(base_type->get_ttype(env) == ttype_t::class_)
             return base_type;
 
         return nullptr;
     }
 
-    int rt_general_type_t::get_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref)
+    // Gets method offset.
+    int rt_general_type_t::get_method_offset(analyzer_env_t & env, ref_t method_ref)
     {
         return method_ref - mt->methods;
     }
 
+    // Compares to methods.
     static bool __compare_method(assembly_analyzer_t & analyzer, method_prototype_t & prototype,
                                                                  rt_method_t * rt_method)
     {
@@ -268,7 +346,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return true;
     }
 
-    ref_t rt_general_type_t::search_method(assembly_analyzer_t & analyzer,
+    // Searches method.
+    ref_t rt_general_type_t::search_method(analyzer_env_t & env,
                     method_prototype_t & prototype, search_method_options_t options)
     {
         bool only_virtual = enum_has_flag(options, search_method_options_t::only_virtual);
@@ -276,16 +355,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         typedef rt_mt_t<__tidx_t::method> mt_t;
 
-        analyzer.current->each_methods(mt->methods, [&, this](int idx, mt_t & mt) {
+        assembly_analyzer_t analyzer = __analyzer(env);
+        assembly->each_methods(mt->methods, [&, this](int idx, mt_t & mt) {
 
             if(only_virtual && !__is_virtual((decorate_t)mt.decorate))
                 return false;
 
-            rt_general_type_t * rt_type;
-            rt_assembly_t * rt_assembly;
-
             ref_t method_ref = ref_t(idx);
-            rt_method_t * rt_method = analyzer.get_method(method_ref, &rt_type, &rt_assembly);
+            rt_method_t * rt_method = analyzer.get_method(method_ref);
             _A(rt_method != nullptr);
 
             if(__compare_method(analyzer, prototype, rt_method))
@@ -300,8 +377,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return ret;
     }
 
-    msize_t __size_of_struct(assembly_analyzer_t & analyzer, rt_general_type_t * type,
-                                                    storage_type_t * out_storage_type)
+    // Returns size of structure.
+    msize_t __size_of_struct(analyzer_env_t & env, rt_general_type_t * type,
+                                                   storage_type_t * out_storage_type)
     {
         vtype_t vtype = (vtype_t)(*type)->vtype;
 
@@ -311,11 +389,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             return get_vtype_size(vtype);
         }
 
-        return type->get_size(analyzer, out_storage_type);
+        return type->get_size(env, out_storage_type);
     }
 
-    msize_t __size_of_enum(assembly_analyzer_t & analyzer, rt_general_type_t * type,
-                                                    storage_type_t * out_storage_type)
+    // Returns size of enum.
+    msize_t __size_of_enum(analyzer_env_t & env, rt_general_type_t * type,
+                                                 storage_type_t * out_storage_type)
     {
         al::assign(out_storage_type, storage_type_t::value);
 
@@ -323,8 +402,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return 0;
     }
 
-    msize_t rt_general_type_t::get_variable_size(assembly_analyzer_t & analyzer,
-                                                    storage_type_t * out_storage_type)
+    // Returns size of variable.
+    msize_t rt_general_type_t::get_variable_size(analyzer_env_t & env,
+                                                 storage_type_t * out_storage_type)
     {
         ttype_t ttype = (ttype_t)mt->ttype;
 
@@ -336,18 +416,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 return rt_ref_size;
 
             case ttype_t::struct_:
-                return __size_of_struct(analyzer, this, out_storage_type);
+                return __size_of_struct(env, this, out_storage_type);
 
             case ttype_t::enum_:
-                return __size_of_enum(analyzer, this, out_storage_type);
+                return __size_of_enum(env, this, out_storage_type);
 
             default:
                 X_UNEXPECTED();
         }
     }
 
-    msize_t rt_general_type_t::on_caculate_size(assembly_analyzer_t & analyzer,
-                                                        storage_type_t * out_storage_type)
+    // When caculate size.
+    msize_t rt_general_type_t::on_caculate_size(analyzer_env_t & env,
+                                                storage_type_t * out_storage_type)
     {
         switch((ttype_t)mt->ttype)
         {
@@ -355,31 +436,26 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 return 0;
 
             case ttype_t::struct_:
-                return __size_of_struct(analyzer, this, out_storage_type);
+                return __size_of_struct(env, this, out_storage_type);
 
             case ttype_t::enum_:
-                return __size_of_enum(analyzer, this, out_storage_type);
+                return __size_of_enum(env, this, out_storage_type);
 
             default:
                 break;
         }
 
-        rt_assembly_t * rt_assembly;
-        rt_type_t * base_type = get_base_type(analyzer, &rt_assembly);
+        rt_type_t * base_type = get_base_type(env);
 
         msize_t base_size;
         if(base_type == nullptr)
-        {
             base_size = 0;
-        }
         else
-        {
-            assembly_analyzer_t analyzer0(analyzer, rt_assembly);
-            base_size = base_type->get_size(analyzer0);
-        }
+            base_size = base_type->get_size(env);
 
-        type_layout_t layout(analyzer, base_size);
-        this->each_field(analyzer, [&](ref_t, rt_field_t * field) {
+        assembly_analyzer_t analyzer = __analyzer(env);
+        type_layout_t layout(analyzer, base_size, nullptr);
+        this->each_field(env, [&](ref_t, rt_field_t * field) {
             return layout.append(field), true;
         });
 
@@ -389,30 +465,37 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return layout.type_size();
     }
 
+    // Gets assembly.
+    rt_assembly_t * rt_general_type_t::get_assembly()
+    {
+        return assembly;
+    }
+
     typedef al::small_vector_t<rt_vfunction_t, 32> rt_vfunctions_t;
 
-    void __build_vtbl(assembly_analyzer_t & analyzer, rt_type_t * type, rt_vfunctions_t & vfuncs)
+    // Builds virtual table.
+    static void __build_vtbl(assembly_analyzer_t & analyzer, rt_type_t * type,
+                                                             rt_vfunctions_t & vfuncs)
     {
-        rt_assembly_t * rt_base_assembly;
-        rt_type_t * base_type = type->get_base_type(analyzer, &rt_base_assembly);
+        rt_type_t * base_type = type->get_base_type(analyzer.env);
 
         if(base_type != nullptr)
-        {
-            assembly_analyzer_t analyzer0(analyzer, rt_base_assembly);
-            __build_vtbl(analyzer0, base_type, vfuncs);
-        }
+            __build_vtbl(analyzer, base_type, vfuncs);
 
         ref_t ret = ref_t::null;
 
         typedef rt_mt_t<__tidx_t::method> mt_t;
 
-        type->each_method(analyzer, [&](ref_t method_ref, rt_method_t * rt_method) {
+        rt_assembly_t * assembly = type->get_assembly();
+        assembly_analyzer_t base_analyzer(analyzer, assembly);
+
+        type->each_method(base_analyzer.env, [&](ref_t method_ref, rt_method_t * rt_method) {
 
             decorate_t decorate = (decorate_t)(*rt_method)->decorate;
 
             if(__is_virtual(decorate))
             {
-                vfuncs.push_back(rt_vtable_function_t(analyzer.current->index, method_ref.index));
+                vfuncs.push_back(rt_vtable_function_t(assembly->index, method_ref.index));
             }
             else if(__is_override(decorate))
             {
@@ -422,13 +505,16 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 bool found = false;
                 for(rt_vtable_function_t & func : vfuncs)
                 {
-                    rt_assembly_t * rt_assembly0 = analyzer.assembly_provider->at(func.assembly_idx);
+                    rt_assembly_t * rt_assembly0 = base_analyzer.env.assemblies.at(
+                        func.assembly_idx
+                    );
+
                     rt_method_t * rt_method0 = rt_assembly0->get_method(ref_t(func.method_idx));
 
                     assembly_analyzer_t analyzer0(analyzer, rt_assembly0);
                     if(__compare_method(analyzer0, prototype, rt_method0))
                     {
-                        func = rt_vtable_function_t(analyzer.current->index, method_ref.index);
+                        func = rt_vtable_function_t(assembly->index, method_ref.index);
 
                         found = true;
                         break;
@@ -437,7 +523,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
                 if(!found)
                 {
-                    auto method_name = analyzer.current->get_name(rt_method);
+                    auto method_name = assembly->get_name(rt_method);
                     throw _ED(__e_t::virtual_method_not_found, method_name);
                 }
             }
@@ -456,7 +542,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         else
         {
             rt_vtable_t * vtable = (rt_vtable_t *)memory_t::alloc(
-                analyzer.memory, sizeof(rt_vtable_t) + vfuncs.size() * sizeof(rt_vfunction_t)
+                analyzer.env.get_memory(),
+                sizeof(rt_vtable_t) + vfuncs.size() * sizeof(rt_vfunction_t)
             );
 
             al::copy(vfuncs, vtable->functions);
@@ -464,8 +551,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
     }
 
-    void rt_general_type_t::__build_vtbl(assembly_analyzer_t & analyzer)
+    // Builds virtual table.
+    void rt_general_type_t::__build_vtbl(analyzer_env_t & env)
     {
+        assembly_analyzer_t analyzer = __analyzer(env);
+
         al::small_vector_t<rt_vfunction_t, 32> vfuncs;
         rt::__build_vtbl(analyzer, this, vfuncs);
     }
@@ -473,36 +563,67 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
     // rt_generic_type_t
 
-    ttype_t rt_generic_type_t::get_ttype(assembly_analyzer_t & analyzer)
+    // Pre new object.
+    void rt_generic_type_t::pre_new(analyzer_env_t & env)
+    {
+        
+    }
+
+    // Pre calling static method.
+    void rt_generic_type_t::pre_static_call(analyzer_env_t & env)
+    {
+
+    }
+
+    // Gets ttype.
+    ttype_t rt_generic_type_t::get_ttype(analyzer_env_t & env)
     {
         return ttype_t::__unknown__;
     }
 
-    rt_type_t * rt_generic_type_t::get_base_type(assembly_analyzer_t & analyzer,
-                                                rt_assembly_t ** out_assembly)
+    // Gets name.
+    rt_sid_t rt_generic_type_t::get_name(analyzer_env_t & env)
+    {
+        return __analyzer(env).to_sid(_T("GENERIC"));  // TODO: implement it
+    }
+
+    // Gets base type.
+    rt_type_t * rt_generic_type_t::get_base_type(analyzer_env_t & env)
     {
         return nullptr;
     }
 
-    int rt_generic_type_t::get_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref)
+    // Gets method offset.
+    int rt_generic_type_t::get_method_offset(analyzer_env_t & env, ref_t method_ref)
     {
         return 0;
     }
 
-    ref_t rt_generic_type_t::search_method(assembly_analyzer_t & analyzer,
+    // Searches method.
+    ref_t rt_generic_type_t::search_method(analyzer_env_t & env,
                     method_prototype_t & prototype, search_method_options_t options)
     {
         return ref_t::null;
     }
 
-    msize_t rt_generic_type_t::get_variable_size(assembly_analyzer_t & analyzer,
-                                                        storage_type_t * out_storage_type)
+    // Gets variable size.
+    msize_t rt_generic_type_t::get_variable_size(analyzer_env_t & env,
+                                                 storage_type_t * out_storage_type)
     {
         return 0;
     }
 
-    msize_t rt_generic_type_t::on_caculate_size(assembly_analyzer_t & analyzer,
-                                                        storage_type_t * out_storage_type)
+    // Gets assembly.
+    rt_assembly_t * rt_generic_type_t::get_assembly()
+    {
+        _A(template_ != nullptr);
+
+        return template_->get_assembly();
+    }
+
+    // When caculate size.
+    msize_t rt_generic_type_t::on_caculate_size(analyzer_env_t & env,
+                                                storage_type_t * out_storage_type)
     {
         return 0;
     }
@@ -510,56 +631,152 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
     // rt_array_type_t
 
-    void rt_array_type_t::pre_new(assembly_analyzer_t & analyzer)
+    rt_sid_t rt_array_type_t::get_name(analyzer_env_t & env)
     {
-        if(__element_type == nullptr)
-        {
-            rt_assembly_t * rt_assembly;
-            __element_type = analyzer.get_type((*this)->element_type, &rt_assembly);
+        assembly_analyzer_t analyzer = __analyzer(env);
+        rt_type_t * type = analyzer.get_type(mt->element_type);
 
-            assembly_analyzer_t analyzer0(analyzer, rt_assembly);
-            __element_type->pre_new(analyzer0);
+        stringstream_t ss;
+        if(type == nullptr)
+        {
+            ss << _T("?");
+        }
+        else
+        {
+            string_t name = type->get_name(env);
+            ss << name.c_str();
+        }
+
+        ss << _T("[");
+
+        for(int k = 1, dimension = mt->dimension; k < dimension; k++)
+        {
+            ss << _T(", ");
+        }
+
+        ss << _T("]");
+
+        return analyzer.to_sid(ss.str());
+    }
+
+    // Pre new object.
+    void rt_array_type_t::pre_new(analyzer_env_t & env)
+    {
+        this->pre_static_call(env);
+    }
+
+    // Pre calling static method.
+    void rt_array_type_t::pre_static_call(analyzer_env_t & env)
+    {
+        if(element_type == nullptr)
+        {
+            element_type = __analyzer(env).get_type((*this)->element_type);
+            element_type->pre_new(env);
         }
     }
 
-    ttype_t rt_array_type_t::get_ttype(assembly_analyzer_t & analyzer)
+    // Gets ttype.
+    ttype_t rt_array_type_t::get_ttype(analyzer_env_t & env)
     {
         return ttype_t::class_;
     }
 
-    rt_type_t * rt_array_type_t::get_base_type(assembly_analyzer_t & analyzer,
-                                                rt_assembly_t ** out_assembly)
+    // Gets base type.
+    rt_type_t * rt_array_type_t::get_base_type(analyzer_env_t & env)
     {
         return nullptr;
     }
 
-    int rt_array_type_t::get_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref)
+    // Gets offset of method.
+    int rt_array_type_t::get_method_offset(analyzer_env_t & env, ref_t method_ref)
     {
         return 0;
     }
 
-    ref_t rt_array_type_t::search_method(assembly_analyzer_t & analyzer,
+    // Searches method.
+    ref_t rt_array_type_t::search_method(analyzer_env_t & env,
                     method_prototype_t & prototype, search_method_options_t options)
     {
         return ref_t::null;
     }
 
-    msize_t rt_array_type_t::get_variable_size(assembly_analyzer_t & analyzer,
+    // Gets variable size.
+    msize_t rt_array_type_t::get_variable_size(analyzer_env_t & env,
                                                         storage_type_t * out_storage_type)
     {
         al::assign(out_storage_type, storage_type_t::ref);
         return rt_ref_size;
     }
 
-    msize_t rt_array_type_t::on_caculate_size(assembly_analyzer_t & analyzer,
+    // When caculate size.
+    msize_t rt_array_type_t::on_caculate_size(analyzer_env_t & env,
                                                         storage_type_t * out_storage_type)
     {
         al::assign(out_storage_type, storage_type_t::ref);
         return rt_ref_size;
+    }
+
+    // Gets assembly.
+    rt_assembly_t * rt_array_type_t::get_assembly()
+    {
+        _A(element_type != nullptr);
+
+        return element_type->get_assembly();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // rt_method_t
+
+    // Gets assembly.
+    rt_assembly_t * rt_method_t::get_assembly()
+    {
+        _A(host_type != nullptr);
+
+        return host_type->get_assembly();
+    }
+
+    // Gets host type.
+    rt_type_t * rt_method_t::get_host_type()
+    {
+        return host_type;
+    }
+
+    // Gets name.
+    rt_sid_t rt_method_t::get_name()
+    {
+        return get_assembly()->get_name(this);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // rt_generic_method_t
+
+    // Gets assembly.
+    rt_assembly_t * rt_generic_method_t::get_assembly()
+    {
+        _A(template_ != nullptr);
+
+        return template_->get_assembly();
+    }
+
+    // Gets host type.
+    rt_type_t * rt_generic_method_t::get_host_type()
+    {
+        _A(template_ != nullptr);
+
+        return template_->get_host_type();
+    }
+
+    // Gets name.
+    rt_sid_t rt_generic_method_t::get_name()
+    {
+        _A(template_ != nullptr);
+
+        return template_->get_name();
     }
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Joins assembly name.
     string_t join_assembly_name(const string_t & package, const string_t & name)
     {
         if(package.length() == 0)
@@ -568,6 +785,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return _F(_T("%s.%s"), package, name);
     }
 
+    // Joins method name.
     string_t __join_method_name(const string_t & assembly,
         const string_t & type_name, int type_generic_param_count,
         const string_t & method_name, int generic_param_count,
@@ -600,140 +818,163 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return ss.str();
     }
 
-    rt_assembly_t * assembly_analyzer_t::get_assembly_by_method_ref(ref_t method_ref,
-            rt_general_type_t ** out_type, rt_method_ref_t ** out_method_ref)
+    ////////// ////////// ////////// ////////// //////////
+    // rt_assemblies
+
+    // Loads main assembly.
+    rt_assembly_t * rt_assemblies_t::load_main_assembly()
+    {
+        if(__main_assembly == nullptr)
+        {
+            __main_assembly = __provider->load_main_assembly(__ctx);
+            __revise_assembly(__main_assembly);
+        }
+
+        return __main_assembly;
+    }
+
+    // Loads assembly.
+    rt_assembly_t * rt_assemblies_t::load_assembly(const string_t & package, const string_t & name)
+    {
+        __assembly_key_t key(package, name);
+
+        auto it = __assembly_map.find(key);
+        if(it != __assembly_map.end())
+            return it->second;
+
+        rt_assembly_t * assembly = __provider->load_assembly(__ctx, package, name);
+        __revise_assembly(assembly);
+
+        if(assembly == nullptr)
+            throw _ED(__e_t::assembly_not_found, join_assembly_name(package, name));
+
+        __assembly_map[key] = assembly;
+        return assembly;
+    }
+
+    // Returns assembly at specified index.
+    rt_assembly_t * rt_assemblies_t::at(int index)
+    {
+        if(index < 0 || index >= __assembly_vector.size())
+            throw _EC(overflow);
+
+        return __assembly_vector[index];
+    }
+
+    // Revise assembly, Assigns it's index.
+    void rt_assemblies_t::__revise_assembly(rt_assembly_t * assembly)
+    {
+        if(assembly->index < 0)
+        {
+            assembly->index = __assembly_vector.size();
+            __assembly_vector.push_back(assembly);
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // assembly_analyzer_t
+
+    // Gets host type by method ref.
+    rt_type_t * assembly_analyzer_t::get_host_type_by_method_ref(ref_t method_ref,
+                                                rt_method_ref_t ** out_method_ref)
     {
         switch((mt_member_extra_t)method_ref.extra)
         {
             case mt_member_extra_t::import: {
                 rt_method_ref_t * rt_method_ref = current->get_method_ref(method_ref);
                 al::assign_value(out_method_ref, rt_method_ref);
-                return get_assembly(rt_method_ref, out_type);
+
+                return get_host_type(rt_method_ref);
             }
 
-            case mt_member_extra_t::internal:
-                if(out_type != nullptr)
-                {
-                    *out_type = current->get_host_by_method_ref(method_ref);
-                    _A(*out_type != nullptr);
-                }
+            case mt_member_extra_t::internal: {
+                al::assign_value(out_method_ref, (rt_method_ref_t *)nullptr);
+                return current->get_host_by_method_ref(method_ref);
+            }
 
-                return current;
+            case mt_member_extra_t::generic: {
+                rt_generic_method_t * rt_generic_method = get_generic_method(method_ref);
+                _A(rt_generic_method != nullptr);
+
+                return rt_generic_method->get_host_type();
+            }
 
             default:
                 X_UNEXPECTED();
         }
     }
 
-    rt_assembly_t * assembly_analyzer_t::get_assembly_by_field_ref(ref_t field_ref,
-            rt_general_type_t ** out_type, rt_field_ref_t ** out_field_ref)
+    // Gets host type by field ref.
+    rt_type_t * assembly_analyzer_t::get_host_type_by_field_ref(ref_t field_ref,
+                                                rt_field_ref_t ** out_field_ref)
     {
         switch((mt_member_extra_t)field_ref.extra)
         {
             case mt_member_extra_t::import: {
                 rt_field_ref_t * rt_field_ref = current->get_field_ref(field_ref);
                 al::assign_value(out_field_ref, rt_field_ref);
-                return get_assembly(rt_field_ref, out_type);
+
+                return get_host_type(rt_field_ref);
             }
 
-            case mt_member_extra_t::internal:
-                if(out_type != nullptr)
-                    *out_type = current->get_host_by_field_ref(field_ref);
-                return current;
+            case mt_member_extra_t::internal: {
+                rt_field_t * rt_field = current->get_field(field_ref);
+                return current->get_host_by_field_ref(field_ref);
+            }
 
             default:
                 X_UNEXPECTED();
         }
     }
 
-
-    rt_assembly_t * assembly_analyzer_t::get_assembly(rt_method_ref_t * rt,
-            rt_general_type_t ** out_type)
+    // Gets host type.
+    rt_type_t * assembly_analyzer_t::get_host_type(rt_method_ref_t * rt)
     {
         _A(rt != nullptr);
 
-        return get_assembly(rt->mt, out_type);
+        return get_host_type(rt->mt);
     }
 
-    rt_assembly_t * assembly_analyzer_t::get_assembly(rt_field_ref_t * rt,
-            rt_general_type_t ** out_type)
+    // Gets host type.
+    rt_type_t * assembly_analyzer_t::get_host_type(rt_field_ref_t * rt)
     {
         _A(rt != nullptr);
 
-        return get_assembly(rt->mt, out_type);
+        return get_host_type(rt->mt);
     }
 
-    rt_assembly_t * assembly_analyzer_t::get_assembly(mt_method_ref_t * mt,
-            rt_general_type_t ** out_type)
+    // Gets host type.
+    rt_type_t * assembly_analyzer_t::get_host_type(mt_method_ref_t * mt)
     {
         _A(mt != nullptr);
 
-        return get_assembly_by_type_ref(mt->host, out_type);
+        return get_type(mt->host);
     }
 
-    rt_assembly_t * assembly_analyzer_t::get_assembly(mt_field_ref_t * mt,
-            rt_general_type_t ** out_type)
+    // Gets host type.
+    rt_type_t * assembly_analyzer_t::get_host_type(mt_field_ref_t * mt)
     {
         _A(mt != nullptr);
 
-        return get_assembly_by_type_ref(mt->host, out_type);
+        return get_type(mt->host);
     }
 
-    rt_assembly_t * assembly_analyzer_t::get_assembly_by_type_ref(ref_t type_ref,
-            rt_general_type_t ** out_type)
-    {
-        rt_type_t * rt_type;
-        rt_assembly_t * rt_assembly;
-
-        switch((mt_type_extra_t)type_ref.extra)
-        {
-            case mt_type_extra_t::general:
-            case mt_type_extra_t::type_ref:
-                rt_type = get_type(type_ref, &rt_assembly);
-                al::assign_value(out_type, (rt_general_type_t *)rt_type);
-                break;
-
-            case mt_type_extra_t::array:
-            case mt_type_extra_t::generic:
-            case mt_type_extra_t::generic_param:
-            default:
-                X_UNEXPECTED();
-        }
-
-        return rt_assembly;
-    }
-
-    rt_assembly_t * assembly_analyzer_t::get_assembly(rt_type_ref_t * rt,
-            rt_general_type_t ** out_type)
-    {
-        _A(rt != nullptr);
-
-        rt_assembly_t * rt_assembly = get_assembly(rt->mt);
-
-        if(out_type != nullptr)
-        {
-            *out_type = rt_assembly->get_type(
-                __to_sid(rt->mt->namespace_), __to_sid(rt->mt->name),
-                rt->mt->generic_param_count
-            );
-        }
-
-        return rt_assembly;
-    }
-
+    // Gets assembly.
     rt_assembly_t * assembly_analyzer_t::get_assembly(mt_type_ref_t * mt)
     {
         _A(mt != nullptr);
 
-        return get_assembly_by_assembly_ref(mt->assembly);
+        return get_assembly(mt->assembly);
     }
 
-    rt_assembly_t * assembly_analyzer_t::get_assembly_by_assembly_ref(ref_t assembly_ref)
+    // Gets assembly.
+    rt_assembly_t * assembly_analyzer_t::get_assembly(ref_t assembly_ref)
     {
         rt_assembly_ref_t * rt = current->get_assembly_ref(assembly_ref);
         return get_assembly(rt);
     }
 
+    // Gets assembly.
     rt_assembly_t * assembly_analyzer_t::get_assembly(rt_assembly_ref_t * rt)
     {
         _A(rt != nullptr);
@@ -741,6 +982,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return get_assembly(rt->mt);
     }
 
+    // Gets assembly.
     rt_assembly_t * assembly_analyzer_t::get_assembly(mt_assembly_ref_t * mt)
     {
         _A(mt != nullptr);
@@ -748,7 +990,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         string_t package = current->to_sid(mt->package);
         string_t name    = current->to_sid(mt->name);
 
-        rt_assembly_t * ref_assembly = assembly_provider->load_assembly(
+        rt_assembly_t * ref_assembly = env.assemblies.load_assembly(
             package, name
         );
 
@@ -758,7 +1000,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return ref_assembly;
     }
 
-    rt_type_t * assembly_analyzer_t::get_type(ref_t type_ref, rt_assembly_t ** out_assembly)
+    // Gets type.
+    rt_type_t * assembly_analyzer_t::get_type(ref_t type_ref)
     {
         if(type_ref == ref_t::null)
             return nullptr;
@@ -766,63 +1009,62 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         switch((mt_type_extra_t)type_ref.extra)
         {
             case mt_type_extra_t::general: {
-                al::assign_value(out_assembly, current);
                 return current->get_type(type_ref);
             }
 
             case mt_type_extra_t::type_ref: {
-                rt_general_type_t * type;
-                rt_assembly_t * rt_assembly = get_assembly(
-                    current->get_type_ref(type_ref), &type
+                rt_type_ref_t * rt_type_ref = current->get_type_ref(type_ref);
+                mt_type_ref_t * mt_type_ref = rt_type_ref->mt;
+                rt_assembly_t * rt_assembly = get_assembly(mt_type_ref);
+
+                return rt_assembly->get_type(
+                    __to_sid(mt_type_ref->namespace_), __to_sid(mt_type_ref->name),
+                    mt_type_ref->generic_param_count
                 );
-                al::assign_value(out_assembly, rt_assembly);
-                return type;
             }
 
             case mt_type_extra_t::array: {
-                al::assign_value(out_assembly, current);
-                return current->get_array_type(type_ref);
-            };
+                rt_array_type_t * arr_type = current->get_array_type(type_ref);
+                if(arr_type->element_type == nullptr)
+                {
+                    rt_assembly_t * element_assembly;
+                    arr_type->element_type = get_type((*arr_type)->element_type);
+                }
+            }
 
             case mt_type_extra_t::generic: {
-                al::assign_value(out_assembly, current);
                 return current->get_generic_type(type_ref);
             }
 
+            case mt_type_extra_t::generic_param:
             default:
                 X_UNEXPECTED();
         }
     }
 
-    rt_method_t * assembly_analyzer_t::get_method(ref_t method_ref,
-        rt_general_type_t ** out_type, rt_assembly_t ** out_assembly)
+    // Gets method.
+    rt_method_t * assembly_analyzer_t::get_method(ref_t method_ref)
     {
-        auto key = std::make_tuple((rt_method_t *)nullptr, current, method_ref);
-        auto r = __pool.get(key, [this, method_ref]() {
-            rt_general_type_t * type;
-            rt_assembly_t * assembly;
-            rt_method_t * method = __get_method(method_ref, &type, &assembly);
-            return std::make_tuple(method, type, assembly);
+        auto key = env.rpool.new_key<rpool_key_type_t::method>(current, method_ref);
+        return env.rpool.get(key, [this, method_ref]() {
+            return __get_method(method_ref);
         });
-
-        al::assign_value(out_type, std::get<rt_general_type_t *>(r));
-        al::assign_value(out_assembly, std::get<rt_assembly_t *>(r));
-
-        return std::get<rt_method_t *>(r);
     }
 
-    rt_method_t * assembly_analyzer_t::__get_method(ref_t method_ref,
-            rt_general_type_t ** out_type, rt_assembly_t ** out_assembly)
+    // Gets generic method.
+    rt_generic_method_t * assembly_analyzer_t::get_generic_method(ref_t method_ref)
+    {
+        return current->get_generic_method(method_ref);
+    }
+
+    // Gets method.
+    rt_method_t * assembly_analyzer_t::__get_method(ref_t method_ref)
     {
         rt_method_ref_t * rt_method_ref;
-        rt_general_type_t * rt_general_type;
+        rt_type_t * rt_type = get_host_type_by_method_ref(method_ref, &rt_method_ref);
+        _A(rt_type != nullptr);
 
-        rt_assembly_t * rt_assembly = get_assembly_by_method_ref(
-            method_ref, &rt_general_type, &rt_method_ref
-        );
-
-        al::assign_value(out_type, rt_general_type);
-        al::assign_value(out_assembly, rt_assembly);
+        rt_assembly_t * rt_assembly = current; // rt_type->get_assembly();
 
         rt_method_t * rt_method;
         if(__is_current(rt_assembly))
@@ -848,19 +1090,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             rt_type_t * return_type = get_type(mt->type);
             rt_method = nullptr;
 
-            rt_assembly->each_methods(rt_general_type->mt->methods, [&, this](int index,
-                                                    rt_mt_t<__tidx_t::method> & mt) {
+            rt_type->each_method(env, [&, this](ref_t method_ref, rt_method_t * rt_method0) {
+                rt_mt_t<__tidx_t::method> & mt = *rt_method0->mt;
                 bool r = __compare_method(rt_assembly, mt, method_name,
                     mt.generic_params.count, return_type, mt.params.count, params
                 );
 
-                return r? rt_method = rt_assembly->get_method(ref_t(index)), false : true;
+                return r? rt_method = rt_assembly->get_method(method_ref), false : true;
             });
 
             if(rt_method == nullptr)
             {
                 throw _ED(rt_error_code_t::method_not_found,
-                    __join_method_name(rt_assembly, rt_general_type, mt, params)
+                    __join_method_name(rt_assembly, rt_type, mt, params)
                 );
             }
         }
@@ -868,6 +1110,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return rt_method;
     }
 
+    // Compare method with name and arguments.
     X_ALWAYS_INLINE bool assembly_analyzer_t::__compare_method(
         rt_assembly_t * rt_assembly, rt_mt_t<__tidx_t::method> & mt, rt_sid_t name,
         int generic_param_count, rt_type_t * return_type, int param_count, rt_ptype_t * params)
@@ -891,6 +1134,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             typedef rt_mt_t<__tidx_t::param> mt_param_t;
 
             bool r = rt_assembly->each_params(mt.params, [&p, &analyzer](int, mt_param_t & param) {
+                
                 if(param.param_type != p->param_type)
                     return false;
 
@@ -908,35 +1152,28 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return true;
     }
 
-    rt_field_t * assembly_analyzer_t::get_field(ref_t field_ref,
-        rt_general_type_t ** out_type, rt_assembly_t ** out_assembly)
+    // Gets field.
+    rt_field_t * assembly_analyzer_t::get_field(ref_t field_ref, rt_type_t ** out_type)
     {
-        auto key = std::make_tuple((rt_field_t *)nullptr, current, field_ref);
-        auto r = __pool.get(key, [this, field_ref]() {
-            rt_general_type_t * type;
-            rt_assembly_t * assembly;
-            rt_field_t * field = __get_field(field_ref, &type, &assembly);
-            return std::make_tuple(field, type, assembly);
+        auto key = env.rpool.new_key<rpool_key_type_t::field>(current, field_ref);
+        auto r = env.rpool.get(key, [this, field_ref]() {
+            rt_type_t * type;
+            rt_field_t * field = __get_field(field_ref, &type);
+            return std::make_tuple(field, type);
         });
 
-        al::assign_value(out_type, std::get<rt_general_type_t *>(r));
-        al::assign_value(out_assembly, std::get<rt_assembly_t *>(r));
-
+        al::assign_value(out_type, std::get<rt_type_t *>(r));
         return std::get<rt_field_t *>(r);
     }
 
-    rt_field_t * assembly_analyzer_t::__get_field(ref_t field_ref,
-            rt_general_type_t ** out_type, rt_assembly_t ** out_assembly)
+    // Gets field.
+    rt_field_t * assembly_analyzer_t::__get_field(ref_t field_ref, rt_type_t ** out_type)
     {
         rt_field_ref_t * rt_field_ref;
-        rt_general_type_t * rt_general_type;
+        rt_type_t * rt_type = get_host_type_by_field_ref(field_ref, &rt_field_ref);
+        rt_assembly_t * rt_assembly = rt_type->get_assembly();
 
-        rt_assembly_t * rt_assembly = get_assembly_by_field_ref(
-            field_ref, &rt_general_type, &rt_field_ref
-        );
-
-        al::assign_value(out_type, rt_general_type);
-        al::assign_value(out_assembly, rt_assembly);
+        al::assign_value(out_type, rt_type);
 
         rt_field_t * rt_field;
         if(__is_current(rt_assembly))
@@ -949,16 +1186,16 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             rt_sid_t field_name = __to_sid(mt->name);
 
             rt_field = nullptr;
-            rt_assembly->each_fields(rt_general_type->mt->fields, [&, this](int index,
-                                                    rt_mt_t<__tidx_t::field> & mt) {
+            rt_type->each_field(env, [&, this](ref_t field_ref, rt_field_t * rt_field) {
+                rt_mt_t<__tidx_t::field> & mt = *rt_field->mt;
                 bool r = (field_name == rt_assembly->to_sid(mt.name));
-                return r? rt_field = rt_assembly->get_field(ref_t(index)), false : true;
+                return r? rt_field = rt_assembly->get_field(field_ref), false : true;
             });
 
             if(rt_field == nullptr)
             {
                 throw _ED(rt_error_code_t::field_not_found,
-                    __join_field_name(rt_assembly, rt_general_type, mt)
+                    __join_field_name(rt_assembly, rt_type, mt)
                 );
             }
         }
@@ -966,18 +1203,21 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return rt_field;
     }
 
+    // Joins method name.
     string_t assembly_analyzer_t::__join_method_name(rt_assembly_t * assembly,
-            rt_general_type_t * type, mt_method_ref_t * mt_method_ref, rt_ptype_t * ptypes)
+            rt_type_t * type, mt_method_ref_t * mt_method_ref, rt_ptype_t * ptypes)
     {
         return current->to_sid(mt_method_ref->name);
     }
 
+    // Joins field name.
     string_t assembly_analyzer_t::__join_field_name(rt_assembly_t * assembly,
-            rt_general_type_t * type, mt_field_ref_t * mt_field_ref)
+            rt_type_t * type, mt_field_ref_t * mt_field_ref)
     {
         return current->to_sid(mt_field_ref->name);
     }
 
+    // Returns size of type.
     msize_t assembly_analyzer_t::size_of(ref_t type_ref, storage_type_t * out_storage_type)
     {
         rt_type_t * type = this->get_type(type_ref);
@@ -985,17 +1225,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         if(type == nullptr)
             return 0;
 
-        return type->get_size(*this, out_storage_type);
+        return type->get_size(env, out_storage_type);
     }
 
+    // Returns size of type.
     msize_t assembly_analyzer_t::size_of(rt_type_t * type, storage_type_t * out_storage_type)
     {
         if(type == nullptr)
             return 0;
 
-        return type->get_size(*this, out_storage_type);
+        return type->get_size(env, out_storage_type);
     }
 
+    // Gets size of variable.
     msize_t assembly_analyzer_t::variable_size_of(ref_t type_ref,
                                                         storage_type_t * out_storage_type)
     {
@@ -1003,98 +1245,98 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         if(type == nullptr)
             return 0;
 
-        return type->get_variable_size(*this, out_storage_type);
+        return type->get_variable_size(env, out_storage_type);
     }
 
+    // Gets size of variable.
     msize_t assembly_analyzer_t::variable_size_of(rt_type_t * type,
                                                         storage_type_t * out_storage_type)
     {
         if(type == nullptr)
             return 0;
 
-        return type->get_variable_size(*this, out_storage_type);
+        return type->get_variable_size(env, out_storage_type);
     }
 
-    rt_type_t * assembly_analyzer_t::get_base_type(rt_type_t * type,
-                                                   rt_assembly_t ** out_assembly)
+    // Gets base type.
+    rt_type_t * assembly_analyzer_t::get_base_type(rt_type_t * type)
     {
         _A(type != nullptr);
-        return type->get_base_type(*this, out_assembly);
+        return type->get_base_type(env);
     }
 
+    // Gets type size.
     msize_t assembly_analyzer_t::get_type_size(ref_t type_ref)
     {
-        rt_assembly_t * rt_assembly;
-        rt_type_t * rt_type = get_type(type_ref, &rt_assembly);
-
-        _A(rt_assembly != nullptr);
+        rt_type_t * rt_type = get_type(type_ref);
         _A(rt_type != nullptr);
 
-        return rt_type->get_size(*this);
+        return rt_type->get_size(env);
     }
 
+    // Gets field offset.
     msize_t assembly_analyzer_t::get_field_offset(ref_t field_ref)
     {
-        rt_assembly_t * rt_assembly;
-        rt_general_type_t * rt_type;
-
-        rt_field_t * rt_field = this->get_field(field_ref, &rt_type, &rt_assembly);
+        rt_type_t * rt_type;
+        rt_field_t * rt_field = this->get_field(field_ref, &rt_type);
 
         _A(rt_field != nullptr);
         _A(rt_type != nullptr);
 
         if(rt_field->offset == unknown_msize)
-            rt_type->get_size(*this);
+            rt_type->get_size(env);
 
         return rt_field->offset;
     }
 
+    // Gets virtual method offset.
     int assembly_analyzer_t::get_virtual_method_offset(assembly_analyzer_t & analyzer,
-                                                     rt_type_t * rt_type, ref_t method_ref)
+                                                       ref_t method_ref)
     {
-        _A(rt_type != nullptr);
-
         rt_method_t * method = analyzer.current->get_method(method_ref);
         _A(method != nullptr);
 
+        rt_type_t * rt_type = method->get_host_type();
+
         decorate_t decorate = (decorate_t)(*method)->decorate;
         if(__is_virtual(decorate))
-            return rt_type->get_method_offset(analyzer, method_ref);
+            return rt_type->get_method_offset(analyzer.env, method_ref);
 
         if(decorate.is_override)
         {
-            rt_assembly_t * assembly;
             method_prototype_t prototype;
             analyzer.get_prototype(method_ref, &prototype);
 
             do
             {
-                rt_type = rt_type->get_base_type(analyzer, &assembly);
+                rt_type = rt_type->get_base_type(analyzer.env);
                 if(rt_type == nullptr)
                     throw _ED(__e_t::virtual_method_not_found, analyzer.current->get_name(method));
 
-                assembly_analyzer_t analyzer0(analyzer, assembly);
-                method_ref = rt_type->search_method(analyzer0, prototype);
+                assembly_analyzer_t analyzer0(analyzer, rt_type->get_assembly());
+                method_ref = rt_type->search_method(analyzer0.env, prototype);
 
             } while(method_ref == ref_t::null);
 
-            return get_virtual_method_offset(analyzer, rt_type, method_ref);
+            return get_virtual_method_offset(analyzer, method_ref);
         }
 
         throw _ED(rt_error_code_t::virtual_method_not_found, analyzer.current->get_name(method));
     }
 
+    // Gets prototype of method.
     void assembly_analyzer_t::get_prototype(ref_t method_ref, method_prototype_t * out_prototype)
     {
-        rt_assembly_t * rt_assembly;
-        rt_general_type_t * rt_type;
-
-        rt_method_t * rt_method = get_method(method_ref, &rt_type, &rt_assembly);
+        rt_method_t * rt_method = get_method(method_ref);
         _A(rt_method != nullptr);
+
+        rt_assembly_t * rt_assembly = rt_method->get_assembly();
+        _A(rt_assembly != nullptr);
 
         assembly_analyzer_t(*this, rt_assembly).get_prototype(rt_method, out_prototype);
     }
 
+    // Gets prototype of method.
     void assembly_analyzer_t::get_prototype(rt_method_t * rt_method,
                                                 method_prototype_t * out_prototype)
     {
@@ -1116,12 +1358,105 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         mp->generic_param_count = mt->generic_params.count;
     }
 
+    // Returns sid of string.
+    rt_sid_t assembly_analyzer_t::to_sid(const string_t & s)
+    {
+        return current->to_sid(s);
+    }
+
+    // Gets name of runtime type.
+    rt_sid_t assembly_analyzer_t::get_name(rt_type_t * type)
+    {
+        _A(type != nullptr);
+
+        return type->get_name(env);
+    }
+
+    // Gets name of runtime method.
+    rt_sid_t assembly_analyzer_t::get_name(rt_method_t * method)
+    {
+        _A(method != nullptr);
+
+        return current->get_name(method);
+    }
+
+    // Gets name of runtime method.
+    rt_sid_t assembly_analyzer_t::get_name(rt_generic_method_t * method)
+    {
+        _A(method != nullptr);
+
+        return method->get_name();
+    }
+
+    // Converts to assembly_analyzer_t.
+    assembly_analyzer_t to_analyzer(analyzer_env_t & env, rt_type_t * rt_type)
+    {
+        _A(rt_type != nullptr);
+
+        return assembly_analyzer_t(env, rt_type->get_assembly());
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
+    // Builds virtual table.
     rt_vtable_t * build_vtable(memory_t * memory, assembly_analyzer_t & analyzer,
                                                   rt_type_t & rt_type)
     {
         return nullptr;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Creates a new metadata for generic method.
+    rt_generic_method_t * rt_mt_t<__tidx_t::generic_method>::new_entity(rt_context_t & ctx,
+                                ref_t ref, __mt_t * mt, rt_assembly_t * assembly)
+    {
+        analyzer_env_t env = to_env(ctx);
+        assembly_analyzer_t analyzer(env, assembly);
+
+        _PP(mt->template_);
+        rt_method_t * template_ = analyzer.get_method(mt->template_);
+        _A(template_ != nullptr);
+
+        _PF(_T("------ new_generic_method: %1%, %2%"), mt->template_, template_->get_name());
+
+        int atype_count = mt->args.count;
+        type_t * atypes[atype_count];
+
+        rt_type_t ** ptype = (rt_type_t **)atypes;
+
+        for(ref_t ga_ref : mt->args)
+        {
+            rt_generic_argument_t * generic_argument = assembly->get_generic_argument(ga_ref);
+            ref_t atype_ref = (*generic_argument)->type;
+            rt_type_t * type = analyzer.get_type(atype_ref);
+            *ptype++ = type;
+        }
+
+        __rt_generic_args_key_t args_key((rt_type_t **)atypes, (rt_type_t **)atypes + atype_count);
+        auto key = ctx.rpool.new_key<rpool_key_type_t::generic_method>(template_, args_key);
+
+        return ctx.rpool.get(key, [&]() {
+            key = ctx.rpool.revise_key(key, (rt_type_t **)atypes, atype_count);
+            return memory_t::new_obj<rt_generic_method_t>(ctx.memory, template_, key.types());
+        });
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Creates a new metadata for general method.
+    rt_method_t * rt_mt_t<__tidx_t::method>::new_entity(rt_context_t & ctx,
+                                ref_t ref, __mt_t * mt, rt_assembly_t * assembly)
+    {
+        rt_method_t * method = memory_t::new_obj<rt_method_t>(ctx.memory);
+
+        analyzer_env_t env = to_env(ctx);
+        assembly_analyzer_t analyzer(env, assembly);
+
+        method->mt = mt;
+        method->host_type = analyzer.get_host_type_by_method_ref(ref);
+
+        return method;
     }
 
     ////////// ////////// ////////// ////////// //////////

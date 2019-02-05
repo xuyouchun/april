@@ -12,11 +12,13 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns token property.
     X_INLINE const __cs_token_property_t * __get_token_property(token_value_t value)
     {
         return get_token_property((cs_token_value_t)value);
     }
 
+    // Returns node value.
     X_INLINE analyze_node_value_t __get_node_value(
                                 const string_t & name, analyze_node_type_t node_type)
     {
@@ -25,30 +27,32 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns token reader.
     token_reader_t * cs_lang_service_t::create_token_reader(token_reader_context_t & context)
     {
         return context.new_obj<cs_token_reader_t>(context, __lang);
     }
 
-    // token property service
+    // Token property service
     const token_property_t * cs_lang_service_t::get_token_property(token_value_t value)
     {
         return __get_token_property(value);
     }
 
-    // operator property service
+    // Operator property service
     const operator_property_t * cs_lang_service_t::get_operator_property(token_value_t value)
     {
         return __get_token_property(value);
     }
 
-    // expression build service
+    // Expression build service
     const expression_box_property_t * cs_lang_service_t::get_expression_box_property(
                                                                     token_value_t value)
     {
         return __get_token_property(value);
     }
 
+    // Builds expression.
     expression_t * cs_lang_service_t::build_expression(lang_expression_build_context_t & ctx,
                                                    const lang_expression_build_args_t & args)
     {
@@ -91,18 +95,20 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
     }
 
+    // Returns analyze pattern.
     const string_t cs_lang_service_t::get_analyze_pattern(global_context_t & context)
     {
         return get_analyze_tree_pattern();
     }
 
+    // Gets node value.
     analyze_node_value_t cs_lang_service_t::get_node_value(global_context_t & context,
                                         const string_t & name, analyze_node_type_t node_type)
     {
         return __get_node_value(name, node_type);
     }
 
-    // ast build service
+    // Ast build service
     ast_node_t * cs_lang_service_t::build_ast(ast_context_t & context,
                                                         lang_ast_build_args_t & args)
     {

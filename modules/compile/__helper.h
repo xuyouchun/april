@@ -8,6 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     namespace
     {
+        // Converts to eobject.
         template<typename etype_t> struct __to_eobject_t
         {
             static etype_t to_eobject(etype_t & eobject)
@@ -16,6 +17,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         };
 
+        // Converts to eobject for pointer.
         template<typename etype_t> struct __to_eobject_t<etype_t *>
         {
             typedef std::remove_pointer_t<etype_t> __etype_t;
@@ -30,6 +32,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Fake ast node.
         template<typename _etype_t, ast_value_t _value, typename _itype_t = __itype_t<_etype_t>>
         class __fake_ast_node_t : public single_ast_node_t
                                 , public eobject_ast_t<_itype_t>
@@ -38,6 +41,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             typedef std::remove_reference_t<_etype_t> __etype_t;
 
         public:
+
+            // Constructor.
             __fake_ast_node_t() = default;
             __fake_ast_node_t(__etype_t && eobject, code_unit_t * code_unit = nullptr)
                 : __eobject(eobject)
@@ -45,11 +50,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->code_unit = code_unit;
             }
 
+            // Returns ast value.
             virtual ast_value_t value() const override
             {
                 return (ast_value_t)_value;
             }
 
+            // Returns eobject.
             virtual _itype_t to_eobject() override
             {
                 return &__eobject;
@@ -70,6 +77,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Fake ast node.
         template<typename _etype_t, ast_value_t _value, typename _itype_t>
         class __fake_ast_node_t<_etype_t *, _value, _itype_t>
                                 : public single_ast_node_t
@@ -79,6 +87,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             typedef _etype_t __etype_t;
 
         public:
+
+            // Constructors.
             __fake_ast_node_t() = default;
             __fake_ast_node_t(__etype_t * eobject, code_unit_t * code_unit = nullptr)
                 : __eobject(eobject)
@@ -86,11 +96,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->code_unit = code_unit;
             }
 
+            // Returns ast value.
             virtual ast_value_t value() const override
             {
                 return (ast_value_t)_value;
             }
 
+            // Returns eobject.
             virtual _itype_t to_eobject() override
             {
                 return __eobject;
@@ -111,6 +123,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Fake asts node.
         template<typename _etype_t, ast_value_t _value>
         class __fake_asts_node_t : public single_ast_node_t
                                  , public eobjects_ast_t<_etype_t>
@@ -118,6 +131,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         public:
             typedef _etype_t etype_t;
 
+            // Constructors.
             __fake_asts_node_t() = default;
             __fake_asts_node_t(
                 std::initializer_list<etype_t> il, code_unit_t * code_unit = nullptr)
@@ -126,16 +140,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->code_unit = code_unit;
             }
 
+            // Returns ast value.
             virtual ast_value_t value() const override
             {
                 return (ast_value_t)_value;
             }
 
+            // Returns eobject count.
             virtual size_t eobject_count() override
             {
                 return __eobjects.size();
             }
 
+            // Returns eobject at specified index.
             virtual etype_t eobject_at(size_t index) override
             {
                 return __eobjects[index];
@@ -152,6 +169,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     template<typename _etype_t, ast_value_t _value>
     using fake_asts_node_t = __fake_asts_node_t<_etype_t, _value>;
 
+    // Converts to fake ast node.
     template<ast_value_t _value, typename _etype_t>
     auto to_fake_ast(_etype_t && eobject, memory_t * memory,
                                     code_unit_t * code_unit = nullptr)
@@ -164,6 +182,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Base class for building a ast node.
     template<typename _ast_node_t, typename _self_t>
     class x_ast_builder_base_t : public tast_builder_t<_ast_node_t>
     {
@@ -172,6 +191,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef _ast_node_t                 __ast_node_t;
         typedef tast_builder_t<_ast_node_t> __base_t;
 
+        // Constructor.
         template<typename ... args_t>
         x_ast_builder_base_t(ast_context_t & context, lang_ast_build_args_t & args)
             : tast_builder_t<_ast_node_t>(context, args)
@@ -180,12 +200,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     protected:
         typedef ast_builder_completed_args_t __completed_args_t;
 
+        // Log message.
         template<typename ... args_t>
         void __log(args_t && ... args)
         {
             this->__context.logger.log(std::forward<args_t>(args) ...);
         }
 
+        // Compileted.
         virtual void completed(__completed_args_t & args) override final
         {
             this->__node->code_unit = args.code_unit;
@@ -195,38 +217,45 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         virtual void on_completed(__completed_args_t & args) { }
 
+        // Converts to sid.
         template<typename obj_t>
         sid_t __to_sid(const obj_t & obj)
         {
             return this->__get_spool().to_sid(_str(obj));
         }
 
+        // Converts to name.
         template<typename obj_t>
         name_t __to_name(obj_t && obj)
         {
             return name_t(__to_sid(std::forward<obj_t>(obj)));
         }
 
+        // Converts to a multi-name.
         mname_t * __to_mname(const string_t & s)
         {
             return mname_t::parse(to_mname_operate_context(__get_xpool()), s);
         }
 
+        // Returns memory management.
         memory_t * __get_memory() const
         {
             return this->__context.compile_context.get_memory();
         }
 
+        // Returns string pool.
         al::spool_t & __get_spool()
         {
             return this->__get_xpool().spool;
         }
 
+        // Returns xpool.
         xpool_t & __get_xpool()
         {
             return this->__context.compile_context.global_context.xpool;
         }
 
+        // Creates a new fake ast node.
         template<typename _etype_t, ast_value_t _value, typename ... args_t>
         fake_ast_node_t<_etype_t, _value> * __new_fake_ast(args_t && ... args)
         {
@@ -235,6 +264,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             );
         }
 
+        // Creates a new fake asts node.
         template<typename _etype_t, ast_value_t _value, typename ... args_t>
         fake_asts_node_t<_etype_t, _value> * __new_fake_asts(args_t && ... args)
         {
@@ -243,6 +273,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             );
         }
 
+        // Converts to a fake ast node.
         template<ast_value_t _value, typename _etype_t>
         auto __to_ast(_etype_t && eobject, code_unit_t * code_unit = nullptr)
         {
@@ -253,6 +284,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             );
         }
 
+        // Creates a new ast node.
         template<typename ast_node_t, typename ... args_t>
         ast_node_t * __new_ast(args_t && ... args)
         {
@@ -261,6 +293,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             );
         }
 
+        // Creates a new ast node and commits it.
         template<typename ast_node_t, typename ... args_t>
         ast_node_t * __new_ast_with_commit(args_t && ... args)
         {
@@ -270,22 +303,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return node;
         }
 
+        // Returns ast context.
         ast_context_t & __get_context()
         {
             return this->__context;
         }
 
+        // Combines code elements.
         code_element_t * __combine(code_element_t * from, code_element_t * to)
         {
             return combine(__get_memory(), from, to);
         }
 
+        // Returns cache.
         template<typename cache_t> cache_t & __cache()
         {
             global_context_t & gctx = this->__context.compile_context.global_context;
             return *gctx.template from_cache<cache_t>(0);
         }
 
+        // Returns language cache.
         template<typename cache_t> cache_t & __lang_cache()
         {
             global_context_t & gctx = this->__context.compile_context.global_context;
@@ -294,6 +331,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return *gctx.template from_cache<cache_t>(lang_id);
         }
 
+        // Returns value of specified language and key.
         template<typename cache_t, typename load_func_t,
             typename key_t   = typename cache_t::key_t,
             typename value_t = typename cache_t::value_t
@@ -303,6 +341,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __lang_cache<cache_t>().get(key, std::function<value_t ()>(load_func));
         }
 
+        // Returns value of specified language and key.
+        // Auto loads when not found.
         template<typename cache_t, typename load_func_t,
             typename key_t   = typename cache_t::key_t,
             typename value_t = typename cache_t::value_t

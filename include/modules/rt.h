@@ -6,8 +6,17 @@
 
 namespace X_ROOT_NS { namespace modules { namespace rt {
 
+    ////////// ////////// ////////// ////////// //////////
+
     class rt_type_t;
     class rt_array_type_t;
+    class rt_method_t;
+    class rt_assembly_t;
+    class rt_general_type_t;
+    class rt_generic_method_t;
+    class rt_field_t;
+
+    class analyzer_env_t;
     class assembly_analyzer_t;
 
     X_INTERFACE rt_heap_t;
@@ -23,42 +32,113 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Runtime error codes.
     X_ENUM(rt_error_code_t)
 
+        // Assembly not found.
         assembly_not_found,
 
+        // Assembly format error.
         assembly_format_error,
 
+        // Method not found.
         method_not_found,
 
+        // Field not found.
         field_not_found,
 
+        // Local index out of range.
         local_index_out_of_range,
 
+        // Argument index out of range.
         argument_index_out_of_range,
 
+        // Virtual method not found.
         virtual_method_not_found,
 
     X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Storage types.
     X_ENUM(storage_type_t)
 
-        ref, value, mixture,
+        // Reference type
+        ref = __default__,
+        
+        // Value type
+        value,
+        
+        // Mixture types.
+        mixture,
 
     X_ENUM_END
+
+    ////////// ////////// ////////// ////////// //////////
+    // rt_assembly_provider_t
+
+    class rt_context_t;
+
+    // Assembly provider.
+    X_INTERFACE rt_assembly_provider_t
+    {
+        // Loads main assembly.
+        virtual rt_assembly_t * load_main_assembly(rt_context_t & ctx) = 0;
+
+        // Loads assembly.
+        virtual rt_assembly_t * load_assembly(rt_context_t & ctx, const string_t & package,
+                                                                  const string_t & name) = 0;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // rt_assemblies_t
+
+    // Rt assembly collection.
+    class rt_assemblies_t : public object_t, public no_copy_ctor_t
+    {
+    public:
+
+        // Constructor.
+        rt_assemblies_t(rt_context_t & ctx, rt_assembly_provider_t * provider)
+            : __provider(provider), __ctx(ctx)
+        {
+            _A(provider != nullptr);
+        }
+
+        // Load main assembly.
+        rt_assembly_t * load_main_assembly();
+
+        // Load assembly.
+        rt_assembly_t * load_assembly(const string_t & package, const string_t & name);
+
+        // Returns assembly at index.
+        rt_assembly_t * at(int index);
+
+    private:
+        rt_context_t & __ctx;
+        typedef std::tuple<string_t, string_t> __assembly_key_t;
+        rt_assembly_t * __main_assembly = nullptr;
+
+        rt_assembly_provider_t * __provider;
+        std::map<__assembly_key_t, rt_assembly_t *> __assembly_map;
+        std::vector<rt_assembly_t *> __assembly_vector;
+
+        void __revise_assembly(rt_assembly_t * assembly);
+    };
 
     ////////// ////////// ////////// ////////// //////////
 
     struct rt_method_t;
 
+    // Virtual table function.
     struct rt_vtable_function_t
     {
         typedef rt_vtable_function_t __self_t;
 
+        // Constructor.
         rt_vtable_function_t() = default;
 
+        // Constructor.
         rt_vtable_function_t(uint32_t assembly_idx, uint32_t method_idx)
         {
             this->assembly_idx = assembly_idx;
@@ -72,11 +152,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             }
         }
 
+        // Constructor.
         rt_vtable_function_t(void * method)
         {
             this->method = method;
         }
 
+        // Returns whether it's a method.
         bool is_method() const { return ((*(byte_t *)this + sizeof(__self_t) - 1) & 0x01) == 0; }
 
         union
@@ -100,6 +182,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Virtual table.
     struct rt_vtable_t
     {
         rt_vfunction_t  functions[0];
@@ -107,9 +190,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Rt memory managerment.
     class rt_memory_t : public object_t
     {
     public:
+
+        // Returns new members.
         member_t ** new_members(size_t size)
         {
             return __acquire<member_t>(size);
@@ -118,6 +204,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     private:
         al::heap_t<void *[]> __heap;
 
+        // Acquire objects of specified size.
         template<typename t> t ** __acquire(size_t size)
         {
             return (t **)__heap.acquire(size);
@@ -126,21 +213,28 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Rt heap.
     X_INTERFACE rt_heap_t
     {
+        // Creates a new object.
         virtual rt_ref_t new_obj(rt_type_t * type) = 0;
+
+        // Creates a new array.
         virtual rt_ref_t new_array(rt_array_type_t * type, dimension_t dimension,
                                    const array_length_t * lengths) = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Rt object.
     class rt_object_t
     {
+
+    };
+
+    /*
     public:
         rt_object_t() : __value__(0) { }
-
-        rt_vtable_t * vtable ;
 
         union
         {
@@ -158,6 +252,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             uint32_t __value__;
         };
     };
+    */
     
     //-------- ---------- ---------- ---------- ----------
 
@@ -165,18 +260,22 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Rt string.
     class rt_string_t : public rt_object_t
     {
     public:
+
+        // Constructor.
         rt_string_t(const char_t * s, rt_size_t length)
             : s(s), length(length)
         {
             _A(s != nullptr);
-            this->external = true;
         }
 
         rt_size_t length = 0;
         const char_t * s = nullptr;
+
+        // Compare operators.
 
         bool operator <  (const rt_string_t & str) const { return compare(str) <  0; }
         bool operator >  (const rt_string_t & str) const { return compare(str) >  0; }
@@ -185,67 +284,67 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         bool operator == (const rt_string_t & str) const { return equals(str);  }
         bool operator != (const rt_string_t & str) const { return !equals(str); }
 
+        // Compare two strings.
         int  compare(const rt_string_t & str) const;
+
+        // Return whether two strings are equals.
         bool equals(const rt_string_t & str) const;
 
+        // Converts to string.
         operator string_t() const
         {
             return !s? _T("") : s;
         }
 
     private:
+
+        // Returns whether two strings are equals.
         bool __reference_equals(const rt_string_t & str) const;
+
+        // Compare two strings.
         int __compare(const rt_string_t & str) const;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Sid.
     struct rt_sid_t : compare_operators_t<rt_sid_t, const rt_string_t *>
     {
         typedef const rt_string_t * __sid_value_t;
 
+        // Constructor.
         rt_sid_t() = default;
         rt_sid_t(__sid_value_t value) : value(value) { }
 
         __sid_value_t value = nullptr;
 
+        // Returns Sid value.
         operator __sid_value_t () const { return value; }
+
+        // Converts to string.
         operator string_t() const { return !value? _T("") : (string_t)*value; }
 
+        // Converts to const char_t *.
         const char_t * c_str() const { return value? value->s : nullptr; }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Rt String Pool.
     class rt_spool_t : public object_t
     {
     public:
         typedef rt_sid_t sid_t;
 
+        // Converts to string id.
         rt_sid_t to_sid(const rt_string_t & s);
+
+        // Converts to string id.
         rt_sid_t to_sid(const string_t & s);
 
     private:
         std::set<const rt_string_t> __string_set;
         al::heap_t<char_t[]> __heap;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-
-    class rt_context_t : public object_t
-    {
-    public:
-        rt_context_t(memory_t * memory, rt_heap_t * heap)
-            : memory(memory), heap(heap)
-        {
-            _A(heap != nullptr);
-        }
-
-        rt_heap_t * heap;
-        memory_t  * memory;
-        rt_memory_t rt_memory;
-
-        rt_spool_t spool;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -268,6 +367,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     __RtEntity(assembly_ref,        rt_assembly_ref_t)
     __RtEntity(type,                rt_general_type_t)
     __RtEntity(generic_type,        rt_generic_type_t)
+    __RtEntity(generic_method,      rt_generic_method_t)
+    __RtEntity(generic_argument,    rt_generic_argument_t)
     __RtEntity(array_type,          rt_array_type_t)
     __RtEntity(field,               rt_field_t)
     __RtEntity(method,              rt_method_t)
@@ -291,14 +392,233 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Pool key type.
+    X_ENUM(rpool_key_type_t)
+
+        // Method.
+        method,
+
+        // Field.
+        field,
+
+        // Generic method.
+        generic_method,
+
+    X_ENUM_END
+
+    //-------- ---------- ---------- ---------- ----------
+
+
+    namespace
+    {
+        template<rpool_key_type_t _key_type> struct __rpool_key_t { };
+
+        //-------- ---------- ---------- ---------- ----------
+
+        // Rt pool partial.
+        template<typename _key_t, typename _value_t>
+        class __rt_pool_partial_t
+        {
+            typedef _key_t      __key_t;
+            typedef _value_t    __value_t;
+            typedef __rt_pool_partial_t<_key_t, _value_t> __self_t;
+
+        public:
+
+            // Returns value of key.
+            __value_t * get(const __key_t & key)
+            {
+                auto it = __map.find(key);
+                if(it == __map.end())
+                    return nullptr;
+
+                return &it->second;
+            }
+
+            // Returns value of key.
+            // Auto creates by specified function.
+            template<typename creator_t>
+            __value_t get(__key_t & key, creator_t f)
+            {
+                __value_t * value = get(key);
+                if(value != nullptr)
+                    return *value;
+
+                __value_t new_value = f();
+                __map[key] = new_value;
+
+                return new_value;
+            }
+
+            // Sets value of key.
+            void set(const __key_t & key, _value_t && value)
+            {
+                __map[key] = value;
+            }
+
+        private:
+            std::map<__key_t, __value_t> __map;
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+
+        // Base class of rt pool key.
+        template<rpool_key_type_t _key_type, typename _value_t, typename ... _args_t>
+        struct __rpool_key_base_t : std::tuple<_args_t ...>
+        {
+            typedef __rpool_key_base_t      __self_t;
+            typedef std::tuple<_args_t ...> __super_t;
+
+            using __super_t::__super_t;
+
+            // Constructor.
+            __rpool_key_base_t() : __super_t(_D(_args_t) ...) { }
+
+            static const rpool_key_type_t key_type = _key_type;
+            typedef __rt_pool_partial_t<__self_t, _value_t> partial_t;
+
+            // Assigns data.
+            template<typename ... _keys_t>
+            void assign(_keys_t && ... keys)
+            {
+                __super_t::operator = (__super_t(std::forward<_keys_t>(keys) ...));
+            }
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+
+        // Base class of rt method pool key.
+        typedef __rpool_key_base_t<rpool_key_type_t::method,
+            rt_method_t *, rt_assembly_t *, ref_t
+        > __rpool_key_method_base_t;
+
+        // Rt pool method key.
+        template<>
+        struct __rpool_key_t<rpool_key_type_t::method> : __rpool_key_method_base_t
+        {
+            using __rpool_key_method_base_t::__rpool_key_method_base_t;
+        };
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Base class of rt field pool key.
+        typedef __rpool_key_base_t<rpool_key_type_t::field,
+            std::tuple<rt_field_t *, rt_type_t *>, rt_assembly_t *, ref_t
+        > __rpool_key_field_base_t;
+
+        // Rt pool field key.
+        template<>
+        struct __rpool_key_t<rpool_key_type_t::field> : __rpool_key_field_base_t
+        {
+            using __rpool_key_field_base_t::__rpool_key_field_base_t;
+        };
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        typedef al::multikey_t<range_t<rt_type_t **>> __rt_generic_args_key_t;
+
+        // Base class of rt generic method pool key.
+        typedef __rpool_key_base_t<rpool_key_type_t::generic_method,
+            rt_generic_method_t *, rt_method_t *, __rt_generic_args_key_t
+        > __rpool_key_generic_method_base_t;
+
+        // Rt pool generic method key.
+        template<>
+        struct __rpool_key_t<rpool_key_type_t::generic_method>
+            : __rpool_key_generic_method_base_t
+        {
+            using __rpool_key_generic_method_base_t::__rpool_key_generic_method_base_t;
+
+            __rt_generic_args_key_t args_key() const
+            {
+                return std::get<__rt_generic_args_key_t>(*this);
+            }
+
+            rt_type_t ** types() const
+            {
+                return std::get<__rt_generic_args_key_t>(*this).begin();
+            }
+
+            rt_method_t * template_() const
+            {
+                return std::get<rt_method_t *>(*this);
+            }
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+
+        template<rpool_key_type_t _key_type>
+        using __partial_t = typename __rpool_key_t<_key_type>::partial_t;
+
+        typedef __rpool_key_t<rpool_key_type_t::generic_method> generic_method_key_t;
+
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Rt pool.
+    class rt_pool_t : public object_t, public no_copy_ctor_t
+                    , __partial_t<rpool_key_type_t::method>
+                    , __partial_t<rpool_key_type_t::field>
+                    , __partial_t<rpool_key_type_t::generic_method>
+    {
+    public:
+        using __partial_t<rpool_key_type_t::method>::get;
+        using __partial_t<rpool_key_type_t::field>::get;
+        using __partial_t<rpool_key_type_t::generic_method>::get;
+
+        // Creates new key.
+        template<rpool_key_type_t _key_type, typename ... _keys_t>
+        static __rpool_key_t<_key_type> new_key(_keys_t && ... keys)
+        {
+            return __rpool_key_t<_key_type>(std::forward<_keys_t>(keys) ...);
+        }
+
+        generic_method_key_t revise_key(const generic_method_key_t & key,
+                                            rt_type_t ** types, int count);
+
+    private:
+        al::heap_t<rt_type_t *[]> __types_heap;
+        std::set<__rt_generic_args_key_t> __types_map;
+
+        // Finds generic arguments key.
+        __rt_generic_args_key_t __find_generic_args_key(const generic_method_key_t & key,
+                                           rt_type_t ** types, int count);
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // rt_context_t
+
+    class rt_context_t : public object_t
+    {
+    public:
+        rt_context_t(memory_t * memory, rt_heap_t * heap, rt_assembly_provider_t * assembly_provider)
+            : memory(memory), heap(heap), assemblies(*this, assembly_provider)
+        {
+            _A(heap != nullptr);
+        }
+
+        rt_heap_t *     heap;
+        memory_t  *     memory;
+        rt_memory_t     rmemory;
+        rt_pool_t       rpool;
+        rt_spool_t      spool;
+
+        rt_assemblies_t assemblies;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     template<__tidx_t tidx> struct rt_mt_t;
 
     namespace
     {
+
+        // Runtime metadata base.
         template<__tidx_t tidx, typename _self_t = rt_mt_t<tidx>>
         struct __rt_mt_base_t : mt_t<tidx>
         {
-            typedef _self_t             __self_t;
+            typedef _self_t             __self_t, __mt_t;
             typedef mt_t<tidx>          __super_t;
             typedef rt_entity_t<tidx>   __entity_t;
 
@@ -306,22 +626,30 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             __entity_t * rt_object;
 
+            // Initialize.
             static void init(__self_t & self)
             {
                 self.rt_object = nullptr;
             }
 
-            static __entity_t * new_entity(memory_t * memory)
+            // Returns new entity.
+            static __entity_t * new_entity(rt_context_t & ctx, ref_t ref, __mt_t * mt,
+                                           rt_assembly_t * assembly)
             {
-                return memory_t::new_obj<__entity_t>(memory);
+                __entity_t * entity = memory_t::new_obj<__entity_t>(ctx.memory);
+                entity->mt = mt;
+
+                return entity;
             }
 
+            // Commits it.
             static void commit(__self_t & self) { }
         };
     }
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime metadata.
     template<__tidx_t tidx> struct rt_mt_t : __rt_mt_base_t<tidx>
     {
         typedef __rt_mt_base_t<tidx> __super_t;
@@ -331,6 +659,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Constant runtime metadata.
     template<> struct rt_mt_t<__tidx_t::constant> : mt_t<__tidx_t::constant>
     {
         typedef rt_mt_t<__tidx_t::constant> __self_t;
@@ -342,6 +671,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Returns a new entity.
     template<typename _entity_t> _entity_t * __new_entity(memory_t * memory)
     {
         return memory_t::new_obj<_entity_t>(memory);
@@ -349,8 +679,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-    template<__tidx_t tidx>
-    class rt_metadata_object_t
+    // Runtime metadata object.
+    template<__tidx_t tidx> class rt_metadata_object_t
     {
     public:
         rt_mt_t<tidx> * mt = nullptr;
@@ -360,6 +690,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime member.
     class rt_member_t : public rt_object_t
     {
     public:
@@ -368,18 +699,29 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime type kinds.
     X_ENUM(rt_type_kind_t)
 
-        general, generic, array,
+        // General
+        general,
+        
+        // Generic
+        generic,
+        
+        // Array
+        array,
 
     X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Search method options.
     X_ENUM(search_method_options_t)
 
+        // Default
         default_        = __default__,
 
+        // On search virtual method.
         only_virtual    = 1 << 0,
 
     X_ENUM_END
@@ -388,41 +730,69 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     struct method_prototype_t;
 
+    // Runtime type.
     class rt_type_t : public rt_member_t
     {
     public:
-        virtual void pre_new(assembly_analyzer_t & analyzer) = 0;
 
-        virtual rt_sid_t get_name(rt_assembly_t * assembly) = 0;
+        // Pre new object.
+        virtual void pre_new(analyzer_env_t & env) = 0;
+
+        // Pre call static method.
+        virtual void pre_static_call(analyzer_env_t & env) = 0;
+
+        // Gets type name.
+        virtual rt_sid_t get_name(analyzer_env_t & env) = 0;
+
+        // Gets type kind.
         virtual rt_type_kind_t get_kind() = 0;
 
-        virtual ttype_t get_ttype(assembly_analyzer_t & analyzer) { return ttype_t::__unknown__; }
-        virtual rt_type_t * get_base_type(assembly_analyzer_t & analyzer,
-                                       rt_assembly_t ** out_assembly) = 0;
+        // Gets ttype.
+        virtual ttype_t get_ttype(analyzer_env_t & env) { return ttype_t::__unknown__; }
 
-        virtual int get_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref) = 0;
+        // Gets base type.
+        virtual rt_type_t * get_base_type(analyzer_env_t & env) = 0;
 
+        // Gets method offset.
+        virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) = 0;
+
+        // Enums all fields.
         typedef std::function<bool (ref_t, rt_field_t *)> each_field_t;
-        virtual void each_field(assembly_analyzer_t & analyzer, each_field_t f) = 0;
+        virtual void each_field(analyzer_env_t & env, each_field_t f) = 0;
 
+        // Enums all methods.
         typedef std::function<bool (ref_t, rt_method_t *)> each_method_t;
-        virtual void each_method(assembly_analyzer_t & analyzer, each_method_t f) = 0;
+        virtual void each_method(analyzer_env_t & env, each_method_t f) = 0;
 
-        virtual ref_t search_method(assembly_analyzer_t & analyzer,
+        // Searches method.
+        virtual ref_t search_method(analyzer_env_t & env,
                     method_prototype_t & prototype,
                     search_method_options_t options = search_method_options_t::default_) = 0;
 
-        msize_t get_size(assembly_analyzer_t & analyzer, storage_type_t * out_storage_type);
-        msize_t get_size(assembly_analyzer_t & analyzer);
+        // Gets size.
+        msize_t get_size(analyzer_env_t & env, storage_type_t * out_storage_type);
 
-        virtual msize_t get_variable_size(assembly_analyzer_t & analyzer,
-                                            storage_type_t * out_storage_type) = 0;
+        // Gets size.
+        msize_t get_size(analyzer_env_t & env);
 
+        // Gets variable size.
+        virtual msize_t get_variable_size(analyzer_env_t & env,
+                                          storage_type_t * out_storage_type) = 0;
+
+        // Gets assembly.
+        virtual rt_assembly_t * get_assembly() = 0;
+
+        // Gets size.
         msize_t get_size() { return __size; }
 
     protected:
-        virtual msize_t on_caculate_size(assembly_analyzer_t & analyzer,
-                                        storage_type_t * out_storage_type) = 0;
+
+        // When caculate size.
+        virtual msize_t on_caculate_size(analyzer_env_t & env,
+                                         storage_type_t * out_storage_type) = 0;
+
+        // Analyze this type.
+        assembly_analyzer_t __analyzer(analyzer_env_t & env);
 
         msize_t         __size = unknown_msize;
         storage_type_t  __storage_type;
@@ -430,40 +800,70 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime general type.
     class rt_general_type_t : public rt_type_t
                             , public rt_metadata_object_t<__tidx_t::type>
     {
     public:
-        virtual void pre_new(assembly_analyzer_t & analyzer) override;
 
-        virtual rt_sid_t get_name(rt_assembly_t * assembly) override;
-        virtual rt_type_kind_t get_kind() override { return rt_type_kind_t::general; }
+        // Constructor.
+        rt_general_type_t() = default;
+        rt_general_type_t(rt_assembly_t * assembly) : assembly(assembly) { }
 
-        virtual ttype_t get_ttype(assembly_analyzer_t & analyzer) override;
-        virtual rt_type_t * get_base_type(assembly_analyzer_t & analyzer,
-                                        rt_assembly_t ** out_assembly) override;
+        // Pre new object.
+        virtual void pre_new(analyzer_env_t & env) override final;
 
-        virtual int get_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref) override;
+        // Pre call static method.
+        virtual void pre_static_call(analyzer_env_t & env) override final;
 
-        virtual void each_field(assembly_analyzer_t & analyzer, each_field_t f) override;
-        virtual void each_method(assembly_analyzer_t & analyzer, each_method_t f) override;
+        // Gets name.
+        virtual rt_sid_t get_name(analyzer_env_t & env) override final;
 
-        virtual ref_t search_method(assembly_analyzer_t & analyzer,
-                    method_prototype_t & prototype, search_method_options_t options) override;
+        // Gets this kind.
+        virtual rt_type_kind_t get_kind() override final { return rt_type_kind_t::general; }
 
-        virtual msize_t get_variable_size(assembly_analyzer_t & analyzer,
-                                            storage_type_t * out_storage_type) override;
+        // Gets ttype.
+        virtual ttype_t get_ttype(analyzer_env_t & env) override final;
+
+        // Gets base type.
+        virtual rt_type_t * get_base_type(analyzer_env_t & env) override final;
+
+        // Gets method offset.
+        virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref)
+                                                                    override final;
+        // Each all fields.
+        virtual void each_field(analyzer_env_t & env, each_field_t f)
+                                                                    override final;
+        // Each all methods.
+        virtual void each_method(analyzer_env_t & env, each_method_t f)
+                                                                    override final;
+        // Searches methods.
+        virtual ref_t search_method(analyzer_env_t & env,
+                    method_prototype_t & prototype, search_method_options_t options)
+                                                                    override final;
+
+        // Gets variable size.
+        virtual msize_t get_variable_size(analyzer_env_t & env,
+                                storage_type_t * out_storage_type) override final;
+
+        // Gets assembly.
+        virtual rt_assembly_t * get_assembly() override final;
+
+        rt_assembly_t * assembly = nullptr;
 
     protected:
-        virtual msize_t on_caculate_size(assembly_analyzer_t & analyzer,
-                                        storage_type_t * out_storage_type) override;
+
+        // When caculate size.
+        virtual msize_t on_caculate_size(analyzer_env_t & env,
+                            storage_type_t * out_storage_type) override final;
 
     private:
-        void __build_vtbl(assembly_analyzer_t & analyzer);
+        void __build_vtbl(analyzer_env_t & env);
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime type ref.
     class rt_type_ref_t : public rt_object_t
                         , public rt_metadata_object_t<__tidx_t::type_ref>
     {
@@ -473,68 +873,119 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime generic type.
     class rt_generic_type_t : public rt_type_t
                             , public rt_metadata_object_t<__tidx_t::generic_type>
     {
     public:
-        virtual void pre_new(assembly_analyzer_t & analyzer) override { }
 
-        virtual rt_sid_t get_name(rt_assembly_t * assembly) override { X_UNIMPLEMENTED(); }
-        virtual rt_type_kind_t get_kind() override { return rt_type_kind_t::generic; }
+        // Pre new object.
+        virtual void pre_new(analyzer_env_t & env) override final;
 
-        virtual ttype_t get_ttype(assembly_analyzer_t & analyzer) override;
-        virtual rt_type_t * get_base_type(assembly_analyzer_t & analyzer,
-                                        rt_assembly_t ** out_assembly) override;
-        virtual int get_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref) override;
-        virtual void each_field(assembly_analyzer_t & analyzer, each_field_t f) override { }
-        virtual void each_method(assembly_analyzer_t & analyzer, each_method_t f) override { }
+        // Pre static call.
+        virtual void pre_static_call(analyzer_env_t & env) override final;
 
-        virtual ref_t search_method(assembly_analyzer_t & analyzer,
-                    method_prototype_t & prototype, search_method_options_t options) override;
+        // Gets name.
+        virtual rt_sid_t get_name(analyzer_env_t & env) override final;
 
-        virtual msize_t get_variable_size(assembly_analyzer_t & analyzer,
-                                            storage_type_t * out_storage_type) override;
+        // Gets kind.
+        virtual rt_type_kind_t get_kind() override final { return rt_type_kind_t::generic; }
+
+        // Gets ttype.
+        virtual ttype_t get_ttype(analyzer_env_t & env) override final;
+
+        // Gets base type.
+        virtual rt_type_t * get_base_type(analyzer_env_t & env) override final;
+
+        // Gets method offset.
+        virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override final;
+
+        // Enums all fields.
+        virtual void each_field(analyzer_env_t & env, each_field_t f) override final { }
+
+        // Enums all methods.
+        virtual void each_method(analyzer_env_t & env, each_method_t f) override final { }
+
+        // Searches method.
+        virtual ref_t search_method(analyzer_env_t & env,
+                method_prototype_t & prototype, search_method_options_t options) override final;
+
+        // Gets variable size.
+        virtual msize_t get_variable_size(analyzer_env_t & env,
+                                            storage_type_t * out_storage_type) override final;
+
+        // Gets assembly.
+        virtual rt_assembly_t * get_assembly() override final;
+
+        rt_general_type_t * template_ = nullptr;
+
     protected:
-        virtual msize_t on_caculate_size(assembly_analyzer_t & analyzer,
-                                storage_type_t * out_storage_type) override;
+
+        // When caculate size.
+        virtual msize_t on_caculate_size(analyzer_env_t & env,
+                                storage_type_t * out_storage_type) override final;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime array time.
     class rt_array_type_t : public rt_type_t
                           , public rt_metadata_object_t<__tidx_t::array_type>
     {
     public:
-        virtual void pre_new(assembly_analyzer_t & analyzer) override;
 
-        virtual rt_sid_t get_name(rt_assembly_t * assembly) override { X_UNIMPLEMENTED(); }
-        virtual rt_type_kind_t get_kind() override { return rt_type_kind_t::array; }
+        // Pre new object.
+        virtual void pre_new(analyzer_env_t & env) override final;
 
-        virtual ttype_t get_ttype(assembly_analyzer_t & analyzer) override;
-        virtual rt_type_t * get_base_type(assembly_analyzer_t & analyzer,
-                                        rt_assembly_t ** out_assembly) override;
-        virtual int get_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref) override;
-        virtual void each_field(assembly_analyzer_t & analyzer, each_field_t f) override { }
-        virtual void each_method(assembly_analyzer_t & analyzer, each_method_t f) override { }
+        // Pre call static member.
+        virtual void pre_static_call(analyzer_env_t & env) override final;
 
-        virtual ref_t search_method(assembly_analyzer_t & analyzer,
-                    method_prototype_t & prototype,
-                    search_method_options_t options = search_method_options_t::default_) override;
+        // Gets name.
+        virtual rt_sid_t get_name(analyzer_env_t & env) override final;
 
-        virtual msize_t get_variable_size(assembly_analyzer_t & analyzer,
-                                            storage_type_t * out_storage_type) override;
+        // Gets kind.
+        virtual rt_type_kind_t get_kind() override final { return rt_type_kind_t::array; }
 
-        rt_type_t * get_element_type() { return __element_type; }
+        // Gets ttype.
+        virtual ttype_t get_ttype(analyzer_env_t & env) override final;
+
+        // Gets base type.
+        virtual rt_type_t * get_base_type(analyzer_env_t & env) override final;
+
+        // Gets method offset.
+        virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override final;
+
+        // Enums fields.
+        virtual void each_field(analyzer_env_t & env, each_field_t f) override final { }
+
+        // Enums methods.
+        virtual void each_method(analyzer_env_t & env, each_method_t f) override final { }
+
+        // Searches method.
+        virtual ref_t search_method(analyzer_env_t & env, method_prototype_t & prototype,
+                search_method_options_t options = search_method_options_t::default_) override final;
+
+        // Gets variable size.
+        virtual msize_t get_variable_size(analyzer_env_t & env,
+                                          storage_type_t * out_storage_type) override final;
+
+        // Element type.
+        rt_type_t * element_type = nullptr;
+
+        // Gets assembly.
+        virtual rt_assembly_t * get_assembly() override final;
 
     protected:
-        virtual msize_t on_caculate_size(assembly_analyzer_t & analyzer,
-                                storage_type_t * out_storage_type) override;
 
-        rt_type_t * __element_type = nullptr;
+        // When caculate size.
+        virtual msize_t on_caculate_size(analyzer_env_t & env,
+                                storage_type_t * out_storage_type) override final;
+
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime bytes.
     struct rt_bytes_t
     {
         const byte_t * bytes    = nullptr;
@@ -542,16 +993,60 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     };
 
     //-------- ---------- ---------- ---------- ----------
+    // rt_method_t
 
+    // Runtime method.
     class rt_method_t : public rt_member_t
                       , public rt_metadata_object_t<__tidx_t::method>
     {
     public:
 
+        // Host type.
+        rt_type_t * host_type = nullptr;
+
+        // Gets assembly.
+        rt_assembly_t * get_assembly();
+
+        // Gets host type.
+        rt_type_t *     get_host_type();
+
+        // Gets name.
+        rt_sid_t        get_name();
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // rt_generic_method_t
+
+    // Runtime generic method.
+    class rt_generic_method_t : public rt_object_t
+    {
+    public:
+
+        // Constructor.
+        rt_generic_method_t() = default;
+        rt_generic_method_t(rt_method_t * template_, rt_type_t ** atypes)
+            : template_(template_), atypes(atypes)
+        { }
+
+        // Method template.
+        rt_method_t *  template_    = nullptr;
+
+        // Arguments.
+        rt_type_t   ** atypes       = nullptr;
+
+        // Gets assembly.
+        rt_assembly_t * get_assembly();
+
+        // Gets host type.
+        rt_type_t *     get_host_type();
+
+        // Gets name.
+        rt_sid_t        get_name();
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime method ref.
     class rt_method_ref_t : public rt_object_t
                           , public rt_metadata_object_t<__tidx_t::method_ref>
     {
@@ -561,15 +1056,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime field.
     class rt_field_t : public rt_member_t
                      , public rt_metadata_object_t<__tidx_t::field>
     {
     public:
+
+        // Offset.
         msize_t     offset = unknown_msize;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime field ref.
     class rt_field_ref_t : public rt_object_t
                          , public rt_metadata_object_t<__tidx_t::field_ref>
     {
@@ -579,6 +1078,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime event.
     class rt_event_t : public rt_member_t
                      , public rt_metadata_object_t<__tidx_t::event>
     {
@@ -588,6 +1088,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime event ref.
     class rt_event_ref_t : public rt_object_t
                          , public rt_metadata_object_t<__tidx_t::event_ref>
     {
@@ -597,6 +1098,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime property.
     class rt_property_t : public rt_member_t
                         , public rt_metadata_object_t<__tidx_t::property>
     {
@@ -606,6 +1108,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime super type.
     class rt_super_type_t : public rt_object_t
                           , public rt_metadata_object_t<__tidx_t::super_type>
     {
@@ -615,6 +1118,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime nest type.
     class rt_nest_type_t : public rt_object_t
                          , public rt_metadata_object_t<__tidx_t::nest_type>
     {
@@ -624,6 +1128,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime property ref.
     class rt_property_ref_t : public rt_object_t
                             , public rt_metadata_object_t<__tidx_t::property_ref>
     {
@@ -633,15 +1138,17 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime generic param.
     class rt_generic_param_t : public rt_object_t
                              , public rt_metadata_object_t<__tidx_t::generic_param>
     {
     public:
-        rt_mt_t<__tidx_t::generic_param> * mt = nullptr;
+
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime param.
     class rt_param_t : public rt_object_t
                      , public rt_metadata_object_t<__tidx_t::param>
     {
@@ -651,6 +1158,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime generic argument.
     class rt_generic_argument_t : public rt_object_t
                                 , public rt_metadata_object_t<__tidx_t::generic_argument>
     {
@@ -660,6 +1168,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime attribute.
     class rt_attribute_t : public rt_object_t
                          , public rt_metadata_object_t<__tidx_t::attribute>
     {
@@ -669,6 +1178,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime attribute arguments.
     class rt_attribute_argument_t : public rt_object_t
                                   , public rt_metadata_object_t<__tidx_t::attribute_argument>
     {
@@ -678,6 +1188,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime method ref param.
     class rt_method_ref_param_t : public rt_object_t
                                 , public rt_metadata_object_t<__tidx_t::method_ref_param>
     {
@@ -687,6 +1198,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime assembly ref.
     class rt_assembly_ref_t : public rt_object_t
                             , public rt_metadata_object_t<__tidx_t::assembly_ref>
     {
@@ -696,72 +1208,129 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime param type.
     struct rt_ptype_t
     {
+        // Constructor.
         rt_ptype_t() = default;
         rt_ptype_t(rt_type_t * type, param_type_t param_type)
             : type(type), param_type(param_type) { }
 
+        // Type.
         rt_type_t *     type = nullptr;
+
+        // Param type.
         param_type_t    param_type = param_type_t::__default__;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime assembly.
     class rt_assembly_t : public rt_object_t
                         , public rt_metadata_object_t<__tidx_t::assembly>
                         , public object_t
     {
     public:
+
+        // Converts res_t to sid.
         virtual rt_sid_t to_sid(res_t s) = 0;
+
+        // Converts string to sid.
+        virtual rt_sid_t to_sid(const string_t & s) = 0;
+
+        // Returns name.
         virtual rt_sid_t get_name() = 0;
 
+        // Gets entity point.
         virtual rt_method_t * get_entry_point() = 0;
+
+        // Gets method body.
         virtual rt_bytes_t get_method_body(rt_method_t * method) = 0;
-        virtual rt_sid_t get_name(rt_type_t * type) = 0;
-        virtual rt_sid_t get_name(rt_method_t * method) = 0;
+
+        // Gets field name.
         virtual rt_sid_t get_name(rt_field_t * field) = 0;
 
-        virtual rt_method_ref_t * get_method_ref(ref_t ref) = 0;
-        virtual rt_field_ref_t * get_field_ref(ref_t ref) = 0;
-        virtual rt_type_ref_t * get_type_ref(ref_t ref) = 0;
-        virtual rt_assembly_ref_t * get_assembly_ref(ref_t ref) = 0;
+        // Gets method name.
+        virtual rt_sid_t get_name(rt_method_t * method) = 0;
 
+        // Gets method ref.
+        virtual rt_method_ref_t * get_method_ref(ref_t method_ref) = 0;
+
+        // Gets field ref.
+        virtual rt_field_ref_t * get_field_ref(ref_t field_ref) = 0;
+
+        // Gets type ref.
+        virtual rt_type_ref_t * get_type_ref(ref_t type_ref) = 0;
+
+        // Gets assembly ref.
+        virtual rt_assembly_ref_t * get_assembly_ref(ref_t assembly_ref) = 0;
+
+        // Gets name.
         virtual rt_sid_t get_name(rt_assembly_ref_t * assembly_ref) = 0;
+
+        // Gets package.
         virtual rt_sid_t get_package(rt_assembly_ref_t * assembly_ref) = 0;
 
+        // Gets general type.
         virtual rt_general_type_t * get_type(ref_t ref) = 0;
+
+        // Gets general type.
         virtual rt_general_type_t * get_type(rt_sid_t ns, rt_sid_t name,
                                             int generic_param_count) = 0;
+
+        // Gets name of general type.
         virtual rt_sid_t get_name(rt_general_type_t * type) = 0;
 
+        // Gets array type.
         virtual rt_array_type_t * get_array_type(ref_t ref) = 0;
+
+        // Gets generic type.
         virtual rt_generic_type_t * get_generic_type(ref_t ref) = 0;
 
+        // Gets method.
         virtual rt_method_t * get_method(ref_t ref) = 0;
+
+        // Gets param.
         virtual rt_field_t  * get_field(ref_t ref) = 0;
+
+        // Gets generic method.
         virtual rt_param_t  * get_param(ref_t param_ref) = 0;
 
+        // Gets generic method.
+        virtual rt_generic_method_t * get_generic_method(ref_t ref) = 0;
+
+        // Gets generic argument.
+        virtual rt_generic_argument_t * get_generic_argument(ref_t ref) = 0;
+
+        // Gets super type.
         virtual rt_super_type_t * get_super_type(ref_t ref) = 0;
+
+        // Gets nest ype.
         virtual rt_nest_type_t  * get_nest_type(ref_t ref) = 0;
 
+        // Callback function for enums members.
         template<__tidx_t tidx>
         using each_func_t = std::function<bool(int index, rt_mt_t<tidx> & mt)>;
 
+        // Enums all methods.
         typedef each_func_t<__tidx_t::method> __each_method_func_t;
         virtual bool each_methods(ref_t methods, __each_method_func_t f) = 0;
 
+        // Enums all fields.
         typedef each_func_t<__tidx_t::field> __each_field_func_t;
         virtual bool each_fields(ref_t field, __each_field_func_t f) = 0;
 
+        // Enums all params.
         typedef each_func_t<__tidx_t::param> __each_param_func_t;
         virtual bool each_params(ref_t params, __each_param_func_t f) = 0;
 
+        // Gets host type by method ref.
         virtual rt_general_type_t * get_host_by_method_ref(ref_t method_ref) = 0;
-        virtual rt_general_type_t * get_host_by_method(rt_method_t * method) = 0;
-        virtual rt_general_type_t * get_host_by_field_ref(ref_t field_ref) = 0;
-        virtual rt_general_type_t * get_host_by_field(rt_field_t * field) = 0;
 
+        // Gets host type by field ref.
+        virtual rt_general_type_t * get_host_by_field_ref(ref_t field_ref) = 0;
+
+        // Gets method ref param.
         virtual rt_method_ref_param_t * get_method_ref_param(ref_t ref) = 0;
 
         int index = -1;
@@ -769,31 +1338,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-    namespace
-    {
-        template<__tidx_t tidx>
-        struct __type_wrap_t
-        {
-            typedef rt_entity_t<tidx> __entity_t;
-
-            rt_vtable_t *  vtbl = nullptr;
-            __entity_t     type;
-        };
-    }
-
-    template<> struct rt_mt_t<__tidx_t::type> : __rt_mt_base_t<__tidx_t::type>
-    {
-        typedef __rt_mt_base_t<tidx>    __super_t;
-        typedef __type_wrap_t<tidx>     __wrap_t;
-
-        using __super_t::__super_t;
-
-        static __entity_t * new_entity(memory_t * memory)
-        {
-            return &memory_t::new_obj<__wrap_t>(memory)->type;
-        }
-    };
-
+    // Gets virtual table.
     template<typename _type_t>
     rt_vtable_t * get_vtable(_type_t * type)
     {
@@ -802,6 +1347,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return *((rt_vtable_t **)type - 1);
     }
 
+    // Sets virtual table.
     template<typename _type_t>
     void set_vtable(_type_t * type, rt_vtable_t * vtbl)
     {
@@ -810,211 +1356,387 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         *((rt_vtable_t **)type - 1) = vtbl;
     }
 
-    ////////// ////////// ////////// ////////// //////////
-
-    template<typename _key_t, typename ... _values_t>
-    class rt_pool_partial_t
-    {
-        typedef _key_t __key_t;
-        typedef std::tuple<_values_t ...> __value_t;
-
-    public:
-        __value_t * get(const __key_t & key)
-        {
-            auto it = __map.find(key);
-            if(it == __map.end())
-                return nullptr;
-
-            return &it->second;
-        }
-
-        template<typename creator_t>
-        __value_t get(const __key_t & key, creator_t f)
-        {
-            __value_t * value = get(key);
-            if(value != nullptr)
-                return *value;
-
-            __value_t new_value = f();
-            __map[key] = new_value;
-
-            return new_value;
-        }
-
-        void set(const __key_t & key, _values_t && ... values)
-        {
-            __map[key] = __value_t(std::forward<_values_t>(values) ...);
-        }
-
-    private:
-        std::map<__key_t, __value_t> __map;
-    };
-
     //-------- ---------- ---------- ---------- ----------
+    // method_prototype_t
 
-    namespace
-    {
-        typedef rt_pool_partial_t<
-            std::tuple<rt_method_t *, rt_assembly_t *, ref_t>,
-            rt_method_t *, rt_general_type_t *, rt_assembly_t *
-        > __rt_method_pool_partial_t;
-
-        typedef rt_pool_partial_t<
-            std::tuple<rt_field_t *, rt_assembly_t *, ref_t>,
-            rt_field_t *, rt_general_type_t *, rt_assembly_t *
-        > __rt_field_pool_partial_t;
-    }
-
-    class rt_pool_t : public object_t, public no_copy_ctor_t
-                    , __rt_method_pool_partial_t
-                    , __rt_field_pool_partial_t
-    {
-    public:
-        using __rt_method_pool_partial_t::get;
-        using __rt_field_pool_partial_t::get;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    X_INTERFACE rt_assembly_provider_t : public object_t
-    {
-        virtual rt_assembly_t * load_main_assembly() = 0;
-        virtual rt_assembly_t * load_assembly(const string_t & package, const string_t & name) = 0;
-        virtual rt_assembly_t * at(int index) = 0;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
+    // Method prototype.
     struct method_prototype_t
     {
         typedef al::small_vector_t<rt_ptype_t, 8> __ptypes;
 
-        rt_sid_t        name;
-        rt_type_t *     return_type;
-        __ptypes        arg_types;
-        int             generic_param_count;
+        rt_sid_t        name;                   // Method property.
+        rt_type_t *     return_type;            // Return type.
+        __ptypes        arg_types;              // Argument types.
+        int             generic_param_count;    // Generic param count.
 
+        // Returns param count.
         int param_count() const { return arg_types.size(); }
     };
 
     //-------- ---------- ---------- ---------- ----------
+    // analyzer_env_t
 
+    // Analyze environment.
+    class analyzer_env_t : public object_t
+    {
+        typedef analyzer_env_t  __self_t;
+        typedef object_t        __super_t;
+
+    public:
+
+        // Constructor.
+        analyzer_env_t(memory_t * memory, rt_pool_t & rpool, rt_assemblies_t & assemblies)
+            : rpool(rpool), assemblies(assemblies), memory(memory)
+        {
+            _A(memory  != nullptr);
+        }
+
+        rt_pool_t &         rpool;          // Runtime pool.
+        rt_assemblies_t &   assemblies;     // Assemblies.
+        memory_t *          memory;         // Memory managerment.
+
+        // Returns memory managerment.
+        memory_t * get_memory() { return this->memory; }
+    };
+
+    // Converts rt_context_t to analyze_env_t.
+    X_INLINE analyzer_env_t to_env(rt_context_t & ctx)
+    {
+        return analyzer_env_t(ctx.memory, ctx.rpool, ctx.assemblies);
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+    // assembly_analyzer_t
+
+    // Assembly analyzer.
     class assembly_analyzer_t : public object_t
     {
         typedef assembly_analyzer_t __self_t;
-        typedef object_t            __super_t;
+        typedef analyzer_env_t      __super_t;
 
     public:
-        assembly_analyzer_t(rt_pool_t & pool, rt_assembly_t * current,
-            rt_assembly_provider_t * assembly_provider, memory_t * memory)
-            : __pool(pool), current(current), assembly_provider(assembly_provider)
-            , memory(memory)
+
+        // Constructor.
+        assembly_analyzer_t(analyzer_env_t & env, rt_assembly_t * current)
+            : env(env), current(current)
         {
             _A(current != nullptr);
-            _A(assembly_provider != nullptr);
-            _A(memory != nullptr);
         }
 
+        // Constructor.
         assembly_analyzer_t(assembly_analyzer_t & prototype, rt_assembly_t * current)
-            : assembly_analyzer_t(prototype.__pool, current, prototype.assembly_provider,
-              prototype.memory)
+            : assembly_analyzer_t(prototype.env, current)
         { }
 
-        rt_assembly_t *             current;
-        rt_assembly_provider_t *    assembly_provider;
-        memory_t *                  memory;
+        analyzer_env_t & env;           // Analyze environment.
+        rt_assembly_t  * current;       // Current assembly.
 
+        // Gets sid by res.
         rt_sid_t to_sid(res_t res) { return __to_sid(res); }
 
-        rt_assembly_t * get_assembly_by_method_ref(ref_t ref,
-            rt_general_type_t ** out_type = nullptr, rt_method_ref_t ** out_method_ref = nullptr);
+        // Gets sid by string.
+        rt_sid_t to_sid(const string_t & s);
 
-        rt_assembly_t * get_assembly_by_field_ref(ref_t ref,
-            rt_general_type_t ** out_type = nullptr, rt_field_ref_t ** out_field_ref = nullptr);
+        // Gets name of runtime type.
+        rt_sid_t get_name(rt_type_t * type);
 
-        rt_assembly_t * get_assembly(rt_method_ref_t * rt, rt_general_type_t ** out_type = nullptr);
-        rt_assembly_t * get_assembly(rt_field_ref_t * rt, rt_general_type_t ** out_type = nullptr);
-        rt_assembly_t * get_assembly(mt_method_ref_t * mt, rt_general_type_t ** out_type = nullptr);
-        rt_assembly_t * get_assembly(mt_field_ref_t * mt, rt_general_type_t ** out_type = nullptr);
-        rt_assembly_t * get_assembly_by_type_ref(ref_t ref, rt_general_type_t ** out_type = nullptr);
-        rt_assembly_t * get_assembly(rt_type_ref_t * rt, rt_general_type_t ** out_type = nullptr);
+        // Gets name of runtime method.
+        rt_sid_t get_name(rt_method_t * method);
 
+        // Gets name of runtime generic method.
+        rt_sid_t get_name(rt_generic_method_t * method);
+
+        // Gets host type by method ref.
+        rt_type_t * get_host_type_by_method_ref(ref_t method_ref,
+                                rt_method_ref_t ** out_method_ref = nullptr);
+
+        // Gets host type field ref.
+        rt_type_t * get_host_type_by_field_ref(ref_t field_ref,
+                                rt_field_ref_t ** out_field_ref = nullptr);
+
+        // Gets host type by method ref.
+        rt_type_t * get_host_type(rt_method_ref_t * rt);
+
+        // Gets host type by field ref.
+        rt_type_t * get_host_type(rt_field_ref_t * rt);
+
+        // Gets host type by method metadata.
+        rt_type_t * get_host_type(mt_method_ref_t * mt);
+
+        // Gets host type by field metadata.
+        rt_type_t * get_host_type(mt_field_ref_t * mt);
+
+        // Gets assembly by type ref.
         rt_assembly_t * get_assembly(mt_type_ref_t * mt);
-        rt_assembly_t * get_assembly_by_assembly_ref(ref_t ref);
+
+        // Gets assembly by assembly ref.
+        rt_assembly_t * get_assembly(ref_t assembly_ref);
+
+        // Gets assembly by runtime assembly ref.
         rt_assembly_t * get_assembly(rt_assembly_ref_t * rt);
+
+        // Gets assembly by assembly ref metadata.
         rt_assembly_t * get_assembly(mt_assembly_ref_t * mt);
 
-        rt_general_type_t * get_general_type(ref_t type_ref, rt_assembly_t ** out_assembly = nullptr);
-        rt_type_t * get_type(ref_t type_ref, rt_assembly_t ** out_assembly = nullptr);
+        // Gets type by type ref.
+        rt_type_t * get_type(ref_t type_ref);
 
-        rt_method_t * get_method(ref_t method_ref,
-            rt_general_type_t ** out_type = nullptr, rt_assembly_t ** out_assembly = nullptr
-        );
+        // Gets method by method ref.
+        rt_method_t * get_method(ref_t method_ref);
 
-        rt_field_t * get_field(ref_t field_ref,
-            rt_general_type_t ** out_type = nullptr, rt_assembly_t ** out_assembly = nullptr
-        );
+        // Gets generic method by method ref.
+        rt_generic_method_t * get_generic_method(ref_t method_ref);
 
+        // Gets field by field ref.
+        rt_field_t * get_field(ref_t field_ref, rt_type_t ** out_type = nullptr);
+
+        // Returns char_t * by resource.
         const char_t * to_cstr(res_t res)
         {
             return __to_sid(res).c_str();
         }
 
-        rt_pool_t & get_pool() { return __pool; }
+        // Returns runtime pool.
+        rt_pool_t & get_pool() { return env.rpool; }
+
+        // Returns size of type.
         msize_t size_of(ref_t type, storage_type_t * out_storage_type = nullptr);
+
+        // Returns size of type.
         msize_t size_of(rt_type_t * type, storage_type_t * out_storage_type = nullptr);
 
+        // Returns variable size.
         msize_t variable_size_of(ref_t type_ref, storage_type_t * out_storage_type = nullptr);
+
+        // Returns variable size.
         msize_t variable_size_of(rt_type_t * type, storage_type_t * out_storage_type = nullptr);
 
-        rt_type_t * get_base_type(rt_type_t * type,
-                                  rt_assembly_t ** out_assembly = nullptr);
+        // Gets base type.
+        rt_type_t * get_base_type(rt_type_t * type);
 
+        // Gets type size.
         msize_t get_type_size(ref_t type_ref);
+
+        // Gets field offset.
         msize_t get_field_offset(ref_t field_ref);
 
-        int get_virtual_method_offset(assembly_analyzer_t & analyzer, rt_type_t * rt_type,
-                                                                      ref_t method_ref);
+        // Gets virtual method offset.
+        int get_virtual_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref);
 
+        // Gets prototype of method ref.
         void get_prototype(ref_t method_ref, method_prototype_t * out_prototype);
+
+        // Gets prototype of runtime method.
         void get_prototype(rt_method_t * rt_method, method_prototype_t * out_prototype);
 
     private:
-        rt_pool_t & __pool;
 
+        // Returns whether it's current method.
         bool __is_current(rt_assembly_t * assembly) { return assembly == this->current; }
+
+        // Returns sid of specified res.
         rt_sid_t __to_sid(res_t res) { return current->to_sid(res); }
 
+        // Compare method.
         bool __compare_method(rt_assembly_t * rt_assembly, rt_mt_t<__tidx_t::method> & mt,
             rt_sid_t name, int generic_param_count, rt_type_t * return_type,
             int param_count, rt_ptype_t * params);
 
+        // Binds to specified assembly.
         __self_t __bind(rt_assembly_t * current)
         {
-            return __self_t(*this, current);
+            return __self_t((analyzer_env_t &)*this, current);
         }
 
-        rt_method_t * __get_method(ref_t method_ref,
-            rt_general_type_t ** out_type, rt_assembly_t ** out_assembly
-        );
+        // Gets method by method ref.
+        rt_method_t * __get_method(ref_t method_ref);
 
-        rt_field_t * __get_field(ref_t field_ref,
-            rt_general_type_t ** out_type, rt_assembly_t ** out_assembly
-        );
+        // Gets field by field ref.
+        rt_field_t  * __get_field(ref_t field_ref, rt_type_t ** out_type);
 
+        // Joins method name.
         string_t __join_method_name(rt_assembly_t * assembly,
-            rt_general_type_t * type, mt_method_ref_t * mt_method, rt_ptype_t * ptypes);
+            rt_type_t * type, mt_method_ref_t * mt_method, rt_ptype_t * ptypes);
 
+        // Joins field name.
         string_t __join_field_name(rt_assembly_t * assembly,
-            rt_general_type_t * type, mt_field_ref_t * mt_field_ref);
+            rt_type_t * type, mt_field_ref_t * mt_field_ref);
     };
+
+    // Converts to assembly analyzer.
+    assembly_analyzer_t to_analyzer(analyzer_env_t & env, rt_type_t * rt_type);
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Joins assembly name.
     string_t join_assembly_name(const string_t & package, const string_t & name);
 
+    // Builds virtual table.
     rt_vtable_t * build_vtable(memory_t * memory, assembly_analyzer_t & analyzer,
                                                   rt_type_t & rt_type);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    namespace
+    {
+        // Type wrapper for creating type entity.
+        template<__tidx_t tidx>
+        struct __type_wrap_t
+        {
+            typedef rt_entity_t<tidx> __entity_t;
+
+            template<typename ... args_t>
+            __type_wrap_t(args_t && ... args) : type(std::forward<args_t>(args) ...) { }
+
+            rt_vtable_t *  vtbl = nullptr;
+            __entity_t     type;
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+
+        // Base class for creating type entity.
+        template<__tidx_t _tidx> struct __t_type_rt_mt_base_t : __rt_mt_base_t<_tidx>
+        {
+            typedef __rt_mt_base_t<_tidx>   __super_t;
+            typedef rt_entity_t<_tidx>      __entity_t;
+            typedef __type_wrap_t<_tidx>    __wrap_t;
+
+            using __super_t::__super_t;
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+
+        // Base class for creating type entity.
+        template<__tidx_t _tidx> struct __type_rt_mt_base_t : __t_type_rt_mt_base_t<_tidx>
+        {
+            typedef __type_rt_mt_base_t<_tidx> __self_t;
+            typedef rt_mt_t<_tidx>             __mt_t;
+
+            typedef __t_type_rt_mt_base_t<_tidx> __super_t;
+            using __super_t::__super_t;
+
+            // Creates a new entity.
+            static typename __super_t::__entity_t * new_entity(
+                    rt_context_t & ctx, ref_t ref, __mt_t * mt, rt_assembly_t * rt_assembly)
+            {
+                typedef typename __super_t::__wrap_t wrap_t;
+                auto entity = &memory_t::new_obj<wrap_t>(ctx.memory, rt_assembly)->type;
+                entity->mt = mt;
+
+                return entity;
+            }
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+        // general type
+
+        // Base class for creating general type entity.
+        template<> struct __type_rt_mt_base_t<__tidx_t::type>
+            : __t_type_rt_mt_base_t<__tidx_t::type>
+        {
+            typedef __type_rt_mt_base_t<__tidx_t::type> __self_t;
+            typedef rt_mt_t<__tidx_t::type>             __mt_t;
+
+            typedef __t_type_rt_mt_base_t<__tidx_t::type> __super_t;
+            using __super_t::__super_t;
+
+            static typename __super_t::__entity_t * new_entity(
+                    rt_context_t & ctx, ref_t ref, __mt_t * mt, rt_assembly_t * assembly)
+            {
+                typedef typename __super_t::__wrap_t wrap_t;
+                auto entity = &memory_t::new_obj<wrap_t>(ctx.memory, assembly)->type;
+                entity->mt = mt;
+
+                return entity;
+            }
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+        // array type
+
+        // Base class for creating array type.
+        template<> struct __type_rt_mt_base_t<__tidx_t::array_type>
+            : __t_type_rt_mt_base_t<__tidx_t::array_type>
+        {
+            typedef __type_rt_mt_base_t<__tidx_t::array_type> __self_t;
+            typedef rt_mt_t<__tidx_t::array_type>             __mt_t;
+
+            typedef __t_type_rt_mt_base_t<__tidx_t::array_type> __super_t;
+            using __super_t::__super_t;
+
+            static typename __super_t::__entity_t * new_entity(
+                    rt_context_t & ctx, ref_t ref, __mt_t * mt, rt_assembly_t * rt_assembly)
+            {
+                typedef typename __super_t::__wrap_t wrap_t;
+                auto entity = &memory_t::new_obj<wrap_t>(ctx.memory)->type;
+                entity->mt = mt;
+
+                return entity;
+            }
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+        // generic type
+
+        // Base class for creating generic type.
+        template<> struct __type_rt_mt_base_t<__tidx_t::generic_type>
+            : __t_type_rt_mt_base_t<__tidx_t::generic_type>
+        {
+            typedef __type_rt_mt_base_t<__tidx_t::generic_type> __self_t;
+            typedef rt_mt_t<__tidx_t::generic_type>             __mt_t;
+
+            typedef __t_type_rt_mt_base_t<__tidx_t::generic_type> __super_t;
+            using __super_t::__super_t;
+
+            static typename __super_t::__entity_t * new_entity(
+                    rt_context_t & ctx, ref_t ref, __mt_t * mt, rt_assembly_t * rt_assembly)
+            {
+                auto entity = &memory_t::new_obj<typename __super_t::__wrap_t>(ctx.memory)->type;
+                entity->mt = mt;
+
+                return entity;
+            }
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+    }
+
+    #define __DefineTypeRtMt(type)                \
+        template<> struct rt_mt_t<__tidx_t::type> : __type_rt_mt_base_t<__tidx_t::type> { };
+
+    __DefineTypeRtMt(type)
+    __DefineTypeRtMt(array_type)
+    __DefineTypeRtMt(generic_type)
+
+    #undef __DefineTypeRtMt
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Runtime metadata for generic method.
+    template<> struct rt_mt_t<__tidx_t::generic_method> : __rt_mt_base_t<__tidx_t::generic_method>
+    {
+        typedef rt_mt_t<__tidx_t::generic_method> __self_t, __mt_t;
+        typedef __rt_mt_base_t<__tidx_t::generic_method> __super_t;
+
+        using __super_t::__super_t;
+
+        static rt_generic_method_t * new_entity(rt_context_t & ctx,
+                            ref_t ref, __mt_t * mt, rt_assembly_t * assembly);
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Runtime metadata for general method.
+    template<> struct rt_mt_t<__tidx_t::method> : __rt_mt_base_t<__tidx_t::method>
+    {
+        typedef rt_mt_t<__tidx_t::method> __self_t, __mt_t;
+        typedef __rt_mt_base_t<__tidx_t::method> __super_t;
+
+        using __super_t::__super_t;
+
+        static rt_method_t * new_entity(rt_context_t & ctx,
+                            ref_t ref, __mt_t * mt, rt_assembly_t * assembly);
+    };
 
     ////////// ////////// ////////// ////////// //////////
 

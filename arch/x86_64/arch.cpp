@@ -6,6 +6,7 @@ namespace X_ROOT_NS { namespace arch {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Prints current execute stack.
     X_NO_INLINE void print_stack()
     {
         void *buffer[1024];

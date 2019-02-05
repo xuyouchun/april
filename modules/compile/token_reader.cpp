@@ -11,6 +11,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Constructor.
     token_enumerator_base_t::token_enumerator_base_t(token_reader_context_t & context,
         lang_t * lang, const char_t * code, size_t length, ast_file_t * file)
        : __context(context), __lang(lang), __p(al::cptr(code, length)), __file(file)
@@ -19,17 +20,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(lang != nullptr);
     }
 
+    // Returns the last token.
     const token_t * token_enumerator_base_t::__last()
     {
         return __tokens.last();
     }
 
+    // Returns the last value.
     token_value_t token_enumerator_base_t::__last_value()
     {
         const token_t * w = __last();
         return w? w->value : unknown_token_value;
     }
 
+    // Skips whitespaces.
     bool token_enumerator_base_t::__skip_whitespace()
     {
         char_t c;
@@ -44,6 +48,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Creates new token error.
     token_error_t * token_enumerator_base_t::__new_token_error(token_error_code_t error_code,
         const char_t * error_message)
     {
@@ -53,6 +58,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Creates new token data.
     token_data_t * token_enumerator_base_t::__new_token_data(
         token_error_code_t error_code, const char_t * error_message)
     {
@@ -61,6 +67,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return data;
     }
 
+    // Creates new token data.
     token_data_t * token_enumerator_base_t::__new_token_data(
         cvalue_type_t value_type, const void * value,
         token_error_code_t error_code, const char_t * error_message)
@@ -85,6 +92,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return data;
     }
 
+    // Creates new token data.
     token_data_t * token_enumerator_base_t::__new_token_data(const tvalue_t & value,
         token_error_code_t error_code, const char_t * error_message)
     {
@@ -92,6 +100,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             error_code, error_message);
     }
 
+    // Creates new token data.
     token_data_t * token_enumerator_base_t::__new_token_data(const string_t & value,
         token_error_code_t error_code, const char_t * error_message)
     {
@@ -99,6 +108,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             error_code, error_message);
     }
 
+    // Creates a string.
     const char_t * token_enumerator_base_t::__new_string(const string_t & s)
     {
         char_t * s0 = __strings.acquire(s.length() + 1);
@@ -106,6 +116,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return s0;
     }
 
+    // Reads comment.
     token_data_t * token_enumerator_base_t::__read_line_comment()
     {
         char_t c;
@@ -119,6 +130,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Reads multi-line comment.
     token_data_t * token_enumerator_base_t::__read_multiline_comment()
     {
         char_t c;
@@ -134,6 +146,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __new_token_data(e_t::comment_end_missing);
     }
 
+    // Reads a number.
     token_data_t * token_enumerator_base_t::__read_number()
     {
         typedef al::parse_numeric_error_code_t ne_t;
@@ -161,6 +174,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __new_token_data(*value, error_code);
     }
 
+    // Reads a name.
     token_data_t * token_enumerator_base_t::__read_name()
     {
         while(al::is_word(*__p))
@@ -171,6 +185,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Reads unknown token.
     token_data_t * token_enumerator_base_t::__read_unknown()
     {
         char_t first_c = *(__p - 1);
@@ -189,6 +204,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __new_token_data(e_t::unknown_token);
     }
 
+    // Tries to escape char.
     bool token_enumerator_base_t::__try_escape_char(char_t * out_c)
     {
         switch(*__p++)
@@ -248,6 +264,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return true;
     }
 
+    // Reads a string.
     token_data_t * token_enumerator_base_t::__read_string()
     {
         char_t c, c1;
@@ -297,6 +314,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __new_token_data(s.str(), error_code, error_message);
     }
 
+    // Reads multi-line string.
     token_data_t * token_enumerator_base_t::__read_multiline_string()
     {
         char_t c, c1;
@@ -330,6 +348,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __new_token_data(s.str(), error_code, error_message);
     }
 
+    // Reads a char.
     token_data_t * token_enumerator_base_t::__read_char()
     {
         char_t c;
