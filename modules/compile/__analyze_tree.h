@@ -1399,7 +1399,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef analyze_matched_item_t __matched_item_t;
 
-    typedef al::small_vector_t<__matched_item_t, 2> matched_item_vector_t;
+    typedef al::svector_t<__matched_item_t, 2> matched_item_vector_t;
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1724,7 +1724,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __leafs_t __leafs;                          // Leafs
 
-        typedef al::small_vector_t<__stack_node_t *, 2> __stack_node_vector_t;
+        typedef al::svector_t<__stack_node_t *, 2> __stack_node_vector_t;
 
         //-------- ---------- ---------- ---------- ----------
 
@@ -1760,7 +1760,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             __stack_push_args_t & push_args;    // Push arguments.
 
-            al::small_vector_t<void *, 10> stack_paths;
+            al::svector_t<void *, 10> stack_paths;
             size_t record_stack_unit(const __stack_unit_t & unit);
 
             // Returns current state.
@@ -1808,7 +1808,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             analyze_normal_path_node_t * dst;
         };
 
-        typedef al::small_vector_t<__stack_item_t, 2> __stack_items_t;
+        typedef al::svector_t<__stack_item_t, 2> __stack_items_t;
 
         //-------- ---------- ---------- ---------- ----------
 

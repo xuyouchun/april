@@ -16,7 +16,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         namespace __ns = X_ROOT_NS::modules::core;
 
         template<typename t, size_t init_size = 2>
-        using __vector_t = al::small_vector_t<t, init_size>;
+        using __vector_t = al::svector_t<t, init_size>;
     }
 
     typedef int16_t element_value_t;
@@ -1875,8 +1875,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         operator string_t() const;
     };
 
-    typedef al::small_vector_t<atype_t, 8> atypes_t;
-    typedef al::small_vector_t<type_t *, 8> arg_types_t;
+    typedef al::svector_t<atype_t, 8> atypes_t;
+    typedef al::svector_t<type_t *, 8> arg_types_t;
 
     //-------- ---------- ---------- ---------- ----------
     // method_trait_t
@@ -2543,7 +2543,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     private:
         int __tbl_index = 0;
         al::xheap_t __heap;
-        al::small_vector_t<switch_table_t *, 2> __tables;
+        al::svector_t<switch_table_t *, 2> __tables;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2559,7 +2559,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void append(local_variable_t * variable);
 
     private:
-        al::small_vector_t<local_variable_t *, 5>  __variables;
+        al::svector_t<local_variable_t *, 5>  __variables;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -3042,9 +3042,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Member collection.
     template<typename _member_t, size_t size>
-    class __member_vector_t : public al::small_vector_t<_member_t, size>
+    class __member_vector_t : public al::svector_t<_member_t, size>
     {
-        typedef al::small_vector_t<_member_t, size> __super_t;
+        typedef al::svector_t<_member_t, size> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -3078,9 +3078,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Method member collection.
     template<size_t size>
-    class __member_vector_t<method_t *, size> : public al::small_vector_t<method_t *, size>
+    class __member_vector_t<method_t *, size> : public al::svector_t<method_t *, size>
     {
-        typedef al::small_vector_t<method_t *, size> __super_t;
+        typedef al::svector_t<method_t *, size> __super_t;
         typedef int __generic_args_count_t;
         typedef type_t * __owner_t;
 
@@ -3434,7 +3434,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // array_type_t
 
     typedef int16_t dimension_t;
-    typedef al::small_vector_t<dimension_t, 2> dimensions_t;
+    typedef al::svector_t<dimension_t, 2> dimensions_t;
 
     // Array type.
     class array_type_t : public type_t
@@ -6289,7 +6289,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
     private:
-        al::small_vector_t<xilx_t *, 10> __xilxes;
+        al::svector_t<xilx_t *, 10> __xilxes;
         statement_point_t * __points[(size_t)__point_type_t::__end__];
     };
 
@@ -6376,7 +6376,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             _xil_t  xil;
         };
 
-        typedef al::small_vector_t<xil_t *, 128> __xils_t;
+        typedef al::svector_t<xil_t *, 128> __xils_t;
         typedef __xil_wrapper_t<byte_t> __v_xw_t;
         typedef arch_int_t __i_t;
 

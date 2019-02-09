@@ -128,7 +128,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             }
         };
 
-        typedef al::small_vector_t<__partial_t *, 16> __partials_t;
+        typedef al::svector_t<__partial_t *, 16> __partials_t;
         typedef typename __partials_t::iterator __partial_iterator_t;
 
         // Local variable group.
@@ -226,7 +226,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             msize_t offset;
         };
 
-        typedef small_vector_t<__item_t, 32> __items_t;
+        typedef svector_t<__item_t, 32> __items_t;
         __items_t __items;
 
         msize_t __current_offset = 0;
@@ -269,7 +269,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             storage_type_t  storage_type;   // Storage type.
         };
 
-        typedef al::small_vector_t<__item_t, 32> __items_t;
+        typedef al::svector_t<__item_t, 32> __items_t;
 
         msize_t         __offset;           // Offset.
         storage_type_t  __storage_type;     // Storage type.

@@ -1356,7 +1356,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void revise_constructor(method_t & method, arguments_t * args, __el_t * node = nullptr)
         {
             method_t * base_ctor = __get_base_contructor(args, node);
-            al::small_vector_t<statement_t *, 16> statements;
+            al::svector_t<statement_t *, 16> statements;
 
             // super ctor
             if(base_ctor != nullptr)

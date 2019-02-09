@@ -531,7 +531,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 if(!method->is_extern())
                     __CplLogError(should_be_extern);
 
-                al::small_vector_t<const char_t *> not_allowed_list;
+                al::svector_t<const char_t *> not_allowed_list;
                 #define __NotAllowed(name)                                              \
                     if(method->is_##name())                                             \
                         not_allowed_list.push_back(_S(name));
@@ -662,7 +662,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if(!decorate.is_static || !enum_has_flag(decorate.access, access_value_t::public_))
                 __CplLogError(should_be_public_static);
 
-            al::small_vector_t<const char_t *> not_allowed_keywords;
+            al::svector_t<const char_t *> not_allowed_keywords;
 
             #define __CheckDecorate(name)                           \
                 do                                                  \

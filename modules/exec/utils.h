@@ -49,7 +49,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         exec_switch_table_t * get_table(int index);
 
     private:
-        al::small_vector_t<exec_switch_table_t *, 2> __tables;
+        al::svector_t<exec_switch_table_t *, 2> __tables;
     };
 
     ////////// ////////// ////////// ////////// //////////

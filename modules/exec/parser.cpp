@@ -160,7 +160,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         });
 
         // Read xils
-        al::small_vector_t<command_t *, 128> commands;
+        al::svector_t<command_t *, 128> commands;
 
         const xil_base_t * xil;
         reader.each_xil([&creating_ctx, &commands](const xil_base_t * xil) {

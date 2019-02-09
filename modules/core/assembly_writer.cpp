@@ -829,7 +829,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if(type_names.empty())
                 return mgr.current_null();
 
-            al::small_vector_t<type_t *> types;
+            al::svector_t<type_t *> types;
             al::transform(type_names, std::back_inserter(types),
                 [](type_name_t * type_name) { return type_name->type; }
             );

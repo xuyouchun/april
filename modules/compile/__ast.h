@@ -1400,7 +1400,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class general_type_name_t : public type_name_t
     {
     public:
-        typedef al::small_vector_t<type_name_unit_t *, 3> unit_list_t;
+        typedef al::svector_t<type_name_unit_t *, 3> unit_list_t;
         typedef typename unit_list_t::iterator unit_iterator_t;
 
         // Typename units.
@@ -1438,7 +1438,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
     public:
         type_name_t * element_type_name = nullptr;
-        al::small_vector_t<expression_t *, 2> dimensions;
+        al::svector_t<expression_t *, 2> dimensions;
 
         // Converts to a string.
         X_TO_STRING
@@ -2441,8 +2441,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class expression_ast_node_t : public __expression_ast_node_t
                                 , public expression_ast_t
     {
-        typedef analyze_stack_element_t         __el_t;
-        typedef al::small_vector_t<__el_t, 3>   __es_t;
+        typedef analyze_stack_element_t     __el_t;
+        typedef al::svector_t<__el_t, 3>    __es_t;
         typedef expression_ast_node_t       __self_t;
         typedef __expression_ast_node_t     __super_t;
 

@@ -973,28 +973,28 @@ namespace X_ROOT_NS { namespace algorithm {
     // Avoids allocates memory from the heap at first.
 
     template<typename t, size_t init_size = 10>
-    class small_vector_t : private memory_base_t
+    class svector_t : private memory_base_t
     {
-        typedef small_vector_t<t, init_size> __self_t;
+        typedef svector_t<t, init_size> __self_t;
 
     public:
         typedef t   value_type;
         typedef t * iterator;
 
         // Constructor, with specified memory management.
-        small_vector_t(memory_t * memory = nullptr)
+        svector_t(memory_t * memory = nullptr)
             : memory_base_t(memory), __p(__array)
         { }
 
         // Constructor with specified memory management and initialized elements.
-        small_vector_t(std::initializer_list<t> il, memory_t * memory = nullptr)
+        svector_t(std::initializer_list<t> il, memory_t * memory = nullptr)
             : memory_base_t(memory), __p(__array)
         {
             std::copy(il.begin(), il.end(), std::back_inserter(*this));
         }
 
         // Move constructor.
-        small_vector_t(__self_t && v)
+        svector_t(__self_t && v)
         {
             if(v.__is_in_array())            
             {
@@ -1013,7 +1013,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Copy constructor.
-        small_vector_t(const __self_t & v) : memory_base_t(v.__memory)
+        svector_t(const __self_t & v) : memory_base_t(v.__memory)
         {
             if(v.__is_in_array())            
             {
@@ -1192,7 +1192,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Destructor, free buffer if allocated on heap.
-        ~small_vector_t()
+        ~svector_t()
         {
             if(__buffer_start && !__is_in_array())
             {
@@ -1343,7 +1343,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
     private:
-        small_vector_t<item_t, init_size> __inner_vector;
+        svector_t<item_t, init_size> __inner_vector;
     };
 
     ////////// ////////// ////////// ////////// //////////

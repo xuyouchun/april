@@ -1362,7 +1362,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Method prototype.
     struct method_prototype_t
     {
-        typedef al::small_vector_t<rt_ptype_t, 8> __ptypes;
+        typedef al::svector_t<rt_ptype_t, 8> __ptypes;
 
         rt_sid_t        name;                   // Method property.
         rt_type_t *     return_type;            // Return type.

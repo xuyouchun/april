@@ -1370,7 +1370,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xpool_t &  __xpool;
 
         template<typename t> using __mt_list_t = std::vector<t>;
-        template<typename t> using __vector_t = al::small_vector_t<t>;
+        template<typename t> using __vector_t = al::svector_t<t>;
 
         type_t * __string_type = nullptr, * __type_type = nullptr;
 

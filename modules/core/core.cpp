@@ -854,7 +854,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts decorate_value_t to a string.
     decorate_value_t::operator string_t() const
     {
-        al::small_vector_t<const char_t * > ss;
+        al::svector_t<const char_t * > ss;
 
         #define __AppStr(name)  \
             do { if(is_##name) ss.push_back(_S(name)); } while(false)
@@ -1906,7 +1906,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns compatible type of types.
-    static type_t * __get_compatible_type(small_vector_t<type_t *> & types)
+    static type_t * __get_compatible_type(svector_t<type_t *> & types)
     {
         if(types.empty())
             return nullptr;
@@ -1944,7 +1944,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __method_compare_t::not_match;
 
         struct gp_match_t { generic_param_t * gparam; type_t * type; };
-        al::small_vector_t<gp_match_t, 8> gp_matches;
+        al::svector_t<gp_match_t, 8> gp_matches;
 
         __method_compare_t r = __method_compare_t::equals;
         for(size_t index = 0; index < param_count; index++)
@@ -1980,7 +1980,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             for(generic_param_t * gparam : *method->generic_params)
             {
-                al::small_vector_t<type_t *> types;
+                al::svector_t<type_t *> types;
                 for(gp_match_t & m : gp_matches)
                 {
                     if(m.gparam == gparam)
@@ -2093,7 +2093,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         struct mi_t { method_t * method; size_t ga_index = __empty_size; };
 
         mi_t __equaled_method { nullptr };
-        typedef al::small_vector_t<mi_t, 5> __methods_vector_t;
+        typedef al::svector_t<mi_t, 5> __methods_vector_t;
         __methods_vector_t __matched_methods;
         //__methods_vector_t __not_matched_methods;
 
@@ -2102,7 +2102,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             byte_t data[sizeof(arg_types_t)];
         };
 
-        al::small_vector_t<__arg_types_data_t, 8> __arg_types_list;
+        al::svector_t<__arg_types_data_t, 8> __arg_types_list;
 
         // Analyze method.
         void __analyze(method_t * method)

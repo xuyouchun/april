@@ -159,7 +159,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
         private:
-            al::small_vector_t<etype_t, 2> __eobjects;
+            al::svector_t<etype_t, 2> __eobjects;
         };
     }
 

@@ -11,7 +11,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         using namespace core;
 
         template<typename t, size_t init_size = 2>
-        using __vector_t = al::small_vector_t<t, init_size>;
+        using __vector_t = al::svector_t<t, init_size>;
 
         typedef statement_compile_context_t __context_t;
         typedef statement_exit_point_type_t __exit_point_type_t;
@@ -36,7 +36,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Statement group.
     class statement_group_t : public statement_base_t
     {
-        typedef al::small_vector_t<statement_t *, 2> __statements_t;
+        typedef al::svector_t<statement_t *, 2> __statements_t;
 
     public:
         typedef statement_t * value_type;
@@ -108,7 +108,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Defination statement.
     class defination_statement_t : public statement_base_t
     {
-        typedef al::small_vector_t<defination_statement_item_t *> items_t;
+        typedef al::svector_t<defination_statement_item_t *> items_t;
 
     public:
         typedef defination_statement_item_t * etype_t;
@@ -298,7 +298,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Case
     struct case_t : public eobject_t
     {
-        typedef al::small_vector_t<expression_t *, 2> __constants_t;
+        typedef al::svector_t<expression_t *, 2> __constants_t;
 
         __constants_t   constants;
         statements_t  * statements   = nullptr;
@@ -311,7 +311,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Switch statement.
     class switch_statement_t : public statement_base_t
     {
-        typedef al::small_vector_t<case_t *, 5> __cases_t;
+        typedef al::svector_t<case_t *, 5> __cases_t;
 
     public:
         expression_t *  expression = nullptr;
@@ -355,7 +355,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Try statement.
     class try_statement_t : public statement_base_t
     {
-        typedef al::small_vector_t<catch_t *> __catches_t;
+        typedef al::svector_t<catch_t *> __catches_t;
 
     public:
         statement_t * try_statement     =   nullptr;

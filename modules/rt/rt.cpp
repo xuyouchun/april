@@ -471,7 +471,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return assembly;
     }
 
-    typedef al::small_vector_t<rt_vfunction_t, 32> rt_vfunctions_t;
+    typedef al::svector_t<rt_vfunction_t, 32> rt_vfunctions_t;
 
     // Builds virtual table.
     static void __build_vtbl(assembly_analyzer_t & analyzer, rt_type_t * type,
@@ -556,7 +556,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         assembly_analyzer_t analyzer = __analyzer(env);
 
-        al::small_vector_t<rt_vfunction_t, 32> vfuncs;
+        al::svector_t<rt_vfunction_t, 32> vfuncs;
         rt::__build_vtbl(analyzer, this, vfuncs);
     }
 

@@ -1867,7 +1867,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __remove_redundance_empty_nodes(__remove_redundance_empty_node_args_t & args,
                                                         analyze_nodes_t & nodes)
         {
-            al::small_vector_t<analyze_empty_node_t *> removing_nodes;
+            al::svector_t<analyze_empty_node_t *> removing_nodes;
             for(analyze_node_t * node : nodes)
             {
                 analyze_empty_node_t * empty_node;
