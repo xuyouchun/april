@@ -11,7 +11,7 @@
         0xF0                // Hexadecimal
         123e+10             // Scientific notation
 
-        010101B             // Binary
+        0B010101            // Binary
         10F0H               // Hexadecimal
         123L                // Long integer
         123.456F            // Float
