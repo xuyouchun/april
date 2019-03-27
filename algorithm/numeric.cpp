@@ -107,6 +107,9 @@ namespace X_ROOT_NS { namespace algorithm {
             // Pushes a char to continue parsing operation.
             __AlwaysInline __e_t push(char_t c)
             {
+                if(!is_digit(c, __radix))
+                    return __e_t::format_error;
+
                 int n = digit_value(c);
                 if(__numeric > __prelimit || (__numeric == __prelimit && n > __prelimit_mod))
                     return __e_t::overflow;
@@ -161,6 +164,9 @@ namespace X_ROOT_NS { namespace algorithm {
                         __ec = c;
                         return __e_t::success;
                 }
+
+                if(!is_digit(c, 10))
+                    return __e_t::format_error;
 
                 int n = digit_value(c);
 
@@ -348,6 +354,7 @@ namespace X_ROOT_NS { namespace algorithm {
     ////////// ////////// ////////// ////////// //////////
 
     // Numeric parser.
+    template<typename _char_ptr_t>
     class __numeric_parser_t
     {
         // Enums to record properies of the numeric.
@@ -365,7 +372,7 @@ namespace X_ROOT_NS { namespace algorithm {
         enum __tf_t { tf_unknown, tf_int, tf_float, tf_double };
 
     public:
-        __numeric_parser_t(__cptr_t &p) : __p(p) { }
+        __numeric_parser_t(_char_ptr_t &p) : __p(p) { }
 
         // The paring operation.
         __AlwaysInline tvalue_t parse()
@@ -391,7 +398,7 @@ namespace X_ROOT_NS { namespace algorithm {
         int             __radix = 0;
         const char_t *  __e = nullptr;
         const char_t *  __point = nullptr;
-        __cptr_t &      __p;
+        _char_ptr_t &   __p;
 
         __e_t __error = __e_t::success;
 
@@ -399,9 +406,6 @@ namespace X_ROOT_NS { namespace algorithm {
         __AlwaysInline const char_t * __read_prefix()
         {
             const char_t * p_start = __do_read_prefix();
-
-            if(__radix == 0)
-                __radix = 10;
 
             if(__tp == tp_unknown)
                 __tp = tp_positive;
@@ -464,8 +468,16 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             const char_t * p_end = __do_continue_read();
 
+            if(__radix == 0)
+                __radix = 10;
+
             if(__ts == ts_unknown)
-                __ts = ts_signed;
+            {
+                if(__radix == 16)
+                    __ts = ts_unsigned;
+                else
+                    __ts = ts_signed;
+            }
 
             if(__tl == tl_unknown)
                 __tl = tl_default;
@@ -539,6 +551,12 @@ namespace X_ROOT_NS { namespace algorithm {
                             p_end = __p;
                         break;
 
+                    case _T('H'): case _T('h'):
+                        __set_radix(16);
+                        if(!p_end)
+                            p_end = __p;
+                        break;
+
                     case _T('\''):
                         if(!al::is_digit(*(__p - 1)))
                             __set_error(__e_t::format_error);
@@ -560,10 +578,7 @@ namespace X_ROOT_NS { namespace algorithm {
                         if(p_end)
                             __set_error(__e_t::format_error);
 
-                        if(!is_digit(c, __radix))
-                            __set_error(__e_t::format_error);
-
-                        break;
+                       break;
                 }
             }
         }
@@ -712,22 +727,24 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Parses the give char array to numeric.
     // Raise exception when parse fault.
-    tvalue_t parse_numeric(__cptr_t &p)
+    template<typename _char_ptr_t>
+    tvalue_t __parse_numeric(_char_ptr_t &p)
     {
         _A(p != nullptr);
         _A(p[0] != _T('\0'));
 
-        return __numeric_parser_t(p).parse();
+        return __numeric_parser_t<_char_ptr_t>(p).parse();
     }
 
     // Parses the give char array to numeric.
     // Returns the error code when parse fault.
-    __e_t try_parse_numeric(__cptr_t &p, tvalue_t * out_value)
+    template<typename _char_ptr_t>
+    __e_t __try_parse_numeric(_char_ptr_t &p, tvalue_t * out_value)
     {
         tvalue_t value;
         try
         {
-            value = parse_numeric(p);
+            value = __parse_numeric<_char_ptr_t>(p);
             if(out_value)
                 *out_value = value;
 
@@ -740,6 +757,32 @@ namespace X_ROOT_NS { namespace algorithm {
 
             return e.code;
         }
+    }
+
+    // Parses the give char array to numeric.
+    // Raise exception when parse fault.
+    tvalue_t parse_numeric(__cptr_t &p)
+    {
+        return __parse_numeric(p);
+    }
+
+    // Parses the give char array to numeric.
+    // Returns the error code when parse fault.
+    __e_t try_parse_numeric(__cptr_t &p, tvalue_t * out_value)
+    {
+        return __try_parse_numeric(p, out_value);
+    }
+
+    // Parses a string to a number.
+    tvalue_t parse_numeric(const char_t * s)
+    {
+        return __parse_numeric(s);
+    }
+
+    // Tries to parse a string to a number.
+    parse_numeric_error_code_t try_parse_numeric(const char_t * s, tvalue_t * out_value)
+    {
+        return __try_parse_numeric(s, out_value);
     }
 
     ////////// ////////// ////////// ////////// //////////

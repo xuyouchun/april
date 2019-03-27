@@ -28,6 +28,13 @@ namespace X_ROOT_NS { namespace algorithm {
     parse_numeric_error_code_t try_parse_numeric(
             cptr_t<char_t> &p, tvalue_t * out_value = nullptr);
 
+    // Parses a string to a number.
+    tvalue_t parse_numeric(const char_t * s);
+
+    // Tries to parse a string to a number.
+    parse_numeric_error_code_t try_parse_numeric(
+            const char_t * s, tvalue_t * out_value = nullptr);
+
     ////////// ////////// ////////// ////////// //////////
 
 } }  // X_ROOT_NS::algorithm
