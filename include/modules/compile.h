@@ -1181,6 +1181,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    struct compiler_result_t
+    {
+        compiler_result_t(assemblies_t * assemblies, size_t error_count)
+            : assemblies(assemblies), error_count(error_count)
+        { }
+
+        assemblies_t *  assemblies;
+        size_t          error_count;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Compiler.
     class compiler_t : public object_t
     {
@@ -1196,15 +1208,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ast_solution_t * build_ast(compile_context_t & context, solution_t * solution);
 
         // Compiles a solution.
-        assemblies_t * compile(compile_context_t & context, ast_solution_t * csolution,
+        compiler_result_t compile(compile_context_t & context, ast_solution_t * csolution,
                                             ref_assemblies_t * ref_assembilies = nullptr);
 
         // Compiles a solution.
-        assemblies_t * compile(memory_t * memory, solution_t * solution,
+        compiler_result_t compile(memory_t * memory, solution_t * solution,
                                                 assembly_writer_t * writer = nullptr);
 
         // Compiles a solution.
-        assemblies_t * compile(memory_t * memory, solution_t * solution,
+        compiler_result_t compile(memory_t * memory, solution_t * solution,
                                                 const string_t & output_path);
 
         // Returns global context.

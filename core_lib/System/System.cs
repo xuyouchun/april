@@ -42,7 +42,7 @@ class Array<T> : Array
 {
     public Void DoSomething()
     {
-        Console.Write("DoSomething\n");
+        //Console.Write("DoSomething\n");
     }
 };
 

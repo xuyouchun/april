@@ -82,8 +82,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         __solution->ref_assemblies.append_ref_assembly(ref_assembly);
     }
 
-    // Compiles.
-    void april_compiler_t::compile(const string_t & output_path)
+    // Compiles, returns true if succeed.
+    bool april_compiler_t::compile(const string_t & output_path)
     {
         if(__current_project != nullptr)
             throw _ED(__e_t::project_not_committed, __current_project);
@@ -96,7 +96,9 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             opath = __get_default_output_path();
 
         opath = lib::to_str(__bf::absolute(opath));
-        __compiler->compile(__get_memory(), __solution, opath);
+        compiler_result_t r = __compiler->compile(__get_memory(), __solution, opath);
+
+        return r.error_count == 0;
     }
 
     // Sets solution name.
@@ -207,21 +209,18 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     { }
 
     // Compiles.
-    void april_xcompiler_t::compile()
+    bool april_xcompiler_t::compile()
     {
         switch(__determine_compile_type())
         {
             case compile_file_type_t::solution:
-                __compile_solutions();
-                break;
+                return __compile_solutions();
 
             case compile_file_type_t::project:
-                __compile_projects();
-                break;
+                return __compile_projects();
 
             case compile_file_type_t::source:
-                __compile_sources();
-                break;
+                return __compile_sources();
 
             case compile_file_type_t::none:
             default:
@@ -230,11 +229,12 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     }
 
     // Runs specified assembly.
-    void april_xcompiler_t::run(const string_t & execute_assembly)
+    bool april_xcompiler_t::run(const string_t & execute_assembly)
     {
         try
         {
-            this->compile();
+            if(!this->compile())
+                return false;
         }
         catch(const logic_error_t<__e_t> & e)
         {
@@ -243,6 +243,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         }
 
         this->__run(execute_assembly);
+        return true;
     }
 
     // Runs specified assembly.
@@ -300,16 +301,23 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     }
 
     // Compile solutions.
-    void april_xcompiler_t::__compile_solutions()
+    bool april_xcompiler_t::__compile_solutions()
     {
+        bool result = true;
+
         __each_files([&](const __path_t & path) {
             if(file_type_of(path) == compile_file_type_t::solution)
-                __compile_solution((solution_config_t *)parse_config(&__xheap, path));
+            {
+                if(!__compile_solution((solution_config_t *)parse_config(&__xheap, path)))
+                    result = false;
+            }
         });
+
+        return result;
     }
 
     // Compiles solution.
-    void april_xcompiler_t::__compile_solution(solution_config_t * solution_config)
+    bool april_xcompiler_t::__compile_solution(solution_config_t * solution_config)
     {
         april_compiler_t compiler(solution_config->name);
         __init_compiler(compiler);
@@ -329,12 +337,14 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             cas.push_back(__record_project(project));
         }
 
-        compiler.compile(__options.output_path);
+        bool r = compiler.compile(__options.output_path);
         cas.commit();
+
+        return r;
     }
 
     // Compiles projects.
-    void april_xcompiler_t::__compile_projects()
+    bool april_xcompiler_t::__compile_projects()
     {
         april_compiler_t compiler;
         __init_compiler(compiler);
@@ -348,8 +358,10 @@ namespace X_ROOT_NS { namespace modules { namespace april {
                 );
         });
 
-        compiler.compile(__options.output_path);
+        bool r = compiler.compile(__options.output_path);
         cas.commit();
+
+        return r;
     }
 
     // Adds project.
@@ -369,7 +381,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     }
 
     // Compiles sources.
-    void april_xcompiler_t::__compile_sources()
+    bool april_xcompiler_t::__compile_sources()
     {
         april_compiler_t compiler;
         __init_compiler(compiler);
@@ -384,9 +396,10 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         compiler.commit_project();
         __project_cassembly_t * ca = __record_project(project);
 
-        compiler.compile(__options.output_path);
-
+        bool r = compiler.compile(__options.output_path);
         ca->commit();
+
+        return r;
     }
 
     // Gets assembly name.
@@ -462,7 +475,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     }
 
     // Gets assembly path.
-    lib::path_t april_xcompiler_t::__project_cassembly_t::get_assembly_path()
+    lib::path_t april_xcompiler_t::__project_cassembly_t::get_assembly_path() const
     {
         return __assembly_path;
     }
@@ -490,9 +503,6 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     // Gets the default executable assembly.
     april_xcompiler_t::__cassembly_t * april_xcompiler_t::__pick_default_execute_assembly()
     {
-        if(__cassemblies.empty())
-            throw _ED(__e_t::no_executable_assembly);
-
         std::vector<__cassembly_t *> cassemblies;
 
         for(__cassembly_t * cassembly : __cassemblies)
@@ -500,6 +510,9 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             if(cassembly->executable())
                 cassemblies.push_back(cassembly);
         }
+
+        if(cassemblies.empty())
+            throw _ED(__e_t::no_executable_assembly);
 
         if(cassemblies.size() == 1)
             return cassemblies[0];

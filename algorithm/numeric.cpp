@@ -725,7 +725,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     };
 
-    // Parses the give char array to numeric.
+    // Parses the given char array to number.
     // Raise exception when parse fault.
     template<typename _char_ptr_t>
     tvalue_t __parse_numeric(_char_ptr_t &p)
@@ -736,7 +736,7 @@ namespace X_ROOT_NS { namespace algorithm {
         return __numeric_parser_t<_char_ptr_t>(p).parse();
     }
 
-    // Parses the give char array to numeric.
+    // Parses the given char array to number.
     // Returns the error code when parse fault.
     template<typename _char_ptr_t>
     __e_t __try_parse_numeric(_char_ptr_t &p, tvalue_t * out_value)
@@ -759,27 +759,29 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     }
 
-    // Parses the give char array to numeric.
+    // Parses the given char array to number.
     // Raise exception when parse fault.
     tvalue_t parse_numeric(__cptr_t &p)
     {
         return __parse_numeric(p);
     }
 
-    // Parses the give char array to numeric.
+    // Parses the given char array to number.
     // Returns the error code when parse fault.
     __e_t try_parse_numeric(__cptr_t &p, tvalue_t * out_value)
     {
         return __try_parse_numeric(p, out_value);
     }
 
-    // Parses a string to a number.
+    // Parses a string to number.
+    // Raise exception when parse fault.
     tvalue_t parse_numeric(const char_t * s)
     {
         return __parse_numeric(s);
     }
 
-    // Tries to parse a string to a number.
+    // Parses a string to number.
+    // Returns the error code when parse fault.
     parse_numeric_error_code_t try_parse_numeric(const char_t * s, tvalue_t * out_value)
     {
         return __try_parse_numeric(s, out_value);

@@ -720,7 +720,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Compiles a solution.
-    assemblies_t * compiler_t::compile(compile_context_t & context, ast_solution_t * csolution,
+    compiler_result_t compiler_t::compile(compile_context_t & context, ast_solution_t * csolution,
                                                         ref_assemblies_t * ref_assemblies)
     {
         _A(csolution != nullptr);
@@ -737,11 +737,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
-        return assemblies;
+        return compiler_result_t(assemblies, context.error_count());
     }
 
     // Compiles solution.
-    assemblies_t * compiler_t::compile(memory_t * memory, solution_t * solution,
+    compiler_result_t compiler_t::compile(memory_t * memory, solution_t * solution,
                                                         const string_t & output_path)
     {
         file_assembly_writer_t * writer = memory_t::new_obj<file_assembly_writer_t>(
@@ -804,7 +804,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Compiles solution.
-    assemblies_t * compiler_t::compile(memory_t * memory, solution_t * solution,
+    compiler_result_t compiler_t::compile(memory_t * memory, solution_t * solution,
                                                     assembly_writer_t * writer)
     {
         _A(solution != nullptr);

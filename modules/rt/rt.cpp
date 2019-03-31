@@ -1064,9 +1064,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_type_t * rt_type = get_host_type_by_method_ref(method_ref, &rt_method_ref);
         _A(rt_type != nullptr);
 
-        rt_assembly_t * rt_assembly = current; // rt_type->get_assembly();
-
+        rt_assembly_t * rt_assembly = rt_type->get_assembly();
         rt_method_t * rt_method;
+
         if(__is_current(rt_assembly))
         {
             rt_method = rt_assembly->get_method(method_ref);

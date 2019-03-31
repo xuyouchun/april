@@ -1434,7 +1434,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
     protected:
-        exec_method_t * __get_method(command_execute_context_t & ctx)
+        __AlwaysInline exec_method_t * __get_method(command_execute_context_t & ctx)
         {
             if(__method == nullptr)
                 __method = __parse_method(ctx);

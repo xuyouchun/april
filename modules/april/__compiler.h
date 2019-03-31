@@ -35,7 +35,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         void add_assembly(file_ref_assembly_t * ref_assembly);
 
         // Compiles.
-        void compile(const string_t & output_path);
+        bool compile(const string_t & output_path);
 
         // Sets solution name.
         void set_solution_name(const string_t & name);
@@ -82,11 +82,11 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         // Constructor.
         april_xcompiler_t(const __compile_options_t & options);
 
-        // Compile.
-        void compile();
+        // Compiles, returns true if succeed.
+        bool compile();
 
         // Run the specified assembly.
-        void run(const string_t & execute_assembly = _T(""));
+        bool run(const string_t & execute_assembly = _T(""));
 
     private:
         class __cassembly_t;
@@ -103,20 +103,20 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         template<typename f_t> void __each_files(f_t f);
 
         // Compile solutions.
-        void __compile_solutions();
+        bool __compile_solutions();
 
         // Compile specified solution.
-        void __compile_solution(solution_config_t * solution_config);
+        bool __compile_solution(solution_config_t * solution_config);
 
         // Compile projects.
-        void __compile_projects();
+        bool __compile_projects();
 
         // Adds a project.
         __project_cassembly_t * __add_project(april_compiler_t & compiler,
                                 project_config_t * project_config);
 
         // Compiles sources.
-        void __compile_sources();
+        bool __compile_sources();
 
         // Initialize compiler.
         void __init_compiler(april_compiler_t & compiler);
@@ -162,10 +162,15 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             bool executable();
 
             // Returns assembly path.
-            virtual lib::path_t get_assembly_path() = 0;
+            virtual lib::path_t get_assembly_path() const = 0;
 
             // Commits it.
             virtual void commit() = 0;
+
+            virtual const string_t to_string() const override
+            {
+                return _T("cassembly");
+            }
 
         protected:
             virtual __cassembly_executable_t is_executable() = 0;
@@ -191,10 +196,15 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             lib::path_t path;
 
             // Gets assembly path.
-            virtual lib::path_t get_assembly_path() override { return path; }
+            virtual lib::path_t get_assembly_path() const override { return path; }
 
             // Commits it.
             virtual void commit() override { }
+
+            virtual const string_t to_string() const override
+            {
+                return _F(_T("raw assembly: %1%"), get_assembly_path());
+            }
 
         protected:
 
@@ -219,10 +229,15 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             project_t * project;
 
             // Gets assembly path.
-            virtual lib::path_t get_assembly_path() override;
+            virtual lib::path_t get_assembly_path() const override;
 
             // Commits it.
             virtual void commit() override;
+
+            virtual const string_t to_string() const override
+            {
+                return _F(_T("project assembly: %1%"), get_assembly_path());
+            }
 
         protected:
 

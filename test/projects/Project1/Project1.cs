@@ -22,15 +22,17 @@ class Project1
         //arr.DoSomething();
         //arr.DoAnything();
 
-        StaticClass<long>.Call<int>(1, 2);
+        //StaticClass<long>.Call<int>(1, 2);
 
         //Class1 obj1 = new Class2();
         //int r = obj1.GetValue();
 
-        //Console.Print(r);
+        //Console.Write("Hello world");
+        Console.Print(100);
     }
 }
 
+/*
 static class StaticClass<T>
 {
     public static void Call<K>(T t, K k)
@@ -38,8 +40,8 @@ static class StaticClass<T>
         Console.Print(123);
     }
 };
+*/
 
-/*
 class Class1
 {
     public abstract int GetValue();
@@ -52,5 +54,3 @@ class Class2 : Class1
         return 20;
     }
 };
-
-*/

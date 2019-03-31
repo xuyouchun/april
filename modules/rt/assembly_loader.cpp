@@ -295,9 +295,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 throw __FormatError(_T("multiply assembly information"));
 
             rt_mt_t<__tidx_t::assembly> & mt_assembly = assembly_mgr[0];
-            __entry_point = __entity_at<__tidx_t::method>(mt_assembly.entry_point);
-
             __assembly.mt = &mt_assembly;
+
+            __entry_point = __entity_at<__tidx_t::method>(mt_assembly.entry_point);
         }
 
         //-------- ---------- ---------- ---------- ----------

@@ -16,7 +16,7 @@ namespace X_ROOT_NS { namespace modules {
     #define JC_MAX_HEAP_SIZE    (64 * 1024 * 1024)
 
     // Compiler attribute name.
-    #define JC_COMPILE_ATTRIBUTE_NAME _T("__") JC_ASSEMBLY_FLAG _T("__")
+    #define JC_COMPILE_ATTRIBUTE_NAME _T("__955825bf_d13a_4d1c_90d5_478e62ceaab6__")
 
     // Current assembly version.
     #define JC_VERSION          _T("0.1")

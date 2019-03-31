@@ -37,6 +37,8 @@ using namespace std::placeholders;
 int main(int argc, char ** argv)
 {
 
+    auto h = 123U;
+
     try
     {
         tvalue_t v = al::parse_numeric(_T("123HU"));
