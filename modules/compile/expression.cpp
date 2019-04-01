@@ -1324,9 +1324,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             ref_t method_ref = __search_method_ref(ctx, method);
 
-            _PF(_T("==== function call: %1%, %2%, %3%, %4%"), call_type, method->to_string(),
-                (mt_member_extra_t)method_ref.extra, method_ref
-            );
+            //_PF(_T("==== function call: %1%, %2%, %3%, %4%"), call_type, method->to_string(),
+            //    (mt_member_extra_t)method_ref.extra, method_ref
+            //);
 
             if(__left_is_base(this->parent) && call_type == xil_call_type_t::virtual_)
                 pool.append<__call_xil_t>(xil_call_type_t::instance, method_ref);

@@ -1456,6 +1456,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         method->mt = mt;
         method->host_type = analyzer.get_host_type_by_method_ref(ref);
 
+        _A(method->host_type != nullptr);
+
         return method;
     }
 

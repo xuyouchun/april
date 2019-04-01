@@ -22,7 +22,7 @@ __REL_MODULES = $(addsuffix .*, $(addprefix $(LIBS_PATH)/lib, $(REL_MODULES)))
 CC			  = $(CMD_CC)
 AR			  = $(CMD_AR)
 
-OPTIMIZE     ?= 0
+OPTIMIZE     ?= 2
 
 LDFLAGS      ?= $(GLOBAL_LDFLAGS) $(EXTERN_LDFLAGS)
 LIBS         ?= $(GLOBAL_LIBS) $(EXTERN_LIBS)

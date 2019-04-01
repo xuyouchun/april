@@ -60,6 +60,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Returns whether it's a ret command.
     bool is_ret_command(command_t * command);
 
+    void execute_commands(command_execute_context_t & ctx, command_t ** commands);
+
     ////////// ////////// ////////// ////////// //////////
 
 } } }

@@ -28,7 +28,16 @@ class Project1
         //int r = obj1.GetValue();
 
         //Console.Write("Hello world");
-        Console.Print(100);
+
+        int sum = 0;
+        int k;
+
+        for(k = 0; k < 100000000; k++)
+        {
+            sum += k;
+        }
+
+        Console.Print(sum);
     }
 }
 

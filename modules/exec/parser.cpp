@@ -121,7 +121,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         rt_type_t * type = method->get_host_type();
         assembly_analyzer_t analyzer = to_analyzer(env, type);
 
-        _PF(_T("parse_commands: %1%.%2%"), type->get_name(env), analyzer.get_name(method));
+        // _PF(_T("parse_commands: %1%.%2%"), type->get_name(env), analyzer.get_name(method));
 
         _A(method != nullptr);
 
@@ -169,7 +169,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             commands.push_back(command);
         });
 
-        command_t ** command_arr = memory_t::alloc_objs<command_t *>(memory, commands.size() + 1);
+        command_t ** command_arr = memory_t::alloc_objs<command_t *>(
+            memory, commands.size() + 1
+        );
+
         std::copy(commands.begin(), commands.end(), command_arr);
 
         if(commands.size() == 0 || !is_ret_command(commands[commands.size() - 1]))

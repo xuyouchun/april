@@ -131,46 +131,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         };
 
         command_execute_context_t exec_ctx(__ctx.heap, env);
-        __execute_method(exec_ctx, commands);
-    }
-
-    // Executes method.
-    void executor_t::__execute_method(command_execute_context_t & ctx, command_t ** commands)
-    {
-        ctx.current = commands;
-
-        try
-        {
-            _begin:
-
-            #define __ExecuteCmd        (*ctx.current++)->execute(ctx)
-
-            #if __Debug
-                #define __ExecuteCommand()                                      \
-                    _P((*ctx.current)->to_string(ctx));                         \
-                    __ExecuteCmd
-            #else
-                #define __ExecuteCommand()                                      \
-                    __ExecuteCmd
-            #endif
-
-            #define __ExecuteCommands()                                         \
-                __ExecuteCommand(); __ExecuteCommand(); __ExecuteCommand(); __ExecuteCommand();
-
-            __ExecuteCommands()
-            __ExecuteCommands()
-            __ExecuteCommands()
-            __ExecuteCommands()
-
-            #undef __ExecuteCommands
-            #undef __ExecuteCommand
-
-            goto _begin;
-        }
-        catch(logic_error_t<exec_env_code_t> & e)
-        {
-            // Exit
-        }
+        execute_commands(exec_ctx, commands);
     }
 
     ////////// ////////// ////////// ////////// //////////

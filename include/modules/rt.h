@@ -356,11 +356,21 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         typedef __unknown_entity_t entity_t;
     };
 
-    #define __RtEntity(tidx, _entity_t)             \
-        class _entity_t;                            \
-        template<> struct __rt_t<__tidx_t::tidx>    \
-        {                                           \
-            typedef _entity_t entity_t;             \
+    template<typename _entity_t> struct __rt_tidx_t
+    {
+        static const __tidx_t tidx = (__tidx_t)0;
+    };
+
+    #define __RtEntity(_tidx, _entity_t)                            \
+        class _entity_t;                                            \
+        template<> struct __rt_t<__tidx_t::_tidx>                   \
+        {                                                           \
+            typedef _entity_t entity_t;                             \
+        };                                                          \
+                                                                    \
+        template<> struct __rt_tidx_t<_entity_t>                    \
+        {                                                           \
+            static const __tidx_t tidx = __tidx_t::_tidx;           \
         };
 
     __RtEntity(assembly,            rt_assembly_t)
@@ -387,8 +397,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     __RtEntity(attribute_argument,  rt_attribute_argument_t)
     __RtEntity(method_ref_param,    rt_method_ref_param_t)
 
-    template<__tidx_t tidx>
-    using rt_entity_t = typename __rt_t<tidx>::entity_t;
+    template<__tidx_t _tidx>
+    using rt_entity_t = typename __rt_t<_tidx>::entity_t;
+
+    template<typename _entity_t> constexpr __tidx_t rt_tidx()
+    {
+        return __rt_tidx_t<_entity_t>::tidx;
+    }
 
     ////////// ////////// ////////// ////////// //////////
 

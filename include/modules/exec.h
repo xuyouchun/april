@@ -346,6 +346,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    typedef uint32_t cmd_value_t;
+
     // Command.
     class command_t
     {
@@ -354,8 +356,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     public:
 
+        cmd_value_t cmd_value = 0;
+
         // Executes this command.
         virtual void execute(command_execute_context_t & ctx) = 0;
+
+        // Returns command value.
+        virtual cmd_value_t get_cmd_value() = 0;
 
         // Returns this string.
         virtual const string_t to_string(command_execute_context_t & ctx) const = 0;
@@ -364,7 +371,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // exec_method_t
 
-    // Executes method.
+    // Executing method.
     class exec_method_t : public object_t
     {
     public:
@@ -452,9 +459,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     private:
         rt_context_t & __ctx;
-
-        // Executes method.
-        void __execute_method(command_execute_context_t & ctx, command_t ** commands);
     };
 
     ////////// ////////// ////////// ////////// //////////
