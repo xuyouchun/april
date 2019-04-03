@@ -30,9 +30,8 @@ class Project1
         //Console.Write("Hello world");
 
         int sum = 0;
-        int k;
 
-        for(k = 0; k < 100000000; k++)
+        for(int k = 0; k < 100000000; k++)
         {
             sum += k;
         }

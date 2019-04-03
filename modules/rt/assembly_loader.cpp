@@ -104,7 +104,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             if(it == __general_type_map.end())
                 return nullptr;
 
-            return __entity_at<__tidx_t::type>(**it);
+            return __entity_at<__tidx_t::type>(*it);
         }
 
         // A binary search algorithm for searching host type by member.
@@ -152,7 +152,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             if(it == type_mgr.end())
                 return nullptr;
 
-            return __entity_at<__tidx_t::type>(**it);
+            ref_t ref(it - type_mgr.begin());
+            return __entity_at<__tidx_t::type>(**it, ref);
         }
 
         // Gets metadata manager.
@@ -177,7 +178,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         std::map<res_t, rt_string_t> __string_map;  // String map.
 
         typedef std::tuple<rt_sid_t, rt_sid_t, int> __general_type_key_t;
-        al::fixed_map_t<__general_type_key_t, rt_mt_t<__tidx_t::type> *> __general_type_map;
+        al::fixed_map_t<__general_type_key_t, int> __general_type_map;
 
         // Metadata item with entity type.
         template<typename entity_t>
@@ -238,25 +239,18 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets entity at specified index.
         template<__tidx_t tidx> __entity_t<tidx> * __entity_at(int index)
         {
-            return __entity_at<tidx>(__metadata_at<tidx>(index));
+            return __entity_at<tidx>(__metadata_at<tidx>(index), ref_t(index));
         }
 
         // Gets entity by metadata.
-        template<__tidx_t tidx> __entity_t<tidx> * __entity_at(rt_mt_t<tidx> & mt)
+        template<__tidx_t tidx> __entity_t<tidx> * __entity_at(rt_mt_t<tidx> & mt, ref_t ref)
         {
             typedef __entity_t<tidx> entity_t;
 
             if(mt.rt_object == nullptr)
-                mt.rt_object = rt_mt_t<tidx>::new_entity(__ctx, __ref_of(mt), &mt, &__assembly);
+                mt.rt_object = rt_mt_t<tidx>::new_entity(__ctx, ref, &mt, &__assembly);
 
             return mt.rt_object;
-        }
-
-        // Returns reference of metadata.
-        template<__tidx_t tidx> ref_t __ref_of(rt_mt_t<tidx> & mt)
-        {
-            auto & mgr = __mt_manager<tidx>();
-            return ref_t(&mt - &mgr[0]);
         }
 
         // Returns entity at ref.
@@ -314,7 +308,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 rt_mt_t<__tidx_t::type> & mt = type_mgr[index];
                 __general_type_map.append(__general_type_key_t(
                         __to_sid(mt.namespace_), __to_sid(mt.name), (int)mt.generic_params.count
-                    ), &mt
+                    ), index
                 );
             }
 
