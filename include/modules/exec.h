@@ -17,6 +17,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __AlwaysInline X_ALWAYS_INLINE
 
+    #define EXEC_QUICK_EXECUTE          0
+    #define EXEC_TRACE                  1
+
     const size_t __default_stack_size = 1024 * 1024;
 
     ////////// ////////// ////////// ////////// //////////
@@ -356,16 +359,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     public:
 
+        #if EXEC_QUICK_EXECUTE
+
         cmd_value_t cmd_value = 0;
+
+        #else   // EXEC_QUICK_EXECUTE
 
         // Executes this command.
         virtual void execute(command_execute_context_t & ctx) = 0;
 
-        // Returns command value.
-        virtual cmd_value_t get_cmd_value() = 0;
-
         // Returns this string.
         virtual const string_t to_string(command_execute_context_t & ctx) const = 0;
+
+        #endif  // EXEC_TRACE
     };
 
     ////////// ////////// ////////// ////////// //////////

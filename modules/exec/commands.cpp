@@ -9,28 +9,43 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __AlwaysInline  X_ALWAYS_INLINE
     #define __Mv(x)         std::move(x)
 
+    #if EXEC_QUICK_EXECUTE
+
     #define __BeginExecute(_ctx, _cmd_value)                                    \
                                                                                 \
         static const cmd_value_t cmd_value = (cmd_value_t)_cmd_value;           \
                                                                                 \
-        virtual cmd_value_t get_cmd_value() override                            \
-        {                                                                       \
-            return cmd_value;                                                   \
-        }                                                                       \
-                                                                                \
-        __AlwaysInline void do_execute(command_execute_context_t & _ctx)        \
+        __AlwaysInline void execute(command_execute_context_t & _ctx)           \
         {
 
-    #define __EndExecute()                                                      \
-        }                                                                       \
+    #define __BeginToString(_ctx)                                               \
+        __AlwaysInline const string_t to_string(command_execute_context_t & _ctx)   \
+        {
+
+    #else   // EXEC_QUICK_EXECUTE
+
+    #define __BeginExecute(_ctx, _cmd_value)                                    \
                                                                                 \
         virtual void execute(command_execute_context_t & ctx) override          \
-        {                                                                       \
-            do_execute(ctx);                                                    \
+        {
+
+    #define __BeginToString(_ctx)                                               \
+                                                                                \
+        virtual const string_t to_string(command_execute_context_t & _ctx) const override    \
+        {
+
+    #endif  // EXEC_QUICK_EXECUTE
+
+    #define __EndExecute()                                                      \
+        }
+
+    #define __EndToString()                                                     \
         }
 
     #define __ToCmdValue(_cmd, value)                                           \
         ( ((cmd_value_t)(xil_command_t::_cmd) << 24) | (cmd_value_t)(value) )
+
+    #define __Cmd(value)    (value >> 24)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -49,7 +64,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     _cmd_t * __new_command(memory_t * memory, _args_t && ... args)
     {
         _cmd_t * cmd = memory_t::new_obj<_cmd_t>(memory, std::forward<_args_t>(args) ...);
+
+        #if EXEC_QUICK_EXECUTE
+        
         ((command_t *)cmd)->cmd_value = _cmd_t::cmd_value;
+
+        #endif
 
         return cmd;
     }
@@ -184,10 +204,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __command_base_t : public command_t
     {
     public:
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _T("[command]");
-        }
+
+        __EndToString()
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -202,10 +223,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _T("[empty]");
-        }
+
+        __EndToString()
     };
 
     __empty_command_t __empty_command;
@@ -218,7 +240,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
         __execute_end_command_t()
         {
+            #if EXEC_QUICK_EXECUTE
+
             __command_base_t::cmd_value = cmd_value;
+
+            #endif  // EXEC_QUICK_EXECUTE
         }
 
         __BeginExecute(ctx, 0)
@@ -227,10 +253,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
-            return _T("[end]");
-        }
+        __BeginToString(ctx)
+
+            return _T("end");
+        
+        __EndToString()
     };
 
     __execute_end_command_t __execute_end_command;
@@ -297,10 +324,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+
+        __BeginToString(ctx)
+
             return _F(_T("push constant %1%"), __value);
-        }
+
+        __EndToString()
 
     private:
         __value_t __value;
@@ -323,10 +352,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            virtual const string_t to_string(command_execute_context_t & ctx) const override \
-            {                                                                   \
+            __BeginToString(ctx)                                                \
+                                                                                \
                 return _F(_T("push %1% %2%"), xil_storage_type_t::s, __offset); \
-            }                                                                   \
+                                                                                \
+            __EndToString()                                                     \
                                                                                 \
             __BeginExecute(ctx, __ToPushCmdValue(s, xil_type_t::d))
 
@@ -387,10 +417,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            virtual const string_t to_string(command_execute_context_t & ctx) const override \
-            {                                                                   \
+            __BeginToString(ctx)                                                \
+                                                                                \
                 return _F(_T("push argument %1%"), __offset);                   \
-            }                                                                   \
+                                                                                \
+            __EndToString()                                                     \
                                                                                 \
             __BeginExecute(ctx, __ToPushCmdValue(argument, xil_type_t::d))
 
@@ -458,10 +489,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            virtual const string_t to_string(command_execute_context_t & ctx) const override \
-            {                                                                   \
+            __BeginToString(ctx)                                                \
+                                                                                \
                 return _F(_T("push field %1%"), __offset);                      \
-            }                                                                   \
+                                                                                \
+            __EndToString()                                                     \
                                                                                 \
             __BeginExecute(ctx, __ToPushCmdValue(field, xil_type_t::d))
 
@@ -521,10 +553,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _T("duplicate");
-        }
+
+        __EndToString()
 
     } __duplicate_command;
 
@@ -541,10 +574,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
         __push_command_t(dimension_t dimension) : __dimension(dimension) { }
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _F(_T("push array element (%1%)"), _xil_type);
-        }
+
+        __EndToString()
 
         __BeginExecute(ctx, __ToPushCmdValue(array_element, _xil_type))
 
@@ -834,10 +868,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __pop_command_t(__offset_t offset) : __offset(offset) { }           \
                                                                                 \
-            virtual const string_t to_string(command_execute_context_t & ctx) const override \
-            {                                                                   \
+            __BeginToString(ctx)                                                \
+                                                                                \
                 return _F(_T("pop %1% %2%"), xil_storage_type_t::s, __offset);  \
-            }                                                                   \
+                                                                                \
+            __EndToString()                                                     \
                                                                                 \
             __BeginExecute(ctx, __ToPopCmdValue(s, xil_type_t::d))
 
@@ -967,10 +1002,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
         __pop_command_t(dimension_t dimension) : __dimension(dimension) { }
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _F(_T("pop array element"));
-        }
+
+        __EndToString()
 
         __BeginExecute(ctx, __ToPopCmdValue(array_element, _xil_type))
 
@@ -1239,10 +1275,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:                                                                 \
             __pick_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            virtual const string_t to_string(command_execute_context_t & ctx) const override \
-            {                                                                   \
+            __BeginToString(ctx)                                                \
+                                                                                \
                 return _F(_T("pick %1% %2%"), xil_storage_type_t::s, __offset); \
-            }                                                                   \
+                                                                                \
+            __EndToString()                                                     \
                                                                                 \
             __BeginExecute(ctx, __ToPopCmdValue(s, xil_type_t::d))
 
@@ -1398,10 +1435,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _F(_T("call internal %1%"), (void *)__func);
-        }
+
+        __EndToString()
 
     private:
         int __stack_unit_size;
@@ -1490,10 +1528,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __call_command_base_t(_rt_method_t * rt_method) : __rt_method(rt_method)
         { }
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _F(_T("call %1%"), this->__get_name(ctx));
-        }
+
+        __EndToString()
 
     protected:
         __AlwaysInline exec_method_t * __get_method(command_execute_context_t & ctx)
@@ -1542,10 +1581,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _F(_T("call static %1%"), this->__get_name(ctx));
-        }
+
+        __EndToString()
     };
 
     template<typename _rt_method_t>
@@ -1614,10 +1654,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _F(_T("call instance %1%"), this->__get_name(ctx));
-        }
+
+        __EndToString()
     };
 
     template<typename _rt_method_t>
@@ -1695,10 +1736,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _F(_T("call virtual %1%"), __offset);
-        }
+
+        __EndToString()
 
         int __offset;
     };
@@ -1826,10 +1868,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _str(cmd);
-        }
+
+        __EndToString()
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1868,10 +1911,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             );
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _str(cmd);
-        }
+
+        __EndToString()
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2303,6 +2347,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __ToRetCmdValue(_ret_size)                                                  \
         __ToCmdValue(smp, ((cmd_value_t)xil_smp_t::ret << 8) | _ret_size)
 
+    #define __IsRetCmdValue(v)                                                          \
+        ( (xil_command_t)__Cmd(v) == xil_command_t::smp &&                              \
+        (xil_smp_t)((v & 0x0000FF00) >> 8) == xil_smp_t::ret )
+
     class __ret_command_base_t : public __command_base_t { };
 
     template<msize_t _ret_size>
@@ -2324,10 +2372,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _T("ret");
-        }
+
+        __EndToString()
 
     private:
         int __total_unit_size;      // param_unit_size + __stack_stub_size + local_unit_size
@@ -2423,7 +2472,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _A(command != nullptr);
 
+    #if EXEC_QUICK_EXECUTE
+
+        return __IsRetCmdValue(command->cmd_value);
+
+    #else
+
         return is<__ret_command_base_t *>(command);
+
+    #endif
+
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -2527,10 +2585,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _F(_T("%1% %2%"), __jmp_condition_t(), __step);
-        }
+
+        __EndToString()
 
     private:
         int __step;
@@ -2571,10 +2630,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _T("switch");
-        }
+
+        __EndToString()
 
     private:
         exec_switch_table_t * __table;
@@ -2643,10 +2703,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
-            return _F(_T("new %1%"), __assembly_analyzer(ctx, __type).get_name(__type));
-        }
+        __BeginToString(ctx)
+
+            return _F(_T("new %1%"), __type->get_name(ctx.env));
+
+        __EndToString()
 
     private:
         rt_type_t * __type;
@@ -2677,10 +2738,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
-            return _F(_T("new array %1%"), __assembly_analyzer(ctx, __type).get_name(__type));
-        }
+        __BeginToString(ctx)
+
+            return _F(_T("new array %1%"), __type->get_name(ctx.env));
+
+        __EndToString()
 
     private:
         rt_array_type_t * __type;
@@ -2734,10 +2796,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __copy_command_base_t : public __command_base_t
     {
     public:
-        virtual const string_t to_string(command_execute_context_t & ctx) const override
-        {
+        __BeginToString(ctx)
+
             return _T("copy");
-        }
+
+        __EndToString()
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2846,7 +2909,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     command_t * new_command(command_creating_context_t & ctx, const xil_base_t * xil)
     {
-        //_P(_T(">> new_command: "), (xil_command_t)xil->command());
+        _P(_T(">> new_command: "), (xil_command_t)xil->command());
         switch(xil->command())
         {
             case xil_command_t::empty:
@@ -2902,22 +2965,46 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    #if !EXEC_QUICK_EXECUTE
+
+    __AlwaysInline void __execute_command(command_execute_context_t & ctx, command_t * command)
+    {
+        #if EXEC_TRACE
+
+        _P(_T("[execute]"), command->to_string(ctx));
+
+        #endif  // EXEC_TRACE
+
+        command->execute(ctx);
+    }
+
+    #endif  // EXEC_QUICK_EXECUTE
+
     void __execute_commands(command_execute_context_t & ctx)
     {
+        command_t ** & commands = ctx.current;
+
+    #if EXEC_QUICK_EXECUTE
+
         #define __Next()                                                                \
               goto __begin__;
 
+        #if EXEC_TRACE
+
+            #define __TraceExecute(_t, _ts...)                                          \
+                _P(_T("[execute]"), ((_t, ##_ts *)command)->to_string(ctx));
+
+        #else   // EXEC_TRACE
+
+            #define __TraceExecute(_t, _ts...)
+
+        #endif
+
         #define __Case(_t, _ts...)                                                      \
             case _t, ##_ts::cmd_value:                                                  \
-                ((_t, ##_ts *)command)->do_execute(ctx);                                \
+                __TraceExecute(_t, ##_ts)                                               \
+                ((_t, ##_ts *)command)->execute(ctx);                                   \
                 __Next();
-
-        command_t ** & commands = ctx.current;
-
-        // while(true)
-        // {
-        //     (*commands++)->execute(ctx);
-        // }
 
     __begin__:
 
@@ -2954,19 +3041,44 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __Case( __instance_call_command_t<rt_method_t> )
             __Case( __virtual_call_command_t<__nokey> )
 
+            // Return
             __Case( __ret_command_t<0> )
             __Case( __ret_command_t<1> )
+            __Case( __ret_command_t<2> )
+            __Case( __ret_command_t<3> )
+            __Case( __ret_command_t<5> )
+            __Case( __ret_command_t<6> )
+            __Case( __ret_command_t<7> )
+            __Case( __ret_command_t<8> )
 
+            // End
             __Case( __execute_end_command_t )
 
             default:
-                _P(_T("running command:"), command->to_string(ctx));
-                command->execute(ctx);
-                __Next();
+                //_P(_T("unexpected command: "), command->to_string(ctx));
+                throw _EC(unexpected, _F(_T("unexpected command %1%"), __Cmd(command->cmd_value)));
         }
 
         #undef __Case
         #undef __Next
+
+    #else       // EXEC_QUICK_EXECUTE
+
+    __begin__:
+
+        #define __ExecuteCommand() __execute_command(ctx, *commands++)
+        #define __ExecuteCommands()                                                     \
+            __ExecuteCommand(); __ExecuteCommand(); __ExecuteCommand(); __ExecuteCommand();
+
+        __ExecuteCommands();
+        __ExecuteCommands();
+        __ExecuteCommands();
+        __ExecuteCommands();
+
+        goto __begin__;
+
+    #endif      // EXEC_QUICK_EXECUTE
+
     }
 
     void execute_commands(command_execute_context_t & ctx, command_t ** commands)

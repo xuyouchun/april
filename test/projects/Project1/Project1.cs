@@ -18,8 +18,9 @@ class Project1
         };
         */
 
-        //int[] arr = new int[10];
-        //arr.DoSomething();
+        int[] arr = new int[10];
+
+        arr.DoSomething();
         //arr.DoAnything();
 
         //StaticClass<long>.Call<int>(1, 2);
@@ -29,14 +30,16 @@ class Project1
 
         //Console.Write("Hello world");
 
+        /*
         int sum = 0;
 
-        for(int k = 0; k < 100000000; k++)
+        for(int k = 0; k < 10; k++)
         {
             sum += k;
         }
 
         Console.Print(sum);
+        */
     }
 }
 

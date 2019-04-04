@@ -634,7 +634,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     rt_sid_t rt_array_type_t::get_name(analyzer_env_t & env)
     {
         assembly_analyzer_t analyzer = __analyzer(env);
-        rt_type_t * type = analyzer.get_type(mt->element_type);
+        rt_type_t * type = this->element_type;
 
         stringstream_t ss;
         if(type == nullptr)
@@ -668,11 +668,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Pre calling static method.
     void rt_array_type_t::pre_static_call(analyzer_env_t & env)
     {
-        if(element_type == nullptr)
-        {
-            element_type = __analyzer(env).get_type((*this)->element_type);
-            element_type->pre_new(env);
-        }
+        _A(element_type != nullptr);
+
+        element_type->pre_new(env);
     }
 
     // Gets ttype.
@@ -684,7 +682,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Gets base type.
     rt_type_t * rt_array_type_t::get_base_type(analyzer_env_t & env)
     {
-        return nullptr;
+        //return 
     }
 
     // Gets offset of method.
@@ -1026,14 +1024,21 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             case mt_type_extra_t::array: {
                 rt_array_type_t * arr_type = current->get_array_type(type_ref);
                 if(arr_type->element_type == nullptr)
-                {
-                    rt_assembly_t * element_assembly;
                     arr_type->element_type = get_type((*arr_type)->element_type);
-                }
+
+                return arr_type;
             }
 
             case mt_type_extra_t::generic: {
-                return current->get_generic_type(type_ref);
+                rt_generic_type_t * generic_type = current->get_generic_type(type_ref);
+                if(generic_type->template_ == nullptr)
+                {
+                    generic_type->template_ = _M(rt_general_type_t *,
+                        get_type((*generic_type)->template_)
+                    );
+                }
+
+                return generic_type;
             }
 
             case mt_type_extra_t::generic_param:
@@ -1073,6 +1078,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
         else
         {
+            _P(_T("---------- get_method"));
             mt_method_ref_t * mt = rt_method_ref->mt;
             ref_t params_ref = mt->params;
             int param_count = params_ref.count;
@@ -1414,11 +1420,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         analyzer_env_t env = to_env(ctx);
         assembly_analyzer_t analyzer(env, assembly);
 
-        _PP(mt->template_);
         rt_method_t * template_ = analyzer.get_method(mt->template_);
         _A(template_ != nullptr);
-
-        _PF(_T("------ new_generic_method: %1%, %2%"), mt->template_, template_->get_name());
 
         int atype_count = mt->args.count;
         type_t * atypes[atype_count];
