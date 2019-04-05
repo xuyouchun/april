@@ -18,7 +18,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __AlwaysInline X_ALWAYS_INLINE
 
     #define EXEC_QUICK_EXECUTE          0
-    #define EXEC_TRACE                  1
+    #define EXEC_TRACE                  0
 
     const size_t __default_stack_size = 1024 * 1024;
 

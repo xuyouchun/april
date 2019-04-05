@@ -22,10 +22,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     typedef int16_t element_value_t;
 
     // Core assembly name.
-    #define __CoreAssembly  _T("System")
+    #define CoreAssembly  _T("System")
 
     // Defines core type names.
-    #define __CoreTypeName(name) __CoreAssembly _T(".") name
+    #define __CoreTypeName(name) CoreAssembly _T(".") name
+
+    #define CoreType_Type         _T("Type")
+    #define CoreType_Void         _T("Void")
+    #define CoreType_Object       _T("Object")
+    #define CoreType_Ptr          _T("Ptr")
+    #define CoreType_Attribute    _T("Attribute")
+    #define CoreType_Array        _T("Array")
+    #define CoreType_TArray       _T("Array<>")
+    #define CoreType_Int8         _T("Int8")
+    #define CoreType_UInt8        _T("UInt8")
+    #define CoreType_Int16        _T("Int16")
+    #define CoreType_UInt16       _T("UInt16")
+    #define CoreType_Int32        _T("Int32")
+    #define CoreType_UInt32       _T("UInt32")
+    #define CoreType_Int64        _T("Int64")
+    #define CoreType_UInt64       _T("UInt64")
+    #define CoreType_Boolean      _T("Boolean")
+    #define CoreType_Char         _T("Char")
+    #define CoreType_String       _T("String")
+    #define CoreType_Single       _T("Single")
+    #define CoreType_Double       _T("Double")
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -5027,7 +5048,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Be used for compiling a expression, some type os behaviour will be ignored.
     X_ENUM(expression_behaviour_t)
 
-        default_, assign, execute, new_,
+        default_ = __default__, assign, execute, new_,
 
     X_ENUM_END
 

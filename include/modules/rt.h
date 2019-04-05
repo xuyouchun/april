@@ -41,6 +41,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Assembly format error.
         assembly_format_error,
 
+        // Type not found.
+        type_not_found,
+
         // Method not found.
         method_not_found,
 
@@ -419,6 +422,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Generic method.
         generic_method,
 
+        // Array type.
+        array_type,
+
+        // Generic type.
+        generic_type,
+
     X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -549,15 +558,43 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 return std::get<__rt_generic_args_key_t>(*this);
             }
 
-            rt_type_t ** types() const
+            rt_type_t ** types() const { return args_key().begin(); }
+            rt_method_t * template_() const { return std::get<rt_method_t *>(*this); }
+        };
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        typedef __rpool_key_base_t<rpool_key_type_t::array_type,
+            rt_array_type_t *, rt_type_t *, dimension_t
+        > __rpool_key_array_type_base_t;
+
+        // Rt pool array type key.
+        template<>
+        struct __rpool_key_t<rpool_key_type_t::array_type> : __rpool_key_array_type_base_t
+        {
+            using __rpool_key_array_type_base_t::__rpool_key_array_type_base_t;
+        };
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        // Base class of rt generic type pool key.
+        typedef __rpool_key_base_t<rpool_key_type_t::generic_type,
+            rt_generic_type_t *, rt_general_type_t *, __rt_generic_args_key_t
+        > __rpool_key_generic_type_base_t;
+
+        // Rt pool generic type key.
+        template<>
+        struct __rpool_key_t<rpool_key_type_t::generic_type> : __rpool_key_generic_type_base_t
+        {
+            using __rpool_key_generic_type_base_t::__rpool_key_generic_type_base_t;
+
+            __rt_generic_args_key_t args_key() const
             {
-                return std::get<__rt_generic_args_key_t>(*this).begin();
+                return std::get<__rt_generic_args_key_t>(*this);
             }
 
-            rt_method_t * template_() const
-            {
-                return std::get<rt_method_t *>(*this);
-            }
+            rt_type_t ** types() const { return args_key().begin(); }
+            rt_general_type_t * template_() const { return std::get<rt_general_type_t *>(*this); }
         };
 
         //-------- ---------- ---------- ---------- ----------
@@ -566,7 +603,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         using __partial_t = typename __rpool_key_t<_key_type>::partial_t;
 
         typedef __rpool_key_t<rpool_key_type_t::generic_method> generic_method_key_t;
-
+        typedef __rpool_key_t<rpool_key_type_t::generic_type>   generic_type_key_t;
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -576,11 +613,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     , __partial_t<rpool_key_type_t::method>
                     , __partial_t<rpool_key_type_t::field>
                     , __partial_t<rpool_key_type_t::generic_method>
+                    , __partial_t<rpool_key_type_t::array_type>
+                    , __partial_t<rpool_key_type_t::generic_type>
     {
     public:
         using __partial_t<rpool_key_type_t::method>::get;
         using __partial_t<rpool_key_type_t::field>::get;
         using __partial_t<rpool_key_type_t::generic_method>::get;
+        using __partial_t<rpool_key_type_t::array_type>::get;
+        using __partial_t<rpool_key_type_t::generic_type>::get;
 
         // Creates new key.
         template<rpool_key_type_t _key_type, typename ... _keys_t>
@@ -592,12 +633,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         generic_method_key_t revise_key(const generic_method_key_t & key,
                                             rt_type_t ** types, int count);
 
+        generic_type_key_t revise_key(const generic_type_key_t & key,
+                                            rt_type_t ** types, int count);
+
     private:
         al::heap_t<rt_type_t *[]> __types_heap;
         std::set<__rt_generic_args_key_t> __types_map;
 
         // Finds generic arguments key.
-        __rt_generic_args_key_t __find_generic_args_key(const generic_method_key_t & key,
+        __rt_generic_args_key_t __find_generic_args_key(const __rt_generic_args_key_t & args_key,
                                            rt_type_t ** types, int count);
     };
 
@@ -890,9 +934,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     // Runtime generic type.
     class rt_generic_type_t : public rt_type_t
-                            , public rt_metadata_object_t<__tidx_t::generic_type>
+                         // , public rt_metadata_object_t<__tidx_t::generic_type>
     {
     public:
+
+        // Constructor.
+        rt_generic_type_t() = default;
+
+        // Constructor.
+        rt_generic_type_t(rt_general_type_t * template_, rt_type_t ** atypes);
 
         // Pre new object.
         virtual void pre_new(analyzer_env_t & env) override final;
@@ -919,7 +969,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual void each_field(analyzer_env_t & env, each_field_t f) override final { }
 
         // Enums all methods.
-        virtual void each_method(analyzer_env_t & env, each_method_t f) override final { }
+        virtual void each_method(analyzer_env_t & env, each_method_t f) override final;
 
         // Searches method.
         virtual ref_t search_method(analyzer_env_t & env,
@@ -932,7 +982,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets assembly.
         virtual rt_assembly_t * get_assembly() override final;
 
+        // Generic type template.
         rt_general_type_t * template_ = nullptr;
+
+        // Generic arguments.
+        rt_type_t ** atypes = nullptr;
 
     protected:
 
@@ -945,9 +999,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     // Runtime array time.
     class rt_array_type_t : public rt_type_t
-                          , public rt_metadata_object_t<__tidx_t::array_type>
+                      //  , public rt_metadata_object_t<__tidx_t::array_type>
     {
     public:
+
+        // Constructor.
+        rt_array_type_t() = default;
+
+        // Constructor.
+        rt_array_type_t(rt_type_t * element_type, dimension_t dimension);
 
         // Pre new object.
         virtual void pre_new(analyzer_env_t & env) override final;
@@ -986,6 +1046,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Element type.
         rt_type_t * element_type = nullptr;
+
+        // Dimension
+        dimension_t dimension = 0;
 
         // Gets assembly.
         virtual rt_assembly_t * get_assembly() override final;
@@ -1289,18 +1352,22 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets general type.
         virtual rt_general_type_t * get_type(ref_t ref) = 0;
 
-        // Gets general type.
+        // Gets general type by specified namespace, name and generic param count.
         virtual rt_general_type_t * get_type(rt_sid_t ns, rt_sid_t name,
+                                            int generic_param_count) = 0;
+
+        // Gets general type by specified namespace, name and generic param count.
+        virtual rt_general_type_t * get_type(const string_t & ns, const string_t & name,
                                             int generic_param_count) = 0;
 
         // Gets name of general type.
         virtual rt_sid_t get_name(rt_general_type_t * type) = 0;
 
-        // Gets array type.
-        virtual rt_array_type_t * get_array_type(ref_t ref) = 0;
+        // Gets array type metadata.
+        virtual rt_mt_t<__tidx_t::array_type> * mt_of_array(ref_t ref) = 0;
 
-        // Gets generic type.
-        virtual rt_generic_type_t * get_generic_type(ref_t ref) = 0;
+        // Gets generic type metadata.
+        virtual rt_mt_t<__tidx_t::generic_type> * mt_of_generic(ref_t ref) = 0;
 
         // Gets method.
         virtual rt_method_t * get_method(ref_t ref) = 0;
@@ -1412,6 +1479,20 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Returns memory managerment.
         memory_t * get_memory() { return this->memory; }
+
+        // Returns core assembly.
+        rt_assembly_t * get_core_assembly();
+
+        // Returns core type of specified name.
+        rt_general_type_t * get_core_type(const string_t & ns, const string_t & name,
+                                          int generic_param_count);
+
+        // Returns array type.
+        rt_general_type_t * get_tarray_type();
+
+    private:
+        rt_assembly_t * __core_assembly = nullptr;
+        rt_general_type_t * __t_array_type = nullptr;
     };
 
     // Converts rt_context_t to analyze_env_t.
@@ -1496,6 +1577,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets type by type ref.
         rt_type_t * get_type(ref_t type_ref);
 
+        // Gets array type.
+        rt_array_type_t * to_array_type(rt_type_t * element_type, dimension_t dimension);
+
+        // Gets generic type.
+        rt_generic_type_t * to_generic_type(rt_general_type_t * template_,
+                                            rt_type_t ** atypes, size_t atype_count);
+
         // Gets method by method ref.
         rt_method_t * get_method(ref_t method_ref);
 
@@ -1569,6 +1657,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets field by field ref.
         rt_field_t  * __get_field(ref_t field_ref, rt_type_t ** out_type);
 
+        // Creates an runtime array type.
+        rt_array_type_t * __to_array_type(rt_type_t * element_type, dimension_t dimension);
+
         // Joins method name.
         string_t __join_method_name(rt_assembly_t * assembly,
             rt_type_t * type, mt_method_ref_t * mt_method, rt_ptype_t * ptypes);
@@ -1585,6 +1676,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     // Joins assembly name.
     string_t join_assembly_name(const string_t & package, const string_t & name);
+
+    // Joins type name.
+    string_t join_type_name(const string_t & ns, const string_t & name, int generic_param_count);
 
     // Builds virtual table.
     rt_vtable_t * build_vtable(memory_t * memory, assembly_analyzer_t & analyzer,
@@ -1684,7 +1778,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             {
                 typedef typename __super_t::__wrap_t wrap_t;
                 auto entity = &memory_t::new_obj<wrap_t>(ctx.memory)->type;
-                entity->mt = mt;
+                // entity->mt = mt;
 
                 return entity;
             }
@@ -1707,7 +1801,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     rt_context_t & ctx, ref_t ref, __mt_t * mt, rt_assembly_t * rt_assembly)
             {
                 auto entity = &memory_t::new_obj<typename __super_t::__wrap_t>(ctx.memory)->type;
-                entity->mt = mt;
+                // entity->mt = mt;
 
                 return entity;
             }
@@ -1716,8 +1810,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         //-------- ---------- ---------- ---------- ----------
     }
 
-    #define __DefineTypeRtMt(type)                \
-        template<> struct rt_mt_t<__tidx_t::type> : __type_rt_mt_base_t<__tidx_t::type> { };
+    #define __DefineTypeRtMt(_type)                \
+        template<> struct rt_mt_t<__tidx_t::_type> : __type_rt_mt_base_t<__tidx_t::_type> { };
 
     __DefineTypeRtMt(type)
     __DefineTypeRtMt(array_type)

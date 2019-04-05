@@ -369,7 +369,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Converts string to sid.
         virtual rt_sid_t to_sid(const string_t & s) override
         {
-            return __loader.get_spool().to_sid(s);
+            return __to_sid(s);
         }
 
         // Returns name.
@@ -462,6 +462,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             return __loader.get_type(ns, name, generic_param_count);
         }
 
+        // Gets general type by specified namespace, name and generic param count.
+        virtual rt_general_type_t * get_type(const string_t & ns, const string_t & name,
+                                    int generic_param_count) override
+        {
+            return __loader.get_type(__to_sid(ns), __to_sid(name), generic_param_count);
+        }
+
         // Gets name of general type.
         virtual rt_sid_t get_name(rt_general_type_t * type) override
         {
@@ -470,17 +477,25 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             return __to_sid(type->mt->name);
         }
 
-        // Gets name of array type.
-        virtual rt_array_type_t * get_array_type(ref_t ref) override
+        // Gets array type metadata.
+        virtual rt_mt_t<__tidx_t::array_type> * mt_of_array(ref_t ref) override
         {
-            return __entity_at<__tidx_t::array_type>(ref);
+            return &__metadata_at<__tidx_t::array_type>(ref);
         }
 
-        // Gets name of generic type.
+        // Gets generic type metadata.
+        virtual rt_mt_t<__tidx_t::generic_type> * mt_of_generic(ref_t ref) override
+        {
+            return &__metadata_at<__tidx_t::generic_type>(ref);
+        }
+
+        /*
+        // Gets generic type of ref.
         virtual rt_generic_type_t * get_generic_type(ref_t ref) override
         {
             return __entity_at<__tidx_t::generic_type>(ref);
         }
+        */
 
         // Gets method of ref.
         virtual rt_method_t * get_method(ref_t ref) override
@@ -596,10 +611,16 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             return __loader.template mt_manager<tidx>();
         }
 
-        // Gets sid of name.
-        rt_sid_t __to_sid(res_t name)
+        // Gets sid of specified string resource.
+        rt_sid_t __to_sid(res_t s)
         {
-            return __loader.to_sid(name);
+            return __loader.to_sid(s);
+        }
+
+        // Gets sid of specified string.
+        rt_sid_t __to_sid(const string_t & s)
+        {
+            return __loader.get_spool().to_sid(s);
         }
     };
 

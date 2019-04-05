@@ -623,7 +623,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         rt_array_type_t * arr_type = (rt_array_type_t *)rt_type;
 
-        return (*arr_type)->dimension;
+        return arr_type->dimension;
     }
 
     static command_t * __new_push_command(__context_t & ctx, const push_xil_t & xil)
@@ -2724,7 +2724,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __BeginExecute(ctx, __ToCmdValue(new_, xil_new_type_t::array))
 
             __pre_new(ctx, __type);
-            dimension_t dimension = (*__type)->dimension;
+            dimension_t dimension = __type->dimension;
 
             array_length_t lengths[dimension];
             for(int * len = lengths + dimension - 1; len >= lengths; len--)

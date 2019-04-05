@@ -24,11 +24,45 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return host_type;
     }
 
+    // Returns whether it's effective.
+    // Xils will not generated if the expression is not effective.
+    X_ALWAYS_INLINE bool is_effective(expression_t * exp)
+    {
+        if(exp == nullptr)
+            return false;
+
+        switch(exp->get_behaviour())
+        {
+            case expression_behaviour_t::assign:
+            case expression_behaviour_t::execute:
+            case expression_behaviour_t::new_:
+                return true;
+
+            default:
+                return is_effective(exp->parent);
+        }
+    }
+
     // Returns whether it is a member expression.
-    static bool __is_member_expression(expression_t * exp)
+    X_ALWAYS_INLINE static bool __is_member_expression(expression_t * exp)
     {
         return exp != nullptr && exp->this_family() == expression_family_t::binary
             && ((binary_expression_t *)exp)->op() == operator_t::member_point;
+    }
+
+    // Returns whether it's effective.
+    X_ALWAYS_INLINE static bool __is_this_effective(expression_t * exp)
+    {
+        if(is_effective(exp->parent))
+            return true;
+
+        if(__is_member_expression(exp->parent))
+        {
+            binary_expression_t * binary_exp = (binary_expression_t *)exp->parent;
+            return is_effective(binary_exp->exp2());
+        }
+
+        return false;
     }
 
     // Returns whether the expression assign equals, e.g. +=, -=.
@@ -1120,7 +1154,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles name expression.
     void __sys_t<name_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool)
     {
-        if(!is_effective(this))
+        if(!__is_this_effective(this))
             return;
 
         switch(this->expression_type)
@@ -1279,7 +1313,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compile constant value.
     void __sys_t<cvalue_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool)
     {
-        if(is_effective(this))
+        if(__is_this_effective(this))
         {
             cvalue_t cvalue = *this->value;
 
@@ -1638,21 +1672,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __super_t::execute(ctx);
     }
     
-    // Returns whether it's effective.
-    static bool __is_this_effective(expression_t * exp)
-    {
-        if(is_effective(exp->parent))
-            return true;
-
-        if(__is_member_expression(exp->parent))
-        {
-            binary_expression_t * binary_exp = (binary_expression_t *)exp->parent;
-            return is_effective(binary_exp->exp2());
-        }
-
-        return false;
-    }
-
     // Compiles this expression.
     void __sys_t<this_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool)
     {
@@ -1677,27 +1696,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if(__is_this_effective(this))
         {
             __push_this(ctx, pool);
-        }
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-
-    // Returns whether it's effective.
-    // Xils will not generated if the expression is not effective.
-    bool is_effective(expression_t * exp)
-    {
-        if(exp == nullptr)
-            return false;
-
-        switch(exp->get_behaviour())
-        {
-            case expression_behaviour_t::assign:
-            case expression_behaviour_t::execute:
-            case expression_behaviour_t::new_:
-                return true;
-
-            default:
-                return is_effective(exp->parent);
         }
     }
 

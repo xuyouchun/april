@@ -718,9 +718,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             // Creates a name expression for field.
-            name_expression_t * __new_field_expression(field_t * field)
+            system_expression_t<name_expression_t> * __new_field_expression(field_t * field)
             {
-                return __new_obj<name_expression_t>(
+                return __new_system_expression<name_expression_t>(
                     __new_obj<field_variable_t>(field)
                 );
             }

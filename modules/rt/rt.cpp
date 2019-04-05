@@ -17,6 +17,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Assembly format error.
         X_D(assembly_format_error,      _T("%1%"))
 
+        // Type not found.
+        X_D(type_not_found,             _T("type '%1%' not found"))
+
         // Method not found.
         X_D(method_not_found,           _T("method '%1%' not found"))
 
@@ -170,15 +173,23 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                                                rt_type_t ** types, int count)
     {
         return new_key<rpool_key_type_t::generic_method>(
-            key.template_(), __find_generic_args_key(key, types, count)
+            key.template_(), __find_generic_args_key(key.args_key(), types, count)
+        );
+    }
+
+    generic_type_key_t rt_pool_t::revise_key(const generic_type_key_t & key,
+                                                rt_type_t ** types, int count)
+    {
+        return new_key<rpool_key_type_t::generic_type>(
+            key.template_(), __find_generic_args_key(key.args_key(), types, count)
         );
     }
 
     // Finds generic arguments key.
     __rt_generic_args_key_t rt_pool_t::__find_generic_args_key(
-            const generic_method_key_t & key, rt_type_t ** types, int count)
+            const __rt_generic_args_key_t & args_key, rt_type_t ** types, int count)
     {
-        auto it = __types_map.find(key.args_key());
+        auto it = __types_map.find(args_key);
 
         if(it != __types_map.end())
             return *it;
@@ -563,6 +574,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
     // rt_generic_type_t
 
+    // Constructor.
+    rt_generic_type_t::rt_generic_type_t(rt_general_type_t * template_, rt_type_t ** atypes)
+        : template_(template_), atypes(atypes)
+    {
+        _A(template_ != nullptr);
+    }
+
     // Pre new object.
     void rt_generic_type_t::pre_new(analyzer_env_t & env)
     {
@@ -581,10 +599,49 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return ttype_t::__unknown__;
     }
 
+    // Enums all methods.
+    void rt_generic_type_t::each_method(analyzer_env_t & env, each_method_t f)
+    {
+        _A(template_ != nullptr);
+
+        template_->each_method(env, f);
+    }
+
     // Gets name.
     rt_sid_t rt_generic_type_t::get_name(analyzer_env_t & env)
     {
-        return __analyzer(env).to_sid(_T("GENERIC"));  // TODO: implement it
+        assembly_analyzer_t analyzer = __analyzer(env);
+
+        stringstream_t ss;
+        if(template_ == nullptr)
+            ss << _T("?");
+        else
+            ss << template_->get_name(env).c_str();
+
+        ss << _T("<");
+
+        if(template_ == nullptr)
+        {
+            ss << _T("??");
+        }
+        else
+        {
+            for(size_t k = 0; k < (*template_)->generic_params.count; k++)
+            {
+                if(k > 0)
+                    ss << _T(",");
+
+                rt_type_t * atype = atypes[k];
+                if(atype == nullptr)
+                    ss << _T("?");
+                else
+                    ss << atype->get_name(env).c_str();
+            }
+        }
+
+        ss << _T(">");
+
+        return analyzer.to_sid(ss.str());
     }
 
     // Gets base type.
@@ -631,6 +688,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
     // rt_array_type_t
 
+    // Constructor.
+    rt_array_type_t::rt_array_type_t(rt_type_t * element_type, dimension_t dimension)
+        : element_type(element_type), dimension(dimension)
+    {
+        _A(element_type != nullptr);
+        _A(dimension >= 1);
+    }
+
+    // Returns name of array type.
     rt_sid_t rt_array_type_t::get_name(analyzer_env_t & env)
     {
         assembly_analyzer_t analyzer = __analyzer(env);
@@ -649,7 +715,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         ss << _T("[");
 
-        for(int k = 1, dimension = mt->dimension; k < dimension; k++)
+        for(int k = 1, dimension = this->dimension; k < dimension; k++)
         {
             ss << _T(", ");
         }
@@ -682,7 +748,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Gets base type.
     rt_type_t * rt_array_type_t::get_base_type(analyzer_env_t & env)
     {
-        //return 
+        _P(_T("--------- get_base_type"));
+        rt_general_type_t * tarray_type = env.get_tarray_type();
+
+        _PP((void *)tarray_type);
+
+        return nullptr;
     }
 
     // Gets offset of method.
@@ -783,6 +854,31 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return _F(_T("%s.%s"), package, name);
     }
 
+    // Joins type name.
+    string_t join_type_name(const string_t & ns, const string_t & name, int generic_param_count)
+    {
+        stringstream_t ss;
+
+        if(!ns.empty())
+            ss << ns.c_str() << _T(".");
+
+        ss << name.c_str();
+
+        if(generic_param_count > 0)
+        {
+            ss << _T("<");
+
+            for(int k = 0; k < generic_param_count; k++)
+            {
+                ss << _T(",");
+            }
+
+            ss << _T(">");
+        }
+
+        return ss.str();
+    }
+
     // Joins method name.
     string_t __join_method_name(const string_t & assembly,
         const string_t & type_name, int type_generic_param_count,
@@ -867,6 +963,39 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             assembly->index = __assembly_vector.size();
             __assembly_vector.push_back(assembly);
         }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Returns core assembly.
+    rt_assembly_t * analyzer_env_t::get_core_assembly()
+    {
+        if(__core_assembly == nullptr)
+            __core_assembly = assemblies.load_assembly(_T(""), CoreAssembly);
+
+        return __core_assembly;
+    }
+
+    // Returns core type of specified name.
+    rt_general_type_t * analyzer_env_t::get_core_type(const string_t & ns, const string_t & name,
+                                                      int generic_param_count)
+    {
+        rt_assembly_t * core_assembly = get_core_assembly();
+        rt_general_type_t * type = core_assembly->get_type(ns, name, generic_param_count);
+
+        if(type == nullptr)
+            throw _E(rt_error_code_t::type_not_found, join_type_name(ns, name, generic_param_count));
+
+        return type;
+    }
+
+    // Returns array type.
+    rt_general_type_t * analyzer_env_t::get_tarray_type()
+    {
+        if(__t_array_type == nullptr)
+            __t_array_type = get_core_type(_T(""), _T("Array"), 1);
+
+        return __t_array_type;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1022,29 +1151,51 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             }
 
             case mt_type_extra_t::array: {
-                rt_array_type_t * arr_type = current->get_array_type(type_ref);
-                if(arr_type->element_type == nullptr)
-                    arr_type->element_type = get_type((*arr_type)->element_type);
+                rt_mt_t<__tidx_t::array_type> * mt = current->mt_of_array(type_ref);
+                rt_type_t * element_type = get_type(mt->element_type);
+                dimension_t dimension = mt->dimension;
 
-                return arr_type;
+                return to_array_type(element_type, dimension);
             }
 
             case mt_type_extra_t::generic: {
-                rt_generic_type_t * generic_type = current->get_generic_type(type_ref);
-                if(generic_type->template_ == nullptr)
+                rt_mt_t<__tidx_t::generic_type> * mt = current->mt_of_generic(type_ref);
+                rt_general_type_t * template_ = _M(rt_general_type_t *, get_type(mt->template_));
+
+                size_t atype_count = mt->args.count;
+                rt_type_t * atypes[atype_count];
+
+                for(ref_t ga_ref : mt->args)
                 {
-                    generic_type->template_ = _M(rt_general_type_t *,
-                        get_type((*generic_type)->template_)
-                    );
+                    rt_generic_argument_t * ga = current->get_generic_argument(ga_ref);
+                    ref_t atype_ref = (*ga)->type;
+                    atypes[ga_ref.index] = get_type(atype_ref);
                 }
 
-                return generic_type;
+                return to_generic_type(template_, (rt_type_t **)atypes, atype_count);
             }
 
             case mt_type_extra_t::generic_param:
             default:
                 X_UNEXPECTED();
         }
+    }
+
+    // Gets array type.
+    rt_array_type_t * assembly_analyzer_t::to_array_type(rt_type_t * element_type,
+                                                         dimension_t dimension)
+    {
+        auto key = env.rpool.new_key<rpool_key_type_t::array_type>(element_type, dimension);
+        return env.rpool.get(key, [this, element_type, dimension]() {
+            return __to_array_type(element_type, dimension);
+        });
+    }
+
+    // Creates an runtime array type.
+    rt_array_type_t * assembly_analyzer_t::__to_array_type(rt_type_t * element_type,
+                                                           dimension_t dimension)
+    {
+        return memory_t::new_obj<rt_array_type_t>(env.memory, element_type, dimension);
     }
 
     // Gets method.
@@ -1078,7 +1229,6 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
         else
         {
-            _P(_T("---------- get_method"));
             mt_method_ref_t * mt = rt_method_ref->mt;
             ref_t params_ref = mt->params;
             int param_count = params_ref.count;
@@ -1098,6 +1248,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             rt_type->each_method(env, [&, this](ref_t method_ref, rt_method_t * rt_method0) {
                 rt_mt_t<__tidx_t::method> & mt = *rt_method0->mt;
+
                 bool r = __compare_method(rt_assembly, mt, method_name,
                     mt.generic_params.count, return_type, mt.params.count, params
                 );
@@ -1156,6 +1307,21 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
 
         return true;
+    }
+
+    // Gets generic type.
+    rt_generic_type_t * assembly_analyzer_t::to_generic_type(rt_general_type_t * template_,
+                                            rt_type_t ** atypes, size_t atype_count)
+    {
+        _A(template_ != nullptr);
+
+        __rt_generic_args_key_t args_key(atypes, atypes + atype_count);
+        auto key = env.rpool.new_key<rpool_key_type_t::generic_type>(template_, args_key);
+
+        return env.rpool.get(key, [&]() {
+            key = env.rpool.revise_key(key, (rt_type_t **)atypes, atype_count);
+            return memory_t::new_obj<rt_generic_type_t>(env.memory, template_, key.types());
+        });
     }
 
     // Gets field.

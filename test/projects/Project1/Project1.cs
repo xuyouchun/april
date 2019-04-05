@@ -33,7 +33,7 @@ class Project1
         /*
         int sum = 0;
 
-        for(int k = 0; k < 10; k++)
+        for(int k = 0; k < 100; k++)
         {
             sum += k;
         }

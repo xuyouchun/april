@@ -1209,6 +1209,10 @@ namespace X_ROOT_NS {
     logic_error_t<common_error_code_t> _unimplemented_error(const object_t * obj,
                                                             const char_t * method);
 
+    // Creates an unimplemented exception.
+    logic_error_t<common_error_code_t> _unimplemented_error(object_t * obj,
+                                                     const char_t * method);
+
     //-------- ---------- ---------- ---------- ----------
     // A macro of _error function.
 

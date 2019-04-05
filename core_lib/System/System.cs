@@ -31,7 +31,7 @@ class Array : Object
 
     public Void DoAnything()
     {
-
+        Console.Write("DoAnything\n");
     }
 };
 
@@ -42,7 +42,12 @@ class Array<T> : Array
 {
     public Void DoSomething()
     {
-        //Console.Write("DoSomething\n");
+        Console.Write("DoSomething\n");
+
+        for(Int32 k = 0; k < 10; k++)
+        {
+            base.DoAnything();
+        }
     }
 };
 

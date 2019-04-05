@@ -141,7 +141,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __type_type_impl_t::type_name[] = __CoreTypeName(_T("Type"));
+    const char_t __type_type_impl_t::type_name[] = __CoreTypeName(CoreType_Type);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -156,7 +156,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __void_type_impl_t::type_name[] = __CoreTypeName(_T("Void"));
+    const char_t __void_type_impl_t::type_name[] = __CoreTypeName(CoreType_Void);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -171,7 +171,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __object_type_impl_t::type_name[] = __CoreTypeName(_T("Object"));
+    const char_t __object_type_impl_t::type_name[] = __CoreTypeName(CoreType_Object);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -186,7 +186,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __ptr_type_impl_t::type_name[] = __CoreTypeName(_T("Ptr"));
+    const char_t __ptr_type_impl_t::type_name[] = __CoreTypeName(CoreType_Ptr);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -201,7 +201,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __attribute_type_impl_t::type_name[] = __CoreTypeName(_T("Attribute"));
+    const char_t __attribute_type_impl_t::type_name[] = __CoreTypeName(CoreType_Attribute);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -216,7 +216,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __array_type_impl_t::type_name[] = __CoreTypeName(_T("Array"));
+    const char_t __array_type_impl_t::type_name[] = __CoreTypeName(CoreType_Array);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -231,7 +231,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __t_array_type_impl_t::type_name[] = __CoreTypeName(_T("Array<>"));
+    const char_t __t_array_type_impl_t::type_name[] = __CoreTypeName(CoreType_TArray);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -246,7 +246,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __int8_type_impl_t::type_name[] = __CoreTypeName(_T("Int8"));
+    const char_t __int8_type_impl_t::type_name[] = __CoreTypeName(CoreType_Int8);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -261,7 +261,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __uint8_type_impl_t::type_name[] = __CoreTypeName(_T("UInt8"));
+    const char_t __uint8_type_impl_t::type_name[] = __CoreTypeName(CoreType_UInt8);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -276,7 +276,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __int16_type_impl_t::type_name[] = __CoreTypeName(_T("Int16"));
+    const char_t __int16_type_impl_t::type_name[] = __CoreTypeName(CoreType_Int16);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -291,7 +291,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __uint16_type_impl_t::type_name[] = __CoreTypeName(_T("UInt16"));
+    const char_t __uint16_type_impl_t::type_name[] = __CoreTypeName(CoreType_UInt16);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -306,7 +306,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __int32_type_impl_t::type_name[] = __CoreTypeName(_T("Int32"));
+    const char_t __int32_type_impl_t::type_name[] = __CoreTypeName(CoreType_Int32);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -321,7 +321,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __uint32_type_impl_t::type_name[] = __CoreTypeName(_T("UInt32"));
+    const char_t __uint32_type_impl_t::type_name[] = __CoreTypeName(CoreType_UInt32);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -336,7 +336,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __int64_type_impl_t::type_name[] = __CoreTypeName(_T("Int64"));
+    const char_t __int64_type_impl_t::type_name[] = __CoreTypeName(CoreType_Int64);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -351,7 +351,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __uint64_type_impl_t::type_name[] = __CoreTypeName(_T("UInt64"));
+    const char_t __uint64_type_impl_t::type_name[] = __CoreTypeName(CoreType_UInt64);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -366,7 +366,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __bool_type_impl_t::type_name[] = __CoreTypeName(_T("Boolean"));
+    const char_t __bool_type_impl_t::type_name[] = __CoreTypeName(CoreType_Boolean);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -381,7 +381,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __char_type_impl_t::type_name[] = __CoreTypeName(_T("Char"));
+    const char_t __char_type_impl_t::type_name[] = __CoreTypeName(CoreType_Char);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -396,7 +396,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __string_type_impl_t::type_name[] = __CoreTypeName(_T("String"));
+    const char_t __string_type_impl_t::type_name[] = __CoreTypeName(CoreType_String);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -411,7 +411,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __single_type_impl_t::type_name[] = __CoreTypeName(_T("Single"));
+    const char_t __single_type_impl_t::type_name[] = __CoreTypeName(CoreType_Single);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -426,7 +426,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static const char_t type_name[];
     };
 
-    const char_t __double_type_impl_t::type_name[] = __CoreTypeName(_T("Double"));
+    const char_t __double_type_impl_t::type_name[] = __CoreTypeName(CoreType_Double);
 
     ////////// ////////// ////////// ////////// //////////
 
