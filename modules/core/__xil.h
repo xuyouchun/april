@@ -53,7 +53,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         external        = 15,
 
         // Copy block.
-        copy            = external,
+        copy            = 15,
+
+        // Initialize objects.
+        init            = 16,
 
     __EnumEnd
 
@@ -275,6 +278,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         stack_copy      = 1,            // Copy from stack.
 
         res_copy        = 2,            // Copy from resource.
+
+    __EnumEnd
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // init_xil_t
+
+    __Enum(xil_init_type_t)
+
+        array_begin     = __default__,  // Begin init array
+
+        array_element   = 1,            // Init array element
+
+        array_end       = 2,            // End init array
 
     __EnumEnd
 
@@ -502,15 +519,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Constructor.
         xil_header_t(xil_command_t cmd1)
-            : __cmd1((byte_t)cmd1 >= 16? (byte_t)xil_command_t::external : (byte_t)cmd1)
-            , __cmd2((byte_t)cmd1 >= 16? (byte_t)cmd1 - 16 : 0)
+            : __cmd1((byte_t)cmd1 >= (byte_t)xil_command_t::external?
+                            (byte_t)xil_command_t::external : (byte_t)cmd1)
+            , __cmd2((byte_t)cmd1 >= (byte_t)xil_command_t::external?
+                            (byte_t)cmd1 - (byte_t)xil_command_t::external : 0)
         { }
 
         // Returns command.
         xil_command_t command() const
         {
             if((xil_command_t)__cmd1 == xil_command_t::external)
-                return (xil_command_t)(__cmd1 + 16);
+                return (xil_command_t)(__cmd2 + ((byte_t)xil_command_t::external));
 
             return (xil_command_t)__cmd1;
         }
@@ -1438,6 +1457,61 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Writes copy_xil_t to a stream.
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const copy_xil_t & xil)
+    {
+        __trace_write_xil(xil);
+        return stream.write((const byte_t *)&xil, size_of(xil)), stream;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Init xil.
+    __BeginXil(init)
+
+        // Constructors.
+        init_xil_t(xil_init_type_t init_type, xil_type_t dtype)
+            : __super_t(xil_command_t::init)
+            , __init_type((byte_t)init_type), __dtype((byte_t)dtype)
+        { }
+
+        // Returns init type.
+        xil_init_type_t init_type() const { return (xil_init_type_t)__init_type; }
+
+        // Returns data type.
+        xil_type_t dtype() const { return (xil_type_t)__dtype; }
+
+        byte_t  __init_type : 4;
+        byte_t  __dtype     : 4;
+
+        byte_t __extra[0];
+
+        // Returns type ref.
+        ref_t type_ref() const { return *(ref_t *)__extra; }
+
+        // Sets type ref.
+        void set_type_ref(ref_t ref) { *(ref_t *)__extra = ref; }
+
+        // Converts to a string.
+        operator string_t() const;
+
+    __EndXil
+
+    // Returns size of init_xil_t.
+    constexpr size_t size_of(const init_xil_t & xil)
+    {
+        size_t size = sizeof(init_xil_t);
+
+        if(xil.dtype() == xil_type_t::empty)
+            size += sizeof(ref_t);
+
+        return size;
+    }
+
+    // Defines max size of init_xil_t.
+    __DefineMaxSize(init_xil_t, sizeof(init_xil_t) + sizeof(ref_t))
+
+    // Writes init_xil_t to a stream.
+    template<typename stream_t>
+    stream_t & operator << (stream_t & stream, const init_xil_t & xil)
     {
         __trace_write_xil(xil);
         return stream.write((const byte_t *)&xil, size_of(xil)), stream;

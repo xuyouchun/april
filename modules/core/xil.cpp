@@ -349,6 +349,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_INFO_END
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Init type.
+    X_ENUM_INFO(xil_init_type_t)
+
+        X_C(array_begin,    _T("array_begin"))
+
+        X_C(array_element,  _T("array_element"))
+
+        X_C(array_end,      _T("array_end"))
+
+    X_ENUM_INFO_END
+
     ////////// ////////// ////////// ////////// //////////
 
     // Convert xil to a string.
@@ -678,6 +691,27 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Converts init xil to a string.
+    init_xil_t::operator string_t() const
+    {
+        switch(init_type())
+        {
+            case xil_init_type_t::array_begin:
+                return _T("begin init array");
+
+            case xil_init_type_t::array_element:
+                return _T("init array element");
+
+            case xil_init_type_t::array_end:
+                return _T("end init array");
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Converts xil to a string.
     string_t __to_string(const xil_t * xil)
     {
@@ -724,6 +758,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             case xil_command_t::copy:
                 return _str(*(const copy_xil_t *)xil);
+
+            case xil_command_t::init:
+                return _str(*(const init_xil_t *)xil);
 
             default:
                 return _T("<UNKNOWN>");
@@ -776,7 +813,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_command_t::copy:
                 return size_of(*(const copy_xil_t *)xil);
 
+            case xil_command_t::init:
+                return size_of(*(const init_xil_t *)xil);
+
             default:
+                _PP(((const xil_base_t *)xil)->command());
                 X_UNEXPECTED();
         }
     }

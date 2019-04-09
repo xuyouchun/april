@@ -27,6 +27,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     void test_add(rtlib_context_t & ctx)
     {
         __test_add_args_t * arg = ctx.args<__test_add_args_t>();
+
         int32_t value = *arg->a + *arg->b;
         ctx.return_(value);
     }

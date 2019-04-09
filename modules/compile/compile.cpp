@@ -128,6 +128,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Element type of array undeterminded.
         X_D(element_type_undeterminded,     _T("index element type underterminded"))
 
+        // Index element init expression empty.
+        X_D(element_init_expression_empty,  _T("index element init expression empty"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

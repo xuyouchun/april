@@ -9,7 +9,7 @@ $import: (from from:$mname)? import import:$mname (as name)? \; ;
 
 $cvalue: cvalue | true | false | null;
 
-$index:      $_single_expression [ $arguments? ] ;
+$index:  $_single_expression [ $arguments? ] ;
 
 $_function_name_expression: (
     name $generic_args? | base | this | $index | $function | $new | $type_cast_exp
@@ -18,7 +18,7 @@ $_function_name_expression: (
 $function: $_function_name_expression \( $arguments? \) ;
 
 $new:           new $type_name (\( $arguments? \) | (\( $arguments? \))? { $_init_args? }) ;
-$array_initializer: { ($__item: $array_initializer | $expression) (, $__item)* } ;
+$array_initializer: { ($__item: $array_initializer | $expression) (, $__item)* ,? } ;
 $array_lengths: $expression? (, $expression? )* ;
 $new_array:     new $type_name [ $array_lengths? ] $array_initializer? ;
 $type_of:       typeof \( $type_name \) ;
@@ -29,9 +29,10 @@ $type_cast_exp: \( $type_name \) $_single_expression ;
 $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new | $new_array | $type_of | $type_cast_exp
-    | $default_value | $type_name_exp 
+    | $default_value
     | \( $_expression (, $_expression)* \)
-    ) (. $__item)*
+  ) (. $__item)*
+  | ($type_name_exp) . $_single_expression
 ;
 
 $_expression: 
@@ -44,8 +45,8 @@ $_expression:
           | <<  | <<= | >>  | >>=
           | &&  | \|\|
           | \|  | ^   | &   | \|= | &= | ^=
-          | as  | is
         ) $_expression                              # binary operator
+      | ( as | is ) $type_name_exp
       | \? $_expression `\: $_expression            # xxx? xxx : xxx          ? :
       | (\+\+ | --)                                 # right unary operator
     )*

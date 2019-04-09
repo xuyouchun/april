@@ -2235,9 +2235,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return nullptr;
         }
 
-        type_t * type = get_base_type();
-        if(type != nullptr)
-            return type->get_member(args);
+        type_t * base_type = get_base_type();
+
+        if(base_type != nullptr)
+            return base_type->get_member(args);
 
         return nullptr;
     }
@@ -3013,7 +3014,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Commits it.
     void array_type_t::commit(eobject_commit_context_t & ctx)
     {
-
+        // Do nothing.
     }
 
     // Returns vsize.
@@ -3298,6 +3299,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             type_collection_t type_args({ element_type });
             type_t * base_type = new_generic_type(t_array_type, type_args, nullptr);
+
             type = memory_t::new_obj<array_type_t>(memory, base_type, element_type, dimension);
             array_type_cache->set(key, type);
 
@@ -4487,6 +4489,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return name_t::null;
     }
 
+    // Returns type.
+    type_t * function_expression_t::get_type(xpool_t & xpool) const
+    {
+        return method->get_type();
+    }
+
     // Returns vtype of function_expression.
     vtype_t function_expression_t::get_vtype() const
     {
@@ -4569,6 +4577,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __get_vtype(type_name);
     }
 
+    // Returns type.
+    type_t * new_expression_t::get_type(xpool_t & xpool) const
+    {
+        return to_type(type_name);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // new_array_expression_t
 
@@ -4629,6 +4643,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     void array_initializer_t::append(array_initializer_t * initializer)
     {
         elements.push_back(array_initialize_element_t(initializer));
+    }
+
+    // Enumerates all elements.
+    bool array_initializer_t::each_element(each_element_callback_t f)
+    {
+        for(array_initialize_element_t & element : elements)
+        {
+            switch(element.type)
+            {
+                case __type_t::initializer:
+                    if(!element.initializer->each_element(f))
+                        return false;
+                    break;
+
+                case __type_t::expression:
+                    if(!f(element.expression))
+                        return false;
+                    break;
+
+                default:
+                    X_UNEXPECTED();
+            }
+        }
+
+        return true;
     }
 
     const size_t __unknown_array_length = (size_t)-1;
@@ -4695,6 +4734,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __check(this, dimensions, 0);
     }
 
+    // Sets parent for all element expressions.
+    void array_initializer_t::set_parent(expression_t * parent)
+    {
+        this->each_element([parent](expression_t * element_exp) -> bool {
+            return element_exp->parent = parent, true;
+        });
+    }
+
     // Converts an array initializer to a string.
     X_DEFINE_TO_STRING(array_initializer_t)
     {
@@ -4704,6 +4751,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    void new_array_expression_t::set_initializer(array_initializer_t * initializer)
+    {
+        __initializer = initializer;
+
+        if(initializer != nullptr)
+            initializer->set_parent(this);
+    }
 
     // Sets lengths for an array expression.
     void new_array_expression_t::set_lengths(array_lengths_t * lengths)
@@ -4749,15 +4804,27 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns array type.
-    type_t * new_array_expression_t::to_array_type(xpool_t & xpool)
+    type_t * new_array_expression_t::to_array_type(xpool_t & xpool) const
     {
-        return xpool.new_array_type(to_type(type_name), dimension());
+        return xpool.new_array_type(get_element_type(), dimension());
+    }
+
+    // Returns element type.
+    type_t * new_array_expression_t::get_element_type() const
+    {
+        return to_type(type_name);
     }
 
     // Returns vtype.
     vtype_t new_array_expression_t::get_vtype() const
     {
         return vtype_t::mobject;
+    }
+
+    // Returns type.
+    type_t * new_array_expression_t::get_type(xpool_t & xpool) const
+    {
+        return to_array_type(xpool);
     }
 
     ////////// ////////// ////////// ////////// //////////

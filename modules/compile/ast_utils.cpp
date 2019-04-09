@@ -890,7 +890,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Walks name expression.
         void __walk_name(name_expression_t * name_exp, type_t * parent_type = nullptr)
         {
-            if(name_exp->variable != nullptr)
+            if(name_exp->is_variable_expression() && name_exp->variable != nullptr)
                 return;
 
             name_t name = name_exp->name;
@@ -1221,7 +1221,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void walk_expression(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                 expression_t * expression)
     {
-        //_PP(expression);
+        //_P(_T("walk_expression: "), expression);
+
         if(expression != nullptr)
             __walk_expression_t(cctx, wctx).walk(expression);
     }

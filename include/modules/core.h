@@ -3864,6 +3864,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns this variable's type.
         virtual variable_type_t this_type() = 0;
 
+        // Returns whether this will call a method.
+        virtual bool is_calling() = 0;
+
         // Returns vtype.
         vtype_t  get_vtype();
     };
@@ -3882,6 +3885,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             // Returns this variable's type.
             virtual variable_type_t this_type() override { return _type; }
+
+            // Returns whether this will call a method.
+            virtual bool is_calling() override { return false; }
 
             static const variable_type_t type = _type;
         };
@@ -3906,6 +3912,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             {
                 return arguments == nullptr? 0 : arguments->size();
             }
+
+            // Returns whether this will call a method.
+            virtual bool is_calling() override { return true; }
         };
     }
 
@@ -4030,6 +4039,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return property->name;
         }
+
+        // Returns whether this will call a method.
+        virtual bool is_calling() override { return true; }
 
         // Converts to a string.
         X_TO_STRING
@@ -5292,6 +5304,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Sets typedef.
         void set(type_def_t * type_def);
 
+        // Returns behaviour.
+        virtual expression_behaviour_t get_behaviour() const override
+        {
+            if(expression_type == name_expression_type_t::variable && variable != nullptr)
+            {
+                return variable->is_calling()? expression_behaviour_t::execute
+                                             : expression_behaviour_t::default_;
+            }
+
+            return expression_behaviour_t::default_;
+        }
+
         // Converts to a string.
         virtual const string_t to_string() const override;
     };
@@ -5735,6 +5759,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return expression_family_t::function;
         }
 
+        // Returns type.
+        virtual type_t * get_type(xpool_t & xpool) const override;
+
         // Gets name.
         name_t get_name() const;
 
@@ -5823,6 +5850,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns vtype.
         virtual vtype_t get_vtype() const override;
 
+        // Returns type.
+        virtual type_t * get_type(xpool_t & xpool) const override;
+
         // Converts to string.
         virtual const string_t to_string() const override;
 
@@ -5907,6 +5937,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class array_initializer_t : public eobject_t
     {
         typedef eobject_t __super_t;
+        typedef array_initialize_element_type_t __type_t;
 
     public:
         __vector_t<array_initialize_element_t> elements;
@@ -5934,6 +5965,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return elements[index];
         }
+
+        // The element enumerating callback function.
+        typedef std::function<bool(expression_t * exp)> each_element_callback_t;
+
+        // Enumerates all elements.
+        bool each_element(each_element_callback_t f);
+
+        // Sets parent for all element expressions.
+        void set_parent(expression_t * parent);
 
         // Checks whether it is corrent.
         // Raise expression when failed.
@@ -5967,10 +6007,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         type_name_t * type_name  = nullptr;             // Array element type name.
-        array_initializer_t * initializer = nullptr;    // Value initializer.
+
+        array_initializer_t * initializer()             // Value initializer.
+        {
+            return __initializer;
+        }
+
+        // Sets initializer
+        void set_initializer(array_initializer_t * initializer);
 
         // Returns array type.
-        type_t * to_array_type(xpool_t & pool);
+        type_t * to_array_type(xpool_t & pool) const;
+
+        // Returns element type.
+        type_t * get_element_type() const;
 
         // Returns array length.
         array_lengths_t * lengths() const { return __lengths; }
@@ -5990,13 +6040,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns vtype.
         virtual vtype_t get_vtype() const override;
 
+        // Returns type.
+        virtual type_t * get_type(xpool_t & xpool) const override;
+
         // Converts to a string.
         virtual const string_t to_string() const override;
 
         // Returns behaviour.
         virtual expression_behaviour_t get_behaviour() const override
         {
-            return expression_behaviour_t::new_;
+            return expression_behaviour_t::default_;
         }
 
         // Sets array lengths
@@ -6021,7 +6074,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
     private:
-        array_lengths_t * __lengths = nullptr;
+        array_lengths_t     * __lengths = nullptr;
+        array_initializer_t * __initializer = nullptr;
     };
 
     //-------- ---------- ---------- ---------- ----------

@@ -170,6 +170,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Element type of array undeterminded.
         element_type_undeterminded,
 
+        // Index element init expression empty.
+        element_init_expression_empty,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////

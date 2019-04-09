@@ -2653,7 +2653,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __expression.type_name = __to_eobject<type_name_t *>(type_name);
         __expression.set_lengths(__to_eobject<array_lengths_t *>(lengths));
-        __expression.initializer = __to_eobject<array_initializer_t *>(initializer);
+        __expression.set_initializer(__to_eobject<array_initializer_t *>(initializer));
     }
 
     // Returns this eobject.
@@ -2667,11 +2667,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this eobject.
     void new_array_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        switch((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                __walk_default(context);
+
+                __super_t::on_walk(context, step, tag);
+
+                this->__delay(context, walk_step_t::confirm);
+
+                if(__expression.initializer() != nullptr)
+                    this->__delay(context, walk_step_t::analysis);
+
+                break;
+
+            case walk_step_t::confirm:
+                __walk_confirm(context);
+                break;
+
+            case walk_step_t::analysis:
+                __walk_analysis(context);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    // Walks default step.
+    void new_array_ast_node_t::__walk_default(ast_walk_context_t & context)
+    {
         this->__check_empty(__expression.type_name, this, __c_t::type_name_missing,
                                                             _T("array creation"));
         this->__check_empty(__expression.lengths(), this, __c_t::array_lengths_missing);
-
-        __super_t::on_walk(context, step, tag);
 
         // dimension
         array_lengths_t * p_lengths = this->__to_eobject<array_lengths_t *>(lengths);
@@ -2694,10 +2722,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Walks confirm step.
+    void new_array_ast_node_t::__walk_confirm(ast_walk_context_t & context)
+    {
+        // To ensure the array type be pushed into xpool before execute xpool_t::commit_types().
+        // Then used by some expressions, like (new int[10]).Length;
+        // Otherwise, An error of 'type not found' will be occued.
+        __expression.to_array_type(this->__get_xpool());
+    }
+
+    // Walks analysis step.
+    void new_array_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        array_initializer_t * initializer = __expression.initializer();
+        if(initializer != nullptr)
+        {
+            initializer->each_element([&, this](expression_t * exp) -> bool {
+                walk_expression(this->__context, context, exp);
+                return true;
+            });
+        }
+    }
+
     // Returns length of specified dimension.
     array_length_t new_array_ast_node_t::__get_length(dimension_t dimension)
     {
-        array_initializer_t * initializer = __expression.initializer;
+        array_initializer_t * initializer = __expression.initializer();
 
         while(dimension-- > 0 && initializer != nullptr)
         {

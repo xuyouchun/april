@@ -3875,6 +3875,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     private:
         __wexp_t<new_array_expression_t> __expression;
         array_length_t __get_length(dimension_t dimension);
+
+        // Walks default step.
+        void __walk_default(ast_walk_context_t & context);
+
+        // Walks confirm step.
+        void __walk_confirm(ast_walk_context_t & context);
+
+        // Walks analysis step.
+        void __walk_analysis(ast_walk_context_t & context);
+
     };
 
     ////////// ////////// ////////// ////////// //////////

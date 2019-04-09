@@ -11,6 +11,9 @@
 public static class Console
 {
     [__internal__]
+    public static extern Int32 TestAdd(Int32 a, Int32 b);
+
+    [__internal__]
     public static extern Void Write(String s);
 
     [__internal__]

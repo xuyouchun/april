@@ -15,6 +15,16 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Memory error codes.
+    X_ENUM(memory_error_code_t)
+
+        // Array dimension error.
+        array_dimension_error,
+
+    X_ENUM_END
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Default runtime memory heap.
     class default_rt_heap_t : public object_t, public rt_heap_t
     {
@@ -24,8 +34,8 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
         virtual rt_ref_t new_obj(rt_type_t * type) override;
 
         // Creates new array.
-        virtual rt_ref_t new_array(rt_array_type_t * type, dimension_t dimension,
-                          const array_length_t * lengths) override;
+        virtual rt_ref_t new_array(rt_array_type_t * type, const array_length_t * lengths)
+                                                   override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -50,13 +60,62 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
     // Gets array lengths.
     X_INLINE array_length_t * get_array_lengths(void * arr_obj)
     {
-        return (array_length_t *)((rt_type_t **)arr_obj - 1) - 1;
+        return (array_length_t *)((rt_type_t **)arr_obj - 1) - 2;
     }
 
     // Gets array lengths.
     X_INLINE array_length_t * get_array_lengths(rt_ref_t arr_obj)
     {
         return get_array_lengths((void *)arr_obj);
+    }
+
+    // Gets array dimension.
+    X_INLINE dimension_t get_array_dimension(void * arr_obj)
+    {
+        rt_array_type_t * rt_type = (rt_array_type_t *)get_object_type(arr_obj);
+        return rt_type->dimension;
+    }
+
+    // Gets array dimension.
+    X_INLINE dimension_t get_array_dimension(rt_ref_t arr_obj)
+    {
+        return get_array_dimension((void *)arr_obj);
+    }
+
+    // Gets array lengths.
+    X_INLINE array_length_t get_array_length(void * arr_obj)
+    {
+        return *((array_length_t *)((rt_type_t **)arr_obj - 1) - 1);
+    }
+
+    // Gets array lengths.
+    X_INLINE array_length_t get_array_length(rt_ref_t arr_obj)
+    {
+        return get_array_length((void *)arr_obj);
+    }
+
+    // Gets array length of specified dimension.
+    X_INLINE array_length_t get_array_length_of_dimension(void * arr_obj, dimension_t dimension)
+    {
+        dimension_t rank = get_array_dimension(arr_obj);
+        if(dimension == 0)
+        {
+            if(rank == 1)
+                return get_array_length(arr_obj);
+        }
+
+        array_length_t * lengths = get_array_lengths(arr_obj);
+        int index = rank - dimension - 1;
+        if(index == 0)
+            return *lengths;
+            
+        return lengths[-index] / lengths[-index + 1];
+    }
+
+    // Gets array length of specified dimension.
+    X_INLINE array_length_t get_array_length_of_dimension(rt_ref_t arr_obj, dimension_t dimension)
+    {
+        return get_array_length_of_dimension((void *)arr_obj, dimension);
     }
 
     // Gets array element.

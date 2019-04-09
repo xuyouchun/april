@@ -301,6 +301,46 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    static msize_t __size_of(assembly_analyzer_t & analyzer, ref_t type_ref)
+    {
+        if(type_ref.empty())
+            return 0;
+
+        rt_type_t * rt_type = analyzer.get_type(type_ref);
+
+        switch((mt_type_extra_t)type_ref.extra)
+        {
+            case mt_type_extra_t::type_ref:
+            case mt_type_extra_t::general: {
+
+                rt_general_type_t * t = (rt_general_type_t *)rt_type;
+                size_t arg_size = get_vtype_size((vtype_t)(*t)->vtype); // TODO: struct?
+                return arg_size;
+
+            }   break;
+
+            case mt_type_extra_t::generic: {
+                X_UNEXPECTED();
+            }   break;
+
+            default:
+                X_UNEXPECTED();
+                return sizeof(void *);
+        }
+    }
+
+    constexpr static int __unit_size_of(size_t size)
+    {
+        return _alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
+    }
+
+    static msize_t __unit_size_of(assembly_analyzer_t & analyzer, ref_t type_ref)
+    {
+        return __unit_size_of(__size_of(analyzer, type_ref));
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
     #define __Local(type_t, offset)    *(type_t *)((byte_t *)ctx.stack.lp() + offset)
 
     #define __ToPushCmdValue(_stype, _xil_type)                                     \
@@ -563,55 +603,185 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    namespace
+    {
+        namespace __mul_array_index_ns
+        {
+            typedef dimension_t         __d_t;
+            typedef array_length_t      __l_t;
+            typedef executor_stack_t    __stack_t;
+
+            template<__d_t _d> struct __mul_t
+            {
+                X_ALWAYS_INLINE __l_t operator()(__stack_t & stack, __l_t * ls)
+                {
+                    return stack.pop<__l_t>() * (*ls) + __mul_t<_d - 1>()(stack, ls - 1);
+                }
+            };
+
+            template<> struct __mul_t<0>
+            {
+                X_ALWAYS_INLINE __l_t operator()(__stack_t & stack, __l_t * p)
+                {
+                    return 0;
+                }
+            };
+        }
+
+        template<dimension_t _dimension>
+        X_ALWAYS_INLINE array_length_t __mul_array_index(executor_stack_t & stack,
+                                                         array_length_t * lengths)
+        {
+            return __mul_array_index_ns::__mul_t<_dimension>()(stack, lengths);
+        }
+    }
+
+    __AlwaysInline static array_length_t __array_index(executor_stack_t & stack,
+                                dimension_t dimension, array_length_t * lengths)
+    {
+        array_length_t index = 0;
+        const dimension_t partical_dimension = 8;
+
+        while(true)
+        {
+            switch(dimension)
+            {
+                case 0: return index;
+
+                #define __Case(_d)                                              \
+                    case _d:                                                    \
+                        return index + __mul_array_index<_d>(stack, lengths);
+
+                __Case(2)
+                __Case(3)
+                __Case(4)
+                __Case(5)
+                __Case(6)
+                __Case(7)
+                __Case(8)
+
+                #undef __Case
+
+                default:
+                    index += __mul_array_index<partical_dimension>(stack, lengths);
+                    lengths -= partical_dimension;
+                    dimension -= partical_dimension;
+                    continue;
+            }
+        }
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
     #define __RtTypeOf(rt_ref)  (*((rt_type_t **)(void *)rt_ref - 1))
 
-    template<xil_type_t _xil_type>
-    class __push_command_t<xil_storage_type_t::array_element, _xil_type>
-        : public __command_base_t
+    #define __ToPushArrayElementCmdValue(_xil_type, _dimension)                      \
+        __ToCmdValue(push, ((cmd_value_t)xil_storage_type_t::array_element << 12)    \
+            | ((cmd_value_t)_xil_type) << 8) | (cmd_value_t)_dimension
+
+    template<xil_type_t _xil_type, int _dimension>
+    class __push_array_element_command_t : public __command_base_t
     {
-        typedef __command_base_t __super_t;
-
     public:
-        __push_command_t(dimension_t dimension) : __dimension(dimension) { }
-
         __BeginToString(ctx)
 
-            return _F(_T("push array element (%1%)"), _xil_type);
+            return _F(_T("push array element"));
 
         __EndToString()
 
-        __BeginExecute(ctx, __ToPushCmdValue(array_element, _xil_type))
+        __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type, _dimension))
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
-            array_length_t index;
+            array_length_t index = ctx.stack.pop<array_length_t>();
 
-            if(__dimension == 1)
+            if(_dimension >= 2)
             {
-                //array_length_t length = *mm::get_array_lengths(array_ref);
-                array_length_t index  = ctx.stack.pop<array_length_t>();
-                typedef __vnum_t<_xil_type> element_t;
-
-                ctx.stack.push<element_t>(
-                    mm::get_array_element<element_t>(array_ref, index)
-                );
+                array_length_t * lengths = mm::get_array_lengths(array_ref);
+                index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
             }
-            else
-            {
-                X_UNEXPECTED();
-                /*
-                array_length_t * p_length = (array_length_t *)((byte_t *)obj - 1);
 
-                for(dimension_t dimension = 1; dimension < __dimension; dimension++)
-                {
-                    index *= *--p_length;
-                }
-                */
-            }
+            typedef __vnum_t<_xil_type> element_t;
+
+            ctx.stack.push<element_t>(
+                mm::get_array_element<element_t>(array_ref, index)
+            );
+
+        __EndExecute()
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<xil_type_t _xil_type>
+    class __push_array_element_command_t<_xil_type, 0> : public __command_base_t
+    {
+    public:
+
+        __push_array_element_command_t(dimension_t dimension) : __dimension(dimension) { }
+
+        __BeginToString(ctx)
+
+            return _F(_T("push array element"));
+
+        __EndToString()
+
+        __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type, 0))
+
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            array_length_t index = ctx.stack.pop<array_length_t>();
+            array_length_t * lengths = mm::get_array_lengths(array_ref);
+
+            index += __array_index(ctx.stack, __dimension - 1, lengths);
+
+            typedef __vnum_t<_xil_type> element_t;
+
+            ctx.stack.push<element_t>(
+                mm::get_array_element<element_t>(array_ref, index)
+            );
 
         __EndExecute()
 
     private:
         dimension_t __dimension;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    struct __push_array_element_command_template_t
+    {
+        template<xil_type_t _dtype, typename ... _args_t>
+        static auto new_command(memory_t * memory, int dimension, _args_t && ... args)
+            -> command_t *
+        {
+            #define __NewCommand(_dimension)                                        \
+                __new_command<__push_array_element_command_t<_dtype, _dimension>>(  \
+                    memory, std::forward<_args_t>(args) ...                         \
+                )
+
+            switch(dimension)
+            {
+                #define __Case(_dimension)                                          \
+                    case _dimension:                                                \
+                        return __NewCommand(_dimension);
+
+                __Case(1)
+                __Case(2)
+                __Case(3)
+                __Case(4)
+                __Case(5)
+                __Case(6)
+                __Case(7)
+                __Case(8)
+
+                default:
+                    return __new_command<__push_array_element_command_t<_dtype, 0>>(
+                        memory, dimension, std::forward<_args_t>(args) ...
+                    );
+
+                #undef __Case
+            }
+
+            #undef __NewCommand
+        }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -669,8 +839,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<msize_t> __field_command_manager;
 
         static __command_manager_t<
-            __push_command_template_t, xil_storage_type_t, xil_type_t
-        >::with_args_t<dimension_t> __push_array_element_command_manager;
+            __push_array_element_command_template_t, xil_type_t
+        >::with_args_t<dimension_t> __array_element_command_manager;
 
         if(xil.stype() == xil_storage_type_t::duplicate)
             return &__duplicate_command;
@@ -809,8 +979,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseArrayElement(d)                                               \
                 case __V(xil_storage_type_t::array_element, xil_type_t::d):             \
-                    return __push_array_element_command_manager.template get_command<   \
-                        xil_storage_type_t::array_element, xil_type_t::d                \
+                    return __array_element_command_manager.template get_command<        \
+                       xil_type_t::d                                                    \
                     >(__array_dimension(ctx, xil.type_ref()));
 
             __CaseArrayElement(int8)
@@ -995,12 +1165,60 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<xil_type_t _xil_type>
-    class __pop_command_t<xil_storage_type_t::array_element, _xil_type>
-        : public __command_base_t
+    struct __pop_command_template_t
+    {
+        template<xil_storage_type_t _stype, xil_type_t _dtype, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
+        {
+            typedef __pop_command_t<_stype, _dtype> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    #define __ToPopArrayElementCmdValue(_xil_type, _dimension)                      \
+        __ToCmdValue(pop, ((cmd_value_t)xil_storage_type_t::array_element << 12)    \
+            | ((cmd_value_t)_xil_type) << 8) | (cmd_value_t)_dimension
+
+    template<xil_type_t _xil_type, int _dimension>
+    class __pop_array_element_command_t : public __command_base_t
     {
     public:
-        __pop_command_t(dimension_t dimension) : __dimension(dimension) { }
+        __BeginToString(ctx)
+
+            return _F(_T("pop array element"));
+
+        __EndToString()
+
+        __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type, _dimension))
+
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            array_length_t index = ctx.stack.pop<array_length_t>();
+
+            if(_dimension >= 2)
+            {
+                array_length_t * lengths = mm::get_array_lengths(array_ref);
+                index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
+            }
+
+            typedef __vnum_t<_xil_type> element_t;
+
+            mm::set_array_element<element_t>(
+                array_ref, index, ctx.stack.pop<element_t>()
+            );
+
+        __EndExecute()
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<xil_type_t _xil_type>
+    class __pop_array_element_command_t<_xil_type, 0> : public __command_base_t
+    {
+    public:
+
+        __pop_array_element_command_t(dimension_t dimension) : __dimension(dimension) { }
 
         __BeginToString(ctx)
 
@@ -1008,34 +1226,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndToString()
 
-        __BeginExecute(ctx, __ToPopCmdValue(array_element, _xil_type))
+        __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type, 0))
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            array_length_t index = ctx.stack.pop<array_length_t>();
+            array_length_t * lengths = mm::get_array_lengths(array_ref);
 
-            if(__dimension == 1)
-            {
-                //array_length_t length = *mm::get_array_lengths(array_ref);
-                array_length_t index  = ctx.stack.pop<array_length_t>();
+            index += __array_index(ctx.stack, __dimension - 1, lengths);
 
-                typedef __vnum_t<_xil_type> element_t;
+            typedef __vnum_t<_xil_type> element_t;
 
-                mm::set_array_element<element_t>(
-                    array_ref, index, ctx.stack.pop<element_t>()
-                );
-            }
-            else
-            {
-                X_UNEXPECTED();
-
-                /*
-                array_length_t * p_length = (array_length_t *)((byte_t *)obj - 1);
-
-                for(dimension_t dimension = 1; dimension < __dimension; dimension++)
-                {
-                    index *= *--p_length;
-                }
-                */
-            }
+            mm::set_array_element<element_t>(
+                array_ref, index, ctx.stack.pop<element_t>()
+            );
 
         __EndExecute()
 
@@ -1045,13 +1248,41 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    struct __pop_command_template_t
+    struct __pop_array_element_command_template_t
     {
-        template<xil_storage_type_t stype, xil_type_t dtype, typename ... args_t>
-        static auto new_command(memory_t * memory, args_t && ... args)
+        template<xil_type_t _dtype, typename ... _args_t>
+        static auto new_command(memory_t * memory, int dimension, _args_t && ... args)
+            -> command_t *
         {
-            typedef __pop_command_t<stype, dtype> this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+            #define __NewCommand(_dimension)                                        \
+                __new_command<__pop_array_element_command_t<_dtype, _dimension>>(   \
+                    memory, std::forward<_args_t>(args) ...                         \
+                )
+
+            switch(dimension)
+            {
+                #define __Case(_dimension)                                          \
+                    case _dimension:                                                \
+                        return __NewCommand(_dimension);
+
+                __Case(1)
+                __Case(2)
+                __Case(3)
+                __Case(4)
+                __Case(5)
+                __Case(6)
+                __Case(7)
+                __Case(8)
+
+                default:
+                    return __new_command<__pop_array_element_command_t<_dtype, 0>>(
+                        memory, dimension, std::forward<_args_t>(args) ...
+                    );
+
+                #undef __Case
+            }
+
+            #undef __NewCommand
         }
     };
 
@@ -1120,7 +1351,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<msize_t> __field_command_manager;
 
         static __command_manager_t<
-            __pop_command_template_t, xil_storage_type_t, xil_type_t
+            __pop_array_element_command_template_t, xil_type_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
         if(xil.stype() == xil_storage_type_t::empty)
@@ -1221,10 +1452,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #undef __CaseField
 
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // array element
+
             #define __CaseArrayElement(d)                                           \
                 case __V(xil_storage_type_t::array_element, xil_type_t::d):         \
                     return __array_element_command_manager.template get_command<    \
-                        xil_storage_type_t::array_element, xil_type_t::d            \
+                        xil_type_t::d                                               \
                     >(__array_dimension(ctx, xil.type_ref()));                      \
                     break;
 
@@ -1420,18 +1654,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __internal_call_command_t : public __command_base_t
     {
     public:
-        __internal_call_command_t(__libfunc_t func, int stack_unit_size)
-            : __func(func), __stack_unit_size(stack_unit_size)
+        __internal_call_command_t(__libfunc_t func, int param_unit_size, int ret_unit_size)
+            : __func(func), __param_unit_size(param_unit_size)
+            , __pop_unit_size(param_unit_size - ret_unit_size)
         {
             _A(func != nullptr);
         }
 
         __BeginExecute(ctx, __ToCallCmdValue(internal))
 
-            rtlib_context_t context(ctx.stack.top() - __stack_unit_size);
+            rtlib_context_t context(ctx.stack.top() - __param_unit_size);
             __func(context);
 
-            ctx.stack.pop(__stack_unit_size);
+            ctx.stack.pop(__pop_unit_size);
 
         __EndExecute()
 
@@ -1442,7 +1677,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __EndToString()
 
     private:
-        int __stack_unit_size;
+        int __param_unit_size, __pop_unit_size;
         __libfunc_t __func;
     };
 
@@ -1453,47 +1688,30 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                         __context_t & ctx, rt_method_t * rt_method)
         {
             typedef __internal_call_command_t<nokey> this_command_t;
+
+            int param_unit_size, ret_unit_size;
+            __get_method_unit_size(ctx, rt_method, &param_unit_size, &ret_unit_size);
+
             this_command_t * cmd = __new_command<this_command_t>(
-                memory, libfunc, __get_method_stack_unit_size(ctx, rt_method)
+                memory, libfunc, param_unit_size, ret_unit_size
             );
 
             return cmd;
         }
 
-        constexpr static int __stack_unit_size(size_t size)
-        {
-            return _alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
-        }
-
-        static int __get_method_stack_unit_size(__context_t & ctx, rt_method_t * rt_method)
+        static void __get_method_unit_size(__context_t & ctx, rt_method_t * rt_method,
+                        int * out_param_unit_size, int * out_ret_unit_size)
         {
             int unit_size = 0;
             rt_assembly_t * rt_assembly = rt_method->get_assembly();
 
             assembly_analyzer_t analyzer(ctx, rt_assembly);
             rt_assembly->each_params((*rt_method)->params, [&](int, auto & param) {
-
-                rt_type_t * param_type = analyzer.get_type(param.type);
-                switch((mt_type_extra_t)param.type.extra)
-                {
-                    case mt_type_extra_t::type_ref:
-                    case mt_type_extra_t::general: {
-
-                        rt_general_type_t * t = (rt_general_type_t *)param_type;
-                        size_t arg_size = get_vtype_size((vtype_t)(*t)->vtype);
-                        unit_size += __stack_unit_size(arg_size);
-
-                    }   break;
-
-                    default:
-                        unit_size += __stack_unit_size(sizeof(void *));
-                        break;
-                }
-
-                return true;
+               return unit_size += __unit_size_of(analyzer, param.type), true;
             });
 
-            return unit_size;
+            *out_param_unit_size = unit_size;
+            *out_ret_unit_size   = __unit_size_of(analyzer, (*rt_method)->type);
         }
     };
 
@@ -2733,7 +2951,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
 
             ctx.stack.push(
-                ctx.heap->new_array(__type, dimension, lengths)
+                ctx.heap->new_array(__type, lengths)
             );
 
         __EndExecute()
@@ -2903,13 +3121,185 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    class __init_command_base_t : public __command_base_t
+    {
+    public:
+        __BeginToString(ctx)
+
+            return _T("init");
+
+        __EndToString()
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<xil_init_type_t _init_type, msize_t _size> class __init_command_t { };
+
+    #define __ToInitCmdValue(_init_type, _size)         \
+        __ToCmdValue(init, ((cmd_value_t)xil_init_type_t::_init_type << 24) | (cmd_value_t)_size)
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<>
+    class __init_command_t<xil_init_type_t::array_begin, 0>
+        : public __init_command_base_t
+    {
+        typedef __init_command_base_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        __BeginExecute(ctx, __ToInitCmdValue(array_begin, 0))
+            
+            ctx.stack.push<void *>(
+                (void *)ctx.stack.pick<rt_ref_t>()
+            );
+
+        __EndExecute()
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<msize_t _size>
+    class __init_command_t<xil_init_type_t::array_element, _size>
+        : public __init_command_base_t
+    {
+        typedef __init_command_base_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        __BeginExecute(ctx, __ToInitCmdValue(array_element, _size))
+
+            typedef uint_type_t<_size> t;
+            *ctx.stack.pick_reference<t *>()++ = ctx.stack.pop<t>();
+
+        __EndExecute()
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<>
+    class __init_command_t<xil_init_type_t::array_element, 0>
+        : public __init_command_base_t
+
+    {
+        typedef __init_command_base_t __super_t;
+
+    public:
+        __init_command_t(msize_t size) : __size(size) { }
+
+        __BeginExecute(ctx, __ToInitCmdValue(array_element, 0))
+            
+            // TODO: implement it.
+            X_UNEXPECTED();
+
+        __EndExecute()
+
+    private:
+        msize_t __size;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<>
+    class __init_command_t<xil_init_type_t::array_end, 0>
+        : public __init_command_base_t
+    {
+        typedef __init_command_base_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        __BeginExecute(ctx, __ToInitCmdValue(array_end, 0))
+
+            ctx.stack.pop<void *>();
+
+        __EndExecute()
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    struct __init_command_template_t
+    {
+        template<xil_init_type_t _init_type, msize_t _size, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
+        {
+            typedef __init_command_t<_init_type, _size> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    static msize_t __size_of_array_element(__context_t & ctx, const init_xil_t & xil)
+    {
+        if(xil.dtype() == xil_type_t::empty)
+        {
+            rt_type_t * rt_type = ctx.get_type(xil.type_ref());
+            //assembly_analyzer_t analyzer = __assembly_analyzer(ctx, rt_type);
+            //return __size_of(analyzer, rt_type);
+
+            X_UNEXPECTED();
+            return 0;
+        }
+
+        return size_of(xil.dtype());
+    }
+
+    static command_t * __new_init_command(__context_t & ctx, const init_xil_t & xil)
+    {
+        static __command_manager_t<
+            __init_command_template_t, xil_init_type_t, msize_t
+        >::with_args_t<> __stack_init_command_manager;
+
+        switch(xil.init_type())
+        {
+            case xil_init_type_t::array_begin:
+                return __stack_init_command_manager.template
+                    get_command<xil_init_type_t::array_begin, 0>();
+
+            case xil_init_type_t::array_element: {
+                msize_t size = __size_of_array_element(ctx, xil);
+                switch(size)
+                {
+                    #define __Case(_size)                                               \
+                        case _size:                                                     \
+                            return __stack_init_command_manager.template                \
+                                get_command<xil_init_type_t::array_element, _size>();   \
+
+                    __Case(1)
+                    __Case(2)
+                    __Case(4)
+                    __Case(8)
+
+                    default:
+                        return __stack_init_command_manager.template
+                            get_command<xil_init_type_t::array_element, 0>(size);
+                   
+                    #undef __Case
+                }
+
+            }   break;
+
+            case xil_init_type_t::array_end:
+                return __stack_init_command_manager.template
+                    get_command<xil_init_type_t::array_end, 0>();
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     #undef __Local
 
     ////////// ////////// ////////// ////////// //////////
 
     command_t * new_command(command_creating_context_t & ctx, const xil_base_t * xil)
     {
-        _P(_T(">> new_command: "), (xil_command_t)xil->command());
+        //_P(_T(">> new_command: "), (xil_command_t)xil->command());
         switch(xil->command())
         {
             case xil_command_t::empty:
@@ -2950,6 +3340,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_command_t::copy:
                 return __new_copy_command(ctx, *(const copy_xil_t *)xil);
+
+            case xil_command_t::init:
+                return __new_init_command(ctx, *(const init_xil_t *)xil);
 
             default:
                 X_UNEXPECTED();

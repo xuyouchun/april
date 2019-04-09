@@ -84,6 +84,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             {
                 return *(t *)(top - __alignf<t>() / sizeof(rt_stack_unit_t));
             }
+
+            // Pops a unit reference.
+            __AlwaysInline static t & pop_reference(rt_stack_unit_t * top)
+            {
+                return *(t *)(top - __alignf<t>() / sizeof(rt_stack_unit_t));
+            }
         };
 
         // Stack operations. when value size is less or equals than unit.
@@ -103,6 +109,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             {
                 return ((__tmp_t *)(top - 1))->value;
             }
+
+            // Pops a unit reference.
+            __AlwaysInline static t & pop_reference(rt_stack_unit_t * top)
+            {
+                return ((__tmp_t *)(top - 1))->value;
+            }
+
         };
     }
 
@@ -153,6 +166,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         template<typename t> __AlwaysInline t pick()
         {
             return __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop(__top);
+        }
+
+        // Picks top unit reference.
+        template<typename t> __AlwaysInline t & pick_reference()
+        {
+            return __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop_reference(__top);
         }
 
         // Picks top unit.
@@ -325,13 +344,28 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         command_t ** current = nullptr;     // Current command.
 
         // Pushes calling context.
-        void push_calling(command_t ** command);
+        X_ALWAYS_INLINE void push_calling(command_t ** command)
+        {
+            stack.push(stack.lp());
+            stack.push(current);
+
+            this->current = command;
+            stack.set_lp(stack.top());
+        }
 
         // Pops calling context.
-        void pop_calling();
+        X_ALWAYS_INLINE void pop_calling()
+        {
+            current = stack.pop<command_t **>();
+            stack.set_lp(stack.pop<rt_stack_unit_t *>());
+        }
 
         // Pops calling context.
-        void pop_calling(const __calling_stub_t * p);
+        X_ALWAYS_INLINE void pop_calling(const __calling_stub_t * p)
+        {
+            current = p->current;
+            stack.set_lp(p->lp);
+        }
 
         // Creates a new runtime string.
         rt_string_t * new_rt_string(const char_t * s);

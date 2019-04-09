@@ -223,8 +223,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual rt_ref_t new_obj(rt_type_t * type) = 0;
 
         // Creates a new array.
-        virtual rt_ref_t new_array(rt_array_type_t * type, dimension_t dimension,
-                                   const array_length_t * lengths) = 0;
+        virtual rt_ref_t new_array(rt_array_type_t * type, const array_length_t * lengths) = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------

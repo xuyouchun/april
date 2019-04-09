@@ -66,6 +66,8 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     typedef rt_arg_t<bool>              rbool_t;
     typedef rt_arg_t<void *>            rptr_t;
 
+    typedef rt_arg_t<rt_ref_t>          robject_t;
+
     ////////// ////////// ////////// ////////// //////////
 
     // Runtime lib context.
@@ -102,6 +104,11 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     __DefineFunc(test_add);
     __DefineFunc(write_int32);
     __DefineFunc(write_boolean);
+
+    // Array functions.
+    __DefineFunc(array_get_rank);
+    __DefineFunc(array_get_length);
+    __DefineFunc(array_get_length_of_dimension);
 
     ////////// ////////// ////////// ////////// //////////
 

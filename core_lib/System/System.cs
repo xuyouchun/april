@@ -25,14 +25,26 @@ public class Attribute
 [__internal__]
 class Array : Object
 {
-    public Int32 Dimension { get { return __dimension; } }
+    // Returns rank of array.
+    public Int32 Rank { get { return Array_GetRank(this); } }
 
-    private Int32 __dimension;
+    // Returns length of array.
+    public Int32 Length { get { return Array_GetLength(this); } }
 
-    public Void DoAnything()
+    // Returns length of array at specified dimension.
+    public Int32 GetLength(Int32 dimension)
     {
-        Console.Write("DoAnything\n");
+        return Array_GetLengthOfDimension(this, dimension);
     }
+
+    [__internal__]
+    private static extern Int32 Array_GetRank(Array array);
+
+    [__internal__]
+    private static extern Int32 Array_GetLength(Array array);
+
+    [__internal__]
+    private static extern Int32 Array_GetLengthOfDimension(Array array, Int32 dimension);
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -40,15 +52,7 @@ class Array : Object
 [__internal__]
 class Array<T> : Array
 {
-    public Void DoSomething()
-    {
-        Console.Write("DoSomething\n");
 
-        for(Int32 k = 0; k < 10; k++)
-        {
-            base.DoAnything();
-        }
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////

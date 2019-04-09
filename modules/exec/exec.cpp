@@ -49,33 +49,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
-    // command_execute_context_t
-
-    // Pushes calling context.
-    void command_execute_context_t::push_calling(command_t ** command)
-    {
-        stack.push(stack.lp());
-        stack.push(current);
-
-        this->current = command;
-        stack.set_lp(stack.top());
-    }
-
-    // Pops calling context.
-    void command_execute_context_t::pop_calling()
-    {
-        current = stack.pop<command_t **>();
-        stack.set_lp(stack.pop<rt_stack_unit_t *>());
-    }
-
-    // Pops calling context.
-    void command_execute_context_t::pop_calling(const __calling_stub_t * p)
-    {
-        current = p->current;
-        stack.set_lp(p->lp);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
     // executor_env_t
 
     // Execute method of runtime method.
@@ -131,7 +104,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         };
 
         command_execute_context_t exec_ctx(__ctx.heap, env);
+
+        rt_stack_unit_t * top = exec_ctx.stack.top();
         execute_commands(exec_ctx, commands);
+
+        _A(top == exec_ctx.stack.top());
     }
 
     ////////// ////////// ////////// ////////// //////////
