@@ -3,6 +3,9 @@
 
 namespace X_ROOT_NS { namespace modules { namespace core {
 
+    #define __TraceXilRead      0
+    #define __TraceXilWrite     0
+
     ////////// ////////// ////////// ////////// //////////
 
     const ref_t ref_t::null(0, 0, 0);
@@ -230,13 +233,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case vtype_t::char_:
                 return xil_type_t::char_;
 
-            case vtype_t::mobject:
+            case vtype_t::mobject_:
                 return xil_type_t::object;
 
-            case vtype_t::ptr:
+            case vtype_t::ptr_:
                 return xil_type_t::ptr;
 
-            case vtype_t::string:
+            case vtype_t::string_:
                 return xil_type_t::string;
 
             default:
@@ -830,7 +833,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         *out_xil = (const xil_base_t *)__bytes;
 
-        //_PF(_T("[%1%] %2%"), __size_of(*out_xil), __to_string(*out_xil));
+        #if __TraceXilRead
+
+        _PF(_T("[%1%] %2%"), __size_of(*out_xil), __to_string(*out_xil));
+
+        #endif
 
         __bytes += __size_of(*out_xil);
         return true;
@@ -848,12 +855,28 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         for(xil_t * xil : pool)
         {
+            #if __TraceXilWrite
+
             _PF(_T("[%1%] %2%"), __size_of(xil), __to_string(xil));
+
+            #endif
 
             buffer.write((const byte_t *)xil, __size_of(xil));
         }
 
         return buffer.size() - init_size;
+    }
+
+    // Writes xils to a buffer.
+    size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer, method_t * method)
+    {
+        #if __TraceXilWrite
+
+        _PF(_T("\n%1%"), method);
+
+        #endif
+
+        return write_to_buffer(pool, buffer);
     }
 
     ////////// ////////// ////////// ////////// //////////

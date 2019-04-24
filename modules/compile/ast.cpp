@@ -1127,6 +1127,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Commits this node.
     void expression_ast_node_t::on_commit()
     {
+        // TODO: why parse twice?
         __expression = __parse_expression(__es);
     }
 

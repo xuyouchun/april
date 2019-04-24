@@ -336,12 +336,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             _A(heap != nullptr);
         }
 
-        executor_stack_t stack;             // Stack.
-        rt_string_pool_t string_pool;       // String pool.
-        rt_heap_t *      heap;              // Runtime heap.
-        executor_env_t & env;               // Executing environment.
+        executor_stack_t    stack;             // Stack.
+        rt_string_pool_t    string_pool;       // String pool.
+        rt_heap_t *         heap;              // Runtime heap.
+        executor_env_t &    env;               // Executing environment.
 
-        command_t ** current = nullptr;     // Current command.
+        command_t ** current = nullptr;        // Current command.
 
         // Pushes calling context.
         X_ALWAYS_INLINE void push_calling(command_t ** command)
@@ -466,8 +466,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         typedef analyzer_env_t __super_t;
         typedef executor_env_t __self_t;
 
+        typedef al::heap_t<command_t *[]> __command_heap_t;
+
     public:
-        using __super_t::__super_t;
+        executor_env_t(memory_t * memory, rt_pool_t & rpool, rt_assemblies_t & assemblies)
+            : __super_t(memory, rpool, assemblies), __command_heap(memory)
+        { }
 
         // Execute method of runtime method.
         exec_method_t * exec_method_of(rt_method_t * rt_method);
@@ -475,8 +479,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Execute method of runtime generic method.
         exec_method_t * exec_method_of(rt_generic_method_t * rt_generic_method);
 
+        // Creates an array of command_t *.
+        command_t ** new_commands(size_t count);
+
     private:
         std::map<void *, exec_method_t *> __method_map;
+        __command_heap_t  __command_heap;
+
+        // Gets exec_method_t from cache, returns nullptr if not found.
+        exec_method_t * __from_cache(void * rt_method);
+
+        // Execute method of runtime method with template arguments.
+        exec_method_t * __parse_commands(rt_method_t * rt_method, rt_type_t * host_type = nullptr,
+                                         const generic_param_manager_t * gp_manager = nullptr);
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -24,25 +24,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Constructor.
         command_creating_context_t(executor_env_t & env, rt_assembly_t * assembly,
-                                   rt_method_t * method, rt_type_t ** generic_types = nullptr)
-            : __super_t(env, assembly), method(method), env(env)
-            , locals_layout(*this, generic_types), params_layout(*this, generic_types)
-        {
-            _A(assembly != nullptr);
-            _A(method != nullptr);
-        }
+            rt_type_t * type, rt_method_t * method,
+            const generic_param_manager_t * gp_manager = nullptr);
 
-        rt_method_t * method;                       // Runtime method.
-        locals_layout_t locals_layout;              // Locals layout.
-        params_layout_t params_layout;              // Params layout.
-        exec_switch_manager_t switch_manager;       // Switch...case method.
-        executor_env_t & env;                       // Executor environment.
+        rt_type_t * const           type;               // Runtime type.
+        rt_method_t * const         method;             // Runtime method.
+        locals_layout_t             locals_layout;      // Locals layout.
+        params_layout_t             params_layout;      // Params layout.
+        exec_switch_manager_t       switch_manager;     // Switch...case method.
+        executor_env_t &            env;                // Executor environment.
 
-        msize_t ret_unit_size();                    // Returns unit size.
+        msize_t ret_unit_size();                        // Returns unit size.
+
+        // Converts template to a generic type. (with cache)
+        rt_type_t * to_generic_type(rt_general_type_t * template_);
 
     private:
         msize_t __ret_unit_size = unknown_msize;
         storage_type_t __ret_storage_type;
+
+        std::map<rt_general_type_t *, rt_type_t *> __generic_type_map;
     };
 
     // Creates command.

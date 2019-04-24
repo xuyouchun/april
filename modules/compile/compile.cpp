@@ -36,7 +36,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     _T("assign left expression should be a variable/index: found '%1%'"))
 
         // Variable cannot determinded.
-        X_D(variable_cannot_determined,     _T("variable connot determined"))
+        X_D(variable_cannot_determined,     _T("variable '%1%' connot determined"))
 
         // Index body missing.
         X_D(index_body_missing,             _T("index '%1%' body missing"))

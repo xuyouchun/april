@@ -51,19 +51,23 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // executor_env_t
 
+    #define __CheckCache(_method)                                               \
+        do {                                                                    \
+            exec_method_t * method = __from_cache(_method);                     \
+            if(method != nullptr)                                               \
+                return method;                                                  \
+        } while(false);                                         
+
     // Execute method of runtime method.
     exec_method_t * executor_env_t::exec_method_of(rt_method_t * rt_method)
     {
         _A(rt_method != nullptr);
 
-        auto it = __method_map.find((void *)rt_method);
-        if(it != __method_map.end())
-            return it->second;
+        // _P(_T("exec_method_of: "), rt_method->get_name());
 
-        exec_method_t * exec_method = parse_commands(*this, rt_method);
-        __method_map[(void *)rt_method] = exec_method;
+        __CheckCache(rt_method);
 
-        return exec_method;
+        return __parse_commands(rt_method);
     }
 
     // Execute method of runtime generic method.
@@ -71,15 +75,48 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _A(rt_generic_method != nullptr);
 
-        auto it = __method_map.find((void *)rt_generic_method);
+        /*
+        _PF(_T("exec_method_of: %1%.%2%"),
+            rt_generic_method->host_type->get_name(*this), rt_generic_method->get_name()
+        );
+        */
+
+        __CheckCache(rt_generic_method);
+
+        // Initializes generic param manager builder.
+        rt_method_t * template_ = rt_generic_method->template_;
+        assembly_analyzer_t analyzer = to_analyzer(*this, template_->get_host_type());
+        generic_param_manager_t gp_mgr(analyzer, rt_generic_method);
+
+        // Parses commands.
+        rt_type_t * host_type = rt_generic_method->get_host_type();
+        return __parse_commands(template_, host_type, &gp_mgr);
+    }
+
+    // Creates an array of command_t *.
+    command_t ** executor_env_t::new_commands(size_t count)
+    {
+        return __command_heap.acquire(count);
+    }
+
+    #undef __CheckCache
+
+    // Gets exec_method_t from cache, returns nullptr if not found.
+    exec_method_t * executor_env_t::__from_cache(void * method)
+    {
+        auto it = __method_map.find((void *)method);
         if(it != __method_map.end())
             return it->second;
 
-        exec_method_t * exec_method = parse_commands(*this,
-            rt_generic_method->template_, rt_generic_method->atypes
-        );
+        return nullptr;
+    }
 
-        __method_map[(void *)rt_generic_method] = exec_method;
+    // Execute method of runtime method with template arguments.
+    exec_method_t * executor_env_t::__parse_commands(rt_method_t * rt_method,
+                 rt_type_t * host_type, const generic_param_manager_t * gp_manager)
+    {
+        exec_method_t * exec_method = parse_commands(*this, rt_method, host_type, gp_manager);
+        __method_map[(void *)rt_method] = exec_method;
 
         return exec_method;
     }
@@ -96,7 +133,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         if(entry_point == nullptr)
             throw _ED(exec_error_code_t::assembly_no_entry_point, main_assembly);
 
-        command_creating_context_t creating_ctx(env, main_assembly, entry_point);
+        rt_type_t * host_type = entry_point->get_host_type();
+        _A(host_type != nullptr);
+
+        command_creating_context_t creating_ctx(env, main_assembly, host_type, entry_point);
 
         command_t * commands[] = {
             new_static_call_command(creating_ctx,  (*main_assembly)->entry_point),

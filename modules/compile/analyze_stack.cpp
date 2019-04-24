@@ -153,10 +153,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     op_token, property, expressions[0], expressions[1]
                 );
                     
-            default: {
-                // TODO:
-                return nullptr;
-            }   break;
+            default:
+                X_UNEXPECTED();
         }
     }
 

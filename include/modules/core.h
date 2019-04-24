@@ -77,7 +77,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // instance_t
 
     class type_t;
-    class mobject_t { };
+    class runtime_mobject_t { };
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1557,8 +1557,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits it.
         virtual void commit(eobject_commit_context_t & ctx) override;
 
-        mobject_t * attribute_object = nullptr;
-        eobject_t * bind_object = nullptr;
+        runtime_mobject_t * attribute_object = nullptr;
+        eobject_t   * bind_object = nullptr;
 
         X_TO_STRING
     };
@@ -1608,7 +1608,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class argument_t : public with_attributes_object_t
                      , public with_index_t
                      , public eobject_t
-                     , public mobject_t
+                     , public runtime_mobject_t
     {
         typedef eobject_t __super_t;
 
@@ -1640,7 +1640,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Param eobject.
     class param_t : public with_attributes_object_t
                   , public with_index_t
-                  , public eobject_t, public mobject_t
+                  , public eobject_t, public runtime_mobject_t
     {
     public:
         typedef param_t * itype_t;
@@ -1706,13 +1706,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         __TTypeItem(char_),
 
-        string,
+        string_,
 
         void_,
 
-        ptr,
+        ptr_,
 
-        mobject,
+        mobject_,
 
     X_ENUM_END
 
@@ -1736,6 +1736,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Returns default value of a vtype.
     cvalue_t default_value_of(vtype_t vtype);
+
+    // Returns default value of a type.
+    template<typename _t> _t default_value_of()
+    {
+        return (_t)0;
+    }
 
     // Returns size of a vtype.
     constexpr msize_t get_vtype_size(vtype_t vtype)
@@ -1765,9 +1771,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case vtype_t::double_:
                 return 8;
 
-            case vtype_t::ptr:
-            case vtype_t::mobject:
-            case vtype_t::string:
+            case vtype_t::ptr_:
+            case vtype_t::mobject_:
+            case vtype_t::string_:
             default:
                 return sizeof(void *);
         }
@@ -1787,6 +1793,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         enum_,          // Enum
 
     X_ENUM_END
+
+    // Returns whether the ttype is reference type.
+    X_INLINE bool is_ref_type(ttype_t ttype)
+    {
+        return ttype == ttype_t::class_ || ttype == ttype_t::interface_;
+    }
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1831,10 +1843,27 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
     // member_t
 
+    // Method family.
+    X_ENUM(member_family_t)
+
+        // General method, defined in source codes.
+        general,
+
+        // Generic method, Dynamic defined when used.
+        // Composited with general template and type arguments..
+        generic,
+
+        // Implemenation for a generic method.
+        impl,
+
+    X_ENUM_END
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     // Base class of member eobject.
     class member_t : public eobject_t
                    , public with_attributes_object_t, public with_decorate_object_t
-                   , public mobject_t
+                   , public runtime_mobject_t
     {
         typedef eobject_t __super_t;
 
@@ -1849,6 +1878,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Sets a host type as the member owner.
         void set_owner(type_t * host_type) { this->host_type = host_type; }
+
+        // Returns family.
+        virtual member_family_t this_family() const { return member_family_t::general; }
 
         // Converts to string.
         operator string_t() const { return _T("type member"); }
@@ -2605,31 +2637,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Method family.
-    X_ENUM(member_family_t)
-
-        // General method, defined in source codes.
-        general,
-
-        // Generic method, Dynamic defined when used.
-        // Composited with general template and type arguments..
-        generic,
-
-        // Implemenation for a generic method.
-        impl,
-
-    X_ENUM_END
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
     // Base class of method.
     X_INTERFACE method_base_t
     {
-        typedef __named_member_t __super_t;
-
-    public:
-
-        // Returns family.
+        // Returns this family.
         virtual member_family_t this_family() const = 0;
 
         // Returns the method of interface defination.
@@ -2761,7 +2772,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         using __super_t::__super_t;
 
         // The raw general template method.
-        method_base_t * raw = nullptr;
+        method_t * raw = nullptr;
 
         // Returns this family.
         virtual member_family_t this_family() const override
@@ -2878,6 +2889,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return member_type_t::property;
         }
 
+        // Returns this family.
+        virtual member_family_t this_family() const override
+        {
+            return member_family_t::general;
+        }
+
         // Converts to stirng.
         virtual const string_t to_string() const override { return (string_t)*this; }
         operator string_t() const;
@@ -2891,12 +2908,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Impl property.
+    class impl_property_t : public property_t
+    {
+        typedef property_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        property_t * raw = nullptr;
+
+        // Returns this family.
+        virtual member_family_t this_family() const override
+        {
+            return member_family_t::impl;
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     class event_variable_t;
 
     // Event member.
     class event_t : public __named_member_t
     {
-        typedef member_t __super_t;
+        typedef __named_member_t __super_t;
 
     public:
         typedef event_t * itype_t;
@@ -2915,6 +2951,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return member_type_t::event;
         }
 
+        // Returns this family.
+        virtual member_family_t this_family() const override
+        {
+            return member_family_t::general;
+        }
+
         // Converts to string.
         virtual const string_t to_string() const override { return (string_t)*this; }
         operator string_t() const;
@@ -2928,12 +2970,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Impl event.
+    class impl_event_t : public event_t
+    {
+        typedef event_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        event_t * raw = nullptr;
+
+        // Returns this family.
+        virtual member_family_t this_family() const override
+        {
+            return member_family_t::impl;
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     class field_variable_t;
 
     // Field member.
     class field_t : public __named_member_t
     {
-        typedef member_t __super_t;
+        typedef __named_member_t __super_t;
 
     public:
         typedef field_t * itype_t;
@@ -2948,6 +3009,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual member_type_t this_type() override final
         {
             return member_type_t::field;
+        }
+
+        // Returns this family.
+        virtual member_family_t this_family() const override
+        {
+            return member_family_t::general;
         }
 
         // Returns the size.
@@ -2972,6 +3039,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     typedef eobject_ast_t<field_t *> field_ast_t;
     typedef eobjects_ast_t<field_t *> fields_ast_t;
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl field.
+    class impl_field_t : public field_t
+    {
+        typedef field_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        field_t * raw = nullptr;
+
+        // Returns this family.
+        virtual member_family_t this_family() const override
+        {
+            return member_family_t::impl;
+        }
+    };
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -3058,6 +3144,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     typedef eobject_ast_t<typename type_def_t::itype_t> type_def_ast_t;
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl typedef.
+    class impl_type_def_t : public type_def_t
+    {
+        typedef type_def_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        type_def_t * raw = nullptr;
+
+        // Returns this family.
+        virtual member_family_t this_family() const override
+        {
+            return member_family_t::impl;
+        }
+    };
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -3284,7 +3389,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         type_impl_t * impl = type_impl_t::default_();   // Type implemenation for core types.
 
-        vtype_t vtype = vtype_t::mobject;           // vtype.
+        vtype_t vtype = vtype_t::mobject_;          // vtype.
         ttype_t ttype = ttype_t::class_;            // ttype.
 
         // Appends a member.
@@ -3476,7 +3581,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns gtype, gtype, vtype.
         virtual gtype_t this_gtype() const override final { return gtype_t::array;  }
         virtual ttype_t this_ttype() const override final { return ttype_t::class_; }
-        virtual vtype_t this_vtype() const override final { return vtype_t::mobject; }
+        virtual vtype_t this_vtype() const override final { return vtype_t::mobject_; }
 
         // Returns name of the type.
         virtual name_t get_name() const override
@@ -4094,23 +4199,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        array_index_variable_t(variable_t * body, arguments_t * arguments)
-            : __super_t(arguments), body(body)
-        {
-            _A(body != nullptr);
-        }
+        array_index_variable_t(expression_t * body, type_t * element_type, arguments_t * arguments);
 
         // Main body of the array.
-        variable_t * body = nullptr;
+        expression_t * body = nullptr;
+
+        // Element type of the variable.
+        type_t * element_type = nullptr;
 
         // Returns type of the element in the array.
         virtual type_t * get_type() override;
 
         // Returns name of the array index.
-        virtual name_t get_name() const override
-        {
-            return body->get_name();
-        }
+        virtual name_t get_name() const override;
 
         // Converts to string.
         X_TO_STRING
@@ -5219,6 +5320,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Return the variable of the expression.
         virtual variable_t * get_variable() = 0;
+
+        // Converts to string.
+        virtual const string_t to_string() const = 0;
     };
 
     // Returns the variable of the expression.
@@ -6558,9 +6662,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         method_compile_context_t & mctx;        // Method compile context.
 
-        method_t *          method;             // Method.
-        jmp_manager_t       jmp_manager;        // Jmp manager.
-        switch_manager_t    switch_manager;     // Switch-case manager.
+        method_t *              method;                 // Method.
+        jmp_manager_t           jmp_manager;            // Jmp manager.
+        switch_manager_t        switch_manager;         // Switch-case manager.
 
         // Begins a region.
         template<typename _region_t, typename ... args_t>

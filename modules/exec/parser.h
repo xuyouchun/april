@@ -7,8 +7,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    exec_method_t * parse_commands(executor_env_t & env,
-            rt_method_t * method, rt_type_t ** generic_types = nullptr);
+    // Parses commands.
+    exec_method_t * parse_commands(executor_env_t & env, rt_method_t * method,
+            rt_type_t * host_type, const generic_param_manager_t * gp_manager = nullptr);
 
     ////////// ////////// ////////// ////////// //////////
 

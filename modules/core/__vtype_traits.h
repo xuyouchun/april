@@ -20,6 +20,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<> struct __vtypes_t<vtype_t::void_> { __VTypeT vtype = vtype_t::void_; };
 
         #undef __VTypeT
+
+        struct __runtime_ptr_t { };
+
+        typedef struct { } * mobject, * mobject_t;
+        typedef struct { } * ptr, * ptr_t;
     }
 
     template<vtype_t ... vs>
@@ -40,7 +45,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __VType(float)                  \
         __VType(double)                 \
         __VType(bool)                   \
-        __VType(char)
+        __VType(char)                   \
+        __VType(mobject)                \
+        __VType(ptr)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -533,6 +540,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         #define __BoolOps(op, r)                                                            \
             __B1(op, __PickVType(r, bool), bool, bool)
 
+        #define __ObjectOps(op, r)                                                          \
+            __B1(op, __PickVType(r, mobject), mobject, mobject)
+
+        #define __PtrOps(op, r)                                                             \
+            __B1(op, __PickVType(r, ptr), ptr, ptr)
+
         #define __AlIntBinaryOps(op, r)     __IntOps(op, r)
         #define __AlFloatBinaryOps(op, r)   __FloatOps(op, r)
         #define __AlCharBinaryOps(op, r)    __CharOps(op, r)
@@ -541,6 +554,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         #define __CmpFloatBinaryOps(op)     __FloatOps(op, vtype_t::bool_)
         #define __CmpBoolBinaryOps(op)      __BoolOps(op, vtype_t::bool_)
         #define __CmpCharBinaryOps(op)      __CharOps2(op, vtype_t::void_)
+        #define __CmpObjectBinaryOps(op)    __ObjectOps(op, vtype_t::mobject_)
+        #define __CmpPtrBinaryOps(op)       __PtrOps(op, vtype_t::ptr_)
         #define __LogicBoolBinaryOps(op)    __BoolOps(op, vtype_t::bool_)
 
         #define X_DEFINE_BINARY_OPS                                                         \
@@ -609,6 +624,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                                                                                             \
         __CmpBoolBinaryOps(equal)                                                           \
         __CmpBoolBinaryOps(not_equal)                                                       \
+                                                                                            \
+        __CmpObjectBinaryOps(equal)                                                         \
+        __CmpObjectBinaryOps(not_equal)                                                     \
+                                                                                            \
+        __CmpPtrBinaryOps(equal)                                                            \
+        __CmpPtrBinaryOps(not_equal)                                                        \
                                                                                             \
         /* Logic */                                                                         \
         __LogicBoolBinaryOps(logic_and)                                                     \
@@ -803,13 +824,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return vtype_t::char_;
 
             case xil_type_t::string:
-                return vtype_t::string;
+                return vtype_t::string_;
 
             case xil_type_t::object:
-                return vtype_t::mobject;
+                return vtype_t::mobject_;
 
             case xil_type_t::ptr:
-                return vtype_t::ptr;
+                return vtype_t::ptr_;
 
             default:
                 return vtype_t::__unknown__;

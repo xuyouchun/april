@@ -1404,7 +1404,7 @@ namespace X_ROOT_NS { namespace algorithm {
             if(__items != nullptr)
                 throw _EC(invalid_operation, _T("already initialized"));
 
-            __items = this->__alloc_objs<__item_t>(size);
+            __items = this->__alloc_objs<__item_t>(max(size, 1));
             __items_end = __items + size;
             __p = __items;
         }
@@ -1442,7 +1442,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
     private:
-        __item_t * __items = nullptr, * __items_end, * __p;
+        __item_t * __items = nullptr, * __items_end, * __p = nullptr;
 
         // Compares two elements.
         static bool __compare(const __item_t & a, const __item_t & b)

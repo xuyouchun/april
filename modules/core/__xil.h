@@ -721,7 +721,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::constant:
-                size += size_of(xil.dtype());
+                if(xil.dtype() == xil_type_t::empty)    // generic
+                    size += sizeof(__ref_t);            // generic type ref
+                else
+                    size += size_of(xil.dtype());
                 break;
 
             case xil_storage_type_t::duplicate:
@@ -1577,8 +1580,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class xil_pool_t;
     class xil_buffer_t;
 
-    // Write xils to buffer.
+    // Writes xils to buffer.
     size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer);
+
+    // Writes xils to buffer.
+    size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer, method_t * method);
 
     // Returns command of a xil.
     X_INLINE xil_command_t command_of(const xil_t * xil)

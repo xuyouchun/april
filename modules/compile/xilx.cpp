@@ -166,7 +166,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __Write(xil_type)                                           \
                 break;
 
-        gtype_t gtype = type->this_gtype();
         switch(type->this_gtype())
         {
             case gtype_t::general: 
@@ -190,10 +189,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __Case(bool_, bool_)
                     __Case(char_, char_)
                     
-                    __Case(string, string)
-                    __Case(mobject, object)
+                    __Case(string_, string)
+                    __Case(mobject_, object)
 
-                    __Case(ptr, ptr)
+                    __Case(ptr_, ptr)
 
                     default:
                         X_UNEXPECTED();
@@ -203,7 +202,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __Write(object);
                 break;
 
+            case gtype_t::generic_param:
+                __Write(empty);
+                break;
+
             case gtype_t::generic:
+                __Write(object);        // TODO: struct?
+                break;
+
             default:
                 X_UNEXPECTED();
         }
@@ -266,10 +272,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __Case(bool_, bool_)
                     __Case(char_, char_)
                     
-                    __Case(string, string)
-                    __Case(mobject, object)
+                    __Case(string_, string)
+                    __Case(mobject_, object)
 
-                    __Case(ptr, ptr)
+                    __Case(ptr_, ptr)
 
                     default:
                         X_UNEXPECTED();
@@ -280,7 +286,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __Write(object)
                 break;
 
+            case gtype_t::generic_param:
+                __Write(empty);
+                break;
+
             case gtype_t::generic:
+                __Write(object);     // TODO: struct
+                break;
+
             default:
                 X_UNEXPECTED();
         }
@@ -340,10 +353,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __Case(bool_, bool_)
                     __Case(char_, char_)
                     
-                    __Case(string, string)
-                    __Case(mobject, object)
+                    __Case(string_, string)
+                    __Case(mobject_, object)
 
-                    __Case(ptr, ptr)
+                    __Case(ptr_, ptr)
 
                     default:
                         X_UNEXPECTED();
@@ -354,7 +367,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __Write(object)
                 break;
 
+            case gtype_t::generic_param:
+                __Write(empty);
+                break;
+
             case gtype_t::generic:
+                __Write(object);     // TODO: struct
+                break;
+
             default:
                 X_UNEXPECTED();
         }

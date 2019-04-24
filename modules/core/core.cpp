@@ -1447,7 +1447,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return 1;       // TODO
 
             default:
-                return get_vtype_size(vtype_t::mobject);
+                return get_vtype_size(vtype_t::mobject_);
         }
     }
 
@@ -1455,6 +1455,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     type_t * field_t::get_type() const
     {
         return type_name? type_name->type : nullptr;
+    }
+
+    // Returns whether ttype is ref type.
+    bool __is_ref_type(ttype_t ttype)
+    {
+        return is_ref_type(ttype);
     }
 
     // Returns whether it's a reference type.
@@ -1481,7 +1487,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
         }
 
-        return ttype != ttype_t::struct_;
+        return __is_ref_type(ttype);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1562,13 +1568,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(char_,      _T("char"))
 
-        X_C(string,     _T("string"))
+        X_C(string_,    _T("string"))
 
         X_C(void_,      _T("void"))
 
-        X_C(ptr,        _T("ptr"))
+        X_C(ptr_,       _T("ptr"))
 
-        X_C(mobject,    _T("mobject"))
+        X_C(mobject_,   _T("mobject"))
 
     X_ENUM_INFO_END
     
@@ -1658,9 +1664,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case vtype_t::char_:
                 return cvalue_t((char_t)_T('\0'));
 
-            case vtype_t::string:
-            case vtype_t::ptr:
-            case vtype_t::mobject:
+            case vtype_t::string_:
+            case vtype_t::ptr_:
+            case vtype_t::mobject_:
             case vtype_t::void_:
             default:
                 return cvalue_t(nullptr);
@@ -1816,7 +1822,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns whether a type is a a mobject.
     static bool __is_mobject(type_t * type)
     {
-        return type == nullptr || type->this_vtype() == vtype_t::mobject;
+        return type == nullptr || type->this_vtype() == vtype_t::mobject_;
     }
 
     // Returns whether two type are compatiable.
@@ -2016,13 +2022,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns whether it's a string type.
     bool is_string_type(type_t * type)
     {
-        return __is_vtype(type, vtype_t::string);
+        return __is_vtype(type, vtype_t::string_);
     }
 
     // Returns whether it's a pointer type.
     bool is_ptr_type(type_t * type)
     {
-        return __is_vtype(type, vtype_t::ptr);
+        return __is_vtype(type, vtype_t::ptr_);
     }
 
     typedef typename __general_type_like_base_t::method_list_t __method_list_t;
@@ -2583,7 +2589,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         if(__rcount == unknown_msize)
         {
-            if(vtype != vtype_t::mobject)
+            if(vtype != vtype_t::mobject_)
             {
                 __rcount = 0;
                 __value_size = get_vtype_size(vtype);
@@ -2676,7 +2682,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_type_t * new_type = xpool.new_generic_type(type->template_, type_args,
                                                            type->host_type);
         new_type->decorate  = type->decorate;
-        new_type->host_type = this;
+        //new_type->host_type = this;
 
         return new_type;
     }
@@ -2721,13 +2727,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Transform field.
     field_t * generic_type_t::__transform_member(__transform_context_t & ctx, field_t * field)
     {
-        field_t * new_field = ctx.xpool.new_obj<field_t>();
+        impl_field_t * new_field = ctx.xpool.new_obj<impl_field_t>();
+        new_field->raw = field;
 
-        new_field->type_name = __transform_type_name(ctx.xpool, field->type_name);
+        new_field->name       = field->name;
+        new_field->type_name  = __transform_type_name(ctx.xpool, field->type_name);
         new_field->attributes = field->attributes;
         new_field->init_value = field->init_value;
         new_field->decorate   = field->decorate;
         new_field->host_type  = this;
+        new_field->variable   = ctx.xpool.new_obj<field_variable_t>(new_field);
 
         return new_field;
     }
@@ -2739,11 +2748,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         new_method->raw = method;
 
         new_method->owner_type_name = __transform_type_name(ctx.xpool, method->owner_type_name);
-        new_method->type_name = __transform_type_name(ctx.xpool, method->type_name);
+        new_method->type_name   = __transform_type_name(ctx.xpool, method->type_name);
         new_method->generic_params = method->generic_params;
-        new_method->name = method->name;
-        new_method->decorate  = method->decorate;
-        new_method->host_type = this;
+        new_method->name        = method->name;
+        new_method->decorate    = method->decorate;
+        new_method->trait       = method->trait;
+        new_method->host_type   = this;
 
         if(method->params != nullptr)
         {
@@ -2771,7 +2781,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     property_t * generic_type_t::__transform_member(__transform_context_t & ctx,
                                                     property_t * property)
     {
-        property_t * new_property = ctx.xpool.new_obj<property_t>();
+        impl_property_t * new_property = ctx.xpool.new_obj<impl_property_t>();
+        new_property->raw = property;
 
         new_property->owner_type_name = __transform_type_name(ctx.xpool, property->owner_type_name);
         new_property->name       = property->name;
@@ -2779,6 +2790,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         new_property->attributes = property->attributes;
         new_property->decorate   = property->decorate;
         new_property->host_type  = this;
+        new_property->variable   = property->variable;
+        new_property->variable   = ctx.xpool.new_obj<property_variable_t>(new_property);
 
         new_property->get_method = ctx.get_relation<method_t>(property->get_method);
         new_property->set_method = ctx.get_relation<method_t>(property->set_method);
@@ -2789,13 +2802,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Transform event.
     event_t * generic_type_t::__transform_member(__transform_context_t & ctx, event_t * event)
     {
-        event_t * new_event = ctx.xpool.new_obj<event_t>();
+        impl_event_t * new_event = ctx.xpool.new_obj<impl_event_t>();
+        new_event->raw = event;
 
         new_event->owner_type_name = __transform_type_name(ctx.xpool, event->owner_type_name);
         new_event->type_name  = __transform_type_name(ctx.xpool, event->type_name);
         new_event->attributes = event->attributes;
         new_event->decorate   = event->decorate;
         new_event->host_type  = this;
+        new_event->variable   = ctx.xpool.new_obj<event_variable_t>(new_event);
 
         // TODO
         new_event->add_method = event->add_method;
@@ -2827,7 +2842,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     type_def_t * generic_type_t::__transform_member(__transform_context_t & ctx,
                                                     type_def_t * type_def)
     {
-        type_def_t * new_type_def = ctx.xpool.new_obj<type_def_t>();
+        impl_type_def_t * new_type_def = ctx.xpool.new_obj<impl_type_def_t>();
+        new_type_def->raw = type_def;
 
         new_type_def->type_name = __transform_type_name(ctx.xpool, type_def->type_name);
         new_type_def->name      = type_def->name;
@@ -3150,7 +3166,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case gtype_t::generic:
             case gtype_t::null:
             case gtype_t::array:
-                return vtype_t::mobject;
+                return vtype_t::mobject_;
 
             default:
                 return vtype_t::__unknown__;
@@ -3213,16 +3229,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return _F(_T("%1%[%2%]"), get_name(), arguments);
     }
 
+    // Constructor.
+    array_index_variable_t::array_index_variable_t(expression_t * body, type_t * element_type,
+                                                   arguments_t * arguments)
+        : __super_t(arguments), body(body), element_type(element_type)
+    {
+        _A(body != nullptr);
+        _A(element_type != nullptr);
+    }
+
+    // Returns name of the array index.
+    name_t array_index_variable_t::get_name() const
+    {
+        return name_t::null;
+    }
+
     // Returns type of array index variable.
     type_t * array_index_variable_t::get_type()
     {
-        type_t * type = body->get_type();
-        _A(type != nullptr);
-
-        if(!is_array(type))
-            throw _EC(unexpected, _T("not an array type"));
-
-        return ((array_type_t *)type)->element_type;
+        return element_type;
     }
 
     // Converts array index variable to a string.
@@ -4313,9 +4338,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns nullptr if it is not a variable expression.
     variable_t * to_variable(expression_t * exp)
     {
-        variable_expression_t * var_exp;
-        if(exp == nullptr || (var_exp = as<variable_expression_t *>(exp)) == nullptr
-            || !var_exp->is_variable_expression())
+        if(exp == nullptr)
+            return nullptr;
+            
+        variable_expression_t * var_exp = as<variable_expression_t *>(exp);
+        if(var_exp == nullptr || !var_exp->is_variable_expression())
             return nullptr;
 
         return var_exp->get_variable();
@@ -4460,11 +4487,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return to_vtype(value->number.type);
 
             case cvalue_type_t::string:
-                return vtype_t::string;
+                return vtype_t::string_;
 
             case cvalue_type_t::null:
             case cvalue_type_t::type:
-                return vtype_t::mobject;
+                return vtype_t::mobject_;
 
             default:
                 return vtype_t::__unknown__;
@@ -4818,7 +4845,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns vtype.
     vtype_t new_array_expression_t::get_vtype() const
     {
-        return vtype_t::mobject;
+        return vtype_t::mobject_;
     }
 
     // Returns type.
@@ -4882,7 +4909,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns vtype of a type_of expression.
     vtype_t type_of_expression_t::get_vtype() const
     {
-        return vtype_t::mobject;
+        return vtype_t::mobject_;
     }
 
     // Returns type of a type_of expression.
@@ -5287,7 +5314,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Context for compile statements.
     statement_compile_context_t::statement_compile_context_t(
                 method_compile_context_t & mctx, method_t * method)
-        : mctx(mctx),method(method)
+        : mctx(mctx), method(method)
     {
         _A(method != nullptr);
         begin_region<root_statement_region_t>();

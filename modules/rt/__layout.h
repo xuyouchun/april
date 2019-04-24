@@ -4,6 +4,40 @@
 namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Returns aligned unit.
+    constexpr msize_t unit_align(msize_t offset, msize_t size)
+    {
+        switch(size)
+        {
+            case 1:
+                return offset;
+
+            case 2:
+                return _alignf(offset, 2);
+
+            case 3:
+            case 4:
+                return _alignf(offset, 4);
+
+            default:
+                return _alignf(offset, sizeof(rt_stack_unit_t));
+        }
+    }
+
+    // Returns whether a size is aligned.
+    constexpr msize_t unit_is_aligned(msize_t offset, msize_t size)
+    {
+        return unit_align(offset, size) == offset;
+    }
+
+    // Returns unit size.
+    constexpr msize_t unit_size_of(msize_t size)
+    {
+        return _alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // generic_context_t
 
     // Generic context.
@@ -14,43 +48,110 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Converts generic params to runtime type.
         rt_type_t * parse(rt_generic_param_t * rt_generic_param);
-
-    private:
     };
 
     ////////// ////////// ////////// ////////// //////////
 
-    namespace
+    class generic_param_manager_t;
+
+    // Generic param manager builder.
+    class generic_param_manager_builder_t : public object_t
     {
-        // Base class of variables layout.
-        class __variables_layout_t : public object_t, public no_copy_ctor_t
+    public:
+        // Constructor.
+        generic_param_manager_builder_t(assembly_analyzer_t & analyzer,
+                                        generic_param_manager_t & gp_mgr)
+            : __analyzer(analyzer), __gp_mgr(gp_mgr)
+        { }
+
+        // Appends generic params
+        void append(ref_t generic_params, rt_type_t ** types, int type_count);
+
+        // Append generic params of given generic method.
+        void append(rt_generic_method_t * m);
+
+        // Append generic params of given generic type.
+        void append(rt_generic_type_t * t);
+
+        // Imports generic params of given generic method.
+        void import(rt_generic_method_t * m);
+
+        // Imports generic params of given general method.
+        void import(rt_method_t * m);
+
+        // Imports generic params of given generic type.
+        void import(rt_generic_type_t * t);
+
+    private:
+        generic_param_manager_t & __gp_mgr;
+        assembly_analyzer_t &     __analyzer;
+
+        // Imports generic param of given type.
+        void __import(rt_type_t * t);
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Generic param manager.
+    class generic_param_manager_t : public object_t, public no_copy_ctor_t
+    {
+        typedef object_t __super_t;
+        typedef generic_param_manager_t __self_t;
+
+    public:
+        // Constructor.
+        generic_param_manager_t() = default;
+
+        // Constructor with type / method.
+        template<typename _rt_entity_t>
+        generic_param_manager_t(assembly_analyzer_t & analyzer, _rt_entity_t * entity)
         {
-            typedef __variables_layout_t __self_t;
+            generic_param_manager_builder_t(analyzer, *this).import(entity);
+        }
 
-        public:
+        // Append a generic type with name.
+        void append(rt_sid_t name, rt_type_t * atype);
 
-            // Constructor.
-            __variables_layout_t(assembly_analyzer_t & ctx, rt_type_t ** generic_types)
-                : __ctx(ctx), __generic_types(generic_types) { }
+        // Returns type at index.
+        rt_type_t * type_at(int index) const;
 
-        protected:
-            assembly_analyzer_t & __ctx;                // Context of assembly analyzer.
-            rt_type_t **          __generic_types;      // Generic types.
+        // Returns type of specified name.
+        rt_type_t * type_at(rt_sid_t sid) const;
 
-            // Gets runtime type of typeref.
-            rt_type_t * __get_type(ref_t type_ref)
-            {
-                switch((mt_type_extra_t)type_ref.extra)
-                {
-                    case mt_type_extra_t::generic_param:
-                        X_UNEXPECTED();
+        // Returns whether it is empty.
+        bool empty() const { return __type_map.empty(); }
 
-                    default:
-                        return __ctx.get_type(type_ref);
-                }
-            }
-        };
-    }
+        // Returns size.
+        size_t size() const { return __type_map.size(); }
+
+        // Returns the empty manager.
+        static const __self_t * empty_instance();
+
+    private:
+        //rt_type_t ** __atypes       = nullptr;
+        //size_t       __atype_count  = 0;
+
+        std::map<rt_sid_t, rt_type_t *> __type_map;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Base class of variables layout.
+    class __variables_layout_t : public object_t, public no_copy_ctor_t
+    {
+        typedef __variables_layout_t __self_t;
+
+    public:
+
+        // Constructor.
+        __variables_layout_t(assembly_analyzer_t & ctx);
+
+    protected:
+        assembly_analyzer_t & __ctx;          // Context of assembly analyzer.
+
+        // Gets runtime type of typeref.
+        rt_type_t * __get_type(ref_t type_ref);
+    };
 
     ////////// ////////// ////////// ////////// //////////
     // locals_layout_t
@@ -64,7 +165,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     public:
 
         // Constructors.
-        locals_layout_t(assembly_analyzer_t & ctx, rt_type_t ** generic_types);
+        locals_layout_t(assembly_analyzer_t & ctx);
 
         // Appends a local variable defination.
         void append(local_variable_defination_t & def);
@@ -201,14 +302,17 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     public:
         using __super_t::__super_t;
 
-        // Appends a field type.
+        // Appends a param.
         void append(ref_t type_ref, param_type_t param_type);
 
-        // Appends a field type.
+        // Appends a param.
         void append(rt_type_t * type, param_type_t param_type);
 
-        // Returns offset of field index.
+        // Returns offset of param index.
         msize_t offset_of(int index);
+
+        // Returns param type of param index.
+        rt_type_t * type_at(int index);
 
         // Commits it.
         void commit();
@@ -235,7 +339,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
     // type_layout_t
 
+    X_INTERFACE field_like_t
+    {
+        // Returns field type.
+        virtual rt_type_t * get_type() = 0;
+
+        // Sets field offset.
+        virtual void set_offset(msize_t offset) = 0;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Type layout.
+    template<typename _field_t>
     class type_layout_t : public __variables_layout_t
     {
         typedef type_layout_t        __self_t;
@@ -244,14 +360,47 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     public:
 
         // Constructor.
-        type_layout_t(assembly_analyzer_t & ctx, msize_t offset = 0,
-                                                 rt_type_t ** generic_types = nullptr);
+        type_layout_t(assembly_analyzer_t & ctx, msize_t offset)
+            : __super_t(ctx), __offset(offset)
+        { }
 
         // Appends field.
-        void append(rt_field_t * field);
+        void append(_field_t field, rt_type_t * type)
+        {
+            _A(field != nullptr);
+            _A(type != nullptr);
+
+            storage_type_t storage_type;
+            msize_t size = type->get_variable_size(__ctx.env, &storage_type);
+
+            __items.push_back(__item_t { field, type, size, storage_type });
+        }
 
         // Commits it.
-        void commit();
+        void commit()
+        {
+            al::sort(__items, [](__item_t & it1, __item_t & it2) {
+                return std::make_tuple(it1.storage_type, it1.size)
+                    <  std::make_tuple(it2.storage_type, it2.size);
+            });
+
+            __storage_type = storage_type_t::__unknown__;
+
+            for(__item_t & it : __items)
+            {
+                __offset = unit_align(__offset, it.size);
+                it.field->set_offset(__offset);
+                __offset += it.size;
+
+                if(__storage_type == storage_type_t::__unknown__)
+                    __storage_type = it.storage_type;
+                else if(__storage_type != it.storage_type)
+                    __storage_type = storage_type_t::mixture;
+            }
+
+            if(__storage_type == storage_type_t::__unknown__)
+                __storage_type = storage_type_t::value;
+        }
 
         // Returns type size.
         msize_t type_size() { return __offset; }
@@ -264,51 +413,18 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Item.
         struct __item_t
         {
-            rt_field_t *    field;          // Field.
-            msize_t         size;           // Field size.
-            storage_type_t  storage_type;   // Storage type.
+            _field_t            field;          // Field.
+            rt_type_t *         type;           // type.
+            msize_t             size;           // Field size.
+            storage_type_t      storage_type;   // Storage type.
         };
 
         typedef al::svector_t<__item_t, 32> __items_t;
 
-        msize_t         __offset;           // Offset.
-        storage_type_t  __storage_type;     // Storage type.
-        __items_t       __items;            // Items.
+        msize_t         __offset;               // Offset.
+        storage_type_t  __storage_type;         // Storage type.
+        __items_t       __items;                // Items.
     };
-
-    ////////// ////////// ////////// ////////// //////////
-
-    // Returns aligned unit.
-    constexpr msize_t unit_align(msize_t offset, msize_t size)
-    {
-        switch(size)
-        {
-            case 1:
-                return offset;
-
-            case 2:
-                return _alignf(offset, 2);
-
-            case 3:
-            case 4:
-                return _alignf(offset, 4);
-
-            default:
-                return _alignf(offset, sizeof(rt_stack_unit_t));
-        }
-    }
-
-    // Returns whether a size is aligned.
-    constexpr msize_t unit_is_aligned(msize_t offset, msize_t size)
-    {
-        return unit_align(offset, size) == offset;
-    }
-
-    // Returns unit size.
-    constexpr msize_t unit_size_of(msize_t size)
-    {
-        return _alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
-    }
 
     ////////// ////////// ////////// ////////// //////////
 

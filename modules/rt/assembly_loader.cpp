@@ -86,13 +86,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
 
         // Returns entity of specified ref.
-        template<__tidx_t tidx> __entity_t<tidx> * entity_at(ref_t ref)
+        template<__tidx_t tidx, typename ... _args_t>
+        __entity_t<tidx> * entity_at(ref_t ref, _args_t && ... args)
         {
-            return __entity_at<tidx>(ref);
+            return __entity_at<tidx>(ref, std::forward<_args_t>(args) ...);
         }
 
         // Returns metadata of specified ref.
-        template<__tidx_t tidx> rt_mt_t<tidx> & metadata_at(ref_t ref)
+        template<__tidx_t tidx>
+        rt_mt_t<tidx> & metadata_at(ref_t ref)
         {
             return __metadata_at<tidx>(ref.index);
         }
@@ -237,29 +239,41 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
 
         // Gets entity at specified index.
-        template<__tidx_t tidx> __entity_t<tidx> * __entity_at(int index)
+        template<__tidx_t tidx, typename ... _args_t>
+        __entity_t<tidx> * __entity_at(int index, _args_t && ... args)
         {
-            return __entity_at<tidx>(__metadata_at<tidx>(index), ref_t(index));
+            return __entity_at<tidx>(
+                __metadata_at<tidx>(index), ref_t(index), std::forward<_args_t>(args) ...
+            );
         }
 
         // Gets entity by metadata.
-        template<__tidx_t tidx> __entity_t<tidx> * __entity_at(rt_mt_t<tidx> & mt, ref_t ref)
+        template<__tidx_t tidx, typename ... _args_t>
+        __entity_t<tidx> * __entity_at(rt_mt_t<tidx> & mt, ref_t ref, _args_t && ... args)
         {
             typedef __entity_t<tidx> entity_t;
 
-            if(mt.rt_object == nullptr)
-                mt.rt_object = rt_mt_t<tidx>::new_entity(__ctx, ref, &mt, &__assembly);
+            if(sizeof ... (args) == 0)
+            {
+                if(mt.rt_object == nullptr)
+                    mt.rt_object = rt_mt_t<tidx>::new_entity(__ctx, ref, &mt, &__assembly);
 
-            return mt.rt_object;
+                return mt.rt_object;
+            }
+
+            return rt_mt_t<tidx>::new_entity(
+                __ctx, ref, &mt, &__assembly, std::forward<_args_t>(args) ...
+            );
         }
 
         // Returns entity at ref.
-        template<__tidx_t tidx> __entity_t<tidx> * __entity_at(ref_t ref)
+        template<__tidx_t tidx, typename ... _args_t>
+        __entity_t<tidx> * __entity_at(ref_t ref, _args_t && ... args)
         {
             if(ref == ref_t::null)
                 return nullptr;
 
-            return __entity_at<tidx>(ref.index);
+            return __entity_at<tidx>(ref.index, std::forward<_args_t>(args) ...);
         }
 
         // Returns metadata at index.
@@ -489,6 +503,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             return &__metadata_at<__tidx_t::generic_type>(ref);
         }
 
+        // Gets generic field metadata.
+        virtual rt_mt_t<__tidx_t::generic_field> * mt_of_generic_field(ref_t ref) override
+        {
+            return &__metadata_at<__tidx_t::generic_field>(ref);
+        }
+
         /*
         // Gets generic type of ref.
         virtual rt_generic_type_t * get_generic_type(ref_t ref) override
@@ -516,15 +536,22 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
 
         // Gets generic method of ref.
-        virtual rt_generic_method_t * get_generic_method(ref_t ref) override
+        virtual rt_generic_method_t * get_generic_method(ref_t ref,
+                                    const generic_param_manager_t * gp_mgr) override
         {
-            return __entity_at<__tidx_t::generic_method>(ref);
+            return __entity_at<__tidx_t::generic_method>(ref, gp_mgr);
         }
 
         // Gets generic argument of ref.
         virtual rt_generic_argument_t * get_generic_argument(ref_t ref) override
         {
             return __entity_at<__tidx_t::generic_argument>(ref);
+        }
+
+        // Gets generic param.
+        virtual rt_generic_param_t * get_generic_param(ref_t ref) override
+        {
+            return __entity_at<__tidx_t::generic_param>(ref);
         }
 
         // Gets base type of ref.
@@ -577,6 +604,22 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             });
         }
 
+        // Gets host by nest type ref.
+        virtual rt_general_type_t * get_host_by_nest_type_ref(ref_t nest_type_ref) override
+        {
+            auto it = __nest_type_map.find(nest_type_ref);
+            if(it == __nest_type_map.end())
+                return nullptr;
+
+            rt_general_type_t * t = __loader.search_host([index=*it](
+                                        const rt_mt_t<__tidx_t::type> & mt) {
+                ref_t f = mt.nest_types;
+                return index < f.index? -1 : index >= f.index + f.count? 1 : 0;
+            });
+
+            return t;
+        }
+
         // Gets method ref param by ref.
         virtual rt_method_ref_param_t * get_method_ref_param(ref_t ref) override
         {
@@ -587,16 +630,36 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         void load()
         {
             __loader.load();
+            __init_search_datas();
         }
 
     private:
         __loader_t __loader;
         std::map<rt_sid_t, rt_general_type_t *> __types;
+        al::fixed_map_t<ref_t, int> __nest_type_map;
+
+        // Init search datas.
+        void __init_search_datas()
+        {
+            // init nest type seach map
+            auto & nest_type_mgr = __mt_manager<__tidx_t::nest_type>();
+
+            __nest_type_map.init(nest_type_mgr.count());
+
+            for(int index = 0, end = index + nest_type_mgr.count(); index < end; index++)
+            {
+                rt_mt_t<__tidx_t::nest_type> & mt = nest_type_mgr[index];
+                __nest_type_map.append(mt.type, index);
+            }
+
+            __nest_type_map.commit();
+        }
 
         // Returns entity at ref.
-        template<__tidx_t tidx> __entity_t<tidx> * __entity_at(ref_t ref)
+        template<__tidx_t tidx, typename ... _args_t>
+        __entity_t<tidx> * __entity_at(ref_t ref, _args_t && ... args)
         {
-            return __loader.template entity_at<tidx>(ref);
+            return __loader.template entity_at<tidx>(ref, std::forward<_args_t>(args) ...);
         }
 
         // Gets metadata at ref.

@@ -3,8 +3,6 @@
 
 namespace X_ROOT_NS { namespace modules { namespace core {
 
-    ////////// ////////// ////////// ////////// //////////
-
     // Empty values.
     template<typename t>
     struct __empty_value_t
@@ -43,15 +41,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Searches metadata by specified entity.
     // Returns metadata if found.
-    #define __SearchRet(mgr, entity)                    \
-        do                                              \
-        {                                               \
-            if(entity == nullptr)                       \
-                return mgr.current_null();              \
-                                                        \
-            ref_t ref = mgr.search_ref(entity);         \
-            if(ref != ref_t::null)                      \
-                return ref;                             \
+    #define __SearchRet(mgr, entity)                                    \
+        do                                                              \
+        {                                                               \
+            if(entity == nullptr)                                       \
+                return mgr.current_null();                              \
+                                                                        \
+            ref_t ref = mgr.search_ref(entity);                         \
+            if(ref != ref_t::null)                                      \
+                return ref;                                             \
         } while(false)
 
     // Checks if it's empty.
@@ -328,6 +326,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->template_ = __W->__commit_method(template_);
         }
 
+        // Assigns generic field metadata.
+        void __assign_mt(mt_generic_field_t * mt, field_t * template_, type_t * host)
+        {
+            mt->host      = __W->__commit_type(host);
+            mt->template_ = __W->__commit_field(template_);
+        }
+
         // Assigns param metadata.
         void __assign_mt(mt_param_t * mt, param_t * param)
         {
@@ -412,6 +417,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             if(type_def->namespace_ != nullptr)
                 mt->namespace_ = __S(type_def->namespace_->full_name->sid);
+        }
+
+        // Assigns nest type.
+        void __assign_mt(mt_nest_type_t * mt, type_t * type)
+        {
+            mt->type = __W->__commit_type(type);
+        }
+
+        // Assigns super type.
+        void __assign_mt(mt_super_type_t * mt, type_t * type)
+        {
+            mt->type = __W->__commit_type(type);
         }
     };
 
@@ -544,7 +561,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     __AssignMtCase(type_def)
                     __AssignMtCase(method_ref)
                     __AssignMtCase(method_ref_param)
-                    //__AssignMtCase(generic_method)
+                    __AssignMtCase(nest_type)
+                    __AssignMtCase(super_type)
 
                     default:
                         __Unexpected();
@@ -564,7 +582,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt_assembly_t * mt_assembly;
             ref_t ref = mgr.append(&this->__assembly, &mt_assembly);
 
-            //__assign_mt(mt_assembly, &this->__assembly);
             __enque_assign(__tidx_t::assembly, mt_assembly, &this->__assembly);
 
             return ref;
@@ -584,7 +601,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt_assembly_ref_t * mt_assembly_ref;
             ref_t ref = mgr.append(reference, &mt_assembly_ref);
 
-            //__assign_mt(mt_assembly_ref, reference);
             __enque_assign(__tidx_t::assembly_ref, mt_assembly_ref, reference);
 
             return ref;
@@ -608,7 +624,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt_type_t * mt_type;
             ref_t ref = mgr.append(type, &mt_type);
 
-            //__assign_mt(mt_type, type);
             __enque_assign(__tidx_t::type, mt_type, type);
 
             return ref;
@@ -624,7 +639,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt_type_ref_t * mt_type_ref;
 
             ref_t ref = mgr.append(type, &mt_type_ref);
-            //__assign_mt(mt_type_ref, type);
             __enque_assign(__tidx_t::type_ref, mt_type_ref, type);
 
             return ref;
@@ -638,7 +652,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             mt_generic_type_t * mt_generic_type;
             ref_t ref = mgr.append(type, &mt_generic_type);
-            //__assign_mt(mt_generic_type, type);
             __enque_assign(__tidx_t::generic_type, mt_generic_type, type);
 
             return ref;
@@ -652,7 +665,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             mt_array_type_t * mt_array_type;
             ref_t ref = mgr.append(type, &mt_array_type);
-            //__assign_mt(mt_array_type, type);
             __enque_assign(__tidx_t::array_type, mt_array_type, type);
 
             return ref;
@@ -668,7 +680,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             return mgr.acquire(*attributes,
                 [this](ref_t ref0, attribute_t * attr, mt_attribute_t * mt_attr) {
-                //__assign_mt(mt_attr, attr);
                 __enque_assign(__tidx_t::attribute, mt_attr, attr);
             });
         }
@@ -695,7 +706,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 type_t * param_type = param->get_type();
                 __CheckEmptyV(method, param_type, "method", "param_type");
 
-                //__assign_mt(mt_arg, arg, param_type);
                 __enque_assign(__tidx_t::attribute_argument, mt_arg, arg, param_type);
             });
         }
@@ -719,7 +729,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             return mgr.acquire(*params,
                 [this](ref_t ref, generic_param_t * generic_param, mt_generic_param_t * mt) {
-                //__assign_mt(mt, generic_param);
                 __enque_assign(__tidx_t::generic_param, mt, generic_param);
             });
         }
@@ -730,7 +739,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             auto & mgr = __mt_manager<__tidx_t::generic_argument>();
 
             return mgr.acquire(types, [this](ref_t ref, type_t * type, mt_generic_argument_t * mt) {
-                //__assign_mt(mt, type);
                 __enque_assign(__tidx_t::generic_argument, mt, type);
             });
         }
@@ -754,7 +762,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             return mgr.acquire(*params,
                 [this](ref_t ref, type_def_param_t * param, mt_type_def_param_t * mt) {
-                //__assign_mt(mt, param);
                 __enque_assign(__tidx_t::type_def_param, mt, param);
             });
         }
@@ -816,7 +823,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return mgr.acquire(types, [this](ref_t ref0, type_t * type, mt_nest_type_t * mt) {
                 if(!__is_internal_type(type))
                     throw _ED(__e_t::write_unexpected_nest_type, _str(type));
-                mt->type = __commit_type(type);
+                __enque_assign(__tidx_t::nest_type, mt, type);
             });
         }
 
@@ -835,7 +842,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             );
 
             return mgr.acquire(types, [this](ref_t ref0, type_t * type, mt_super_type_t * mt) {
-                mt->type = __commit_type(type);
+                __enque_assign(__tidx_t::super_type, mt, type);
             });
         }
 
@@ -847,7 +854,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             return mgr.acquire(methods, [this](ref_t ref0, method_t * method,
                                                     mt_method_t * mt_method) {
-                //__assign_mt(mt_method, method);
                 __enque_assign(__tidx_t::method, mt_method, method);
 
                 if(method->body != nullptr)
@@ -941,7 +947,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ref_t __commit_generic_method(generic_method_t * method, type_t * host = nullptr)
         {
             if(method == nullptr)
-                return ref_t::null;
+                return __current_null<__tidx_t::generic_method>();
 
             auto & mgr = __mt_manager<__tidx_t::generic_method>();
             __SearchRet(mgr, method);
@@ -950,7 +956,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             ref_t ref = mgr.append(method, &mt_generic_method);
 
             __assign_mt(mt_generic_method, method, host);
-            //__enque_assign(__tidx_t::generic_method, mt_generic_method, method);
+
+            return ref;
+        }
+
+        // Commits generic field.
+        ref_t __commit_generic_field(impl_field_t * field)
+        {
+            if(field == nullptr)
+                return __current_null<__tidx_t::generic_field>();
+
+            auto & mgr = __mt_manager<__tidx_t::generic_field>();
+            __SearchRet(mgr, field);
+
+            mt_generic_field_t * mt_generic_field;
+            ref_t ref = mgr.append(field, &mt_generic_field);
+
+            __assign_mt(mt_generic_field, field->raw, field->host_type);
 
             return ref;
         }
@@ -962,7 +984,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             auto & mgr = __mt_manager<__tidx_t::param>();
 
             return mgr.acquire(params, [this](ref_t ref0, param_t * param, mt_param_t * mt_param) {
-                //__assign_mt(mt_param, param);
                 __enque_assign(__tidx_t::param, mt_param, param);
             });
         }
@@ -994,7 +1015,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             return mgr.acquire(properties, [this](ref_t ref0, property_t * property,
                                                             mt_property_t * mt_property) {
-                //__assign_mt(mt_property, property);
                 __enque_assign(__tidx_t::property, mt_property, property);
             });
         }
@@ -1006,6 +1026,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __SearchRet(mgr, property);
 
             __commit_type(property->host_type);
+            __SearchRet(mgr, property);
 
             __Unexpected();
         }
@@ -1017,7 +1038,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             auto & mgr = __mt_manager<__tidx_t::field>();
 
             return mgr.acquire(fields, [this](ref_t ref0, field_t * field, mt_field_t * mt_field) {
-                //__assign_mt(mt_field, field);
                 __enque_assign(__tidx_t::field, mt_field, field);
             });
         }
@@ -1025,10 +1045,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commit field.
         ref_t __commit_field(field_t * field)
         {
+            if(field->this_family() == member_family_t::impl)
+                return __commit_generic_field((impl_field_t *)field);
+
             auto & mgr = __mt_manager<__tidx_t::field>();
             __SearchRet(mgr, field);
 
             __commit_type(field->host_type);
+            __SearchRet(mgr, field);
 
             __Unexpected();
         }
@@ -1039,7 +1063,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             auto & mgr = __mt_manager<__tidx_t::event>();
             return mgr.acquire(events, [this](ref_t ref0, event_t * event, mt_event_t * mt_event) {
-                //__assign_mt(mt_event, event);
                 __enque_assign(__tidx_t::event, mt_event, event);
             });
         }
@@ -1063,7 +1086,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             auto & mgr = __mt_manager<__tidx_t::type_def>();
             return mgr.acquire(type_defs,
                 [this](ref_t ref, type_def_t * type_def, mt_type_def_t * mt_type_def) {
-                //__assign_mt(mt_type_def, type_def);
                 __enque_assign(__tidx_t::type_def, mt_type_def, type_def);
             });
         }
@@ -1079,7 +1101,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             mt_type_def_t * mt_type_def;
             ref_t ref = mgr.append(type_def, &mt_type_def);
-            //__assign_mt(mt_type_def, type_def);
             __enque_assign(__tidx_t::type_def, mt_type_def, type_def);
 
             return ref;
@@ -1315,8 +1336,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 case __tidx_t::generic_method:
                     return __commit_generic_method((generic_method_t *)entity);
 
+                case __tidx_t::generic_param:
+                    return __commit_type((generic_param_t *)entity);
+
+                case __tidx_t::generic_field:
+                    return __commit_generic_field((impl_field_t *)entity);
+
                 default:
-                    return ref_t::null;
+                    X_UNEXPECTED();
             }
         }
 
@@ -1389,14 +1416,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             method_compile_context_t ctx(this->__xpool, *this, pool, buffer, this->__logger);
             method->compile(ctx);
 
-            _PF(_T("\n%1%"), method);
-            if(write_to_buffer(pool, buffer) == 0)
+            if(write_to_buffer(pool, buffer, method) == 0)
                 return res_t::null;
 
             const byte_t * bytes = buffer.bytes();
             size_t size = buffer.size();
 
-            //std::wcout << _T("W: ") << buffer_t(bytes, size) << std::endl;
+            // std::wcout << _T("W: ") << buffer_t(bytes, size) << std::endl;
 
             return this->__heap.append_block(bytes, size);
         }

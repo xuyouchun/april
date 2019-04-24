@@ -5,6 +5,10 @@
 
 namespace X_ROOT_NS { namespace modules { namespace mm {
 
+    using namespace rt;
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Memory error codes.
     X_ENUM_INFO(memory_error_code_t)
 
@@ -55,7 +59,8 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
     rt_ref_t default_rt_heap_t::new_obj(rt_type_t * type)
     {
         const size_t extern_size = sizeof(rt_type_t *);
-        void * obj = __alloc<extern_size>(type->get_size());
+        size_t size = _alignf(type->get_size(), sizeof(rt_stack_unit_t));
+        void * obj = __alloc<extern_size>(size);
         __set_object_type(obj, type);
 
         return rt_ref_t(obj);
@@ -69,13 +74,15 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
         dimension_t dimension = type->dimension;
 
         array_length_t length = *lengths;
+        size_t element_size = unit_align(1, type->element_type->get_size());
+        size_t size = length * element_size;
+
         if(dimension == 1)
         {
             const size_t extern_size = _alignf(
                 sizeof(rt_type_t *) + sizeof(array_length_t), sizeof(rt_stack_unit_t)
             );
 
-            size_t size = length * type->element_type->get_size();
             void * obj  = __alloc<extern_size>(size);
 
             __set_object_type(obj, type);
@@ -94,7 +101,6 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
                 sizeof(rt_type_t *) + sizeof(array_length_t) * dimension, sizeof(rt_stack_unit_t)
             );
 
-            size_t size = length * type->element_type->get_size();
             void * obj = __alloc(extern_size, size);
 
             __set_object_type(obj, type);

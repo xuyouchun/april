@@ -29,10 +29,11 @@ $type_cast_exp: \( $type_name \) $_single_expression ;
 $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new | $new_array | $type_of | $type_cast_exp
-    | $default_value
+    | $default_value        #| $type_name_exp
     | \( $_expression (, $_expression)* \)
-  ) (. $__item)*
-  | ($type_name_exp) . $_single_expression
+  ) (. $__item )*
+|
+  $type_name_exp (. $__item)+
 ;
 
 $_expression: 
@@ -106,7 +107,8 @@ $general_type_name:
      |  double | float | decimal
 ;
 
-$array_type_name: $type_name [ $expression? (, $expression?) * ] ;       # Array
+#$array_type_name: $type_name [ $expression? (, $expression?) * ] ;       # Array
+$array_type_name: $type_name [ ,* ] ;       # Array
 
 $uncertain_type_name: var ;
 

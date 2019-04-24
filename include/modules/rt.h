@@ -14,10 +14,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_assembly_t;
     class rt_general_type_t;
     class rt_generic_method_t;
+
     class rt_field_t;
 
     class analyzer_env_t;
     class assembly_analyzer_t;
+    class generic_param_manager_t;
+    class generic_param_manager_builder_t;
 
     X_INTERFACE rt_heap_t;
 
@@ -28,6 +31,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     namespace
     {
         using namespace core;
+
+        typedef generic_param_manager_t __gp_mgr_t;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -58,6 +63,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Virtual method not found.
         virtual_method_not_found,
+
+        // Generic param index out of range.
+        generic_param_index_out_of_range,
 
     X_ENUM_END
 
@@ -380,6 +388,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     __RtEntity(type,                rt_general_type_t)
     __RtEntity(generic_type,        rt_generic_type_t)
     __RtEntity(generic_method,      rt_generic_method_t)
+    __RtEntity(generic_field,       rt_generic_field_t)
     __RtEntity(generic_argument,    rt_generic_argument_t)
     __RtEntity(array_type,          rt_array_type_t)
     __RtEntity(field,               rt_field_t)
@@ -426,6 +435,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Generic type.
         generic_type,
+
+        // Generic field.
+        generic_field,
 
     X_ENUM_END
 
@@ -542,7 +554,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Base class of rt generic method pool key.
         typedef __rpool_key_base_t<rpool_key_type_t::generic_method,
-            rt_generic_method_t *, rt_method_t *, __rt_generic_args_key_t
+            rt_generic_method_t *, rt_method_t *, rt_type_t *, __rt_generic_args_key_t
         > __rpool_key_generic_method_base_t;
 
         // Rt pool generic method key.
@@ -559,6 +571,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             rt_type_t ** types() const { return args_key().begin(); }
             rt_method_t * template_() const { return std::get<rt_method_t *>(*this); }
+            rt_type_t * host_type() const { return std::get<rt_type_t *>(*this); }
         };
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -578,7 +591,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Base class of rt generic type pool key.
         typedef __rpool_key_base_t<rpool_key_type_t::generic_type,
-            rt_generic_type_t *, rt_general_type_t *, __rt_generic_args_key_t
+            rt_generic_type_t *, rt_general_type_t *, rt_type_t *, __rt_generic_args_key_t
         > __rpool_key_generic_type_base_t;
 
         // Rt pool generic type key.
@@ -594,6 +607,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             rt_type_t ** types() const { return args_key().begin(); }
             rt_general_type_t * template_() const { return std::get<rt_general_type_t *>(*this); }
+            rt_type_t * host_type() const { return std::get<rt_type_t *>(*this); }
         };
 
         //-------- ---------- ---------- ---------- ----------
@@ -616,6 +630,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     , __partial_t<rpool_key_type_t::generic_type>
     {
     public:
+
+        // Constructor.
+        rt_pool_t(memory_t * memory) : __memory(memory), __msize_heap(memory) { }
+
         using __partial_t<rpool_key_type_t::method>::get;
         using __partial_t<rpool_key_type_t::field>::get;
         using __partial_t<rpool_key_type_t::generic_method>::get;
@@ -635,13 +653,28 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         generic_type_key_t revise_key(const generic_type_key_t & key,
                                             rt_type_t ** types, int count);
 
+        // Gets generic type.
+        rt_generic_type_t * to_generic_type(memory_t * memory, rt_general_type_t * template_,
+                                            rt_type_t * host_type, rt_type_t ** atypes);
+
+        // Gets array type.
+        rt_array_type_t * to_array_type(memory_t * memory, rt_type_t * element_type,
+                                        dimension_t dimension);
+
+        // Creates a msize array.
+        msize_t * new_msize_array(size_t count);
+
     private:
         al::heap_t<rt_type_t *[]> __types_heap;
         std::set<__rt_generic_args_key_t> __types_map;
 
+        memory_t * __memory;
+
         // Finds generic arguments key.
         __rt_generic_args_key_t __find_generic_args_key(const __rt_generic_args_key_t & args_key,
                                            rt_type_t ** types, int count);
+
+        al::heap_t<msize_t[]> __msize_heap;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -652,6 +685,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     public:
         rt_context_t(memory_t * memory, rt_heap_t * heap, rt_assembly_provider_t * assembly_provider)
             : memory(memory), heap(heap), assemblies(*this, assembly_provider)
+            , rpool(memory)
         {
             _A(heap != nullptr);
         }
@@ -809,13 +843,18 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual ttype_t get_ttype(analyzer_env_t & env) { return ttype_t::__unknown__; }
 
         // Gets base type.
-        virtual rt_type_t * get_base_type(analyzer_env_t & env) = 0;
+        virtual rt_type_t * get_base_type(analyzer_env_t & env,
+                                          const __gp_mgr_t * gp_manager = nullptr) = 0;
 
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) = 0;
 
+        // Gets field offset.
+        virtual msize_t get_field_offset(analyzer_env_t & env, ref_t ref) = 0;
+
         // Enums all fields.
-        typedef std::function<bool (ref_t, rt_field_t *)> each_field_t;
+        typedef std::function<bool (ref_t ref, rt_field_t * rt_field)> each_field_t;
+
         virtual void each_field(analyzer_env_t & env, each_field_t f) = 0;
 
         // Enums all methods.
@@ -843,30 +882,69 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets size.
         msize_t get_size() { return __size; }
 
+        // Gets data type.
+        virtual vtype_t get_vtype(analyzer_env_t & env) = 0;
+
     protected:
 
         // When caculate size.
         virtual msize_t on_caculate_size(analyzer_env_t & env,
-                                         storage_type_t * out_storage_type) = 0;
+                                        storage_type_t * out_storage_type) = 0;
+
+
+        // When caculate layout.
+        virtual msize_t on_caculate_layout(analyzer_env_t & env, msize_t base_size,
+                                        storage_type_t * out_storage_type) = 0;
 
         // Analyze this type.
-        assembly_analyzer_t __analyzer(analyzer_env_t & env);
+        assembly_analyzer_t __analyzer(analyzer_env_t & env,
+                                       const generic_param_manager_t * gp_manager = nullptr);
 
         msize_t         __size = unknown_msize;
         storage_type_t  __storage_type;
     };
 
+    // Returns whether it's a generic type.
+    X_INLINE bool is_general(rt_type_t * type)
+    {
+        _A(type != nullptr);
+
+        return type->get_kind() == rt_type_kind_t::general;
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+    // General like type.
+
+    class __rt_general_like_type_t : public rt_type_t
+    {
+    public:
+
+    protected:
+
+        // When caculate size.
+        virtual msize_t on_caculate_size(analyzer_env_t & env,
+                            storage_type_t * out_storage_type) override;
+
+        // Gets variable size.
+        virtual msize_t get_variable_size(analyzer_env_t & env,
+                                storage_type_t * out_storage_type) override final;
+    };
+
     //-------- ---------- ---------- ---------- ----------
 
     // Runtime general type.
-    class rt_general_type_t : public rt_type_t
+    class rt_general_type_t : public __rt_general_like_type_t
                             , public rt_metadata_object_t<__tidx_t::type>
     {
+        typedef __rt_general_like_type_t __super_t;
+
     public:
 
         // Constructor.
         rt_general_type_t() = default;
-        rt_general_type_t(rt_assembly_t * assembly) : assembly(assembly) { }
+        rt_general_type_t(rt_assembly_t * assembly, rt_general_type_t * host_type)
+            : assembly(assembly), host_type(host_type)
+        { }
 
         // Pre new object.
         virtual void pre_new(analyzer_env_t & env) override final;
@@ -884,15 +962,21 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual ttype_t get_ttype(analyzer_env_t & env) override final;
 
         // Gets base type.
-        virtual rt_type_t * get_base_type(analyzer_env_t & env) override final;
+        virtual rt_type_t * get_base_type(analyzer_env_t & env,
+                                          const __gp_mgr_t * gp_manager = nullptr) override final;
 
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref)
                                                                     override final;
-        // Each all fields.
+
+        // Gets field offset.
+        virtual msize_t get_field_offset(analyzer_env_t & env, ref_t ref) override final;
+
+        // Enumerates all fields.
         virtual void each_field(analyzer_env_t & env, each_field_t f)
                                                                     override final;
-        // Each all methods.
+
+        // Enumerates all methods.
         virtual void each_method(analyzer_env_t & env, each_method_t f)
                                                                     override final;
         // Searches methods.
@@ -900,20 +984,33 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     method_prototype_t & prototype, search_method_options_t options)
                                                                     override final;
 
-        // Gets variable size.
-        virtual msize_t get_variable_size(analyzer_env_t & env,
-                                storage_type_t * out_storage_type) override final;
+        // Gets data type.
+        virtual vtype_t get_vtype(analyzer_env_t & env) override;
 
         // Gets assembly.
         virtual rt_assembly_t * get_assembly() override final;
 
+        // Owner assembly.
         rt_assembly_t * assembly = nullptr;
+
+        // Host type.
+        rt_general_type_t * host_type = nullptr;
+
+        // Returns generic param count.
+        size_t generic_param_count();
+
+        // Returns whether it's a generic template.
+        bool is_generic_template();
 
     protected:
 
         // When caculate size.
         virtual msize_t on_caculate_size(analyzer_env_t & env,
                             storage_type_t * out_storage_type) override final;
+
+        // When caculate layout.
+        virtual msize_t on_caculate_layout(analyzer_env_t & env, msize_t base_size,
+                                        storage_type_t * out_storage_type) override final;
 
     private:
         void __build_vtbl(analyzer_env_t & env);
@@ -932,16 +1029,17 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     //-------- ---------- ---------- ---------- ----------
 
     // Runtime generic type.
-    class rt_generic_type_t : public rt_type_t
-                         // , public rt_metadata_object_t<__tidx_t::generic_type>
+    class rt_generic_type_t : public __rt_general_like_type_t
     {
+        typedef __rt_general_like_type_t __super_t;
+
     public:
 
         // Constructor.
         rt_generic_type_t() = default;
 
         // Constructor.
-        rt_generic_type_t(rt_general_type_t * template_, rt_type_t ** atypes);
+        rt_generic_type_t(rt_general_type_t * template_, rt_type_t * host_type, rt_type_t ** atypes);
 
         // Pre new object.
         virtual void pre_new(analyzer_env_t & env) override final;
@@ -958,25 +1056,28 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets ttype.
         virtual ttype_t get_ttype(analyzer_env_t & env) override final;
 
+        // Gets data type.
+        virtual vtype_t get_vtype(analyzer_env_t & env) override;
+
         // Gets base type.
-        virtual rt_type_t * get_base_type(analyzer_env_t & env) override final;
+        virtual rt_type_t * get_base_type(analyzer_env_t & env,
+                                          const __gp_mgr_t * gp_manager = nullptr) override final;
 
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override final;
 
-        // Enums all fields.
-        virtual void each_field(analyzer_env_t & env, each_field_t f) override final { }
+        // Gets field offset.
+        virtual msize_t get_field_offset(analyzer_env_t & env, ref_t ref) override final;
 
-        // Enums all methods.
+        // Enumerates all fields.
+        virtual void each_field(analyzer_env_t & env, each_field_t f) override final;
+
+        // Enumerates all methods.
         virtual void each_method(analyzer_env_t & env, each_method_t f) override final;
 
         // Searches method.
         virtual ref_t search_method(analyzer_env_t & env,
                 method_prototype_t & prototype, search_method_options_t options) override final;
-
-        // Gets variable size.
-        virtual msize_t get_variable_size(analyzer_env_t & env,
-                                            storage_type_t * out_storage_type) override final;
 
         // Gets assembly.
         virtual rt_assembly_t * get_assembly() override final;
@@ -987,18 +1088,36 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Generic arguments.
         rt_type_t ** atypes = nullptr;
 
+        // Generic argument count.
+        int atype_count() { return template_->generic_param_count(); }
+
+        // Host type.
+        rt_type_t * host_type = nullptr;
+
     protected:
 
         // When caculate size.
         virtual msize_t on_caculate_size(analyzer_env_t & env,
-                                storage_type_t * out_storage_type) override final;
+                            storage_type_t * out_storage_type) override final;
+
+        // When caculate layout.
+        virtual msize_t on_caculate_layout(analyzer_env_t & env, msize_t base_size,
+                                        storage_type_t * out_storage_type) override final;
+
+    private:
+
+        // Build virtual table.
+        void __build_vtbl(analyzer_env_t & env);
+
+        // Field offset array.
+        msize_t * __field_offsets = nullptr;
+        int __b = 0;        // TODO: why it's setted valuel 1?
     };
 
     //-------- ---------- ---------- ---------- ----------
 
     // Runtime array time.
     class rt_array_type_t : public rt_type_t
-                      //  , public rt_metadata_object_t<__tidx_t::array_type>
     {
     public:
 
@@ -1024,10 +1143,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual ttype_t get_ttype(analyzer_env_t & env) override final;
 
         // Gets base type.
-        virtual rt_type_t * get_base_type(analyzer_env_t & env) override final;
+        virtual rt_type_t * get_base_type(analyzer_env_t & env,
+                              const __gp_mgr_t * gp_manager = nullptr) override final;
 
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override final;
+
+        // Gets field offset.
+        virtual msize_t get_field_offset(analyzer_env_t & env, ref_t ref) override final;
 
         // Enums fields.
         virtual void each_field(analyzer_env_t & env, each_field_t f) override final { }
@@ -1052,12 +1175,18 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets assembly.
         virtual rt_assembly_t * get_assembly() override final;
 
+        // Gets data type.
+        virtual vtype_t get_vtype(analyzer_env_t & env) override { return vtype_t::mobject_; }
+
     protected:
 
         // When caculate size.
         virtual msize_t on_caculate_size(analyzer_env_t & env,
                                 storage_type_t * out_storage_type) override final;
 
+        // When caculate layout.
+        virtual msize_t on_caculate_layout(analyzer_env_t & env, msize_t base_size,
+                                        storage_type_t * out_storage_type) override final;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1089,6 +1218,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets name.
         rt_sid_t        get_name();
+
+        // Returns generic param count.
+        int generic_param_count();
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1101,24 +1233,28 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Constructor.
         rt_generic_method_t() = default;
-        rt_generic_method_t(rt_method_t * template_, rt_type_t ** atypes)
-            : template_(template_), atypes(atypes)
-        { }
+        rt_generic_method_t(rt_method_t * template_, rt_type_t * host_type, rt_type_t ** atypes);
 
         // Method template.
-        rt_method_t *  template_    = nullptr;
+        rt_method_t *  template_ = nullptr;
 
         // Arguments.
-        rt_type_t   ** atypes       = nullptr;
+        rt_type_t  ** atypes = nullptr;
+
+        // Argument count.
+        int atype_count() { return template_->generic_param_count(); }
+
+        // Host Type.
+        rt_type_t * host_type = nullptr;
+
+        // Returns host type.
+        rt_type_t * get_host_type();
 
         // Gets assembly.
         rt_assembly_t * get_assembly();
 
-        // Gets host type.
-        rt_type_t *     get_host_type();
-
         // Gets name.
-        rt_sid_t        get_name();
+        rt_sid_t get_name();
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1129,18 +1265,46 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
     public:
 
+        // Offset.
+        msize_t     offset = unknown_msize;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Runtime field.
-    class rt_field_t : public rt_member_t
-                     , public rt_metadata_object_t<__tidx_t::field>
+    // Runtime field base.
+
+    class rt_field_base_t
     {
     public:
 
         // Offset.
-        msize_t     offset = unknown_msize;
+        msize_t offset = unknown_msize;
+
+        // Sets offset.
+        void set_offset(msize_t offset)
+        {
+            this->offset = offset;
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Runtime general field.
+    class rt_field_t : public rt_member_t
+                     , public rt_field_base_t
+                     , public rt_metadata_object_t<__tidx_t::field>
+    {
+    public:
+
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Runtime generic field.
+    class rt_generic_field_t : public rt_object_t
+    {
+    public:
+
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1368,20 +1532,27 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets generic type metadata.
         virtual rt_mt_t<__tidx_t::generic_type> * mt_of_generic(ref_t ref) = 0;
 
+        // Gets generic field metadata.
+        virtual rt_mt_t<__tidx_t::generic_field> * mt_of_generic_field(ref_t ref) = 0;
+
         // Gets method.
         virtual rt_method_t * get_method(ref_t ref) = 0;
 
         // Gets param.
-        virtual rt_field_t  * get_field(ref_t ref) = 0;
+        virtual rt_field_t * get_field(ref_t ref) = 0;
 
         // Gets generic method.
         virtual rt_param_t  * get_param(ref_t param_ref) = 0;
 
         // Gets generic method.
-        virtual rt_generic_method_t * get_generic_method(ref_t ref) = 0;
+        virtual rt_generic_method_t * get_generic_method(ref_t ref,
+                                      const generic_param_manager_t * gp_mgr) = 0;
 
         // Gets generic argument.
         virtual rt_generic_argument_t * get_generic_argument(ref_t ref) = 0;
+
+        // Gets generic param.
+        virtual rt_generic_param_t * get_generic_param(ref_t ref) = 0;
 
         // Gets super type.
         virtual rt_super_type_t * get_super_type(ref_t ref) = 0;
@@ -1410,6 +1581,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets host type by field ref.
         virtual rt_general_type_t * get_host_by_field_ref(ref_t field_ref) = 0;
+
+        // Gets host by nest type ref.
+        virtual rt_general_type_t * get_host_by_nest_type_ref(ref_t type_ref) = 0;
 
         // Gets method ref param.
         virtual rt_method_ref_param_t * get_method_ref_param(ref_t ref) = 0;
@@ -1503,6 +1677,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     //-------- ---------- ---------- ---------- ----------
     // assembly_analyzer_t
 
+    class generic_param_manager_t;
+
     // Assembly analyzer.
     class assembly_analyzer_t : public object_t
     {
@@ -1512,19 +1688,17 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     public:
 
         // Constructor.
-        assembly_analyzer_t(analyzer_env_t & env, rt_assembly_t * current)
-            : env(env), current(current)
-        {
-            _A(current != nullptr);
-        }
+        assembly_analyzer_t(analyzer_env_t & env, rt_assembly_t * current,
+                            const generic_param_manager_t * gp_manager = nullptr);
 
         // Constructor.
         assembly_analyzer_t(assembly_analyzer_t & prototype, rt_assembly_t * current)
-            : assembly_analyzer_t(prototype.env, current)
+            : assembly_analyzer_t(prototype.env, current, prototype.gp_manager)
         { }
 
-        analyzer_env_t & env;           // Analyze environment.
-        rt_assembly_t  * current;       // Current assembly.
+        analyzer_env_t & env;                   // Analyze environment.
+        rt_assembly_t  * current;               // Current assembly.
+        const generic_param_manager_t * gp_manager;   // Generic param manager.
 
         // Gets sid by res.
         rt_sid_t to_sid(res_t res) { return __to_sid(res); }
@@ -1581,7 +1755,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets generic type.
         rt_generic_type_t * to_generic_type(rt_general_type_t * template_,
-                                            rt_type_t ** atypes, size_t atype_count);
+                            rt_type_t * host_type, rt_type_t ** atypes);
+
+        // Converts template to generic type, used by gp_manager.
+        rt_type_t * to_generic_type(rt_general_type_t * template_);
 
         // Gets method by method ref.
         rt_method_t * get_method(ref_t method_ref);
@@ -1591,6 +1768,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets field by field ref.
         rt_field_t * get_field(ref_t field_ref, rt_type_t ** out_type = nullptr);
+
+        // Gets generic param.
+        rt_generic_param_t * get_generic_param(ref_t ref);
 
         // Returns char_t * by resource.
         const char_t * to_cstr(res_t res)
@@ -1620,7 +1800,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         msize_t get_type_size(ref_t type_ref);
 
         // Gets field offset.
-        msize_t get_field_offset(ref_t field_ref);
+        msize_t get_field_offset(ref_t field_ref, rt_type_t * host_type = nullptr);
 
         // Gets virtual method offset.
         int get_virtual_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref);
@@ -1658,6 +1838,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Creates an runtime array type.
         rt_array_type_t * __to_array_type(rt_type_t * element_type, dimension_t dimension);
+
+        // Converts to generic type.
+        rt_type_t * __to_generic(rt_general_type_t * template_);
 
         // Joins method name.
         string_t __join_method_name(rt_assembly_t * assembly,
@@ -1752,7 +1935,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     rt_context_t & ctx, ref_t ref, __mt_t * mt, rt_assembly_t * assembly)
             {
                 typedef typename __super_t::__wrap_t wrap_t;
-                auto entity = &memory_t::new_obj<wrap_t>(ctx.memory, assembly)->type;
+                rt_general_type_t * host_type = assembly->get_host_by_nest_type_ref(ref);
+
+                auto entity = &memory_t::new_obj<wrap_t>(ctx.memory, assembly, host_type)->type;
                 entity->mt = mt;
 
                 return entity;
@@ -1796,8 +1981,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             typedef __t_type_rt_mt_base_t<__tidx_t::generic_type> __super_t;
             using __super_t::__super_t;
 
-            static typename __super_t::__entity_t * new_entity(
-                    rt_context_t & ctx, ref_t ref, __mt_t * mt, rt_assembly_t * rt_assembly)
+            static typename __super_t::__entity_t * new_entity(rt_context_t & ctx,
+                ref_t ref, __mt_t * mt, rt_assembly_t * rt_assembly)
             {
                 auto entity = &memory_t::new_obj<typename __super_t::__wrap_t>(ctx.memory)->type;
                 // entity->mt = mt;
@@ -1829,7 +2014,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         using __super_t::__super_t;
 
         static rt_generic_method_t * new_entity(rt_context_t & ctx,
-                            ref_t ref, __mt_t * mt, rt_assembly_t * assembly);
+            ref_t ref, __mt_t * mt, rt_assembly_t * assembly, const __gp_mgr_t * gp_mgr = nullptr);
     };
 
     //-------- ---------- ---------- ---------- ----------

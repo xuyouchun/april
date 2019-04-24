@@ -116,24 +116,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     // Parses commands.
     exec_method_t * parse_commands(executor_env_t & env, rt_method_t * method,
-                                                         rt_type_t ** generic_types)
+            rt_type_t * host_type, const generic_param_manager_t * gp_manager)
     {
-        rt_type_t * type = method->get_host_type();
-        assembly_analyzer_t analyzer = to_analyzer(env, type);
+        _A(method != nullptr);
+
+        if(host_type == nullptr)
+            host_type = method->get_host_type();
+
+        _A(host_type != nullptr);
+
+        assembly_analyzer_t analyzer = to_analyzer(env, host_type);
 
         // _PF(_T("parse_commands: %1%.%2%"), type->get_name(env), analyzer.get_name(method));
 
-        _A(method != nullptr);
-
-        rt_assembly_t * assembly = type->get_assembly();
+        rt_assembly_t * assembly = host_type->get_assembly();
 
         rt_bytes_t body = assembly->get_method_body(method);
         memory_t * memory = env.get_memory();
 
-        command_creating_context_t creating_ctx(env, assembly, method, generic_types);
+        command_creating_context_t creating_ctx(env, assembly, host_type, method, gp_manager);
         method_reader_t reader(memory, body.bytes, body.length);
-
-        //generic_context_t gctx((*method)->generic_params.count);
 
         // Read local variables
         uint16_t ref_objects = 0;
@@ -144,15 +146,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         });
         locals_layout.commit();
 
+        // _P((string_t)locals_layout);
+
         // Read params variables
         params_layout_t & params_layout = creating_ctx.params_layout;
         if(!((decorate_value_t)(*method)->decorate).is_static)
-            params_layout.append(type, param_type_t::__default__);
+            params_layout.append(host_type, param_type_t::__default__);
 
         assembly->each_params((*method)->params, [&](int index, mt_param_t & mt_param) {
             return params_layout.append(mt_param.type, mt_param.param_type), true;
         });
         params_layout.commit();
+
+        // _P( (string_t)params_layout );
 
         // Read switch tables
         reader.each_switch_table([&](exec_switch_table_t * tbl) {
@@ -169,14 +175,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             commands.push_back(command);
         });
 
-        command_t ** command_arr = memory_t::alloc_objs<command_t *>(
-            memory, commands.size() + 1
-        );
+        // Auto appends ret command at the end.
+        if(commands.size() == 0 || !is_ret_command(commands[commands.size() - 1]))
+            commands.push_back(new_ret_command(creating_ctx));
+
+        // Copies to a array.
+        command_t ** command_arr = env.new_commands(commands.size());
 
         std::copy(commands.begin(), commands.end(), command_arr);
-
-        if(commands.size() == 0 || !is_ret_command(commands[commands.size() - 1]))
-            command_arr[commands.size()] = new_ret_command(creating_ctx);
 
         return memory_t::new_obj<exec_method_t>(memory,
             command_arr, ref_objects, locals_layout.unit_size()

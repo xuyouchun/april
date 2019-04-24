@@ -261,8 +261,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     xil_type_t __xil_type(expression_t * exp)
     {
         vtype_t vtype = exp->get_vtype();
-        if(vtype == vtype_t::__unknown__ || vtype == vtype_t::mobject)
+
+        /* ??
+        if(vtype == vtype_t::__unknown__ || vtype == vtype_t::mobject_)
             return xil_type_t::__unknown__;
+        */
 
         return to_xil_type(vtype);
     }
@@ -617,7 +620,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         variable_t * var = var_exp->get_variable();
         if(var == nullptr)
-            throw _ED(__e_t::variable_cannot_determined, var_exp);
+            throw _ED(__e_t::variable_cannot_determined, var_exp->to_string());
 
         return var;
     }
@@ -726,7 +729,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             case variable_type_t::array_index: {
                 array_index_variable_t * arr_var = (array_index_variable_t *)var;
-                variable_t * body = arr_var->body;
+                expression_t * body = arr_var->body;
                 arguments_t * args = arr_var->arguments;
 
                 if(body == nullptr)
@@ -736,7 +739,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     throw _ED(__e_t::index_arguments_missing, var);
 
                 __compile_arguments(ctx, pool, args);
-                __compile_variable(ctx, pool, body, exp);
+                body->compile(ctx, pool);
 
                 type_t * element_type = arr_var->get_type();
                 type_t * array_type = ctx.statement_ctx.xpool().new_array_type(
@@ -927,12 +930,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    xil_type_t __to_xil_type(variable_t * variable)
+    {
+        type_t * type = variable->get_type();
+        if(type->this_gtype() == gtype_t::generic_param)
+            return xil_type_t::empty;
+
+        vtype_t vtype = variable->get_vtype();
+        return to_xil_type(vtype);
+    }
+
     // Compiles local variable.
     static void __compile_local_variable(__cctx_t & ctx, xil_pool_t & pool,
                                                             local_variable_t * variable)
     {
-        vtype_t vtype = variable->get_vtype();
-        xil_type_t xil_type = to_xil_type(vtype);
+        xil_type_t xil_type = __to_xil_type(variable);
 
         pool.append<__push_variable_xil_t>(
             xil_storage_type_t::local, xil_type, variable->identity
@@ -943,8 +955,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_param_variable(__cctx_t & ctx, xil_pool_t & pool,
                                                             param_variable_t * variable)
     {
-        vtype_t vtype = variable->get_vtype();
-        xil_type_t xil_type = to_xil_type(vtype);
+        xil_type_t xil_type = __to_xil_type(variable);
 
         msize_t index = variable->param->index;
         if(!__is_static(call_type_of_method(ctx.statement_ctx.method)))
@@ -1266,6 +1277,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    // Push constant generic value xil.
+    struct __push_generic_const_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        __push_generic_const_xil_t(ref_t type_ref)
+            : __super_t(xil_storage_type_t::constant, xil_type_t::empty)
+        {
+            this->set_type_ref(type_ref);
+        }
+    };
+
     // Push string xil.
     struct __push_string_xil_t : xil_extra_t<push_xil_t>
     {
@@ -1275,6 +1298,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __super_t(xil_storage_type_t::constant, xil_type_t::string)
         {
             this->set_extra(res);
+        }
+    };
+
+    // Push null xil.
+    struct __push_null_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        __push_null_xil_t()
+            : __super_t(xil_storage_type_t::constant, xil_type_t::object)
+        {
+            this->set_type_ref(ref_t::null);
+        }
+    };
+
+    // push type xil.
+    struct __push_type_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        __push_type_xil_t(ref_t type_ref)
+            : __super_t(xil_storage_type_t::constant, xil_type_t::object)
+        {
+            this->set_type_ref(type_ref);
         }
     };
 
@@ -1346,13 +1393,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles null.
     void __compile_null(__cctx_t & ctx, xil_pool_t & pool)
     {
-        // TODO
+        pool.append<__push_null_xil_t>();
     }
 
     // Compiles type.
     void __compile_type(__cctx_t & ctx, xil_pool_t & pool, type_t * type)
     {
-        // TODO
+        pool.append<__push_type_xil_t>(__ref_of(ctx, type));
     }
 
     // Compile constant value.
@@ -1385,12 +1432,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compile constant value.
     void __sys_t<cvalue_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool)
     {
-        if(__is_this_effective(this))
-        {
-            cvalue_t cvalue = *this->value;
+        if(!__is_this_effective(this))
+            return;
 
-            __compile_cvalue(ctx, pool, cvalue);
-        }
+        cvalue_t cvalue = *this->value;
+        __compile_cvalue(ctx, pool, cvalue);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1714,21 +1760,47 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
     
     // Compiles default value expression.
-    void __sys_t<default_value_expression_t>::compile(__cctx_t & ctx,
-                                                            xil_pool_t & pool)
+    void __sys_t<default_value_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool)
     {
         type_t * type = to_type(this->type_name);
+
         if(type == nullptr)
             throw _ED(__e_t::type_missing);
 
-        vtype_t vtype = type->this_vtype();
-        cvalue_t value = default_value_of(vtype);
+        if(!is_effective(this->parent))
+            return;
 
-        if(is_nan(value))
-            throw _ED(__e_t::no_default_value, type);
+        switch(type->this_gtype())
+        {
+            case gtype_t::generic_param: {
 
-        if(is_effective(this->parent))
-            __compile_cvalue(ctx, pool, value);
+                pool.append<__push_generic_const_xil_t>(
+                    __ref_of(ctx, (generic_param_t *)type)
+                );
+
+            }   break;
+
+            case gtype_t::general: {
+
+                vtype_t vtype = type->this_vtype();
+                cvalue_t value = default_value_of(vtype);
+
+                if(is_nan(value))
+                    throw _ED(__e_t::no_default_value, type);
+
+                __compile_cvalue(ctx, pool, value);
+
+            }   break;
+
+            case gtype_t::generic: {
+
+                __compile_cvalue(ctx, pool, cvalue_t(nullptr)); // TODO: struct?
+
+            }   break;
+
+            default:
+                X_UNEXPECTED();
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////

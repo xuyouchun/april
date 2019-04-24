@@ -139,14 +139,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_C(field,              _T("field"))
         X_C(method,             _T("method"))
         X_C(property,           _T("property"))
+        X_C(event,              _T("event"))
+        X_C(type_def,           _T("type_def"))
 
         X_C(field_ref,          _T("field_ref"))
         X_C(method_ref,         _T("method_ref"))
         X_C(property_ref,       _T("property_ref"))
         X_C(event_ref,          _T("event_ref"))
 
-        X_C(event,              _T("event"))
-        X_C(type_def,           _T("type_def"))
+        X_C(generic_field,      _T("generic_field"))
+        X_C(generic_method,     _T("generic_method"))
+        X_C(generic_property,   _T("generic_property"))
+        X_C(generic_event,      _T("generic_event"))
+        X_C(generic_type_def,   _T("generic_type_def"))
+
         X_C(type_def_param,     _T("type_def_param"))
 
         X_C(generic_param,      _T("generic_param"))
@@ -600,17 +606,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    #define __Mt mt_generic_method_t
-
-    // Metadata: Generic method.
-    __DefineEntityIOFunctions
-        __M(host), __M(template_),  __M(args), __V(1),
-    __EndDefineEntityIOFunctions
-
-    #undef __Mt
-
-    //-------- ---------- ---------- ---------- ----------
-
     #define __Mt mt_event_t
 
     // Metadata: Event.
@@ -628,6 +623,61 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Metadata: Typedef.
     __DefineEntityIOFunctions
         __M(name), __M(decorate), __M(type), __M(params), __M(namespace_), __V(1),
+    __EndDefineEntityIOFunctions
+
+    #undef __Mt
+
+    //-------- ---------- ---------- ---------- ----------
+
+    #define __Mt mt_generic_field_t
+
+    // Metadata: Generic field.
+    __DefineEntityIOFunctions
+        __M(host), __M(template_), __V(1),
+    __EndDefineEntityIOFunctions
+
+    #undef __Mt
+
+    //-------- ---------- ---------- ---------- ----------
+
+    #define __Mt mt_generic_method_t
+
+    // Metadata: Generic method.
+    __DefineEntityIOFunctions
+        __M(host), __M(template_),  __M(args), __V(1),
+    __EndDefineEntityIOFunctions
+
+    #undef __Mt
+
+    //-------- ---------- ---------- ---------- ----------
+
+    #define __Mt mt_generic_property_t
+
+    // Metadata: Generic property.
+    __DefineEntityIOFunctions
+        __M(host), __M(template_), __V(1),
+    __EndDefineEntityIOFunctions
+
+    #undef __Mt
+
+    //-------- ---------- ---------- ---------- ----------
+
+    #define __Mt mt_generic_event_t
+
+    // Metadata: Generic event.
+    __DefineEntityIOFunctions
+        __M(host), __M(template_), __V(1),
+    __EndDefineEntityIOFunctions
+
+    #undef __Mt
+
+    //-------- ---------- ---------- ---------- ----------
+
+    #define __Mt mt_generic_type_def_t
+
+    // Metadata: Generic typedef.
+    __DefineEntityIOFunctions
+        __M(host), __M(template_), __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt

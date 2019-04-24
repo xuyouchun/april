@@ -7,6 +7,140 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     using namespace rt;
 
     ////////// ////////// ////////// ////////// //////////
+    // generic_param_manager_t
+
+    // Append a generic type with name.
+    void generic_param_manager_t::append(rt_sid_t name, rt_type_t * atype)
+    {
+        _A(atype != nullptr);
+        _A(__type_map.find(name) == __type_map.end());
+
+        __type_map[name] = atype;
+    }
+
+    // Returns type at index.
+    rt_type_t * generic_param_manager_t::type_at(int index) const
+    {
+        /*
+        if(index < 0 || index >= __atype_count)
+            throw _ED(__e_t::generic_param_index_out_of_range);
+
+        return __atypes[index];
+        */
+
+        return nullptr;
+    }
+
+    // Returns type of specified name.
+    rt_type_t * generic_param_manager_t::type_at(rt_sid_t sid) const
+    {
+        auto it = __type_map.find(sid);
+        if(it == __type_map.end())
+            return nullptr;
+
+        return it->second;
+    }
+
+    // Returns the empty manager.
+    const generic_param_manager_t * generic_param_manager_t::empty_instance()
+    {
+        static generic_param_manager_t empty_;
+        return &empty_;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // generic_param_manager_builder_t
+
+    // Appends generic params
+    void generic_param_manager_builder_t::append(ref_t generic_params, rt_type_t ** types,
+                                                 int type_count)
+    {
+        _A(generic_params.count == type_count);
+
+        for(ref_t gp_ref : generic_params)
+        {
+            rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
+            rt_sid_t name = __analyzer.to_sid((*gp)->name);
+
+            __gp_mgr.append(name, *types++);
+        }
+    }
+
+    // Append generic params of given generic method.
+    void generic_param_manager_builder_t::append(rt_generic_method_t * m)
+    {
+        _A(m != nullptr);
+
+        append((*m->template_)->generic_params, m->atypes, m->atype_count());
+    }
+
+    // Append generic params of given generic type.
+    void generic_param_manager_builder_t::append(rt_generic_type_t * t)
+    {
+        _A(t != nullptr);
+
+        append((*t->template_)->generic_params, t->atypes, t->atype_count());
+    }
+
+    // Imports generic params of given generic method.
+    void generic_param_manager_builder_t::import(rt_generic_method_t * m)
+    {
+        _A(m != nullptr);
+
+        append(m);
+
+        rt_type_t * host_type = m->get_host_type();
+        __import(host_type);
+    }
+
+    // Imports generic params of given general method.
+    void generic_param_manager_builder_t::import(rt_method_t * m)
+    {
+        _A(m != nullptr);
+
+        rt_type_t * host_type = m->get_host_type();
+        __import(host_type);
+    }
+
+    // Enumerates all generic host types.
+    template<typename _f_t> void __each_generic_hosts(rt_generic_type_t * type, _f_t f)
+    {
+        while(true)
+        {
+            f(type);
+
+            rt_type_t * host_type = type->host_type;
+            if(host_type == nullptr || (host_type->get_kind() != rt_type_kind_t::generic))
+                break;
+
+            type = (rt_generic_type_t *)host_type;
+        }
+    }
+
+    // Imports generic params of given generic type.
+    void generic_param_manager_builder_t::import(rt_generic_type_t * t)
+    {
+        _A(t != nullptr);
+
+        __each_generic_hosts(t, [&, this](rt_generic_type_t * t0) {
+            this->append(t0);
+        });
+    }
+
+    // Imports generic param of given type.
+    void generic_param_manager_builder_t::__import(rt_type_t * t)
+    {
+        _A(t != nullptr);
+
+        rt_type_kind_t type_kind = t->get_kind();
+
+        if(type_kind != rt_type_kind_t::generic)
+            return;
+
+        import((rt_generic_type_t *)t);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // generic_context_t
 
     // Converts generic param to runtime type.
@@ -18,8 +152,38 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
 
     // Constructor.
-    locals_layout_t::locals_layout_t(assembly_analyzer_t & ctx, rt_type_t ** generic_types)
-        : __super_t(ctx, generic_types)
+    __variables_layout_t::__variables_layout_t(assembly_analyzer_t & ctx)
+        : __ctx(ctx) { }
+
+    ////////// ////////// ////////// ////////// //////////
+    // __variables_layout_t
+
+    // Gets runtime type of typeref.
+    rt_type_t * __variables_layout_t::__get_type(ref_t type_ref)
+    {
+        switch((mt_type_extra_t)type_ref.extra)
+        {
+            case mt_type_extra_t::generic_param: {
+
+                rt_generic_param_t * gp = __ctx.get_generic_param(type_ref);
+                _A(gp != nullptr);
+
+                rt_sid_t name = __ctx.to_sid((*gp)->name);
+
+                return __ctx.gp_manager->type_at(name);
+
+            }   break;
+
+            default:
+                return __ctx.get_type(type_ref);
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Constructor.
+    locals_layout_t::locals_layout_t(assembly_analyzer_t & ctx)
+        : __super_t(ctx)
     {
         int storage_type = 0;
         al::for_each(__groups, [this, &storage_type](__group_t & g) {
@@ -156,9 +320,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         if(child_index != __empty_msize)
         {
+            msize_t max_offset = 0;
+
             __partial_t bk = **it_begin;
             **it_begin = __partial_t(child_index, end - g.items.begin());
-            caller(g, new_offset, it_begin, it_end);
+            max_offset = al::max(max_offset, caller(g, new_offset, it_begin, it_end));
             **it_begin = bk;
 
             for(__partial_iterator_t it = it_begin + 1; it < it_end; it++)
@@ -168,10 +334,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     break;
 
                 if(partial1->index == child_index)
-                    caller(g, new_offset, it, it_end);
+                    max_offset = al::max(max_offset, caller(g, new_offset, it, it_end));
             }
 
-            return new_offset;
+            return al::max(new_offset, max_offset);
         }
 
         if(it_begin + 1 < it_end)
@@ -287,6 +453,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     locals_layout_t::operator string_t() const
     {
         stringstream_t ss;
+        ss << _T("identity index offset size\n");
 
         for(const __group_t & g : __groups)
         {
@@ -302,14 +469,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Appends a field type.
+    // Appends a param.
     void params_layout_t::append(ref_t type_ref, param_type_t param_type)
     {
         rt_type_t * type = __get_type(type_ref);
         append(type, param_type);
     }
 
-    // Appends a field type.
+    // Appends a param.
     void params_layout_t::append(rt_type_t * type, param_type_t param_type)
     {
         _A(type != nullptr);
@@ -324,10 +491,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Commits it.
     void params_layout_t::commit()
     {
-
+        // Nothing to do.
     }
 
-    // Returns offset of field index.
+    // Returns offset of index.
     msize_t params_layout_t::offset_of(int index)
     {
         if(index >= __items.size())
@@ -336,48 +503,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return __current_offset - __items[index].offset;
     }
 
-    ////////// ////////// ////////// ////////// //////////
-
-    // Constructor.
-    type_layout_t::type_layout_t(assembly_analyzer_t & ctx, msize_t offset,
-                                                            rt_type_t ** generic_types)
-        : __super_t(ctx, generic_types), __offset(offset)
-    { }
-
-    // Appends field.
-    void type_layout_t::append(rt_field_t * field)
+    // Returns param type of index.
+    rt_type_t * params_layout_t::type_at(int index)
     {
-        _A(field != nullptr);
+        if(index >= __items.size())
+            throw _ED(__e_t::argument_index_out_of_range);
 
-        rt_type_t * field_type = __get_type((*field)->type);
-        _A(field_type != nullptr);
-
-        storage_type_t storage_type;
-        msize_t size = __ctx.size_of(field_type, &storage_type);
-
-        __items.push_back(__item_t { field, size, storage_type });
-    }
-
-    // Commits it.
-    void type_layout_t::commit()
-    {
-        al::sort(__items, [](__item_t & it1, __item_t & it2) {
-            return std::make_tuple(it1.storage_type, it1.size)
-                <  std::make_tuple(it2.storage_type, it2.size);
-        });
-
-        __storage_type = storage_type_t::__unknown__;
-
-        for(__item_t & it : __items)
-        {
-            it.field->offset = __offset;
-            __offset = unit_align(__offset, it.size) + it.size;
-
-            if(__storage_type == storage_type_t::__unknown__)
-                __storage_type = it.storage_type;
-            else if(__storage_type != it.storage_type)
-                __storage_type = storage_type_t::mixture;
-        }
+        return __items[index].type;
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -6,6 +6,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef compile_error_code_t         __e_t;
     typedef expression_compile_context_t __cctx_t;
+    typedef mt_table_index_t             __tidx_t;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -139,17 +140,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         switch(method->this_family())
         {
-            case member_family_t::general:
-            case member_family_t::impl: {
+            case member_family_t::general: {
                 method_t * m = (method_t *)method;
                 ref = __is_extern(ctx, m)?
-                    __ref_of<mt_table_index_t::method_ref>(ctx, m) :
-                    __ref_of<mt_table_index_t::method>(ctx, m);
+                    __ref_of<__tidx_t::method_ref>(ctx, m) :
+                    __ref_of<__tidx_t::method>(ctx, m);
+            }   break;
+
+            case member_family_t::impl: {
+                impl_method_t * m = (impl_method_t *)method;
+                type_collection_t types;
+
+                generic_method_t * generic_method = ctx.xpool().new_generic_method(
+                    m, types
+                );
+
+                ref = __ref_of<__tidx_t::generic_method>(ctx, generic_method);
             }   break;
 
             case member_family_t::generic: {
                 generic_method_t * m = (generic_method_t *)method;
-                ref = __ref_of<mt_table_index_t::generic_method>(ctx, m);
+                ref = __ref_of<__tidx_t::generic_method>(ctx, m);
             }   break;
 
             default:
@@ -165,9 +176,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Searches field ref.
     ref_t __search_field_ref(__sctx_t & ctx, field_t * field)
     {
+        _A(field != nullptr);
+
+        if(field->this_family() == member_family_t::impl)
+            return __ref_of<__tidx_t::generic_field>(ctx, (impl_field_t *)field);
+
         ref_t ref = __is_extern(ctx, field)?
-            __ref_of<mt_table_index_t::field_ref>(ctx, field) :
-            __ref_of<mt_table_index_t::field>(ctx, field);
+            __ref_of<__tidx_t::field_ref>(ctx, field) :
+            __ref_of<__tidx_t::field>(ctx, field);
 
         if(ref == ref_t::null)
             throw _ECF(not_found, _T("field ref of '%1%' not found"), field);

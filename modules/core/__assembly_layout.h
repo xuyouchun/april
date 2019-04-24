@@ -101,88 +101,100 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         guide = __default__,
         
         // Header
-        header,
+        header              =   1,
         
         // Table informations.
-        table,
+        table               =   2,
         
         // Assembly information.
-        assembly,
+        assembly            =   3,
         
         // Constants.
-        constant,
+        constant            =   4,
         
         // Assembly ref.
-        assembly_ref,
+        assembly_ref        =   5,
         
         // Type ref.
-        type_ref,
+        type_ref            =   6,
 
         // Type.
-        type,
+        type                =   7,
         
         // Generic type.
-        generic_type,
+        generic_type        =   8,
         
         // Array type.
-        array_type,
+        array_type          =   9,
 
         // Field ref.
-        field_ref,
+        field_ref           =   10,
         
         // Method ref
-        method_ref,
+        method_ref          =   11,
         
         // Method ref param.
-        method_ref_param,
+        method_ref_param    =   12,
         
         // Property ref.
-        property_ref,
+        property_ref        =   13,
         
         // Event ref.
-        event_ref,
+        event_ref           =   14,
         
         // Super type
-        super_type,
+        super_type          =   15,
         
         // Nest type.
-        nest_type,
+        nest_type           =   16,
         
         // Field.
-        field,
+        field               =   17,
         
         // Method
-        method,
+        method              =   18,
         
         // Property
-        property,
+        property            =   19,
         
         // Event
-        event,
-        
-        // Generic method.
-        generic_method,
+        event               =   20,
         
         // Typedef
-        type_def,
+        type_def            =   21,
+        
+        // Generic field.
+        generic_field       =   22,
+
+        // Generic method.
+        generic_method      =   23,
+
+        // Generic property.
+        generic_property    =   24,
+
+        // Generic event.
+        generic_event       =   25,
+
+        // Generic typedef.
+        generic_type_def    =   26,
         
         // Typedef param.
-        type_def_param,
+        type_def_param      =   27,
         
         // Generic param
-        generic_param,
+        generic_param       =   28,
         
         // Param
-        param,
+        param               =   29,
         
         // Generic argument
-        generic_argument,
+        generic_argument    =   30,
 
         // Attribute
-        attribute,
+        attribute           =   31,
         
         // Attribute argument.
-        attribute_argument,
+        attribute_argument  =   32,
         
         // Vesion1 assembly.
         __V1 = attribute_argument,
@@ -1057,18 +1069,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     __EndDefineMt(method)
 
     ////////// ////////// ////////// ////////// //////////
-    // mt_generic_method_t
-
-    // Metadata: Generic method
-    __DefineMt(generic_method, generic_method_t *, (int)mt_member_extra_t::generic)
-
-        ref_t           host;               // Host type
-        ref_t           template_;          // Method template.
-        ref_t           args;               // Method arguments.
-
-    __EndDefineMt(generic_method)
-
-    ////////// ////////// ////////// ////////// //////////
     // mt_event_t
 
     // Metadata: Event
@@ -1099,6 +1099,60 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         res_t           namespace_;         // Namespace
 
     __EndDefineMt(type_def)
+
+    ////////// ////////// ////////// ////////// //////////
+    // mt_generic_field_t
+    __DefineMt(generic_field, impl_field_t *, (int)mt_member_extra_t::generic)
+
+        ref_t           host;               // Host type.
+        ref_t           template_;          // Field template.
+
+    __EndDefineMt(generic_field)
+
+    ////////// ////////// ////////// ////////// //////////
+    // mt_generic_method_t
+
+    // Metadata: Generic method
+    __DefineMt(generic_method, generic_method_t *, (int)mt_member_extra_t::generic)
+
+        ref_t           host;               // Host type
+        ref_t           template_;          // Method template.
+        ref_t           args;               // Method arguments.
+
+    __EndDefineMt(generic_method)
+
+    ////////// ////////// ////////// ////////// //////////
+    // mt_generic_property_t
+
+    // Metadata: Generic property
+    __DefineMt(generic_property, impl_property_t *, (int)mt_member_extra_t::generic)
+
+        ref_t           host;               // Host type
+        ref_t           template_;          // Property template.
+
+    __EndDefineMt(generic_property)
+
+    ////////// ////////// ////////// ////////// //////////
+    // mt_generic_event_t
+
+    // Metadata: Generic event
+    __DefineMt(generic_event, impl_event_t *, (int)mt_member_extra_t::generic)
+
+        ref_t           host;               // Host type
+        ref_t           template_;          // Event template.
+
+    __EndDefineMt(generic_event)
+
+    ////////// ////////// ////////// ////////// //////////
+    // mt_generic_type_def_t
+
+    // Metadata: Generic generic typedef
+    __DefineMt(generic_type_def, impl_type_def_t *, (int)mt_member_extra_t::generic)
+
+        ref_t           host;               // Host type
+        ref_t           template_;          // Typedef template.
+
+    __EndDefineMt(generic_type_def);
 
     ////////// ////////// ////////// ////////// //////////
     // mt_type_def_param_t
@@ -1377,7 +1431,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns type of System.String.
         type_t * __get_string_type()
         {
-            return __get_internal_type(__string_type, vtype_t::string);
+            return __get_internal_type(__string_type, vtype_t::string_);
         }
 
         // Returns type of System.Type.

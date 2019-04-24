@@ -49,10 +49,41 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    typedef command_creating_context_t __context_t;
-
     using namespace rt;
     using namespace rtlib;
+
+    ////////// ////////// ////////// ////////// //////////
+    // command_creating_context_t
+
+    command_creating_context_t::command_creating_context_t(executor_env_t & env,
+        rt_assembly_t * assembly, rt_type_t * type, rt_method_t * method,
+        const generic_param_manager_t * gp_manager)
+        : __super_t(env, assembly, gp_manager), type(type), method(method), env(env)
+        , locals_layout(*this), params_layout(*this)
+    {
+        _A(assembly != nullptr);
+        _A(type != nullptr);
+        _A(method != nullptr);
+    }
+
+    // Converts template to a generic type. (with cache)
+    rt_type_t * command_creating_context_t::to_generic_type(rt_general_type_t * template_)
+    {
+        _A(template_ != nullptr);
+
+        auto it = __generic_type_map.find(template_);
+        if(it != __generic_type_map.end())
+            return it->second;
+
+        rt_type_t * type = __super_t::to_generic_type(template_);
+        __generic_type_map[template_] = type;
+
+        return type;
+    }
+
+    typedef command_creating_context_t __context_t;
+
+    ////////// ////////// ////////// ////////// //////////
 
     typedef int __nokey_t;
     const __nokey_t __nokey = 0;
@@ -339,6 +370,52 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         return __unit_size_of(__size_of(analyzer, type_ref));
     }
 
+    // Converts type_ref to xil_type_t
+    xil_type_t __to_dtype(__context_t & ctx, rt_type_t * type)
+    {
+        _A(type != nullptr);
+
+        vtype_t vtype = type->get_vtype(ctx.env);
+        return to_xil_type(vtype);
+    }
+
+    // Fetches the data type of specified xil.
+    template<typename _xil_t>
+    xil_type_t __fetch_dtype(__context_t & ctx, const _xil_t & xil)
+    {
+        xil_type_t dtype = xil.dtype();
+
+        if(dtype != xil_type_t::empty)
+            return dtype;
+
+        switch(xil.stype())
+        {
+            case xil_storage_type_t::field: {
+
+                rt_field_t * rt_field = ctx.get_field(xil.field_ref());
+                _A(rt_field != nullptr);
+
+                return __to_dtype(ctx, ctx.get_type((*rt_field)->type));
+            }
+
+            case xil_storage_type_t::constant: {
+
+                ref_t type_ref = xil.type_ref();
+                return __to_dtype(ctx, ctx.get_type(type_ref));
+            }
+
+            case xil_storage_type_t::argument: {
+
+                int index = xil.get_identity();
+                rt_type_t * type = ctx.params_layout.type_at(index);
+                return __to_dtype(ctx, type);
+            }
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
     //-------- ---------- ---------- ---------- ----------
 
     #define __Local(type_t, offset)    *(type_t *)((byte_t *)ctx.stack.lp() + offset)
@@ -367,7 +444,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginToString(ctx)
 
-            return _F(_T("push constant %1%"), __value);
+            return _F(_T("push constant (%1%)%2%"), _xil_type, __value);
 
         __EndToString()
 
@@ -514,7 +591,41 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     static msize_t __field_offset(__context_t & ctx, ref_t field_ref)
     {
-        return ctx.get_field_offset(field_ref); // + sizeof(rt_type_t *);
+        switch((mt_member_extra_t)field_ref.extra)
+        {
+            case mt_member_extra_t::import:
+            case mt_member_extra_t::internal: {
+
+                rt_type_t * rt_type;
+                rt_field_t * rt_field = ctx.get_field(field_ref, &rt_type);
+
+                _A(rt_field != nullptr);
+                _A(rt_type != nullptr);
+                _A(is_general(rt_type));
+
+                rt_general_type_t * general_type = (rt_general_type_t *)rt_type;
+
+                if(!general_type->is_generic_template())
+                    return rt_type->get_field_offset(ctx.env, field_ref);
+
+                rt_type_t * type = ctx.to_generic_type(general_type);
+                _A(type != nullptr);
+
+                return type->get_field_offset(ctx.env, field_ref);
+            }
+
+            case mt_member_extra_t::generic: {
+
+                rt_type_t * type = ctx.get_host_type_by_field_ref(field_ref);
+                _A(type != nullptr);
+
+                mt_generic_field_t * mt = ctx.current->mt_of_generic_field(field_ref);
+                return type->get_field_offset(ctx.env, mt->template_);
+            }
+
+            default:
+                X_UNEXPECTED();
+        }
     }
 
     #define __PField(type_t, p, offset)     ((type_t *)((byte_t *)p + offset))
@@ -825,6 +936,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __DefineConstantCommandManagerT(char)
 
         static __CommandManagerT(const char_t *)    __string_push_command_manager;
+        static __CommandManagerT(void *)            __object_push_command_manager;
 
         static __command_manager_t<
             __push_command_template_t, xil_storage_type_t, xil_type_t
@@ -846,19 +958,35 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return &__duplicate_command;
 
         #define __V(s, d) (((uint32_t)(s) << 16) | (uint32_t)(d))
+        #define __ConstantValue(_xil, _t)                                       \
+            (_xil.dtype() == xil_type_t::empty?                                 \
+                default_value_of<_t>() : __read_extra<_t>(_xil))
 
-        switch(__V(xil.stype(), xil.dtype()))
+        #define __ConstantStringValue(_xil)                                     \
+            (_xil.dtype() == xil_type_t::empty?                                 \
+                default_value_of<const char_t *>() : ctx.to_cstr(__read_extra<res_t>(_xil)))
+
+        xil_storage_type_t stype = xil.stype();
+        xil_type_t dtype = __fetch_dtype(ctx, xil);
+
+        switch(__V(stype, dtype))
         {
-            #define __CaseConstant(name, t, d)                                  \
-                case __V(xil_storage_type_t::constant, xil_type_t::d):          \
-                    return name##_push_command_manager.template get_command<    \
-                        xil_storage_type_t::constant, xil_type_t::d             \
-                    >(__read_extra<t>(xil));
+            // Constant values.
+            #define __CaseConstant(_name, _t, _d)                               \
+                case __V(xil_storage_type_t::constant, xil_type_t::_d):         \
+                    return _name##_push_command_manager.template get_command<   \
+                        xil_storage_type_t::constant, xil_type_t::_d            \
+                    >(__ConstantValue(xil, _t));
 
             case __V(xil_storage_type_t::constant, xil_type_t::string):
                 return __string_push_command_manager.template get_command<
                     xil_storage_type_t::constant, xil_type_t::string
-                >(ctx.to_cstr(__read_extra<res_t>(xil)));
+                >(__ConstantStringValue(xil));
+
+            case __V(xil_storage_type_t::constant, xil_type_t::object):
+                return __object_push_command_manager.template get_command<
+                    xil_storage_type_t::constant, xil_type_t::object
+                >(ctx.get_type(xil.type_ref()));
 
             __CaseConstant(int8,    int8_t,     int8)
             __CaseConstant(uint8,   uint8_t,    uint8)
@@ -1017,6 +1145,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         #undef __V
+        #undef __ConstantStringValue
+        #undef __ConstantValue
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1361,7 +1491,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #define __V(s, d) (((uint32_t)(s) << 16) | (uint32_t)(d))
 
-        switch(__V(xil.stype(), xil.dtype()))
+        xil_storage_type_t stype = xil.stype();
+        xil_type_t dtype = __fetch_dtype(ctx, xil);
+
+        switch(__V(stype, dtype))
         {
             #define __Case(s, d)                                                \
                 case __V(xil_storage_type_t::s, xil_type_t::d):                 \
@@ -1743,8 +1876,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __call_command_base_t : public __command_base_t
     {
     public:
-        __call_command_base_t(_rt_method_t * rt_method) : __rt_method(rt_method)
-        { }
+        __call_command_base_t(_rt_method_t * rt_method) : __rt_method(rt_method) { }
 
         __BeginToString(ctx)
 
@@ -1819,31 +1951,38 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     command_t * new_static_call_command(__context_t & ctx, ref_t method_ref)
     {
-        if((mt_member_extra_t)method_ref.extra == mt_member_extra_t::generic)
+        switch((mt_member_extra_t)method_ref.extra)
         {
-            static __command_manager_t<
-                __static_call_command_template_t<rt_generic_method_t>, __nokey_t
-            >::with_args_t<rt_generic_method_t *> __static_generic_call_command_manager;
+            case mt_member_extra_t::generic: {
 
-            rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
+                static __command_manager_t<
+                    __static_call_command_template_t<rt_generic_method_t>, __nokey_t
+                >::with_args_t<rt_generic_method_t *> __static_generic_call_command_manager;
 
-            _PF(_T("---- new_static_call_command: %1% %2%"), rt_generic_method->get_name(),
-                                                             method_ref);
+                rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
 
-            return __static_generic_call_command_manager.template get_command<__nokey>(
-                __Mv(rt_generic_method), ctx
-            );
-        }
-        else
-        {
-            static __command_manager_t<
-                __static_call_command_template_t<rt_method_t>, __nokey_t
-            >::with_args_t<rt_method_t *> __static_call_command_manager;
+                return __static_generic_call_command_manager.template get_command<__nokey>(
+                    __Mv(rt_generic_method), ctx
+                );
 
-            rt_method_t * rt_method = ctx.get_method(method_ref);
-            return __static_call_command_manager.template get_command<__nokey>(
-                __Mv(rt_method), ctx
-            );
+            }   break;
+
+            case mt_member_extra_t::import:
+            case mt_member_extra_t::internal: {
+
+                static __command_manager_t<
+                    __static_call_command_template_t<rt_method_t>, __nokey_t
+                >::with_args_t<rt_method_t *> __static_call_command_manager;
+
+                rt_method_t * rt_method = ctx.get_method(method_ref);
+                return __static_call_command_manager.template get_command<__nokey>(
+                    __Mv(rt_method), ctx
+                );
+
+            }   break;
+
+            default:
+                X_UNEXPECTED();
         }
     }
 
@@ -1868,6 +2007,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             exec_method_t * method = this->__get_method(ctx);
             ctx.push_calling(method->commands);
+
             ctx.stack.increase_top(method->stack_unit_size);
 
         __EndExecute()
@@ -1894,15 +2034,40 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         ref_t method_ref = (ref_t)xil.method;
 
-        static __command_manager_t<
-            __instance_call_command_template_t<rt_method_t>, __nokey_t
-        >::with_args_t<rt_method_t *> __instance_call_command_manager;
+        switch((mt_member_extra_t)method_ref.extra)
+        {
+            case mt_member_extra_t::generic: {
 
-        rt_method_t * rt_method = ctx.get_method(method_ref);
+                static __command_manager_t<
+                    __instance_call_command_template_t<rt_generic_method_t>, __nokey_t
+                >::with_args_t<rt_generic_method_t *> __instance_generic_call_command_manager;
 
-        return __instance_call_command_manager.template get_command<__nokey>(
-            __Mv(rt_method), ctx
-        );
+                rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
+
+                return __instance_generic_call_command_manager.template get_command<__nokey>(
+                    __Mv(rt_generic_method), ctx
+                );
+
+            }   break;
+
+            case mt_member_extra_t::import:
+            case mt_member_extra_t::internal: {
+
+                static __command_manager_t<
+                    __instance_call_command_template_t<rt_method_t>, __nokey_t
+                >::with_args_t<rt_method_t *> __instance_call_command_manager;
+
+                rt_method_t * rt_method = ctx.get_method(method_ref);
+
+                return __instance_call_command_manager.template get_command<__nokey>(
+                    __Mv(rt_method), ctx
+                );
+
+            }   break;
+
+            default:
+                X_UNEXPECTED();
+        }
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -2527,6 +2692,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __C1(equal, char_, char_)
             __C1(not_equal, char_, char_)
 
+            __C1(equal, object, object)
+            __C1(not_equal, object, object)
+
+            __C1(equal, ptr, ptr)
+            __C1(not_equal, ptr, ptr)
+
             #undef __C1
             #undef __C2
             #undef __CaseBinaries
@@ -2534,6 +2705,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             #undef __CaseBinary
 
             default:
+                _P(xil.dtype1(), xil.dtype2());
                 X_UNEXPECTED();
         }
     }
@@ -2584,6 +2756,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __BeginExecute(ctx, __ToRetCmdValue(_ret_size))
 
             // param, stub, local, ret
+            // _P(_T("ret: "), __total_unit_size, __param_unit_ret_size, _ret_size);
             rt_stack_unit_t * p = ctx.stack.pop(__total_unit_size);
             ctx.pop_calling((const __calling_stub_t *)(p + __param_unit_ret_size));
             copy_array<_ret_size>(p + __total_unit_ret_size, p - _ret_size);
@@ -2989,6 +3162,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ref_t type_ref = xil.type_ref();
 
         rt_type_t * type = ctx.get_type(type_ref);
+
         if(type == nullptr)
             throw _ED(exec_error_code_t::type_not_found, type_ref);
 
@@ -3362,6 +3536,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     __AlwaysInline void __execute_command(command_execute_context_t & ctx, command_t * command)
     {
+        // _P(_T("----"), (void *)command);
+
         #if EXEC_TRACE
 
         _P(_T("[execute]"), command->to_string(ctx));

@@ -915,23 +915,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             expression_t * body_exp = index_exp->namex();
             __walk(body_exp);
 
-            variable_t * variable = to_variable(body_exp);
-            if(variable == nullptr)
-                return;
+            type_t * body_type = body_exp->get_type(__xpool(__cctx));
+            _A(body_type != nullptr);
 
             arguments_t * arguments = index_exp->arguments();
             __walk_arguments(arguments);
 
-            type_t * body_type = variable->get_type();
             if(is_array(body_type))
             {
                 index_exp->variable = __new_obj<array_index_variable_t>(
-                    variable, arguments
+                    body_exp, ((array_type_t *)body_type)->element_type, arguments
                 );
             }
             else    // index
             {
                 // TODO: property index
+                X_UNEXPECTED();
             }
         }
 

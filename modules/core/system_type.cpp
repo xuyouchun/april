@@ -90,7 +90,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        __internal_type_impl_t(xpool_t & xpool, vtype_t vtype = vtype_t::mobject)
+        __internal_type_impl_t(xpool_t & xpool, vtype_t vtype = vtype_t::mobject_)
             : __system_type_impl_t(xpool), vtype(vtype) { }
 
         // Commits it.
@@ -131,9 +131,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Impl for System.Type
-    class __type_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject>
+    class __type_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
-        typedef __tcore_type_impl_t<vtype_t::mobject> __super_t;
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -161,9 +161,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Impl for System.Object.
-    class __object_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject>
+    class __object_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
-        typedef __tcore_type_impl_t<vtype_t::mobject> __super_t;
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -176,9 +176,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Impl for System.Ptr.
-    class __ptr_type_impl_t : public __tcore_type_impl_t<vtype_t::ptr>
+    class __ptr_type_impl_t : public __tcore_type_impl_t<vtype_t::ptr_>
     {
-        typedef __tcore_type_impl_t<vtype_t::ptr> __super_t;
+        typedef __tcore_type_impl_t<vtype_t::ptr_> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -191,9 +191,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Impl for System.Attribute.
-    class __attribute_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject>
+    class __attribute_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
-        typedef __tcore_type_impl_t<vtype_t::mobject> __super_t;
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -206,9 +206,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Impl for System.Array.
-    class __array_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject>
+    class __array_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
-        typedef __tcore_type_impl_t<vtype_t::mobject> __super_t;
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -221,9 +221,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Impl for System.Array<>
-    class __t_array_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject>
+    class __t_array_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
-        typedef __tcore_type_impl_t<vtype_t::mobject> __super_t;
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -386,9 +386,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Impl for System.String.
-    class __string_type_impl_t : public __tcore_type_impl_t<vtype_t::string>
+    class __string_type_impl_t : public __tcore_type_impl_t<vtype_t::string_>
     {
-        typedef __tcore_type_impl_t<vtype_t::string> __super_t;
+        typedef __tcore_type_impl_t<vtype_t::string_> __super_t;
 
     public:
         using __super_t::__super_t;
