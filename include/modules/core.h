@@ -2895,6 +2895,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return member_family_t::general;
         }
 
+        // Returns whether it's a index. ( name is empty )
+        bool is_index() const { return name == name_t::null; }
+
         // Converts to stirng.
         virtual const string_t to_string() const override { return (string_t)*this; }
         operator string_t() const;

@@ -555,6 +555,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Method conflict.
         method_conflict,
 
+        // Property index undetermind.
+        property_index_undetermind,
+
         // Attribute constructor not match.
         attribute_constructor_not_match,
 
@@ -4159,6 +4162,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         __w_t<property_t> __property;
+
+        // Gets get/set method name.
+        name_t __to_method_name(const char_t * prefix);
     };
 
     ////////// ////////// ////////// ////////// //////////

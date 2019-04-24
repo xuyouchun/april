@@ -677,8 +677,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         variable_t * var = __pick_var(r_exp);
-        if(var->this_type() == variable_type_t::property)
-            __push_this(ctx, pool, this_exp);
+        switch(var->this_type())
+        {
+            case variable_type_t::property:
+                __push_this(ctx, pool, this_exp);
+                break;
+
+            case variable_type_t::property_index:
+                _A(exp->this_family() == expression_family_t::index);
+                ((index_expression_t *)exp)->namex()->compile(ctx, pool);
+                __compile_arguments(ctx, pool, ((property_index_variable_t *)var)->arguments);
+                break;
+
+            default:
+                break;
+        }
 
         return __compile_assign_t { this_exp, var, exp };
     }
@@ -753,7 +766,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             }   break;
 
-            case variable_type_t::property_index:
+            case variable_type_t::property_index: {
+                property_index_variable_t * index_var = (property_index_variable_t *)var;
+                property_t * property = index_var->property;
+
+                if(property == nullptr)
+                    throw _ED(__e_t::unknown_property, var);
+
+                method_t * method = property->set_method;
+                if(method == nullptr)
+                    throw _ED(__e_t::property_cannot_be_write, var);
+
+                __validate_set_method(ctx, method);
+
+                ref_t method_ref = __search_method_ref(ctx, method);
+                pool.append<__call_xil_t>(xil_call_type_t::instance, method_ref);
+
+            }   break;
+
             default:
                 X_UNEXPECTED();
         }
@@ -1012,22 +1042,42 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compile property variable.
     static void __compile_property_variable(__cctx_t & ctx, xil_pool_t & pool,
-                                    property_variable_t * property_var, expression_t * owner_exp)
+                        property_t * property, arguments_t * arguments, expression_t * owner_exp)
     {
-        property_t * property = property_var->property;
-        if(property == nullptr)
-            throw _ED(__e_t::unknown_property, property_var);
-
         method_t * method = property->get_method;
         if(method == nullptr)
             throw _ED(__e_t::property_cannot_be_read, property);
 
         __validate_get_method(ctx, method);
 
+        __compile_arguments(ctx, pool, arguments);
+
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<__call_xil_t>(xil_call_type_t::instance, method_ref);
 
         __pop_empty_for_method(ctx, pool, method, owner_exp);
+    }
+
+    // Compile property variable.
+    static void __compile_property_variable(__cctx_t & ctx, xil_pool_t & pool,
+                                    property_variable_t * property_var, expression_t * owner_exp)
+    {
+        property_t * property = property_var->property;
+        if(property == nullptr)
+            throw _ED(__e_t::unknown_property, property_var);
+
+        __compile_property_variable(ctx, pool, property, nullptr, owner_exp);
+    }
+
+    // Compiles property index variable.
+    static void __compile_property_index_variable(__cctx_t & ctx, xil_pool_t & pool,
+                            property_index_variable_t * property_var, expression_t * owner_exp)
+    {
+        property_t * property = property_var->property;
+        if(property == nullptr)
+            throw _ED(__e_t::unknown_property, property_var);
+
+        __compile_property_variable(ctx, pool, property, property_var->arguments, owner_exp);
     }
 
     // Pushes this with check.
@@ -1531,46 +1581,41 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // compiles index expression.
     void __sys_t<index_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool)
     {
-        if(this->arguments() != nullptr)
-        {
-            for(argument_t * argument : *this->arguments())
-            {
-                expression_t * exp = argument->expression;
-                _A(exp != nullptr);
-
-                exp->compile(ctx, pool);
-            }
-        }
-
         expression_t * namex = this->namex();
         if(namex == nullptr)
             throw _ED(__e_t::index_main_expression_missing);
 
         if(is_effective(this->parent))
         {
-            namex->compile(ctx, pool);
-
             variable_t * variable = __pick_var((variable_expression_t *)this);
             switch(variable->this_type())
             {
                 case variable_type_t::array_index:
-                    __compile_array_index(ctx, pool, (array_index_variable_t *)variable);
+                    __compile_array_index(ctx, pool, (array_index_variable_t *)variable, namex);
                     break;
 
                 case variable_type_t::property_index:
-                    __compile_property_index(ctx, pool, (property_index_variable_t *)variable);
+                    __compile_property_index(ctx, pool, (property_index_variable_t *)variable,
+                                                                                    namex);
                     break;
 
                 default:
                     X_UNEXPECTED();
             }
         }
+        else
+        {
+            __compile_arguments(ctx, pool, this->arguments());
+        }
     }
 
     // Compiles array index expression.
     void __sys_t<index_expression_t>::__compile_array_index(__cctx_t & ctx, xil_pool_t & pool,
-                                                array_index_variable_t * variable)
+                                    array_index_variable_t * variable, expression_t * namex)
     {
+        __compile_arguments(ctx, pool, this->arguments());
+		namex->compile(ctx, pool);
+
         type_t * element_type = __array_element_type_of(this);
         type_t * array_type = ctx.statement_ctx.xpool().new_array_type(
             element_type, variable->dimension()
@@ -1585,9 +1630,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles property index expression.
     void __sys_t<index_expression_t>::__compile_property_index(__cctx_t & ctx, xil_pool_t & pool,
-                                                property_index_variable_t * variable)
+                                    property_index_variable_t * variable, expression_t * namex)
     {
-        X_UNEXPECTED();
+		namex->compile(ctx, pool);
+        __compile_property_index_variable(ctx, pool, variable, this);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1795,6 +1841,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             case gtype_t::generic: {
 
                 __compile_cvalue(ctx, pool, cvalue_t(nullptr)); // TODO: struct?
+
+            }   break;
+
+            case gtype_t::array: {
+
+                __compile_cvalue(ctx, pool, cvalue_t(nullptr));
 
             }   break;
 

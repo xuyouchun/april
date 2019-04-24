@@ -921,16 +921,31 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             arguments_t * arguments = index_exp->arguments();
             __walk_arguments(arguments);
 
-            if(is_array(body_type))
+            if(is_array(body_type)) // array index
             {
                 index_exp->variable = __new_obj<array_index_variable_t>(
                     body_exp, ((array_type_t *)body_type)->element_type, arguments
                 );
             }
-            else    // index
+            else   // property index
             {
-                // TODO: property index
-                X_UNEXPECTED();
+                atypes_t atypes;
+                __fill_atypes(__cctx, atypes, arguments);
+
+                analyze_member_args_t args(member_type_t::property, name_t::null, &atypes);
+                member_t * member = body_type->get_member(args);
+                if(member == nullptr)
+                {
+                    ast_log(__cctx, index_exp, __c_t::property_index_undetermind, index_exp);
+                    return;
+                }
+
+                _A(member->this_type() == member_type_t::property);
+                property_t * property = (property_t *)member;
+
+                index_exp->variable = __new_obj<property_index_variable_t>(
+                    property, arguments
+                );
             }
         }
 

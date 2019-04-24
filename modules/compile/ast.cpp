@@ -318,6 +318,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Method conflict.
         X_D(method_conflict, _T("method \"%1%\" conflict in type \"%2%\": %3%"))
 
+        // Property index undetermind.
+        X_D(property_index_undetermind, _T("property index \"%1%\" undetermind"))
+
         // Constructor method should no return type.
         X_D(constructor_method_should_no_return_type,
                                 _T("constructor method %1% should no return type"))
@@ -3131,23 +3134,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if(__property.get_method != nullptr)
         {
-            __property.get_method->name = __to_name(_F(_T("get_%1%"), __property.name));
+            __property.get_method->name = __to_method_name(_T("get"));
             __property.get_method->type_name = __property.type_name;
             __property.get_method->decorate  = __property.decorate;
+            __property.get_method->params    = __property.params;
             __append_method(this->__context, context, __property.get_method);
         }
 
         if(__property.set_method != nullptr)
         {
-            __property.set_method->name = __to_name(_F(_T("set_%1%"), __property.name));
+            __property.set_method->name = __to_method_name(_T("set"));
             __property.set_method->type_name = context.to_type_name(vtype_t::void_);
             __property.set_method->decorate  = __property.decorate;
 
-            typedef std::initializer_list<param_t *> il_t;
-            __property.set_method->params = __new_obj<params_t>(il_t({
-                __new_obj<param_t>(__property.type_name, __to_name(_T("value")))
-            }));
+            params_t * params = __new_obj<params_t>();
 
+            if(__property.params != nullptr)
+                al::copy(*__property.params, std::back_inserter(*params));
+
+            params->push_back(__new_obj<param_t>(__property.type_name, __to_name(_T("value"))));
+
+            __property.set_method->params = params;
             __append_method(this->__context, context, __property.set_method);
         }
 
@@ -3155,12 +3162,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if(region == nullptr)
             this->__log(&__property, __c_t::unexpected_property_defination, _str(&__property));
-        else
+        else if(!__property.is_index())
             region->define_property(&__property);
 
         context.push(this->to_eobject());
         __super_t::on_walk(context, step, tag);
         context.pop();
+    }
+
+    // Gets get/set method name.
+    name_t property_ast_node_t::__to_method_name(const char_t * prefix)
+    {
+        if(__property.name != name_t::null)
+            return __to_name(_F(_T("%1%_%2%"), prefix, __property.name));
+
+        return __to_name(_F(_T("%1%_Item"), prefix));
     }
 
     ////////// ////////// ////////// ////////// //////////

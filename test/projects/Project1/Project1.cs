@@ -8,27 +8,33 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        int[] arr = StaticClass.CreateArray<int>(1, 2, 3, 4, 5);
-        Console.Print( StaticClass.Sum(arr) );
+        Class1 obj1 = new Class1();
+        obj1[9] = 900;
+        int r = obj1[9];
+
+        Console.Print(r);
     }
 }
 
-class StaticClass
+class Class1
 {
-    public static T[] CreateArray<T>(T t1, T t2, T t3, T t4, T t5)
+    public Class1()
     {
-        return new T[] { t1, t2, t3, t4, t5 };
+        __Array = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     }
 
-    public static int Sum(int[] arr)
+    public int this[int index]
     {
-        int sum = 0;
-        for(int k = 0, len = arr.Length; k < len; k++)
+        get
         {
-            sum += arr[k];
+            return __Array[index];
         }
-
-        return sum;
+        set
+        {
+            __Array[index] = value;
+        }
     }
+
+    int[] __Array;
 };
 

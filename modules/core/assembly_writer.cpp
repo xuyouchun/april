@@ -354,7 +354,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if(property->decorate)
                 mt->decorate = *property->decorate;
 
-            __CheckEmpty(property, name, "property", "name");
+            //__CheckEmpty(property, name, "property", "name"); property index has no name.
             mt->name = __S(property->name);
 
             type_t * property_type = to_type(property->type_name);

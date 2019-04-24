@@ -138,11 +138,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile array index.
         void __compile_array_index(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                    array_index_variable_t * variable);
+                                array_index_variable_t * variable, expression_t * namex);
 
         // Compile property index.
         void __compile_property_index(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                    property_index_variable_t * variable);
+                                property_index_variable_t * variable, expression_t * namex);
 
     __EndSystemExpressionT
 

@@ -1381,7 +1381,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts property to a string.
     property_t::operator string_t() const
     {
-        return _F(_T("%1% %2%"), _str(type_name), _str(name));
+        if(is_empty(params))
+            return _F(_T("%1% %2%"), _str(type_name), _str(name));
+
+        return _F(_T("%1% this[%2%]"), _str(type_name), _str(params));
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1788,7 +1791,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Method compare results.
-    X_ENUM(__method_compare_t)
+    X_ENUM(__member_compare_t)
         not_match, match, equals, same_name,
         auto_determined, auto_determined_failed,
     X_ENUM_END
@@ -1796,7 +1799,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Method compare results.
-    X_ENUM_INFO(__method_compare_t)
+    X_ENUM_INFO(__member_compare_t)
         X_C(not_match,          _T("not_match"))
         X_C(match,              _T("match"))
         X_C(equals,             _T("equals"))
@@ -1840,11 +1843,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Compare argument
-    static __method_compare_t __compare_argument(param_t * param, generic_args_t * generic_args,
+    static __member_compare_t __compare_argument(param_t * param, generic_args_t * generic_args,
                         atype_t atype, type_t ** out_gp_type = nullptr)
     {
         if(param == nullptr || atype.type == nullptr)
-            return __method_compare_t::not_match;
+            return __member_compare_t::not_match;
 
         type_t * param_type = param->get_type();
         type_t * argument_type = atype.type;
@@ -1860,31 +1863,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             {
                 param_type = atype.type;
                 al::assign(out_gp_type, param_type);
-                return __method_compare_t::auto_determined;
+                return __member_compare_t::auto_determined;
             }
         }
 
         if(param->ptype != atype.atype)
-            return __method_compare_t::not_match;
+            return __member_compare_t::not_match;
 
         if(param_type == argument_type)
-            return __method_compare_t::equals;
+            return __member_compare_t::equals;
 
         if(param->ptype == param_type_t::ref)
-            return __method_compare_t::not_match;
+            return __member_compare_t::not_match;
 
         if(param->ptype == param_type_t::out)
         {
             if(is_type_compatible(param_type, argument_type))
-                return __method_compare_t::match;
+                return __member_compare_t::match;
         }
         else
         {
             if(is_type_compatible(argument_type, param_type))
-                return __method_compare_t::match;
+                return __member_compare_t::match;
         }
 
-        return __method_compare_t::not_match;
+        return __member_compare_t::not_match;
     }
 
     // Returns compatible type of two types.
@@ -1929,45 +1932,45 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Compare method.
-    static __method_compare_t __compare_method(method_t * method, generic_args_t * generic_args,
+    static __member_compare_t __compare_method(method_t * method, generic_args_t * generic_args,
                             atypes_t * atypes, arg_types_t & out_arg_types)
     {
         if(atypes == nullptr)
         {
             if(generic_args == nullptr || method->generic_param_count() == generic_args->size())
-                return __method_compare_t::same_name;
+                return __member_compare_t::same_name;
 
-            return __method_compare_t::not_match;
+            return __member_compare_t::not_match;
         }
 
         size_t atype_count = atypes->size();
         size_t param_count = method->param_count();
 
         if(atype_count == 0)
-            return param_count == 0? __method_compare_t::equals : __method_compare_t::not_match;
+            return param_count == 0? __member_compare_t::equals : __member_compare_t::not_match;
 
         if(atype_count != param_count)
-            return __method_compare_t::not_match;
+            return __member_compare_t::not_match;
 
         struct gp_match_t { generic_param_t * gparam; type_t * type; };
         al::svector_t<gp_match_t, 8> gp_matches;
 
-        __method_compare_t r = __method_compare_t::equals;
+        __member_compare_t r = __member_compare_t::equals;
         for(size_t index = 0; index < param_count; index++)
         {
             type_t * gp_type = nullptr;
             param_t * param = method->param_at(index);
             switch(__compare_argument(param, generic_args, (*atypes)[index], &gp_type))
             {
-                case __method_compare_t::not_match:
-                case __method_compare_t::auto_determined_failed:
-                    return __method_compare_t::not_match;
+                case __member_compare_t::not_match:
+                case __member_compare_t::auto_determined_failed:
+                    return __member_compare_t::not_match;
 
-                case __method_compare_t::match:
-                    r = __method_compare_t::match;
+                case __member_compare_t::match:
+                    r = __member_compare_t::match;
                     break;
 
-                case __method_compare_t::auto_determined:
+                case __member_compare_t::auto_determined:
                     if(gp_type != nullptr)
                     {
                         gp_matches.push_back(gp_match_t {
@@ -1976,9 +1979,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     }
                     break;
 
-                case __method_compare_t::equals:
-                default:
+                case __member_compare_t::equals:
                     break;
+
+                default:
+                    X_UNEXPECTED();
             }
         }
 
@@ -1995,7 +2000,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
                 type_t * type = __get_compatible_type(types);
                 if(type == nullptr)
-                    return __method_compare_t::auto_determined_failed;
+                    return __member_compare_t::auto_determined_failed;
 
                 out_arg_types.push_back(type);
             }
@@ -2031,11 +2036,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __is_vtype(type, vtype_t::ptr_);
     }
 
-    typedef typename __general_type_like_base_t::method_list_t __method_list_t;
+    ////////// ////////// ////////// ////////// //////////
+
+    typedef typename __general_type_like_base_t::method_list_t   __method_list_t;
+    typedef typename __general_type_like_base_t::property_list_t __property_list_t;
 
     // Method analyzer.
     class __method_analyzer_t
     {
+        typedef __method_analyzer_t __self_t;
+
     public:
 
         // Constructor.
@@ -2046,7 +2056,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void analyze()
         {
             using namespace std::placeholders;
-            auto analyze_method = std::bind(&__method_analyzer_t::__analyze, this, _1);
+            auto analyze_method = std::bind(&__self_t::__analyze, this, _1);
 
             size_t generic_args_count = __generic_args_count();
             if(__args.method_trait == method_trait_t::__default__)
@@ -2115,18 +2125,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             switch(__compare_method(method, __args.generic_args, __args.atypes, *__next_arg_types()))
             {
-                case __method_compare_t::equals:
-                case __method_compare_t::auto_determined:
+                case __member_compare_t::equals:
+                case __member_compare_t::auto_determined:
                     __equaled_method = mi_t { method, __current_arg_types_index() };
                     break;
 
-                case __method_compare_t::match:
-                case __method_compare_t::same_name:
+                case __member_compare_t::match:
+                case __member_compare_t::same_name:
                     __matched_methods.push_back(mi_t { method, __current_arg_types_index() });
                     break;
 
-                case __method_compare_t::not_match:
-                case __method_compare_t::auto_determined_failed:
+                case __member_compare_t::not_match:
+                case __member_compare_t::auto_determined_failed:
                     //__not_matched_methods.push_back(method);
                     break;
 
@@ -2211,6 +2221,154 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         analyzer.get_methods(args.out_members);
     }
 
+    ////////// ////////// ////////// ////////// //////////
+
+
+    // Property index analyzer.
+    class __property_index_analyzer_t
+    {
+        typedef __property_index_analyzer_t __self_t;
+
+    public:
+
+        // Constructor.
+        __property_index_analyzer_t(__property_list_t & properties, analyze_member_args_t & args)
+            : __properties(properties), __args(args) { }
+
+        // Analyze properties.
+        void analyze()
+        {
+            __arg_count = __args.atypes? __args.atypes->size() : 0;
+
+            for(property_t * property : __properties)
+            {
+                __analyzer(property);
+            }
+        }
+
+        property_t * get_property(bool exact_match = false)
+        {
+            if(__equaled_property.property != nullptr)
+                return __pick_property(__equaled_property);
+
+            if(exact_match)
+                return nullptr;
+
+            if(__matched_properties.size() >= 2)
+                throw _EC(conflict, _T("property index conflict"));
+
+            if(!__matched_properties.empty())
+                return __pick_property(__matched_properties[0]);
+
+            return nullptr;
+        }
+
+        void get_properties(members_t & out_members)
+        {
+            if(__equaled_property.property != nullptr)
+                out_members.push_back(__equaled_property.property);
+
+            for(pi_t & pi : __matched_properties)
+                out_members.push_back(pi.property);
+        }
+
+    private:
+        __property_list_t &     __properties;
+        analyze_member_args_t & __args;
+        size_t                  __arg_count;
+
+        struct pi_t { property_t * property; };
+        typedef al::svector_t<pi_t, 5> __properties_vector_t;
+        __properties_vector_t __matched_properties;
+        pi_t __equaled_property { nullptr };
+
+        // Analyzer property.
+        void __analyzer(property_t * property)
+        {
+            if(property->name != name_t::null || property->params == nullptr)
+                return;
+
+            switch(__compare_arguments(property->params))
+            {
+                case __member_compare_t::equals:
+                    __equaled_property = pi_t { property };
+                    break;
+
+                case __member_compare_t::match:
+                    __matched_properties.push_back(pi_t { property });
+                    break;
+
+                case __member_compare_t::not_match:
+                    break;
+
+                default:
+                    X_UNEXPECTED();
+            }
+        }
+
+        // Compare arguments.
+        __member_compare_t __compare_arguments(params_t * params)
+        {
+            size_t param_count = params->size();
+
+            if(param_count != __arg_count)
+                return __member_compare_t::not_match;
+
+            __member_compare_t r = __member_compare_t::equals;
+            for(size_t index = 0, count = params->size(); index < count; index++)
+            {
+                type_t * gp_type = nullptr;
+                switch(__compare_argument((*params)[index], nullptr,
+                                            (*__args.atypes)[index], &gp_type))
+                {
+                    case __member_compare_t::not_match:
+                    case __member_compare_t::auto_determined_failed:
+                        return __member_compare_t::not_match;
+
+                    case __member_compare_t::match:
+                        r = __member_compare_t::match;
+
+                    case __member_compare_t::equals:
+                        break;
+
+                    case __member_compare_t::auto_determined:
+                    default:
+                        X_UNEXPECTED();
+                }
+            }
+
+            return r;
+        }
+
+        // Picks property.
+        property_t * __pick_property(pi_t & pi)
+        {
+            return pi.property;
+        }
+    };
+
+    // Analyze properties with speicified args.
+    property_t * __analyze_property_index(__property_list_t & properties,
+                                            analyze_member_args_t & args)
+    {
+        __property_index_analyzer_t analyzer(properties, args);
+        analyzer.analyze();
+
+        return analyzer.get_property(args.exact_match);
+    }
+
+    // Analyze properties with speicified args.
+    void __analyze_property_indexes(__property_list_t & properties,
+                                            analyze_members_args_t & args)
+    {
+        __property_index_analyzer_t analyzer(properties, args);
+        analyzer.analyze();
+
+        analyzer.get_properties(args.out_members);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Returns members descripted by args.
     member_t * __general_type_like_base_t::get_member(analyze_member_args_t & args)
     {
@@ -2218,7 +2376,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __FindMemberAndRet(fields, args.name);
 
         if(enum_has_flag(args.member_type, member_type_t::property))
-            __FindMemberAndRet(properties, args.name);
+        {
+            if(args.name != name_t::null)       // Normal property
+                __FindMemberAndRet(properties, args.name);
+
+            // Index.
+            property_t * property = __analyze_property_index(properties, args);
+            if(property != nullptr)
+                return property;
+        }
 
         if(enum_has_flag(args.member_type, member_type_t::event))
             __FindMemberAndRet(events, args.name);
@@ -2270,7 +2436,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             if(args.name == name_t::null)
             {
-                al::copy(properties, std::back_inserter(args.out_members));
+                if(args.atypes == nullptr || args.atypes->size() == 0)
+                    al::copy(properties, std::back_inserter(args.out_members));
+                else
+                    __analyze_property_indexes(properties, args);
             }
             else
             {
@@ -3491,6 +3660,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Checks whether it has a variable with the same name in the region context.
     void variable_region_t::__check_duplicate(const name_t & name)
     {
+        if(name == name_t::null)    // for property index.
+            return;
+
         auto it = __variables.find(name);
         if(it != __variables.end())
             throw _EF(ast_error_t::variable_duplicated, _T("variable \%1%\" duplicate"), name);
@@ -3561,6 +3733,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         _variable_t * variable = __new_variable<_variable_t>(std::forward<args_t>(args) ...);
         name_t name = variable->get_name();
+
+        _A(name != name_t::null);
 
         if(!__is_supported(_variable_t::type))
         {
