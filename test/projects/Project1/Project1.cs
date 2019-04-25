@@ -8,17 +8,25 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        Class1 obj1 = new Class1();
-        obj1.Value = 100;
+        try
+        {
+            Class1 obj1 = new Class1();
+            Console.WriteLine("------------");
 
-        Console.Print(obj1.Value);
+            throw new Exception("ABCDEFG");
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine("-------- catch");
+        }
+        finally
+        {
+            Console.WriteLine("-------- finally");
+        }
     }
-}
+};
 
 class Class1
 {
-    public int Value
-    {
-        get; set;
-    }
+
 };

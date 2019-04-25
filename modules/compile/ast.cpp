@@ -387,8 +387,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             case walk_step_t::post_confirm: {
                 eobject_commit_context_t ctx(context.xpool, context.logger);
-                context.xpool.commit_types(context.logger);
                 __module->commit(ctx);
+                context.xpool.commit_types(context.logger);
             }   break;
 
             default: break;

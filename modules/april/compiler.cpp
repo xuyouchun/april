@@ -40,8 +40,15 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         if(__current_project == nullptr)
             throw _ED(__e_t::no_current_project);
 
+        std::vector<__path_t> files;
         each_files(file, [&](const __path_t & file_path) {
+            files.push_back(file_path);
+        }, true);
 
+        std::sort(files.begin(), files.end());
+
+        for(__path_t & file_path : files)
+        {
             compile_file_type_t file_type = file_type_of(file_path);
             if(file_type != compile_file_type_t::source)
                 return;
@@ -54,8 +61,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
                 __current_project->append_file(file);
             }
-
-        }, true);
+        }
     }
 
     // Commits project.

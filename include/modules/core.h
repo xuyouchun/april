@@ -2035,7 +2035,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual bool has_super_type(type_t * super);
 
         // Returns base type.
-        virtual type_t * get_base_type() { return nullptr; }
+        virtual type_t * get_base_type();
 
         // Converts to string.
         virtual const string_t to_string() const override { return to_full_name(); }
@@ -3933,6 +3933,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns type of the name.
         general_type_t * get_internal_type(name_t name);
 
+        // Returns System.Object type.
+        general_type_t * get_object_type();
+
+        // Returns System.Object type.
+        type_name_t * get_object_type_name();
+
+        // Returns System.Array<> type.
+        general_type_t * get_tarray_type();
+
+        // Returns System.Array type.
+        general_type_t * get_array_type();
+
         // Creates a new object.
         template<typename t, typename ... args_t> t * new_obj(args_t && ... args)
         {
@@ -3948,6 +3960,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     private:
         attribute_t * __compile_time_attribute = nullptr;
         std::queue<type_t *> __new_types;
+
+        // Returns specified type with cache.
+        general_type_t * __get_specified_type(const char_t * name, general_type_t * & __cache);
+
+        general_type_t * __object_type = nullptr;
+        general_type_t * __tarray_type = nullptr;
+        general_type_t * __array_type  = nullptr;
+
+        type_name_t __object_type_name;
     };
 
     // Returns whether it is a compile time attribute.

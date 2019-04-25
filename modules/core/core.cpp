@@ -1762,10 +1762,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __super_types.find(super) != __super_types.end();
     }
 
+    // Returns base type.
+    type_t * type_t::get_base_type()
+    {
+        return nullptr;
+    }
+
     // Commits it.
     void type_t::commit(eobject_commit_context_t & ctx)
     {
-
+        // Do nothing.
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2735,6 +2741,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         if(!__ensure_size_initialize())
             __super_t::commit(ctx);
+
+        if(get_base_type() == nullptr)
+        {
+            type_name_t * object_type_name = ctx.xpool.get_object_type_name();
+            if(object_type_name->type != this)
+            {
+                type_name_t * base_types[] = { object_type_name };
+                super_type_names.push_front(base_types);
+            }
+        }
     }
 
     // Returns vsize.
@@ -3484,13 +3500,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         array_type_t * type = array_type_cache->get(key);
         if(type == nullptr)
         {
-            general_type_t * t_array_type = get_internal_type(
-                name_t(spool.to_sid(__CoreTypeName(_T("Array<>"))))
-            );
-
-            if(t_array_type == nullptr)
-                throw _ED(compile_error_code_t::type_not_found, __CoreTypeName(_T("Array<>")));
-
+            general_type_t * t_array_type = get_tarray_type();
             type_collection_t type_args({ element_type });
             type_t * base_type = new_generic_type(t_array_type, type_args, nullptr);
 
@@ -3577,6 +3587,50 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         general_type_t * __get_internal_type(attribute_t * attribute, name_t name);
         return __get_internal_type(get_compile_time_attribute(), name);
+    }
+
+    // Returns System.Object type.
+    general_type_t * xpool_t::get_object_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Object), __object_type);
+    }
+
+    // Returns System.Object typename.
+    type_name_t * xpool_t::get_object_type_name()
+    {
+        if(__object_type_name.type == nullptr)
+        {
+            __object_type_name.type = __get_specified_type(
+                __CoreTypeName(CoreType_Object), __object_type
+            );
+        }
+
+        return &__object_type_name;
+    }
+
+    // Returns System.Array<> type.
+    general_type_t * xpool_t::get_tarray_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_TArray), __tarray_type);
+    }
+
+    // Returns System.Array type.
+    general_type_t * xpool_t::get_array_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Array), __array_type);
+    }
+
+    // Returns specified type with cache.
+    general_type_t * xpool_t::__get_specified_type(const char_t * name, general_type_t * & __cache)
+    {
+        if(__cache == nullptr)
+        {
+            __cache = get_internal_type(name_t(spool.to_sid(name)));
+            if(__cache == nullptr)
+                throw _ED(compile_error_code_t::type_not_found, name);
+        }
+
+        return __cache;
     }
 
     // Append a new type.
