@@ -69,10 +69,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     }
                     break;
 
+                /*
                 case _T('"'): case _T('\''):
                     if(!__skip_char(c))
                         throw _E(__e_t::format_error);
                     break;
+                */
 
                 case _T('\0'):
                     if(__lang_stack.size() > 0)
