@@ -102,5 +102,49 @@ class EntryPointAttribute
 };
 
 
+////////// ////////// ////////// ////////// //////////
+
+// Exception.
+class Exception
+{
+    // Default constructor.
+    public Exception() { }
+
+    // Constructor with message.
+    public Exception(String message)
+    {
+        this.__message = message;
+    }
+
+    // Constructor with message and it's inner exception.
+    public Exception(String message, Exception innerException)
+    {
+        this.__message = message;
+        this.__innerException = innerException;
+    }
+
+    // Exception message.
+    public String Message
+    {
+        get { return __message; }
+    }
+
+    // Inner exception that caused this exception.
+    public Exception InnerException
+    {
+        get { return __innerException; }
+    }
+
+    // Exception message.
+    private String    __message;
+
+    // Inner exception that caused this exception.
+    private Exception __innerException;
+};
+
+
+
+
+
 
 

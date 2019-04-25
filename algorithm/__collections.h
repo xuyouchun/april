@@ -5,6 +5,11 @@
 
 namespace X_ROOT_NS { namespace algorithm {
 
+    namespace
+    {
+        namespace __ns = algorithm;
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // heap_t
 
@@ -1075,7 +1080,7 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename _objs_t>
         void push_front(const _objs_t & objs)
         {
-            size_t obj_size = objs.size();
+            size_t obj_size = __ns::size(objs);
 
             if(__is_in_array())
             {

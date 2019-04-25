@@ -145,6 +145,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Impl for System.Exception
+    class __exception_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __exception_type_impl_t::type_name[] = __CoreTypeName(CoreType_Exception);
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Impl for System.Void
     class __void_type_impl_t : public __tcore_type_impl_t<vtype_t::void_>
     {
@@ -481,13 +496,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __internal_attribute_type_impl_t(xpool_t & xpool)
             : __super_t(xpool), __impls(xpool)
         {
-            __impls.append<__type_type_impl_t>();
-            __impls.append<__void_type_impl_t>();
+            // Core object types.
             __impls.append<__object_type_impl_t>();
-            __impls.append<__ptr_type_impl_t>();
+            __impls.append<__type_type_impl_t>();
+            __impls.append<__exception_type_impl_t>();
             __impls.append<__attribute_type_impl_t>();
             __impls.append<__array_type_impl_t>();
             __impls.append<__t_array_type_impl_t>();
+
+            // Core data types.
+            __impls.append<__void_type_impl_t>();
+            __impls.append<__ptr_type_impl_t>();
             __impls.append<__int8_type_impl_t>();
             __impls.append<__uint8_type_impl_t>();
             __impls.append<__int16_type_impl_t>();

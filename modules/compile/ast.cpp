@@ -321,6 +321,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Property index undetermind.
         X_D(property_index_undetermind, _T("property index \"%1%\" undetermind"))
 
+        // Property method body missing.
+        X_D(property_method_body_missing, _T("property \"%1%\" must declared a body"))
+
         // Constructor method should no return type.
         X_D(constructor_method_should_no_return_type,
                                 _T("constructor method %1% should no return type"))
@@ -3105,16 +3108,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Appends method.
-    bool __append_method(ast_context_t & cctx, ast_walk_context_t & wctx, method_t * method)
+    bool __append_member(ast_context_t & cctx, ast_walk_context_t & wctx, member_t * member)
     {
         type_t * type = wctx.current_type();
         if(type == nullptr || type->this_gtype() != gtype_t::general)
         {
-            ast_log(cctx, method, __c_t::type_undetermind, method);
+            ast_log(cctx, member, __c_t::type_undetermind, member);
             return false;
         }
 
-        ((general_type_t *)type)->append_member(method);
+        ((general_type_t *)type)->append_member(member);
         return true;
     }
 
@@ -3138,8 +3141,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __property.get_method->type_name = __property.type_name;
             __property.get_method->decorate  = __property.decorate;
             __property.get_method->params    = __property.params;
-            __append_method(this->__context, context, __property.get_method);
+            __append_member(this->__context, context, __property.get_method);
         }
+
+        param_t * value_param = nullptr;
 
         if(__property.set_method != nullptr)
         {
@@ -3152,11 +3157,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if(__property.params != nullptr)
                 al::copy(*__property.params, std::back_inserter(*params));
 
-            params->push_back(__new_obj<param_t>(__property.type_name, __to_name(_T("value"))));
+            value_param = __new_obj<param_t>(__property.type_name, __to_name(_T("value")));
+            params->push_back(value_param);
 
             __property.set_method->params = params;
-            __append_method(this->__context, context, __property.set_method);
+            __append_member(this->__context, context, __property.set_method);
         }
+
+        __generate_ignored_method_bodies(context, value_param);
 
         variable_region_t * region = context.current_region();
 
@@ -3168,6 +3176,65 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         context.push(this->to_eobject());
         __super_t::on_walk(context, step, tag);
         context.pop();
+    }
+
+    // Generates ignored method bodies.
+    void property_ast_node_t::__generate_ignored_method_bodies(ast_walk_context_t & context,
+                                                               param_t * value_param)
+    {
+        #define __BodyIgnored(name)                                           \
+            (__property.name##_method != nullptr && __property.name##_method->body == nullptr)
+
+        if(__BodyIgnored(set) != __BodyIgnored(get))
+        {
+            this->__log(&__property, __c_t::property_method_body_missing,
+                __BodyIgnored(set)? _T("set") : _T("get")
+            );
+
+            return;
+        }
+
+        if(!__BodyIgnored(get) && !__BodyIgnored(set))
+            return;
+
+        // Appends a field for the property.
+        field_t * field = __new_obj<field_t>();
+        field->type_name = __property.type_name;
+        field->name = __to_name(_F(_T("__%1%__"), __property.name));
+
+        decorate_value_t dv = decorate_value_t::default_value;
+        dv.is_static = __property.is_static();
+        dv.access = access_value_t::private_;
+
+        field->decorate = __new_obj<decorate_t>(dv);
+
+        __append_member(this->__context, context, field);
+
+        // Appends get method body.
+        if(__BodyIgnored(get))
+        {
+            statement_t * statement = __new_obj<return_statement_t>(
+                __new_field_expression(field)
+            );
+
+            __property.get_method->body = __new_obj<method_body_t>();
+            __property.get_method->body->push_back(statement);
+        }
+
+        if(__BodyIgnored(set))
+        {
+            _A(value_param != nullptr);
+
+            statement_t * statement = __new_expression_statement<binary_expression_t>(
+                operator_t::assign, __new_field_expression(field),
+                __new_param_expression(value_param)
+            );
+
+            __property.set_method->body = __new_obj<method_body_t>();
+            __property.set_method->body->push_back(statement);
+        }
+
+        #undef __BodyIgnored
     }
 
     // Gets get/set method name.
@@ -3214,14 +3281,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             __event.add_method->name = __to_name(_F(_T("add_%1%"), __event.name));
             __event.add_method->type_name = __event.type_name;
-            __append_method(this->__context, context, __event.add_method);
+            __append_member(this->__context, context, __event.add_method);
         }
 
         if(__event.remove_method != nullptr)
         {
             __event.remove_method->name = __to_name(_F(_T("remove_%1%"), __event.name));
             __event.remove_method->type_name = __event.type_name;
-            __append_method(this->__context, context, __event.remove_method);
+            __append_member(this->__context, context, __event.remove_method);
         }
 
         context.push(this->to_eobject());

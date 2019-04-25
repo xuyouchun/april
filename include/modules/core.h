@@ -28,6 +28,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define __CoreTypeName(name) CoreAssembly _T(".") name
 
     #define CoreType_Type         _T("Type")
+    #define CoreType_Exception    _T("Exception")
     #define CoreType_Void         _T("Void")
     #define CoreType_Object       _T("Object")
     #define CoreType_Ptr          _T("Ptr")
@@ -2362,10 +2363,36 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Statements.
         statements_t statements;
 
+        // Pushes statements at front.
         template<typename _statements_t>
         void push_front(_statements_t & statements)
         {
             this->statements.push_front(statements);
+        }
+
+        // Pushes a statement at front.
+        void push_front(statement_t * statement)
+        {
+            _A(statement != nullptr);
+
+            statement_t * statements[] = { statement };
+            this->statements.push_front(statements);
+        }
+
+        // Pushes statements at back.
+        template<typename _statements_t>
+        void push_back(_statements_t & statements)
+        {
+            std::copy(
+                statements.begin(), statements.end(), std::back_inserter(this->statements)
+            );
+        }
+
+        // Pushes a statement at back.
+        void push_back(statement_t * statement)
+        {
+            _A(statement != nullptr);
+            this->statements.push_back(statement);
         }
     };
 

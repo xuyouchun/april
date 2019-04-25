@@ -80,6 +80,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class type_def_statement_t : public statement_base_t
     {
     public:
+        type_def_statement_t() = default;
+        type_def_statement_t(type_def_t * type_def) : type_def(type_def) { }
+
         type_def_t * type_def = nullptr;
 
     protected:
@@ -113,6 +116,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
         typedef defination_statement_item_t * etype_t;
         typedef etype_t value_type;
+
+        defination_statement_t() = default;
+        defination_statement_t(type_name_t * type_name) : type_name(type_name) { }
 
         type_name_t * type_name = nullptr;
         items_t       items;
@@ -160,6 +166,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class throw_statement_t : public statement_base_t
     {
     public:
+        throw_statement_t() = default;
+        throw_statement_t(expression_t * expression) : expression(expression) { }
+
         expression_t * expression = nullptr;
 
     protected:
@@ -174,6 +183,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class goto_statement_t : public statement_base_t
     {
     public:
+        goto_statement_t() = default;
+        goto_statement_t(name_t label) : label(label) { }
+
         name_t label = name_t::null;
 
     protected:
@@ -188,6 +200,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class return_statement_t : public statement_base_t
     {
     public:
+        return_statement_t() = default;
+        return_statement_t(expression_t * expression) : expression(expression) { }
+
         expression_t * expression = nullptr;
 
     protected:
@@ -202,6 +217,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class do_while_statement_t : public statement_base_t
     {
     public:
+        do_while_statement_t() = default;
+        do_while_statement_t(expression_t * condition, statement_t * body)
+            : condition(condition), body(body)
+        { }
+
         expression_t * condition = nullptr;
         statement_t  * body      = nullptr;
 
@@ -217,6 +237,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class loop_until_statement_t : public statement_base_t
     {
     public:
+        loop_until_statement_t() = default;
+        loop_until_statement_t(expression_t * condition, statement_t * body)
+            : condition(condition), body(body) { }
+
         expression_t * condition = nullptr;
         statement_t  * body      = nullptr;
 
@@ -232,6 +256,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class while_statement_t : public statement_base_t
     {
     public:
+        while_statement_t() = default;
+        while_statement_t(expression_t * condition, statement_t * body)
+            : condition(condition), body(body) { }
+
         expression_t * condition = nullptr;
         statement_t  * body      = nullptr;
 
@@ -247,6 +275,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class for_statement_t : public statement_base_t
     {
     public:
+        for_statement_t() = default;
+        for_statement_t(defination_statement_t * defination_initialize,
+            expression_t * initialize, expression_t * condition, expression_t * increase,
+            statement_t * body)
+            : defination_initialize(defination_initialize)
+            , initialize(initialize), condition(condition), increase(increase), body(body)
+        { }
+
         defination_statement_t * defination_initialize = nullptr;
         expression_t * initialize = nullptr;
 
@@ -266,6 +302,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class for_each_statement_t : public statement_base_t
     {
     public:
+        for_each_statement_t() = default;
+        for_each_statement_t(expression_t * iterator, type_name_t * type_name,
+            name_t variable, statement_t * body)
+            : iterator(iterator), type_name(type_name), variable(variable), body(body)
+        { }
+
         expression_t * iterator  = nullptr; 
         type_name_t  * type_name = nullptr;
         name_t         variable  = name_t::null;
@@ -283,6 +325,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class if_statement_t : public statement_base_t
     {
     public:
+        if_statement_t() = default;
+        if_statement_t(expression_t * condition, statement_t * if_body, statement_t * else_body)
+            : condition(condition), if_body(if_body), else_body(else_body)
+        { }
+
         expression_t * condition    = nullptr;
         statement_t  * if_body      = nullptr;
         statement_t  * else_body    = nullptr;
@@ -314,6 +361,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef al::svector_t<case_t *, 5> __cases_t;
 
     public:
+        switch_statement_t() = default;
+        switch_statement_t(expression_t *  expression) : expression(expression) { }
+
         expression_t *  expression = nullptr;
         __cases_t       cases;
 
@@ -343,6 +393,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Catch.
     struct catch_t : public eobject_t
     {
+        catch_t() = default;
+        catch_t(type_name_t * type_name, name_t variable, statement_t * body)
+            : type_name(type_name), variable(variable), body(body)
+        { }
+
         type_name_t *   type_name   =   nullptr;
         name_t          variable    =   name_t::null;
         statement_t *   body        =   nullptr;
@@ -358,6 +413,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef al::svector_t<catch_t *> __catches_t;
 
     public:
+        try_statement_t() = default;
+        try_statement_t(statement_t * try_statement, statement_t * finally_statement)
+            : try_statement(try_statement), finally_statement(finally_statement)
+        { }
+
         statement_t * try_statement     =   nullptr;
         __catches_t   catches           =   nullptr;
         statement_t * finally_statement =   nullptr;

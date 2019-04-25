@@ -558,6 +558,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Property index undetermind.
         property_index_undetermind,
 
+        // Property method body uniformity.
+        property_method_body_missing,
+
         // Attribute constructor not match.
         attribute_constructor_not_match,
 
@@ -726,6 +729,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return __new_system_expression<name_expression_t>(
                     __new_obj<field_variable_t>(field)
                 );
+            }
+
+            // Creates a name expression for param.
+            system_expression_t<name_expression_t> * __new_param_expression(param_t * param)
+            {
+                return __new_system_expression<name_expression_t>(
+                    __new_obj<param_variable_t>(param)
+                );
+            }
+
+            // Creates a name expression for param.
+            system_expression_t<name_expression_t> * __new_local_expression(
+                                                                local_variable_t * variable)
+            {
+                return __new_system_expression<name_expression_t>(variable);
             }
 
             // Parses expressions.
@@ -4165,6 +4183,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Gets get/set method name.
         name_t __to_method_name(const char_t * prefix);
+
+        // Generates ignored method bodies.
+        void __generate_ignored_method_bodies(ast_walk_context_t & context, param_t * value_param);
     };
 
     ////////// ////////// ////////// ////////// //////////
