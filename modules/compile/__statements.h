@@ -22,13 +22,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Base class of statement.
     class statement_base_t : public statement_t
     {
-    public:
-        // Compiles this statement.
-        virtual void compile(statement_compile_context_t & ctx) override final;
 
-    protected:
-        // Compiles this statememt.
-        virtual void on_compile(statement_compile_context_t & ctx) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -44,10 +38,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Appends a statement.
         void push_back(statement_t * statement);
 
-    protected:
-
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
 
     private:
         __statements_t __statements;
@@ -68,10 +63,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         expression_t * expression = nullptr;
 
-    protected:
-
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -80,15 +76,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class type_def_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         type_def_statement_t() = default;
         type_def_statement_t(type_def_t * type_def) : type_def(type_def) { }
 
         type_def_t * type_def = nullptr;
 
-    protected:
-
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -97,6 +96,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class defination_statement_item_t : public eobject_t
     {
     public:
+
+        // Constructors.
+        defination_statement_item_t() = default;
+        defination_statement_item_t(name_t name, expression_t * expression,
+                                    local_variable_t * variable)
+            : name(name), expression(expression), variable(variable)
+        { }
+
         name_t         name       = name_t::null;   // Name.
         expression_t * expression = nullptr;        // Expression.
 
@@ -114,9 +121,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef al::svector_t<defination_statement_item_t *> items_t;
 
     public:
+
         typedef defination_statement_item_t * etype_t;
         typedef etype_t value_type;
 
+        // Constructors.
         defination_statement_t() = default;
         defination_statement_t(type_name_t * type_name) : type_name(type_name) { }
 
@@ -132,10 +141,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts to string.
         X_TO_STRING
 
-    protected:
-
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -143,10 +153,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Break statement.
     class break_statement_t : public statement_base_t
     {
-    protected:
+    public:
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -154,10 +167,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Continue statement.
     class continue_statement_t : public statement_base_t
     {
-    protected:
+    public:
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -166,15 +182,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class throw_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         throw_statement_t() = default;
         throw_statement_t(expression_t * expression) : expression(expression) { }
 
         expression_t * expression = nullptr;
 
-    protected:
-
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -183,15 +202,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class goto_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         goto_statement_t() = default;
         goto_statement_t(name_t label) : label(label) { }
 
-        name_t label = name_t::null;
-
-    protected:
+        name_t label = name_t::null;        // Label.
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -200,15 +222,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class return_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         return_statement_t() = default;
         return_statement_t(expression_t * expression) : expression(expression) { }
 
-        expression_t * expression = nullptr;
-
-    protected:
+        expression_t * expression = nullptr;    // Return value.
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -217,18 +242,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class do_while_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         do_while_statement_t() = default;
         do_while_statement_t(expression_t * condition, statement_t * body)
             : condition(condition), body(body)
         { }
 
-        expression_t * condition = nullptr;
-        statement_t  * body      = nullptr;
-
-    protected:
+        expression_t * condition = nullptr;     // Condition
+        statement_t  * body      = nullptr;     // Body
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -237,17 +265,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class loop_until_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         loop_until_statement_t() = default;
         loop_until_statement_t(expression_t * condition, statement_t * body)
             : condition(condition), body(body) { }
 
-        expression_t * condition = nullptr;
-        statement_t  * body      = nullptr;
-
-    protected:
+        expression_t * condition = nullptr;     // Condition
+        statement_t  * body      = nullptr;     // Body
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -256,17 +287,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class while_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         while_statement_t() = default;
         while_statement_t(expression_t * condition, statement_t * body)
             : condition(condition), body(body) { }
 
-        expression_t * condition = nullptr;
-        statement_t  * body      = nullptr;
-
-    protected:
+        expression_t * condition = nullptr;     // Condition expression
+        statement_t  * body      = nullptr;     // Body
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -275,6 +309,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class for_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         for_statement_t() = default;
         for_statement_t(defination_statement_t * defination_initialize,
             expression_t * initialize, expression_t * condition, expression_t * increase,
@@ -283,17 +319,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             , initialize(initialize), condition(condition), increase(increase), body(body)
         { }
 
+        // Defination initialize expression.
         defination_statement_t * defination_initialize = nullptr;
-        expression_t * initialize = nullptr;
+        expression_t * initialize = nullptr;    // Initialize expression.
 
-        expression_t * condition  = nullptr;
-        expression_t * increase   = nullptr;
-        statement_t  * body       = nullptr;
-
-    protected:
+        expression_t * condition  = nullptr;    // Condition expression.
+        expression_t * increase   = nullptr;    // Increase expression.
+        statement_t  * body       = nullptr;    // Body.
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -302,21 +340,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class for_each_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         for_each_statement_t() = default;
         for_each_statement_t(expression_t * iterator, type_name_t * type_name,
             name_t variable, statement_t * body)
             : iterator(iterator), type_name(type_name), variable(variable), body(body)
         { }
 
-        expression_t * iterator  = nullptr; 
-        type_name_t  * type_name = nullptr;
-        name_t         variable  = name_t::null;
-        statement_t  * body      = nullptr;
-
-    protected:
+        expression_t * iterator  = nullptr;         // Iterator.
+        type_name_t  * type_name = nullptr;         // Type name.
+        name_t         variable  = name_t::null;    // Variable name.
+        statement_t  * body      = nullptr;         // Body.
 
         // Compiles this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -325,19 +366,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class if_statement_t : public statement_base_t
     {
     public:
+
+        // Constructors.
         if_statement_t() = default;
         if_statement_t(expression_t * condition, statement_t * if_body, statement_t * else_body)
             : condition(condition), if_body(if_body), else_body(else_body)
         { }
 
-        expression_t * condition    = nullptr;
-        statement_t  * if_body      = nullptr;
-        statement_t  * else_body    = nullptr;
-
-    protected:
+        expression_t * condition    = nullptr;      // Condition.
+        statement_t  * if_body      = nullptr;      // If body.
+        statement_t  * else_body    = nullptr;      // Else body.
 
         // Compiles statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -347,8 +391,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         typedef al::svector_t<expression_t *, 2> __constants_t;
 
-        __constants_t   constants;
-        statements_t  * statements   = nullptr;
+        __constants_t   constants;                  // Constant values.
+        statements_t  * statements   = nullptr;     // Statements.
     };
 
     typedef eobject_ast_t<case_t *> case_ast_t;
@@ -361,16 +405,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef al::svector_t<case_t *, 5> __cases_t;
 
     public:
+
+        // Constructors.
         switch_statement_t() = default;
         switch_statement_t(expression_t *  expression) : expression(expression) { }
 
-        expression_t *  expression = nullptr;
-        __cases_t       cases;
-
-    protected:
+        expression_t *  expression = nullptr;       // Switch value.
+        __cases_t       cases;                      // Cases.
 
         // Compile statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+    private:
 
         // Reads a int constant value.
         int32_t __read_const_int(statement_compile_context_t & ctx, expression_t * exp);
@@ -393,14 +442,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Catch.
     struct catch_t : public eobject_t
     {
+        // Constructors.
         catch_t() = default;
         catch_t(type_name_t * type_name, name_t variable, statement_t * body)
             : type_name(type_name), variable(variable), body(body)
         { }
 
-        type_name_t *   type_name   =   nullptr;
-        name_t          variable    =   name_t::null;
-        statement_t *   body        =   nullptr;
+        type_name_t *   type_name   =   nullptr;        // Type name.
+        name_t          variable    =   name_t::null;   // Variable.
+        statement_t *   body        =   nullptr;        // Body.
     };
 
     typedef eobject_ast_t<catch_t *> catch_ast_t;
@@ -413,19 +463,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef al::svector_t<catch_t *> __catches_t;
 
     public:
+
+        // Constructors.
         try_statement_t() = default;
         try_statement_t(statement_t * try_statement, statement_t * finally_statement)
             : try_statement(try_statement), finally_statement(finally_statement)
         { }
 
-        statement_t * try_statement     =   nullptr;
-        __catches_t   catches           =   nullptr;
-        statement_t * finally_statement =   nullptr;
-
-    protected:
+        statement_t * try_statement     =   nullptr;    // Try statement.
+        __catches_t   catches           =   nullptr;    // Catch statements.
+        statement_t * finally_statement =   nullptr;    // Finally statement.
 
         // Compile this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -434,10 +487,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Empty statement.
     class empty_statement_t : public statement_base_t
     {
-    protected:
+    public:
 
         // Compile this statement.
-        virtual void on_compile(statement_compile_context_t & ctx) override;
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -513,6 +569,33 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns exit type of statements.
+    template<typename _statements_t>
+    statement_exit_type_t exit_type_of(statement_exit_type_context_t & ctx,
+                                       _statements_t * statements)
+    {
+        typedef statement_exit_type_t       __exit_type_t;
+        typedef enum_t<__exit_type_t>       __e_exit_type_t;
+
+        if(statements == nullptr)
+            return statement_exit_type_t::none;
+
+        __e_exit_type_t type;
+
+        for(statement_t * statement : *statements)
+        {
+            __e_exit_type_t et = statement->exit_type(ctx);
+            type |= et;
+
+            if(et.has_only(__exit_type_t::return_, __exit_type_t::throw_, __exit_type_t::dead_cycle))
+            {
+                type.remove(__exit_type_t::pass);
+                break;
+            }
+        }
+
+        return *type;
+    }
 
     ////////// ////////// ////////// ////////// //////////
 

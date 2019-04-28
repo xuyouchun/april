@@ -19,6 +19,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         using __vector_t = al::svector_t<t, init_size>;
     }
 
+    class xpool_t;
     typedef int16_t element_value_t;
 
     // Core assembly name.
@@ -48,6 +49,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define CoreType_String       _T("String")
     #define CoreType_Single       _T("Single")
     #define CoreType_Double       _T("Double")
+
+    #define CoreType_NullReferenceException     _T("NullReferenceException")
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -379,8 +382,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     ////////// ////////// ////////// ////////// //////////
-
-    class xpool_t;
 
     // A context when commit eobject_t.
     class eobject_commit_context_t : public object_t
@@ -1494,12 +1495,62 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Statement exit type.
+    X_ENUM_(statement_exit_type_t, sizeof(int16_t))
+
+        // None
+        none            = __default__,
+
+        // Pass through
+        pass            = 1 << 1,
+
+        // Return.
+        return_         = 1 << 2,
+
+        // Break.
+        break_          = 1 << 3,
+
+        // Continue.
+        continue_       = 1 << 4,
+
+        // Throw.
+        throw_          = 1 << 5,
+
+        // Goto.
+        goto_           = 1 << 6,
+
+        // Dead cycle, cannot exit.
+        dead_cycle      = 1 << 7,
+
+    X_ENUM_END
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Statement exit type context.
+    class statement_exit_type_context_t : public object_t
+    {
+    public:
+
+        // Constructor.
+        statement_exit_type_context_t(xpool_t & xpool)
+            : xpool(xpool) { }
+
+        // Xpool.
+        xpool_t & xpool;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     class statement_compile_context_t;
 
     // Statement eobject.
     X_INTERFACE statement_t : eobject_t
     {
+        // Compiles this statement.
         virtual void compile(statement_compile_context_t & ctx) = 0;
+
+        // Returns exit type of this statement.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) = 0;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2359,6 +2410,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     public:
         typedef method_body_t * itype_t;
+
+        // Constructor.
+        method_body_t() = default;
+
+        // Constructor.
+        method_body_t(std::initializer_list<statement_t *> initializer)
+            : statements(initializer)
+        { }
 
         // Statements.
         statements_t statements;
@@ -3838,8 +3897,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
     // xpool_t
-
-    class xpool_t;
 
     // Extesion type collection.
     struct xtype_collection_t : no_copy_ctor_t

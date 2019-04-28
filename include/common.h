@@ -2361,7 +2361,7 @@ namespace X_ROOT_NS {
         {
             static const string_t to_str(const _obj_t & obj)
             {
-                return _desc(obj);
+                return _title(obj);
             }
         };
 
@@ -2376,7 +2376,7 @@ namespace X_ROOT_NS {
                 if(obj == nullptr)
                     return __null_str;
 
-                return _desc(*obj);
+                return _title(*obj);
             }
         };
 
@@ -2467,6 +2467,200 @@ namespace X_ROOT_NS {
     X_INLINE const string_t _str(const _obj_t & obj)
     {
         return __to_str_t<_obj_t, __to_object_type<_obj_t>()>::to_str(obj);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Enumerator wrapper for normal operations.
+    template<typename _enum_t> struct enum_t
+    {
+        typedef enum_t<_enum_t> __self_t;
+        typedef int_type_t<sizeof(_enum_t)> __underly_t;
+
+        // Constructors.
+        enum_t() = default;
+        enum_t(_enum_t value) : value(value) { }
+        enum_t(int value) : value( (_enum_t)value ) { }
+
+        // Enum value.
+        _enum_t value = (_enum_t)0;
+
+        // Converts to an enum value.
+        operator _enum_t() const { return value; }
+
+        // Converts to an enum value.
+        _enum_t operator * () const { return value; }
+
+        // Converts to a bool value.
+        operator bool() const { return value != (_enum_t)0; }
+
+        // Assigns a value.
+        __self_t operator = (_enum_t v)
+        {
+            this->value = v;
+        }
+
+        // Assigns a value.
+        __self_t operator = (__self_t v)
+        {
+            this->value = v.value;
+        }
+
+        // Equals.
+        bool operator == (_enum_t v) const
+        {
+            return value == v;
+        }
+
+        // Equals to a number.
+        bool operator == (int v) const
+        {
+            return value == (_enum_t)v;
+        }
+
+        // Not equals.
+        bool operator != (_enum_t v) const
+        {
+            return value != v;
+        }
+
+        // Not equals to a number.
+        bool operator != (int v) const
+        {
+            return value != (_enum_t)v;
+        }
+
+        // Bit or & assign.
+        __self_t operator |= (_enum_t v)
+        {
+            return this->value = enum_or(this->value, v), *this;
+        }
+
+        // Bit or.
+        __self_t operator | (_enum_t v) const
+        {
+            return __self_t( enum_or(this->value, v) );
+        }
+
+        // Bit and & assign.
+        __self_t operator &= (_enum_t v)
+        {
+            return this->value = enum_and(this->value, v), *this;
+        }
+
+        // Bit and
+        __self_t operator & (_enum_t v) const
+        {
+            return __self_t( enum_and(this->value, v) );
+        }
+
+        // Bit xor && assign.
+        __self_t operator ^= (_enum_t v)
+        {
+            return this->value = enum_xor(this->value, v), *this;
+        }
+
+        // Bit xor.
+        __self_t operator ^ (_enum_t v) const
+        {
+            return __self_t( enum_xor(this->value, v) );
+        }
+
+        // Bit not.
+        __self_t operator ~ ()
+        {
+            return this->value = ~this->value, *this;
+        }
+
+        // Returns whether has a flag.
+        template<typename ... _enums_t>
+        bool has(_enum_t v, _enums_t ... vs) const
+        {
+            return enum_has_flag(this->value, enum_or(v, vs...));
+        }
+
+        // Returns whether it is composed by specified flags.
+        template<typename ... _enums_t>
+        bool has_only(_enum_t v, _enums_t ... vs) const
+        {
+            return (__underly_t)this->value != 0
+                && ((__underly_t)this->value & ~(__underly_t)enum_or(v, vs...)) == 0;
+        }
+
+        // Removes a flag.
+        template<typename ... _enums_t>
+        __self_t remove(_enum_t v, _enums_t ... vs)
+        {
+            return enum_remove_flag(this->value, enum_or(v, vs...));
+        }
+
+        // Adds a flag.
+        template<typename ... _enums_t>
+        __self_t add(_enum_t v, _enums_t ... vs)
+        {
+            return this->value = enum_or(this->value, v, vs...), *this;
+        }
+
+        // Clears flags.
+        __self_t clear()
+        {
+            return this->value = (_enum_t)0, *this;
+        }
+
+        // Converts to string.
+        operator string_t() const
+        {
+            return _str(this->value);
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    namespace
+    {
+
+        // Enum flags.
+        template<typename _enum_t>
+        struct __enum_flags_t
+        {
+            typedef __enum_flags_t<_enum_t> __self_t;
+            typedef int_type_t<sizeof(_enum_t)> __underly_t;
+
+            // Constructors.
+            __enum_flags_t(_enum_t value) : value(value) { }
+
+            // Enum value.
+            _enum_t value;
+
+            // Converts to string.
+            operator string_t() const
+            {
+                __underly_t v = (__underly_t)value;
+                if(v == 0)
+                    return _title(value);
+
+                stringstream_t ss;
+
+                for(int index = 0; v != 0; index++)
+                {
+                    __underly_t v0 = v & (v - 1);
+
+                    if(index > 0)
+                        ss << _T(",");
+
+                    ss << _title((_enum_t)(v - v0));
+                    v = v0;
+                }
+
+                return ss.str();
+            }
+        };
+    }
+
+    // Returns __enum_flags_t for an enum, be used for convers enum flags to a string.
+    template<typename _enum_t> __enum_flags_t<_enum_t> _eflags(_enum_t value)
+    {
+        return __enum_flags_t<_enum_t>(value);
     }
 
     ////////// ////////// ////////// ////////// //////////

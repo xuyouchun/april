@@ -7,9 +7,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     using namespace core;
     using namespace xilx;
 
-    typedef statement_compile_context_t __context_t;
-    typedef statement_exit_point_type_t __exit_point_type_t;
-    typedef compile_error_code_t        __e_t;
+    typedef statement_compile_context_t     __context_t;
+    typedef statement_exit_point_type_t     __exit_point_type_t;
+    typedef compile_error_code_t            __e_t;
+    typedef statement_exit_type_t           __exit_type_t;
+    typedef enum_t<__exit_type_t>           __e_exit_type_t;
+    typedef statement_exit_type_context_t   __exit_type_context_t;
+
+    #define __FreeExitFlags     enum_or(__exit_type_t::break_,                  \
+            __exit_type_t::return_, __exit_type_t::goto_, __exit_type_t::throw_ \
+        )
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -63,7 +70,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return append_global_label(ctx, ctx.to_name(name));
         }
 
-        // Appens local lable.
+        // Appends local lable.
         local_label_xilx_t * append_local_label(__context_t & ctx, local_label_t flag)
         {
             return append_xilx<local_label_xilx_t>(ctx, flag);
@@ -113,6 +120,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 compile_statement(ctx, statement);
             }
         }
+    }
+
+    // Returns exit type of a statement.
+    __e_exit_type_t __exit_type(__exit_type_context_t & ctx, statement_t * statement)
+    {
+        if(statement == nullptr)
+            return __exit_type_t::none;
+
+        return statement->exit_type(ctx);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -224,12 +240,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return exp->execute(ctx);
     }
 
-    ////////// ////////// ////////// ////////// //////////
-
-    // Compiles the statement.
-    void statement_base_t::compile(statement_compile_context_t & ctx)
+    cvalue_t execute_expression(__exit_type_context_t & ctx, expression_t * exp)
     {
-        on_compile(ctx);
+        if(exp == nullptr)
+            return cvalue_t::nan;
+
+        expression_execute_context_t ectx(ctx.xpool);
+        return exp->execute(ectx);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -243,7 +260,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Compiles this statement group.
-    void statement_group_t::on_compile(statement_compile_context_t & ctx)
+    void statement_group_t::compile(statement_compile_context_t & ctx)
     {
         for(statement_t * statement : __statements)
         {
@@ -251,21 +268,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns exit type.
+    __exit_type_t statement_group_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return exit_type_of(ctx, &__statements);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this expression statement.
-    void expression_statement_t::on_compile(statement_compile_context_t & ctx)
+    void expression_statement_t::compile(statement_compile_context_t & ctx)
     {
         if(expression != nullptr)
             append_xilx<expression_xilx_t>(ctx, expression);
     }
 
+    // Returns exit type.
+    __exit_type_t expression_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return __exit_type_t::pass;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
-    void type_def_statement_t::on_compile(statement_compile_context_t & ctx)
+    void type_def_statement_t::compile(statement_compile_context_t & ctx)
     {
+        // Do nothing.
+    }
 
+    // Returns exit type.
+    __exit_type_t type_def_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return __exit_type_t::none;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -320,7 +355,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Compiles this statement.
-    void defination_statement_t::on_compile(statement_compile_context_t & ctx)
+    void defination_statement_t::compile(statement_compile_context_t & ctx)
     {
         for(defination_statement_item_t * item : items)
         {
@@ -336,42 +371,78 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns exit type.
+    __exit_type_t defination_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        for(defination_statement_item_t * item : items)
+        {
+            if(item->expression != nullptr)
+                return __exit_type_t::pass;
+        }
+
+        return __exit_type_t::none;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
-    void break_statement_t::on_compile(statement_compile_context_t & ctx) 
+    void break_statement_t::compile(statement_compile_context_t & ctx) 
     {
         append_jmp(ctx, __exit_point_type_t::break_);
     }
 
+    // Returns exit type.
+    __exit_type_t break_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return __exit_type_t::break_;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
-    void continue_statement_t::on_compile(statement_compile_context_t & ctx) 
+    void continue_statement_t::compile(statement_compile_context_t & ctx) 
     {
         append_jmp(ctx, __exit_point_type_t::continue_);
     }
 
-    ////////// ////////// ////////// ////////// //////////
-
-    // Compiles this statement.
-    void throw_statement_t::on_compile(statement_compile_context_t & ctx) 
+    // Returns exit type.
+    __exit_type_t continue_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        
+        return __exit_type_t::continue_;
     }
 
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
-    void goto_statement_t::on_compile(statement_compile_context_t & ctx) 
+    void throw_statement_t::compile(statement_compile_context_t & ctx) 
+    {
+        // TODO:
+    }
+
+    // Returns exit type.
+    __exit_type_t throw_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return __exit_type_t::throw_;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Compiles this statement.
+    void goto_statement_t::compile(statement_compile_context_t & ctx) 
     {
         append_jmp(ctx, label);
     }
 
+    // Returns exit type.
+    __exit_type_t goto_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return __exit_type_t::goto_;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
-    void return_statement_t::on_compile(statement_compile_context_t & ctx) 
+    void return_statement_t::compile(statement_compile_context_t & ctx) 
     {
         if(expression != nullptr)
         {
@@ -380,6 +451,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         append_xilx<return_xilx_t>(ctx);
+    }
+
+    // Returns exit type.
+    __exit_type_t return_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return __exit_type_t::return_;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -391,7 +468,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Compiles this statement.
-    void do_while_statement_t::on_compile(statement_compile_context_t & ctx) 
+    void do_while_statement_t::compile(statement_compile_context_t & ctx) 
     {
         ctx.begin_region<__do_while_statement_region_t>();
 
@@ -405,7 +482,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else if(condition_value == false)
         {
-            // do nothing
+            // Do nothing
         }
         else
         {
@@ -417,6 +494,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.end_region();
     }
 
+    // Returns exit type.
+    __exit_type_t do_while_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        cvalue_t condition_value = execute_expression(ctx, condition);
+
+        // When condition always true.
+        if(condition_value == true || condition == nullptr)
+        {
+            __e_exit_type_t et_body = __exit_type(ctx, body);
+            if(!et_body.has(__FreeExitFlags))
+                return __exit_type_t::dead_cycle;
+
+            return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_,
+                                  __exit_type_t::pass);
+        }
+
+        __e_exit_type_t et_body = __exit_type(ctx, body);
+        return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     typedef __statement_region_t<
@@ -426,7 +523,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Compiles this statement.
-    void loop_until_statement_t::on_compile(statement_compile_context_t & ctx) 
+    void loop_until_statement_t::compile(statement_compile_context_t & ctx) 
     {
         ctx.begin_region<__loop_until_statement_region_t>();
 
@@ -440,7 +537,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else if(condition_value == true)
         {
-            // do nothing
+            // Do nothing
         }
         else
         {
@@ -452,6 +549,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.end_region();
     }
 
+    // Returns exit type.
+    __exit_type_t loop_until_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        cvalue_t condition_value = execute_expression(ctx, condition);
+
+        // When condition always false.
+        if(condition_value == false || condition == nullptr)
+        {
+            __e_exit_type_t et_body = __exit_type(ctx, body);
+            if(!et_body.has(__FreeExitFlags))
+                return __exit_type_t::dead_cycle;
+
+            return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_,
+                                  __exit_type_t::pass);
+        }
+
+        // When condition always true.
+        if(condition_value == true)
+            return __exit_type_t::none;
+
+        __e_exit_type_t et_body = __exit_type(ctx, body);
+        return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     typedef __statement_region_t<
@@ -461,7 +582,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Compiles this statement.
-    void while_statement_t::on_compile(statement_compile_context_t & ctx)
+    void while_statement_t::compile(statement_compile_context_t & ctx)
     {
         cvalue_t condition_value = execute_expression(ctx, condition);
         if(condition_value == false)
@@ -485,6 +606,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.end_region();
     }
 
+    // Returns exit type.
+    __exit_type_t while_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        cvalue_t condition_value = execute_expression(ctx, condition);
+
+        // When condition always false.
+        if(condition_value == false)
+            return __exit_type_t::none;
+
+        // When condition always true.
+        if(condition_value == true || condition == nullptr)
+        {
+            __e_exit_type_t et_body = __exit_type(ctx, body);
+            if(!et_body.has(__FreeExitFlags))
+                return __exit_type_t::dead_cycle;
+
+            return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_,
+                                  __exit_type_t::pass);
+        }
+
+        __e_exit_type_t et_body = __exit_type(ctx, body);
+        return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     typedef __statement_region_t<
@@ -494,7 +639,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Compiles this statement.
-    void for_statement_t::on_compile(statement_compile_context_t & ctx)
+    void for_statement_t::compile(statement_compile_context_t & ctx)
     {
         ctx.begin_region<__for_statement_region_t>();
 
@@ -511,7 +656,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         cvalue_t condition_value = execute_expression(ctx, condition);
         if(condition_value == false)
         {
-            // do nothing   
+            // Do nothing   
         }
         else
         {
@@ -541,12 +686,45 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.end_region();
     }
 
+    // Returns exit type.
+    __exit_type_t for_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        cvalue_t condition_value = execute_expression(ctx, condition);
+
+        // When condition always false.
+        if(condition_value == false)
+            return __exit_type_t::none;
+
+        // When condition always true.
+        if(condition_value == true || condition == nullptr)
+        {
+            __e_exit_type_t et_body = __exit_type(ctx, body);
+            if(!et_body.has(__FreeExitFlags))
+                return __exit_type_t::dead_cycle;
+
+            return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_,
+                                  __exit_type_t::pass);
+        }
+
+        __e_exit_type_t et_body = __exit_type(ctx, body);
+        return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
-    void for_each_statement_t::on_compile(statement_compile_context_t & ctx)
+    void for_each_statement_t::compile(statement_compile_context_t & ctx)
     {
+        // TODO
+        X_UNEXPECTED();
+    }
 
+    // Returns exit type.
+    __exit_type_t for_each_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        // TODO
+        X_UNEXPECTED();
+        return __exit_type_t::none;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -556,7 +734,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Compiles this statement.
-    void if_statement_t::on_compile(statement_compile_context_t & ctx)
+    void if_statement_t::compile(statement_compile_context_t & ctx)
     {
         cvalue_t condition_value = execute_expression(ctx, condition);
         if(condition_value == true)
@@ -598,12 +776,35 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns exit type.
+    __exit_type_t if_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        cvalue_t condition_value = execute_expression(ctx, condition);
+
+        // When condition always true.
+        if(condition_value == true)
+            return __exit_type(ctx, if_body);
+
+        // When condition always false.
+        if(condition_value == false)
+            return __exit_type(ctx, else_body);
+
+        __e_exit_type_t et_if   = __exit_type(ctx, if_body);
+        __e_exit_type_t et_else = __exit_type(ctx, else_body);
+
+        __e_exit_type_t et = et_if | et_else;
+        if((!et_if || !et_else) && et)
+            et.add(__exit_type_t::pass);
+
+        return et;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     typedef __statement_region_t<__e_mask_t::break_> __switch_statement_region_t;
 
     // Compiles this statement.
-    void switch_statement_t::on_compile(statement_compile_context_t & ctx)
+    void switch_statement_t::compile(statement_compile_context_t & ctx)
     {
         if(expression == nullptr)
             throw _ED(__e_t::expession_missing, _T("switch"));
@@ -623,7 +824,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __compile_as_switch(ctx, row_count);
                 break;
         }
-
     }
 
     // Compiles as switch statement.
@@ -833,20 +1033,41 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.end_region();
     }
 
-    ////////// ////////// ////////// ////////// //////////
-
-    // Compiles this statement.
-    void try_statement_t::on_compile(statement_compile_context_t & ctx)
+    // Returns exit type.
+    __exit_type_t switch_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-
+        // TODO: how?
+        X_UNEXPECTED();
+        return __exit_type_t::none;
     }
 
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
-    void empty_statement_t::on_compile(statement_compile_context_t & ctx)
+    void try_statement_t::compile(statement_compile_context_t & ctx)
     {
-        // do nothing
+        // TODO
+    }
+
+    // Returns exit type.
+    __exit_type_t try_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        X_UNEXPECTED();
+        return __exit_type_t::none;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Compiles this statement.
+    void empty_statement_t::compile(statement_compile_context_t & ctx)
+    {
+        // Do nothing
+    }
+
+    // Returns exit type.
+    __exit_type_t empty_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return __exit_type_t::none;
     }
 
     ////////// ////////// ////////// ////////// //////////

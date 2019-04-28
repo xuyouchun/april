@@ -1026,6 +1026,37 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     const cvalue_t cvalue_t::null(nullptr);
 
     ////////// ////////// ////////// ////////// //////////
+    // statement_exit_type_t
+
+    X_ENUM_INFO(statement_exit_type_t)
+
+        // None.
+        X_C(none,       _T("none"))
+
+        // Pass through.
+        X_C(pass,       _T("pass"))
+
+        // Return.
+        X_C(return_,    _T("return"))
+
+        // Break.
+        X_C(break_,     _T("break"))
+
+        // Continue.
+        X_C(continue_,  _T("continue"))
+
+        // Throw.
+        X_C(throw_,     _T("throw"))
+
+        // Goto.
+        X_C(goto_,      _T("goto"))
+
+        // Dead cycle, cannot exit.
+        X_C(dead_cycle, _T("dead_cycle"))
+
+    X_ENUM_INFO_END
+
+    ////////// ////////// ////////// ////////// //////////
     // member_t
 
     // Returns assembly of a member.

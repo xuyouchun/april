@@ -555,6 +555,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Method conflict.
         method_conflict,
 
+        // Not all code paths return a value.
+        method_no_return,
+
+        // The return keyword must not be followed by an expression in void method.
+        method_unexpected_return_value,
+
+        // The return keyword must followed by an expression in non-void method.
+        method_return_value_missing,
+
+        // Incompatible return type.
+        method_incompatible_return_value,
+
         // Property index undetermind.
         property_index_undetermind,
 
@@ -2443,6 +2455,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         method_body_t __body;
+
+        // Walks post analysis step.
+        void __walk_post_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2732,212 +2747,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
-    // if
-
-    // If statement.
-    Ast(if, __cvalue_t::statement)
-
-        // Condition.
-        condition,
-        
-        // Body.
-        body,
-        
-    EndAst(if)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // If ast node.
-    class if_ast_node_t : public __if_ast_node_t
-    {
-        typedef __if_ast_node_t __super_t;
-
-    public:
-        using __if_ast_node_t::__if_ast_node_t;
-
-        // Walk this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // for
-
-    // For ast node.
-    Ast(for, __cvalue_t::statement)
-
-        // Initializer.
-        initializer,
-        
-        // Condition.
-        condition,
-        
-        // Expression.
-        expression,
-        
-        // Body.
-        body,
-        
-    EndAst(for)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // For ast node.
-    class for_ast_node_t : public __for_ast_node_t
-    {
-        typedef __for_ast_node_t __super_t;
-
-    public:
-        using __for_ast_node_t::__for_ast_node_t;
-
-        // Walk this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // while
-
-    // While ast node.
-    Ast(while, __cvalue_t::statement)
-
-        // Condition.
-        condition,
-
-        // Body.
-        body,
-        
-    EndAst(while)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // While ast node.
-    class while_ast_node_t : public __while_ast_node_t
-    {
-        typedef __while_ast_node_t __super_t;
-
-    public:
-        using __while_ast_node_t::__while_ast_node_t;
-
-        // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // switch
-
-    // Switch ast node.
-    Ast(switch, __cvalue_t::statement)
-
-        // Expression.
-        expression,
-        
-    EndAst(switch)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // Switch ast node.
-    class switch_ast_node_t : public __switch_ast_node_t
-    {
-        typedef __switch_ast_node_t __super_t;
-
-    public:
-        using __switch_ast_node_t::__switch_ast_node_t;
-
-        // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // loop
-
-    // Loop statement.
-    Ast(loop, __cvalue_t::statement)
-
-        // Condition.
-        condition,
-        
-        // Body.
-        body,
-        
-    EndAst(loop)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // Loop ast node.
-    class loop_ast_node_t : public __loop_ast_node_t
-    {
-        typedef __loop_ast_node_t __super_t;
-
-    public:
-        using __loop_ast_node_t::__loop_ast_node_t;
-
-        // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // break
-
-    __EmptyAst(break, __cvalue_t::statement)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // Break ast node.
-    class break_ast_node_t : public __break_ast_node_t
-    {
-        typedef __break_ast_node_t __super_t;
-
-    public:
-        using __break_ast_node_t::__break_ast_node_t;
-
-        // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // continue
-
-    __EmptyAst(continue, __cvalue_t::statement)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // Continue ast node.
-    class continue_ast_node_t : public __continue_ast_node_t
-    {
-        typedef __continue_ast_node_t __super_t;
-
-    public:
-        using __continue_ast_node_t::__continue_ast_node_t;
-
-        // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // return
-
-    // Return.
-    Ast(return, __cvalue_t::statement)
-
-        // Expression.
-        expression,
-        
-    EndAst(return)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // Returns ast node.
-    class return_ast_node_t : public __return_ast_node_t
-    {
-        typedef __return_ast_node_t __super_t;
-
-    public:
-        using __return_ast_node_t::__return_ast_node_t;
-
-        // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
     // expression_st
 
     // Expression.
@@ -3199,6 +3008,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         __w_t<return_statement_t> __statement;
+
+        // Walks post analysis step.
+        void __walk_post_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

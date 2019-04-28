@@ -147,14 +147,14 @@ $_attribute_group:
 
 $attributes: ($attribute | $_attribute_group) * ;
 
-$method_body: ({ $statement* } | \;) ;
+$method_body: { $statement* } ;
 
 $method:
     $attributes
     $decorate
     ret:$type_name? ~ ? (owner:$type_name .)? name $generic_params? \( $params? \)
         ( \: base \( $arguments? \) )?
-    $method_body
+    ($method_body | \;)
 ;
 
 $_fields:

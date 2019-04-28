@@ -175,9 +175,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             commands.push_back(command);
         });
 
+        /*
         // Auto appends ret command at the end.
         if(commands.size() == 0 || !is_ret_command(commands[commands.size() - 1]))
             commands.push_back(new_ret_command(creating_ctx));
+        */
 
         // Copies to a array.
         command_t ** command_arr = env.new_commands(commands.size());

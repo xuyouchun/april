@@ -318,6 +318,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Method conflict.
         X_D(method_conflict, _T("method \"%1%\" conflict in type \"%2%\": %3%"))
 
+        // Not all code paths return a value.
+        X_D(method_no_return, _T("method \"%1%\": not all code paths return a value"))
+
+        // The return keyword must not be followed by an expression in void method.
+        X_D(method_unexpected_return_value, _T("method \"%1%\": The return keyword must not ")
+                                            _T("be followed by an expression in void method"))
+
+        // The return keyword must followed by an expression in non-void method.
+        X_D(method_return_value_missing, _T("method \"%1%\": The return keyword must followed ")
+                                         _T("by an expression in non-void method."))
+
+        X_D(method_incompatible_return_value, _T("method \"%1%: Incompatible return type."))
+
         // Property index undetermind.
         X_D(property_index_undetermind, _T("property index \"%1%\" undetermind"))
 
@@ -1088,7 +1101,47 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void method_body_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        switch((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                __super_t::on_walk(context, step, tag);
+                this->__delay(context, walk_step_t::post_analysis);
+                break;
+
+            case walk_step_t::post_analysis:
+                __walk_post_analysis(context);
+                break;
+
+            default: break;
+        }
+    }
+
+    // Walks post analysis step.
+    void method_body_ast_node_t::__walk_post_analysis(ast_walk_context_t & context)
+    {
+        typedef statement_exit_type_t       __exit_type_t;
+        typedef enum_t<__exit_type_t>       __e_exit_type_t;
+
+        statement_exit_type_context_t ctx(this->__get_xpool());
+        __e_exit_type_t exit_type = exit_type_of(ctx, &__body.statements);
+
+        // method_t * method = context.current_method();
+        // _PF(_T("%1%: %2%"), method, _eflags(exit_type));
+
+        if(exit_type.has(__exit_type_t::pass) || exit_type == __exit_type_t::none)
+        {
+            method_t * method = context.current_method();
+            _A(method != nullptr);
+
+            if(method->type_name == nullptr || is_void_type(method->type_name->type))
+            {
+                __body.push_back(__new_obj<return_statement_t>());
+            }
+            else
+            {
+                this->__log(this, __c_t::method_no_return, method);
+            }
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1530,6 +1583,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         method->decorate = __new_obj<decorate_t>();
         method->decorate->access = access_value_t::public_;
         method->trait    = method_trait_t::constructor;
+        method->body     = __new_obj<method_body_t>();
+
+        method->body->push_back(__new_obj<return_statement_t>());
 
         __type.methods.push_back(method);
 
@@ -1897,78 +1953,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
-    // if
-
-    // Walks this node.
-    void if_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
-    {
-        __super_t::on_walk(context, step, tag);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-    // for
-
-    // Walks this node.
-    void for_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
-    {
-        __super_t::on_walk(context, step, tag);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-    // while
-
-    // Walks this node.
-    void while_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
-    {
-        __super_t::on_walk(context, step, tag);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-    // switch
-
-    // Walks this node.
-    void switch_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
-    {
-        __super_t::on_walk(context, step, tag);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-    // loop
-
-    // Walks this node.
-    void loop_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
-    {
-        __super_t::on_walk(context, step, tag);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-    // break
-
-    // Walks this node.
-    void break_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
-    {
-        __super_t::on_walk(context, step, tag);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-    // continue
-
-    // Walks this node.
-    void continue_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
-    {
-        __super_t::on_walk(context, step, tag);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-    // return
-
-    // Walks this node.
-    void return_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
-    {
-        __super_t::on_walk(context, step, tag);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
     // expression_st
 
     // Walks this node.
@@ -2164,7 +2148,47 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Wallks this node.
     void return_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        switch((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                __super_t::on_walk(context, step, tag);
+                this->__delay(context, walk_step_t::post_analysis);
+                break;
+
+            case walk_step_t::post_analysis:
+                __walk_post_analysis(context);
+                break;
+
+            default: break;
+        }
+    }
+
+    // Walks post analysis step.
+    void return_st_ast_node_t::__walk_post_analysis(ast_walk_context_t & context)
+    {
+        method_t * method = context.current_method();
+        _A(method != nullptr);
+
+        if(method->type_name == nullptr || is_void_type(method->type_name->type))
+        {
+            if(__statement.expression != nullptr)
+                this->__log(this, __c_t::method_unexpected_return_value, method);
+        }
+        else
+        {
+            if(__statement.expression == nullptr)
+            {
+                this->__log(this, __c_t::method_return_value_missing, method);
+            }
+            else
+            {
+                type_t * method_type = __statement.expression->get_type(__get_xpool());
+                type_t * return_type = method->type_name->type;
+
+                if(!is_type_compatible(return_type, method_type))
+                    this->__log(this, __c_t::method_incompatible_return_value, method);
+            }
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3225,13 +3249,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             _A(value_param != nullptr);
 
-            statement_t * statement = __new_expression_statement<binary_expression_t>(
-                operator_t::assign, __new_field_expression(field),
-                __new_param_expression(value_param)
-            );
+            method_body_t * body = __new_obj<method_body_t>(std::initializer_list<statement_t *>{
 
-            __property.set_method->body = __new_obj<method_body_t>();
-            __property.set_method->body->push_back(statement);
+                // Assign value.
+                __new_expression_statement<binary_expression_t>(
+                    operator_t::assign,
+                    __new_field_expression(field), __new_param_expression(value_param)
+                ),
+
+                // Returns.
+                __new_obj<return_statement_t>()
+            });
+
+            __property.set_method->body = body;
         }
 
         #undef __BodyIgnored
