@@ -3209,13 +3209,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         #define __BodyIgnored(name)                                           \
             (__property.name##_method != nullptr && __property.name##_method->body == nullptr)
 
-        if(__BodyIgnored(set) != __BodyIgnored(get))
+        if(__property.get_method != nullptr && __property.set_method != nullptr)
         {
-            this->__log(&__property, __c_t::property_method_body_missing,
-                __BodyIgnored(set)? _T("set") : _T("get")
-            );
+            if((__property.get_method->body != nullptr) != (__property.set_method->body != nullptr))
+            {
+                this->__log(&__property, __c_t::property_method_body_missing,
+                    __property.get_method->body != nullptr? _T("set") : _T("get")
+                );
 
-            return;
+                return;
+            }
         }
 
         if(!__BodyIgnored(get) && !__BodyIgnored(set))

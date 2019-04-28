@@ -8,10 +8,7 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        Class1 obj1 = new Class1();
-
-        obj1.Value1 = 100;
-        obj1.Value2 = 200;
+        Class1 obj1 = new Class1(100, 200);
 
         Console.Print(obj1.Value1 + obj1.Value2);
     }
@@ -26,7 +23,13 @@ class Project1
 
 class Class1
 {
-    public int Value1 { get; set; }
-    public int Value2 { get; set; }
+    public Class1(int value1, int value2)
+    {
+        this.Value1 = value1;
+        this.Value2 = value2;
+    }
+
+    public int Value1 { get; private set; }
+    public int Value2 { get; private set; }
 };
 
