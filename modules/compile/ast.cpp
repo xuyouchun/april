@@ -337,6 +337,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Property method body missing.
         X_D(property_method_body_missing, _T("property \"%1%\" must declared a body"))
 
+        // Property or indexer must have at least one accessor.
+        X_D(property_accessor_missing, _T("property or indexer \"%1%\" must have at least ")
+                                       _T("one accessor."))
+
         // Constructor method should no return type.
         X_D(constructor_method_should_no_return_type,
                                 _T("constructor method %1% should no return type"))
@@ -3206,15 +3210,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void property_ast_node_t::__generate_ignored_method_bodies(ast_walk_context_t & context,
                                                                param_t * value_param)
     {
-        #define __BodyIgnored(name)                                           \
-            (__property.name##_method != nullptr && __property.name##_method->body == nullptr)
+        #define __AccessorEmpty(name)                                           \
+            (__property.name##_method == nullptr)
 
-        if(__property.get_method != nullptr && __property.set_method != nullptr)
+        #define __BodyEmpty(name)                                               \
+            (__property.name##_method->body == nullptr)
+
+        #define __BodyIgnored(name)                                             \
+            (!__AccessorEmpty(name)  && __BodyEmpty(name))
+
+        if(__AccessorEmpty(get) && __AccessorEmpty(set))
         {
-            if((__property.get_method->body != nullptr) != (__property.set_method->body != nullptr))
+            this->__log(&__property, __c_t::property_accessor_missing, &__property);
+            return;
+        }
+
+        if(!__AccessorEmpty(get) && !__AccessorEmpty(set))
+        {
+            if(__BodyEmpty(get) != __BodyEmpty(set))
             {
                 this->__log(&__property, __c_t::property_method_body_missing,
-                    __property.get_method->body != nullptr? _T("set") : _T("get")
+                    __BodyEmpty(set)? _T("set") : _T("get")
                 );
 
                 return;
@@ -3267,6 +3283,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __property.set_method->body = body;
         }
 
+        #undef __AccessorEmpty
+        #undef __BodyEmpty
         #undef __BodyIgnored
     }
 

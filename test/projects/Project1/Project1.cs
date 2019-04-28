@@ -29,7 +29,7 @@ class Class1
         this.Value2 = value2;
     }
 
-    public int Value1 { get; private set; }
-    public int Value2 { get; private set; }
+    public int Value1 { get; set; }
+    public int Value2 { get; set; }
 };
 

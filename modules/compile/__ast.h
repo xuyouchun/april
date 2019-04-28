@@ -573,6 +573,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Property method body uniformity.
         property_method_body_missing,
 
+        // Property or indexer must have at least one accessor.
+        property_accessor_missing,
+
         // Attribute constructor not match.
         attribute_constructor_not_match,
 
