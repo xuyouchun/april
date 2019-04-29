@@ -1410,19 +1410,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Compiles method.
         res_t __compile_method(method_t * method)
         {
-            xil_pool_t pool;
             xil_buffer_t buffer;
+            xil_pool_t   pool;
 
-            method_compile_context_t ctx(this->__xpool, *this, pool, buffer, this->__logger);
+            method_compile_context_t ctx(this->__xpool, *this, buffer, pool, this->__logger);
             method->compile(ctx);
 
-            if(write_to_buffer(pool, buffer, method) == 0)
+            xil_buffer_writer_t writer(buffer, method);
+            writer.write(pool);
+
+            if(writer.empty())
                 return res_t::null;
 
             const byte_t * bytes = buffer.bytes();
             size_t size = buffer.size();
-
-            // std::wcout << _T("W: ") << buffer_t(bytes, size) << std::endl;
 
             return this->__heap.append_block(bytes, size);
         }

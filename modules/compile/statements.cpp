@@ -103,6 +103,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns whether the statement is empty.
+    X_ALWAYS_INLINE bool __is_empty_statement(__context_t & ctx, statement_t * statement)
+    {
+        if(statement == nullptr)
+            return true;
+
+        return statement->is_empty(ctx.xpool());
+    }
+
     // Compiles statement.
     void compile_statement(__context_t & ctx, statement_t * statement)
     {
@@ -120,6 +129,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 compile_statement(ctx, statement);
             }
         }
+    }
+
+    // Compiles statement with region.
+    template<typename _region_t>
+    void compile_statement_with_region(__context_t & ctx, statement_t * statement)
+    {
+        if(statement == nullptr)
+            return;
+
+        ctx.begin_region<_region_t>();
+        statement->compile(ctx);
+        ctx.end_region();
     }
 
     // Returns exit type of a statement.
@@ -274,6 +295,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return exit_type_of(ctx, &__statements);
     }
 
+    // Returns whether the statement is empty.
+    bool statement_group_t::is_empty(xpool_t & xpool)
+    {
+        for(statement_t * statement : __statements)
+        {
+            if(!statement->is_empty(xpool))
+                return false;
+        }
+
+        return true;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this expression statement.
@@ -287,6 +320,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __exit_type_t expression_statement_t::exit_type(__exit_type_context_t & ctx)
     {
         return __exit_type_t::pass;
+    }
+
+    // Returns whether the statement is empty.
+    bool expression_statement_t::is_empty(xpool_t & xpool)
+    {
+        return expression == nullptr || expression->is_empty(xpool);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -374,13 +413,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type.
     __exit_type_t defination_statement_t::exit_type(__exit_type_context_t & ctx)
     {
+        if(is_empty(ctx.xpool))
+            return __exit_type_t::none;
+
+        return __exit_type_t::pass;
+    }
+
+    // Returns whether the statement is empty.
+    bool defination_statement_t::is_empty(xpool_t & xpool)
+    {
         for(defination_statement_item_t * item : items)
         {
             if(item->expression != nullptr)
-                return __exit_type_t::pass;
+                return false;
         }
 
-        return __exit_type_t::none;
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -672,7 +720,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 append_xilx<expression_xilx_t>(ctx, increase);
 
             append_local_label(ctx, label_condition);
-            if(!(condition_value == true || condition == nullptr))
+            if(!(condition_value == true || condition != nullptr))
             {
                 append_condition(ctx, condition);
                 append_jmp(ctx, __exit_point_type_t::break_, xil_jmp_condition_t::false_);
@@ -1043,16 +1091,70 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    class __standalone_statement_region_t : public __statement_region_t< >
+    {
+        typedef __statement_region_t< > __super_t;
+
+    public:
+        __standalone_statement_region_t()
+            : __super_t(statement_region_behavior_t::standalone)
+        { }
+    };
+
+    typedef __statement_region_t< >         __try_statement_region_t;
+    typedef __standalone_statement_region_t __catch_statement_region_t;
+    typedef __standalone_statement_region_t __finally_statement_region_t;
+
     // Compiles this statement.
     void try_statement_t::compile(statement_compile_context_t & ctx)
     {
-        // TODO
+        if(__is_empty_statement(ctx, try_statement))
+        {
+            compile_statement(ctx, finally_statement);
+            return;
+        }
+
+        if(__is_empty_statement(ctx, finally_statement) && catches.empty())
+        {
+            compile_statement(ctx, try_statement);
+            return;
+        }
+
+        local_label_t label_try     = ctx.next_local_label();
+        local_label_t label_try_end = ctx.next_local_label();
+
+        // Compiles try statement.
+        append_local_label(ctx, label_try);
+        compile_statement_with_region<__try_statement_region_t>(ctx, try_statement);
+        append_local_label(ctx, label_try_end);
+
+        // Compiles catch statements.
+        for(catch_t * c : catches)
+        {
+            local_label_t label_catch     = ctx.next_local_label();
+            local_label_t label_catch_end = ctx.next_local_label();
+
+            append_local_label(ctx, label_catch);
+            compile_statement_with_region<__catch_statement_region_t>(ctx, c->body);
+            append_local_label(ctx, label_catch_end);
+        }
+
+        // Compiles finally statement.
+        if(!__is_empty_statement(ctx, finally_statement))
+        {
+            local_label_t label_finally     = ctx.next_local_label();
+            local_label_t label_finally_end = ctx.next_local_label();
+
+            append_local_label(ctx, label_finally);
+            compile_statement_with_region<__finally_statement_region_t>(ctx, finally_statement);
+            append_local_label(ctx, label_finally_end);
+        }
     }
 
     // Returns exit type.
     __exit_type_t try_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        X_UNEXPECTED();
+        //TODO: X_UNEXPECTED();
         return __exit_type_t::none;
     }
 
@@ -1068,6 +1170,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __exit_type_t empty_statement_t::exit_type(__exit_type_context_t & ctx)
     {
         return __exit_type_t::none;
+    }
+
+    // Returns whether the statement is empty.
+    bool empty_statement_t::is_empty(xpool_t & xpool)
+    {
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////

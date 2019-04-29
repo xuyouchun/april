@@ -247,16 +247,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_D(function_generic_args_redundance, _T("function generic arguments redundance"))
 
         // Unexpected variable defination.
-        X_D(unexpected_variable_defination, _T("variables cannot define here: \"%1%\""))
+        X_D(unexpected_variable_defination, _T("variables cannot be defined here: \"%1%\""))
 
         // Unexpected field defination.
-        X_D(unexpected_field_defination, _T("fields cannot define here: \"%1%\""))
+        X_D(unexpected_field_defination, _T("fields cannot be defined here: \"%1%\""))
 
         // Unexpected property defination.
-        X_D(unexpected_property_defination, _T("properties cannot define here: \"%1%\""))
+        X_D(unexpected_property_defination, _T("properties cannot be defined here: \"%1%\""))
 
         // Unexpected param defination.
-        X_D(unexpected_param_defination, _T("parameters cannot define here: \"%1%\""))
+        X_D(unexpected_param_defination, _T("parameters cannot be define hered: \"%1%\""))
 
         // Unexpected import.
         X_D(unexpected_import, _T("unexpected import \"%1%\""))
@@ -2018,37 +2018,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return &__statement;
     }
 
+    ////////// ////////// ////////// ////////// //////////
+
     // Walks this node.
     void defination_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.type_name, this, __c_t::type_name_missing,
                                                         _T("variable defination"));
 
-        variable_region_t * region = context.current_region();
-        if(region == nullptr)
+        variable_defination_t vd(this->__context, context, &__statement);
+
+        for(defination_statement_item_t * var_item : __statement.items)
         {
-            this->__log(&__statement, __c_t::unexpected_variable_defination,
-                                                    (string_t)__statement);
-        }
-        else
-        {
-            for(defination_statement_item_t * var_item : __statement.items)
-            {
-                try
-                {
-                    var_item->variable = region->define_local(
-                        __statement.type_name, var_item->name
-                    );
-                }
-                catch(const logic_error_t<ast_error_t> & e)
-                {
-                    if(e.code == ast_error_t::variable_duplicated)
-                    {
-                        this->__log(var_item, __c_t::variable_defination_duplicate,
-                                                        (string_t)var_item->name);
-                    }
-                }
-            }
+            var_item->variable = vd.define_local(__statement.type_name, var_item->name, var_item);
         }
 
         __super_t::on_walk(context, step, tag);
@@ -2448,7 +2430,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void try_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-
         if(__statement.catches.empty() && __statement.finally_statement == nullptr)
         {
             this->__log(this, __c_t::catch_or_finally_missing);
@@ -2486,6 +2467,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if(__catch.type_name == nullptr && !__catch.variable.empty())
         {
             this->__log(__variable_el, __c_t::type_name_missing, _T("catch statement"));
+        }
+        else
+        {
+            variable_defination_t vd(this->__context, context, __variable_el);
+            vd.define_local(__catch.type_name, __catch.variable);
         }
 
         __super_t::on_walk(context, step, tag);
@@ -2926,13 +2912,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 _F(_T("field %1%"), _str(__field.name)));
         this->__check_empty(__field.name, this, __c_t::name_empty, _T("field"));
 
-        variable_region_t * region = context.current_region();
-        field_t * field = to_eobject();
-
-        if(region == nullptr)
-            this->__log(field, __c_t::unexpected_field_defination, _str(field));
-        else
-            region->define_field(field);
+        variable_defination_t vd(this->__context, context, &__field);
+        vd.define_field(&__field);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3044,28 +3025,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if(__method.params && !__method.params->empty())
         {
-            variable_region_t * region = context.current_region();
+            variable_defination_t vd(this->__context, context, &__method);
+
             for(param_t * param : *__method.params)
             {
-                if(region == nullptr)
-                {
-                    this->__log(param, __c_t::unexpected_param_defination, _str(param));
-                }
-                else
-                {
-                    try
-                    {
-                        region->define_param(param);
-                    }
-                    catch(const logic_error_t<ast_error_t> & e)
-                    {
-                        if(e.code == ast_error_t::variable_duplicated)
-                        {
-                            this->__log(param, __c_t::variable_defination_duplicate,
-                                                            (string_t)param->name);
-                        }
-                    }
-                }
+                vd.define_param(param);
             }
 
             switch(__method.trait)
@@ -3196,10 +3160,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         variable_region_t * region = context.current_region();
 
-        if(region == nullptr)
-            this->__log(&__property, __c_t::unexpected_property_defination, _str(&__property));
-        else if(!__property.is_index())
-            region->define_property(&__property);
+        variable_defination_t vd(this->__context, context, &__property);
+        vd.define_property(&__property);
 
         context.push(this->to_eobject());
         __super_t::on_walk(context, step, tag);

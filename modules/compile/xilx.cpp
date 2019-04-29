@@ -7,6 +7,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     using namespace xil;
 
     typedef statement_compile_context_t __sctx_t;
+    typedef xilx_write_context_t        __xw_context_t;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -386,7 +387,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Writes assign xils.
-    void local_assign_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
         write_assign_xil(ctx, pool, local);
     }
@@ -394,7 +395,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Writes ret xil.
-    void return_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void return_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
         xil::append_ret(pool);
     }
@@ -403,13 +404,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // expression_xilx_t
 
     // Writes xils to pool.
-    void expression_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void expression_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
         __compile(ctx, pool, __expression);
     }
 
     // Compiles xilx.
-    void expression_xilx_t::__compile(__context_t & ctx, xil_pool_t & pool,
+    void expression_xilx_t::__compile(__xw_context_t & ctx, xil_pool_t & pool,
                                                     expression_t * expression)
     {
         expression_compile_context_t exp_ctx(ctx);
@@ -420,7 +421,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // label_xilx_t
 
     // Writes xils to pool.
-    void global_label_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void global_label_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
 
     }
@@ -428,37 +429,37 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Writes local label xils to pool.
-    void local_label_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void local_label_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
         xil_t * xil = append_label_xil(pool);
-        ctx.jmp_manager.set_point(flag, xil);
+        ((__sctx_t &)ctx).jmp_manager.set_point(flag, xil);
     }
 
     ////////// ////////// ////////// ////////// //////////
     // jmp_xilx_t
 
-    void point_jmp_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void point_jmp_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
         statement_point_t * point = __region.get_point(point_type);
         _A(point != nullptr);
 
         __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_condition);
-        ctx.jmp_manager.append_jmp(xil, point->to_position());
+        ((__sctx_t &)ctx).jmp_manager.append_jmp(xil, point->to_position());
     }
 
     //-------- ---------- ---------- ---------- ----------
 
     // Writes xils to pool.
-    void local_label_jmp_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void local_label_jmp_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
         __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_condition);
-        ctx.jmp_manager.append_jmp(xil, label);
+        ((__sctx_t &)ctx).jmp_manager.append_jmp(xil, label);
     }
 
     //-------- ---------- ---------- ---------- ----------
 
     // Writes xils to pool.
-    void global_label_jmp_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void global_label_jmp_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
 
     }
@@ -466,7 +467,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Writes xils to pool.
-    void switch_jmp_xilx_t::write(__context_t & ctx, xil_pool_t & pool)
+    void switch_jmp_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
         __switch_xil_t * xil = pool.append<__switch_xil_t>(table->index);
         table->jmp_xil = xil;

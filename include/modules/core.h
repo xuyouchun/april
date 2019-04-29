@@ -20,6 +20,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     class xpool_t;
+    class statement_compile_context_t;
+    class method_compile_context_t;
+    class statement_region_t;
+
     typedef int16_t element_value_t;
 
     // Core assembly name.
@@ -1541,8 +1545,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    class statement_compile_context_t;
-
     // Statement eobject.
     X_INTERFACE statement_t : eobject_t
     {
@@ -1551,6 +1553,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns exit type of this statement.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) = 0;
+
+        // Returns whether the statement is empty.
+        virtual bool is_empty(xpool_t & xpool) = 0;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2509,6 +2514,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Method stub type. Components of method.
     X_ENUM(method_stub_type_t)
 
+        // Empty.
         empty           = __default__,
 
         // Variable definations.
@@ -2516,6 +2522,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Switch-case table.
         switch_table    = 2,
+
+        // Xil blocks.
+        xil_block       = 3,
 
         // commands.
         xil             = 15,
@@ -2544,6 +2553,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Write the method stub to a buffer.
         void write(xil_buffer_t & buffer);
     };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     namespace
     {
@@ -2577,6 +2588,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         };
     }
 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     // Method variable stub.
     struct method_variable_stub_t : __t_count_method_stub_t<method_stub_type_t::variable>
     {
@@ -2584,12 +2597,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         using __super_t::__super_t;
     };
 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     // Method switch-case table stub.
     struct method_switch_table_stub_t : __t_count_method_stub_t<method_stub_type_t::switch_table>
     {
         typedef __t_count_method_stub_t<method_stub_type_t::switch_table> __super_t;
         using __super_t::__super_t;
     };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     typedef int local_label_t;
 
@@ -2606,6 +2623,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         local_label_t label;
     };
 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     // Switch-case table header.
     struct switch_table_header_t
     {
@@ -2617,6 +2636,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         uint16_t    count;
         uint16_t    __reserved__;
     };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Switch table.
     struct switch_table_t : switch_table_header_t
@@ -2652,6 +2673,45 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void write(xil_buffer_t & buffer);
     };
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Method xil block stub.
+    struct method_xil_block_stub_t : __t_count_method_stub_t<method_stub_type_t::xil_block>
+    {
+        typedef __t_count_method_stub_t<method_stub_type_t::xil_block> __super_t;
+
+        using __super_t::__super_t;
+    };
+
+    // Xil block types.
+    X_ENUM(method_xil_block_type_t)
+
+        // Main block.
+        main                = __default__,
+
+        // When specified exception raised.
+        catch_,
+
+        // When leaved from protected block.
+        finally_,
+
+    X_ENUM_END
+
+    // Method xil block.
+    struct method_xil_block_t
+    {
+        method_xil_block_type_t type = method_xil_block_type_t::__default__;
+        int8_t      __reserved_1__  = 0;
+        int16_t     __reserved_2__  = 0;
+
+        int32_t     xil_index   = 0;
+        int32_t     xil_length  = 0;
+
+        ref_t       exception_type = ref_t::null;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Method xil stub.
     struct method_xil_stub_t : __t_method_stub_t<method_stub_type_t::xil>
     {
@@ -2659,8 +2719,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     //-------- ---------- ---------- ---------- ----------
-
-    class method_compile_context_t;
 
     // Switch-case manager.
     class switch_manager_t : public object_t, public no_copy_ctor_t
@@ -2704,20 +2762,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Context for compile a method.
-    class method_compile_context_t : public object_t
+    class method_compile_context_t : public object_t, public no_copy_ctor_t
     {
     public:
 
         // Constructors.
         method_compile_context_t(xpool_t & xpool, __assembly_layout_t & layout,
-                 xil_pool_t & xil_pool, xil_buffer_t & buffer, logger_t & logger)
-            : xil_pool(xil_pool), layout(layout), xpool(xpool), buffer(buffer), logger(logger)
+                             xil_buffer_t & buffer, xil_pool_t & xil_pool, logger_t & logger)
+            : layout(layout), xpool(xpool), xil_pool(xil_pool), buffer(buffer), logger(logger)
         { }
 
         xpool_t &               xpool;
         __assembly_layout_t &   layout;
-        xil_pool_t &            xil_pool;
         xil_buffer_t &          buffer;
+        xil_pool_t &            xil_pool;
         logger_t &              logger;
     };
 
@@ -5235,8 +5293,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    class statement_compile_context_t;
-
     // Context for compile an expression.
     class expression_compile_context_t : public object_t
     {
@@ -5315,6 +5371,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             throw _unimplemented_error(this, _T("compile"));
         }
+
+        // Returns whether it's do nothing.
+        virtual bool is_empty(xpool_t & xpool) { return false; }
 
         // Returns vtype.
         virtual vtype_t get_vtype() const
@@ -6524,16 +6583,41 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    class statement_compile_context_t;
+    // Context for write xilx.
+    class xilx_write_context_t : public object_t, public no_copy_ctor_t
+    {
+        typedef object_t __super_t;
+
+    public:
+
+        // Constructor.
+        xilx_write_context_t(statement_compile_context_t & sc_context, statement_region_t * region)
+            : sc_context(sc_context)
+        {
+            if(region != nullptr)
+                regions.push(region);
+        }
+
+        // Statement copile context.
+        statement_compile_context_t & sc_context;
+
+        // Converts to statement context.
+        operator statement_compile_context_t & () const { return sc_context; }
+
+        // Standalone regions.
+        std::queue<statement_region_t *> regions;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
 
     // Interface for xilx.
     X_INTERFACE xilx_t : object_t
     {
         // Write to a pool.
-        virtual void write(statement_compile_context_t & ctx, xil_pool_t & pool) = 0;
+        virtual void write(xilx_write_context_t & ctx, xil_pool_t & pool) = 0;
 
         // Converts to a string.
-        virtual const string_t to_string() const override { return _T("xil"); }
+        virtual const string_t to_string() const override { return _T("xilx"); }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -6547,21 +6631,35 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Statement region behavior.
+    X_ENUM(statement_region_behavior_t)
+
+        // Normal.
+        normal         = __default__,
+
+        // Standalone.
+        standalone,
+
+    X_ENUM_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Statement region.
     class statement_region_t : public object_t
     {
         typedef statement_exit_point_type_t __point_type_t;
+        typedef statement_region_behavior_t __behavior_t;
 
     public:
 
         // Constructor.
-        statement_region_t();
+        statement_region_t(__behavior_t behavior = __behavior_t::normal);
 
         // Parent region.
         statement_region_t * parent = nullptr;
 
-        // Append a xilx.
-        void append_xilx(xilx_t * xilx);
+        // Behavior.
+        __behavior_t behavior;
 
         // Sets point with point type.
         virtual void set_point(__point_type_t point_type, statement_point_t * point);
@@ -6575,9 +6673,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             al::for_each(__xilxes, f);
         }
 
+        // Append a xilx.
+        void append_xilx(xilx_t * xilx)
+        {
+            _A(xilx != nullptr);
+            __xilxes.push_back(xilx);
+        }
+
     private:
-        al::svector_t<xilx_t *, 10> __xilxes;
         statement_point_t * __points[(size_t)__point_type_t::__end__];
+        al::svector_t<xilx_t *, 16> __xilxes;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -6594,7 +6699,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Write to a pool.
-        virtual void write(statement_compile_context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(xilx_write_context_t & ctx, xil_pool_t & pool) override;
 
         // Converts to a string.
         virtual const string_t to_string() const override
@@ -6759,7 +6864,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Context for compile statements.
-    class statement_compile_context_t : public object_t
+    class statement_compile_context_t : public object_t, public no_copy_ctor_t
     {
         typedef statement_exit_point_type_t __point_type_t;
 
@@ -6785,6 +6890,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             return region;
         }
+
+        // Converts to method compile context.
+        operator method_compile_context_t & () const { return mctx; }
 
         // Completes a region.
         statement_region_t * end_region();

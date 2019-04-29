@@ -22,7 +22,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Base class of statement.
     class statement_base_t : public statement_t
     {
-
+        // Returns whether the statement is empty.
+        virtual bool is_empty(xpool_t & xpool) override { return false; }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -43,6 +44,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        // Returns whether the statement is empty.
+        virtual bool is_empty(xpool_t & xpool) override;
 
     private:
         __statements_t __statements;
@@ -68,6 +72,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        // Returns whether the statement is empty.
+        virtual bool is_empty(xpool_t & xpool) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -88,6 +95,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        // Returns whether the statement is empty.
+        virtual bool is_empty(xpool_t & xpool) override { return true; }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -146,6 +156,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        // Returns whether the statement is empty.
+        virtual bool is_empty(xpool_t & xpool) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -494,6 +507,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        // Returns whether the statement is empty.
+        virtual bool is_empty(xpool_t & xpool) override;
     };
 
     ////////// ////////// ////////// ////////// //////////

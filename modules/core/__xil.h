@@ -1580,11 +1580,33 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class xil_pool_t;
     class xil_buffer_t;
 
-    // Writes xils to buffer.
-    size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer);
+    // Xil buffer writer.
+    class xil_buffer_writer_t : public object_t
+    {
+    public:
 
-    // Writes xils to buffer.
-    size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer, method_t * method);
+        // Constructor.
+        xil_buffer_writer_t(xil_buffer_t & buffer, method_t * method);
+
+        // Writes to buffer.
+        size_t write(xil_pool_t & pool);
+
+        // Returns total size.
+        size_t size() const { return __size; }
+
+        // Returns whether it's empty.
+        bool empty() const { return __size == 0; }
+
+    private:
+        xil_buffer_t &  __buffer;
+        method_t *      __method;
+        size_t          __size = 0;
+
+        bool            __traced_method = false;
+
+        // Prints trace message.
+        void __trace_method();
+    };
 
     // Returns command of a xil.
     X_INLINE xil_command_t command_of(const xil_t * xil)

@@ -64,6 +64,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
         }
 
+        // Enums xil blocks.
+        template<typename f_t> void each_xil_block(f_t f)
+        {
+            method_xil_block_stub_t * stub = __read_stub<method_xil_block_stub_t>();
+            if(stub == nullptr)
+                return;
+
+            int tbl_count = stub->count();
+
+            for(int k = 0; k < tbl_count; k++)
+            {
+                
+            }
+        }
+
         // Enums all xils.
         template<typename f_t> void each_xil(f_t f)
         {

@@ -1278,6 +1278,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Method stub type. Components of method.
+    X_ENUM_INFO(method_xil_block_type_t)
+
+        // Main block.
+        X_C(main,           _T("main"))
+
+        // When specified exception raised.
+        X_C(catch_,         _T("catch"))
+
+        // When leaved from protected block.
+        X_C(finally_,       _T("finally"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Member families
     X_ENUM_INFO(member_family_t)
 
@@ -1317,9 +1333,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if(region->parent != nullptr)
             throw _EC(unexpected, _T("region stack error"));
 
-        region->each([&sctx, &mctx](xilx_t * xilx) {
-            xilx->write(sctx, mctx.xil_pool);
-        });
+        xilx_write_context_t xw_ctx(sctx, region);
+
+        while(!xw_ctx.regions.empty())
+        {
+            statement_region_t * region = al::queue_pop(xw_ctx.regions);
+            region->each([&xw_ctx, &mctx](xilx_t * xilx) {
+                xilx->write(xw_ctx, mctx.xil_pool);
+            });
+        }
 
         mctx.xil_pool.commit();
         sctx.jmp_manager.commit(sctx);
@@ -5347,18 +5369,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    X_ENUM_INFO(statement_region_behavior_t)
+
+        // Normal
+        X_C(normal,             _T("normal"))
+
+        // Standalone.
+        X_C(standalone,         _T("standalone"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Constructor
-    statement_region_t::statement_region_t()
+    statement_region_t::statement_region_t(__behavior_t behavior)
+        : behavior(behavior)
     {
         al::zero_array(__points);
-    }
-
-    // Appends a xilx.
-    void statement_region_t::append_xilx(xilx_t * xilx)
-    {
-        _A(xilx != nullptr);
-
-        __xilxes.push_back(xilx);
     }
 
     // Sets point with point type.
@@ -5376,11 +5403,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Writes region xilx to a pool.
-    void region_xilx_t::write(statement_compile_context_t & ctx, xil_pool_t & pool)
+    void region_xilx_t::write(xilx_write_context_t & ctx, xil_pool_t & pool)
     {
-        __region->each([&ctx, &pool](xilx_t * xilx) {
-            xilx->write(ctx, pool);
-        });
+        switch(__region->behavior)
+        {
+            case statement_region_behavior_t::normal:
+                __region->each([&ctx, &pool](xilx_t * xilx) {
+                    xilx->write(ctx, pool);
+                });
+                break;
+
+            case statement_region_behavior_t::standalone:
+                ctx.regions.push(__region);
+                break;
+
+            default:
+                X_UNEXPECTED();
+        }
     }
 
     //-------- ---------- ---------- ---------- ----------

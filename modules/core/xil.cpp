@@ -4,7 +4,7 @@
 namespace X_ROOT_NS { namespace modules { namespace core {
 
     #define __TraceXilRead      0
-    #define __TraceXilWrite     0
+    #define __TraceXilWrite     1
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -845,13 +845,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Writes xils to a buffer.
-    size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer)
+    // Constructor.
+    xil_buffer_writer_t::xil_buffer_writer_t(xil_buffer_t & buffer, method_t * method)
+        : __buffer(buffer), __method(method)
     {
-        method_xil_stub_t stub;
-        stub.write(buffer);
+        _A(method != nullptr);
+    }
 
-        size_t init_size = buffer.size();
+    // Writes xils to a buffer.
+    size_t xil_buffer_writer_t::write(xil_pool_t & pool)
+    {
+        __trace_method();
+
+        method_xil_stub_t stub;
+        stub.write(__buffer);
+
+        size_t init_size = __buffer.size();
 
         for(xil_t * xil : pool)
         {
@@ -861,22 +870,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             #endif
 
-            buffer.write((const byte_t *)xil, __size_of(xil));
+            __buffer.write((const byte_t *)xil, __size_of(xil));
         }
 
-        return buffer.size() - init_size;
+        size_t size = __buffer.size() - init_size;
+        __size += size;
+
+        return size;
     }
 
-    // Writes xils to a buffer.
-    size_t write_to_buffer(xil_pool_t & pool, xil_buffer_t & buffer, method_t * method)
+    void xil_buffer_writer_t::__trace_method()
     {
         #if __TraceXilWrite
 
-        _PF(_T("\n%1%"), method);
+        if(!__traced_method)
+        {
+            _PF(_T("\n%1%"), __method);
+            __traced_method = true;
+        }
 
         #endif
-
-        return write_to_buffer(pool, buffer);
     }
 
     ////////// ////////// ////////// ////////// //////////

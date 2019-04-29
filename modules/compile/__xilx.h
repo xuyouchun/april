@@ -8,7 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         using namespace core;
 
-        typedef statement_compile_context_t __context_t;
+        typedef xilx_write_context_t        __xw_context_t;
         typedef statement_region_t          __region_t;
         typedef statement_exit_point_type_t __exit_point_type_t;
 
@@ -64,7 +64,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __super_t(region), flag(flag) { }
 
         // Writes xil to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         // Converts to a string.
         virtual const string_t to_string() const override
@@ -93,7 +93,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __super_t(region), name(name) { }
 
         // Writes to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         // Converts to a string.
         virtual const string_t to_string() const override
@@ -122,7 +122,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Writes xil to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         // Converts to a string.
         virtual const string_t to_string() const override
@@ -147,7 +147,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return_xilx_t(__region_t & region) : __super_t(region) { }
 
         // Writes xilx to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         // Converts to a string.
         virtual const string_t to_string() const override
@@ -171,7 +171,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __super_t(region), __expression(expression) { }
 
         // Writes xils to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         // Converts to a string.
         virtual const string_t to_string() const override
@@ -183,7 +183,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         expression_t * __expression;
 
         // Compiles.
-        void __compile(__context_t & ctx, xil_pool_t & pool, expression_t * expression);
+        void __compile(__xw_context_t & ctx, xil_pool_t & pool, expression_t * expression);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -216,7 +216,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __super_t(region), point_type(point_type), jmp_condition(jmp_condition) { }
 
         // Writes xils to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         __exit_point_type_t point_type;
         xil_jmp_condition_t jmp_condition;
@@ -243,7 +243,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __super_t(region), label(label), jmp_condition(jmp_condition) { }
 
         // Writes xils to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         local_label_t label;
         xil_jmp_condition_t jmp_condition;
@@ -270,7 +270,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __super_t(region), label(label), jmp_condition(jmp_condition) { }
 
         // Writes xils to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         name_t label;
         xil_jmp_condition_t jmp_condition;
@@ -299,7 +299,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Writes xils to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         switch_table_t * table;
 
@@ -325,7 +325,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
 
         // Writes xils to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         res_t  res;
 
@@ -351,7 +351,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
 
         // Writes xils to a pool.
-        virtual void write(__context_t & ctx, xil_pool_t & pool) override;
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         xil_type_t dtype;
 

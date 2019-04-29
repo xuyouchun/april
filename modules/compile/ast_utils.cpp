@@ -3,6 +3,8 @@
 
 namespace X_ROOT_NS { namespace modules { namespace compile {
 
+    typedef common_log_code_t __c_t;
+
     // Ascertains type.
     type_t * __ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx, name_t name);
 
@@ -1314,6 +1316,113 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return _str(atype);
         });
     }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Defines local variable.
+    local_variable_t * variable_defination_t::define_local(type_name_t * type_name,
+                                                           name_t name, __code_element_t element)
+    {
+        _A(type_name != nullptr);
+
+        if(__region == nullptr)
+        {
+            __log(__c_t::unexpected_variable_defination, _str(name));
+            return nullptr;
+        }
+
+        try
+        {
+            return __region->define_local(type_name, name);
+        }
+        catch(const logic_error_t<ast_error_t> & e)
+        {
+            __deal_error(e, name, element);
+            return nullptr;
+        }
+    }
+
+    // Defines param variable.
+    param_variable_t * variable_defination_t::define_param(param_t * param)
+    {
+        _A(param != nullptr);
+
+        if(__region == nullptr)
+        {
+            __log(__c_t::unexpected_param_defination, _str(param));
+            return nullptr;
+        }
+
+        try
+        {
+            return __region->define_param(param);
+        }
+        catch(const logic_error_t<ast_error_t> & e)
+        {
+            __deal_error(e, param->name, param);
+            return nullptr;
+        }
+    }
+
+    // Defines field variable.
+    field_variable_t * variable_defination_t::define_field(field_t * field)
+    {
+        _A(field != nullptr);
+
+        if(__region == nullptr)
+        {
+            __log(__c_t::unexpected_field_defination, _str(field));
+            return nullptr;
+        }
+
+        try
+        {
+            return __region->define_field(field);
+        }
+        catch(const logic_error_t<ast_error_t> & e)
+        {
+            __deal_error(e, field->name, field);
+            return nullptr;
+        }
+    }
+
+    // Defines property variable.
+    property_variable_t * variable_defination_t::define_property(property_t * property)
+    {
+        _A(property != nullptr);
+
+        if(__region == nullptr)
+        {
+            __log(__c_t::unexpected_property_defination, _str(property));
+            return nullptr;
+        }
+
+        try
+        {
+            return __region->define_property(property);
+        }
+        catch(const logic_error_t<ast_error_t> & e)
+        {
+            __deal_error(e, property->name, property);
+            return nullptr;
+        }
+    }
+
+    // Deals defination error.
+    void variable_defination_t::__deal_error(const logic_error_t<ast_error_t> & e,
+                                            name_t name, __code_element_t element)
+    {
+        switch(e.code)
+        {
+            case ast_error_t::variable_duplicated:
+                __log(__c_t::variable_defination_duplicate, (string_t)name, element);
+                break;
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
 
     ////////// ////////// ////////// ////////// //////////
 
