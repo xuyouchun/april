@@ -157,6 +157,52 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // throw_xilx_t
+
+    // Throw xilx.
+    class throw_xilx_t : public xilx_base_t
+    {
+        typedef xilx_base_t __super_t;
+
+    public:
+
+        // Consturctor.
+        throw_xilx_t(__region_t & region) : __super_t(region) { }
+
+        // Writes xilx to a pool.
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
+
+        // Converts to a string.
+        virtual const string_t to_string() const override
+        {
+            return _T("throw");
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // rethrow_xilx_t
+
+    // Rethrow xilx.
+    class rethrow_xilx_t : public xilx_base_t
+    {
+        typedef xilx_base_t __super_t;
+
+    public:
+
+        // Consturctor.
+        rethrow_xilx_t(__region_t & region) : __super_t(region) { }
+
+        // Writes xilx to a pool.
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
+
+        // Converts to a string.
+        virtual const string_t to_string() const override
+        {
+            return _T("rethrow");
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // expression_xilx_t
 
     // Expression xilx.
@@ -443,6 +489,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Writes return xil.
         smp_xil_t * append_ret(xil_pool_t & pool);
+
+        // Writes throw xil.
+        smp_xil_t * append_throw(xil_pool_t & pool);
+
+        // Writes rethrow xil.
+        smp_xil_t * append_rethrow(xil_pool_t & pool);
     }
 
     ////////// ////////// ////////// ////////// //////////

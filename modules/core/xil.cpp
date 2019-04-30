@@ -275,6 +275,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(ret,            _T("ret"))
 
+        X_C(throw_,         _T("throw"))
+
+        X_C(rethrow,        _T("rethrow"))
+
+        X_C(leave,          _T("leave"))
+
+        X_C(end_block,      _T("end_block"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

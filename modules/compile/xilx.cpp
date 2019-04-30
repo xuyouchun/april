@@ -140,6 +140,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return pool.append<smp_xil_t>(xil_smp_t::ret);
     }
 
+    // Append throw xil.
+    smp_xil_t * xil::append_throw(xil_pool_t & pool)
+    {
+        return pool.append<smp_xil_t>(xil_smp_t::throw_);
+    }
+
+    // Append rethrow xil.
+    smp_xil_t * xil::append_rethrow(xil_pool_t & pool)
+    {
+        return pool.append<smp_xil_t>(xil_smp_t::rethrow);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // local_assign_xilx_t
 
@@ -424,6 +436,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void return_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
         xil::append_ret(pool);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Writes throw xil.
+    void throw_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
+    {
+        xil::append_throw(pool);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Writes rethrow xil.
+    void rethrow_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
+    {
+        xil::append_rethrow(pool);
     }
 
     ////////// ////////// ////////// ////////// //////////

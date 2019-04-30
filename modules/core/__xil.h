@@ -209,6 +209,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         ret             = 2,        // Return
 
+        throw_          = 3,        // Throw exceptions.
+
+        rethrow         = 4,        // Rethrow exceptions.
+
+        leave           = 5,        // Leave from protected codes. ( try block )
+
+        end_block       = 6,        // At the end of catch/finally blocks.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------

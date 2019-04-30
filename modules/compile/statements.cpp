@@ -93,13 +93,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         //-------- ---------- ---------- ---------- ----------
 
-        // Appends condition.
-        void append_condition(__context_t & ctx, expression_t * condition)
+        // Appends expression.
+        void append_expression(__context_t & ctx, expression_t * expression)
         {
-            if(condition != nullptr)
+            if(expression != nullptr)
             {
-                set_assign_parent(condition);
-                append_xilx<expression_xilx_t>(ctx, condition);
+                set_assign_parent(expression);
+                append_xilx<expression_xilx_t>(ctx, expression);
             }
         }
     }
@@ -465,7 +465,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this statement.
     void throw_statement_t::compile(statement_compile_context_t & ctx) 
     {
-        // TODO:
+        if(expression != nullptr)
+        {
+            append_expression(ctx, expression);
+            append_xilx<throw_xilx_t>(ctx);
+        }
+        else
+        {
+            append_xilx<rethrow_xilx_t>(ctx);
+        }
     }
 
     // Returns exit type.
@@ -494,10 +502,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void return_statement_t::compile(statement_compile_context_t & ctx) 
     {
         if(expression != nullptr)
-        {
-            set_assign_parent(expression);
-            append_xilx<expression_xilx_t>(ctx, expression);
-        }
+            append_expression(ctx, expression);
 
         append_xilx<return_xilx_t>(ctx);
     }
@@ -535,7 +540,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else
         {
-            append_condition(ctx, condition);
+            append_expression(ctx, condition);
             append_jmp(ctx, __exit_point_type_t::continue_, xil_jmp_condition_t::true_);
         }
 
@@ -590,7 +595,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else
         {
-            append_condition(ctx, condition);
+            append_expression(ctx, condition);
             append_jmp(ctx, __exit_point_type_t::continue_, xil_jmp_condition_t::false_);
         }
 
@@ -643,7 +648,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if(!(condition_value == true || condition == nullptr))
         {
-            append_condition(ctx, condition);
+            append_expression(ctx, condition);
             append_jmp(ctx, __exit_point_type_t::break_, xil_jmp_condition_t::false_);
         }
 
@@ -723,7 +728,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             append_local_label(ctx, label_condition);
             if(!(condition_value == true || condition != nullptr))
             {
-                append_condition(ctx, condition);
+                append_expression(ctx, condition);
                 append_jmp(ctx, __exit_point_type_t::break_, xil_jmp_condition_t::false_);
             }
 
@@ -804,7 +809,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if(condition != nullptr)
             {
-                append_condition(ctx, condition);
+                append_expression(ctx, condition);
                 append_jmp(ctx, label_else, xil_jmp_condition_t::false_);
             }
 
@@ -879,7 +884,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void switch_statement_t::__compile_as_switch(statement_compile_context_t & ctx, int row_count)
     {
         ctx.begin_region<__switch_statement_region_t>();
-        append_condition(ctx, expression);
+        append_expression(ctx, expression);
 
         switch_table_t * tbl = ctx.switch_manager.append_table(row_count);
         __append_switch(ctx, tbl);
@@ -1068,7 +1073,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 local_label_t label_else = ctx.next_local_label();
 
-                append_condition(ctx, condition);
+                append_expression(ctx, condition);
                 append_jmp(ctx, label_else, xil_jmp_condition_t::false_);
 
                 compile_statements(ctx, if_statements);
