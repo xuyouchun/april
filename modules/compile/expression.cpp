@@ -12,6 +12,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    void __compile_cvalue(__cctx_t & ctx, xil_pool_t & pool, cvalue_t cvalue);
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Returns host type of a member.
     static type_t * __get_host_type(member_t * member)
     {
@@ -646,6 +650,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return type;
     }
 
+    // Executes the expression, returns nan when it is not a constant value.
+    static cvalue_t __execute_expression(__cctx_t & ctx, expression_t * exp)
+    {
+        _A(exp != nullptr);
+
+        expression_execute_context_t e_ctx(ctx.statement_ctx.xpool());
+        return exp->execute(e_ctx);
+    }
+
+    // Tries compile expression if it's a constant value.
+    // Returns false when compile failed. ( not a constant value. )
+    static bool __try_compile_constant_expression(__cctx_t & ctx, xil_pool_t & pool,
+                                                           expression_t * expression)
+    {
+        cvalue_t cvalue = __execute_expression(ctx, expression);
+        if(!is_nan(cvalue))
+        {
+            if(is_effective(expression))
+                __compile_cvalue(ctx, pool, cvalue);
+
+            return true;
+        }
+
+        return false;
+    }
+
     // Compile assign argument.
     struct __compile_assign_t
     {
@@ -1129,6 +1159,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles binary expression.
     void __sys_t<binary_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool)
     {
+        if(__try_compile_constant_expression(ctx, pool, this))
+            return;
+
         expression_t * exp1 = expression_at(0), * exp2 = expression_at(1);
 
         _A(exp1 != nullptr);
@@ -1240,6 +1273,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles unitary expression.
     void __sys_t<unitary_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool)
     {
+        if(__try_compile_constant_expression(ctx, pool, this))
+            return;
+
         expression_t * exp = expression_at(0);
         _A(exp != nullptr);
 

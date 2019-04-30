@@ -588,6 +588,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_smp_t::ret:
                 return _T("ret");
 
+            case xil_smp_t::throw_:
+                return _T("throw");
+
+            case xil_smp_t::rethrow:
+                return _T("rethrow");
+
+            case xil_smp_t::leave:
+                return _T("leave");
+
+            case xil_smp_t::end_block:
+                return _T("end block");
+
             default:
                 return _T("smp: ?");
         }

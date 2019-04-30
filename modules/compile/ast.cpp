@@ -378,6 +378,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Array initializer error.
         X_D(array_initializer_error, _T("array initializer error: %1%"))
 
+        // Invalid initialize value.
+        X_D(invalid_initialize_value, _T("Invalid initialize value \"%1%\""))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -1408,6 +1411,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class __method_utils_t : public __utils_t
     {
         typedef __utils_t __super_t;
+        typedef al::svector_t<statement_t *, 16> __statements_t;
 
     public:
 
@@ -1420,7 +1424,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void revise_constructor(method_t & method, arguments_t * args, __el_t * node = nullptr)
         {
             method_t * base_ctor = __get_base_contructor(args, node);
-            al::svector_t<statement_t *, 16> statements;
+            __statements_t statements;
 
             // super ctor
             if(base_ctor != nullptr)
@@ -1430,25 +1434,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 ));
             }
 
-            // fields initialize
-            type_t * type = __wctx.current_type();
-            _A(type != nullptr);
+            // Initialize fields.
+            __init_fields(statements, method);
 
-            analyze_members_args_t members_args(member_type_t::field, name_t::null);
-            type->get_members(members_args);
-
-            for(member_t * member : members_args.out_members)
-            {
-                field_t * field = (field_t *)member;
-                expression_t * init_exp = field->init_value;
-                if(init_exp == nullptr)
-                    init_exp = __new_system_expression<default_value_expression_t>(field->type_name);
-
-                statements.push_back(__new_expression_statement<binary_expression_t>(
-                    operator_t::assign, __new_field_expression(field), init_exp
-                ));
-            }
-
+            // Appends to method body.
             if(statements.size() > 0)
             {
                 if(method.body == nullptr)
@@ -1482,6 +1471,47 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->__log(node, __c_t::constructor_method_not_found, base_type, args);
 
             return ctor;
+        }
+
+        // Initialize fields.
+        void __init_fields(__statements_t & statements, method_t & method)
+        {
+            // fields initialize
+            type_t * type = __wctx.current_type();
+            _A(type != nullptr);
+
+            analyze_members_args_t members_args(member_type_t::field, name_t::null);
+            type->get_members(members_args);
+
+            for(member_t * member : members_args.out_members)
+            {
+                field_t * field = (field_t *)member;
+                expression_t * init_exp = field->init_value;
+                type_t * field_type = to_type(field->type_name);
+
+                if(field_type != nullptr && __check_default_value(field_type, init_exp))
+                {
+                    statements.push_back(__new_expression_statement<binary_expression_t>(
+                        operator_t::assign, __new_field_expression(field), init_exp
+                    ));
+                }
+            }
+        }
+
+        // Returns whether it's a default value of specified type.
+        bool __check_default_value(type_t * type, expression_t * exp)
+        {
+            _A(type != nullptr);
+
+            if(exp == nullptr)
+                return false;
+
+            cvalue_t cv = this->__execute_expression(exp);
+            if(is_nan(cv))
+                throw _ED(__c_t::invalid_initialize_value, exp);
+
+            cvalue_t def_cv = default_value_of(type->this_vtype());
+            return cv != def_cv;
         }
     };
 
@@ -1800,8 +1830,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                     try
                     {
-                        expression_execute_context_t ctx(this->__get_xpool());
-                        cvalue_t cv = exp->execute(ctx);
+                        cvalue_t cv = this->__execute_expression(exp);
 
                         if(is_nan(cv))
                         {

@@ -2805,6 +2805,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        __BeginToString(ctx)
+
+            return _T("ret");
+
+        __EndToString()
+
     private:
         msize_t __total_unit_size;      // param_unit_size + __stack_stub_size + local_unit_size
         msize_t __param_unit_ret_size;  // param_unit_size - _ret_size
@@ -2877,16 +2883,103 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Label command.
     class __label_command_t : public __command_base_t
     {
     public:
         __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::label))
 
-            // do nothing
+            // Do nothing
 
         __EndExecute()
 
+        __BeginToString(ctx)
+
+            return _T("label");
+
+        __EndToString()
+
     } __label_command;
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Throw command.
+    class __throw_command_t : public __command_base_t
+    {
+    public:
+        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::throw_))
+
+            rt_ref_t exception = ctx.stack.pop<rt_ref_t>();
+
+        __EndExecute()
+
+        __BeginToString(ctx)
+
+            return _T("throw");
+
+        __EndToString()
+
+    } __throw_command;
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Rethrow command.
+    class __rethrow_command_t : public __command_base_t
+    {
+    public:
+        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::rethrow_))
+
+            // Do nothing.
+
+        __EndExecute()
+
+        __BeginToString(ctx)
+
+            return _T("rethrow");
+
+        __EndToString()
+
+    } __rethrow_command;
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Leave command.
+    class __leave_command_t : public __command_base_t
+    {
+    public:
+        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::leave))
+
+            // Do nothing.
+
+        __EndExecute()
+
+        __BeginToString(ctx)
+
+            return _T("leave");
+
+        __EndToString()
+
+    } __leave_command;
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // End block command.
+    class __end_block_command_t : public __command_base_t
+    {
+    public:
+        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::end_block))
+
+            // Do nothing.
+
+        __EndExecute()
+
+        __BeginToString(ctx)
+
+            return _T("end block");
+
+        __EndToString()
+
+    } __end_block_command;
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -2902,6 +2995,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_smp_t::label:
                 return &__label_command;
+
+            case xil_smp_t::throw_:
+                return &__throw_command;
+
+            case xil_smp_t::rethrow:
+                return &__rethrow_command;
+
+            case xil_smp_t::leave:
+                throw &__leave_command;
+
+            case xil_smp_t::end_block:
+                return &__end_block_command;
 
             default:
                 X_UNEXPECTED();

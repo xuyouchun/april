@@ -8,18 +8,10 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        try
-        {
-            throw new Exception("Hello Exception");
-        }
-        catch(Exception ex)
-        {
-            Console.WriteLine("Catch");
-        }
-        finally
-        {
-            Console.WriteLine("Finally");
-        }
+        int a = 10;
+        int v = a + 0;
+        Console.Print(v);
     }
 };
+
 

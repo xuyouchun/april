@@ -158,7 +158,7 @@ class Exception
     }
 
     // Exception message.
-    private String    __message;
+    private String __message;
 
     // Inner exception that caused this exception.
     private Exception __innerException;

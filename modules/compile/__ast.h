@@ -615,6 +615,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Array initializer error.
         array_initializer_error,
 
+        // Invalid initialize value.
+        invalid_initialize_value,
+
         __the_end__         = 10000,
 
     X_ENUM_END
@@ -924,6 +927,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return mname_t::parse(
                     to_mname_operate_context(gctx.xpool), s
                 );
+            }
+
+            // Execute expression.
+            cvalue_t __execute_expression(expression_t * exp)
+            {
+                _A(exp != nullptr);
+
+                expression_execute_context_t ctx(__get_xpool());
+                return exp->execute(ctx);
             }
         };
     }
