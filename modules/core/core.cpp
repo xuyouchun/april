@@ -1206,7 +1206,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns index of a label.
-    static int __index_of(statement_compile_context_t & ctx, local_label_t label)
+    static xil_index_t __index_of(statement_compile_context_t & ctx, local_label_t label)
     {
         xil_t * label_xil = ctx.jmp_manager.label_xil(label);
         if(label_xil == nullptr)
@@ -1294,6 +1294,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Converts to string.
+    method_xil_block_t::operator string_t() const
+    {
+        return _F(_T("%1%: %2%-%3% ->%4% %5%"),
+            type, xil_start, xil_end, entry_point, relation_type
+        );
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Member families
     X_ENUM_INFO(member_family_t)
 
@@ -1320,7 +1330,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         __local_variables.write(mctx.xpool, mctx.layout, mctx.buffer);
 
-        // body
+        // Compiles statements to xilxes.
         for(statement_t * statement : body->statements)
         {
             statement->compile(sctx);
@@ -1333,11 +1343,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if(region->parent != nullptr)
             throw _EC(unexpected, _T("region stack error"));
 
-        xilx_write_context_t xw_ctx(sctx, region);
+        // Compiles xilxes to xils.
+        xilx_block_manager_t block_manager;
+        xilx_write_context_t xw_ctx(sctx, block_manager, region);
 
         while(!xw_ctx.regions.empty())
         {
             statement_region_t * region = al::queue_pop(xw_ctx.regions);
+
             region->each([&xw_ctx, &mctx](xilx_t * xilx) {
                 xilx->write(xw_ctx, mctx.xil_pool);
             });
@@ -1348,6 +1361,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         sctx.switch_manager.commit(sctx);
         sctx.switch_manager.write(mctx.buffer);
+
+        xw_ctx.block_manager.commit(sctx);
+        xw_ctx.block_manager.write(sctx, mctx.buffer);
     }
 
     // Finds param by name.
@@ -5351,6 +5367,73 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Appends block.
+    void xilx_block_manager_t::append_block(__block_type_t type,
+            local_label_t begin, local_label_t end, local_label_t entry_point,
+            type_t * relation_type)
+    {
+        __blocks.push_back(__xilx_block_t { type, begin, end, entry_point, relation_type });
+    }
+
+    // Commits it.
+    void xilx_block_manager_t::commit(statement_compile_context_t & ctx)
+    {
+        // Sort blocks.
+    }
+
+    // Writes to buffer.
+    void xilx_block_manager_t::write(statement_compile_context_t & ctx, xil_buffer_t & buffer)
+    {
+        if(__blocks.empty())
+            return;
+
+        method_xil_block_stub_t stub(__blocks.size());
+        buffer.write(stub);
+
+        al::svector_t<method_xil_block_t, 5> xil_blocks;
+
+        for(__xilx_block_t & block : __blocks)
+        {
+            method_xil_block_t xil_block;
+
+            xil_block.type          = block.type;
+            xil_block.xil_start     = ctx.index_of(block.begin);
+            xil_block.xil_end       = ctx.index_of(block.end);
+            xil_block.entry_point   = ctx.index_of(block.entry_point);
+
+            _A(xil_block.xil_start <= xil_block.xil_end);
+
+            xil_block.relation_type = ctx.mctx.layout.ref_of(block.relation_type);
+            xil_blocks.push_back(xil_block);
+        }
+
+        al::sort(xil_blocks, [](method_xil_block_t & b1, method_xil_block_t b2) {
+            return b1.xil_end < b2.xil_end? true  :
+                   b1.xil_end > b2.xil_end? false :
+                   b1.xil_start > b2.xil_start? true  :
+                   b1.xil_start < b2.xil_start? false :
+                   b1.entry_point < b2.entry_point;
+        });
+
+        for(method_xil_block_t & xil_block : xil_blocks)
+        {
+            buffer.write(xil_block);
+        }
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Constructor.
+    xilx_write_context_t::xilx_write_context_t(statement_compile_context_t & sc_context,
+                    xilx_block_manager_t & block_manager, statement_region_t * region)
+        : sc_context(sc_context), block_manager(block_manager)
+    {
+        if(region != nullptr)
+            regions.push(region);
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Statement exit stateme point.
     class statement_exit_statement_point_t : public statement_point_t
     {
@@ -5369,21 +5452,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    X_ENUM_INFO(statement_region_behavior_t)
-
-        // Normal
-        X_C(normal,             _T("normal"))
-
-        // Standalone.
-        X_C(standalone,         _T("standalone"))
-
-    X_ENUM_INFO_END
-
-    //-------- ---------- ---------- ---------- ----------
-
     // Constructor
-    statement_region_t::statement_region_t(__behavior_t behavior)
-        : behavior(behavior)
+    statement_region_t::statement_region_t()
     {
         al::zero_array(__points);
     }
@@ -5400,26 +5470,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __points[(size_t)point_type];
     }
 
+    // Write xilxes to a pool.
+    void statement_region_t::write(xilx_write_context_t & ctx, xil_pool_t & pool)
+    {
+        this->each([&ctx, &pool](xilx_t * xilx) {
+            xilx->write(ctx, pool);
+        });
+    }
+
     //-------- ---------- ---------- ---------- ----------
 
     // Writes region xilx to a pool.
     void region_xilx_t::write(xilx_write_context_t & ctx, xil_pool_t & pool)
     {
-        switch(__region->behavior)
-        {
-            case statement_region_behavior_t::normal:
-                __region->each([&ctx, &pool](xilx_t * xilx) {
-                    xilx->write(ctx, pool);
-                });
-                break;
-
-            case statement_region_behavior_t::standalone:
-                ctx.regions.push(__region);
-                break;
-
-            default:
-                X_UNEXPECTED();
-        }
+        __region->write(ctx, pool);
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -5537,7 +5601,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns index of specified xil.
-    int xil_pool_t::index_of(xil_t * xil)
+    xil_index_t xil_pool_t::index_of(xil_t * xil)
     {
         return __index_of(xil);
     }
@@ -5599,8 +5663,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if(label_xil == nullptr)
                 throw _ED(compile_error_code_t::label_not_found, label);
 
-            int index1 = ctx.xil_pool().index_of(jmp_xil);
-            int index2 = ctx.xil_pool().index_of(label_xil);
+            xil_index_t index1 = ctx.xil_pool().index_of(jmp_xil);
+            xil_index_t index2 = ctx.xil_pool().index_of(label_xil);
 
             jmp_xil->set_step(index2 - index1);
         }
@@ -5643,6 +5707,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(region != nullptr);
 
         region->set_point(point_type, point);
+    }
+
+    // Returns index of local label.
+    xil_index_t statement_compile_context_t::index_of(local_label_t label)
+    {
+        xil_t * label_xil = jmp_manager.label_xil(label);
+        if(label_xil == nullptr)
+            throw _ED(compile_error_code_t::label_not_found, label);
+
+        return xil_pool().index_of(label_xil);
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -168,7 +168,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor.
         expression_xilx_t(__region_t & region, expression_t * expression)
-            : __super_t(region), __expression(expression) { }
+            : __super_t(region), __expression(expression)
+        {
+            _A(expression != nullptr);
+        }
 
         // Writes xils to a pool.
         virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
@@ -184,6 +187,35 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compiles.
         void __compile(__xw_context_t & ctx, xil_pool_t & pool, expression_t * expression);
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // pop_variable_xilx_t
+
+    // Pop to variable.
+    class pop_variable_xilx_t : public xilx_base_t
+    {
+        typedef xilx_base_t __super_t;
+
+    public:
+
+        // Constructor.
+        pop_variable_xilx_t(__region_t & region, variable_t * variable)
+            : __super_t(region), variable(variable)
+        {
+            _A(variable != nullptr);
+        }
+
+        // Writes xils to a pool.
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
+
+        // Converts to a string.
+        virtual const string_t to_string() const override
+        {
+            return _F(_T("pop: %1%"), variable);
+        }
+
+        variable_t * variable;
     };
 
     ////////// ////////// ////////// ////////// //////////

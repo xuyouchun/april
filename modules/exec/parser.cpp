@@ -75,7 +75,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             for(int k = 0; k < tbl_count; k++)
             {
-                
+                method_xil_block_t block = __read<method_xil_block_t>();
+                f(block);
             }
         }
 
@@ -180,6 +181,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             creating_ctx.switch_manager.append_table(tbl);
         });
 
+        // Read xil blocks.
+        al::svector_t<method_xil_block_t, 10> block_array;
+        reader.each_xil_block([&](method_xil_block_t & block) {
+            block_array.push_back(block);
+        });
+
         // Read xils
         al::svector_t<command_t *, 128> commands;
 
@@ -190,20 +197,58 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             commands.push_back(command);
         });
 
-        /*
-        // Auto appends ret command at the end.
-        if(commands.size() == 0 || !is_ret_command(commands[commands.size() - 1]))
-            commands.push_back(new_ret_command(creating_ctx));
-        */
-
         // Copies to a array.
         command_t ** command_arr = env.new_commands(commands.size());
 
         std::copy(commands.begin(), commands.end(), command_arr);
 
-        return memory_t::new_obj<exec_method_t>(memory,
+        // Converts xil blocks.
+        exec_method_block_manager_t * block_manager = nullptr;
+        if(!block_array.empty())
+        {
+            block_manager = memory_t::new_obj<exec_method_block_manager_t>(memory);
+            block_manager->count = block_array.size();
+            block_manager->blocks = env.new_blocks(block_manager->count);
+
+            exec_method_block_t * p_block = block_manager->blocks;
+
+            for(method_xil_block_t & block : block_array)
+            {
+                #define __CommandAt(_index) (                                       \
+                    _index < commands.size()? command_arr + _index :                \
+                        (throw _ED(__e_t::xil_block_index_out_of_range), nullptr)   \
+                    )
+
+                p_block->start       = __CommandAt(block.xil_start);
+                p_block->end         = __CommandAt(block.xil_end);
+                p_block->entry_point = __CommandAt(block.entry_point);
+
+                // _PF(_T("------- %1% %2% %3%"), block.xil_start, block.xil_end, block.entry_point);
+
+                if(block.relation_type != ref_t::null)
+                {
+                    p_block->relation_type = analyzer.get_type(block.relation_type);
+                    if(p_block->relation_type == nullptr)
+                        throw _ED(__e_t::type_not_found, block.relation_type);
+                }
+                else
+                {
+                    p_block->relation_type = nullptr;
+                }
+
+                p_block++;
+
+                #undef __CommandAt
+            }
+        }
+
+        exec_method_t * exec_method = memory_t::new_obj<exec_method_t>(memory,
             command_arr, ref_objects, locals_layout.unit_size()
         );
+
+        exec_method->block_manager = block_manager;
+
+        return exec_method;
     }
 
     ////////// ////////// ////////// ////////// //////////

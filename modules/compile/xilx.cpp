@@ -386,6 +386,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     }
 
+    // Writes assign xils for variable.
+    void __write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, variable_t * var, bool pick = false)
+    {
+        _A(var != nullptr);
+
+        switch(var->this_type())
+        {
+            case variable_type_t::local:
+                write_assign_xil(ctx, pool, (local_variable_t *)var, pick);
+                break;
+
+            case variable_type_t::param:
+                write_assign_xil(ctx, pool, (param_variable_t *)var, pick);
+                break;
+
+            case variable_type_t::field:
+                write_assign_xil(ctx, pool, (field_variable_t *)var, pick);
+                break;
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Writes assign xils.
     void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
@@ -415,6 +441,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         expression_compile_context_t exp_ctx(ctx);
         expression->compile(exp_ctx, pool);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // pop_variable_xilx_t
+
+    // Writes xils to pool.
+    void pop_variable_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
+    {
+        __write_assign_xil(ctx.sc_context, pool, variable);
     }
 
     ////////// ////////// ////////// ////////// //////////

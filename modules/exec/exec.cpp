@@ -36,6 +36,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Type not found.
         X_D(type_not_found, _T("type '%1%' not found"))
 
+        // Xil block index out of range.
+        X_D(xil_block_index_out_of_range, _T("xil block index out of range"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -97,6 +100,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     command_t ** executor_env_t::new_commands(size_t count)
     {
         return __command_heap.acquire(count);
+    }
+
+    // Creates an array of exec_method_block_t.
+    exec_method_block_t * executor_env_t::new_blocks(size_t count)
+    {
+        return __method_block_heap.acquire(count);
     }
 
     #undef __CheckCache

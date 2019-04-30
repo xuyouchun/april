@@ -13,6 +13,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     typedef statement_exit_type_t           __exit_type_t;
     typedef enum_t<__exit_type_t>           __e_exit_type_t;
     typedef statement_exit_type_context_t   __exit_type_context_t;
+    typedef method_xil_block_type_t         __block_type_t;
 
     #define __FreeExitFlags     enum_or(__exit_type_t::break_,                  \
             __exit_type_t::return_, __exit_type_t::goto_, __exit_type_t::throw_ \
@@ -1091,19 +1092,38 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    template<__block_type_t _block_type>
     class __standalone_statement_region_t : public __statement_region_t< >
     {
         typedef __statement_region_t< > __super_t;
 
     public:
-        __standalone_statement_region_t()
-            : __super_t(statement_region_behavior_t::standalone)
+
+        // Constructor.
+        __standalone_statement_region_t(local_label_t begin, local_label_t end,
+                    local_label_t entry_point, type_t * relation_type = nullptr)
+            : __begin(begin), __end(end), __entry_point(entry_point)
+            , __relation_type(relation_type)
         { }
+
+        // Write xilxes to a pool.
+        virtual void write(xilx_write_context_t & ctx, xil_pool_t & pool) override
+        {
+            ctx.block_manager.append_block(
+                _block_type, __begin, __end, __entry_point, __relation_type
+            );
+
+            ctx.regions.push(this);
+        }
+
+    private:
+        local_label_t __begin, __end, __entry_point;
+        type_t * __relation_type;
     };
 
-    typedef __statement_region_t< >         __try_statement_region_t;
-    typedef __standalone_statement_region_t __catch_statement_region_t;
-    typedef __standalone_statement_region_t __finally_statement_region_t;
+    typedef __statement_region_t< > __try_statement_region_t;
+    typedef __standalone_statement_region_t<__block_type_t::catch_>   __catch_statement_region_t;
+    typedef __standalone_statement_region_t<__block_type_t::finally_> __finally_statement_region_t;
 
     // Compiles this statement.
     void try_statement_t::compile(statement_compile_context_t & ctx)
@@ -1124,30 +1144,43 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         local_label_t label_try_end = ctx.next_local_label();
 
         // Compiles try statement.
+        ctx.begin_region<__try_statement_region_t>();
+
         append_local_label(ctx, label_try);
-        compile_statement_with_region<__try_statement_region_t>(ctx, try_statement);
+        compile_statement(ctx, try_statement);
         append_local_label(ctx, label_try_end);
+
+        ctx.end_region();
 
         // Compiles catch statements.
         for(catch_t * c : catches)
         {
-            local_label_t label_catch     = ctx.next_local_label();
-            local_label_t label_catch_end = ctx.next_local_label();
+            local_label_t label_catch = ctx.next_local_label();
+
+            if(c->variable == nullptr)
+                throw _ED(__e_t::catch_exception_variable_undeterminded);
+
+            ctx.begin_region<__catch_statement_region_t>(label_try,
+                            label_try_end, label_catch, to_type(c->type_name));
 
             append_local_label(ctx, label_catch);
-            compile_statement_with_region<__catch_statement_region_t>(ctx, c->body);
-            append_local_label(ctx, label_catch_end);
+            xilx::append_xilx<pop_variable_xilx_t>(ctx, c->variable);
+            compile_statement(ctx, c->body);
+
+            ctx.end_region();
         }
 
         // Compiles finally statement.
         if(!__is_empty_statement(ctx, finally_statement))
         {
-            local_label_t label_finally     = ctx.next_local_label();
-            local_label_t label_finally_end = ctx.next_local_label();
+            local_label_t label_finally = ctx.next_local_label();
+
+            ctx.begin_region<__finally_statement_region_t>(label_try, label_try_end, label_finally);
 
             append_local_label(ctx, label_finally);
-            compile_statement_with_region<__finally_statement_region_t>(ctx, finally_statement);
-            append_local_label(ctx, label_finally_end);
+            compile_statement(ctx, finally_statement);
+
+            ctx.end_region();
         }
     }
 

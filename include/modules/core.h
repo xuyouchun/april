@@ -2683,6 +2683,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         using __super_t::__super_t;
     };
 
+    //-------- ---------- ---------- ---------- ----------
+
     // Xil block types.
     X_ENUM(method_xil_block_type_t)
 
@@ -2697,17 +2699,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_END
 
+    //-------- ---------- ---------- ---------- ----------
+
     // Method xil block.
     struct method_xil_block_t
     {
         method_xil_block_type_t type = method_xil_block_type_t::__default__;
-        int8_t      __reserved_1__  = 0;
-        int16_t     __reserved_2__  = 0;
+        uint8_t     __reserved_1__  = 0;
+        uint16_t    __reserved_2__  = 0;
 
-        int32_t     xil_index   = 0;
-        int32_t     xil_length  = 0;
+        uint32_t    xil_start   = 0;
+        uint32_t    xil_end     = 0;
+        uint32_t    entry_point = 0;
 
-        ref_t       exception_type = ref_t::null;
+        ref_t       relation_type = ref_t::null;
+
+        // Converts to string.
+        operator string_t() const;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -6583,6 +6591,39 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Xilx block manager.
+    class xilx_block_manager_t : public object_t, public no_copy_ctor_t
+    {
+        typedef method_xil_block_type_t __block_type_t;
+
+    public:
+
+        // Appends block.
+        void append_block(__block_type_t type, local_label_t begin, local_label_t end,
+                          local_label_t entry_point, type_t * relation_type);
+
+        // Commits it.
+        void commit(statement_compile_context_t & ctx);
+
+        // Writes to buffer.
+        void write(statement_compile_context_t & ctx, xil_buffer_t & buffer);
+
+    private:
+
+        // Xilx block.
+        struct __xilx_block_t
+        {
+            __block_type_t  type;
+            local_label_t   begin, end, entry_point;
+            type_t *        relation_type;
+        };
+
+        // Blocks.
+        al::svector_t<__xilx_block_t> __blocks;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Context for write xilx.
     class xilx_write_context_t : public object_t, public no_copy_ctor_t
     {
@@ -6591,14 +6632,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        xilx_write_context_t(statement_compile_context_t & sc_context, statement_region_t * region)
-            : sc_context(sc_context)
-        {
-            if(region != nullptr)
-                regions.push(region);
-        }
+        xilx_write_context_t(statement_compile_context_t & sc_context,
+                 xilx_block_manager_t & block_manager, statement_region_t * region);
 
-        // Statement copile context.
+        // Statement compile context.
         statement_compile_context_t & sc_context;
 
         // Converts to statement context.
@@ -6606,6 +6643,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Standalone regions.
         std::queue<statement_region_t *> regions;
+
+        // Xilx block manager.
+        xilx_block_manager_t & block_manager;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -6631,35 +6671,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Statement region behavior.
-    X_ENUM(statement_region_behavior_t)
-
-        // Normal.
-        normal         = __default__,
-
-        // Standalone.
-        standalone,
-
-    X_ENUM_END
-
-    //-------- ---------- ---------- ---------- ----------
-
     // Statement region.
     class statement_region_t : public object_t
     {
         typedef statement_exit_point_type_t __point_type_t;
-        typedef statement_region_behavior_t __behavior_t;
 
     public:
 
         // Constructor.
-        statement_region_t(__behavior_t behavior = __behavior_t::normal);
+        statement_region_t();
 
         // Parent region.
         statement_region_t * parent = nullptr;
-
-        // Behavior.
-        __behavior_t behavior;
 
         // Sets point with point type.
         virtual void set_point(__point_type_t point_type, statement_point_t * point);
@@ -6679,6 +6702,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             _A(xilx != nullptr);
             __xilxes.push_back(xilx);
         }
+
+        // Write xilxes to a pool.
+        virtual void write(xilx_write_context_t & ctx, xil_pool_t & pool);
 
     private:
         statement_point_t * __points[(size_t)__point_type_t::__end__];
@@ -6752,6 +6778,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    typedef uint32_t xil_index_t;
+
     // Xil pool.
     class xil_pool_t : public object_t, public no_copy_ctor_t
     {
@@ -6764,8 +6792,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             template<typename ... args_t>
             __xil_wrapper_t(args_t && ... args) : xil(std::forward<args_t>(args) ...) { }
 
-            int     index;
-            _xil_t  xil;
+            xil_index_t index;
+            _xil_t      xil;
         };
 
         typedef al::svector_t<xil_t *, 128> __xils_t;
@@ -6773,13 +6801,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef arch_int_t __i_t;
 
         // Index of xil.
-        static int & __index_of(void * xw)
+        static xil_index_t & __index_of(void * xw)
         {
-            return *(int *)((byte_t *)xw + (__i_t)(&((__v_xw_t *)nullptr)->index));
+            return *(xil_index_t *)((byte_t *)xw + (__i_t)(&((__v_xw_t *)nullptr)->index));
         }
 
         // Index of xil.
-        static int & __index_of(xil_t * xil)
+        static xil_index_t & __index_of(xil_t * xil)
         {
             return __index_of((void *)((byte_t *)xil - (__i_t)(&((__v_xw_t *)nullptr)->xil)));
         }
@@ -6818,7 +6846,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void commit();
 
         // Returns index of a xil.
-        int index_of(xil_t * xil);
+        xil_index_t index_of(xil_t * xil);
 
     private:
         xheap_t     __heap;
@@ -6905,6 +6933,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns xil pool.
         xil_pool_t & xil_pool() { return mctx.xil_pool; }
+
+        // Returns index of local label.
+        xil_index_t index_of(local_label_t label);
 
         // Creates a new global object.
         template<typename t, typename ... args_t>

@@ -457,13 +457,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         // Constructors.
         catch_t() = default;
-        catch_t(type_name_t * type_name, name_t variable, statement_t * body)
-            : type_name(type_name), variable(variable), body(body)
+        catch_t(type_name_t * type_name, name_t name, statement_t * body)
+            : type_name(type_name), name(name), body(body)
         { }
 
         type_name_t *   type_name   =   nullptr;        // Type name.
-        name_t          variable    =   name_t::null;   // Variable.
+        name_t          name        =   name_t::null;   // Variable name.
         statement_t *   body        =   nullptr;        // Body.
+
+        variable_t  *   variable    =   nullptr;        // Variable object.
     };
 
     typedef eobject_ast_t<catch_t *> catch_ast_t;

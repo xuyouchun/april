@@ -131,6 +131,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Index element init expression empty.
         X_D(element_init_expression_empty,  _T("index element init expression empty"))
 
+        // Cache exception variable undeterminded.
+        X_D(catch_exception_variable_undeterminded, _T("Cache exception variable undeterminded"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

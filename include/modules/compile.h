@@ -173,6 +173,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Index element init expression empty.
         element_init_expression_empty,
 
+        // Cache exception variable undeterminded.
+        catch_exception_variable_undeterminded,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////

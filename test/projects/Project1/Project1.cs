@@ -10,11 +10,16 @@ class Project1
     {
         try
         {
-            int a = 1, b = 2;
-            Console.Print(a + b);
-
-            Console.WriteLine("Try");
-            throw new Exception("Hello Exception!");
+            try
+            {
+                int a = 1, b = 2;
+                Console.Print(a + b);
+            }
+            catch(Exception ex)
+            {
+                int a = 1, b = 2;
+                Console.Print(a + b);
+            }
         }
         catch(Exception ex)
         {
@@ -22,6 +27,16 @@ class Project1
         }
         finally
         {
+            try
+            {
+                int a = 1, b = 2;
+                Console.Print(a + b);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("haha");
+            }
+
             Console.WriteLine("Finally");
         }
     }

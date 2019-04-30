@@ -48,6 +48,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Type not found.
         type_not_found,
 
+        // Block index out of range.
+        xil_block_index_out_of_range,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -409,6 +412,37 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // exec_method_block_t
+
+    // Method block.
+    struct exec_method_block_t
+    {
+        // Start of protected block.
+        command_t ** start;
+
+        // End of protected block.
+        command_t ** end;
+
+        // Entry point.
+        command_t ** entry_point;
+
+        // Relation type.
+        rt_type_t * relation_type;
+    };
+
+    // Method block manager.
+    class exec_method_block_manager_t
+    {
+    public:
+
+        // Block array.
+        exec_method_block_t * blocks = nullptr;
+
+        // Block count.
+        int count = 0;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // exec_method_t
 
     // Executing method.
@@ -426,7 +460,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         uint16_t ref_objects;
         msize_t  stack_unit_size;
 
+        // Commands.
         command_t ** commands;
+
+        // Block manager.
+        exec_method_block_manager_t * block_manager = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -467,6 +505,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         typedef executor_env_t __self_t;
 
         typedef al::heap_t<command_t *[]> __command_heap_t;
+        typedef al::heap_t<exec_method_block_t []> __method_block_heap_t;
 
     public:
         executor_env_t(memory_t * memory, rt_pool_t & rpool, rt_assemblies_t & assemblies)
@@ -482,9 +521,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Creates an array of command_t *.
         command_t ** new_commands(size_t count);
 
+        // Creates an array of exec_method_block_t.
+        exec_method_block_t * new_blocks(size_t count);
+
     private:
         std::map<void *, exec_method_t *> __method_map;
-        __command_heap_t  __command_heap;
+        __command_heap_t        __command_heap;
+        __method_block_heap_t   __method_block_heap;
 
         // Gets exec_method_t from cache, returns nullptr if not found.
         exec_method_t * __from_cache(void * rt_method);

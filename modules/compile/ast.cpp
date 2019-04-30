@@ -2442,9 +2442,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // catch
 
     // Sets variable.
-    void catch_ast_node_t::set_variable(name_t variable, __el_t * el)
+    void catch_ast_node_t::set_variable(name_t name, __el_t * el)
     {
-        this->__assign_name(__catch.variable, variable, el, _T("variable"));
+        this->__assign_name(__catch.name, name, el, _T("variable"));
         __variable_el = el;
     }
 
@@ -2464,14 +2464,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void catch_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        if(__catch.type_name == nullptr && !__catch.variable.empty())
+        if(__catch.type_name == nullptr && !__catch.name.empty())
         {
             this->__log(__variable_el, __c_t::type_name_missing, _T("catch statement"));
         }
         else
         {
             variable_defination_t vd(this->__context, context, __variable_el);
-            vd.define_local(__catch.type_name, __catch.variable);
+            __catch.variable = vd.define_local(__catch.type_name, __catch.name);
         }
 
         __super_t::on_walk(context, step, tag);
