@@ -21,6 +21,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     class xpool_t;
     class statement_compile_context_t;
+    class expression_execute_context_t;
     class method_compile_context_t;
     class statement_region_t;
 
@@ -4146,6 +4147,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns whether this will call a method.
         virtual bool is_calling() = 0;
 
+        // Execute the variable.
+        virtual cvalue_t execute(expression_execute_context_t & ctx) = 0;
+
         // Returns vtype.
         vtype_t  get_vtype();
     };
@@ -4167,6 +4171,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             // Returns whether this will call a method.
             virtual bool is_calling() override { return false; }
+
+            // Execute the variable.
+            virtual cvalue_t execute(expression_execute_context_t & ctx) override
+            {
+                return cvalue_t::nan;
+            }
 
             static const variable_type_t type = _type;
         };
@@ -4212,16 +4222,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             _A(name != name_t::null);
         }
 
-        type_name_t * type_name = nullptr;          // Type of the variable.
-        name_t        name      = name_t::null;     // Name of the variable.
-        msize_t       identity  = unknown_msize;    // Identity of the variable.
-        msize_t       index     = unknown_msize;    // Index of the variable.
+        type_name_t *  type_name    = nullptr;          // Type of the variable.
+        name_t         name         = name_t::null;     // Name of the variable.
+        msize_t        identity     = unknown_msize;    // Identity of the variable.
+        msize_t        index        = unknown_msize;    // Index of the variable.
+        bool           constant     = false;            // A constant variable.
+        expression_t * expression   = nullptr;          // Constant initialize value.
 
         // Returns this variable's type.
         virtual type_t * get_type() override { return to_type(type_name); }
 
         // Returns name of this variable.
         virtual name_t get_name() const override { return name; }
+
+        // Execute the variable.
+        cvalue_t execute(expression_execute_context_t & ctx) override;
 
         // Converts to a string.
         X_TO_STRING
@@ -4454,7 +4469,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         variable_region_t * previous = nullptr;
 
         // Defines a local variable.
-        local_variable_t * define_local(type_name_t * type_name, const name_t & name);
+        local_variable_t * define_local(type_name_t * type_name, const name_t & name,
+                bool constant = false, expression_t * expression = nullptr);
 
         // Defines a param.
         param_variable_t * define_param(param_t * param);
@@ -5582,6 +5598,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Sets typedef.
         void set(type_def_t * type_def);
+
+        // Executes the expression.
+        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
 
         // Returns behaviour.
         virtual expression_behaviour_t get_behaviour() const override

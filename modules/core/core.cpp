@@ -3406,6 +3406,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Execute the variable.
+    cvalue_t local_variable_t::execute(expression_execute_context_t & ctx)
+    {
+        return expression == nullptr || !constant? cvalue_t::nan : 
+               expression->execute(ctx);
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Returns vtype of specified type.
     vtype_t __get_vtype(type_t * type)
     {
@@ -3725,14 +3734,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // variable_region_t
 
     // Defines a local variable.
-    local_variable_t * variable_region_t::define_local(type_name_t * type_name, const name_t & name)
+    local_variable_t * variable_region_t::define_local(type_name_t * type_name,
+                    const name_t & name, bool constant, expression_t * expression)
     {
         _A(type_name != nullptr);
         _A(!name.empty());
 
         local_variable_t * variable = __define<local_variable_t>(type_name, name);
-        variable->identity = __next_local_identity();
-        variable->index    = __next_local_index();
+        variable->identity   = __next_local_identity();
+        variable->index      = __next_local_index();
+        variable->constant   = constant;
+        variable->expression = expression;
 
         ((method_t *)__owner)->append_local(variable);
 
@@ -4712,6 +4724,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         this->expression_type = name_expression_type_t::type_def;
         this->type_def = type_def;
+    }
+
+    // Executes the expression.
+    cvalue_t name_expression_t::execute(expression_execute_context_t & ctx)
+    {
+        switch(expression_type)
+        {
+            case name_expression_type_t::variable:
+                return variable == nullptr? cvalue_t::nan : variable->execute(ctx);
+
+            case name_expression_type_t::type:
+                return type;
+
+            case name_expression_type_t::type_def:
+                return cvalue_t::nan;
+
+            default:
+                return cvalue_t::nan;
+        }
     }
 
     // Convert name_expression to a string.

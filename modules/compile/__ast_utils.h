@@ -165,13 +165,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
 
         // Defines local variable.
-        local_variable_t * define_local(type_name_t * type_name, name_t name,
-                                        __code_element_t element = nullptr);
+        local_variable_t * define_local(type_name_t * type_name, name_t name, bool constant = false, 
+                    expression_t * expression = nullptr, __code_element_t element = nullptr);
 
         // Defines local variable.
-        local_variable_t * define_local(type_name_t * type_name, name_t name, object_t * element)
+        local_variable_t * define_local(type_name_t * type_name, name_t name, bool constant,
+                    expression_t * expression, object_t * element)
         {
-            return define_local(type_name, name, __code_element_t(element));
+            return define_local(type_name, name, constant, expression, __code_element_t(element));
         }
 
         // Defines param variable.

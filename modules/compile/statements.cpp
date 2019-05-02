@@ -401,7 +401,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             _A(item->variable != nullptr);
 
-            if(item->expression != nullptr)
+            if(!item->variable->constant && item->expression != nullptr)
             {
                 set_assign_parent(item->expression);
 

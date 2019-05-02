@@ -24,7 +24,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     #define __OnCompleted(name, args)   \
                     void __B(name)::on_completed(ast_builder_completed_args_t & args)
 
-    #define __AstValue(name)    ((element_value_t)cs_branch_type_t::name)
+    #define __AstValue(name)        ((element_value_t)cs_branch_type_t::name)
 
     #define __TokenValue(name)      ((element_value_t)cs_token_value_t::name)
 
@@ -1187,7 +1187,16 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // defination_st
 
-    __ApplyToken(defination_st, token, args) { }
+    __ApplyToken(defination_st, token, args)
+    {
+        switch(token->value)
+        {
+            case __TokenValue(k_const):
+                __This->set_constant(true);
+                break;
+        }
+
+    }
 
     __ApplyAst(defination_st, node, args)
     {

@@ -1321,7 +1321,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Defines local variable.
     local_variable_t * variable_defination_t::define_local(type_name_t * type_name,
-                                                           name_t name, __code_element_t element)
+            name_t name, bool constant, expression_t * expression, __code_element_t element)
     {
         _A(type_name != nullptr);
 
@@ -1333,7 +1333,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         try
         {
-            return __region->define_local(type_name, name);
+            return __region->define_local(type_name, name, constant, expression);
         }
         catch(const logic_error_t<ast_error_t> & e)
         {

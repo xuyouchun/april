@@ -241,7 +241,7 @@ $try_st:
 ;
 
 $defination_st:
-    $type_name ($__item: name (= $expression)?) (, $__item)* \;
+    const? $type_name ($__item: name (= $expression)?) (, $__item)* \;
 ;
 
 $expression_st: $expression \; ;

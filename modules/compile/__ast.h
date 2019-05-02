@@ -504,6 +504,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected property defination.
         unexpected_property_defination,
 
+        // A constant variable require a value to be provided.
+        constant_variable_initialize_missing,
+
+        // The expression beging assigned to constant variable must be constant.
+        constant_variable_required_constant_value,
+
         // Unexpected using namespace.
         unexpected_using_namespace,
 
@@ -2865,8 +2871,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
+        // Set constant.
+        void set_constant(bool constant);
+
     private:
         __w_t<defination_statement_t> __statement;
+
+        // Walks default step.
+        void __walk_default(ast_walk_context_t & context);
+
+        // Walks analysis step.
+        void __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

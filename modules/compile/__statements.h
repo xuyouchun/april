@@ -141,6 +141,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         type_name_t * type_name = nullptr;
         items_t       items;
+        bool          constant = false;
 
         // Appends an item.
         void push_back(defination_statement_item_t * item)

@@ -28,6 +28,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return host_type;
     }
 
+    // Executes the expression, returns nan when it is not a constant value.
+    static cvalue_t __execute_expression(__cctx_t & ctx, expression_t * exp)
+    {
+        _A(exp != nullptr);
+
+        expression_execute_context_t e_ctx(ctx.statement_ctx.xpool());
+        return exp->execute(e_ctx);
+    }
+
     // Returns whether it's effective.
     // Xils will not generated if the expression is not effective.
     X_ALWAYS_INLINE bool is_effective(expression_t * exp)
@@ -363,48 +372,91 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_add(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        exp1->compile(ctx, pool);
-        exp2->compile(ctx, pool);
+        if(__execute_expression(ctx, exp1) == cvalue_t(0))  // x + 0
+        {
+            exp2->compile(ctx, pool);
+        }
+        else if(__execute_expression(ctx, exp2) == cvalue_t(0)) // 0 + x
+        {
+            exp1->compile(ctx, pool);
+        }
+        else
+        {
+            exp1->compile(ctx, pool);
+            exp2->compile(ctx, pool);
 
-        pool.append<__al_xil_t>(
-            xil_al_command_t::add, __xil_type(exp1), __xil_type(exp2)
-        );
+            pool.append<__al_xil_t>(
+                xil_al_command_t::add, __xil_type(exp1), __xil_type(exp2)
+            );
+        }
     }
 
     // Compiles sub expression.
     static void __compile_sub(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        exp1->compile(ctx, pool);
-        exp2->compile(ctx, pool);
+        if(__execute_expression(ctx, exp1) == cvalue_t(0))  // 0 * x
+        {
+            exp2->compile(ctx, pool);
+            pool.append<__al_xil_t>(xil_al_command_t::minus, __xil_type(exp1));
+        }
+        else if(__execute_expression(ctx, exp2) == cvalue_t(0))  // x * 0
+        {
+            exp1->compile(ctx, pool);
+        }
+        else
+        {
+            exp1->compile(ctx, pool);
+            exp2->compile(ctx, pool);
 
-        pool.append<__al_xil_t>(
-            xil_al_command_t::sub, __xil_type(exp1), __xil_type(exp2)
-        );
+            pool.append<__al_xil_t>(
+                xil_al_command_t::sub, __xil_type(exp1), __xil_type(exp2)
+            );
+        }
     }
 
     // Compiles mul expression.
     static void __compile_mul(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        exp1->compile(ctx, pool);
-        exp2->compile(ctx, pool);
+        cvalue_t cvalue1 = __execute_expression(ctx, exp1), cvalue2;
+        if(cvalue1 == cvalue_t(1))     // 1 * x
+        {
+            exp2->compile(ctx, pool);
+        }
+        else if((cvalue2 = __execute_expression(ctx, exp2)) == cvalue_t(1))  // x * 1
+        {
+            exp1->compile(ctx, pool);
+        }
+        else
+        {
+            exp1->compile(ctx, pool);
+            exp2->compile(ctx, pool);
 
-        pool.append<__al_xil_t>(
-            xil_al_command_t::mul, __xil_type(exp1), __xil_type(exp2)
-        );
+            pool.append<__al_xil_t>(
+                xil_al_command_t::mul, __xil_type(exp1), __xil_type(exp2)
+            );
+        }
     }
 
     // Compiles div expression.
     static void __compile_div(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        exp1->compile(ctx, pool);
-        exp2->compile(ctx, pool);
+        cvalue_t cvalue2 = __execute_expression(ctx, exp2);
+        if(cvalue2 == cvalue_t(1))      // x / 1
+        {
+            exp1->compile(ctx, pool);
+        }
+        else
+        {
+            exp1->compile(ctx, pool);
+            exp2->compile(ctx, pool);
 
-        pool.append<__al_xil_t>(
-            xil_al_command_t::div, __xil_type(exp1), __xil_type(exp2)
-        );
+            pool.append<__al_xil_t>(
+                xil_al_command_t::div, __xil_type(exp1), __xil_type(exp2)
+            );
+        }
     }
 
     // Compiles mod expression.
@@ -648,15 +700,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             throw _ED(__e_t::index_type_undetermined, var);
 
         return type;
-    }
-
-    // Executes the expression, returns nan when it is not a constant value.
-    static cvalue_t __execute_expression(__cctx_t & ctx, expression_t * exp)
-    {
-        _A(exp != nullptr);
-
-        expression_execute_context_t e_ctx(ctx.statement_ctx.xpool());
-        return exp->execute(e_ctx);
     }
 
     // Tries compile expression if it's a constant value.

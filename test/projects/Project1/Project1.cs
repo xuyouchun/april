@@ -8,9 +8,10 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        int a = 10;
-        int v = a + 0;
-        Console.Print(v);
+        const int a = 10, b = 20;
+        int c = a + b;
+
+        Console.Print(c);
     }
 };
 

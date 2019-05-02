@@ -255,6 +255,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected property defination.
         X_D(unexpected_property_defination, _T("properties cannot be defined here: \"%1%\""))
 
+        // A constant variable require a value to be provided.
+        X_D(constant_variable_initialize_missing,
+                            _T("A constant variable \"%1%\" require a value to be provided"))
+
+        // The expression beging assigned to constant variable must be constant.
+        X_D(constant_variable_required_constant_value,
+                            _T("The expression beging assigned to \"%1%\" must be constant."))
+
         // Unexpected param defination.
         X_D(unexpected_param_defination, _T("parameters cannot be define hered: \"%1%\""))
 
@@ -2047,22 +2055,66 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return &__statement;
     }
 
+    // Set constant.
+    void defination_st_ast_node_t::set_constant(bool constant)
+    {
+        __statement.constant = constant;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Walks this node.
     void defination_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        switch((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                __super_t::on_walk(context, step, tag);
+                __walk_default(context);
+                this->__delay(context, walk_step_t::analysis);
+                break;
+
+            case walk_step_t::analysis:
+                __walk_analysis(context);
+                break;
+
+            default: break;
+        }
+    }
+
+    // Walks default step.
+    void defination_st_ast_node_t::__walk_default(ast_walk_context_t & context)
+    {
         this->__check_empty(__statement.type_name, this, __c_t::type_name_missing,
                                                         _T("variable defination"));
-
         variable_defination_t vd(this->__context, context, &__statement);
 
         for(defination_statement_item_t * var_item : __statement.items)
         {
-            var_item->variable = vd.define_local(__statement.type_name, var_item->name, var_item);
+            var_item->variable = vd.define_local(
+                __statement.type_name, var_item->name, __statement.constant,
+                var_item->expression, var_item
+            );
         }
+    }
 
-        __super_t::on_walk(context, step, tag);
+    // Walks analysis step.
+    void defination_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        if(!__statement.constant)
+            return;
+
+        for(defination_statement_item_t * var_item : __statement.items)
+        {
+            if(var_item->expression == nullptr)
+            {
+                this->__log(this, __c_t::constant_variable_initialize_missing, var_item->name);
+            }
+            else if(__execute_expression(var_item->expression) == cvalue_t::nan)
+            {
+                this->__log(this, __c_t::constant_variable_required_constant_value, var_item->name);
+            }
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
