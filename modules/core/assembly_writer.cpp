@@ -88,15 +88,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructors.
-        __assembly_writer_super_t(xostream_t & stream, assembly_t & assembly, logger_t & logger)
+        __assembly_writer_super_t(xostream_t & stream, assembly_t & assembly, logger_t & logger,
+                                  method_compile_controller_t * controller)
             : __super_t(assembly.get_xpool()), __stream(stream)
-            , __assembly(assembly), __logger(logger)
+            , __assembly(assembly), __logger(logger), __controller(controller)
         { }
 
     protected:
         xostream_t & __stream;      // Output stream.
         assembly_t & __assembly;    // Assembly.
         logger_t   & __logger;      // Logger.
+
+        method_compile_controller_t * __controller;
 
         // Returns whether it is references from other assembly.
         bool __is_extern(member_t * member)
@@ -1413,7 +1416,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             xil_buffer_t buffer;
             xil_pool_t   pool;
 
-            method_compile_context_t ctx(this->__xpool, *this, buffer, pool, this->__logger);
+            method_compile_context_t ctx(this->__xpool, *this, buffer, pool,
+                                         this->__logger, this->__controller);
             method->compile(ctx);
 
             xil_buffer_writer_t writer(buffer, method);
@@ -1496,12 +1500,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
 
     // Writes assembly to a stream.
-    void assembly_write(xostream_t & stream, assembly_t & assembly, __lv_t lv, logger_t & logger)
+    void assembly_write(xostream_t & stream, assembly_t & assembly, __lv_t lv, logger_t & logger,
+                        method_compile_controller_t * controller)
     {
         switch(lv)
         {
             case 1:
-                __assembly_writer_t<1>(stream, assembly, logger).write();
+                __assembly_writer_t<1>(stream, assembly, logger, controller).write();
                 break;
 
             default:

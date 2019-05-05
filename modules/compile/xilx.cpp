@@ -152,6 +152,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return pool.append<smp_xil_t>(xil_smp_t::rethrow);
     }
 
+    // Compiles xilx.
+    static void __compile_expression(__xw_context_t & ctx, xil_pool_t & pool,
+                                     expression_t * expression)
+    {
+        expression_compile_context_t exp_ctx(ctx);
+        expression->compile(exp_ctx, pool);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // local_assign_xilx_t
 
@@ -424,11 +432,37 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Writes assign xils.
+    // Local assign xilx.
     void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
+        if(expression == nullptr)
+        {
+            write_assign_xil(ctx, pool, local);
+            return;
+        }
+
+        if(local->write_count == 1)
+        {
+            if(is_constant_expression(ctx, expression))
+            {
+                local->constant = true;
+                local->expression = expression;
+                return;
+            }
+
+            /*
+            if(local->read_count == 1)
+            {
+                local->inline_ = true;
+                local->expression = expression;
+                return;
+            }
+            */
+        }
+
+        __compile_expression(ctx, pool, expression);
         write_assign_xil(ctx, pool, local);
-    }
+    };
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -460,15 +494,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Writes xils to pool.
     void expression_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        __compile(ctx, pool, __expression);
-    }
-
-    // Compiles xilx.
-    void expression_xilx_t::__compile(__xw_context_t & ctx, xil_pool_t & pool,
-                                                    expression_t * expression)
-    {
-        expression_compile_context_t exp_ctx(ctx);
-        expression->compile(exp_ctx, pool);
+        __compile_expression(ctx, pool, __expression);
     }
 
     ////////// ////////// ////////// ////////// //////////

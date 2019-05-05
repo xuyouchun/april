@@ -405,8 +405,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         typedef al::svector_t<expression_t *, 2> __constants_t;
 
-        __constants_t   constants;                  // Constant values.
+        __constants_t   constants;  // Constant values, A default label when nullptr.
         statements_t  * statements   = nullptr;     // Statements.
+
+        // Returns whether it contains a default label.
+        bool contains_default() const;
     };
 
     typedef eobject_ast_t<case_t *> case_ast_t;
@@ -417,6 +420,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class switch_statement_t : public statement_base_t
     {
         typedef al::svector_t<case_t *, 5> __cases_t;
+        typedef typename __cases_t::iterator __case_iterator_t;
 
     public:
 
@@ -449,6 +453,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compiles as switch statement.
         void __compile_as_switch(statement_compile_context_t & ctx, int row_count);
+
+        // Finds case by constant value.
+        __case_iterator_t __find_case(xpool_t & xpool, cvalue_t value,
+                                      __case_iterator_t * default_case);
+
+        // Returns exit type of statements.
+        statement_exit_type_t __exit_type_of(statement_exit_type_context_t & ctx,
+                                             statements_t * statements);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -588,10 +600,36 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Executes the expression.
+    cvalue_t execute_expression(xpool_t & xpool, expression_t * exp);
+
+    // Executes the expression.
+    cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp);
+
+    // Executes the expression.
+    cvalue_t execute_expression(xilx_write_context_t & ctx, expression_t * exp);
+
+    // Executes the expression.
+    cvalue_t execute_expression(expression_compile_context_t & ctx, expression_t * exp);
+
+    // Returns whether it's a constant expression.
+    template<typename _ctx_t>
+    bool is_constant_expression(_ctx_t & ctx, expression_t * exp)
+    {
+        return execute_expression(ctx, exp) != cvalue_t::nan;
+    }
+
+    // Returns whether it can be optimized.
+    template<typename _ctx_t> bool is_optimize(_ctx_t & ctx, compile_optimize_code_t code)
+    {
+        return ((method_compile_context_t &)ctx).controller->optimize((int)code);
+    }
+
     // Returns exit type of statements.
     template<typename _statements_t>
     statement_exit_type_t exit_type_of(statement_exit_type_context_t & ctx,
-                                       _statements_t * statements)
+                                       _statements_t * statements
+    )
     {
         typedef statement_exit_type_t       __exit_type_t;
         typedef enum_t<__exit_type_t>       __e_exit_type_t;
@@ -600,13 +638,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return statement_exit_type_t::none;
 
         __e_exit_type_t type;
+        const __exit_type_t until = enum_or(__exit_type_t::return_,
+            __exit_type_t::throw_, __exit_type_t::dead_cycle
+        );
 
         for(statement_t * statement : *statements)
         {
             __e_exit_type_t et = statement->exit_type(ctx);
             type |= et;
 
-            if(et.has_only(__exit_type_t::return_, __exit_type_t::throw_, __exit_type_t::dead_cycle))
+            if(et.has_only(until))
             {
                 type.remove(__exit_type_t::pass);
                 break;

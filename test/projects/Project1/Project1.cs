@@ -8,10 +8,20 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        const int a = 10, b = 20;
-        int c = a + b;
+        try
+        {
+            Console.WriteLine("-------- Try");
 
-        Console.Print(c);
+            throw new Exception();
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine("-------- Catch");
+        }
+        finally
+        {
+            Console.WriteLine("-------- finally");
+        }
     }
 };
 

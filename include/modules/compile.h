@@ -180,6 +180,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compile optimize codes.
+    X_ENUM(compile_optimize_code_t)
+
+        // Remove unreached codes.
+        remove_unreached_codes,
+
+        // Converts switch to if statement when case lables is too little.
+        convert_switch_to_if_statement,
+
+    X_ENUM_END
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Interface for token enumerator.
     X_INTERFACE token_enumerator_t
     {

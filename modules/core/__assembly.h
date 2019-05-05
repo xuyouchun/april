@@ -184,7 +184,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         { }
 
         // Write assembly buffer to a stream.
-        void write(xostream_t & stream, logger_t & logger);
+        void write(xostream_t & stream, logger_t & logger, method_compile_controller_t * controller);
 
         // Loads assembly from a stream.
         void load(xistream_t & stream, assembly_loader_t * loader);

@@ -268,8 +268,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
-    //-------- ---------- ---------- ---------- ----------
-
     // Returns xil type of the expression.
     xil_type_t __xil_type(expression_t * exp)
     {
@@ -281,6 +279,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         */
 
         return to_xil_type(vtype);
+    }
+
+    // Tries compile expression if it's a constant value.
+    // Returns false when compile failed. ( not a constant value. )
+    static bool __try_compile_constant_expression(__cctx_t & ctx, xil_pool_t & pool,
+                                                           expression_t * expression)
+    {
+        cvalue_t cvalue = __execute_expression(ctx, expression);
+        if(!is_nan(cvalue))
+        {
+            if(is_effective(expression))
+                __compile_cvalue(ctx, pool, cvalue);
+
+            return true;
+        }
+
+        return false;
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -664,7 +679,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 expression_t * exp = argument->expression;
                 _A(exp != nullptr);
 
-                exp->compile(ctx, pool);
+                if(!__try_compile_constant_expression(ctx, pool, exp))
+                    exp->compile(ctx, pool);
             }
         }
     }
@@ -700,23 +716,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             throw _ED(__e_t::index_type_undetermined, var);
 
         return type;
-    }
-
-    // Tries compile expression if it's a constant value.
-    // Returns false when compile failed. ( not a constant value. )
-    static bool __try_compile_constant_expression(__cctx_t & ctx, xil_pool_t & pool,
-                                                           expression_t * expression)
-    {
-        cvalue_t cvalue = __execute_expression(ctx, expression);
-        if(!is_nan(cvalue))
-        {
-            if(is_effective(expression))
-                __compile_cvalue(ctx, pool, cvalue);
-
-            return true;
-        }
-
-        return false;
     }
 
     // Compile assign argument.
@@ -1047,11 +1046,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_local_variable(__cctx_t & ctx, xil_pool_t & pool,
                                                             local_variable_t * variable)
     {
+        _PF(_T("-------- variable: %1%, %2%, %3%"), variable,
+                        variable->read_count, variable->write_count);
+
         xil_type_t xil_type = __to_xil_type(variable);
 
-        pool.append<__push_variable_xil_t>(
-            xil_storage_type_t::local, xil_type, variable->identity
-        );
+        if(variable->constant)
+        {
+            cvalue_t cvalue = __execute_expression(ctx, variable->expression);
+            _A(cvalue != cvalue_t::nan);
+
+            __compile_cvalue(ctx, pool, cvalue);
+        }
+        else
+        {
+            pool.append<__push_variable_xil_t>(
+                xil_storage_type_t::local, xil_type, variable->identity
+            );
+        }
     }
 
     // Compiles param variable.

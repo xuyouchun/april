@@ -115,8 +115,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        local_assign_xilx_t(__region_t & region, local_variable_t * local)
-            : __super_t(region), local(local)
+        local_assign_xilx_t(__region_t & region, local_variable_t * local,
+                                expression_t * expression = nullptr)
+            : __super_t(region), local(local), expression(expression)
         {
             _A(local != nullptr);
         }
@@ -127,10 +128,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts to a string.
         virtual const string_t to_string() const override
         {
-            return _F(_T("local assign: %1%"), local);
+            return _F(_T("local defination: %1% = %2%"), local, expression);
         }
 
-        local_variable_t * local;
+        // Local variable.
+        local_variable_t * local = nullptr;
+
+        // Init expression.
+        expression_t * expression = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -230,9 +235,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         expression_t * __expression;
-
-        // Compiles.
-        void __compile(__xw_context_t & ctx, xil_pool_t & pool, expression_t * expression);
     };
 
     ////////// ////////// ////////// ////////// //////////

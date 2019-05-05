@@ -2770,6 +2770,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Method compiles controller.
+    X_INTERFACE method_compile_controller_t
+    {
+        // Returns whether specified code need optimized.
+        virtual bool optimize(int code) = 0;
+
+        // A default controller.
+        static method_compile_controller_t * default_();
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Context for compile a method.
     class method_compile_context_t : public object_t, public no_copy_ctor_t
     {
@@ -2777,8 +2789,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Constructors.
         method_compile_context_t(xpool_t & xpool, __assembly_layout_t & layout,
-                             xil_buffer_t & buffer, xil_pool_t & xil_pool, logger_t & logger)
+             xil_buffer_t & buffer, xil_pool_t & xil_pool, logger_t & logger,
+             method_compile_controller_t * controller = method_compile_controller_t::default_())
             : layout(layout), xpool(xpool), xil_pool(xil_pool), buffer(buffer), logger(logger)
+            , controller(controller)
         { }
 
         xpool_t &               xpool;
@@ -2786,6 +2800,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_buffer_t &          buffer;
         xil_pool_t &            xil_pool;
         logger_t &              logger;
+
+        method_compile_controller_t * const controller;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4152,6 +4168,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns vtype.
         vtype_t  get_vtype();
+
+        // Write count.
+        int write_count = 0;
+
+        // Read count.
+        int read_count = 0;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4227,6 +4249,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         msize_t        identity     = unknown_msize;    // Identity of the variable.
         msize_t        index        = unknown_msize;    // Index of the variable.
         bool           constant     = false;            // A constant variable.
+        bool           inline_      = false;            // Cound be inline. ( only write/read once. )
         expression_t * expression   = nullptr;          // Constant initialize value.
 
         // Returns this variable's type.
@@ -5739,9 +5762,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Operator expression base.
+    class op_expression_base_t
+    {
+    public:
+
+        // Returns operator property.
+        virtual const operator_property_t * get_operator_property() = 0;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Expression with operator.
     template<size_t exp_count>
     class op_expression_t : public texpression_t<exp_count>
+                          , public op_expression_base_t
     {
         typedef texpression_t<exp_count> __super_t;
 
@@ -5766,6 +5801,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Operator.
         operator_t op() const { return op_property->op; }
+
+        // Returns operator property.
+        virtual const operator_property_t * get_operator_property() override
+        {
+            return op_property;
+        }
 
         // Returns behaviour.
         virtual expression_behaviour_t get_behaviour() const override
@@ -6584,14 +6625,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Walk sub expression by applies all sub expression for calling callback function.
     template<typename callback_t>
-    X_INLINE void each_expression(expression_t * expression, callback_t callback)
+    X_INLINE void each_expression(expression_t * expression, callback_t callback,
+                                                             bool deep = false)
     {
         if(expression == nullptr)
             return;
 
         for(size_t index = 0, count = expression->expression_count(); index < count; index++)
         {
-            callback(expression->expression_at(index));
+            expression_t * exp = expression->expression_at(index);
+            callback(exp);
+
+            if(deep)
+                each_expression(exp, callback, true);
         }
     }
 

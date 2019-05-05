@@ -2587,6 +2587,13 @@ namespace X_ROOT_NS {
                 && ((__underly_t)this->value & ~(__underly_t)enum_or(v, vs...)) == 0;
         }
 
+        // Returns whether it is composed by specified flags.
+        bool has_only(_enum_t v)
+        {
+            return (__underly_t)this->value != 0
+                && ((__underly_t)this->value & ~(__underly_t)v) == 0;
+        }
+
         // Removes a flag.
         template<typename ... _enums_t>
         __self_t remove(_enum_t v, _enums_t ... vs)

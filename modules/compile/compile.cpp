@@ -3,6 +3,7 @@
 #include <lib.h>
 #include <algorithm.h>
 #include "utils.h"
+#include "controller.h"
 
 namespace X_ROOT_NS { namespace modules { namespace compile {
 
@@ -133,6 +134,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Cache exception variable undeterminded.
         X_D(catch_exception_variable_undeterminded, _T("Cache exception variable undeterminded"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Compile optimize codes.
+    X_ENUM_INFO(compile_optimize_code_t)
+
+        // Remove unreached codes.
+        X_D(remove_unreached_codes, _T("Remove unreached codes."))
+
+        // Converts switch to if statement when case lables is too little.
+        X_D(convert_switch_to_if_statement,
+                _T("Converts switch to if statement when case lables is too little."))
 
     X_ENUM_INFO_END
 
@@ -794,7 +809,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if(stream == nullptr)
                 stream = &__empty_xostream;
 
-            assembly->write(*stream, logger);
+            assembly->write(*stream, logger, default_controller());
             stream->completed();
         }
 

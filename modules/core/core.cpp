@@ -1245,6 +1245,27 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Default method 
+    class __default_method_compile_controller_t : public method_compile_controller_t
+    {
+    public:
+
+        // Returns whether specified code need optimized.
+        virtual bool optimize(int code) override
+        {
+            return false;
+        }
+    };
+
+    // A default compile controller.
+    method_compile_controller_t * method_compile_controller_t::default_()
+    {
+        static __default_method_compile_controller_t default_;
+        return &default_;
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Converts generic arguments to a type collection.
     type_collection_t to_type_collection(generic_args_t * args)
     {

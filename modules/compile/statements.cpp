@@ -19,7 +19,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __exit_type_t::return_, __exit_type_t::goto_, __exit_type_t::throw_ \
         )
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     namespace xilx
     {
@@ -90,17 +90,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             return label;
         }
+    }
 
-        //-------- ---------- ---------- ---------- ----------
+    //-------- ---------- ---------- ---------- ----------
 
-        // Appends expression.
-        void append_expression(__context_t & ctx, expression_t * expression)
+    void __walk_variables(expression_t * exp);
+
+    // Appends expression.
+    void append_expression(__context_t & ctx, expression_t * expression)
+    {
+        if(expression != nullptr)
         {
-            if(expression != nullptr)
-            {
-                set_assign_parent(expression);
-                append_xilx<expression_xilx_t>(ctx, expression);
-            }
+            __walk_variables(expression);
+
+            set_assign_parent(expression);
+            append_xilx<expression_xilx_t>(ctx, expression);
         }
     }
 
@@ -132,18 +136,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    // Compiles statement with region.
-    template<typename _region_t>
-    void compile_statement_with_region(__context_t & ctx, statement_t * statement)
-    {
-        if(statement == nullptr)
-            return;
-
-        ctx.begin_region<_region_t>();
-        statement->compile(ctx);
-        ctx.end_region();
-    }
-
     // Returns exit type of a statement.
     __e_exit_type_t __exit_type(__exit_type_context_t & ctx, statement_t * statement)
     {
@@ -151,6 +143,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __exit_type_t::none;
 
         return statement->exit_type(ctx);
+    }
+
+    // Remove unreached codes.
+    bool __remove_unreached_codes(statement_compile_context_t & ctx)
+    {
+        return is_optimize(ctx, compile_optimize_code_t::remove_unreached_codes);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -238,19 +236,31 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Executes the expression.
-    cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp)
+    cvalue_t execute_expression(xpool_t & xpool, expression_t * exp)
     {
         if(exp == nullptr)
             return cvalue_t::nan;
 
-        expression_execute_context_t ectx(ctx.xpool());
+        expression_execute_context_t ectx(xpool);
         return exp->execute(ectx);
+    }
+
+    // Executes the expression.
+    cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp)
+    {
+        return execute_expression(ctx.xpool(), exp);
     }
 
     // Executes the expression.
     cvalue_t execute_expression(expression_compile_context_t & ctx, expression_t * exp)
     {
         return execute_expression(ctx.statement_ctx, exp);
+    }
+
+    // Executes the expression.
+    cvalue_t execute_expression(__xw_context_t & ctx, expression_t * exp)
+    {
+        return execute_expression((statement_compile_context_t &)ctx, exp);
     }
 
     // Executes the expression.
@@ -310,11 +320,65 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Pick variables from expression, returns nullptr if it's not a variable expression.
+    variable_t * __pick_variable(expression_t * exp)
+    {
+        if(exp == nullptr)
+            return nullptr;
+
+        variable_expression_t * var_exp = as<variable_expression_t *>(exp);
+        if(var_exp == nullptr)
+            return nullptr;
+
+        if(var_exp->is_variable_expression())
+            return var_exp->get_variable();
+
+        return nullptr;
+    }
+
+    // Converts to a binary expression, returns nullptr if converts failed.
+    operator_t __binary_operator(expression_t * exp)
+    {
+
+        return operator_t::__default__;
+    }
+
+    // Walk variables, add variable reference count.
+    void __walk_variables(expression_t * exp)
+    {
+        if(exp == nullptr)
+            return;
+
+        each_expression(exp, [](expression_t * e) {
+
+            variable_t * var = __pick_variable(e);
+            if(var == nullptr)
+                return;
+
+            op_expression_base_t * op_exp = as<op_expression_base_t *>(e->parent);
+            const operator_property_t * op_property;
+
+            if(op_exp && (op_property = op_exp->get_operator_property()) != nullptr
+                      && op_property->is_assign)
+            {
+                var->write_count++;
+            }
+            else
+            {
+                var->read_count++;
+            }
+
+        }, true);
+    }
+
     // Compiles this expression statement.
     void expression_statement_t::compile(statement_compile_context_t & ctx)
     {
-        if(expression != nullptr)
-            append_xilx<expression_xilx_t>(ctx, expression);
+        if(expression == nullptr)
+            return;
+
+        __walk_variables(expression);
+        append_xilx<expression_xilx_t>(ctx, expression);
     }
 
     // Returns exit type.
@@ -403,10 +467,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if(!item->variable->constant && item->expression != nullptr)
             {
+                item->variable->write_count++;
+
+                __walk_variables(item->expression);
                 set_assign_parent(item->expression);
 
-                append_xilx<expression_xilx_t>(ctx, item->expression);
-                append_xilx<local_assign_xilx_t>(ctx, item->variable);
+                append_xilx<local_assign_xilx_t>(ctx, item->variable, item->expression);
             }
         }
     }
@@ -529,7 +595,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         set_point(ctx, __exit_point_type_t::continue_);
         compile_statement(ctx, body);
 
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = __remove_unreached_codes(ctx)?
+                        execute_expression(ctx, condition) : cvalue_t::nan;
+
         if(condition_value == true || condition == nullptr)
         {
             append_jmp(ctx, __exit_point_type_t::continue_);
@@ -584,7 +652,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         set_point(ctx, __exit_point_type_t::continue_);
         compile_statement(ctx, body);
 
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = __remove_unreached_codes(ctx)?
+                        execute_expression(ctx, condition) : cvalue_t::nan;
+
         if(condition_value == false || condition == nullptr)
         {
             append_jmp(ctx, __exit_point_type_t::continue_);
@@ -638,7 +708,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this statement.
     void while_statement_t::compile(statement_compile_context_t & ctx)
     {
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = __remove_unreached_codes(ctx)?
+                        execute_expression(ctx, condition) : cvalue_t::nan;
+
         if(condition_value == false)
             return;
 
@@ -707,7 +779,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             append_xilx<expression_xilx_t>(ctx, initialize);
         }
 
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = __remove_unreached_codes(ctx)?
+                        execute_expression(ctx, condition) : cvalue_t::nan;
+
         if(condition_value == false)
         {
             // Do nothing   
@@ -790,7 +864,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this statement.
     void if_statement_t::compile(statement_compile_context_t & ctx)
     {
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = __remove_unreached_codes(ctx)?
+                        execute_expression(ctx, condition) : cvalue_t::nan;
+
         if(condition_value == true)
         {
             compile_with_region<__if_statement_region_t>(ctx, if_body);
@@ -855,6 +931,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns whether it contains a default label.
+    bool case_t::contains_default() const
+    {
+        for(expression_t * exp : constants)
+        {
+            if(exp == nullptr)
+                return true;
+        }
+
+        return false;
+    }
+
     typedef __statement_region_t<__e_mask_t::break_> __switch_statement_region_t;
 
     // Compiles this statement.
@@ -864,19 +952,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             throw _ED(__e_t::expession_missing, _T("switch"));
 
         int row_count = __get_rows();
-        switch(row_count)
+
+        if(is_optimize(ctx, compile_optimize_code_t::convert_switch_to_if_statement))
         {
-            case 0:
-                __compile_as_statement(ctx);
-                break;
+            switch(row_count)
+            {
+                case 0:
+                    __compile_as_statement(ctx);
+                    break;
 
-            case 1:
-                __compile_as_if(ctx);
-                break;
+                case 1:
+                    __compile_as_if(ctx);
+                    break;
 
-            default:
-                __compile_as_switch(ctx, row_count);
-                break;
+                default:
+                    __compile_as_switch(ctx, row_count);
+                    break;
+            }
+        }
+        else
+        {
+            __compile_as_switch(ctx, row_count);
         }
     }
 
@@ -1059,7 +1155,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 operator_t::equal, expression, if_condition
             );
 
-            cvalue_t condition_cvalue = execute_expression(ctx, condition);
+            cvalue_t condition_cvalue = __remove_unreached_codes(ctx)?
+                            execute_expression(ctx, condition) : cvalue_t::nan;
 
             if(condition_cvalue == true)
             {
@@ -1087,12 +1184,120 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ctx.end_region();
     }
 
+    // Finds case by constant value.
+    switch_statement_t::__case_iterator_t
+    switch_statement_t::__find_case(xpool_t & xpool, cvalue_t value,
+                                                      __case_iterator_t * default_iterator)
+    {
+        for(__case_iterator_t it = cases.begin(), it_end = cases.end();
+            it != it_end; it++)
+        {
+            for(expression_t * exp : (*it)->constants)
+            {
+                if(exp == nullptr)
+                    *default_iterator = it;
+                else if(execute_expression(xpool, exp) == value)
+                    return it;
+            }
+        }
+
+        return cases.end();
+    }
+
+    // Returns exit type of statements.
+    __exit_type_t switch_statement_t::__exit_type_of(__exit_type_context_t & ctx,
+                                                     statements_t * statements)
+    {
+        if(statements == nullptr)
+            return statement_exit_type_t::none;
+
+        __e_exit_type_t type;
+        const __exit_type_t until = enum_or(__exit_type_t::return_,
+            __exit_type_t::throw_, __exit_type_t::dead_cycle, __exit_type_t::break_
+        );
+
+        for(statement_t * statement : *statements)
+        {
+            __e_exit_type_t et = statement->exit_type(ctx);
+            type |= et;
+
+            if(et.has_only(until))
+            {
+                type.remove(__exit_type_t::pass);
+                break;
+            }
+        }
+
+        return *type;
+    }
+
     // Returns exit type.
     __exit_type_t switch_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        // TODO: how?
-        X_UNEXPECTED();
-        return __exit_type_t::none;
+        __e_exit_type_t type;
+
+        cvalue_t value = execute_expression(ctx, expression);
+        if(value != cvalue_t::nan)
+        {
+            __case_iterator_t it_start = cases.begin(), it_end = cases.end();
+
+            __case_iterator_t default_case = it_end;
+            __case_iterator_t it = __find_case(ctx.xpool, value, &default_case);
+
+            if(it == cases.end() && (it = default_case) == it_end)
+                return __exit_type_t::none;
+
+            it_start = it;
+
+            const __exit_type_t until = enum_or(__exit_type_t::return_,
+                __exit_type_t::throw_, __exit_type_t::dead_cycle, __exit_type_t::break_
+            );
+
+            for(__case_iterator_t it = it_start; it != it_end; it++)
+            {
+                if((*it)->statements == nullptr)
+                    continue;
+
+                __e_exit_type_t et = __exit_type_of(ctx, (*it)->statements);
+                type |= et;
+
+                if(et.has_only(until))
+                {
+                    if(et.has(__exit_type_t::break_))
+                        type.add(__exit_type_t::pass);
+                    else
+                        type.remove(__exit_type_t::pass);
+                    break;
+                }
+            }
+        }
+        else
+        {
+            bool contains_default = false;
+            for(__case_iterator_t it = cases.begin(), it_end = cases.end(); it != it_end; it++)
+            {
+                if(!contains_default && (*it)->contains_default())
+                    contains_default = true;
+
+                if((*it)->statements == nullptr)
+                    continue;
+
+                __e_exit_type_t et = __exit_type_of(ctx, (*it)->statements);
+                type |= et;
+
+                if(et.has(__exit_type_t::break_))
+                    type.add(__exit_type_t::pass);
+            }
+
+            if(!contains_default)
+                type.add(__exit_type_t::pass);
+        }
+
+        type.remove(__exit_type_t::break_);
+
+        // _PP( _eflags(*type) );
+
+        return *type;
     }
 
     ////////// ////////// ////////// ////////// //////////
