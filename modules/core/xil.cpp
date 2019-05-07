@@ -279,31 +279,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(rethrow,        _T("rethrow"))
 
-        X_C(leave,          _T("leave"))
-
-        X_C(end_block,      _T("end_block"))
+        X_C(end_finally,    _T("end_finally"))
 
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Jmp direction.
-    X_ENUM_INFO(xil_jmp_direction_t)
+    // Jmp distance.
+    X_ENUM_INFO(xil_jmp_distance_t)
 
-        X_C(near_backward,  _T("near_backward"))
+        X_C(near,           _T("near"))
 
-        X_C(near_forward,   _T("near_forward"))
-
-        X_C(backward,       _T("backward"))
-
-        X_C(forward,        _T("forward"))
+        X_C(far,            _T("far"))
 
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Jmp condition.
-    X_ENUM_INFO(xil_jmp_condition_t)
+    // Jmp model.
+    X_ENUM_INFO(xil_jmp_model_t)
 
         X_C(none,           _T("none"))
 
@@ -312,6 +306,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_C(false_,         _T("false"))
 
         X_C(switch_,        _T("switch"))
+
+        X_C(leave,          _T("leave"))
 
     X_ENUM_INFO_END
 
@@ -594,11 +590,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_smp_t::rethrow:
                 return _T("rethrow");
 
-            case xil_smp_t::leave:
-                return _T("leave");
-
-            case xil_smp_t::end_block:
-                return _T("end block");
+            case xil_smp_t::end_finally:
+                return _T("end finally");
 
             default:
                 return _T("smp: ?");
@@ -611,47 +604,156 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts jmp xil to a string.
     jmp_xil_t::operator string_t() const
     {
-        return _F(_T("jmp %1% %2%"), condition(), step());
+        switch(model())
+        {
+            case xil_jmp_model_t::none:
+                return _F(_T("jmp %1%"), step());
+
+            case xil_jmp_model_t::switch_:
+                return _T("switch");
+
+            case xil_jmp_model_t::leave:
+                if(step() == 0)
+                    return _T("leave.ret");
+                return _F(_T("leave %1%"), step());
+
+            default:
+                return _F(_T("jmp %1% %2%"), model(), step());
+        }
+    }
+
+    namespace
+    {
+        // Validate bits.
+        template<typename _t, size_t _bits> void __validate_bits()
+        {
+            static_assert(_bits <= sizeof(_t) * 8 && _bits >= 1,
+                "_size must less/equals than sizeof(_t) * 8 and large than 0");
+        }
+
+        // Max/min values of specified bits. for signed values.
+        template<typename _t, size_t _bits, bool _signed = std::is_signed<_t>::value>
+        struct __limit_of_bits_t
+        {
+            // Returns the max value of specified bits.
+            constexpr static _t max_of_bits() noexcept
+            {
+                __validate_bits<_t, _bits>();
+                return max_value<_t>() >> ((sizeof(_t) << 3) - _bits);
+            }
+
+            // Returns the min value of specified bits.
+            constexpr static _t min_of_bits() noexcept
+            {
+                __validate_bits<_t, _bits>();
+
+                typedef std::make_unsigned_t<_t> ut;
+                return _t(ut((_t)-1) << (_bits - 1));
+            }
+        };
+
+        // Max/min values of specified bits. for unsigned values.
+        template<typename _t, size_t _bits>
+        struct __limit_of_bits_t<_t, _bits, false>  // unsigned.
+        {
+            // Returns the max value of specified bits.
+            constexpr static _t max_of_bits() noexcept
+            {
+                __validate_bits<_t, _bits>();
+                return max_value<_t>() >> ((sizeof(_t) << 3) - _bits);
+            }
+
+            // Returns the min value of specified bits.
+            constexpr static _t min_of_bits() noexcept
+            {
+                __validate_bits<_t, _bits>();
+
+                return 0;
+            }
+        };
+
+        template<typename _t, size_t _bits, size_t _offset = 0>
+        struct __bits_value_t
+        {
+            _t  __nouse__ : _offset;
+            _t  value     : _bits;
+        };
+
+        template<typename _t, size_t _bits>
+        struct __bits_value_t<_t, _bits, 0>
+        {
+            _t  value     : _bits;
+        };
+    }
+
+    // Returns the max value of specified bits.
+    template<typename _t, size_t _bits>
+    constexpr _t max_of_bits() noexcept
+    {
+        return __limit_of_bits_t<_t, _bits>::max_of_bits();
+    }
+
+    // Returns the min value of specified bits.
+    template<typename _t, size_t _bits>
+    constexpr _t min_of_bits() noexcept
+    {
+        return __limit_of_bits_t<_t, _bits>::min_of_bits();
+    }
+
+    // Returns the value of specified bits.
+    template<typename _t, size_t _bits, size_t _offset = 0>
+    _t value_of_bits(const void * p)
+    {
+        __validate_bits<_t, _bits>();
+
+        return ((__bits_value_t<_t, _bits, _offset> *)p)->value;
+    }
+
+    // Returns the value of specified bits.
+    template<typename _t, size_t _bits, size_t _offset = 0>
+    void set_value_of_bits(void * p, _t value)
+    {
+        __validate_bits<_t, _bits>();
+
+        ((__bits_value_t<_t, _bits, _offset> *)p)->value = value;
+    }
+
+    // Returns whether the value is in the range of specified bits.
+    template<typename _t, size_t _bits = sizeof(_t) * 8, typename _v_t>
+    constexpr bool in_range(_v_t value)
+    {
+        return value <= max_of_bits<_t, _bits>() && value >= min_of_bits<_t, _bits>();
     }
 
     // Sets jmp xil step.
-    void jmp_xil_t::set_step(int32_t step)
+    void jmp_xil_t::set_step(xil_jmp_step_t step)
     {
-        enum { positive, negative } sign = (step >= 0)? positive :
-            ((step = - step), negative);
-
-        typedef xil_jmp_direction_t d_t;
-        if(step <= (int32_t)max_value<byte_t>())
+        if(in_range<int8_t>(step))
         {
-            __extra[0] = (byte_t)step;
-            set_direction(sign == positive? d_t::near_forward : d_t::near_backward);
+            *((int8_t *)__extra) = step;
+            set_distance(xil_jmp_distance_t::near);
+        }
+        else if(in_range<int32_t, 24>(step))
+        {
+            set_value_of_bits<int32_t, 24, 8>(this, step);
+            set_distance(xil_jmp_distance_t::far);
         }
         else
         {
-            if(step > ((int32_t)0x00FFFFFF))
-                throw _EC(overflow, _T("jmp step overflow"));
-
-            *(int32_t *)__extra = step;
-            set_direction(sign == positive? d_t::forward : d_t::backward);
+            throw _EC(overflow, _T("jmp step overflow"));
         }
     }
 
     // Returns jmp step.
-    int32_t jmp_xil_t::step() const
+    xil_jmp_step_t jmp_xil_t::step() const
     {
-        switch(direction())
+        switch(distance())
         {
-            case xil_jmp_direction_t::near_backward:
-                return -__extra[0];
+            case xil_jmp_distance_t::near:
+                return (xil_jmp_step_t)__extra[0];
 
-            case xil_jmp_direction_t::near_forward:
-                return __extra[0];
-
-            case xil_jmp_direction_t::backward:
-                return -*(int32_t *)__extra;
-
-            case xil_jmp_direction_t::forward:
-                return *(int32_t *)__extra;
+            case xil_jmp_distance_t::far:
+                return value_of_bits<xil_jmp_step_t, 24, 8>(this);
 
             default:
                 X_UNEXPECTED();

@@ -24,6 +24,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    class exec_method_t;
+    class exec_method_block_manager_t;
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Execute error codes.
     X_ENUM(exec_error_code_t)
 
@@ -60,6 +65,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // At the end of commands.
         end,
+
+        // Raised by uncaughted exception.
+        terminal,
 
     X_ENUM_END
 
@@ -147,6 +155,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         template<typename t> __AlwaysInline t pop()
         {
             t value = __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop(__top);
+            __top -= __alignf<t>() / sizeof(rt_stack_unit_t);
+
+            return value;
+        }
+
+        // Pops a value reference.
+        template<typename t> __AlwaysInline t & pop_reference()
+        {
+            typedef __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)> stack_operation_t;
+
+            t & value = stack_operation_t::pop_reference(__top);
             __top -= __alignf<t>() / sizeof(rt_stack_unit_t);
 
             return value;
@@ -316,11 +335,161 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     class command_t;
 
+    // The exception stack node.
+    struct exception_node_t
+    {
+        typedef exception_node_t __self_t;
+
+        command_t **    throw_point;    // The command where the exception throwed.
+        rt_ref_t        exception;      // Exception.
+        __self_t *      next;           // Next node of the chain.
+    };
+
+    // Exception node stack.
+    class exception_stack_t : public object_t, private memory_base_t
+    {
+        typedef exception_stack_t   __self_t;
+        typedef exception_node_t    __node_t;
+
+    public:
+
+        // Constructors.
+        exception_stack_t(memory_t * memory = nullptr) : memory_base_t(memory) { }
+
+        // Current exception stack node.
+        __node_t * current = nullptr;
+
+        // Pushes an exception.
+        void push(command_t ** throw_point, rt_ref_t exception);
+
+        // Pops an exception.
+        void pop();
+
+        // Returns the top exception node.
+        __node_t * top() { return current; }
+
+        // Destructors.
+        virtual ~exception_stack_t();
+
+    private:
+        std::queue<__node_t *> __node_queue;
+
+        // Acquires a new node.
+        __node_t * __acquire_node(command_t ** throw_point, rt_ref_t exception);
+
+        // Releases a node.
+        void __release_node(__node_t * node);
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // exec_method_block_t
+
+    // Method block.
+    struct exec_method_block_t
+    {
+        // Start of protected block.
+        command_t ** start;
+
+        // End of protected block.
+        command_t ** end;
+
+        // Entry point.
+        command_t ** entry_point;
+
+        // Relation type.
+        rt_type_t * relation_type;
+
+        // Block type.
+        method_xil_block_type_t type;
+    };
+
+    // Method block manager.
+    class exec_method_block_manager_t
+    {
+    public:
+
+        // Block array.
+        exec_method_block_t * blocks = nullptr;
+
+        // Block count.
+        int count = 0;
+
+        // Finds block contains the specified point.
+        template<typename _f_t> void find_block(command_t ** point, _f_t f)
+        {
+            exec_method_block_t * block = blocks, * block_end = block + count;
+
+            for(; block < block_end; block++)
+            {
+                if(point >= block->start && point < block->end)
+                {
+                    if(!f(block))
+                        return;
+
+                    break;
+                }
+            }
+
+            for(block++; block < block_end; block++)
+            {
+                if(point < block->start || point >= block->end || !f(block))
+                    return;
+            }
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // exec_method_t
+
+    // Executing method.
+    class exec_method_t : public object_t
+    {
+    public:
+
+        // Constructor.
+        exec_method_t(command_t ** commands, uint16_t ref_objects, msize_t stack_unit_size)
+            : commands(commands), ref_objects(ref_objects), stack_unit_size(stack_unit_size)
+        {
+            _A(commands != nullptr);
+        }
+
+        uint16_t ref_objects;
+        msize_t  stack_unit_size;
+
+        // Commands.
+        command_t ** commands;
+
+        // Block manager.
+        exec_method_block_manager_t * block_manager = nullptr;
+
+        // Returns method name.
+        string_t get_name() const;
+
+        // Runtime method.
+        rt_method_base_t * rt_method = nullptr;
+
+        // Finds block contains the specified point.
+        template<typename _f_t>
+        __AlwaysInline void find_block(command_t ** point, _f_t f)
+        {
+            if(block_manager == nullptr)
+                return;
+
+            block_manager->find_block(point, f);
+        }
+
+        // Converts to string.
+        X_TO_STRING
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Calling stub.
     struct __calling_stub_t
     {
         rt_stack_unit_t *   lp;         // Local variables top.
         command_t **        current;    // Current command.
+        exec_method_t *     method;     // Method.
     };
 
     class executor_env_t;
@@ -339,32 +508,49 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             _A(heap != nullptr);
         }
 
-        executor_stack_t    stack;             // Stack.
-        rt_string_pool_t    string_pool;       // String pool.
-        rt_heap_t *         heap;              // Runtime heap.
-        executor_env_t &    env;               // Executing environment.
+        executor_stack_t    stack;              // Stack.
+        rt_string_pool_t    string_pool;        // String pool.
+        rt_heap_t *         heap;               // Runtime heap.
+        executor_env_t &    env;                // Executing environment.
 
-        command_t ** current = nullptr;        // Current command.
+        command_t ** current = nullptr;         // Current command.
+
+        exception_stack_t exception_stack;      // Exception stack.
 
         // Pushes calling context.
-        X_ALWAYS_INLINE void push_calling(command_t ** command)
+        __AlwaysInline void push_calling(exec_method_t * method)
         {
-            stack.push(stack.lp());
-            stack.push(current);
+            stack.push(__calling_stub_t { stack.lp(), this->current, method });
+            this->current = method->commands;
+            stack.set_lp(stack.top());
+        }
 
-            this->current = command;
+        // Pushes calling context by commands.
+        __AlwaysInline void push_calling(command_t ** commands)
+        {
+            stack.push(__calling_stub_t { stack.lp(), this->current, nullptr });
+            this->current = commands;
             stack.set_lp(stack.top());
         }
 
         // Pops calling context.
-        X_ALWAYS_INLINE void pop_calling()
+        __AlwaysInline void pop_calling()
         {
-            current = stack.pop<command_t **>();
-            stack.set_lp(stack.pop<rt_stack_unit_t *>());
+            __calling_stub_t & stub = stack.pop_reference<__calling_stub_t>();
+
+            this->current = stub.current;
+            stack.set_lp(stub.lp);
+        }
+
+        // Returns whether stack is on head.
+        __AlwaysInline bool stack_empty()
+        {
+            __calling_stub_t * stub = ((__calling_stub_t *)stack.lp() - 1);
+            return stub->current == nullptr;
         }
 
         // Pops calling context.
-        X_ALWAYS_INLINE void pop_calling(const __calling_stub_t * p)
+        __AlwaysInline void pop_calling(const __calling_stub_t * p)
         {
             current = p->current;
             stack.set_lp(p->lp);
@@ -372,6 +558,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Creates a new runtime string.
         rt_string_t * new_rt_string(const char_t * s);
+
+        // Pushes an exception.
+        __AlwaysInline void push_exception(rt_ref_t exception)
+        {
+            exception_stack.push(current, exception);
+        }
+
+        // Pushes an exception.
+        __AlwaysInline void pop_exception()
+        {
+            exception_stack.pop();
+        }
 
         // Destructor.
         virtual ~command_execute_context_t() override
@@ -409,62 +607,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         virtual const string_t to_string(command_execute_context_t & ctx) const = 0;
 
         #endif  // EXEC_TRACE
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // exec_method_block_t
-
-    // Method block.
-    struct exec_method_block_t
-    {
-        // Start of protected block.
-        command_t ** start;
-
-        // End of protected block.
-        command_t ** end;
-
-        // Entry point.
-        command_t ** entry_point;
-
-        // Relation type.
-        rt_type_t * relation_type;
-    };
-
-    // Method block manager.
-    class exec_method_block_manager_t
-    {
-    public:
-
-        // Block array.
-        exec_method_block_t * blocks = nullptr;
-
-        // Block count.
-        int count = 0;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-    // exec_method_t
-
-    // Executing method.
-    class exec_method_t : public object_t
-    {
-    public:
-
-        // Constructor.
-        exec_method_t(command_t ** commands, uint16_t ref_objects, msize_t stack_unit_size)
-            : commands(commands), ref_objects(ref_objects), stack_unit_size(stack_unit_size)
-        {
-            _A(commands != nullptr);
-        }
-
-        uint16_t ref_objects;
-        msize_t  stack_unit_size;
-
-        // Commands.
-        command_t ** commands;
-
-        // Block manager.
-        exec_method_block_manager_t * block_manager = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////

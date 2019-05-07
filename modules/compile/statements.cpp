@@ -12,7 +12,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     typedef compile_error_code_t            __e_t;
     typedef statement_exit_type_t           __exit_type_t;
     typedef enum_t<__exit_type_t>           __e_exit_type_t;
+    typedef statement_region_property_t     __region_property_t;
+    typedef enum_t<__region_property_t>     __e_region_property_t;
     typedef statement_exit_type_context_t   __exit_type_context_t;
+    typedef statement_region_property_t     __region_property_t;
     typedef method_xil_block_type_t         __block_type_t;
 
     #define __FreeExitFlags     enum_or(__exit_type_t::break_,                  \
@@ -25,30 +28,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         // Appends jmp xilx.
         point_jmp_xilx_t * append_jmp(__context_t & ctx, __exit_point_type_t type,
-                                xil_jmp_condition_t jmp_condition)
+                                xil_jmp_model_t jmp_model)
         {
-            return append_xilx<point_jmp_xilx_t>(ctx, type, jmp_condition);
+            return append_xilx<point_jmp_xilx_t>(ctx, type, jmp_model);
         }
 
         // Appends jmp xilx.
         local_label_jmp_xilx_t * append_jmp(__context_t & ctx, local_label_t label,
-                                xil_jmp_condition_t jmp_condition)
+                                xil_jmp_model_t jmp_model)
         {
-            return append_xilx<local_label_jmp_xilx_t>(ctx, label, jmp_condition);
+            return append_xilx<local_label_jmp_xilx_t>(ctx, label, jmp_model);
         }
 
         // Appends jmp xilx.
         global_label_jmp_xilx_t * append_jmp(__context_t & ctx, name_t name,
-                                xil_jmp_condition_t jmp_condition)
+                                xil_jmp_model_t jmp_model)
         {
-            return append_xilx<global_label_jmp_xilx_t>(ctx, name, jmp_condition);
+            return append_xilx<global_label_jmp_xilx_t>(ctx, name, jmp_model);
         }
 
         // Appends jmp xilx.
         global_label_jmp_xilx_t * append_jmp(__context_t & ctx, const string_t & name,
-                                xil_jmp_condition_t jmp_condition)
+                                xil_jmp_model_t jmp_model)
         {
-            return append_jmp(ctx, ctx.to_name(name), jmp_condition);
+            return append_jmp(ctx, ctx.to_name(name), jmp_model);
         }
 
         // Appends switch jmp xilx.
@@ -145,6 +148,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return statement->exit_type(ctx);
     }
 
+    // Returns exit type of a statement.
+    __e_exit_type_t __exit_type(statement_compile_context_t & ctx, statement_t * statement)
+    {
+        statement_exit_type_context_t et_ctx(ctx.xpool());
+        return __exit_type(et_ctx, statement);
+    }
+
+    // Returns whether statement is pass through.
+    bool __statement_pass(statement_compile_context_t & ctx, statement_t * statement)
+    {
+        __e_exit_type_t et = __exit_type(ctx, statement);
+        return et == __exit_type_t::none || et.has(__exit_type_t::pass);
+    }
+
     // Remove unreached codes.
     bool __remove_unreached_codes(statement_compile_context_t & ctx)
     {
@@ -153,12 +170,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    #define __EMask(v)  (1 << (int)v)
+
     // Exit point mask.
     X_ENUM(__exit_point_mask_t)
 
-        #define __EMask(v)  (1 << (int)v)
-
-        self        = __EMask(__exit_point_type_t::self),
+        none        = 0,
         break_      = __EMask(__exit_point_type_t::break_),
         continue_   = __EMask(__exit_point_type_t::continue_),
 
@@ -167,7 +184,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Exit point mask.
     X_ENUM_INFO(__exit_point_mask_t)
 
-        X_C(self,       _T("self"))
+        X_C(none,       _T("none"))
         X_C(break_,     _T("break"))
         X_C(continue_,  _T("continue"))
 
@@ -181,11 +198,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return (__exit_point_mask_t)__EMask(point_type);
     }
 
+    #undef __EMask
+
     //-------- ---------- ---------- ---------- ----------
 
     // Statement region.
-    template<__exit_point_mask_t ... _masks>
-    class __statement_region_t : public statement_region_t
+    template<statement_region_property_t _property, __exit_point_mask_t ... _masks>
+    class __x_statement_region_t : public statement_region_t
     {
         typedef statement_region_t __super_t;
         static const __exit_point_mask_t mask = enum_xor<__exit_point_mask_t>(_masks ...);
@@ -224,6 +243,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return point;
         }
 
+        // Returns whether the specified point type can be blocked.
+        virtual bool can_block(__exit_point_type_t point_type) override
+        {
+            return __is_supported(point_type);
+        }
+
+        // Returns statement region property.
+        virtual statement_region_property_t get_property() override
+        {
+            return _property;
+        }
+
     private:
 
         // Returns whether specified type is supported.
@@ -232,6 +263,44 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return enum_has_flag(mask, __e_mask(type));
         }
     };
+
+    template<__exit_point_mask_t ... _masks>
+    using __statement_region_t = __x_statement_region_t<__region_property_t::none, _masks ... >;
+
+    // Finds protected region.
+    statement_region_t * __find_protected_region(statement_region_t * region,
+           __exit_point_type_t point_type = __exit_point_type_t::none,
+           __region_property_t property = __region_property_t::protected_block)
+    {
+        for(; region != nullptr; region = region->parent)
+        {
+            if(region->can_block(point_type))
+                break;
+
+            __e_region_property_t e_property = region->get_property();
+            if(e_property.has(property))
+                return region;
+        }
+
+        return nullptr;
+    }
+
+    // Returns whether it's in protected region.
+    bool __in_protected_region(statement_compile_context_t & ctx,
+            __exit_point_type_t point_type = __exit_point_type_t::none,
+            __region_property_t property = __region_property_t::protected_block)
+    {
+        return __find_protected_region(ctx.current_region(), point_type, property) != nullptr;
+    }
+
+    // Returns whether needs a leave command
+    bool __need_leave(statement_compile_context_t & ctx,
+            __exit_point_type_t point_type = __exit_point_type_t::none)
+    {
+        return __find_protected_region(ctx.current_region(), point_type,
+            enum_or(__region_property_t::protected_block, __region_property_t::with_finally)
+        ) != nullptr;
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -294,9 +363,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this statement group.
     void statement_group_t::compile(statement_compile_context_t & ctx)
     {
-        for(statement_t * statement : __statements)
+        if(!__remove_unreached_codes(ctx))
         {
-            compile_statement(ctx, statement);
+            for(statement_t * statement : __statements)
+            {
+                compile_statement(ctx, statement);
+            }
+        }
+        else
+        {
+            statement_exit_type_context_t et_ctx(ctx.xpool());
+
+            for(statement_t * statement : __statements)
+            {
+                compile_statement(ctx, statement);
+
+                if(unreached(statement->exit_type(et_ctx)))
+                    break;
+            }
         }
     }
 
@@ -503,6 +587,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this statement.
     void break_statement_t::compile(statement_compile_context_t & ctx) 
     {
+        if(__need_leave(ctx, __exit_point_type_t::break_))
+            append_jmp(ctx, __exit_point_type_t::break_, xil_jmp_model_t::leave);
+
         append_jmp(ctx, __exit_point_type_t::break_);
     }
 
@@ -517,6 +604,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this statement.
     void continue_statement_t::compile(statement_compile_context_t & ctx) 
     {
+        if(__need_leave(ctx, __exit_point_type_t::continue_))
+            append_jmp(ctx, __exit_point_type_t::continue_, xil_jmp_model_t::leave);
+
         append_jmp(ctx, __exit_point_type_t::continue_);
     }
 
@@ -570,6 +660,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if(expression != nullptr)
             append_expression(ctx, expression);
 
+        // Insert leave command before return in protected regions.
+        if(__need_leave(ctx))
+            xilx::append_xilx<leave_ret_xilx_t>(ctx);
+
         append_xilx<return_xilx_t>(ctx);
     }
 
@@ -609,7 +703,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         else
         {
             append_expression(ctx, condition);
-            append_jmp(ctx, __exit_point_type_t::continue_, xil_jmp_condition_t::true_);
+            append_jmp(ctx, __exit_point_type_t::continue_, xil_jmp_model_t::true_);
         }
 
         set_point(ctx, __exit_point_type_t::break_);
@@ -666,7 +760,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         else
         {
             append_expression(ctx, condition);
-            append_jmp(ctx, __exit_point_type_t::continue_, xil_jmp_condition_t::false_);
+            append_jmp(ctx, __exit_point_type_t::continue_, xil_jmp_model_t::false_);
         }
 
         set_point(ctx, __exit_point_type_t::break_);
@@ -721,7 +815,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if(!(condition_value == true || condition == nullptr))
         {
             append_expression(ctx, condition);
-            append_jmp(ctx, __exit_point_type_t::break_, xil_jmp_condition_t::false_);
+            append_jmp(ctx, __exit_point_type_t::break_, xil_jmp_model_t::false_);
         }
 
         compile_statement(ctx, body);
@@ -803,7 +897,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if(!(condition_value == true || condition != nullptr))
             {
                 append_expression(ctx, condition);
-                append_jmp(ctx, __exit_point_type_t::break_, xil_jmp_condition_t::false_);
+                append_jmp(ctx, __exit_point_type_t::break_, xil_jmp_model_t::false_);
             }
 
             compile_statement(ctx, body);
@@ -886,7 +980,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if(condition != nullptr)
             {
                 append_expression(ctx, condition);
-                append_jmp(ctx, label_else, xil_jmp_condition_t::false_);
+                append_jmp(ctx, label_else, xil_jmp_model_t::false_);
             }
 
             compile_statement(ctx, if_body);
@@ -1171,7 +1265,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 local_label_t label_else = ctx.next_local_label();
 
                 append_expression(ctx, condition);
-                append_jmp(ctx, label_else, xil_jmp_condition_t::false_);
+                append_jmp(ctx, label_else, xil_jmp_model_t::false_);
 
                 compile_statements(ctx, if_statements);
 
@@ -1302,15 +1396,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    template<__block_type_t _block_type>
-    class __standalone_statement_region_t : public __statement_region_t< >
+    template<__block_type_t _block_type, bool _push_back = false>
+    class __block_statement_region_t : public __statement_region_t< >
     {
+        typedef __block_statement_region_t<_block_type, _push_back> __self_t;
         typedef __statement_region_t< > __super_t;
 
     public:
 
         // Constructor.
-        __standalone_statement_region_t(local_label_t begin, local_label_t end,
+        __block_statement_region_t(local_label_t begin, local_label_t end,
                     local_label_t entry_point, type_t * relation_type = nullptr)
             : __begin(begin), __end(end), __entry_point(entry_point)
             , __relation_type(relation_type)
@@ -1323,7 +1418,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 _block_type, __begin, __end, __entry_point, __relation_type
             );
 
-            ctx.regions.push(this);
+            if(_push_back)
+                ctx.regions.push(this);
+            else
+                __super_t::write(ctx, pool);
         }
 
     private:
@@ -1331,36 +1429,62 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * __relation_type;
     };
 
-    typedef __statement_region_t< > __try_statement_region_t;
-    typedef __standalone_statement_region_t<__block_type_t::catch_>   __catch_statement_region_t;
-    typedef __standalone_statement_region_t<__block_type_t::finally_> __finally_statement_region_t;
+    typedef __x_statement_region_t<__region_property_t::protected_block> __try_statement_region_t;
+    typedef __block_statement_region_t<__block_type_t::catch_, false>  __catch_statement_region_t;
+    typedef __block_statement_region_t<__block_type_t::finally_, true> __finally_statement_region_t;
+
+    typedef __x_statement_region_t<
+        enum_or(__region_property_t::protected_block, __region_property_t::with_finally)
+    > __try_with_finally_statement_region_t;
 
     // Compiles this statement.
     void try_statement_t::compile(statement_compile_context_t & ctx)
     {
-        if(__is_empty_statement(ctx, try_statement))
+        bool finally_empty = __is_empty_statement(ctx, finally_statement);
+        bool catch_empty = catches.empty();
+
+        if(__remove_unreached_codes(ctx))
         {
-            compile_statement(ctx, finally_statement);
-            return;
+            if(__is_empty_statement(ctx, try_statement))
+            {
+                compile_statement(ctx, finally_statement);
+                return;
+            }
+
+            if(finally_empty && catch_empty)
+            {
+                compile_statement(ctx, try_statement);
+                return;
+            }
         }
 
-        if(__is_empty_statement(ctx, finally_statement) && catches.empty())
-        {
-            compile_statement(ctx, try_statement);
-            return;
-        }
+        local_label_t label_try       = ctx.next_local_label();
+        local_label_t label_try_end   = ctx.next_local_label();
+        local_label_t label_catch_end = ctx.next_local_label();
 
-        local_label_t label_try     = ctx.next_local_label();
-        local_label_t label_try_end = ctx.next_local_label();
+        // Try ... finally.
+        if(!finally_empty)
+            ctx.begin_region<__try_with_finally_statement_region_t>();
 
-        // Compiles try statement.
-        ctx.begin_region<__try_statement_region_t>();
+        // Try ... catch.
+        if(!catch_empty)
+            ctx.begin_region<__try_statement_region_t>();
 
         append_local_label(ctx, label_try);
         compile_statement(ctx, try_statement);
         append_local_label(ctx, label_try_end);
 
-        ctx.end_region();
+        if(__statement_pass(ctx, try_statement))
+        {
+            if(!finally_empty)
+                append_jmp(ctx, label_catch_end, xil_jmp_model_t::leave);
+            else
+                append_jmp(ctx, label_catch_end);
+        }
+
+        // End try region for catch.
+        if(!catch_empty)
+            ctx.end_region();
 
         // Compiles catch statements.
         for(catch_t * c : catches)
@@ -1370,25 +1494,43 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if(c->variable == nullptr)
                 throw _ED(__e_t::catch_exception_variable_undeterminded);
 
-            ctx.begin_region<__catch_statement_region_t>(label_try,
-                            label_try_end, label_catch, to_type(c->type_name));
+            ctx.begin_region<__catch_statement_region_t>(
+                label_try, label_try_end, label_catch, to_type(c->type_name)
+            );
 
             append_local_label(ctx, label_catch);
             xilx::append_xilx<pop_variable_xilx_t>(ctx, c->variable);
             compile_statement(ctx, c->body);
 
+            if(__statement_pass(ctx, c->body))
+            {
+                if(!finally_empty)
+                    append_jmp(ctx, label_catch_end, xil_jmp_model_t::leave);
+                else
+                    append_jmp(ctx, label_catch_end);
+            }
+
             ctx.end_region();
         }
 
+        append_local_label(ctx, label_catch_end);
+
         // Compiles finally statement.
-        if(!__is_empty_statement(ctx, finally_statement))
+        if(!finally_empty)
         {
+            ctx.end_region();   // End try region for finally.
+
             local_label_t label_finally = ctx.next_local_label();
 
-            ctx.begin_region<__finally_statement_region_t>(label_try, label_try_end, label_finally);
+            ctx.begin_region<__finally_statement_region_t>(
+                label_try, label_catch_end, label_finally
+            );
 
             append_local_label(ctx, label_finally);
             compile_statement(ctx, finally_statement);
+
+            if(__statement_pass(ctx, finally_statement))
+                append_xilx<end_block_xilx_t>(ctx); // End finally block.
 
             ctx.end_region();
         }

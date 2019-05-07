@@ -11,8 +11,7 @@ class Project1
         try
         {
             Console.WriteLine("-------- Try");
-
-            throw new Exception();
+            __DoSomething();
         }
         catch(Exception ex)
         {
@@ -20,7 +19,20 @@ class Project1
         }
         finally
         {
-            Console.WriteLine("-------- finally");
+            Console.WriteLine("-------- Finally");
+        }
+    }
+
+    public static void __DoSomething()
+    {
+        try
+        {
+            //throw new Exception();
+            Console.WriteLine("__DoSomething");
+        }
+        finally
+        {
+            Console.WriteLine("------- Finally !");
         }
     }
 };

@@ -208,6 +208,52 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // leave_ret_xilx_t
+
+    // Leave ret xilx.
+    class leave_ret_xilx_t : public xilx_base_t
+    {
+        typedef xilx_base_t __super_t;
+
+    public:
+
+        // Consturctor.
+        leave_ret_xilx_t(__region_t & region) : __super_t(region) { }
+
+        // Writes xilx to a pool.
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
+
+        // Converts to a string.
+        virtual const string_t to_string() const override
+        {
+            return _T("leave.ret");
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // end_block_xilx_t
+
+    // End block xilx.
+    class end_block_xilx_t : public xilx_base_t
+    {
+        typedef xilx_base_t __super_t;
+
+    public:
+
+        // Consturctor.
+        end_block_xilx_t(__region_t & region) : __super_t(region) { }
+
+        // Writes xilx to a pool.
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
+
+        // Converts to a string.
+        virtual const string_t to_string() const override
+        {
+            return _T("end block");
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // expression_xilx_t
 
     // Expression xilx.
@@ -292,19 +338,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor.
         point_jmp_xilx_t(__region_t & region, __exit_point_type_t point_type,
-                                xil_jmp_condition_t jmp_condition = xil_jmp_condition_t::none)
-            : __super_t(region), point_type(point_type), jmp_condition(jmp_condition) { }
+                                xil_jmp_model_t jmp_model = xil_jmp_model_t::none)
+            : __super_t(region), point_type(point_type), jmp_model(jmp_model) { }
 
         // Writes xils to a pool.
         virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         __exit_point_type_t point_type;
-        xil_jmp_condition_t jmp_condition;
+        xil_jmp_model_t jmp_model;
 
         // Converts to a string.
         virtual const string_t to_string() const override
         {
-            return _F(_T("point jmp: %1% %2%"), jmp_condition, point_type);
+            return _F(_T("point jmp: %1% %2%"), jmp_model, point_type);
         }
     };
 
@@ -319,19 +365,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor.
         local_label_jmp_xilx_t(__region_t & region, local_label_t label,
-                        xil_jmp_condition_t jmp_condition = xil_jmp_condition_t::none)
-            : __super_t(region), label(label), jmp_condition(jmp_condition) { }
+                        xil_jmp_model_t jmp_model = xil_jmp_model_t::none)
+            : __super_t(region), label(label), jmp_model(jmp_model) { }
 
         // Writes xils to a pool.
         virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         local_label_t label;
-        xil_jmp_condition_t jmp_condition;
+        xil_jmp_model_t jmp_model;
 
         // Converts to a string.
         virtual const string_t to_string() const override
         {
-            return _F(_T("local jmp: %1% %2%"), jmp_condition, label);
+            return _F(_T("local jmp: %1% %2%"), jmp_model, label);
         }
     };
 
@@ -346,19 +392,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor.
         global_label_jmp_xilx_t(__region_t & region, name_t label,
-                        xil_jmp_condition_t jmp_condition = xil_jmp_condition_t::none)
-            : __super_t(region), label(label), jmp_condition(jmp_condition) { }
+                        xil_jmp_model_t jmp_model = xil_jmp_model_t::none)
+            : __super_t(region), label(label), jmp_model(jmp_model) { }
 
         // Writes xils to a pool.
         virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
 
         name_t label;
-        xil_jmp_condition_t jmp_condition;
+        xil_jmp_model_t jmp_model;
 
         // Converts to a string.
         virtual const string_t to_string() const override
         {
-            return _F(_T("global jmp: %1% %2%"), jmp_condition, label);
+            return _F(_T("global jmp: %1% %2%"), jmp_model, label);
         }
     };
 
@@ -483,7 +529,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         smp_xil_t * append_label_xil(xil_pool_t & pool);
 
         // Writes jmp xil.
-        jmp_xil_t * append_jmp_xil(xil_pool_t & pool, xil_jmp_condition_t condition);
+        jmp_xil_t * append_jmp_xil(xil_pool_t & pool, xil_jmp_model_t model);
 
         // Writes label xil.
         smp_xil_t * append_label_xil(statement_compile_context_t & ctx,
@@ -497,6 +543,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Writes rethrow xil.
         smp_xil_t * append_rethrow(xil_pool_t & pool);
+
+        // Writes end_block xil.
+        smp_xil_t * append_end_block(xil_pool_t & pool);
     }
 
     ////////// ////////// ////////// ////////// //////////

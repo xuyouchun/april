@@ -552,19 +552,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Appends jmp xilx.
         point_jmp_xilx_t * append_jmp(__context_t & ctx, __exit_point_type_t type,
-                            xil_jmp_condition_t jmp_condition = xil_jmp_condition_t::none);
+                            xil_jmp_model_t jmp_model = xil_jmp_model_t::none);
 
         // Appends jmp xilx.
         local_label_jmp_xilx_t * append_jmp(__context_t & ctx, local_label_t label,
-                                xil_jmp_condition_t jmp_condition = xil_jmp_condition_t::none);
+                                xil_jmp_model_t jmp_model = xil_jmp_model_t::none);
 
         // Appends jmp xilx.
         global_label_jmp_xilx_t * append_jmp(__context_t & ctx, name_t name,
-                                xil_jmp_condition_t jmp_condition = xil_jmp_condition_t::none);
+                                xil_jmp_model_t jmp_model = xil_jmp_model_t::none);
 
         // Appends jmp xilx.
         global_label_jmp_xilx_t * append_jmp(__context_t & ctx, const string_t & name,
-                                xil_jmp_condition_t jmp_condition = xil_jmp_condition_t::none);
+                                xil_jmp_model_t jmp_model = xil_jmp_model_t::none);
 
         // Appends global label.
         global_label_xilx_t * append_global_label(__context_t & ctx, name_t name);
@@ -625,6 +625,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return ((method_compile_context_t &)ctx).controller->optimize((int)code);
     }
 
+    // Returns whether the following statements are unreached.
+    X_INLINE bool unreached(statement_exit_type_t exit_type)
+    {
+        typedef statement_exit_type_t       __exit_type_t;
+        typedef enum_t<__exit_type_t>       __e_exit_type_t;
+
+        const __exit_type_t until = enum_or(
+            __exit_type_t::return_, __exit_type_t::throw_, __exit_type_t::dead_cycle,
+            __exit_type_t::break_, __exit_type_t::continue_
+        );
+
+        return __e_exit_type_t(exit_type).has_only(until);
+    }
+
     // Returns exit type of statements.
     template<typename _statements_t>
     statement_exit_type_t exit_type_of(statement_exit_type_context_t & ctx,
@@ -638,16 +652,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return statement_exit_type_t::none;
 
         __e_exit_type_t type;
-        const __exit_type_t until = enum_or(__exit_type_t::return_,
-            __exit_type_t::throw_, __exit_type_t::dead_cycle
-        );
-
         for(statement_t * statement : *statements)
         {
             __e_exit_type_t et = statement->exit_type(ctx);
             type |= et;
 
-            if(et.has_only(until))
+            if(unreached(et))
             {
                 type.remove(__exit_type_t::pass);
                 break;

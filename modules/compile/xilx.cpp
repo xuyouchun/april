@@ -98,7 +98,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     // Appends jmp xil.
-    jmp_xil_t * xil::append_jmp_xil(xil_pool_t & pool, xil_jmp_condition_t condition)
+    jmp_xil_t * xil::append_jmp_xil(xil_pool_t & pool, xil_jmp_model_t condition)
     {
         return pool.append<__jmp_xil_t>(condition);
     }
@@ -108,7 +108,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         typedef xil_extra_t<jmp_xil_t> __super_t;
 
-        __switch_xil_t(int tbl_idx) : __super_t(xil_jmp_condition_t::switch_)
+        __switch_xil_t(int tbl_idx) : __super_t(xil_jmp_model_t::switch_)
         {
             this->set_tbl(tbl_idx);
         }
@@ -134,22 +134,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return label_xil;
     }
 
-    // Append ret xil.
+    // Appends ret xil.
     smp_xil_t * xil::append_ret(xil_pool_t & pool)
     {
         return pool.append<smp_xil_t>(xil_smp_t::ret);
     }
 
-    // Append throw xil.
+    // Appends throw xil.
     smp_xil_t * xil::append_throw(xil_pool_t & pool)
     {
         return pool.append<smp_xil_t>(xil_smp_t::throw_);
     }
 
-    // Append rethrow xil.
+    // Appends rethrow xil.
     smp_xil_t * xil::append_rethrow(xil_pool_t & pool)
     {
         return pool.append<smp_xil_t>(xil_smp_t::rethrow);
+    }
+
+    // Writes end_finally xil.
+    smp_xil_t * xil::append_end_block(xil_pool_t & pool)
+    {
+        return pool.append<smp_xil_t>(xil_smp_t::end_finally);
     }
 
     // Compiles xilx.
@@ -489,6 +495,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Leave ret xilx.
+    void leave_ret_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
+    {
+        xil::append_jmp_xil(pool, xil_jmp_model_t::leave);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Writes end_block xil.
+    void end_block_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
+    {
+        xil::append_end_block(pool);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // expression_xilx_t
 
     // Writes xils to pool.
@@ -532,7 +554,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         statement_point_t * point = __region.get_point(point_type);
         _A(point != nullptr);
 
-        __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_condition);
+        __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_model);
         ((__sctx_t &)ctx).jmp_manager.append_jmp(xil, point->to_position());
     }
 
@@ -541,7 +563,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Writes xils to pool.
     void local_label_jmp_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_condition);
+        __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_model);
         ((__sctx_t &)ctx).jmp_manager.append_jmp(xil, label);
     }
 

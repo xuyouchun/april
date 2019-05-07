@@ -48,10 +48,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
             else
             {
                 condition()->compile(ctx, pool);
-                jmp_xil_t * false_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_condition_t::false_);
+                jmp_xil_t * false_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
 
                 value1()->compile(ctx, pool);
-                jmp_xil_t * finally_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_condition_t::none);
+                jmp_xil_t * finally_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
 
                 if(false_jmp_xil != nullptr)
                     xil::append_label_xil(sctx, pool, false_jmp_xil);

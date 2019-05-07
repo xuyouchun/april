@@ -14,7 +14,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns whether specified code need optimized.
         virtual bool optimize(int code) override
         {
-            return false;
+            return true;
         }
     };
 

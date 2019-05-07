@@ -1199,11 +1199,23 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     };
 
     //-------- ---------- ---------- ---------- ----------
+
+    // Runtime method base.
+    class rt_method_base_t
+    {
+    public:
+
+        // Returns method name.
+        virtual rt_sid_t get_name() = 0;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
     // rt_method_t
 
     // Runtime method.
     class rt_method_t : public rt_member_t
                       , public rt_metadata_object_t<__tidx_t::method>
+                      , public rt_method_base_t
     {
     public:
 
@@ -1217,7 +1229,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_type_t *     get_host_type();
 
         // Gets name.
-        rt_sid_t        get_name();
+        virtual rt_sid_t get_name() override;
 
         // Returns generic param count.
         int generic_param_count();
@@ -1228,6 +1240,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     // Runtime generic method.
     class rt_generic_method_t : public rt_object_t
+                              , public rt_method_base_t
     {
     public:
 
@@ -1254,7 +1267,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_assembly_t * get_assembly();
 
         // Gets name.
-        rt_sid_t get_name();
+        virtual rt_sid_t get_name() override;
     };
 
     //-------- ---------- ---------- ---------- ----------

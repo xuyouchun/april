@@ -2689,9 +2689,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Xil block types.
     X_ENUM(method_xil_block_type_t)
 
-        // Main block.
-        main                = __default__,
-
         // When specified exception raised.
         catch_,
 
@@ -6646,7 +6643,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Statement exit point type
     X_ENUM(statement_exit_point_type_t)
 
-        self,
+        none    = __default__,
 
         break_,         // When break.
 
@@ -6665,7 +6662,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Appends block.
         void append_block(__block_type_t type, local_label_t begin, local_label_t end,
-                          local_label_t entry_point, type_t * relation_type);
+                  local_label_t entry_point, type_t * relation_type);
 
         // Commits it.
         void commit(statement_compile_context_t & ctx);
@@ -6736,6 +6733,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Statement region properties.
+    X_ENUM(statement_region_property_t)
+
+        // Default property.
+        none                = 0,
+
+        // A protected block, such as try block.
+        protected_block     = 1 << 0,
+
+        // A protected block, with finally.
+        with_finally        = 1 << 1,
+
+    X_ENUM_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Statement region.
     class statement_region_t : public object_t
     {
@@ -6754,6 +6767,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Gets point with point type.
         virtual statement_point_t * get_point(__point_type_t point_type);
+
+        // Returns whether the specified point type can be blocked.
+        virtual bool can_block(__point_type_t point_type) { return false; }
+
+        // Returns statement region property.
+        virtual statement_region_property_t get_property()
+        {
+            return statement_region_property_t::none;
+        }
 
         // Enum all xilxes.
         template<typename f_t> void each(f_t f)

@@ -213,29 +213,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         rethrow         = 4,        // Rethrow exceptions.
 
-        leave           = 5,        // Leave from protected codes. ( try block )
-
-        end_block       = 6,        // At the end of catch/finally blocks.
+        end_finally     = 5,        // At the end of finally blocks.
 
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
 
-    __Enum(xil_jmp_direction_t)
+    // Jmp distance.
+    __Enum(xil_jmp_distance_t)
 
-        near_backward   = 0,        // Near backward jmp.
+        near        = 0,            // Near jmp.
 
-        near_forward    = 1,        // Near forward jmp.
-
-        backward        = 2,        // Backward jmp.
-
-        forward         = 3,        // Forward jmp.
+        far         = 1,            // Far jmp.
 
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
 
-    __Enum(xil_jmp_condition_t)
+    // Jmp models.
+    __Enum(xil_jmp_model_t)
 
         none    = __default__,      // Jmp
 
@@ -244,6 +240,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         false_  = 2,                // Jmp when false.
 
         switch_ = 3,                // Switch...case.
+
+        leave   = 4,                // Leaves from protected codes. ( try block )
 
     __EnumEnd
 
@@ -1254,52 +1252,54 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     /* jmp
         xil_command_t::jmp      : 4;
-        xil_jmp_direction_t     : 2;
-        xil_jmp_condition_t     : 2;
+        xil_jmp_direction_t     : 1;
+        xil_jmp_model_t         : 3;
     */
+
+    typedef int32_t xil_jmp_step_t;
 
     // Jmp xil.
     __BeginXil(jmp)
 
         // Constructor.
-        jmp_xil_t(xil_jmp_condition_t condition, int step = 0)
+        jmp_xil_t(xil_jmp_model_t model, xil_jmp_step_t step = 0)
             : __super_t(xil_command_t::jmp, 0)
         {
-            set_condition(condition);
+            set_model(model);
             set_step(step);
         }
 
-        // Returns jmp direction.
-        xil_jmp_direction_t direction() const
+        // Returns jmp distance.
+        xil_jmp_distance_t distance() const
         {
-            return (xil_jmp_direction_t)((byte_t)hdata() >> 2);
+            return (xil_jmp_distance_t)((byte_t)hdata() >> 3);
         }
 
-        // Sets jmp direction.
-        void set_direction(xil_jmp_direction_t direction)
+        // Sets jmp distance.
+        void set_distance(xil_jmp_distance_t distance)
         {
-            set_hdata((((byte_t)hdata() & 0x03) | ((byte_t)direction << 2)));
+            set_hdata((((byte_t)hdata() & 0x07) | ((byte_t)distance << 3)));
         }
 
-        // Returns jmp condition.
-        xil_jmp_condition_t condition() const
+        // Returns jmp model.
+        xil_jmp_model_t model() const
         {
-            return (xil_jmp_condition_t)((byte_t)hdata() & 0x03);
+            return (xil_jmp_model_t)((byte_t)hdata() & 0x07);
         }
 
-        // Sets jmp condition.
-        void set_condition(xil_jmp_condition_t condition)
+        // Sets jmp model.
+        void set_model(xil_jmp_model_t model)
         {
-            set_hdata((((byte_t)hdata() & 0x0C) | (byte_t)condition));
+            set_hdata((((byte_t)hdata() & 0x08) | (byte_t)model));
         }
 
         byte_t  __extra[0];
 
         // Sets step.
-        void set_step(int32_t step);
+        void set_step(xil_jmp_step_t step);
 
         // Returns step.
-        int32_t step() const;
+        xil_jmp_step_t step() const;
 
         // Sets switch-case table index.
         void set_tbl(int32_t index);
@@ -1315,18 +1315,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns jmp xil step size.
     constexpr X_INLINE size_t jmp_xil_step_size(const jmp_xil_t & x)
     {
-        if(x.condition() == xil_jmp_condition_t::switch_)
+        if(x.model() == xil_jmp_model_t::switch_)
             return 1;
 
-        switch(x.direction())
-        {
-            case xil_jmp_direction_t::backward:
-            case xil_jmp_direction_t::forward:
-                return 3;
+        if(x.distance() == xil_jmp_distance_t::far)
+            return sizeof(xil_jmp_step_t) - 1;
 
-            default:
-                return 1;
-        }
+        return 1;
     }
 
     // Jmp xil step size.

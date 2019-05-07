@@ -1302,9 +1302,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Method stub type. Components of method.
     X_ENUM_INFO(method_xil_block_type_t)
 
-        // Main block.
-        X_C(main,           _T("main"))
-
         // When specified exception raised.
         X_C(catch_,         _T("catch"))
 
@@ -5407,7 +5404,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Statement exit point types.
     X_ENUM_INFO(statement_exit_point_type_t)
 
-        X_C(self,       _T("self"))
+        X_C(none,       _T("none"))
 
         // A break point.
         X_C(break_,     _T("break"))
@@ -5424,7 +5421,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             local_label_t begin, local_label_t end, local_label_t entry_point,
             type_t * relation_type)
     {
-        __blocks.push_back(__xilx_block_t { type, begin, end, entry_point, relation_type });
+        __blocks.push_back(__xilx_block_t {
+            type, begin, end, entry_point, relation_type
+        });
     }
 
     // Commits it.
@@ -5501,6 +5500,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     private:
         statement_region_t * __region;
     };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Statement region properties.
+    X_ENUM_INFO(statement_region_property_t)
+
+        // Default property.
+        X_C(none,               _T("none"))
+
+        // A protected block, such as try block.
+        X_C(protected_block,    _T("protected_block"))
+
+        // A protected block, with finally.
+        X_C(with_finally,       _T("with_finally"))
+
+    X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
 
