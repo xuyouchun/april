@@ -5458,6 +5458,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             xil_blocks.push_back(xil_block);
         }
 
+        /*
         al::sort(xil_blocks, [](method_xil_block_t & b1, method_xil_block_t b2) {
             return b1.xil_end < b2.xil_end? true  :
                    b1.xil_end > b2.xil_end? false :
@@ -5465,6 +5466,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                    b1.xil_start < b2.xil_start? false :
                    b1.entry_point < b2.entry_point;
         });
+        */
 
         for(method_xil_block_t & xil_block : xil_blocks)
         {

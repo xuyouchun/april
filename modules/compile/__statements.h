@@ -578,8 +578,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Sets point.
         local_label_xilx_t * set_point(__context_t & ctx, __exit_point_type_t point_type);
 
-        // Appends condition.
-        void append_condition(__context_t & ctx, expression_t * condition);
+        // Appends expression.
+        void append_expression(__context_t & ctx, expression_t * expression,
+                                                  bool sealed_parent = true);
     }
 
     // Compiles statement.

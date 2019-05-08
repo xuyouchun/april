@@ -153,6 +153,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         return __ret_unit_size;
     }
 
+    // Returns command index.
+    int __command_index(command_execute_context_t & ctx, command_t ** command)
+    {
+        exec_method_t * method = ctx.current_method();
+        return command - method->commands;
+    }
+
+    // Returns current command index.
+    int __current_command_index(command_execute_context_t & ctx)
+    {
+        return __command_index(ctx, ctx.current);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     namespace
@@ -444,7 +457,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginToString(ctx)
 
-            return _F(_T("push constant (%1%)%2%"), _xil_type, __value);
+            return _F(_T("push constant (%1%) %2%"), _xil_type, __value);
 
         __EndToString()
 
@@ -2921,71 +2934,102 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<typename _f_t>
     __AlwaysInline void __find_block(command_execute_context_t & ctx, _f_t f)
     {
-        __calling_stub_t * stub = ((__calling_stub_t *)ctx.stack.lp() - 1);
-        _A(stub->method != nullptr);
-        stub->method->find_block(ctx.current - 1, f);
+        exec_method_t * method = ctx.current_method();
+        _A(method != nullptr);
+
+        method->find_block(ctx.current - 1, f);
     }
 
     // Process exceptions
-    __AlwaysInline void __process_exception(command_execute_context_t & ctx,
-                                            xil_jmp_step_t jmp_step = 0)
+    __AlwaysInline void __process_exception(command_execute_context_t & ctx)
     {
-        rt_type_t * exception_type;
-        rt_ref_t    exception;
+        exception_node_t * node = ctx.exception_stack.head;
+        _A(node != nullptr);
 
-        exception_node_t * node = ctx.exception_stack.current;
-        if(node != nullptr)
-        {
-            exception = node->exception;
-            exception_type = mm::get_object_type(exception);
-        }
-        else
-        {
-            exception_type = nullptr;
-        }
+        rt_ref_t exception = node->exception;
+        rt_type_t * exception_type = mm::get_object_type(exception);
+        exec_method_block_t * catch_block = nullptr;
 
-        bool in_process = false;
+        _A(exception_type != nullptr);
 
     __continue_find__:
-        __find_block(ctx, [&ctx, &in_process, exception_type, exception, jmp_step](
-                                            exec_method_block_t * block) {
+
+        __find_block(ctx, [&](exec_method_block_t * block) {
+
             switch(block->type)
             {
                 case method_xil_block_type_t::catch_:
+                    if(!ctx.finally_queue.empty())
+                        return false;
+
                     if(__is_base_type(ctx.env, exception_type, block->relation_type))
                     {
-                        ctx.pop_exception();
-                        ctx.current = block->entry_point;
-                        in_process = true;
-
-                        ctx.stack.push(exception);
+                        catch_block = block;
                         return false;
                     }
-
-                    break;
+                    return true;
 
                 case method_xil_block_type_t::finally_:
-                    ctx.stack.push(ctx.current + jmp_step);
-                    ctx.current = block->entry_point;
-                    in_process = true;
-
-                    return false;
+                    ctx.finally_queue.enque(block);
+                    return true;
 
                 default:
-                    break;
+                    return true;
+            }
+        });
+
+        // Executes catch block.
+        if(catch_block != nullptr)
+        {
+            ctx.pop_exception();
+            ctx.stack.push(exception);
+            ctx.current = catch_block->entry_point;
+
+            return;
+        }
+
+        // Executes finally blocks.
+        exec_method_block_t * finally_block = ctx.finally_queue.deque();
+        if(finally_block != nullptr)
+        {
+            ctx.current = finally_block->entry_point;
+            return;
+        }
+
+        // Pop to calling method.
+        ctx.pop_calling();
+
+        if(ctx.stack_empty())
+            throw _E(exec_env_code_t::terminal);
+
+        goto __continue_find__;
+    }
+
+    // Process finally blocks.
+    __AlwaysInline void __process_finally(command_execute_context_t & ctx, command_t ** next_command)
+    {
+        __find_block(ctx, [&](exec_method_block_t * block) {
+
+            if(block->type == method_xil_block_type_t::finally_)
+            {
+                if(block->exclude(next_command))
+                {
+                    ctx.finally_queue.enque(block);
+                    return true;
+                }
+
+                return false;
             }
 
             return true;
         });
 
-        if(!in_process && node != nullptr)
+        // Executes finally blocks.
+        exec_method_block_t * finally_block = ctx.finally_queue.deque();
+        if(finally_block != nullptr)
         {
-            ctx.pop_calling();
-
-            if(ctx.stack_empty())
-                throw _E(exec_env_code_t::terminal);
-
-            goto __continue_find__;
+            ctx.stack.push(next_command);
+            ctx.current = finally_block->entry_point;
         }
     }
 
@@ -3039,9 +3083,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Execute.
         __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::end_block))
 
-            if(ctx.exception_stack.current != nullptr)
+            exec_method_block_t * finally_block = ctx.finally_queue.deque();
+
+            if(finally_block != nullptr)
             {
-                ctx.stack.pop<command_t **>();
+                ctx.current = finally_block->entry_point;
+            }
+            else if(!ctx.exception_stack.empty())
+            {
                 __process_exception(ctx);
             }
             else
@@ -3181,7 +3230,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Execute
         __BeginExecute(ctx, __ToCmdValue(jmp, xil_jmp_model_t::leave))
 
-            __process_exception(ctx, __step);
+            __process_finally(ctx, ctx.current + __step);
 
         __EndExecute()
 
@@ -3898,7 +3947,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     typedef logic_error_t<exec_env_code_t> __exec_env_error_t;
 
     // Process the exception at the end of executing.
-    void __process_exception(command_execute_context_t & ctx, __exec_env_error_t & e)
+    void __process_application_exception(command_execute_context_t & ctx, __exec_env_error_t & e)
     {
         switch(e.code)
         {
@@ -3907,12 +3956,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case exec_env_code_t::terminal: {
 
-                exception_node_t * node = ctx.exception_stack.current;
+                exception_node_t * node = ctx.exception_stack.head;
 
                 _A(node != nullptr);
                 rt_type_t * exception_type = mm::get_object_type(node->exception);
 
-                _PF(_T("uncaughted exception: %1%"), node->exception);
+                _PF(_T("Uncaught Exception: %1%"), node->exception);
 
             }   break;
 
@@ -3928,12 +3977,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         try
         {
             __execute_commands(ctx);
-            ctx.pop_calling();
         }
         catch(__exec_env_error_t & e)
         {
-            __process_exception(ctx, e);
+            __process_application_exception(ctx, e);
         }
+
+        ctx.pop_calling();
     }
 
     ////////// ////////// ////////// ////////// //////////

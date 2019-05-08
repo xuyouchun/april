@@ -158,72 +158,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     }
 
     ////////// ////////// ////////// ////////// //////////
-    // exception_stack_t
-
-    // Pushes a new exception node.
-    void exception_stack_t::push(command_t ** throw_point, rt_ref_t exception)
-    {
-        __node_t * node = __acquire_node(throw_point, exception);
-        node->next = this->current;
-        this->current = node;
-    }
-
-    // Pops an exception.
-    void exception_stack_t::pop()
-    {
-        if(this->current != nullptr)
-        {
-            __release_node(this->current);
-            this->current = this->current->next;
-        }
-    }
-
-    // Acquires a new node.
-    exception_stack_t::__node_t *
-    exception_stack_t::__acquire_node(command_t ** throw_point, rt_ref_t exception)
-    {
-        __node_t * node;
-
-        if(!__node_queue.empty())
-        {
-            node = __node_queue.front();
-            __node_queue.pop();
-        }
-        else
-        {
-            node = (__node_t *)this->__alloc(sizeof(__node_t));
-        }
-
-        node->throw_point = throw_point;
-        node->exception   = exception;
-
-        return node;
-    }
-
-    // Release a new node.
-    void exception_stack_t::__release_node(__node_t * node)
-    {
-        __node_queue.push(node);
-    }
-
-    // Destructors.
-    exception_stack_t::~exception_stack_t()
-    {
-        __node_t * node = current;
-        while(node != nullptr)
-        {
-            this->__free((void *)node);
-            node = node->next;
-        }
-
-        while(!__node_queue.empty())
-        {
-            this->__free((void *)__node_queue.front());
-            __node_queue.pop();
-        }
-    }
-
-    ////////// ////////// ////////// ////////// //////////
     // executor_t
 
     // Executes commands.
@@ -247,6 +181,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         command_execute_context_t exec_ctx(__ctx.heap, env);
         execute_commands(exec_ctx, commands);
+
+        _A(exec_ctx.stack.bottom() == exec_ctx.stack.top());
     }
 
     ////////// ////////// ////////// ////////// //////////

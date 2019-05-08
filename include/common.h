@@ -2923,6 +2923,111 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    namespace
+    {
+        // Validate bits.
+        template<typename _t, size_t _bits> void __validate_bits()
+        {
+            static_assert(_bits <= sizeof(_t) * 8 && _bits >= 1,
+                "_size must less/equals than sizeof(_t) * 8 and large than 0");
+        }
+
+        // Max/min values of specified bits. for signed values.
+        template<typename _t, size_t _bits, bool _signed = std::is_signed<_t>::value>
+        struct __limit_of_bits_t
+        {
+            // Returns the max value of specified bits.
+            constexpr static _t max_of_bits() noexcept
+            {
+                __validate_bits<_t, _bits>();
+                return max_value<_t>() >> ((sizeof(_t) << 3) - _bits);
+            }
+
+            // Returns the min value of specified bits.
+            constexpr static _t min_of_bits() noexcept
+            {
+                __validate_bits<_t, _bits>();
+
+                typedef std::make_unsigned_t<_t> ut;
+                return _t(ut((_t)-1) << (_bits - 1));
+            }
+        };
+
+        // Max/min values of specified bits. for unsigned values.
+        template<typename _t, size_t _bits>
+        struct __limit_of_bits_t<_t, _bits, false>  // unsigned.
+        {
+            // Returns the max value of specified bits.
+            constexpr static _t max_of_bits() noexcept
+            {
+                __validate_bits<_t, _bits>();
+                return max_value<_t>() >> ((sizeof(_t) << 3) - _bits);
+            }
+
+            // Returns the min value of specified bits.
+            constexpr static _t min_of_bits() noexcept
+            {
+                __validate_bits<_t, _bits>();
+
+                return 0;
+            }
+        };
+
+        template<typename _t, size_t _bits, size_t _offset = 0>
+        struct __bits_value_t
+        {
+            _t  __nouse__ : _offset;
+            _t  value     : _bits;
+        };
+
+        template<typename _t, size_t _bits>
+        struct __bits_value_t<_t, _bits, 0>
+        {
+            _t  value     : _bits;
+        };
+    }
+
+    // Returns the max value of specified bits.
+    template<typename _t, size_t _bits>
+    constexpr _t max_of_bits() noexcept
+    {
+        return __limit_of_bits_t<_t, _bits>::max_of_bits();
+    }
+
+    // Returns the min value of specified bits.
+    template<typename _t, size_t _bits>
+    constexpr _t min_of_bits() noexcept
+    {
+        return __limit_of_bits_t<_t, _bits>::min_of_bits();
+    }
+
+    // Returns the value of specified bits.
+    template<typename _t, size_t _bits, size_t _offset = 0>
+    _t value_of_bits(const void * p)
+    {
+        __validate_bits<_t, _bits>();
+
+        return ((__bits_value_t<_t, _bits, _offset> *)p)->value;
+    }
+
+    // Returns the value of specified bits.
+    template<typename _t, size_t _bits, size_t _offset = 0>
+    void set_value_of_bits(void * p, _t value)
+    {
+        __validate_bits<_t, _bits>();
+
+        ((__bits_value_t<_t, _bits, _offset> *)p)->value = value;
+    }
+
+    // Returns whether the value is in the range of specified bits.
+    template<typename _t, size_t _bits = sizeof(_t) * 8, typename _v_t>
+    constexpr bool in_range(_v_t value)
+    {
+        return value <= max_of_bits<_t, _bits>() && value >= min_of_bits<_t, _bits>();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
 }   // namespace X_ROOT_NS
 
 #include <common/__stream.h>

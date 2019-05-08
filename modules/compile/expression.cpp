@@ -1046,8 +1046,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_local_variable(__cctx_t & ctx, xil_pool_t & pool,
                                                             local_variable_t * variable)
     {
-        _PF(_T("-------- variable: %1%, %2%, %3%"), variable,
-                        variable->read_count, variable->write_count);
+        //_PF(_T("-------- variable: %1%, %2%, %3%"), variable,
+        //                variable->read_count, variable->write_count);
 
         xil_type_t xil_type = __to_xil_type(variable);
 

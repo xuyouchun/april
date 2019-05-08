@@ -223,6 +223,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Sets local variables top.
         __AlwaysInline void set_lp(rt_stack_unit_t * lp) { __lp = lp; }
 
+        // Returns stack bottom.
+        __AlwaysInline rt_stack_unit_t * bottom() { return __buffer; }
+
     private:
         rt_stack_unit_t * __top, * __lp;
         rt_stack_unit_t * __buffer;
@@ -333,6 +336,77 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    namespace
+    {
+        // A resource manager base.
+        template<typename _node_t>
+        class __resource_manager_base_t : public object_t, private memory_base_t
+        {
+            typedef __resource_manager_base_t<_node_t> __self_t;
+            typedef _node_t __node_t;
+
+        public:
+
+            // Constructor.
+            __resource_manager_base_t(memory_t * memory = nullptr) : memory_base_t(memory) { }
+
+            // The head node.
+            __node_t * head = nullptr;
+
+            // Returns whether the queue/stack is empty.
+            bool empty() const { return head == nullptr; }
+
+            // Destructor.
+            virtual ~__resource_manager_base_t()
+            {
+                __node_t * node = head;
+                while(node != nullptr)
+                {
+                    this->__free((void *)node);
+                    node = node->next;
+                }
+
+                while(!__node_queue.empty())
+                {
+                    this->__free((void *)__node_queue.front());
+                    __node_queue.pop();
+                }
+            }
+
+        protected:
+
+            // Acquires a new node.
+            template<typename ... _args_t>
+            __node_t * __acquire_node(_args_t && ... args)
+            {
+                __node_t * node;
+
+                if(!__node_queue.empty())
+                {
+                    node = __node_queue.front();
+                    __node_queue.pop();
+                }
+                else
+                {
+                    node = (__node_t *)this->__alloc(sizeof(__node_t));
+                }
+
+                return new ((void *)node) __node_t(std::forward<_args_t>(args) ...);
+            }
+
+            // Releases a node.
+            void __release_node(__node_t * node)
+            {
+                __node_queue.push(node);
+            }
+
+        private:
+            std::queue<__node_t *> __node_queue;
+        };
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     class command_t;
 
     // The exception stack node.
@@ -340,45 +414,47 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         typedef exception_node_t __self_t;
 
+        // Constructor.
+        exception_node_t() = default;
+
+        // Constructor.
+        exception_node_t(command_t ** throw_point, rt_ref_t exception)
+            : throw_point(throw_point), exception(exception)
+        { }
+
         command_t **    throw_point;    // The command where the exception throwed.
         rt_ref_t        exception;      // Exception.
         __self_t *      next;           // Next node of the chain.
     };
 
     // Exception node stack.
-    class exception_stack_t : public object_t, private memory_base_t
+    class exception_stack_t : public __resource_manager_base_t<exception_node_t>
     {
         typedef exception_stack_t   __self_t;
         typedef exception_node_t    __node_t;
 
+        typedef __resource_manager_base_t<exception_node_t> __super_t;
+
     public:
 
-        // Constructors.
-        exception_stack_t(memory_t * memory = nullptr) : memory_base_t(memory) { }
-
-        // Current exception stack node.
-        __node_t * current = nullptr;
+        using __super_t::__super_t;
 
         // Pushes an exception.
-        void push(command_t ** throw_point, rt_ref_t exception);
+        __AlwaysInline void push(command_t ** throw_point, rt_ref_t exception)
+        {
+            __node_t * node = this->__acquire_node(throw_point, exception);
+            node->next = this->head;
+            this->head = node;
+        }
 
         // Pops an exception.
-        void pop();
+        __AlwaysInline void pop()
+        {
+            _A(this->head != nullptr);
 
-        // Returns the top exception node.
-        __node_t * top() { return current; }
-
-        // Destructors.
-        virtual ~exception_stack_t();
-
-    private:
-        std::queue<__node_t *> __node_queue;
-
-        // Acquires a new node.
-        __node_t * __acquire_node(command_t ** throw_point, rt_ref_t exception);
-
-        // Releases a node.
-        void __release_node(__node_t * node);
+            __release_node(this->head);
+            this->head = this->head->next;
+        }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -401,6 +477,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Block type.
         method_xil_block_type_t type;
+
+        // Returns whether the block contains specified command.
+        __AlwaysInline bool include(command_t ** command)
+        {
+            return command >= start && command < end;
+        }
+
+        // Returns whether the block not contains specified command.
+        __AlwaysInline bool exclude(command_t ** command)
+        {
+            return command < start || command >= end;
+        }
     };
 
     // Method block manager.
@@ -436,6 +524,81 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     return;
             }
         }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Finally block node.
+    class finally_block_node_t : public object_t
+    {
+        typedef finally_block_node_t __self_t;
+
+    public:
+
+        // Constructor.
+        finally_block_node_t(exec_method_block_t * block) : block(block) { }
+
+        // Block.
+        exec_method_block_t * block;
+
+        // Next node in chain.
+        __self_t * next;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // Finally block node manager.
+
+    class finally_queue_t : public __resource_manager_base_t<finally_block_node_t>
+    {
+        typedef finally_queue_t       __self_t;
+        typedef finally_block_node_t  __node_t;
+        typedef exec_method_block_t   __block_t;
+
+        typedef __resource_manager_base_t<finally_block_node_t> __super_t;
+
+    public:
+
+        // Constructor.
+        using __super_t::__super_t;
+
+        // Enqueue a finally block.
+        __AlwaysInline void enque(__block_t * block)
+        {
+            _A(block != nullptr);
+
+            __node_t * node = this->__acquire_node(block);
+            node->next = nullptr;
+
+            if(__current == nullptr)
+            {
+                __current = this->head = node;
+            }
+            else
+            {
+                __current->next = node;
+                __current = node;
+            }
+        }
+
+        // Dequeue a finally block.
+        __AlwaysInline __block_t * deque()
+        {
+            __node_t * node = this->head;
+            if(node == nullptr)
+                return nullptr;
+
+            this->head = node->next;
+            if(this->head == nullptr)
+                __current = nullptr;
+
+            __block_t * block = node->block;
+            this->__release_node(node);
+
+            return block;
+        }
+
+    private:
+        __node_t * __current = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -516,6 +679,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         command_t ** current = nullptr;         // Current command.
 
         exception_stack_t exception_stack;      // Exception stack.
+        finally_queue_t   finally_queue;        // Finally queue.
 
         // Pushes calling context.
         __AlwaysInline void push_calling(exec_method_t * method)
@@ -536,10 +700,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Pops calling context.
         __AlwaysInline void pop_calling()
         {
-            __calling_stub_t & stub = stack.pop_reference<__calling_stub_t>();
+            __calling_stub_t * stub = ((__calling_stub_t *)stack.lp() - 1);
 
-            this->current = stub.current;
-            stack.set_lp(stub.lp);
+            stack.set_top(stack.lp() - sizeof(__calling_stub_t) / sizeof(rt_stack_unit_t));
+
+            this->current = stub->current;
+            stack.set_lp(stub->lp);
         }
 
         // Returns whether stack is on head.
@@ -569,6 +735,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __AlwaysInline void pop_exception()
         {
             exception_stack.pop();
+        }
+
+        // Returns current method.
+        __AlwaysInline exec_method_t * current_method()
+        {
+            __calling_stub_t * stub = ((__calling_stub_t *)stack.lp() - 1);
+            return stub->method;
         }
 
         // Destructor.

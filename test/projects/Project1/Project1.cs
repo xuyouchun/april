@@ -10,30 +10,32 @@ class Project1
     {
         try
         {
-            Console.WriteLine("-------- Try");
-            __DoSomething();
+            try
+            {
+                try
+                {
+                    Console.WriteLine("---------- Try");
+                    //throw new Exception();
+                }
+                finally
+                {
+                    throw new Exception();
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("--------- Catch");
+            }
         }
-        catch(Exception ex)
+        catch(Exception e)
         {
-            Console.WriteLine("-------- Catch");
-        }
-        finally
-        {
-            Console.WriteLine("-------- Finally");
+            Console.WriteLine("--------- Catch !");
         }
     }
 
     public static void __DoSomething()
     {
-        try
-        {
-            //throw new Exception();
-            Console.WriteLine("__DoSomething");
-        }
-        finally
-        {
-            Console.WriteLine("------- Finally !");
-        }
+        throw new Exception();
     }
 };
 
