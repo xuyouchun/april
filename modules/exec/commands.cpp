@@ -2954,6 +2954,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     __continue_find__:
 
+        // Raise exception in finally blocks.
+        exception_node_t * previous_exception_node = node->next;
+        exec_method_block_t * current_finally_block;
+
+        if(previous_exception_node != nullptr
+            && (current_finally_block = ctx.finally_queue.pick()) != nullptr)
+        {
+            if(current_finally_block->include(previous_exception_node->throw_point))
+            {
+                ctx.exception_stack.remove_next(node);
+                ctx.finally_queue.clean();
+            }
+        }
+
         __find_block(ctx, [&](exec_method_block_t * block) {
 
             switch(block->type)
@@ -2982,6 +2996,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         if(catch_block != nullptr)
         {
             ctx.pop_exception();
+
             ctx.stack.push(exception);
             ctx.current = catch_block->entry_point;
 
@@ -2989,7 +3004,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Executes finally blocks.
-        exec_method_block_t * finally_block = ctx.finally_queue.deque();
+        exec_method_block_t * finally_block = ctx.finally_queue.pick();
         if(finally_block != nullptr)
         {
             ctx.current = finally_block->entry_point;
@@ -2998,6 +3013,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Pop to calling method.
         ctx.pop_calling();
+        ctx.restore_stack();
 
         if(ctx.stack_empty())
             throw _E(exec_env_code_t::terminal);
@@ -3025,7 +3041,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         });
 
         // Executes finally blocks.
-        exec_method_block_t * finally_block = ctx.finally_queue.deque();
+        exec_method_block_t * finally_block = ctx.finally_queue.pick();
         if(finally_block != nullptr)
         {
             ctx.stack.push(next_command);
@@ -3040,6 +3056,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::throw_))
 
             rt_ref_t exception = ctx.stack.pop<rt_ref_t>();
+            ctx.restore_stack();
+
             ctx.push_exception(exception);
             __process_exception(ctx);
 
@@ -3083,7 +3101,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Execute.
         __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::end_block))
 
-            exec_method_block_t * finally_block = ctx.finally_queue.deque();
+            _A(!ctx.finally_queue.empty());
+
+            ctx.finally_queue.deque();
+            exec_method_block_t * finally_block = ctx.finally_queue.pick();
 
             if(finally_block != nullptr)
             {

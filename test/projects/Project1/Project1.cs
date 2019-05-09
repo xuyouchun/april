@@ -15,22 +15,29 @@ class Project1
                 try
                 {
                     Console.WriteLine("---------- Try");
-                    //throw new Exception();
+                    throw new Exception();
                 }
                 finally
                 {
-                    throw new Exception();
+                    Console.WriteLine("---------- Finally");
+                    // throw new Exception();
+                    __GetValue();
                 }
             }
-            catch(Exception e)
+            finally
             {
-                Console.WriteLine("--------- Catch");
+                Console.WriteLine("--------- Finally !");
             }
         }
         catch(Exception e)
         {
-            Console.WriteLine("--------- Catch !");
+            Console.WriteLine("--------- Catch !!");
         }
+    }
+
+    public static int __GetValue()
+    {
+        throw new Exception();
     }
 
     public static void __DoSomething()
