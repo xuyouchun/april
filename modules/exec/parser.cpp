@@ -223,8 +223,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 p_block->end         = __CommandAt(block.xil_end);
                 p_block->entry_point = __CommandAt(block.entry_point);
                 p_block->type        = block.type;
+                p_block->parent      = nullptr;
 
-                // _PF(_T("------- [%1%] %2% %3% %4%"),
+                // _PF(_T("BLOCK [%1%] %2% %3% %4%"),
                 //     block.type, block.xil_start, block.xil_end, block.entry_point);
 
                 if(block.relation_type != ref_t::null)
@@ -241,6 +242,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 p_block++;
 
                 #undef __CommandAt
+            }
+
+            for(exec_method_block_t * p_block = block_manager->blocks,
+                    * p_block_end = p_block + block_manager->count;
+                    p_block < p_block_end; p_block++)
+            {
+                for(exec_method_block_t * p_block1 = p_block + 1; p_block1 < p_block_end;
+                                                                            p_block1++)
+                {
+                    if(p_block1->include(p_block))
+                    {
+                        p_block->parent = p_block1;
+                        break;
+                    }
+                }
             }
         }
 

@@ -503,6 +503,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Block type.
         method_xil_block_type_t type;
 
+        // Parent block.
+        exec_method_block_t * parent;
+
         // Returns whether the block contains specified command.
         __AlwaysInline bool include(command_t ** command) noexcept
         {
@@ -513,6 +516,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __AlwaysInline bool exclude(command_t ** command) noexcept
         {
             return command < start || command >= end;
+        }
+
+        // Returns whether the block contains/equals specified block.
+        __AlwaysInline bool include(exec_method_block_t * block) noexcept
+        {
+            return start <= block->start && end >= block->end;
+        }
+
+        // Returns whether the block not contains/equals specified block.
+        __AlwaysInline bool exclude(exec_method_block_t * block) noexcept
+        {
+            return start > block->start || end < block->end;
         }
     };
 
@@ -543,9 +558,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 }
             }
 
-            for(block++; block < block_end; block++)
+            while((block = block->parent) != nullptr)
             {
-                if(point < block->start || point >= block->end || !f(block))
+                if(!f(block))
                     return;
             }
         }
@@ -553,59 +568,192 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Finally block node.
-    class finally_block_node_t : public object_t
+    typedef void * block_node_identity_t;
+
+    // Block node.
+    class block_node_t : public object_t
     {
-        typedef finally_block_node_t __self_t;
+        typedef block_node_t __self_t;
+        typedef block_node_identity_t __identity_t;
 
     public:
 
         // Constructor.
-        finally_block_node_t(exec_method_block_t * block) noexcept : block(block) { }
+        block_node_t(__identity_t identity, exec_method_block_t * block,
+                exception_node_t * exception_node, command_t ** next_command) noexcept
+            : block(block), exception_node(exception_node), next_command(next_command)
+            , identity(identity)
+        { }
+
+        // Group identity.
+        __identity_t identity;
 
         // Block.
         exec_method_block_t * block;
+
+        // Exception node.
+        exception_node_t * exception_node;
+
+        // Next command.
+        command_t ** next_command;
 
         // Next node in chain.
         __self_t * next;
     };
 
     ////////// ////////// ////////// ////////// //////////
-    // Finally block node manager.
+    // Block node manager.
 
-    class finally_queue_t : public __resource_manager_base_t<finally_block_node_t>
+    class block_queue_t : public __resource_manager_base_t<block_node_t>
     {
-        typedef finally_queue_t       __self_t;
-        typedef finally_block_node_t  __node_t;
-        typedef exec_method_block_t   __block_t;
+        typedef block_queue_t           __self_t;
+        typedef block_node_t            __node_t;
+        typedef exec_method_block_t     __block_t;
+        typedef block_node_identity_t   __identity_t;
 
-        typedef __resource_manager_base_t<finally_block_node_t> __super_t;
+        typedef __resource_manager_base_t<block_node_t> __super_t;
 
     public:
 
         // Constructor.
         using __super_t::__super_t;
 
+        // Begin a block group.
+        __AlwaysInline void begin_group(__identity_t identity) noexcept
+        {
+            __old_head = this->head;
+            __current  = nullptr;
+            __identity = identity;
+        }
+
+        // The end of a group.
+        // Returns true if blocks overwrited, happend when throws exceptions in finally block.
+        __AlwaysInline bool end_group() noexcept
+        {
+            if(__current != nullptr)
+            {
+                __node_t * h = __old_head;
+                while(__old_head != nullptr && __old_head->identity == __current->identity
+                        && __current->block->include(__old_head->block))
+                {
+                    __release_node(__old_head);
+                    __old_head = __old_head->next;
+                }
+
+                __current->next = __old_head;
+                return h != __old_head;
+            }
+
+            return false;
+        }
+
+        // Returns last node that enqueue.
+        __AlwaysInline __node_t * last_current() noexcept
+        {
+            return __current;
+        }
+
+        // Enqueue a finally block.
+        __AlwaysInline void enque_finally(__block_t * block, command_t ** next_command = nullptr)
+            noexcept
+        {
+            __enque(block, nullptr, next_command);
+        }
+
+        // Enqueue a catch block.
+        __AlwaysInline void enque_catch(__block_t * block, exception_node_t * exception_node)
+            noexcept
+        {
+            __enque(block, exception_node, nullptr);
+        }
+
+        // Dequeue a block.
+        __AlwaysInline __node_t * deque() noexcept
+        {
+            __node_t * node = this->head;
+            if(node == nullptr)
+                return nullptr;
+
+            this->head = node->next;
+            this->__release_node(node);
+
+            return node;
+        }
+
         // Returns head block.
-        __block_t * pick() noexcept
+        __AlwaysInline __node_t * pick() noexcept
         {
             if(this->head != nullptr)
-                return this->head->block;
+                return this->head;
 
             return nullptr;
         }
 
-        // Enqueue a finally block.
-        __AlwaysInline void enque(__block_t * block) noexcept
+        // Dequeue a block for executing.
+        __AlwaysInline __node_t * deque_for_executing() noexcept
+        {
+            __node_t * node = this->head;
+            if(node == nullptr)
+                return nullptr;
+
+            this->head = node->next;
+
+            if(__executing == nullptr)
+            {
+                __executing = node;
+            }
+            else
+            {
+                node->next = __executing;
+                __executing = node;
+            }
+
+            return node;
+        }
+
+        // Pop an executing block.
+        __AlwaysInline __node_t * pop_executing() noexcept
+        {
+            __node_t * node = __executing;
+            __executing = __executing->next;
+
+            this->__release_node(node);
+
+            return node;
+        }
+
+        // Returns current executing block.
+        __AlwaysInline __node_t * current_executing() noexcept
+        {
+            return __executing;
+        }
+
+        // Clean all nodes.
+        __AlwaysInline void clean() noexcept
+        {
+            __super_t::clean();
+        }
+
+    private:
+        __node_t * __current   = nullptr;
+        __node_t * __old_head  = nullptr;
+        __node_t * __executing = nullptr;
+
+        __identity_t __identity;
+
+        // Enqueue a block.
+        __AlwaysInline void __enque(__block_t * block, exception_node_t * exception_node,
+                command_t ** next_command) noexcept
         {
             _A(block != nullptr);
 
-            __node_t * node = this->__acquire_node(block);
+            __node_t * node = this->__acquire_node(__identity, block, exception_node, next_command);
             node->next = nullptr;
 
             if(__current == nullptr)
             {
-                __current = this->head = node;
+                __current  = node;
+                this->head = node;
             }
             else
             {
@@ -614,32 +762,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
         }
 
-        // Dequeue a finally block.
-        __AlwaysInline __block_t * deque() noexcept
-        {
-            __node_t * node = this->head;
-            if(node == nullptr)
-                return nullptr;
-
-            this->head = node->next;
-            if(this->head == nullptr)
-                __current = nullptr;
-
-            __block_t * block = node->block;
-            this->__release_node(node);
-
-            return block;
-        }
-
-        // Clean all nodes.
-        __AlwaysInline void clean() noexcept
-        {
-            __super_t::clean();
-            __current = nullptr;
-        }
-
-    private:
-        __node_t * __current = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -720,7 +842,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         command_t ** current = nullptr;         // Current command.
 
         exception_stack_t exception_stack;      // Exception stack.
-        finally_queue_t   finally_queue;        // Finally queue.
+        block_queue_t     block_queue;          // Block queue.
 
         // Pushes calling context.
         __AlwaysInline void push_calling(exec_method_t * method) noexcept

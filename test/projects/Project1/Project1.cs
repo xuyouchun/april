@@ -10,34 +10,51 @@ class Project1
     {
         try
         {
-            try
+            for(int k = 0; k < 2; k++)
             {
                 try
                 {
-                    Console.WriteLine("---------- Try");
-                    throw new Exception();
+                    try
+                    {
+                        Console.Print(k);
+                        throw new Exception();
+                    }
+                    catch(Exception e)
+                    {
+                        Console.WriteLine("++++++++++++++++++++ Catch");
+                    }
+                    finally
+                    {
+                        Console.WriteLine("++++++++++++++++++++ Finally");
+                        __Throw2();
+                    }
                 }
                 finally
                 {
-                    Console.WriteLine("---------- Finally");
-                    // throw new Exception();
-                    __GetValue();
+                    Console.WriteLine("++++++++++++++++++++ Finally !");
                 }
-            }
-            finally
-            {
-                Console.WriteLine("--------- Finally !");
             }
         }
         catch(Exception e)
         {
-            Console.WriteLine("--------- Catch !!");
+            Console.WriteLine("++++++++++++++++++++ Catch !!");
+        }
+        finally
+        {
+            Console.WriteLine("++++++++++++++++++++ Finally !!");
         }
     }
 
-    public static int __GetValue()
+    public static void __Throw2()
     {
-        throw new Exception();
+        try
+        {
+            throw new Exception();
+        }
+        finally
+        {
+            Console.WriteLine("++++++++++++++++++++ __Throw2: Finally");
+        }
     }
 
     public static void __DoSomething()

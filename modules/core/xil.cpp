@@ -4,7 +4,7 @@
 namespace X_ROOT_NS { namespace modules { namespace core {
 
     #define __TraceXilRead      0
-    #define __TraceXilWrite     1
+    #define __TraceXilWrite     0
 
     ////////// ////////// ////////// ////////// //////////
 
