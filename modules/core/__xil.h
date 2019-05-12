@@ -7,6 +7,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define __EnumEnd       X_ENUM_END
     #define __E(value)      ((int8_t)(value))
 
+    #define CORE_TRACE_XIL_READ      0
+    #define CORE_TRACE_XIL_WRITE     1
+
     ////////// ////////// ////////// ////////// //////////
     // xil_t
 
@@ -1589,7 +1592,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        xil_buffer_writer_t(xil_buffer_t & buffer, method_t * method);
+        xil_buffer_writer_t(xpool_t & xpool, xil_buffer_t & buffer, method_t * method);
 
         // Writes to buffer.
         size_t write(xil_pool_t & pool);
@@ -1604,11 +1607,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_buffer_t &  __buffer;
         method_t *      __method;
         size_t          __size = 0;
+        xpool_t &       __xpool;
 
-        bool            __traced_method = false;
+        #if CORE_TRACE_XIL_WRITE
+
+        enum class __trace_type_t { unknown, trace, no_trace };
+        __trace_type_t __trace_type = __trace_type_t::unknown;
+
+        bool __traced_method = false;
 
         // Prints trace message.
         void __trace_method();
+
+        // Returns trace type.
+        __trace_type_t __get_trace_type();
+
+        #endif
     };
 
     // Returns command of a xil.

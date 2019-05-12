@@ -54,6 +54,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Convets to mname_t *.
+    static const mname_t * __to_mname(const emname_t * ns)
+    {
+        if(ns == nullptr)
+            return nullptr;
+
+        return ns->mname;
+    }
+
+    // Converts to mname_t *.
+    static const mname_t * __to_mname(const using_namespace_t * ns)
+    {
+        if(ns == nullptr)
+            return nullptr;
+
+        return __to_mname(ns->ns);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // __multi_units_t
 
@@ -76,7 +94,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __unit_iterator_t __begin, __end;
 
         // Returns part count.
-        size_t __mname_part_count()
+        size_t __mname_part_count() const
         {
             return __mname? __mname->part_count() : 0;
         }
@@ -85,7 +103,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         struct __itor_t : iterator_base_t<__itor_t>
         {
             // Constructor.
-            __itor_t(__multi_units_t & units, int index) : __units(units)
+            __itor_t(const __multi_units_t & units, int index) : __units(units)
             {
                 __assign_index(index);
             }
@@ -93,7 +111,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // Returns whether the index is in the units.
             bool __in_mname() { return __index < __units.__mname_part_count(); }
 
-            __multi_units_t & __units;
+            const __multi_units_t & __units;
             int __index;
 
             // Assigns index.
@@ -136,12 +154,29 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         };
 
         // Returns the begin iterator.
-        __itor_t begin() { return __itor_t(*this, 0); }
+        __itor_t begin() const { return __itor_t(*this, 0); }
 
         // Returns the end iterator.
-        __itor_t end()
+        __itor_t end() const
         {
             return __itor_t(*this, __mname_part_count() + (__end - __begin));
+        }
+
+        // Converts to string.
+        operator string_t() const
+        {
+            stringstream_t ss;
+
+            int index = 0;
+            for(__itor_t it = this->begin(), it_end = this->end(); it != it_end; it++)
+            {
+                if(index++ > 0)
+                    ss << _T(".");
+
+                ss << *it;
+            }
+
+            return ss.str();
         }
     };
 
@@ -318,7 +353,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 {
                     if(using_ns->alias.empty())
                     {
-                        __multi_units_t units(to_mname(using_ns->ns), __type_name);
+                        __multi_units_t units(__to_mname(using_ns), __type_name);
                         r = __search_global_type(units.begin(), units.end());
                     }
                     else
@@ -541,7 +576,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             itor_t it = begin;
             for(sid_t sid : *assembly_name)
             {
-                if(**it != sid)
+                if(it == end || **it++ != sid)
                     return false;
             }
 

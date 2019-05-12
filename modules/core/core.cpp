@@ -529,6 +529,58 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Base class with attribute.
+
+    // Returns whether attribute matched speicifed type.
+    static bool __attribute_matched(attribute_t * attribute, general_type_t * attribute_type,
+                                                             bool inherit)
+    {
+        type_t * type = to_type(attribute->type_name);
+        if(type == nullptr)
+            return false;
+
+        if(inherit)
+            return is_type_compatible(type, attribute_type);
+
+        return type == attribute_type;
+    }
+
+    // Returns all attributes with specified attribute type.
+    void with_attributes_object_t::get_attributes(output_attributes_t & out_attributes,
+                                general_type_t * attribute_type, bool inherit)
+    {
+        _A(attribute_type != nullptr);
+
+        if(attributes == nullptr)
+            return;
+
+        for(attribute_t * attr : *attributes)
+        {
+            if(__attribute_matched(attr, attribute_type, inherit))
+                out_attributes.push_back(attr);
+        }
+    }
+
+    // Returns first attribute with specified attribute type.
+    attribute_t * with_attributes_object_t::get_attribute(general_type_t * attribute_type,
+                                                                bool inherit)
+    {
+        _A(attribute_type != nullptr);
+
+        if(attributes == nullptr)
+            return nullptr;
+
+        for(attribute_t * attr : *attributes)
+        {
+            if(__attribute_matched(attr, attribute_type, inherit))
+                return attr;
+        }
+
+        return nullptr;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Argument name type
     X_ENUM_INFO(argument_name_type_t)
 
@@ -654,7 +706,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     mname_t * mname_operate_context_t::new_mname(const mname_t & mname)
     {
         typedef obj_wrap_t<mname_t> wmname_t;
-        return memory_t::new_obj<wmname_t>(memory, mname);
+        mname_t * m = memory_t::new_obj<wmname_t>(memory);
+
+        m->sid = mname.sid;
+        al::copy(mname.parts, std::back_inserter(m->parts));
+
+        return m;
     }
 
     // Commits mname.
@@ -844,6 +901,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     const mname_t mname_t::null;
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Converts emname_t to string.
+    X_DEFINE_TO_STRING(emname_t)
+    {
+        return _str(mname);
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // decorate_value_t
@@ -3362,10 +3427,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts to a string.
     import_t::operator string_t() const
     {
-        if(alias.empty())
-            return _F(_T("import %1%"), _str(package));
+        stringstream_t ss;
+        if(package != nullptr)
+            ss << _F(_T("from %1% "), _str(package));
 
-        return _F(_T("import %1% = %2%"), _str(alias), _str(package));
+        ss << _F(_T("import %1%"), _str(assembly));
+
+        if(!alias.empty())
+            ss << _F(_T(" as %1%"), _str(alias));
+
+        return ss.str();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3714,6 +3785,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     general_type_t * xpool_t::get_array_type()
     {
         return __get_specified_type(__CoreTypeName(CoreType_Array), __array_type);
+    }
+
+    // Returns System.Diagnostics.TraceAttribute type.
+    general_type_t * xpool_t::get_trace_attribute_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_TraceAttribute), __trace_attribute_type
+        );
     }
 
     // Returns specified type with cache.

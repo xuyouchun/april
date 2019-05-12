@@ -738,7 +738,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void uncertain_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        _P(_T("uncertain"));
         __super_t::on_walk(context, step, tag);
     }
 

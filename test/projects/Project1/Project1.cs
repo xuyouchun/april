@@ -2,10 +2,12 @@
 import System;
 
 using System;
+using System.Diagnostics;
 
 class Project1
 {
     [EntryPoint]
+    [Trace]
     public static void Main()
     {
         try
@@ -45,6 +47,7 @@ class Project1
         }
     }
 
+    [Trace]
     public static void __Throw2()
     {
         try

@@ -1420,7 +1420,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                                          this->__logger, this->__controller);
             method->compile(ctx);
 
-            xil_buffer_writer_t writer(buffer, method);
+            xil_buffer_writer_t writer(this->__xpool, buffer, method);
             writer.write(pool);
 
             if(writer.empty())

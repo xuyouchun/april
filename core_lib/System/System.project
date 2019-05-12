@@ -9,6 +9,10 @@
             <path>*.cs</path>
         </file>
 
+        <file>
+            <path>Diagnostics/*.cs</path>
+        </file>
+
     </files>
 
 </project>

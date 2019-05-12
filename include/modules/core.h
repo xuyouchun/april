@@ -24,6 +24,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class expression_execute_context_t;
     class method_compile_context_t;
     class statement_region_t;
+    class general_type_t;
 
     typedef int16_t element_value_t;
 
@@ -33,6 +34,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Defines core type names.
     #define __CoreTypeName(name) CoreAssembly _T(".") name
 
+    // Common types.
     #define CoreType_Type         _T("Type")
     #define CoreType_Exception    _T("Exception")
     #define CoreType_Void         _T("Void")
@@ -55,7 +57,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define CoreType_Single       _T("Single")
     #define CoreType_Double       _T("Double")
 
+    // Exceptions.
     #define CoreType_NullReferenceException     _T("NullReferenceException")
+
+    // Attributes.
+    #define CoreType_TraceAttribute     _T("Diagnostics.TraceAttribute")
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1283,6 +1289,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef emname_t * itype_t;
 
         const mname_t * mname = nullptr;
+
+        X_TO_STRING
     };
 
     typedef eobject_ast_t<typename emname_t::itype_t> mname_ast_t;
@@ -1634,6 +1642,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
     public:
         attributes_t * attributes = nullptr;
+
+        typedef al::svector_t<attribute_t *> output_attributes_t;
+
+        // Returns all attributes with specified attribute type.
+        void get_attributes(output_attributes_t & out_attributes,
+                general_type_t * attribute_type, bool inherit = false);
+
+        // Returns first attribute with specified attribute type.
+        attribute_t * get_attribute(general_type_t * attribute_type, bool inherit = false);
+
+        // Returns whether the attribute is specified.
+        bool has_attribute(general_type_t * attribute_type, bool inherit = false)
+        {
+            return get_attribute(attribute_type, inherit) != nullptr;
+        }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4082,6 +4105,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns System.Array type.
         general_type_t * get_array_type();
 
+        // Returns System.Diagnostics.TraceAttribute type.
+        general_type_t * get_trace_attribute_type();
+
         // Creates a new object.
         template<typename t, typename ... args_t> t * new_obj(args_t && ... args)
         {
@@ -4104,6 +4130,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         general_type_t * __object_type = nullptr;
         general_type_t * __tarray_type = nullptr;
         general_type_t * __array_type  = nullptr;
+
+        general_type_t * __trace_attribute_type = nullptr;
 
         type_name_t __object_type_name;
     };

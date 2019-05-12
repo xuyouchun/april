@@ -7,7 +7,7 @@
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct Void
+public struct Void
 {
 
 };
@@ -15,7 +15,7 @@ struct Void
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct Int8
+public struct Int8
 {
 
 };
@@ -23,7 +23,7 @@ struct Int8
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct UInt8
+public struct UInt8
 {
 
 };
@@ -31,7 +31,7 @@ struct UInt8
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct Int16
+public struct Int16
 {
 
 };
@@ -39,7 +39,7 @@ struct Int16
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct UInt16
+public struct UInt16
 {
 
 };
@@ -47,7 +47,7 @@ struct UInt16
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct Int32
+public struct Int32
 {
     // Parse to System.Int32 value.
     public static Int32 Parse(String s)
@@ -59,7 +59,7 @@ struct Int32
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct UInt32
+public struct UInt32
 {
 
 };
@@ -67,7 +67,7 @@ struct UInt32
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct Int64
+public struct Int64
 {
 
 };
@@ -75,7 +75,7 @@ struct Int64
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct UInt64
+public struct UInt64
 {
 
 };
@@ -83,7 +83,7 @@ struct UInt64
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct String
+public struct String
 {
 
 };
@@ -91,7 +91,7 @@ struct String
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct Boolean
+public struct Boolean
 {
 
 };
@@ -99,7 +99,7 @@ struct Boolean
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct Char
+public struct Char
 {
 
 };
@@ -107,11 +107,11 @@ struct Char
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-struct Ptr
+public struct Ptr
 {
 
 };
 
-
 ////////// ////////// ////////// ////////// //////////
+
 

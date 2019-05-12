@@ -7,7 +7,7 @@
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-class Object
+public class Object
 {
     // Returns the object type.
     public Type GetType()
@@ -26,7 +26,7 @@ class Object
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-class Type
+public class Type
 {
     // Converts to string.
     public String ToString()
@@ -46,7 +46,7 @@ public class Attribute
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-class Array : Object
+public class Array : Object
 {
     // Returns rank of array.
     public Int32 Rank { get { return Array_GetRank(this); } }
@@ -73,7 +73,7 @@ class Array : Object
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-class Array<T> : Array
+public class Array<T> : Array
 {
 
 };
@@ -119,7 +119,7 @@ public class InlineAttribute : Attribute
 ////////// ////////// ////////// ////////// //////////
 
 [__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
-class EntryPointAttribute
+public class EntryPointAttribute
 {
 
 };
@@ -127,7 +127,7 @@ class EntryPointAttribute
 ////////// ////////// ////////// ////////// //////////
 
 // Exception.
-class Exception
+public class Exception
 {
     // Default constructor.
     public Exception() { }
@@ -167,7 +167,7 @@ class Exception
 ////////// ////////// ////////// ////////// //////////
 
 // NullException.
-class NullReferenceException : Exception
+public class NullReferenceException : Exception
 {
     // Default constructor.
     public NullReferenceException() { }

@@ -3,9 +3,6 @@
 
 namespace X_ROOT_NS { namespace modules { namespace core {
 
-    #define __TraceXilRead      0
-    #define __TraceXilWrite     0
-
     ////////// ////////// ////////// ////////// //////////
 
     const ref_t ref_t::null(0, 0, 0);
@@ -865,8 +862,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
 
     // Constructor.
-    xil_buffer_writer_t::xil_buffer_writer_t(xil_buffer_t & buffer, method_t * method)
-        : __buffer(buffer), __method(method)
+    xil_buffer_writer_t::xil_buffer_writer_t(xpool_t & xpool, xil_buffer_t & buffer,
+                                                              method_t * method)
+        : __xpool(xpool), __buffer(buffer), __method(method)
     {
         _A(method != nullptr);
     }
@@ -874,7 +872,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Writes xils to a buffer.
     size_t xil_buffer_writer_t::write(xil_pool_t & pool)
     {
+        #if CORE_TRACE_XIL_WRITE
+
         __trace_method();
+
+        #endif
 
         method_xil_stub_t stub;
         stub.write(__buffer);
@@ -882,11 +884,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         size_t init_size = __buffer.size();
 
         int index = 0;
+        __trace_type_t trace_type = __get_trace_type();
+
         for(xil_t * xil : pool)
         {
-            #if __TraceXilWrite
+            #if CORE_TRACE_XIL_WRITE
 
-            _PF(_T("%1% [%2%] %3%"), index++, __size_of(xil), __to_string(xil));
+            if(trace_type == __trace_type_t::trace)
+            {
+                _PF(_T("  %|1$4| [%2%] %3%"), index++, __size_of(xil), __to_string(xil));
+            }
 
             #endif
 
@@ -899,18 +906,33 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return size;
     }
 
+    #if CORE_TRACE_XIL_WRITE
+
+    // Prints trace message.
     void xil_buffer_writer_t::__trace_method()
     {
-        #if __TraceXilWrite
-
-        if(!__traced_method)
+        if(!__traced_method && __get_trace_type() == __trace_type_t::trace)
         {
             _PF(_T("\n%1%"), __method);
             __traced_method = true;
         }
-
-        #endif
     }
+
+    // Returns trace type.
+    xil_buffer_writer_t::__trace_type_t xil_buffer_writer_t::__get_trace_type()
+    {
+        if(__trace_type == __trace_type_t::unknown)
+        {
+            if(__method->has_attribute(__xpool.get_trace_attribute_type(), true))
+                __trace_type = __trace_type_t::trace;
+            else
+                __trace_type = __trace_type_t::no_trace;
+        }
+
+        return __trace_type;
+    }
+
+    #endif
 
     ////////// ////////// ////////// ////////// //////////
 

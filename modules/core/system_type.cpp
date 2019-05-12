@@ -145,10 +145,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Impl for System.Exception
-    class __exception_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    // Base impl for exception type.
+
+    class __exception_type_impl_base_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
         typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Impl for System.Exception
+    class __exception_type_impl_t : public __exception_type_impl_base_t
+    {
+        typedef __exception_type_impl_base_t __super_t;
 
     public:
         using __super_t::__super_t;
@@ -221,10 +233,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Impl for System.Attribute.
-    class __attribute_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    // Impl for attribute type.
+    class __attribute_type_impl_base_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
         typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Impl for System.Attribute.
+    class __attribute_type_impl_t : public __attribute_type_impl_base_t
+    {
+        typedef __attribute_type_impl_base_t __super_t;
 
     public:
         using __super_t::__super_t;
@@ -461,6 +484,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Impl for System.Diagnostics.TraceAttribute
+    class __trace_attribute_type_impl_t : public __attribute_type_impl_base_t
+    {
+        typedef __attribute_type_impl_base_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __trace_attribute_type_impl_t::type_name[]
+                                        = __CoreTypeName(CoreType_TraceAttribute);
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Internal attribute type impls.
     class __internal_attribute_type_impls_t : public __type_impls_t
     {
@@ -537,6 +576,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __impls.append<__string_type_impl_t>();
             __impls.append<__single_type_impl_t>();
             __impls.append<__double_type_impl_t>();
+
+            // Attributes.
+            __impls.append<__trace_attribute_type_impl_t>();
         }
 
         // Commits it.
