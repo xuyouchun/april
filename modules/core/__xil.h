@@ -8,7 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define __E(value)      ((int8_t)(value))
 
     #define CORE_TRACE_XIL_READ      0
-    #define CORE_TRACE_XIL_WRITE     1
+    #define CORE_TRACE_XIL_WRITE     X_DEBUG
 
     ////////// ////////// ////////// ////////// //////////
     // xil_t

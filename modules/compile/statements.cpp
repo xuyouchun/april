@@ -157,6 +157,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __exit_type(et_ctx, statement);
     }
 
+    // Returns exit type of statement.
+    __exit_type_t __exit_type_of(__exit_type_context_t & ctx, statement_t * statement)
+    {
+        if(statement == nullptr)
+            return statement_exit_type_t::none;
+
+        return statement->exit_type(ctx);
+    }
+
     // Returns whether statement is pass through.
     bool __statement_pass(statement_compile_context_t & ctx, statement_t * statement)
     {
@@ -1536,8 +1545,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type.
     __exit_type_t try_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        //TODO: X_UNEXPECTED();
-        return __exit_type_t::none;
+        __e_exit_type_t et_finally = __exit_type_of(ctx, finally_statement);
+        if(et_finally != __exit_type_t::none && !et_finally.has(__exit_type_t::pass))
+            return et_finally;
+
+        __e_exit_type_t et = __exit_type_of(ctx, try_statement);
+        if(!et.has(__exit_type_t::throw_))
+            return et;
+
+        general_type_t * exception_type = ctx.xpool.get_exception_type();
+        for(catch_t * c : catches)
+        {
+            if(c != nullptr && to_type(c->type_name) == exception_type)
+                et.remove(__exit_type_t::throw_);
+        }
+
+        return *et;
     }
 
     ////////// ////////// ////////// ////////// //////////

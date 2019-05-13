@@ -732,7 +732,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
 
     // Converts xil to a string.
-    string_t __to_string(const xil_t * xil)
+    string_t __to_string(const xil_t * xil) _NE
     {
         if(xil == nullptr)
             return _T("<NULL>");
@@ -787,7 +787,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns size of xil_t.
-    size_t __size_of(const xil_t * xil)
+    size_t __size_of(const xil_t * xil) _NE
     {
         _A(xil != nullptr);
 
@@ -836,9 +836,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return size_of(*(const init_xil_t *)xil);
 
             default:
-                _PP(((const xil_base_t *)xil)->command());
-                X_UNEXPECTED();
+                return 0;
         }
+    }
+
+    // Converts xil to a string.
+    string_t __to_hex(const xil_t * xil) _NE
+    {
+        if(xil == nullptr)
+            return _T("");
+
+        stringstream_t ss;
+        ss << buffer_t((const byte_t *)xil, __size_of(xil));
+
+        return ss.str();
     }
 
     // Reads a xil.
@@ -849,7 +860,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         *out_xil = (const xil_base_t *)__bytes;
 
-        #if __TraceXilRead
+        #if CORE_TRACE_XIL_READ
 
         _PF(_T("[%1%] %2%"), __size_of(*out_xil), __to_string(*out_xil));
 
@@ -875,6 +886,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         #if CORE_TRACE_XIL_WRITE
 
         __trace_method();
+        __trace_type_t trace_type = __get_trace_type();
 
         #endif
 
@@ -884,7 +896,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         size_t init_size = __buffer.size();
 
         int index = 0;
-        __trace_type_t trace_type = __get_trace_type();
 
         for(xil_t * xil : pool)
         {
@@ -892,7 +903,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             if(trace_type == __trace_type_t::trace)
             {
-                _PF(_T("  %|1$4| [%2%] %3%"), index++, __size_of(xil), __to_string(xil));
+                _PF(_T("  %|1$4| [%2%] %3% %4%"),
+                    index++, __size_of(xil), __to_string(xil), __to_hex(xil)
+                );
             }
 
             #endif

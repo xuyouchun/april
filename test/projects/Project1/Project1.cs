@@ -7,8 +7,14 @@ using System.Diagnostics;
 class Project1
 {
     [EntryPoint]
-    [Trace]
     public static void Main()
+    {
+        int v = __GetValue();
+        Console.Print(v);
+    }
+
+    [Trace]
+    private static int __GetValue()
     {
         try
         {
@@ -16,53 +22,21 @@ class Project1
             {
                 try
                 {
-                    try
-                    {
-                        Console.Print(k);
-                        throw new Exception();
-                    }
-                    catch(Exception e)
-                    {
-                        Console.WriteLine("++++++++++++++++++++ Catch");
-                    }
-                    finally
-                    {
-                        Console.WriteLine("++++++++++++++++++++ Finally");
-                        __Throw2();
-                    }
+                    Console.WriteLine("__GetValue: Try");
+                    return k + 100;
                 }
                 finally
                 {
-                    Console.WriteLine("++++++++++++++++++++ Finally !");
+                    Console.WriteLine("__GetValue: 1");
                 }
             }
         }
-        catch(Exception e)
-        {
-            Console.WriteLine("++++++++++++++++++++ Catch !!");
-        }
         finally
         {
-            Console.WriteLine("++++++++++++++++++++ Finally !!");
+            Console.WriteLine("__GetValue: 2");
         }
-    }
 
-    [Trace]
-    public static void __Throw2()
-    {
-        try
-        {
-            throw new Exception();
-        }
-        finally
-        {
-            Console.WriteLine("++++++++++++++++++++ __Throw2: Finally");
-        }
-    }
-
-    public static void __DoSomething()
-    {
-        throw new Exception();
+        return 100;
     }
 };
 

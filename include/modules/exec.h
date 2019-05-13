@@ -76,7 +76,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     namespace
     {
         // Aligns forward.
-        template<typename t> constexpr size_t __alignf() noexcept
+        template<typename t> constexpr size_t __alignf() _NE
         {
             return _alignf(sizeof(t), sizeof(rt_stack_unit_t));
         }
@@ -85,19 +85,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         template<typename t, bool tiny> struct __stack_operation_t
         {
             // Pushes a unit.
-            __AlwaysInline static void push(rt_stack_unit_t * top, t value) noexcept
+            __AlwaysInline static void push(rt_stack_unit_t * top, t value) _NE
             {
                 *(t *)top = value;
             }
 
             // Pops a unit.
-            __AlwaysInline static t pop(rt_stack_unit_t * top) noexcept
+            __AlwaysInline static t pop(rt_stack_unit_t * top) _NE
             {
                 return *(t *)(top - __alignf<t>() / sizeof(rt_stack_unit_t));
             }
 
             // Pops a unit reference.
-            __AlwaysInline static t & pop_reference(rt_stack_unit_t * top) noexcept
+            __AlwaysInline static t & pop_reference(rt_stack_unit_t * top) _NE
             {
                 return *(t *)(top - __alignf<t>() / sizeof(rt_stack_unit_t));
             }
@@ -109,20 +109,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             union __tmp_t { t value; rt_stack_unit_t unit; };
 
             // Pushes a unit.
-            __AlwaysInline static void push(rt_stack_unit_t * top, t value) noexcept
+            __AlwaysInline static void push(rt_stack_unit_t * top, t value) _NE
             {
                 __tmp_t tmp = { value };
                 *top = reinterpret_cast<rt_stack_unit_t>(tmp.unit);
             }
 
             // Pops a unit.
-            __AlwaysInline static t pop(rt_stack_unit_t * top) noexcept
+            __AlwaysInline static t pop(rt_stack_unit_t * top) _NE
             {
                 return ((__tmp_t *)(top - 1))->value;
             }
 
             // Pops a unit reference.
-            __AlwaysInline static t & pop_reference(rt_stack_unit_t * top) noexcept
+            __AlwaysInline static t & pop_reference(rt_stack_unit_t * top) _NE
             {
                 return ((__tmp_t *)(top - 1))->value;
             }
@@ -138,21 +138,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
 
         // Constructor.
-        executor_stack_t(rt_stack_unit_t * buffer) noexcept
+        executor_stack_t(rt_stack_unit_t * buffer) _NE
             : __buffer(buffer), __top(buffer), __lp(buffer)
         {
             _A(buffer != nullptr);
         }
 
         // Pushes a value.
-        template<typename t> __AlwaysInline void push(const t & value) noexcept
+        template<typename t> __AlwaysInline void push(const t & value) _NE
         {
             __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::push(__top, value);
             __top += __alignf<t>() / sizeof(rt_stack_unit_t);
         }
 
         // Pops a value.
-        template<typename t> __AlwaysInline t pop() noexcept
+        template<typename t> __AlwaysInline t pop() _NE
         {
             t value = __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop(__top);
             __top -= __alignf<t>() / sizeof(rt_stack_unit_t);
@@ -161,7 +161,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Pops a value reference.
-        template<typename t> __AlwaysInline t & pop_reference() noexcept
+        template<typename t> __AlwaysInline t & pop_reference() _NE
         {
             typedef __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)> stack_operation_t;
 
@@ -172,59 +172,59 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Pops units of specified count.
-        template<typename t> __AlwaysInline rt_stack_unit_t * pop(int count) noexcept
+        template<typename t> __AlwaysInline rt_stack_unit_t * pop(int count) _NE
         {
             return __top -= __alignf<t>() / sizeof(rt_stack_unit_t) * count;
         }
 
         // Pops units of specified count.
         template<int count, typename t = rt_stack_unit_t>
-        __AlwaysInline rt_stack_unit_t * pop() noexcept
+        __AlwaysInline rt_stack_unit_t * pop() _NE
         {
             return __top -= __alignf<t>() / sizeof(rt_stack_unit_t) * count;
         }
 
         // Picks top unit.
-        template<typename t> __AlwaysInline t pick() noexcept
+        template<typename t> __AlwaysInline t pick() _NE
         {
             return __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop(__top);
         }
 
         // Picks top unit reference.
-        template<typename t> __AlwaysInline t & pick_reference() noexcept
+        template<typename t> __AlwaysInline t & pick_reference() _NE
         {
             return __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop_reference(__top);
         }
 
         // Picks top unit.
-        template<typename t> __AlwaysInline t pick(int offset) noexcept
+        template<typename t> __AlwaysInline t pick(int offset) _NE
         {
             return __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::pop(__top + offset);
         }
 
         // The top unit.
-        __AlwaysInline rt_stack_unit_t * top() noexcept { return __top; }
+        __AlwaysInline rt_stack_unit_t * top() _NE { return __top; }
 
         // Sets the top unit.
-        __AlwaysInline void set_top(rt_stack_unit_t * top) noexcept { __top = top; }
+        __AlwaysInline void set_top(rt_stack_unit_t * top) _NE { __top = top; }
 
         // Pops units of specified count.
-        __AlwaysInline rt_stack_unit_t * pop(size_t unit_size) noexcept { return __top -= unit_size; }
+        __AlwaysInline rt_stack_unit_t * pop(size_t unit_size) _NE { return __top -= unit_size; }
 
         // Increases top of unit size.
-        __AlwaysInline void increase_top(size_t unit_size) noexcept { __top += unit_size; }
+        __AlwaysInline void increase_top(size_t unit_size) _NE { __top += unit_size; }
 
         // Increases top of unit size.
-        template<size_t unit_size> __AlwaysInline void increase_top() noexcept { __top += unit_size; }
+        template<size_t unit_size> __AlwaysInline void increase_top() _NE { __top += unit_size; }
 
         // Local variables top.
-        __AlwaysInline rt_stack_unit_t * lp() noexcept { return __lp; }
+        __AlwaysInline rt_stack_unit_t * lp() _NE { return __lp; }
 
         // Sets local variables top.
-        __AlwaysInline void set_lp(rt_stack_unit_t * lp) noexcept { __lp = lp; }
+        __AlwaysInline void set_lp(rt_stack_unit_t * lp) _NE { __lp = lp; }
 
         // Returns stack bottom.
-        __AlwaysInline rt_stack_unit_t * bottom() noexcept { return __buffer; }
+        __AlwaysInline rt_stack_unit_t * bottom() _NE { return __buffer; }
 
     private:
         rt_stack_unit_t * __top, * __lp;
@@ -235,7 +235,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     // Returns a string hashcode.
     template<typename _size_t>
-    __AlwaysInline _size_t __hash(_size_t hash, _size_t v) noexcept
+    __AlwaysInline _size_t __hash(_size_t hash, _size_t v) _NE
     {
         const _size_t mask = (_size_t)0x0F << (sizeof(_size_t) - 4);
 
@@ -253,7 +253,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     // Returns a string hashcode.
     template<typename _size_t, typename _char_t>
-    _size_t elf_hash(const _char_t * s, size_t length) noexcept
+    _size_t elf_hash(const _char_t * s, size_t length) _NE
     {
         const _size_t * t = (const _size_t *)s;
         size_t s_len = length * sizeof(_char_t);
@@ -281,13 +281,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         struct __string_key_t
         {
-            __string_key_t(const char_t * s, rt_length_t length) noexcept
+            __string_key_t(const char_t * s, rt_length_t length) _NE
                 : s(s), length(length) { }
 
             rt_length_t length;
             const char_t * s;
 
-            bool operator == (const __string_key_t & other) const noexcept
+            bool operator == (const __string_key_t & other) const _NE
             {
                 if(s == other.s)
                     return true;
@@ -301,7 +301,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         struct __string_hash_t
         {
-            size_t operator()(const __string_key_t & key) const noexcept
+            size_t operator()(const __string_key_t & key) const _NE
             {
                 return elf_hash<size_t>(key.s, key.length);
             }
@@ -309,7 +309,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         struct __string_equals_t
         {
-            bool operator()(const __string_key_t & key1, const __string_key_t & key2) const noexcept
+            bool operator()(const __string_key_t & key1, const __string_key_t & key2) const _NE
             {
                 return key1 == key2;
             }
@@ -320,7 +320,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class rt_string_pool_t : public object_t
     {
     public:
-        rt_string_pool_t() noexcept { }
+        rt_string_pool_t() _NE { }
 
         // Gets the specified string.
         rt_string_t * get(const char_t * s, rt_length_t length);
@@ -348,17 +348,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         public:
 
             // Constructor.
-            __resource_manager_base_t(memory_t * memory = nullptr) noexcept
+            __resource_manager_base_t(memory_t * memory = nullptr) _NE
                 : memory_base_t(memory) { }
 
             // The head node.
             __node_t * head = nullptr;
 
             // Returns whether the queue/stack is empty.
-            bool empty() const noexcept { return head == nullptr; }
+            bool empty() const _NE { return head == nullptr; }
 
             // Clean all nodes.
-            __AlwaysInline void clean() noexcept
+            __AlwaysInline void clean() _NE
             {
                 while(head != nullptr)
                 {
@@ -370,7 +370,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
 
             // Remove next node of specified node.
-            __AlwaysInline void remove_next(__node_t * node) noexcept
+            __AlwaysInline void remove_next(__node_t * node) _NE
             {
                 __node_t * next = node->next;
                 node->next = next->next;
@@ -441,7 +441,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Constructor.
         exception_node_t(command_t ** throw_point, rt_ref_t exception, exec_method_t * method)
-            noexcept
+            _NE
             : throw_point(throw_point), exception(exception), method(method)
         { }
 
@@ -465,7 +465,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Pushes an exception.
         __AlwaysInline void push(command_t ** throw_point, rt_ref_t exception, exec_method_t * method)
-            noexcept
+            _NE
         {
             __node_t * node = this->__acquire_node(throw_point, exception, method);
             node->next = this->head;
@@ -473,7 +473,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Pops an exception.
-        __AlwaysInline void pop() noexcept
+        __AlwaysInline void pop() _NE
         {
             _A(this->head != nullptr);
 
@@ -507,25 +507,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         exec_method_block_t * parent;
 
         // Returns whether the block contains specified command.
-        __AlwaysInline bool include(command_t ** command) noexcept
+        __AlwaysInline bool include(command_t ** command) _NE
         {
             return command >= start && command < end;
         }
 
         // Returns whether the block not contains specified command.
-        __AlwaysInline bool exclude(command_t ** command) noexcept
+        __AlwaysInline bool exclude(command_t ** command) _NE
         {
             return command < start || command >= end;
         }
 
         // Returns whether the block contains/equals specified block.
-        __AlwaysInline bool include(exec_method_block_t * block) noexcept
+        __AlwaysInline bool include(exec_method_block_t * block) _NE
         {
             return start <= block->start && end >= block->end;
         }
 
         // Returns whether the block not contains/equals specified block.
-        __AlwaysInline bool exclude(exec_method_block_t * block) noexcept
+        __AlwaysInline bool exclude(exec_method_block_t * block) _NE
         {
             return start > block->start || end < block->end;
         }
@@ -543,13 +543,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         int count = 0;
 
         // Finds block contains the specified point.
-        template<typename _f_t> void find_block(command_t ** point, _f_t f) noexcept
+        template<method_xil_block_type_t _type, typename _f_t>
+        void find_block(command_t ** point, _f_t f) _NE
         {
             exec_method_block_t * block = blocks, * block_end = block + count;
 
+            #define __MatchBlockType(_block)                    \
+                (_type == method_xil_block_type_t::__unknown__ || _type == _block->type)
+
             for(; block < block_end; block++)
             {
-                if(point >= block->start && point < block->end)
+                if(__MatchBlockType(block) && point >= block->start && point < block->end)
                 {
                     if(!f(block))
                         return;
@@ -560,9 +564,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             while((block = block->parent) != nullptr)
             {
-                if(!f(block))
+                if(__MatchBlockType(block) && !f(block))
                     return;
             }
+
+            #undef __MatchBlockType
         }
     };
 
@@ -570,19 +576,35 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     typedef void * block_node_identity_t;
 
+    // The action after finally block executed.
+    X_ENUM(block_node_finally_action_t)
+
+        // No action.
+        default_ = __default__,
+
+        // Jump to next command.
+        jmp_to_next_command,
+
+        // Executes following command.
+        execute_following_command,
+
+    X_ENUM_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Block node.
     class block_node_t : public object_t
     {
-        typedef block_node_t __self_t;
-        typedef block_node_identity_t __identity_t;
+        typedef block_node_t                __self_t;
+        typedef block_node_identity_t       __identity_t;
+        typedef block_node_finally_action_t __action_t;
 
     public:
 
         // Constructor.
         block_node_t(__identity_t identity, exec_method_block_t * block,
-                exception_node_t * exception_node, command_t ** next_command) noexcept
-            : block(block), exception_node(exception_node), next_command(next_command)
-            , identity(identity)
+                exception_node_t * exception_node = nullptr) _NE
+            : block(block), exception_node(exception_node), identity(identity)
         { }
 
         // Group identity.
@@ -594,8 +616,35 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Exception node.
         exception_node_t * exception_node;
 
-        // Next command.
-        command_t ** next_command;
+        // The action after finally block executed.
+        __action_t action = __action_t::default_;
+
+        union
+        {
+            // Next command.
+            command_t ** next_command;
+
+            // Following command.
+            command_t * following_command;
+        };
+
+        // Sets next command.
+        __AlwaysInline void set_next_command(command_t ** next_command) _NE
+        {
+            _A(next_command != nullptr);
+
+            this->next_command = next_command;
+            this->action = __action_t::jmp_to_next_command;
+        }
+
+        // Sets following command.
+        __AlwaysInline void set_following_command(command_t * following_command) _NE
+        {
+            _A(following_command != nullptr);
+
+            this->following_command = following_command;
+            this->action = __action_t::execute_following_command;
+        }
 
         // Next node in chain.
         __self_t * next;
@@ -619,7 +668,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         using __super_t::__super_t;
 
         // Begin a block group.
-        __AlwaysInline void begin_group(__identity_t identity) noexcept
+        __AlwaysInline void begin_group(__identity_t identity) _NE
         {
             __old_head = this->head;
             __current  = nullptr;
@@ -628,7 +677,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // The end of a group.
         // Returns true if blocks overwrited, happend when throws exceptions in finally block.
-        __AlwaysInline bool end_group() noexcept
+        __AlwaysInline bool end_group() _NE
         {
             if(__current != nullptr)
             {
@@ -648,27 +697,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Returns last node that enqueue.
-        __AlwaysInline __node_t * last_current() noexcept
+        __AlwaysInline __node_t * last_current() _NE
         {
             return __current;
         }
 
         // Enqueue a finally block.
-        __AlwaysInline void enque_finally(__block_t * block, command_t ** next_command = nullptr)
-            noexcept
+        __AlwaysInline void enque_finally(__block_t * block) _NE
         {
-            __enque(block, nullptr, next_command);
+            __enque(block, nullptr);
         }
 
         // Enqueue a catch block.
-        __AlwaysInline void enque_catch(__block_t * block, exception_node_t * exception_node)
-            noexcept
+        __AlwaysInline void enque_catch(__block_t * block, exception_node_t * exception_node) _NE
         {
-            __enque(block, exception_node, nullptr);
+            __enque(block, exception_node);
         }
 
         // Dequeue a block.
-        __AlwaysInline __node_t * deque() noexcept
+        __AlwaysInline __node_t * deque() _NE
         {
             __node_t * node = this->head;
             if(node == nullptr)
@@ -681,7 +728,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Returns head block.
-        __AlwaysInline __node_t * pick() noexcept
+        __AlwaysInline __node_t * pick() _NE
         {
             if(this->head != nullptr)
                 return this->head;
@@ -690,7 +737,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Dequeue a block for executing.
-        __AlwaysInline __node_t * deque_for_executing() noexcept
+        __AlwaysInline __node_t * deque_for_executing() _NE
         {
             __node_t * node = this->head;
             if(node == nullptr)
@@ -712,7 +759,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Pop an executing block.
-        __AlwaysInline __node_t * pop_executing() noexcept
+        __AlwaysInline __node_t * pop_executing() _NE
         {
             __node_t * node = __executing;
             __executing = __executing->next;
@@ -723,13 +770,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Returns current executing block.
-        __AlwaysInline __node_t * current_executing() noexcept
+        __AlwaysInline __node_t * current_executing() _NE
         {
             return __executing;
         }
 
         // Clean all nodes.
-        __AlwaysInline void clean() noexcept
+        __AlwaysInline void clean() _NE
         {
             __super_t::clean();
         }
@@ -742,12 +789,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __identity_t __identity;
 
         // Enqueue a block.
-        __AlwaysInline void __enque(__block_t * block, exception_node_t * exception_node,
-                command_t ** next_command) noexcept
+        __AlwaysInline void __enque(__block_t * block, exception_node_t * exception_node) _NE
         {
             _A(block != nullptr);
 
-            __node_t * node = this->__acquire_node(__identity, block, exception_node, next_command);
+            __node_t * node = this->__acquire_node(__identity, block, exception_node);
             node->next = nullptr;
 
             if(__current == nullptr)
@@ -773,7 +819,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
 
         // Constructor.
-        exec_method_t(command_t ** commands, uint16_t ref_objects, msize_t stack_unit_size) noexcept
+        exec_method_t(command_t ** commands, uint16_t ref_objects, msize_t stack_unit_size) _NE
             : commands(commands), ref_objects(ref_objects), stack_unit_size(stack_unit_size)
         {
             _A(commands != nullptr);
@@ -795,13 +841,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         rt_method_base_t * rt_method = nullptr;
 
         // Finds block contains the specified point.
-        template<typename _f_t>
-        __AlwaysInline void find_block(command_t ** point, _f_t f) noexcept
+        template<method_xil_block_type_t _type, typename _f_t>
+        __AlwaysInline void find_block(command_t ** point, _f_t f) _NE
         {
             if(block_manager == nullptr)
                 return;
 
-            block_manager->find_block(point, f);
+            block_manager->find_block<_type>(point, f);
         }
 
         // Converts to string.
@@ -827,7 +873,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Constructor.
         command_execute_context_t(rt_heap_t * heap, executor_env_t & env,
-                    size_t stack_size = __default_stack_size) noexcept
+                    size_t stack_size = __default_stack_size) _NE
             : stack(__stack_buffer = memory_t::alloc_objs<rt_stack_unit_t>(nullptr, stack_size))
             , heap(heap), env(env)
         {
@@ -845,7 +891,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         block_queue_t     block_queue;          // Block queue.
 
         // Pushes calling context.
-        __AlwaysInline void push_calling(exec_method_t * method) noexcept
+        __AlwaysInline void push_calling(exec_method_t * method) _NE
         {
             stack.push(__calling_stub_t { stack.lp(), this->current, method });
             this->current = method->commands;
@@ -853,7 +899,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Pushes calling context by commands.
-        __AlwaysInline void push_calling(command_t ** commands) noexcept
+        __AlwaysInline void push_calling(command_t ** commands) _NE
         {
             stack.push(__calling_stub_t { stack.lp(), this->current, nullptr });
             this->current = commands;
@@ -861,7 +907,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Pops calling context.
-        __AlwaysInline void pop_calling() noexcept
+        __AlwaysInline void pop_calling() _NE
         {
             __calling_stub_t * stub = ((__calling_stub_t *)stack.lp() - 1);
 
@@ -872,42 +918,42 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Returns whether stack is on head.
-        __AlwaysInline bool stack_empty() noexcept
+        __AlwaysInline bool stack_empty() _NE
         {
             __calling_stub_t * stub = ((__calling_stub_t *)stack.lp() - 1);
             return stub->current == nullptr;
         }
 
         // Pops calling context.
-        __AlwaysInline void pop_calling(const __calling_stub_t * p) noexcept
+        __AlwaysInline void pop_calling(const __calling_stub_t * p) _NE
         {
             current = p->current;
             stack.set_lp(p->lp);
         }
 
         // Restore stack to it's initialize state.
-        __AlwaysInline void restore_stack() noexcept
+        __AlwaysInline void restore_stack() _NE
         {
             stack.set_top(stack.lp() + current_method()->stack_unit_size);
         }
 
         // Creates a new runtime string.
-        rt_string_t * new_rt_string(const char_t * s) noexcept;
+        rt_string_t * new_rt_string(const char_t * s) _NE;
 
         // Pushes an exception.
-        __AlwaysInline void push_exception(rt_ref_t exception) noexcept
+        __AlwaysInline void push_exception(rt_ref_t exception) _NE
         {
             exception_stack.push(current - 1, exception, current_method());
         }
 
         // Pushes an exception.
-        __AlwaysInline void pop_exception() noexcept
+        __AlwaysInline void pop_exception() _NE
         {
             exception_stack.pop();
         }
 
         // Returns current method.
-        __AlwaysInline exec_method_t * current_method() noexcept
+        __AlwaysInline exec_method_t * current_method() _NE
         {
             __calling_stub_t * stub = ((__calling_stub_t *)stack.lp() - 1);
             return stub->method;

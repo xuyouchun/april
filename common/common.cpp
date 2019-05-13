@@ -122,7 +122,7 @@ namespace X_ROOT_NS {
 
     // Creates an instance of unimplemented error. ( for constant objects. )
     logic_error_t<common_error_code_t> _unimplemented_error(const object_t * obj,
-                                                            const char_t * method)
+                                                            const char_t * method) _NE
     {
         string_t class_name = string_convert<char, char_t>(
             typeid(*const_cast<object_t *>(obj)).name()
@@ -135,7 +135,7 @@ namespace X_ROOT_NS {
 
     // Creates an instance of unimplemented error.
     logic_error_t<common_error_code_t> _unimplemented_error(object_t * obj,
-                                                     const char_t * method)
+                                                     const char_t * method) _NE
     {
         string_t class_name = string_convert<char, char_t>(typeid(*obj).name());
 

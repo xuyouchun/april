@@ -42,6 +42,7 @@
 #include <global.h>
 #include <__types.h>
 
+////////// ////////// ////////// ////////// //////////
 
 // Definations
 
@@ -51,7 +52,6 @@
 #else
     #define X_INLINE        inline
 #endif
-
 
 // Defines a noinline function. (if the c++ language version supported).
 #ifdef __NO_INLINE
@@ -67,6 +67,22 @@
 #else
     #define X_ALWAYS_INLINE X_INLINE
 #endif
+
+// Defines optimize options.
+
+#ifdef CONFIG_OPTIMIZE
+    #define X_OPTIMIZE CONFIG_OPTIMIZE
+#else
+    #define X_OPTIMIZE 0
+#endif
+
+#if X_OPTIMIZE == 0
+    #define X_DEBUG     1
+#else
+    #define X_DEBUG     0
+#endif
+
+////////// ////////// ////////// ////////// //////////
 
 namespace __root_ns = ::X_ROOT_NS;
 
@@ -117,11 +133,20 @@ namespace __root_ns = ::X_ROOT_NS;
 // Assert a expression is an specified type, throw expression if fault to convert.
 #define _M(type_t, value)	X_MUST(type_t, value)
 
+// C++ keyword: noexpect
+#if X_DEBUG
+#   define X_NOEXPECT
+#else
+#   define X_NOEXPECT noexcept
+#endif
+
+#define _NE X_NOEXPECT
+
 // Throw an common unexpected exception.
 #define X_UNEXPECTED()      throw _EC(unexpected)
 
 // Throw an common unimplemented exception.
-#define X_UNIMPLEMENTED()        throw _EC(unimplemented)
+#define X_UNIMPLEMENTED()   throw _EC(unimplemented)
 
 // Defines an interface.
 #define X_INTERFACE         struct
@@ -248,25 +273,25 @@ namespace X_ROOT_NS {
     //-------- ---------- ---------- ---------- ----------
 
     // Gets the aligned value of specified size.
-    constexpr size_t _align(size_t size, size_t align_size = sizeof(int))
+    constexpr size_t _align(size_t size, size_t align_size = sizeof(int)) _NE
     {
         return size & ~(align_size - 1);
     }
 
     // Determinds whether a size is aligned to a specified size.
-    constexpr bool __is_aligned(size_t size, size_t align_size = sizeof(int))
+    constexpr bool __is_aligned(size_t size, size_t align_size = sizeof(int)) _NE
     {
         return (size & (align_size - 1)) == 0;
     }
 
     // Gets the forward aligned value of specified size.
-    constexpr size_t _alignf(size_t size, size_t align_size = sizeof(int))
+    constexpr size_t _alignf(size_t size, size_t align_size = sizeof(int)) _NE
     {
         return (size + align_size - 1) & ~(align_size - 1);
     }
 
     // Gets the min value that large or equals than aligne_size, times by 2.
-    constexpr size_t _alignd(size_t size, size_t align_size)
+    constexpr size_t _alignd(size_t size, size_t align_size) _NE
     {
         if(size == 0)
             size = 1;
@@ -308,7 +333,7 @@ namespace X_ROOT_NS {
 
         // Gets the max integer size that less than specified size.
         template<size_t size>
-        X_INLINE constexpr size_t __fix_int_size()
+        X_INLINE constexpr size_t __fix_int_size() _NE
         {
             static_assert(size <= 8, "size must less than 64");
 
@@ -429,7 +454,7 @@ namespace X_ROOT_NS {
         // Converts numeric value type to string.
         template<typename number_t> struct __value_to_string_t
         {
-            static string_t to_string(const number_t & value)
+            static string_t to_string(const number_t & value) _NE
             {
                 return std::to_wstring(value);
             }
@@ -440,7 +465,7 @@ namespace X_ROOT_NS {
         // Converts boolean value type to string.
         template<> struct __value_to_string_t<bool>
         {
-            static string_t to_string(const bool & value)
+            static string_t to_string(const bool & value) _NE
             {
                 return value? _T("true") : _T("false");
             }
@@ -451,7 +476,7 @@ namespace X_ROOT_NS {
         // Converts character value type to string.
         template<> struct __value_to_string_t<char_t>
         {
-            static string_t to_string(const char_t & value)
+            static string_t to_string(const char_t & value) _NE
             {
                 const char_t s[] = { _T('\''), value, _T('\''), _T('\0') };
                 return string_t(s);
@@ -476,12 +501,12 @@ namespace X_ROOT_NS {
                 typedef type##_t numeric_t;                                     \
                 static const value_type_t value_type = value_type_t::type##_;   \
                                                                                 \
-                static numeric_t get_value(const value_t & value)               \
+                static numeric_t get_value(const value_t & value) _NE           \
                 {                                                               \
                     return value.type##_value;                                  \
                 }                                                               \
                                                                                 \
-                static void set_value(value_t & value, numeric_t v)             \
+                static void set_value(value_t & value, numeric_t v) _NE         \
                 {                                                               \
                     value.type##_value = v;                                     \
                 }                                                               \
@@ -504,26 +529,26 @@ namespace X_ROOT_NS {
     }
 
     // Get value of specified numeric type.
-    template<typename numeric_t> numeric_t get_value(const value_t & value)
+    template<typename numeric_t> numeric_t get_value(const value_t & value) _NE
     {
         return __value_t<numeric_t>::get_value(value);
     }
 
     // Set value of specified numeric type.
-    template<typename numeric_t> void set_value(value_t & value, numeric_t v)
+    template<typename numeric_t> void set_value(value_t & value, numeric_t v) _NE
     {
         __value_t<numeric_t>::set_value(value, v);
     }
 
     // Set zero value of specifed numeric type.
-    template<typename numeric_t> void set_value_zero(value_t & value)
+    template<typename numeric_t> void set_value_zero(value_t & value) _NE
     {
         __value_t<numeric_t>::set_value(value, def_value<numeric_t>());
     }
 
     // Converts value to value_t type.
     template<typename numeric_t>
-    value_t to_value(const numeric_t & numeric)
+    value_t to_value(const numeric_t & numeric) _NE
     {
         value_t value;
         set_value(value, numeric);
@@ -535,10 +560,10 @@ namespace X_ROOT_NS {
     {
         tvalue_t() = default;
 
-        tvalue_t(value_type_t type) : type(type) { }
+        tvalue_t(value_type_t type) _NE : type(type) { }
 
         template<typename numeric_t>
-        tvalue_t(numeric_t v)
+        tvalue_t(numeric_t v) _NE
             : type(__value_t<numeric_t>::value_type)
             , value(to_value(v)) { }
 
@@ -546,13 +571,13 @@ namespace X_ROOT_NS {
         value_t       value;
 
         template<typename numeric_t>
-        tvalue_t & operator = (const tvalue_t & v)
+        tvalue_t & operator = (const tvalue_t & v) _NE
         {
             type = __value_t<numeric_t>::value_type;
             value = to_value(v);
         }
 
-        operator string_t() const
+        operator string_t() const _NE
         {
             #define __X_CASE(type)                              \
                 case value_type_t::type##_:                     \
@@ -571,7 +596,7 @@ namespace X_ROOT_NS {
             #undef __X_CASE
         }
 
-        template<typename numeric_t> numeric_t get_value() const
+        template<typename numeric_t> numeric_t get_value() const _NE
         {
             if(__value_t<numeric_t>::value_type == type)
                 return __root_ns::get_value<numeric_t>(value);
@@ -597,7 +622,7 @@ namespace X_ROOT_NS {
         __X_EACH_TYPES 
         #undef __X_TYPE_OP
 
-        bool operator == (const tvalue_t & other) const
+        bool operator == (const tvalue_t & other) const _NE
         {
             if(type != other.type)
                 return false;
@@ -620,7 +645,7 @@ namespace X_ROOT_NS {
             #undef __X_CASE
         }
 
-        bool operator < (const tvalue_t & other) const
+        bool operator < (const tvalue_t & other) const _NE
         {
             if(type != other.type)
                 return type < other.type;
@@ -643,7 +668,7 @@ namespace X_ROOT_NS {
             #undef __X_CASE
         }
 
-        bool operator <= (const tvalue_t & other) const
+        bool operator <= (const tvalue_t & other) const _NE
         {
             if(type != other.type)
                 return type <= other.type;
@@ -666,22 +691,22 @@ namespace X_ROOT_NS {
             #undef __X_CASE
         }
 
-        bool operator != (const tvalue_t & other) const
+        bool operator != (const tvalue_t & other) const _NE
         {
             return ! operator == (other);
         }
 
-        bool operator > (const tvalue_t & other) const
+        bool operator > (const tvalue_t & other) const _NE
         {
             return ! operator <= (other);
         }
 
-        bool operator >= (const tvalue_t & other) const
+        bool operator >= (const tvalue_t & other) const _NE
         {
             return ! operator < (other);
         }
 
-        tvalue_t operator - () const
+        tvalue_t operator - () const _NE
         {
             #define __X_CASE(type)                          \
                 case value_type_t::type##_:                 \
@@ -700,7 +725,8 @@ namespace X_ROOT_NS {
             #undef __X_CASE
         }
 
-        tvalue_t to_unsigned() const
+        // Converts to unsigned type.
+        tvalue_t to_unsigned() const _NE
         {
             switch(type)
             {
@@ -721,7 +747,8 @@ namespace X_ROOT_NS {
             }
         }
 
-        tvalue_t to_signed() const
+        // Converts to signed type.
+        tvalue_t to_signed() const _NE
         {
             switch(type)
             {
@@ -784,7 +811,7 @@ namespace X_ROOT_NS {
         enum class __value_limit_family_t { unknown, numeric, enum_ };
 
         template<typename t>
-        constexpr __value_limit_family_t __value_limit_family()
+        constexpr __value_limit_family_t __value_limit_family() _NE
         {
             return std::is_enum<t>::value? __value_limit_family_t::enum_
                 : std::is_arithmetic<t>::value?  __value_limit_family_t::numeric
@@ -794,35 +821,35 @@ namespace X_ROOT_NS {
         template<typename t, __value_limit_family_t family>
         struct __limit_t
         {
-            static constexpr t min() { return def_value<t>(); }
-            static constexpr t max() { return def_value<t>(); }
+            static constexpr t min() _NE { return def_value<t>(); }
+            static constexpr t max() _NE { return def_value<t>(); }
         };
 
         // Limits of numeric type
         template<typename t>
         struct __limit_t<t, __value_limit_family_t::numeric>
         {
-            static constexpr t min() { return std::numeric_limits<t>::min(); }
-            static constexpr t max() { return std::numeric_limits<t>::max(); }
+            static constexpr t min() _NE { return std::numeric_limits<t>::min(); }
+            static constexpr t max() _NE { return std::numeric_limits<t>::max(); }
         };
 
         // Limits of enumeration types.
         template<typename t>
         struct __limit_t<t, __value_limit_family_t::enum_>
         {
-            static constexpr t min() { return (t)0; }
-            static constexpr t max() { return t::__end__; }
+            static constexpr t min() _NE { return (t)0; }
+            static constexpr t max() _NE { return t::__end__; }
         };
     }
 
     // Min value of specified type.
-    template<typename t> constexpr t min_value()
+    template<typename t> constexpr t min_value() _NE
     {
         return __limit_t<t, __value_limit_family<t>()>::min();
     }
 
     // Max value of specified type.
-    template<typename t> constexpr t max_value()
+    template<typename t> constexpr t max_value() _NE
     {
         return __limit_t<t, __value_limit_family<t>()>::max();
     }
@@ -841,11 +868,11 @@ namespace X_ROOT_NS {
 
     // Gets an static array size.
     template<typename t, size_t size>
-    constexpr size_t array_size(t (&arr)[size]) { return size; }
+    constexpr size_t array_size(t (&arr)[size]) _NE { return size; }
 
     // Gets an static string length.
     template<typename t, size_t size>
-    constexpr size_t string_length(t (&arr)[size]) { return size - 1; }
+    constexpr size_t string_length(t (&arr)[size]) _NE { return size - 1; }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -870,20 +897,20 @@ namespace X_ROOT_NS {
         typedef decltype(*(*(itor_t *)nullptr)) value_type;
 
         range_t() = default;
-        range_t(itor_t begin, itor_t end): __begin(begin), __end(end) { }
+        range_t(itor_t begin, itor_t end) _NE: __begin(begin), __end(end) { }
 
-        itor_t begin() const { return __begin; }
-        itor_t end()   const { return __end; }
+        itor_t begin() const _NE { return __begin; }
+        itor_t end()   const _NE { return __end; }
 
-        size_t size()  const { return __end - __begin; }
+        size_t size()  const _NE { return __end - __begin; }
 
     private:
         itor_t __begin, __end;   
     };
 
     // Defines begin/end functions for ' c++ for statements' .
-    template<typename itor_t> itor_t begin(range_t<itor_t> & r) { return r.begin(); }
-    template<typename itor_t> itor_t end(range_t<itor_t> & r)   { return r.end(); }
+    template<typename itor_t> itor_t begin(range_t<itor_t> & r) _NE { return r.begin(); }
+    template<typename itor_t> itor_t end(range_t<itor_t> & r)   _NE { return r.end(); }
 
     // Puts a collection to a stream, splited by spaces.
     template<typename stream_t, typename itor_t>
@@ -901,7 +928,7 @@ namespace X_ROOT_NS {
 
     // Gets the range of specified begin/end iterators.
     template<typename itor_t>
-    range_t<itor_t> _range(itor_t begin, itor_t end)
+    range_t<itor_t> _range(itor_t begin, itor_t end) _NE
     {
         return range_t<itor_t>(begin, end);
     }
@@ -1123,7 +1150,7 @@ namespace X_ROOT_NS {
     public:
         virtual int get_code() const = 0;
 
-        template<typename code_t> bool equals_code(code_t code) const
+        template<typename code_t> bool equals_code(code_t code) const _NE
         {
             typedef logic_error_t<code_t> error_t;
             const error_t * err = dynamic_cast<const error_t *>(this);
@@ -1140,7 +1167,7 @@ namespace X_ROOT_NS {
     public:
         template<typename message_t>
         logic_error_t(error_code_t code, message_t && message,
-                const char_t * file=nullptr, size_t line=(size_t)-1)
+                const char_t * file=nullptr, size_t line=(size_t)-1) _NE
             : logic_error_base_t(std::forward<message_t>(message), file, line)
             , code(code) { }
 
@@ -1149,7 +1176,7 @@ namespace X_ROOT_NS {
         const error_code_t code;
 
     public:
-        virtual int get_code() const override
+        virtual int get_code() const _NE override
         {
             return (int)code;
         }
@@ -1160,14 +1187,14 @@ namespace X_ROOT_NS {
 
     template<typename error_code_t, typename message_t>
     logic_error_t<error_code_t> _error(error_code_t code, message_t && message,
-            const char_t * file=nullptr, size_t line=(size_t)-1)
+            const char_t * file=nullptr, size_t line=(size_t)-1) _NE
     {
         return logic_error_t<error_code_t>(code, std::forward<message_t>(message), file, line);
     }
 
     template<typename error_code_t>
     logic_error_t<error_code_t> _error(error_code_t code, 
-            const char_t * file=nullptr, size_t line=(size_t)-1)
+            const char_t * file=nullptr, size_t line=(size_t)-1) _NE
     {
         const char_t * desc = _desc(code);
         if(desc == nullptr or desc[0] == _T('\0'))
@@ -1207,11 +1234,11 @@ namespace X_ROOT_NS {
 
     // Creates an unimplemented exception.
     logic_error_t<common_error_code_t> _unimplemented_error(const object_t * obj,
-                                                            const char_t * method);
+                                                            const char_t * method) _NE;
 
     // Creates an unimplemented exception.
     logic_error_t<common_error_code_t> _unimplemented_error(object_t * obj,
-                                                     const char_t * method);
+                                                     const char_t * method) _NE;
 
     //-------- ---------- ---------- ---------- ----------
     // A macro of _error function.
@@ -1222,27 +1249,35 @@ namespace X_ROOT_NS {
     ////////// ////////// ////////// ////////// //////////
     // X_ASSERT
 
+    #if X_DEBUG
+
     #define X_ASSERT(x, args...)                                            \
         do {                                                                \
             if(!(x)) {                                                      \
                 __root_ns::__raise_assert_error(_T("") #x,                  \
-                                    _T(__FILE__), __LINE__, ##args);        \
+                    _T(__FILE__), __LINE__, ##args);                        \
             }                                                               \
         } while(0)
 
+    #else
+
+    #define X_ASSERT(x, args...)
+
+    #endif
+
     void __raise_assert_error(const char_t * exp, const char_t * file, 
-                                        uint_t line, const char_t * reason=nullptr);
+                            uint_t line, const char_t * reason = nullptr);
 
     ////////// ////////// ////////// ////////// //////////
 
     // Dynamic cast an object to specified type, returns nullptr if failed.
-    template<typename t, typename t0> X_INLINE t as(t0 obj)
+    template<typename t, typename t0> X_INLINE t as(t0 obj) _NE
     {
         return dynamic_cast<t>(obj);
     }
 
     // Detemined whether an object is specified type.
-    template<typename t, typename t0> X_INLINE bool is(t0 obj)
+    template<typename t, typename t0> X_INLINE bool is(t0 obj) _NE
     {
         return as<t>(obj) != nullptr;
     }
@@ -1257,7 +1292,7 @@ namespace X_ROOT_NS {
     }
 
     // Returns a string of specified type name.
-    template<typename t> string_t type_str()
+    template<typename t> string_t type_str() _NE
     {
         return string_convert<char, char_t>(typeid(t).name());
     }
@@ -1356,21 +1391,21 @@ namespace X_ROOT_NS {
 
     // Enum bit-or, no arguments, returns empty.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_or()
+    X_INLINE constexpr enum_t enum_or() _NE
     {
         return (enum_t)0;
     }
 
     // Enum bit-or, only one arguments, returns it.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_or(enum_t v)
+    X_INLINE constexpr enum_t enum_or(enum_t v) _NE
     {
         return v;
     }
 
     // Enum bit-or, two arguments, returns the bit-or result.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_or(enum_t v1, enum_t v2)
+    X_INLINE constexpr enum_t enum_or(enum_t v1, enum_t v2) _NE
     {
         typedef int_type_t<sizeof(enum_t)> t;
         return (enum_t)((t)v1 | (t)v2);
@@ -1378,7 +1413,7 @@ namespace X_ROOT_NS {
 
     // Enum bit-or, more than two arguments, returns the bit-or result of all values.
     template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_or(enum_t v1, enum_t v2, args_t ... args)
+    X_INLINE constexpr enum_t enum_or(enum_t v1, enum_t v2, args_t ... args) _NE
     {
         return enum_or(enum_or(v1, v2), args ...);
     }
@@ -1387,7 +1422,7 @@ namespace X_ROOT_NS {
 
     // Add flags to the specified enum. equals bit-or operation.
     template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_add_flag(enum_t & v, enum_t v1, args_t ... args)
+    X_INLINE constexpr enum_t enum_add_flag(enum_t & v, enum_t v1, args_t ... args) _NE
     {
         return (v = enum_or(v, v1, args ...));
     }
@@ -1396,21 +1431,21 @@ namespace X_ROOT_NS {
 
     // Enum bit-and, no arguments, returns empty.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_and()
+    X_INLINE constexpr enum_t enum_and() _NE
     {
         return (enum_t)0;
     }
 
     // Enum bit-and, only one arguments, returns it.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_and(enum_t v)
+    X_INLINE constexpr enum_t enum_and(enum_t v) _NE
     {
         return v;
     }
 
     // Enum bit-and, two arguments, returns the bit-and result.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_and(enum_t v1, enum_t v2)
+    X_INLINE constexpr enum_t enum_and(enum_t v1, enum_t v2) _NE
     {
         typedef int_type_t<sizeof(enum_t)> t;
         return (enum_t)((t)v1 & (t)v2);
@@ -1418,7 +1453,7 @@ namespace X_ROOT_NS {
 
     // Enum bit-and, more than two arguments, returns the bit-and result of all values.
     template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_and(enum_t v1, enum_t v2, args_t ... args)
+    X_INLINE constexpr enum_t enum_and(enum_t v1, enum_t v2, args_t ... args) _NE
     {
         return enum_and(enum_and(v1, v2), args ...);
     }
@@ -1427,7 +1462,7 @@ namespace X_ROOT_NS {
 
     // Remove flag from the specified enum.
     template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_remove_flag(enum_t & v, enum_t v1, args_t ... args)
+    X_INLINE constexpr enum_t enum_remove_flag(enum_t & v, enum_t v1, args_t ... args) _NE
     {
         typedef int_type_t<sizeof(enum_t)> t;
         return (v = enum_and(v, (enum_t)~(t)v1, (enum_t)~(t)args ...));
@@ -1437,21 +1472,21 @@ namespace X_ROOT_NS {
 
     // Enum bit-xor, no arguments, returns empty.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_xor()
+    X_INLINE constexpr enum_t enum_xor() _NE
     {
         return (enum_t)0;
     }
 
     // Enum bit-xor, only one arguments, returns it.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_xor(enum_t v)
+    X_INLINE constexpr enum_t enum_xor(enum_t v) _NE
     {
         return v;
     }
 
     // Enum bit-xor, two arguments, returns the bit-xor result.
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_xor(enum_t v1, enum_t v2)
+    X_INLINE constexpr enum_t enum_xor(enum_t v1, enum_t v2) _NE
     {
         typedef int_type_t<sizeof(enum_t)> t;
         return (enum_t)((t)v1 ^ (t)v2);
@@ -1459,7 +1494,7 @@ namespace X_ROOT_NS {
 
     // Enum bit-xor, more than two arguments, returns the bit-xor result of all values.
     template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_xor(enum_t v1, enum_t v2, args_t ... args)
+    X_INLINE constexpr enum_t enum_xor(enum_t v1, enum_t v2, args_t ... args) _NE
     {
         return enum_xor(enum_xor(v1, v2), args ...);
     }
@@ -1468,7 +1503,7 @@ namespace X_ROOT_NS {
 
     // Enum bit-not
     template<typename enum_t>
-    X_INLINE constexpr enum_t enum_not(enum_t v)
+    X_INLINE constexpr enum_t enum_not(enum_t v) _NE
     {
         typedef int_type_t<sizeof(enum_t)> t;
         return (enum_t)(~(t)v);
@@ -1485,7 +1520,7 @@ namespace X_ROOT_NS {
 
     // Determines if the specivied value matchs the specified flag.
     template<typename enum_t>
-    X_INLINE constexpr bool enum_match_flag(enum_t v, enum_t flag)
+    X_INLINE constexpr bool enum_match_flag(enum_t v, enum_t flag) _NE
     {
         return enum_and(v, flag) == flag;
     }
@@ -1501,15 +1536,15 @@ namespace X_ROOT_NS {
     public:
 		typedef t value_t;
 
-        box_t(_t && value) : value(value) { }
-        box_t(const t & value) : value(value) { }
+        box_t(_t && value) _NE : value(value) { }
+        box_t(const t & value) _NE : value(value) { }
 
         t value;
     };
 
     // Creates an box wrapper for the specified value.
 	template<typename t>
-	X_INLINE auto _box(t && value)
+	X_INLINE auto _box(t && value) _NE
 	{
         return new box_t<std::remove_reference_t<t>>(std::forward<t>(value));
 	}
@@ -1530,7 +1565,7 @@ namespace X_ROOT_NS {
 
     // Gets the value of the specified boxed object.
 	template<typename t>
-	X_INLINE t & _unbox(box_t<t> * obj)
+	X_INLINE t & _unbox(box_t<t> * obj) _NE
 	{
 		_A(obj != nullptr);
 
@@ -1554,7 +1589,7 @@ namespace X_ROOT_NS {
         typedef std::remove_reference_t<std::remove_const_t<_value_t>> value_t;
 
     public:
-        metadata_t() { }
+        metadata_t() = default;
 
         // Adds a key/value pair metadata.
         void add(key_t && key, value_t && value)
@@ -1613,7 +1648,7 @@ namespace X_ROOT_NS {
 
     public:
 
-        metadata_t() { }
+        metadata_t() = default;
 
         // Adds a key/value pair metadata.
         void add(key_t && key, object_t * value)
@@ -2147,7 +2182,7 @@ namespace X_ROOT_NS {
     public:
 
         // Returns all objects in the pool.
-        auto all()
+        auto all() _NE
         {
             return _range(__objects);
         }
@@ -2190,7 +2225,7 @@ namespace X_ROOT_NS {
             }
 
             // Returns the pool.
-            _pool_t * get_pool() { return &__pool; }
+            _pool_t * get_pool() _NE { return &__pool; }
 
         private:
             _pool_t __pool;
@@ -2215,32 +2250,32 @@ namespace X_ROOT_NS {
     template<typename self_t, typename underlying_t>
     struct compare_operators_t
     {
-        bool operator == (const self_t & other) const
+        bool operator == (const self_t & other) const _NE
         {
             return __u(this) == __u(other);
         }
 
-        bool operator != (const self_t & other) const
+        bool operator != (const self_t & other) const _NE
         {
             return __u(this) != __u(other);
         }
 
-        bool operator < (const self_t & other) const
+        bool operator < (const self_t & other) const _NE
         {
             return __u(this) < __u(other);
         }
 
-        bool operator <= (const self_t & other) const
+        bool operator <= (const self_t & other) const _NE
         {
             return __u(this) <= __u(other);
         }
 
-        bool operator > (const self_t & other) const
+        bool operator > (const self_t & other) const _NE
         {
             return __u(this) > __u(other);
         }
 
-        bool operator >= (const self_t & other) const
+        bool operator >= (const self_t & other) const _NE
         {
             return __u(this) >= __u(other);
         }
@@ -2248,12 +2283,12 @@ namespace X_ROOT_NS {
     private:
         typedef compare_operators_t<self_t, underlying_t> __this_t;
 
-        underlying_t __u(const self_t & o) const
+        underlying_t __u(const self_t & o) const _NE
         {
             return (underlying_t)o;
         }
 
-        underlying_t __u(const __this_t * o) const
+        underlying_t __u(const __this_t * o) const _NE
         {
             return __u(*(const self_t *)o);
         }
@@ -2282,7 +2317,7 @@ namespace X_ROOT_NS {
     {
         typedef _action_t action_t;
 
-        callback_args_t(_action_t action) : action(action) { }
+        callback_args_t(_action_t action) _NE : action(action) { }
 
         const _action_t action;
     };
@@ -2296,10 +2331,12 @@ namespace X_ROOT_NS {
     {
         typedef _data_t data_t;
 
+        // Constructors.
         template<typename __data_t>
-        tcallback_args_t(_action_t action, __data_t data)
+        tcallback_args_t(_action_t action, __data_t data) _NE
             : callback_args_t<_action_t>(action), data(std::forward<__data_t>(data)) { }
 
+        // Argument data.
         _data_t data;
     };
 
@@ -2313,7 +2350,7 @@ namespace X_ROOT_NS {
 
         // Determines the object types.
         template<typename t>
-        constexpr X_INLINE __object_type_t __to_object_type()
+        constexpr X_INLINE __object_type_t __to_object_type() _NE
         {
             typedef std::remove_const_t<
                 std::remove_reference_t<std::remove_pointer_t<t>>
@@ -2359,7 +2396,7 @@ namespace X_ROOT_NS {
         template<typename _obj_t>
         struct __to_str_t<_obj_t, __object_type_t::enum_>
         {
-            static const string_t to_str(const _obj_t & obj)
+            static const string_t to_str(const _obj_t & obj) _NE
             {
                 return _title(obj);
             }
@@ -2479,116 +2516,116 @@ namespace X_ROOT_NS {
 
         // Constructors.
         enum_t() = default;
-        enum_t(_enum_t value) : value(value) { }
-        enum_t(int value) : value( (_enum_t)value ) { }
+        enum_t(_enum_t value) _NE : value(value) { }
+        enum_t(int value) _NE : value( (_enum_t)value ) { }
 
         // Enum value.
         _enum_t value = (_enum_t)0;
 
         // Converts to an enum value.
-        operator _enum_t() const { return value; }
+        operator _enum_t() const _NE { return value; }
 
         // Converts to an enum value.
-        _enum_t operator * () const { return value; }
+        _enum_t operator * () const _NE { return value; }
 
         // Converts to a bool value.
-        operator bool() const { return value != (_enum_t)0; }
+        operator bool() const _NE { return value != (_enum_t)0; }
 
         // Assigns a value.
-        __self_t operator = (_enum_t v)
+        __self_t operator = (_enum_t v) _NE
         {
             this->value = v;
         }
 
         // Assigns a value.
-        __self_t operator = (__self_t v)
+        __self_t operator = (__self_t v) _NE
         {
             this->value = v.value;
         }
 
         // Equals.
-        bool operator == (_enum_t v) const
+        bool operator == (_enum_t v) const _NE
         {
             return value == v;
         }
 
         // Equals to a number.
-        bool operator == (int v) const
+        bool operator == (int v) const _NE
         {
             return value == (_enum_t)v;
         }
 
         // Not equals.
-        bool operator != (_enum_t v) const
+        bool operator != (_enum_t v) const _NE
         {
             return value != v;
         }
 
         // Not equals to a number.
-        bool operator != (int v) const
+        bool operator != (int v) const _NE
         {
             return value != (_enum_t)v;
         }
 
         // Bit or & assign.
-        __self_t operator |= (_enum_t v)
+        __self_t operator |= (_enum_t v) _NE
         {
             return this->value = enum_or(this->value, v), *this;
         }
 
         // Bit or.
-        __self_t operator | (_enum_t v) const
+        __self_t operator | (_enum_t v) const _NE
         {
             return __self_t( enum_or(this->value, v) );
         }
 
         // Bit and & assign.
-        __self_t operator &= (_enum_t v)
+        __self_t operator &= (_enum_t v) _NE
         {
             return this->value = enum_and(this->value, v), *this;
         }
 
         // Bit and
-        __self_t operator & (_enum_t v) const
+        __self_t operator & (_enum_t v) const _NE
         {
             return __self_t( enum_and(this->value, v) );
         }
 
         // Bit xor && assign.
-        __self_t operator ^= (_enum_t v)
+        __self_t operator ^= (_enum_t v) _NE
         {
             return this->value = enum_xor(this->value, v), *this;
         }
 
         // Bit xor.
-        __self_t operator ^ (_enum_t v) const
+        __self_t operator ^ (_enum_t v) const _NE
         {
             return __self_t( enum_xor(this->value, v) );
         }
 
         // Bit not.
-        __self_t operator ~ ()
+        __self_t operator ~ () _NE
         {
             return this->value = ~this->value, *this;
         }
 
         // Returns whether has a flag.
         template<typename ... _enums_t>
-        bool has(_enum_t v, _enums_t ... vs) const
+        bool has(_enum_t v, _enums_t ... vs) const _NE
         {
             return enum_has_flag(this->value, enum_or(v, vs...));
         }
 
         // Returns whether it is composed by specified flags.
         template<typename ... _enums_t>
-        bool has_only(_enum_t v, _enums_t ... vs) const
+        bool has_only(_enum_t v, _enums_t ... vs) const _NE
         {
             return (__underly_t)this->value != 0
                 && ((__underly_t)this->value & ~(__underly_t)enum_or(v, vs...)) == 0;
         }
 
         // Returns whether it is composed by specified flags.
-        bool has_only(_enum_t v)
+        bool has_only(_enum_t v) _NE
         {
             return (__underly_t)this->value != 0
                 && ((__underly_t)this->value & ~(__underly_t)v) == 0;
@@ -2596,26 +2633,26 @@ namespace X_ROOT_NS {
 
         // Removes a flag.
         template<typename ... _enums_t>
-        __self_t remove(_enum_t v, _enums_t ... vs)
+        __self_t remove(_enum_t v, _enums_t ... vs) _NE
         {
             return enum_remove_flag(this->value, enum_or(v, vs...));
         }
 
         // Adds a flag.
         template<typename ... _enums_t>
-        __self_t add(_enum_t v, _enums_t ... vs)
+        __self_t add(_enum_t v, _enums_t ... vs) _NE
         {
             return this->value = enum_or(this->value, v, vs...), *this;
         }
 
         // Clears flags.
-        __self_t clear()
+        __self_t clear() _NE
         {
             return this->value = (_enum_t)0, *this;
         }
 
         // Converts to string.
-        operator string_t() const
+        operator string_t() const _NE
         {
             return _str(this->value);
         }
@@ -2634,13 +2671,13 @@ namespace X_ROOT_NS {
             typedef int_type_t<sizeof(_enum_t)> __underly_t;
 
             // Constructors.
-            __enum_flags_t(_enum_t value) : value(value) { }
+            __enum_flags_t(_enum_t value) _NE : value(value) { }
 
             // Enum value.
             _enum_t value;
 
             // Converts to string.
-            operator string_t() const
+            operator string_t() const _NE
             {
                 __underly_t v = (__underly_t)value;
                 if(v == 0)
@@ -2665,7 +2702,7 @@ namespace X_ROOT_NS {
     }
 
     // Returns __enum_flags_t for an enum, be used for convers enum flags to a string.
-    template<typename _enum_t> __enum_flags_t<_enum_t> _eflags(_enum_t value)
+    template<typename _enum_t> __enum_flags_t<_enum_t> _eflags(_enum_t value) _NE
     {
         return __enum_flags_t<_enum_t>(value);
     }
@@ -2673,7 +2710,7 @@ namespace X_ROOT_NS {
     ////////// ////////// ////////// ////////// //////////
 
     // Converts an object to int value with the same size.
-    template<typename t> auto _int(const t & value)
+    template<typename t> auto _int(const t & value) _NE
     {
         typedef int_type_t<sizeof(t)> int_t;
         return (int_t)value;
@@ -2686,7 +2723,7 @@ namespace X_ROOT_NS {
     template<typename t>
     struct __output_wrapper_t
     {
-        explicit __output_wrapper_t(const t & value) : value(value) { }
+        explicit __output_wrapper_t(const t & value) _NE : value(value) { }
         const t & value;
 
         template<typename stream_t> void write_to(stream_t & stream) const
@@ -2734,7 +2771,7 @@ namespace X_ROOT_NS {
     namespace
     {
         // Convert a char to hex value, returns -1 when converts fault.
-        constexpr int __digit_value(char_t c)
+        constexpr int __digit_value(char_t c) _NE
         {
             if(c <= _T('9') && c >= _T('0'))
                 return c - _T('0');
@@ -2757,14 +2794,14 @@ namespace X_ROOT_NS {
         uint8_t __data[16];
 
         // Equals operator.
-        bool operator == (const guid_t & other)
+        bool operator == (const guid_t & other) _NE
         {
             return *(const int64_t *)this == *(const int64_t *)&other
                     && *((const int64_t *)this + 1) == *((const int64_t *)&other + 1);
         }
 
         // Converts guid structure to string.
-        operator string_t () const
+        operator string_t () const _NE
         {
             stringstream_t ss;
 
@@ -2820,7 +2857,7 @@ namespace X_ROOT_NS {
 
         // An identity tuple converter, be used for compare to guid objects by two long values.
         // Used by compare_operators_t base class.
-        operator std::tuple<uint64_t, uint64_t>() const
+        operator std::tuple<uint64_t, uint64_t>() const _NE
         {
             return std::tuple<uint64_t, uint64_t>(
                 *(uint64_t *)__data, *(uint64_t *)(__data + 8)
@@ -2834,7 +2871,7 @@ namespace X_ROOT_NS {
     struct buffer_t
     {
         buffer_t() = default;
-        buffer_t(const byte_t * bytes, size_t length)
+        buffer_t(const byte_t * bytes, size_t length) _NE
             : bytes(bytes), length(length)
         { }
 
@@ -2845,7 +2882,7 @@ namespace X_ROOT_NS {
     namespace
     {
         // Converts digit number to char.
-        X_INLINE char_t __digit_to_char(int value)
+        X_INLINE char_t __digit_to_char(int value) _NE
         {
             if(value <= 9)
                 return _T('0') + value;
@@ -2856,7 +2893,7 @@ namespace X_ROOT_NS {
 
     // Write a buffer to the given stream.
     template<typename _stream_t>
-    _stream_t & operator << (_stream_t & stream, const buffer_t & buffer)
+    _stream_t & operator << (_stream_t & stream, const buffer_t & buffer) _NE
     {
         if(buffer.length == 0)
             return stream;
@@ -2937,14 +2974,14 @@ namespace X_ROOT_NS {
         struct __limit_of_bits_t
         {
             // Returns the max value of specified bits.
-            constexpr static _t max_of_bits() noexcept
+            constexpr static _t max_of_bits() _NE
             {
                 __validate_bits<_t, _bits>();
                 return max_value<_t>() >> ((sizeof(_t) << 3) - _bits);
             }
 
             // Returns the min value of specified bits.
-            constexpr static _t min_of_bits() noexcept
+            constexpr static _t min_of_bits() _NE
             {
                 __validate_bits<_t, _bits>();
 
@@ -2958,14 +2995,14 @@ namespace X_ROOT_NS {
         struct __limit_of_bits_t<_t, _bits, false>  // unsigned.
         {
             // Returns the max value of specified bits.
-            constexpr static _t max_of_bits() noexcept
+            constexpr static _t max_of_bits() _NE
             {
                 __validate_bits<_t, _bits>();
                 return max_value<_t>() >> ((sizeof(_t) << 3) - _bits);
             }
 
             // Returns the min value of specified bits.
-            constexpr static _t min_of_bits() noexcept
+            constexpr static _t min_of_bits() _NE
             {
                 __validate_bits<_t, _bits>();
 
@@ -2989,21 +3026,21 @@ namespace X_ROOT_NS {
 
     // Returns the max value of specified bits.
     template<typename _t, size_t _bits>
-    constexpr _t max_of_bits() noexcept
+    constexpr _t max_of_bits() _NE
     {
         return __limit_of_bits_t<_t, _bits>::max_of_bits();
     }
 
     // Returns the min value of specified bits.
     template<typename _t, size_t _bits>
-    constexpr _t min_of_bits() noexcept
+    constexpr _t min_of_bits() _NE
     {
         return __limit_of_bits_t<_t, _bits>::min_of_bits();
     }
 
     // Returns the value of specified bits.
     template<typename _t, size_t _bits, size_t _offset = 0>
-    _t value_of_bits(const void * p)
+    _t value_of_bits(const void * p) _NE
     {
         __validate_bits<_t, _bits>();
 
@@ -3012,7 +3049,7 @@ namespace X_ROOT_NS {
 
     // Returns the value of specified bits.
     template<typename _t, size_t _bits, size_t _offset = 0>
-    void set_value_of_bits(void * p, _t value)
+    void set_value_of_bits(void * p, _t value) _NE
     {
         __validate_bits<_t, _bits>();
 
@@ -3021,7 +3058,7 @@ namespace X_ROOT_NS {
 
     // Returns whether the value is in the range of specified bits.
     template<typename _t, size_t _bits = sizeof(_t) * 8, typename _v_t>
-    constexpr bool in_range(_v_t value)
+    constexpr bool in_range(_v_t value) _NE
     {
         return value <= max_of_bits<_t, _bits>() && value >= min_of_bits<_t, _bits>();
     }

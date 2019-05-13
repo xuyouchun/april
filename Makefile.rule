@@ -103,7 +103,8 @@ Makefile.dep: $(CSEC_FILES)
 $(__CONFIG_H):
 	@printf " \n\
 	#define CONFIG_NULLPTR_SUPPORTED $(CONFIG_NULLPTR_SUPPORTED)	\n\
-	#define CONFIG_BASE_NAMESPACE $(CONFIG_BASE_NAMESPACE) 	        \n\
+	#define CONFIG_BASE_NAMESPACE    $(CONFIG_BASE_NAMESPACE) 	    \n\
+	#define CONFIG_OPTIMIZE          $(OPTIMIZE) 	                \n\
 	" > $(__CONFIG_H)
 
 # *.csec

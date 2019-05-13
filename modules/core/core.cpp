@@ -3787,6 +3787,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __get_specified_type(__CoreTypeName(CoreType_Array), __array_type);
     }
 
+    // Returns System.Exception type.
+    general_type_t * xpool_t::get_exception_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Exception), __exception_type);
+    }
+
     // Returns System.Diagnostics.TraceAttribute type.
     general_type_t * xpool_t::get_trace_attribute_type()
     {

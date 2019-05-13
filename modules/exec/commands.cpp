@@ -52,6 +52,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     using namespace rt;
     using namespace rtlib;
 
+    __AlwaysInline void __execute_command(command_execute_context_t & ctx, command_t * command);
+
     ////////// ////////// ////////// ////////// //////////
     // command_creating_context_t
 
@@ -82,6 +84,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     }
 
     typedef command_creating_context_t __context_t;
+    typedef method_xil_block_type_t __block_type_t;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -2942,7 +2945,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     // Finds block.
-    template<typename _f_t>
+    template<__block_type_t _type, typename _f_t>
     __AlwaysInline void __find_block(command_execute_context_t & ctx, _f_t f)
     {
         exec_method_t * method = ctx.current_method();
@@ -2951,7 +2954,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // _PP(ctx.current_method());
         // _PP(__command_index(ctx, ctx.current - 1));
 
-        method->find_block(ctx.current - 1, f);
+        method->find_block<_type>(ctx.current - 1, f);
     }
 
     // Function process_block_node return value.
@@ -3032,11 +3035,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         ctx.block_queue.begin_group(ctx.stack.lp());
 
-        __find_block(ctx, [&](exec_method_block_t * block) {
+        __find_block<__block_type_t::__unknown__>(ctx, [&](exec_method_block_t * block) {
 
             switch(block->type)
             {
-                case method_xil_block_type_t::catch_:
+                case __block_type_t::catch_:
 
                     if(__is_base_type(ctx.env, exception_type, block->relation_type))
                     {
@@ -3048,7 +3051,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                     return true;
 
-                case method_xil_block_type_t::finally_:
+                case __block_type_t::finally_:
                     ctx.block_queue.enque_finally(block);
                     return true;
 
@@ -3080,20 +3083,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         ctx.block_queue.begin_group(ctx.stack.lp());
 
-        __find_block(ctx, [&](exec_method_block_t * block) {
+        __find_block<__block_type_t::finally_>(ctx, [&](exec_method_block_t * block) {
 
-            if(block->type == method_xil_block_type_t::finally_)
+            if(block->exclude(next_command))
             {
-                if(block->exclude(next_command))
-                {
-                    ctx.block_queue.enque_finally(block);
-                    return true;
-                }
-
-                return false;
+                ctx.block_queue.enque_finally(block);
+                return true;
             }
 
-            return true;
+            return false;
         });
 
         ctx.block_queue.end_group();
@@ -3102,8 +3100,33 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         if(last_node != nullptr)
         {
             // Executes finally blocks.
-            last_node->next_command = next_command;
+            last_node->set_next_command(next_command);
             __process_block_nodes(ctx);
+        }
+    }
+
+    // Process finally blocks. ( for return )
+    __AlwaysInline void __process_finally_for_return(command_execute_context_t & ctx,
+                                                     command_t * return_command)
+    {
+        ctx.block_queue.begin_group(ctx.stack.lp());
+
+        __find_block<__block_type_t::finally_>(ctx, [&](exec_method_block_t * block) {
+            return ctx.block_queue.enque_finally(block), true;
+        });
+
+        ctx.block_queue.end_group();
+        block_node_t * last_node = ctx.block_queue.last_current();
+
+        if(last_node != nullptr)
+        {
+            // Executes finally blocks.
+            last_node->set_following_command(return_command);
+            __process_block_nodes(ctx);
+        }
+        else
+        {
+            __execute_command(ctx, return_command);
         }
     }
 
@@ -3162,10 +3185,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             _A(ctx.block_queue.current_executing() != nullptr);
 
             block_node_t * node = ctx.block_queue.pop_executing();
-            if(node->next_command != nullptr)
+
+            switch(node->action)
             {
-                ctx.current = node->next_command;
-                return;
+                case block_node_finally_action_t::jmp_to_next_command:
+                    _A(node->next_command != nullptr);
+                    ctx.current = node->next_command;
+                    return;
+
+                case block_node_finally_action_t::execute_following_command:
+                    _A(node->following_command != nullptr);
+                    __execute_command(ctx, node->following_command);
+                    return;
+
+                default:
+                    break;
             }
 
         __retry__:
@@ -3341,18 +3375,36 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    struct __jmp_command_template_t
+    {
+        template<xil_jmp_model_t model, typename ... args_t>
+        static auto new_command(memory_t * memory, args_t && ... args)
+        {
+            typedef __jmp_command_t<model> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Leave and return.
     class __leave_ret_command_t : public __command_base_t
     {
         typedef __leave_ret_command_t __self_t;
 
     public:
-        __leave_ret_command_t() { }
+
+        // Constructors.
+        __leave_ret_command_t(command_t * following_command) _NE
+            : __following_command(following_command)
+        {
+            _A(following_command != nullptr);
+        }
 
         // Execute
         __BeginExecute(ctx, __ToCmdValue(jmp, xil_jmp_model_t::leave))
 
-            X_UNEXPECTED();
+            __process_finally_for_return(ctx, __following_command);
 
         __EndExecute()
 
@@ -3363,17 +3415,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndToString()
 
-    } __leave_ret_command;
+    private:
+        command_t * __following_command;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
-    struct __jmp_command_template_t
+    struct __leave_ret_command_template_t
     {
-        template<xil_jmp_model_t model, typename ... args_t>
-        static auto new_command(memory_t * memory, args_t && ... args)
+        template<__nokey_t, typename ... args_t>
+        static auto new_command(memory_t * memory, command_t * command, args_t && ... args)
         {
-            typedef __jmp_command_t<model> this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+            typedef __leave_ret_command_t this_command_t;
+            return __new_command<this_command_t>(memory, command, std::forward<args_t>(args) ...);
         }
     };
 
@@ -3430,7 +3484,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         static __command_manager_t<
             __jmp_command_template_t, xil_jmp_model_t
-        >::with_args_t<int> __command_manager;
+        >::with_args_t<int> __jmp_command_manager;
+
+        static __command_manager_t<
+            __leave_ret_command_template_t, __nokey_t
+        >::with_args_t<command_t *> __leave_ret_command_manager;
 
         typedef xil_jmp_model_t model_t;
 
@@ -3438,7 +3496,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             #define __Case(_model)                                              \
                 case xil_jmp_model_t::_model:                                   \
-                    return __command_manager.template get_command<model_t::_model>( \
+                    return __jmp_command_manager.template get_command<model_t::_model>( \
                         xil.step() - 1                                          \
                     );
 
@@ -3455,9 +3513,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_jmp_model_t::leave:
                 if(xil.step() == 0)
-                    return &__leave_ret_command;
+                {
+                    return __leave_ret_command_manager.template get_command<__nokey>(
+                        new_ret_command(ctx)
+                    );
+                }
 
-                return __command_manager.template get_command<model_t::leave>(
+                return __jmp_command_manager.template get_command<model_t::leave>(
                     xil.step() - 1
                 );
                 
