@@ -903,8 +903,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             if(trace_type == __trace_type_t::trace)
             {
-                _PF(_T("  %|1$4| [%2%] %3% %4%"),
-                    index++, __size_of(xil), __to_string(xil), __to_hex(xil)
+                _PF(_T("  %|1$4| | %|2$-40|%3% [%4%]"),
+                    index++, __to_string(xil), __size_of(xil), __to_hex(xil)
                 );
             }
 
