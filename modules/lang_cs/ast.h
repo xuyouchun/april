@@ -308,6 +308,23 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // _operator
+
+    __SimpleAst(_operator)
+
+    // Operator ast node
+    class _operator_ast_node_t : public __AstName(_operator)
+    {
+        typedef __AstName(_operator) __super_t;
+
+    public:
+        __Using(_operator);
+
+        const operator_property_t * op_property = nullptr;
+    };
+
+
+    ////////// ////////// ////////// ////////// //////////
 
     #undef __Using
     #undef __Ast

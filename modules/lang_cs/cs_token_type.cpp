@@ -122,19 +122,19 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     X_ENUM_INFO(cs_operator_t)
 
         // ?
-        X_C(question_mark,  _T("question_mark"))
+        X_C(question_mark,  _T("question_mark"),    _T("QuestionMark"))
 
         // :
-        X_C(question_colon, _T("question_colon"))
+        X_C(question_colon, _T("question_colon"),   _T("QuestionColon"))
 
         // as
-        X_C(as,             _T("as"))
+        X_C(as,             _T("as"),               _T("As"))
 
         // is
-        X_C(is,             _T("is"))
+        X_C(is,             _T("is"),               _T("Is"))
 
         // ,
-        X_C(comma,          _T("comma"))
+        X_C(comma,          _T("comma"),            _T("Comma"))
 
     X_ENUM_INFO_END
 

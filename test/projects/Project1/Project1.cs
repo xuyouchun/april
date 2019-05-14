@@ -2,42 +2,33 @@
 import System;
 
 using System;
-using System.Diagnostics;
 
 class Project1
 {
     [EntryPoint]
     public static void Main()
     {
-        int v = __GetValue();
-        Console.Print(v);
-    }
-
-    [Trace]
-    private static int __GetValue()
-    {
-        try
+        for(int k = 0; k < 10; k++)
         {
-            for(int k = 0; k < 2; k++)
+            switch(k)
             {
-                try
-                {
-                    Console.WriteLine("__GetValue: Try");
-                    return k + 100;
-                }
-                finally
-                {
-                    Console.WriteLine("__GetValue: 1");
-                }
+                case 1:
+                    Console.WriteLine("1");
+                    break;
+
+                case 2:
+                    Console.WriteLine("2");
+                    break;
+
+                default:
+                    Console.WriteLine("Others");
+                    break;
             }
         }
-        finally
-        {
-            Console.WriteLine("__GetValue: 2");
-        }
-
-        return 100;
     }
 };
 
+class Dictionary<TKey, TValue>
+{
 
+};

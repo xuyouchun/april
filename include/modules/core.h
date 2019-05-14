@@ -664,6 +664,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         operator_arity_t        arity;      // Operator arity
         operator_adhere_t       adhere;     // Operator position in a expression.
         bool                    is_assign;  // Operator is a assign operator, e.g. =, +=
+        const char_t *          name;       // Operator name.
 
         // Specified the parent must be this operator, be used for " ? : " operator.
         operator_t              parent_op   = operator_t::__default__;
@@ -1390,15 +1391,33 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         decorate_t * decorate = nullptr;
 
-        bool is_static() const      { return decorate && decorate->is_static; }
-        bool is_sealed() const      { return decorate && decorate->is_sealed; }
-        bool is_override() const    { return decorate && decorate->is_override; }
-        bool is_virtual() const     { return decorate && decorate->is_virtual; }
-        bool is_abstract() const    { return decorate && decorate->is_abstract; }
-        bool is_new() const         { return decorate && decorate->is_new; }
-        bool is_const() const       { return decorate && decorate->is_const; }
-        bool is_readonly() const    { return decorate && decorate->is_readonly; }
-        bool is_extern() const      { return decorate && decorate->is_extern; }
+        bool is_static() const   _NE { return decorate && decorate->is_static; }
+        bool is_sealed() const   _NE { return decorate && decorate->is_sealed; }
+        bool is_override() const _NE { return decorate && decorate->is_override; }
+        bool is_virtual() const  _NE { return decorate && decorate->is_virtual; }
+        bool is_abstract() const _NE { return decorate && decorate->is_abstract; }
+        bool is_new() const      _NE { return decorate && decorate->is_new; }
+        bool is_const() const    _NE { return decorate && decorate->is_const; }
+        bool is_readonly() const _NE { return decorate && decorate->is_readonly; }
+        bool is_extern() const   _NE { return decorate && decorate->is_extern; }
+
+        // Protected model.
+        access_value_t access() const _NE
+        {
+            return decorate? decorate->access : access_value_t::__default__;
+        }
+
+        #define __DefineAccessMethod(_name, _value)                             \
+            bool is_##_name() const _NE { return access() == access_value_t::_value; }
+
+        __DefineAccessMethod(public, public_)
+        __DefineAccessMethod(protected, protected_)
+        __DefineAccessMethod(private, private_)
+        __DefineAccessMethod(internal, internal)
+        __DefineAccessMethod(protected_or_internal, protected_or_internal)
+        __DefineAccessMethod(protected_and_internal, protected_and_internal)
+
+        #undef __DefineAccessMethod
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1985,6 +2004,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
         using __super_t::__super_t;
 
+        // Object name.
         name_t name  = name_t::null;
 
         // Returns name of the object.

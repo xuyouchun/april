@@ -1714,6 +1714,14 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                     __This->set_child(__Type::type_name, node);
                 else if(al::starts_with(args.flag, _T("o")))    // owner
                     __This->set_child(__Type::owner_type_name, node);
+                else if(al::starts_with(args.flag, _T("c")))    // conversion
+                    __This->set_child(__Type::conversion_type_name, node);
+                break;
+
+            case __AstValue(_operator):
+                __This->set_operator(
+                    ((_operator_ast_node_t *)node)->op_property, node
+                );
                 break;
 
             case __AstValue(attributes):
@@ -1739,6 +1747,23 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     __OnCompleted(method, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
+    // _operator
+
+    __ApplyToken(_operator, token, args)
+    {
+        const operator_property_t * property = get_operator_property(
+            (cs_token_value_t)token->value
+        );
+
+        _A(property != nullptr);
+        __This->op_property = property;
+    }
+
+    __ApplyAst(_operator, node, args) { }
+
+    __OnCompleted(_operator, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // _enum_fields

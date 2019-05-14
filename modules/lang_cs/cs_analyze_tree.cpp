@@ -61,6 +61,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         X_C(_single_expression,         _T("_single_expression"))
         X_C(_function_name_expression,  _T("_function_name_expression"))
 
+        X_C(_operator,                  _T("_operator"))
+
     X_BRANCH_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////

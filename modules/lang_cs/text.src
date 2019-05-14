@@ -5,37 +5,59 @@ __pattern
 
 #----------------------------------------
 
+# Import statement.
 $import: (from from:$mname)? import import:$mname (as name)? \; ;
 
+# Constant values.
 $cvalue: cvalue | true | false | null;
 
+# Array index or Property index.
 $index:  $_single_expression [ $arguments? ] ;
 
+# Function name, Can be a real name or any expressions.
 $_function_name_expression: (
     name $generic_args? | base | this | $index | $function | $new | $type_cast_exp
 );
 
+# Function calling expression.
 $function: $_function_name_expression \( $arguments? \) ;
 
-$new:           new $type_name (\( $arguments? \) | (\( $arguments? \))? { $_init_args? }) ;
+# New object expression.
+$new: new $type_name (\( $arguments? \) | (\( $arguments? \))? { $_init_args? }) ;
+
+# Array initializer, such as: new int[] { 1, 2, 3 } .
 $array_initializer: { ($__item: $array_initializer | $expression) (, $__item)* ,? } ;
+
+# Array lengths, such as: new int[10, 20] .
 $array_lengths: $expression? (, $expression? )* ;
-$new_array:     new $type_name [ $array_lengths? ] $array_initializer? ;
-$type_of:       typeof \( $type_name \) ;
+
+# New array expression, such as: new int[] { 1, 2, 3 }.
+$new_array: new $type_name [ $array_lengths? ] $array_initializer? ;
+
+# Typeof expression: typeof(T).
+$type_of: typeof \( $type_name \) ;
+
+# Default value expression: default(T).
 $default_value: default \( $type_name \) ;
+
+# Type name expression: T.MyMethod().
 $type_name_exp: $type_name ;
+
+# Type cast expression: (T)100 .
 $type_cast_exp: \( $type_name \) $_single_expression ;
 
+# Simple expression.
 $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new | $new_array | $type_of | $type_cast_exp
-    | $default_value        #| $type_name_exp
+    | $default_value
     | \( $_expression (, $_expression)* \)
   ) (. $__item )*
 |
   $type_name_exp (. $__item)+
 ;
 
+# Expression, such as a + b * c.
 $_expression: 
     $_single_expression
     (
@@ -46,17 +68,21 @@ $_expression:
           | <<  | <<= | >>  | >>=
           | &&  | \|\|
           | \|  | ^   | &   | \|= | &= | ^=
-        ) $_expression                              # binary operator
+        ) $_expression                                  # binary operator
       | ( as | is ) $type_name_exp
-      | \? $_expression `\: $_expression            # xxx? xxx : xxx          ? :
-      | (\+\+ | --)                                 # right unary operator
+      | \? $_expression `\: $_expression                # xxx? xxx : xxx   ? :
+      | (\+\+ | --)                                     # right unary operator
     )*
-    | (`\+ | `- | `\+\+ | `-- | ! | ~ ) $_expression  # left unary operator
+    | (`\+ | `- | `\+\+ | `-- | ! | ~ ) $_expression    # left unary operator
 ;
 
+# Expression, such as a + b * c.
 $expression:  $_expression ;
+
+# Multipy expressions, such as (a + b, c + d).
 $expressions: $expression (, $expression) *;
 
+# Namespace statement.
 $namespace:
     namespace $mname
     {
@@ -65,10 +91,13 @@ $namespace:
     }
 ;
 
+# Using statement: using System; .
 $using: using (name =)? $mname \; ;
 
+# Multipy name: System.Text.StringBuilder .
 $mname: name ( . name ) * ;
 
+# Decorates of type or members.
 $decorate: 
     (
        public | private | protected | internal
@@ -77,10 +106,12 @@ $decorate:
     )*
 ;
 
+# Fields of enum types.
 $_enum_fields:
     ( ($__item: $attributes name (= $expression)?) (, $__item)* ,? )?
 ;
 
+# Type.
 $type:
     $attributes
     $decorate
@@ -98,8 +129,10 @@ $type:
     ) \;?
 ;
 
+# Type name units, such as: MyStruct, MyClass<int, long> .
 $type_name_unit: name $generic_args? ;
 
+# General type name.
 $general_type_name:
         (global? \:\:)? $type_name_unit (. $type_name_unit)*
      |  void | object
@@ -107,37 +140,64 @@ $general_type_name:
      |  double | float | decimal
 ;
 
-#$array_type_name: $type_name [ $expression? (, $expression?) * ] ;       # Array
+# Array type name, such as int[].
 $array_type_name: $type_name [ ,* ] ;       # Array
 
+# Uncertained type name: var.
 $uncertain_type_name: var ;
 
+# Type name.
 $type_name: $general_type_name | $array_type_name | $uncertain_type_name ;
 
+# Typedef generic param.
 $type_def_param:  name;
+
+# Typedef generic params: typedef MyClass<int, T> NewType<T>.
 $type_def_params: < $type_def_param (, $type_def_param)* > ;
+
+# Typedef: typedef int Integer.
 $type_def: typedef $type_name name $type_def_params? \; ;
 
+# Generic param.
 $generic_param:  $attributes name;
+
+# Generic params: MyClass<T, K>.
 $generic_params: < $generic_param (, $generic_param)* > ;
 
+# Generic constraint: where T : MyClass.
 $generic_constraint: where name \: ($__item: $type_name | class | struct) (, $__item *)*  ;
+
+# Generic constraints.
 $generic_constraints: $generic_constraint * ;
 
+# Generic argument.
 $generic_arg:  $type_name;
+
+# Generic arguments: MyClass<int, long>.
 $generic_args: < $generic_arg? (, $generic_arg?) * !:> ;
 
+# Param of methods.
 $param:  $attributes (out | ref | params)? $type_name name (= $expression)? ;
+
+# Params of methods.
 $params: $param (, $param)* ;
 
+# Argument of methods calling.
 $argument:  $attributes (out | ref)? (name \:)? $expression ;
+
+# Arguments of methods calling.
 $arguments: $argument (, $argument)* ;
 
+# Argument for new expressions.
 $_init_arg: (name =)? $expression | { ($_init_arg (, $_init_arg)* ,?)? } ;
+
+# Arguments for new expressions: new MyClass { Value1 = 1, Value2 = 2 }.
 $_init_args: $_init_arg (, $_init_arg) * ,? ; 
 
+# Attribute type name.
 $_attribute_type_name : $general_type_name;
 
+# Attribute group: [EntryPoint, Trace].
 $_attribute_group:
     [ ($__item: $_attribute_type_name (
 	\(
@@ -145,28 +205,46 @@ $_attribute_group:
 	\) )?) (, $__item)* ]
 ;
 
+# Attributes: [Entrypoint, Trace] [Inline]
 $attributes: ($attribute | $_attribute_group) * ;
 
+# Method body.
 $method_body: { $statement* } ;
 
+# Operators.
+$_operator:
+    \+  | -   | \*  | /   | %
+  | \+= | -=  | \*= | /=  | %=
+  | =   | ==  | !=  | `>  | >= | `< | <=
+  | <<  | <<= | >>  | >>=
+  | &&  | \|\|
+  | \|  | ^   | &   | \|= | &= | ^=
+  | \+\+ | -- | ! | ~
+;
+
+# Method member.
 $method:
     $attributes
     $decorate
-    ret:$type_name? ~ ? (owner:$type_name .)? name $generic_params? \( $params? \)
-        ( \: base \( $arguments? \) )?
+    ret:$type_name? ~ ? (owner:$type_name .)?
+    ( name | operator ($_operator | overload:$type_name) )
+    $generic_params? \( $params? \) ( \: base \( $arguments? \) )?
     ($method_body | \;)
 ;
 
+# Fields.
 $_fields:
     $attributes
     $decorate
     $type_name ($__item: $attributes name (= $expression)? ) (, $__item)* \;
 ;
 
+# Fake method, used in property/event body.
 $_fake_method:
     $attributes $decorate (get | set | add | remove) ($method_body | \;)
 ;
 
+# Property member.
 $property:
     $attributes
     $decorate
@@ -176,6 +254,7 @@ $property:
     }
 ;
 
+# Event member.
 $event:
     $attributes
     $decorate event
@@ -185,41 +264,49 @@ $event:
     } | \; )
 ;
 
+# While statement.
 $while_st:
     while \( $expressions \)
     $statement
 ;
 
+# Do ... while statement.
 $do_while_st:
     do
         $statement
     while \( $expressions \) \;
 ;
 
+# For statement.
 $for_st:
     for \( ($defination_st | initialize:$expressions \; | \;)?
         condition:$expressions? \; increase:$expressions? \)
     $statement
 ;
 
+# For ... each statement.
 $for_each_st:
     foreach \( $type_name name in $expression \)
     $statement
 ;
 
+# If statement.
 $if_st:
     if \( $expressions \)
         if_body:$statement
     (else else_body:$statement)?
 ;
 
+# Statement collection.
 $statements: $statement * ;
 
+# Case in switch.
 $case:
     ((case $expression | default) \:)+
         $statements
 ;
 
+# Switch statement.
 $switch_st:
     switch \( $expressions \)
     {
@@ -227,11 +314,13 @@ $switch_st:
     }
 ;
 
+# Catch in try ... catch ... finally statement.
 $catch:
     catch ( \( $type_name name? \) )?
         $statement
 ;
 
+# Try ... catch ... finally statement.
 $try_st:
     try
         try:$statement
@@ -240,22 +329,39 @@ $try_st:
         finally:$statement)?
 ;
 
+# Variables defination statememt: int a = 10, b = 20;
 $defination_st:
     const? $type_name ($__item: name (= $expression)?) (, $__item)* \;
 ;
 
+# Expression statement: a = b + c;
 $expression_st: $expression \; ;
+
+# Typedef statement: typedef int Integer.
 $type_def_st:   $type_def ;
 
+# Break statement.
 $break_st:      break \; ;
+
+# Continue statement.
 $continue_st:   continue \; ;
+
+# Throw statement.
 $throw_st:      throw $expression? \; ;
+
+# Return statement.
 $return_st:     return $expression? \; ;
+
+# Goto statement.
 $goto_st:       goto name \; ;
 
+# A empty statement.
 $empty_st:      \; ;
+
+# Statement group.
 $statement_group_st: { $statement * } ;
 
+# Statement.
 $statement:
     $do_while_st | $while_st | $for_st | $for_each_st
   | $if_st | $switch_st | $try_st | $empty_st
@@ -264,6 +370,7 @@ $statement:
   | $statement_group_st
 ;
 
+# Root, entrypoint of code analyzer.
 $: $import* $using* ($namespace | $type | $type_def)* ;
 
 

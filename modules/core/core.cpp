@@ -173,54 +173,54 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Operators
     X_ENUM_INFO(operator_t)
 
-        X_C(add,                _T("+"))
-        X_C(sub,                _T("-"))
-        X_C(mul,                _T("*"))
-        X_C(div,                _T("/"))
-        X_C(mod,                _T("%"))
+        X_C(add,                _T("+"),        _T("Add"))
+        X_C(sub,                _T("-"),        _T("Sub"))
+        X_C(mul,                _T("*"),        _T("Mul"))
+        X_C(div,                _T("/"),        _T("Div"))
+        X_C(mod,                _T("%"),        _T("Mod"))
 
-        X_C(add_assign,         _T("+="))
-        X_C(sub_assign,         _T("-="))
-        X_C(mul_assign,         _T("*="))
-        X_C(div_assign,         _T("/="))
-        X_C(mod_assign,         _T("%="))
+        X_C(add_assign,         _T("+="),       _T("AddAssign"))
+        X_C(sub_assign,         _T("-="),       _T("SubAssign"))
+        X_C(mul_assign,         _T("*="),       _T("MulAssign"))
+        X_C(div_assign,         _T("/="),       _T("DivAssign"))
+        X_C(mod_assign,         _T("%="),       _T("ModAssign"))
 
-        X_C(left_increment,     _T("++"))
-        X_C(left_decrement,     _T("--"))
-        X_C(right_increment,    _T("++"))
-        X_C(right_decrement,    _T("--"))
+        X_C(left_increment,     _T("++"),       _T("LeftIncrement"))
+        X_C(left_decrement,     _T("--"),       _T("LeftDecrement"))
+        X_C(right_increment,    _T("++"),       _T("RightIncrement"))
+        X_C(right_decrement,    _T("--"),       _T("RightDecrement"))
 
-        X_C(minus,              _T("-"))
-        X_C(positive,           _T("+"))
+        X_C(minus,              _T("-"),        _T("Minus"))
+        X_C(positive,           _T("+"),        _T("Positive"))
 
-        X_C(left_shift,         _T("<<"))
-        X_C(right_shift,        _T(">>"))
-        X_C(left_shift_assign,  _T("<<="))
-        X_C(right_shift_assign, _T(">>="))
+        X_C(left_shift,         _T("<<"),       _T("LeftShift"))
+        X_C(right_shift,        _T(">>"),       _T("RightShift"))
+        X_C(left_shift_assign,  _T("<<="),      _T("LeftShiftAssign"))
+        X_C(right_shift_assign, _T(">>="),      _T("RightShiftAssign"))
 
-        X_C(bit_and,            _T("&"))
-        X_C(bit_or,             _T("|"))
-        X_C(bit_not,            _T("~"))
-        X_C(bit_xor,            _T("^"))
+        X_C(bit_and,            _T("&"),        _T("BitAnd"))
+        X_C(bit_or,             _T("|"),        _T("BitOr"))
+        X_C(bit_not,            _T("~"),        _T("BitNot"))
+        X_C(bit_xor,            _T("^"),        _T("BitXor"))
 
-        X_C(bit_and_assign,     _T("&="))
-        X_C(bit_or_assign,      _T("|="))
-        X_C(bit_xor_assign,     _T("^="))
+        X_C(bit_and_assign,     _T("&="),       _T("BitAndAssign"))
+        X_C(bit_or_assign,      _T("|="),       _T("BitOrAssign"))
+        X_C(bit_xor_assign,     _T("^="),       _T("BitXorAssign"))
 
-        X_C(assign,             _T("="))
+        X_C(assign,             _T("="),        _T("Assign"))
 
-        X_C(greater,            _T(">"))
-        X_C(greater_equal,      _T(">="))
-        X_C(less,               _T("<"))
-        X_C(less_equal,         _T("<="))
-        X_C(equal,              _T("=="))
-        X_C(not_equal,          _T("!="))
+        X_C(greater,            _T(">"),        _T("Greater"))
+        X_C(greater_equal,      _T(">="),       _T("GreaterEqual"))
+        X_C(less,               _T("<"),        _T("Less"))
+        X_C(less_equal,         _T("<="),       _T("LessEqual"))
+        X_C(equal,              _T("=="),       _T("Equal"))
+        X_C(not_equal,          _T("!="),       _T("NotEqual"))
 
-        X_C(logic_and,          _T("&&"))
-        X_C(logic_or,           _T("||"))
-        X_C(logic_not,          _T("!"))
+        X_C(logic_and,          _T("&&"),       _T("LogicAnd"))
+        X_C(logic_or,           _T("||"),       _T("LogicOr"))
+        X_C(logic_not,          _T("!"),        _T("LogicNot"))
 
-        X_C(member_point,       _T("."))
+        X_C(member_point,       _T("."),        _T("MemoberPoint"))
 
     X_ENUM_INFO_END
 
@@ -297,7 +297,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             using namespace std::placeholders;
             typedef operator_t op_t;
 
-            e.each([](operator_t op, operator_property_t & p) { p.op = op; });
+            e.each([](operator_t op, operator_property_t & p) {
+                p.op   = op;
+                p.name = _desc(op);
+            });
 
             // priority
             auto set_priority = [](operator_property_t & p, operator_priority_t priority) {

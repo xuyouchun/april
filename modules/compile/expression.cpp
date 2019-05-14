@@ -1762,7 +1762,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             default: break;
         }
 
-        if(constructor->host_type != host_type)
+        if(!is_type_compatible(host_type, constructor->host_type))
             throw _ED(__e_t::unexpected_host_type, constructor, host_type);
 
         #undef __EConstructor

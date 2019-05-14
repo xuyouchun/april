@@ -71,14 +71,17 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         __Op(member_point)
 
-        #define __CsOp_(name, w)  e[w_t::w].op = (operator_t)cs_operator_t::name;
-        #define __CsOp(name) __CsOp_(name, name)
+        #define __CsOp_(_name, _w)                                  \
+            e[w_t::_w].op   = (operator_t)cs_operator_t::_name;     \
+            e[w_t::_w].name = _desc(cs_operator_t::_name);
+
+        #define __CsOp(_name) __CsOp_(_name, _name)
 
         __CsOp(question_mark)   __CsOp(question_colon)
         __CsOp(comma)
         __CsOp_(as, k_as)       __CsOp_(is, k_is)
 
-        #define __Pri(v) ((v) << 8)
+        #define __Pri(_v) ((_v) << 8)
 
         // priority
         auto set_priority = [](__cs_token_property_t & p, operator_priority_t priority) {

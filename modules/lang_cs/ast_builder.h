@@ -455,6 +455,11 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     __SimpleBuilder(method)
 
     ////////// ////////// ////////// ////////// //////////
+    // _operator
+
+    __SimpleBuilder(_operator)
+
+    ////////// ////////// ////////// ////////// //////////
     // _enum_fields
 
     __SimpleBuilder(_enum_fields)

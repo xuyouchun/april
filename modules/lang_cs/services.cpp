@@ -142,6 +142,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
             __Case(statement)
             __Case(method_body)
             __Case(_fake_method)
+            __Case(_operator)
             __Case(property)
             __Case(event)
             __Case(type)

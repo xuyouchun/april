@@ -48,6 +48,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         _function_name_expression,
 
+        _operator,
+
     X_BRANCH_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////

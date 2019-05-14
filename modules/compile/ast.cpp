@@ -389,6 +389,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Invalid initialize value.
         X_D(invalid_initialize_value, _T("Invalid initialize value \"%1%\""))
 
+        // Operator overloading prototype error.
+        X_D(operator_overloading_prototype_error,
+                _T("Operator overloading method prototype error: must be public and static"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -3002,7 +3006,38 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Sets name.
     void method_ast_node_t::set_name(name_t name, __el_t * el)
     {
+        if(__op_property != nullptr)
+        {
+            __log(el, __c_t::duplicate, _T("method name / operator overloading"), name);
+            return;
+        }
+
         this->__assign_name(__method.name, name, el, _T("method"));
+    }
+
+    // Sets operator. ( for operator overloading. )
+    void method_ast_node_t::set_operator(const operator_property_t * op_property, __el_t * el)
+    {
+        _A(op_property != nullptr);
+
+        if(__op_property != nullptr)
+        {
+            __log(el, __c_t::duplicate, _F(_T("operator overloading")), op_property);
+            return;
+        }
+
+        if(!__method.name.empty())
+        {
+            __log(el, __c_t::duplicate, _F(_T("method name / operator overloading")), op_property);
+            return;
+        }
+
+        this->__op_property = op_property;
+
+        const char_t * op_name = op_property->name;
+        _A(op_name != nullptr);
+
+        __method.name = __to_name(_F(_T("op_%1%"), op_name));
     }
 
     // Sets trait.
@@ -3126,6 +3161,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 default:
                     break;
+            }
+        }
+
+        // Operator overload.
+        if(__op_property != nullptr)
+        {
+            if(!__method.is_static() || !__method.is_public())
+            {
+                this->__log(this->child_at(params), __c_t::operator_overloading_prototype_error);
             }
         }
     }

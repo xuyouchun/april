@@ -624,6 +624,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Invalid initialize value.
         invalid_initialize_value,
 
+        // Operator overloading prototype error.
+        operator_overloading_prototype_error,
+
         __the_end__         = 10000,
 
     X_ENUM_END
@@ -3920,6 +3923,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         
         // Typename
         type_name,
+
+        // Conversion typename.
+        conversion_type_name,
         
         // Generic params.
         generic_params,
@@ -3949,6 +3955,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Sets name.
         void set_name(name_t name, __el_t * el);
 
+        // Sets operator. ( for operator overloading. )
+        void set_operator(const operator_property_t * op_property, __el_t * el);
+
         // Sets trait.
         void set_trait(method_trait_t trait, __el_t * el);
 
@@ -3963,6 +3972,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         __w_t<method_t> __method;
+        const operator_property_t * __op_property = nullptr;
 
         void __walk_default(ast_walk_context_t & context);
         void __walk_analysis(ast_walk_context_t & context);
