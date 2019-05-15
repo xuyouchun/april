@@ -393,6 +393,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_D(operator_overloading_prototype_error,
                 _T("Operator overloading method prototype error: must be public and static"))
 
+        // Operator cannot ber overloaded.
+        X_D(operator_cannot_be_overloaded, _T("Operator '%1%' cannot be overloaded"))
+
+        // Operator overload not defined.
+        X_D(operator_overload_not_defined, _T("Operator '%1%' not defined for %2%"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////

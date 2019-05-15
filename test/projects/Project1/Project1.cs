@@ -8,27 +8,35 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        for(int k = 0; k < 10; k++)
-        {
-            switch(k)
-            {
-                case 1:
-                    Console.WriteLine("1");
-                    break;
+        Class1 obj1 = new Class1(100);
+        Class1 obj2 = new Class1(200);
+        Class1 obj3 = new Class1(300);
 
-                case 2:
-                    Console.WriteLine("2");
-                    break;
+        int v = (obj1 + obj2 + obj3).Value;
+        //int v = Class1.op_Add(obj1, obj2);
 
-                default:
-                    Console.WriteLine("Others");
-                    break;
-            }
-        }
+        Console.Print(v);
     }
+
+    class Class1
+    {
+        public Class1(int value)
+        {
+            this.Value = value;
+        }
+
+        public int Value { get; set; }
+
+        public static Class1 operator + (Class1 obj1, Class1 obj2)
+        {
+            return new Class1(obj1.Value + obj2.Value);
+        }
+
+        public static Class1 operator - (Class1 obj1, Class1 obj2)
+        {
+            return new Class1(obj1.Value - obj2.Value);
+        }
+    };
 };
 
-class Dictionary<TKey, TValue>
-{
 
-};

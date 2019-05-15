@@ -28,12 +28,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return host_type;
     }
 
+    // Returns xpool of expression_compile_context_t;
+    static xpool_t & __xpool(__cctx_t & ctx)
+    {
+        return ctx.statement_ctx.xpool();
+    }
+
     // Executes the expression, returns nan when it is not a constant value.
     static cvalue_t __execute_expression(__cctx_t & ctx, expression_t * exp)
     {
         _A(exp != nullptr);
 
-        expression_execute_context_t e_ctx(ctx.statement_ctx.xpool());
+        expression_execute_context_t e_ctx(__xpool(ctx));
         return exp->execute(e_ctx);
     }
 
@@ -827,7 +833,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 body->compile(ctx, pool);
 
                 type_t * element_type = arr_var->get_type();
-                type_t * array_type = ctx.statement_ctx.xpool().new_array_type(
+                type_t * array_type = __xpool(ctx).new_array_type(
                     element_type, arr_var->dimension()
                 );
 
@@ -1222,6 +1228,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(exp1 != nullptr);
         _A(exp2 != nullptr);
 
+        // Operators overload.
+        if(this->overload_method != nullptr)
+        {
+            __compile_operator_overload(ctx, pool);
+            return;
+        }
+
+        // Basic data types.
         if(!is_effective(this))
         {
             exp1->compile(ctx, pool);
@@ -1279,6 +1293,57 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             #undef __Case
         }
+    }
+
+    // Checks overload method prototype.
+    void __check_overload_prototype(__cctx_t & ctx, method_t * method, int param_count,
+                                                    expression_t ** expressions)
+    {
+        _A(method != nullptr);
+
+        if(method->param_count() != param_count)
+            throw _ED(__e_t::operator_overload__wrong_param_count, method);
+
+        if(method->is_generic())
+            throw _ED(__e_t::operator_overload__no_generic, method);
+
+        if(!method->is_static())
+            throw _ED(__e_t::operator_overload__wrong_prototype, method);
+
+        for(int k = 0; k < param_count; k++)
+        {
+            expression_t * exp = expressions[k];
+            _A(exp != nullptr);
+
+            param_t * param = method->param_at(k);
+            _A(param != nullptr);
+
+            type_t * exp_type = exp->get_type(__xpool(ctx));
+            type_t * param_type = param->get_type();
+
+            if(!is_type_compatible(exp_type, param_type))
+                throw _ED(__e_t::operator_overload__wrong_argument_type,
+                    _F(_T("%1%(%2%)"), exp, exp_type), _F(_T("%1%(%2%"), param, param_type)
+                );
+        }
+    }
+
+    // Compiles operator overload..
+    void __sys_t<binary_expression_t>::__compile_operator_overload(__cctx_t & ctx, xil_pool_t & pool)
+    {
+        method_t * method = this->overload_method;
+
+        // Checks method prototype.
+        __check_overload_prototype(ctx, method, 2, this->exps);
+
+        // Compile arguments.
+        expression_at(0)->compile(ctx, pool);
+        expression_at(1)->compile(ctx, pool);
+
+        ref_t method_ref = __search_method_ref(ctx, method);
+        pool.append<__call_xil_t>(xil_call_type_t::static_, method_ref);
+
+        __pop_empty_for_method(ctx, pool, method, this);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1708,7 +1773,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 		namex->compile(ctx, pool);
 
         type_t * element_type = __array_element_type_of(this);
-        type_t * array_type = ctx.statement_ctx.xpool().new_array_type(
+        type_t * array_type = __xpool(ctx).new_array_type(
             element_type, variable->dimension()
         );
 
@@ -1847,7 +1912,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // new
-        type_t * type = this->to_array_type(ctx.statement_ctx.xpool());
+        type_t * type = this->to_array_type(__xpool(ctx));
 
         if(type == nullptr)
             throw _ED(__e_t::type_missing);

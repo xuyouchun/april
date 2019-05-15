@@ -627,6 +627,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Operator overloading prototype error.
         operator_overloading_prototype_error,
 
+        // Operator cannot ber overloaded.
+        operator_cannot_be_overloaded,
+
+        // Operator overload not defined.
+        operator_overload_not_defined,
+
         __the_end__         = 10000,
 
     X_ENUM_END

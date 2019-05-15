@@ -20,6 +20,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return cctx.compile_context.global_context.xpool;
     }
 
+    // Returns spool of ast context.
+    static spool_t & __spool(ast_context_t & cctx)
+    {
+        return __xpool(cctx).spool;
+    }
+
+    // Converts to sid.
+    static sid_t __to_sid(ast_context_t & cctx, const string_t & s)
+    {
+        return __spool(cctx).to_sid(s);
+    }
+
+    // Converts to name.
+    static name_t __to_name(ast_context_t & cctx, const string_t & s)
+    {
+        return name_t(__spool(cctx).to_sid(s));
+    }
+
+    // Returns vtype of expression.
+    static bool __is_mobject(expression_t * exp)
+    {
+        return exp->get_vtype() == vtype_t::mobject_;
+    }
+
     // Converts multi-name to sid.
     sid_t mname_to_sid(const mname_t * mname)
     {
@@ -880,15 +904,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                             return;
 
                         default:
+                            __each(exp);
+                            __walk_op_expression((binary_expression_t *)exp);
                             break;
-                    }
+                    }   break;
+
+                case expression_family_t::unitary:
+                    __each(exp);
+                    __walk_op_expression((unitary_expression_t *)exp);
+                    break;
 
                 case expression_family_t::new_:
                     __walk_new((new_expression_t *)exp);
+                    __each(exp);
                     break;
 
                 case expression_family_t::this_:
                     ((this_expression_t *)exp)->set_type(__wctx.current_type());
+                    __each(exp);
                     break;
 
                 case expression_family_t::base: {
@@ -898,17 +931,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     else
                         ((base_expression_t *)exp)->set_type(base_type);
 
+                    __each(exp);
                 }   break;
 
                 case expression_family_t::index: {
                     __walk_index((index_expression_t *)exp);
+                    __each(exp);
                 }   break;
 
                 default:
+                    __each(exp);
                     break;
             }
-
-            __each(exp);
         }
 
         // Avoid to walk expression.
@@ -1011,6 +1045,74 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if(__walk_member(exp1, exp2) != __exp2_walked_t::yes)
                 __walk(exp2);
+        }
+
+        // Walks binary expression.
+        template<size_t _exp_count>
+        void __walk_op_expression(op_expression_t<_exp_count> * exp)
+        {
+            const operator_property_t * op_property = exp->op_property;
+            _A(op_property != nullptr);
+
+            operator_t op = op_property->op;
+            switch(op_property->overload)
+            {
+                case operator_overload_model_t::no_check:
+                    return;
+
+                case operator_overload_model_t::no_overloaded:
+                    ast_log(__cctx, exp, __c_t::operator_cannot_be_overloaded, op_property);
+                    return;
+
+                default:
+                    break;
+            }
+
+            // Check expression types.
+            bool has_mobject = al::any_of(exp->exps, [](expression_t * exp) {
+                return __is_mobject(exp);
+            });
+
+            if(!has_mobject)
+                return;
+
+            // Collect argument types.
+            atypes_t atypes;
+            for(expression_t * exp : exp->exps)
+            {
+                type_t * arg_type = exp->get_type(__xpool(__cctx));
+                _A(arg_type != nullptr);
+                atypes.push_back(arg_type);
+            }
+
+            // Finds method.
+            const char_t * op_name = exp->op_property->name;
+            _A(op_name != nullptr);
+
+            name_t name = __to_name(__cctx, _F(_T("op_%1%"), op_name));
+            _PP(name);
+
+            method_t * method = nullptr;
+            for(atype_t atype : atypes)
+            {
+                method = find_method(__cctx,
+                    atype.type, method_trait_t::default_, name, nullptr, &atypes
+                );
+
+                if(method != nullptr && method->is_static())
+                    break;
+            }
+
+            if(method == nullptr)
+            {
+                string_t s = al::join_str(atypes.begin(), atypes.end(), _T(", "));
+                ast_log(__cctx, exp, __c_t::operator_overload_not_defined, op_property, s);
+
+                return;
+            }
+
+            _PP(method);
+            exp->overload_method = method;
         }
 
         // Walks member.

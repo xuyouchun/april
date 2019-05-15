@@ -133,6 +133,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Operator overload model.
+    X_ENUM_INFO(operator_overload_model_t)
+
+        // Can be overloaded.
+        X_C(overload,           _T("overload"))
+
+        // Cannot be overloaded.
+        X_C(no_overloaded,      _T("no_overloaded"))
+
+        // Cannot be overloaded, and need no to check. such as "as, is" operators.
+        X_C(no_check,           _T("no_check"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Expression box side type.
     X_ENUM_INFO(expression_box_side_t)
 
@@ -442,6 +458,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 op_t::bit_and_assign, op_t::bit_or_assign, op_t::bit_xor_assign,
                 op_t::left_increment, op_t::left_decrement,
                 op_t::right_increment, op_t::right_decrement
+            );
+
+            // Can be overloaded.
+            auto set_overload = [](operator_property_t & p, operator_overload_model_t model) {
+                p.overload = model;
+            };
+
+            e.each(std::bind(set_overload, _2, operator_overload_model_t::no_overloaded),
+                op_t::logic_and, op_t::logic_or, op_t::logic_not
+            );
+
+            e.each(std::bind(set_overload, _2, operator_overload_model_t::no_check),
+                op_t::assign, op_t::member_point
             );
         }
     };
@@ -5412,7 +5441,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns vtype of the unitary expression.
     type_t * unitary_expression_t::get_type(xpool_t & xpool) const
     {
-        return nullptr;
+        return __super_t::get_type(xpool);
     }
 
     // Converts unitary expression to a string.
@@ -5427,6 +5456,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns type of the binary expression.
     type_t * binary_expression_t::get_type(xpool_t & xpool) const
     {
+        type_t * type = __super_t::get_type(xpool);
+        if(type != nullptr)
+            return type;
+
         switch(op())
         {
             case operator_t::member_point: {

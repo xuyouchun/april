@@ -655,6 +655,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Operator overload model.
+    X_ENUM(operator_overload_model_t)
+
+        // Can be overloaded.
+        overload = __default__,
+
+        // Cannot be overloaded.
+        no_overloaded,
+
+        // Cannot be overloaded, and need no to check. such as "as, is" operators.
+        no_check,
+
+    X_ENUM_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Operator prooerties structure.
     struct operator_property_t
     {
@@ -664,6 +680,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         operator_arity_t        arity;      // Operator arity
         operator_adhere_t       adhere;     // Operator position in a expression.
         bool                    is_assign;  // Operator is a assign operator, e.g. =, +=
+        operator_overload_model_t overload; // Operator can be overloaded.
         const char_t *          name;       // Operator name.
 
         // Specified the parent must be this operator, be used for " ? : " operator.
@@ -2029,6 +2046,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         operator string_t() const;
     };
 
+    // Writes to a stream.
+    template<typename _stream_t> _stream_t & operator << (_stream_t & stream, atype_t & atype)
+    {
+        return stream << ((string_t)atype).c_str(), stream;
+    }
+
     typedef al::svector_t<atype_t, 8> atypes_t;
     typedef al::svector_t<type_t *, 8> arg_types_t;
 
@@ -2037,6 +2060,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Method traits, Be used for searching members in a type.
     X_ENUM(method_trait_t)
+
+        default_ = __default__,
 
         normal,                 // Normal method.
 
@@ -5850,6 +5875,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Operator.
         operator_t op() const { return op_property->op; }
+
+        // Overload method.
+        method_t * overload_method = nullptr;
+
+        // Returns type.
+        virtual type_t * get_type(xpool_t & xpool) const override
+        {
+            return overload_method? overload_method->get_type() : nullptr;
+        }
 
         // Returns operator property.
         virtual const operator_property_t * get_operator_property() override

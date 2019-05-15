@@ -176,6 +176,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Cache exception variable undeterminded.
         catch_exception_variable_undeterminded,
 
+        // Operator overload method prototype error: Param count error.
+        operator_overload__wrong_param_count,
+
+        // Operator overload method prototype error: Argument type error.
+        operator_overload__wrong_argument_type,
+
+        // Operator overload method prototype error: should be static.
+        operator_overload__wrong_prototype,
+
+        // Operator overload method prototype error: Should not be a generic type.
+        operator_overload__no_generic,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////
