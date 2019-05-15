@@ -4150,6 +4150,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns System.Array type.
         general_type_t * get_array_type();
 
+        // Returns System.String type.
+        general_type_t * get_string_type();
+
+        // Returns System.Type type.
+        general_type_t * get_type_type();
+
         // Returns System.Exception type.
         general_type_t * get_exception_type();
 
@@ -4178,6 +4184,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         general_type_t * __object_type = nullptr;
         general_type_t * __tarray_type = nullptr;
         general_type_t * __array_type  = nullptr;
+        general_type_t * __string_type = nullptr;
+        general_type_t * __type_type   = nullptr;
 
         general_type_t * __exception_type = nullptr;
         general_type_t * __trace_attribute_type = nullptr;

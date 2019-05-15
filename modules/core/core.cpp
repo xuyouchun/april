@@ -466,7 +466,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             };
 
             e.each(std::bind(set_overload, _2, operator_overload_model_t::no_overloaded),
-                op_t::logic_and, op_t::logic_or, op_t::logic_not
+                op_t::logic_and, op_t::logic_or
             );
 
             e.each(std::bind(set_overload, _2, operator_overload_model_t::no_check),
@@ -3819,6 +3819,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __get_specified_type(__CoreTypeName(CoreType_Array), __array_type);
     }
 
+    // Returns System.String type.
+    general_type_t * xpool_t::get_string_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_String), __string_type);
+    }
+
+    // Returns System.Type type.
+    general_type_t * xpool_t::get_type_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Type), __type_type);
+    }
+
     // Returns System.Exception type.
     general_type_t * xpool_t::get_exception_type()
     {
@@ -4964,7 +4976,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns type of a cvalue expression.
     type_t * cvalue_expression_t::get_type(xpool_t & xpool) const
     {
-        return nullptr;
+        if(value == nullptr)
+            return nullptr;
+
+        switch(value->value_type)
+        {
+            case cvalue_type_t::number:
+                return xpool.get_internal_type(to_vtype(value->number.type));
+
+            case cvalue_type_t::string:
+                return xpool.get_string_type();
+
+            case cvalue_type_t::null:
+                return null_type_t::instance();
+
+            case cvalue_type_t::type:
+                return xpool.get_type_type();
+
+            default:
+                return nullptr;
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////

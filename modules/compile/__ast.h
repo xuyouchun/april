@@ -624,8 +624,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Invalid initialize value.
         invalid_initialize_value,
 
-        // Operator overloading prototype error.
-        operator_overloading_prototype_error,
+        // Operator overload prototype error.
+        operator_overload_prototype_error,
+
+        // Unitary operator overload prototype error: Wrong param count.
+        unitary_operator_overload_wrong_param_count,
+
+        // Binary operator overload prototype error: Wrong param count.
+        binary_operator_overload_wrong_param_count,
+
+        // Operator overload prototype error: One of the parameters must be the containing type.
+        unitary_operator_overload_wrong_containing_type,
+
+        // Operator overload prototype error: The parameter must be the containing type.
+        binary_operator_overload_wrong_containing_type,
+
+        // Operator overload prototype error; User-defined operators cannot return void.
+        operator_overload_cannot_return_void,
 
         // Operator cannot ber overloaded.
         operator_cannot_be_overloaded,

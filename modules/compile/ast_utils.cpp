@@ -39,9 +39,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns vtype of expression.
-    static bool __is_mobject(expression_t * exp)
+    static vtype_t __vtype_of(xpool_t & xpool, expression_t * exp)
     {
-        return exp->get_vtype() == vtype_t::mobject_;
+        type_t * type = exp->get_type(xpool);
+        if(type != nullptr)
+            return type->this_vtype();
+
+        return exp->get_vtype();
+    }
+
+    // Returns vtype of expression.
+    static bool __is_mobject(xpool_t & xpool, expression_t * exp)
+    {
+        return __vtype_of(xpool, exp) == vtype_t::mobject_;
     }
 
     // Converts multi-name to sid.
@@ -1069,8 +1079,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             // Check expression types.
-            bool has_mobject = al::any_of(exp->exps, [](expression_t * exp) {
-                return __is_mobject(exp);
+            bool has_mobject = al::any_of(exp->exps, [&](expression_t * exp) {
+                return __is_mobject(__xpool(__cctx), exp);
             });
 
             if(!has_mobject)
@@ -1090,7 +1100,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             _A(op_name != nullptr);
 
             name_t name = __to_name(__cctx, _F(_T("op_%1%"), op_name));
-            _PP(name);
 
             method_t * method = nullptr;
             for(atype_t atype : atypes)
@@ -1106,12 +1115,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if(method == nullptr)
             {
                 string_t s = al::join_str(atypes.begin(), atypes.end(), _T(", "));
-                ast_log(__cctx, exp, __c_t::operator_overload_not_defined, op_property, s);
+                ast_log(__cctx, exp, __c_t::operator_overload_not_defined, op_property->op, s);
 
                 return;
             }
 
-            _PP(method);
             exp->overload_method = method;
         }
 

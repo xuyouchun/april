@@ -389,9 +389,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Invalid initialize value.
         X_D(invalid_initialize_value, _T("Invalid initialize value \"%1%\""))
 
-        // Operator overloading prototype error.
-        X_D(operator_overloading_prototype_error,
-                _T("Operator overloading method prototype error: must be public and static"))
+        // Operator overload prototype error.
+        X_D(operator_overload_prototype_error, _T("Must be declared public and static"))
+
+        // Operator overload prototype error: wrong param count.
+        X_D(unitary_operator_overload_wrong_param_count,
+                _T("Overloaded unitary operator '%1%' takes one parameter"))
+
+        X_D(binary_operator_overload_wrong_param_count,
+                _T("Overloaded binary operator '%1%' takes two parameters"))
+
+        // One of the parameters must be the containing type.
+        X_D(unitary_operator_overload_wrong_containing_type,
+                _T("The parameter of unitary operator '%1%' overloaded must be the containing type"))
+
+        // The parameter must be the containing type.
+        X_D(binary_operator_overload_wrong_containing_type,
+                _T("One of the parameters of binary operator '%1%' overloaded must be the containing type"))
+
+
+        // User-defined operators cannot return void.
+        X_D(operator_overload_cannot_return_void, _T("User-defined operators cannot return void"))
 
         // Operator cannot ber overloaded.
         X_D(operator_cannot_be_overloaded, _T("Operator '%1%' cannot be overloaded"))
@@ -3014,7 +3032,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if(__op_property != nullptr)
         {
-            __log(el, __c_t::duplicate, _T("method name / operator overloading"), name);
+            __log(el, __c_t::duplicate, _T("method name / operator overload"), name);
             return;
         }
 
@@ -3028,13 +3046,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if(__op_property != nullptr)
         {
-            __log(el, __c_t::duplicate, _F(_T("operator overloading")), op_property);
+            __log(el, __c_t::duplicate, _F(_T("operator overload")), op_property);
             return;
         }
 
         if(!__method.name.empty())
         {
-            __log(el, __c_t::duplicate, _F(_T("method name / operator overloading")), op_property);
+            __log(el, __c_t::duplicate, _F(_T("method name / operator overload")), op_property);
             return;
         }
 
@@ -3169,20 +3187,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     break;
             }
         }
-
-        // Operator overload.
-        if(__op_property != nullptr)
-        {
-            if(!__method.is_static() || !__method.is_public())
-            {
-                this->__log(this->child_at(params), __c_t::operator_overloading_prototype_error);
-            }
-        }
     }
 
     // Walks the analysis step.
     void method_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
+        // Construct, static constructor, destructor.
         switch(__method.trait)
         {
             case method_trait_t::static_constructor:
@@ -3199,6 +3209,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             default:
                 break;
+        }
+
+        // Operator overload, checks prototype.
+        if(__op_property == nullptr)
+            return;
+
+        if(!__method.is_static() || !__method.is_public())
+            this->__log(this, __c_t::operator_overload_prototype_error);
+
+        if(__method.param_count() != __op_property->arity)
+        {
+            this->__log(this, (__op_property->arity == 1)?
+                    __c_t::unitary_operator_overload_wrong_param_count :
+                    __c_t::binary_operator_overload_wrong_param_count, __op_property->op
+            );
+        }
+
+        bool has_containing_type = al::any_of(*__method.params, [&](param_t * param) {
+            return param->get_type() == context.current_type();
+        });
+
+        if(!has_containing_type)
+        {
+            this->__log(this, (__op_property->arity == 1)?
+                    __c_t::unitary_operator_overload_wrong_containing_type :
+                    __c_t::binary_operator_overload_wrong_containing_type, __op_property->op
+            );
+        }
+
+        type_t * return_type = __method.get_type();
+        if(return_type == nullptr || is_void_type(return_type))
+        {
+            this->__log(this, __c_t::operator_overload_cannot_return_void);
         }
     }
 
