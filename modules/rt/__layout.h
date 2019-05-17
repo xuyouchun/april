@@ -67,11 +67,20 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Appends generic params
         void append(ref_t generic_params, rt_type_t ** types, int type_count);
 
+        // Appends generic params ( use placeholders. )
+        void append(ref_t generic_params);
+
         // Append generic params of given generic method.
         void append(rt_generic_method_t * m);
 
         // Append generic params of given generic type.
         void append(rt_generic_type_t * t);
+
+        // Append generic params of given general type.
+        void append(rt_general_type_t * t);
+
+        // Append generic params of given template type.
+        void append(rt_type_t * t);
 
         // Imports generic params of given generic method.
         void import(rt_generic_method_t * m);
@@ -79,15 +88,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Imports generic params of given general method.
         void import(rt_method_t * m);
 
-        // Imports generic params of given generic type.
-        void import(rt_generic_type_t * t);
+        // Append generic params of given type.
+        void import(rt_type_t * t);
 
     private:
         generic_param_manager_t & __gp_mgr;
         assembly_analyzer_t &     __analyzer;
-
-        // Imports generic param of given type.
-        void __import(rt_type_t * t);
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -128,9 +134,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         static const __self_t * empty_instance();
 
     private:
-        //rt_type_t ** __atypes       = nullptr;
-        //size_t       __atype_count  = 0;
-
+        al::svector_t<rt_type_t *, 10> __atypes;
         std::map<rt_sid_t, rt_type_t *> __type_map;
     };
 

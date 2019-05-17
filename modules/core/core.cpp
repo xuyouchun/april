@@ -3351,6 +3351,24 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // generic_param_t
 
+    X_ENUM_INFO(generic_param_type_t)
+
+        // Default.
+        X_C(default_,   _T("default"))
+
+        // Only for writing.
+        X_C(in,         _T("in"))
+
+        // Only for reading.
+        X_C(out,        _T("out"))
+
+        // Multipy params.
+        X_C(params,     _T("params"))
+
+    X_ENUM_INFO_END
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     // Returns members descripted by args.
     member_t * generic_param_t::get_member(analyze_member_args_t & args)
     {

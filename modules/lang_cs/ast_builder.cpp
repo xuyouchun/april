@@ -378,6 +378,18 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
             case __TokenValue(name):
                 __This->set_name(this->__to_name(token), token);
                 break;
+
+            case __TokenValue(k_in):
+                __This->set_param_type(generic_param_type_t::in, token);
+                break;
+
+            case __TokenValue(k_out):
+                __This->set_param_type(generic_param_type_t::out, token);
+                break;
+
+            case __TokenValue(k_params):
+                __This->set_param_type(generic_param_type_t::params, token);
+                break;
         }
     }
 

@@ -1185,8 +1185,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Metadata: Generic param.
     __DefineMt(generic_param, generic_param_t *, (int)mt_type_extra_t::generic_param)
 
+        typedef generic_param_type_t __param_type_t;
+
         res_t           name;               // Param name
         ref_t           attributes;         // Param attributes.
+        __param_type_t  param_type;         // Param type.
 
     __EndDefineMt(generic_param)
 

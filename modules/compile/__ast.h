@@ -2068,6 +2068,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Sets name.
         void set_name(name_t name, __el_t * el);
 
+        // Sets param type.
+        void set_param_type(generic_param_type_t type, __el_t * el);
+
         // Commits this node.
         virtual void on_commit() override;
 

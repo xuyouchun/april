@@ -885,6 +885,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets data type.
         virtual vtype_t get_vtype(analyzer_env_t & env) = 0;
 
+        // Returns host type.
+        virtual rt_type_t * get_host_type() = 0;
+
     protected:
 
         // When caculate size.
@@ -996,6 +999,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Host type.
         rt_general_type_t * host_type = nullptr;
 
+        // Returns host type.
+        virtual rt_type_t * get_host_type() override { return host_type; }
+
         // Returns generic param count.
         size_t generic_param_count();
 
@@ -1094,6 +1100,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Host type.
         rt_type_t * host_type = nullptr;
 
+        // Returns host type.
+        virtual rt_type_t * get_host_type() override { return host_type; }
+
     protected:
 
         // When caculate size.
@@ -1177,6 +1186,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets data type.
         virtual vtype_t get_vtype(analyzer_env_t & env) override { return vtype_t::mobject_; }
+
+        // Returns host type.
+        virtual rt_type_t * get_host_type() override { return nullptr; }
 
     protected:
 
@@ -1709,6 +1721,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             : assembly_analyzer_t(prototype.env, current, prototype.gp_manager)
         { }
 
+        // Constructor.
+        assembly_analyzer_t(assembly_analyzer_t & prototype, const __gp_mgr_t * gp_mgr)
+            : assembly_analyzer_t(prototype.env, prototype.current, gp_mgr)
+        { }
+
         analyzer_env_t & env;                   // Analyze environment.
         rt_assembly_t  * current;               // Current assembly.
         const generic_param_manager_t * gp_manager;   // Generic param manager.
@@ -1840,7 +1857,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Binds to specified assembly.
         __self_t __bind(rt_assembly_t * current)
         {
-            return __self_t((analyzer_env_t &)*this, current);
+            return __self_t((analyzer_env_t &)*this, current, gp_manager);
         }
 
         // Gets method by method ref.

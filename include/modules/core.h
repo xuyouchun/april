@@ -2295,6 +2295,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // generic_param_t
 
+    // Generic param type.
+    X_ENUM(generic_param_type_t)
+
+        // Default.
+        default_ = __default__,
+
+        // Only for writing.
+        in,
+
+        // Only for reading.
+        out,
+
+        // Multipy params.
+        params,
+
+    X_ENUM_END
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     // Generic param.
     class generic_param_t : public __named_type_t, public with_index_t
     {
@@ -2302,6 +2321,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     public:
         typedef generic_param_t * itype_t;
+
+        // Generic param type.
+        generic_param_type_t param_type;
 
         // Returns gtype, ttype, vtype.
         virtual gtype_t this_gtype() const override final { return gtype_t::generic_param; }

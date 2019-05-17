@@ -1667,7 +1667,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Sets name.
     void generic_param_ast_node_t::set_name(name_t name, __el_t * el)
     {
-        this->__assign_name(__param.name, name, el, _T("template param"));
+        this->__assign_name(__param.name, name, el, _T("generic param"));
+    }
+
+    // Sets param type.
+    void generic_param_ast_node_t::set_param_type(generic_param_type_t type, __el_t * el)
+    {
+        this->__assign(__param.param_type, type, el, _T("generic param type"));
     }
 
     // Commits this node.

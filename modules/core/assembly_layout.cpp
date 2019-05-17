@@ -710,7 +710,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Metadata: Generic param.
     __DefineEntityIOFunctions
-        __M(name), __M(attributes), __V(1),
+        __M(name), __M(attributes), __M(param_type), __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt

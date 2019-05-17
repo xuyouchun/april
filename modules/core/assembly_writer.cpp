@@ -268,8 +268,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Assigns generic param metadata.
         void __assign_mt(mt_generic_param_t * mt, generic_param_t * generic_param)
         {
-            mt->name = __S(generic_param->name);
+            mt->name       = __S(generic_param->name);
             mt->attributes = __W->__commit_attributes(generic_param->attributes);
+            mt->param_type = generic_param->param_type;
         }
 
         // Assigns generic argument metadata.
@@ -717,9 +718,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ref_t __commit_generic_param(generic_param_t * param)
         {
             auto & mgr = __mt_manager<__tidx_t::generic_param>();
+
+            ref_t ref = mgr.search_ref(param);
             __SearchRet(mgr, param);
 
-            __Unexpected();
+            return ref_t(param->index, 1, (uint32_t)mt_type_extra_t::generic_param_index);
         }
 
         // Commits generic params.
@@ -1364,7 +1367,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             mt_method_ref_t * method_ref;
             ref_t ref = mgr.append(method, &method_ref);
-            //__assign_mt(method_ref, method);
             __enque_assign(__tidx_t::method_ref, method_ref, method);
 
             return ref;
@@ -1381,7 +1383,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             return mgr.acquire(*params, [this](ref_t ref0, param_t * param,
                                 mt_method_ref_param_t * mt_method_ref_param) {
-                //__assign_mt(mt_method_ref_param, param);
                 __enque_assign(__tidx_t::method_ref_param, mt_method_ref_param, param);
             });
         }

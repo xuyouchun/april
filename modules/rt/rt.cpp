@@ -1582,6 +1582,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 return gp_manager->type_at(name);
             }
 
+            case mt_type_extra_t::generic_param_index: {
+                int index = type_ref.index;
+                return gp_manager->type_at(index);
+            }
+
             default:
                 X_UNEXPECTED();
         }
@@ -1672,6 +1677,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
         else
         {
+            assembly_analyzer_t analyzer0(*this, rt_type->get_assembly());
+            generic_param_manager_t gp_mgr(analyzer0, rt_type);
+            assembly_analyzer_t analyzer(*this, &gp_mgr);
+
             mt_method_ref_t * mt = rt_method_ref->mt;
             ref_t params_ref = mt->params;
             int param_count = params_ref.count;
@@ -1681,18 +1690,18 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             for(rt_ptype_t * p = params, * p_end = p + param_count; p < p_end; p++)
             {
                 rt_method_ref_param_t * param = current->get_method_ref_param(param_ref++);
-                rt_type_t * type = get_type(param->mt->type);
+                rt_type_t * type = analyzer.get_type(param->mt->type);
                 *p = rt_ptype_t(type, param->mt->ptype);
             }
 
             rt_sid_t method_name = __to_sid(rt_method_ref->mt->name);
-            rt_type_t * return_type = get_type(mt->type);
+            rt_type_t * return_type = analyzer.get_type(mt->type);
             rt_method = nullptr;
 
             rt_type->each_method(env, [&, this](ref_t method_ref, rt_method_t * rt_method0) {
                 rt_mt_t<__tidx_t::method> & mt = *rt_method0->mt;
 
-                bool r = __compare_method(rt_assembly, mt, method_name,
+                bool r = analyzer.__compare_method(rt_assembly, mt, method_name,
                     mt.generic_params.count, return_type, mt.params.count, params
                 );
 
@@ -1725,6 +1734,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             return false;
 
         __self_t analyzer = __bind(rt_assembly);
+
         if(return_type != analyzer.get_type(mt.type))
             return false;
 
@@ -2034,7 +2044,6 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         {
             case mt_member_extra_t::internal: {
                 template_ = analyzer.get_method(mt->template_);
-                _A(template_ != nullptr);
 
                 if(mt->host.empty())    // it's general host type.
                     host_type = assembly->get_host_by_method_ref(mt->template_);
@@ -2051,12 +2060,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 _A(g_template != nullptr);
 
                 template_ = g_template->template_;
-                _A(template_ != nullptr);
-
                 host_type = g_template->host_type;
-                _A(host_type != nullptr);
 
-            }   break;
+            }  break;
+
+            case mt_member_extra_t::import: {
+                template_ = analyzer.get_method(mt->template_);
+
+                if(mt->host.empty())    // it's general host type.
+                    host_type = template_->get_host_type();
+                else                    // the generic host type, with generic arguments.
+                    host_type = analyzer.get_type(mt->host);
+
+            }  break;
 
             default:
                 X_UNEXPECTED();

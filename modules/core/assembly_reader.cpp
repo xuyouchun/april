@@ -1174,7 +1174,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             method->type_name       = __to_type_name(mt.type);
             method->generic_params  = __to_generic_params(mt.generic_params);
             method->params          = __to_params(mt.params);
-            //method->body            = ?
             method->trait           = mt.trait;
         }
 
@@ -1255,8 +1254,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Builds generic param.
         void __build_generic_param(mt_generic_param_t & mt, generic_param_t * generic_param)
         {
-            generic_param->name = __to_name(mt.name);
+            generic_param->name       = __to_name(mt.name);
             generic_param->attributes = __to_attributes(mt.attributes, generic_param);
+            generic_param->param_type = mt.param_type;
         }
 
         //-------- ---------- ---------- ---------- ----------

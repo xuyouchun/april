@@ -16,19 +16,16 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         _A(__type_map.find(name) == __type_map.end());
 
         __type_map[name] = atype;
+        __atypes.push_back(atype);
     }
 
     // Returns type at index.
     rt_type_t * generic_param_manager_t::type_at(int index) const
     {
-        /*
-        if(index < 0 || index >= __atype_count)
+        if(index < 0 || index >= __atypes.size())
             throw _ED(__e_t::generic_param_index_out_of_range);
 
         return __atypes[index];
-        */
-
-        return nullptr;
     }
 
     // Returns type of specified name.
@@ -49,6 +46,155 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Type placeholder.
+    class __type_place_holder_t : public rt_type_t, public object_t
+    {
+        // Pre new object.
+        virtual void pre_new(analyzer_env_t & env) override { }
+
+        // Pre call static method.
+        virtual void pre_static_call(analyzer_env_t & env) override { }
+
+        // Gets type name.
+        virtual rt_sid_t get_name(analyzer_env_t & env) override { return rt_sid_t(); }
+
+        // Gets type kind.
+        virtual rt_type_kind_t get_kind() override { return rt_type_kind_t::__unknown__; }
+
+        // Gets base type.
+        virtual rt_type_t * get_base_type(analyzer_env_t & env,
+                                          const __gp_mgr_t * gp_manager = nullptr) override
+        {
+            return nullptr;
+        }
+
+        // Gets method offset.
+        virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override
+        {
+            return 0;
+        }
+
+        // Gets field offset.
+        virtual msize_t get_field_offset(analyzer_env_t & env, ref_t ref) override
+        {
+            return 0;
+        }
+
+        virtual void each_field(analyzer_env_t & env, each_field_t f) override { }
+
+        // Enums all methods.
+        virtual void each_method(analyzer_env_t & env, each_method_t f) override { }
+
+        // Searches method.
+        virtual ref_t search_method(analyzer_env_t & env,
+                    method_prototype_t & prototype,
+                    search_method_options_t options = search_method_options_t::default_) override
+        {
+            return ref_t::null;
+        }
+
+        // Gets variable size.
+        virtual msize_t get_variable_size(analyzer_env_t & env,
+                                          storage_type_t * out_storage_type) override
+        {
+            return 0;
+        }
+
+        // Gets assembly.
+        virtual rt_assembly_t * get_assembly() override { return nullptr; }
+
+        // Gets data type.
+        virtual vtype_t get_vtype(analyzer_env_t & env) override { return vtype_t::__unknown__; }
+
+        // Returns host type.
+        virtual rt_type_t * get_host_type() override { return nullptr; }
+
+    protected:
+
+        // When caculate size.
+        virtual msize_t on_caculate_size(analyzer_env_t & env,
+                                        storage_type_t * out_storage_type) override { return 0; }
+
+
+        // When caculate layout.
+        virtual msize_t on_caculate_layout(analyzer_env_t & env, msize_t base_size,
+                                        storage_type_t * out_storage_type) override { return 0; }
+
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Type placeholder manager.
+    class type_place_holder_manager_t : public memory_base_t
+    {
+        typedef memory_base_t __super_t;
+        typedef __type_place_holder_t __holder_t;
+
+    public:
+
+        // Constructor.
+        type_place_holder_manager_t(memory_t * memory = nullptr) : __super_t(memory)
+        {
+            for(__holder_t ** p = (__holder_t **)__types, ** p_end = p + __types_size;
+                                                                    p < p_end; p++)
+            {
+                *p = this->__new_obj<__holder_t>();
+            }
+        }
+
+        // Returns placeholder for index.
+        rt_type_t * get(int index)
+        {
+            if(index < __types_size)
+                return __types[index];
+
+            _L(__mutex);
+
+            auto it = __type_map.find(index);
+            if(it != __type_map.end())
+                return it->second;
+
+            __holder_t * type = this->__new_obj<__holder_t>();
+            __type_map[index] = type;
+
+            return type;
+        }
+
+        // Destructor.
+        virtual ~type_place_holder_manager_t()
+        {
+            /* TODO:
+            for(__holder_t * p : __types)
+            {
+                this->__delete_obj(p);
+            }
+
+            for(auto && it : __type_map)
+            {
+                this->__delete_obj(it.second);
+            }
+            */
+        }
+
+    private:
+        std::map<int, __holder_t *> __type_map;
+        static const size_t __types_size = 16;
+        __holder_t * __types[__types_size];
+
+        std::mutex __mutex;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Returns placeholder for index.
+    rt_type_t * __get_type_place_holder(int index)
+    {
+        static type_place_holder_manager_t mgr;
+        return mgr.get(index);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // generic_param_manager_builder_t
 
     // Appends generic params
@@ -63,6 +209,18 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             rt_sid_t name = __analyzer.to_sid((*gp)->name);
 
             __gp_mgr.append(name, *types++);
+        }
+    }
+
+    // Appends generic params
+    void generic_param_manager_builder_t::append(ref_t generic_params)
+    {
+        for(ref_t gp_ref : generic_params)
+        {
+            rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
+            rt_sid_t name = __analyzer.to_sid((*gp)->name);
+
+            __gp_mgr.append(name, __get_type_place_holder(__gp_mgr.size()));
         }
     }
 
@@ -82,15 +240,63 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         append((*t->template_)->generic_params, t->atypes, t->atype_count());
     }
 
+    // Append generic params of given general type.
+    void generic_param_manager_builder_t::append(rt_general_type_t * t)
+    {
+        _A(t != nullptr);
+
+        append((*t)->generic_params);
+    }
+
+    // Appends generic params
+    void generic_param_manager_builder_t::append(rt_type_t * t)
+    {
+        _A(t != nullptr);
+
+        switch(t->get_kind())
+        {
+            case rt_type_kind_t::generic:
+                append((rt_generic_type_t *)t);
+                break;
+
+            case rt_type_kind_t::general:
+                append((rt_general_type_t *)t);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    // Enumerates all generic host types.
+    template<typename _f_t> void __each_generic_hosts(rt_type_t * type, _f_t f)
+    {
+        rt_type_t * host_type = type->get_host_type();
+        if(host_type != nullptr)
+            __each_generic_hosts((rt_generic_type_t *)host_type, f);
+
+        f(type);
+    }
+
+    // Imports generic params of given method.
+    void generic_param_manager_builder_t::import(rt_type_t * t)
+    {
+        _A(t != nullptr);
+
+        __each_generic_hosts(t, [&, this](rt_type_t * t0) {
+            this->append(t0);
+        });
+    }
+
     // Imports generic params of given generic method.
     void generic_param_manager_builder_t::import(rt_generic_method_t * m)
     {
         _A(m != nullptr);
 
-        append(m);
-
         rt_type_t * host_type = m->get_host_type();
-        __import(host_type);
+        import(host_type);
+
+        append(m);
     }
 
     // Imports generic params of given general method.
@@ -99,45 +305,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         _A(m != nullptr);
 
         rt_type_t * host_type = m->get_host_type();
-        __import(host_type);
-    }
-
-    // Enumerates all generic host types.
-    template<typename _f_t> void __each_generic_hosts(rt_generic_type_t * type, _f_t f)
-    {
-        while(true)
-        {
-            f(type);
-
-            rt_type_t * host_type = type->host_type;
-            if(host_type == nullptr || (host_type->get_kind() != rt_type_kind_t::generic))
-                break;
-
-            type = (rt_generic_type_t *)host_type;
-        }
-    }
-
-    // Imports generic params of given generic type.
-    void generic_param_manager_builder_t::import(rt_generic_type_t * t)
-    {
-        _A(t != nullptr);
-
-        __each_generic_hosts(t, [&, this](rt_generic_type_t * t0) {
-            this->append(t0);
-        });
-    }
-
-    // Imports generic param of given type.
-    void generic_param_manager_builder_t::__import(rt_type_t * t)
-    {
-        _A(t != nullptr);
-
-        rt_type_kind_t type_kind = t->get_kind();
-
-        if(type_kind != rt_type_kind_t::generic)
-            return;
-
-        import((rt_generic_type_t *)t);
+        import(host_type);
     }
 
     ////////// ////////// ////////// ////////// //////////

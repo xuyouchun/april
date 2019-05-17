@@ -105,11 +105,13 @@ class __internal__ : Attribute
 [__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
 public class InlineAttribute : Attribute
 {
+    // Constructor.
     public InlineAttribute()
     {
 
     }
 
+    // Constructor.
     public InlineAttribute(Boolean value)
     {
 
@@ -122,6 +124,30 @@ public class InlineAttribute : Attribute
 public class EntryPointAttribute
 {
 
+};
+
+////////// ////////// ////////// ////////// //////////
+
+
+// Delegate.
+public class Delegate
+{
+
+};
+
+// Delegate.
+public class Delegate<TReturn, params TArgs> : Delegate
+{
+    // Constructor.
+    public Delegate()
+    {
+        
+    }
+
+    public TReturn Invoke(TArgs a)
+    {
+        return default(TReturn);
+    }
 };
 
 ////////// ////////// ////////// ////////// //////////

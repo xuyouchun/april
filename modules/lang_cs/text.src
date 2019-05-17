@@ -159,7 +159,7 @@ $type_def_params: < $type_def_param (, $type_def_param)* > ;
 $type_def: typedef $type_name name $type_def_params? \; ;
 
 # Generic param.
-$generic_param:  $attributes name;
+$generic_param:  $attributes (in | out | params)? name;
 
 # Generic params: MyClass<T, K>.
 $generic_params: < $generic_param (, $generic_param)* > ;
