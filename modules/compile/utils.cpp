@@ -12,9 +12,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Constructor.
     code_section_builder_t::code_section_builder_t(global_context_t & global_context,
-            const char_t * code, lang_id_t default_lang,
+            code_t * code, lang_id_t default_lang,
             std::vector<code_section_t *> & sections, pool_t & pool)
-        : __global_context(global_context), __code(code), __p(code), __sections(sections)
+        : __global_context(global_context), __code(code)
+        , __source_code(code->source_code()), __p(__source_code), __sections(sections)
         , __default_lang(default_lang), __pool(pool)
     {
         _A(code != nullptr);
@@ -24,9 +25,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void code_section_builder_t::build()
     {
         __build([this](const char_t * start, const char_t * end, lang_id_t lang, int depth) {
+
             this->__sections.push_back(
-                __pool.new_obj<code_section_t>(__global_context, start, end - start, lang, depth)
+                __pool.new_obj<code_section_t>(__global_context,
+                    start, end - start, lang, depth, __code
+                )
             );
+
         });
     }
 

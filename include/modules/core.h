@@ -128,21 +128,40 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-    class ast_file_t;
+    // Code file.
+    X_INTERFACE code_file_t 
+    {
+        // Source code.
+        virtual const char_t * get_source_code() const = 0;
+
+        // Name.
+        virtual const string_t & get_file_name() const = 0;
+
+        // Path.
+        virtual const string_t & get_file_path() const = 0;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
 
     // Code unit structure.
     struct code_unit_t
     {
         code_unit_t() = default;
-        code_unit_t(const code_unit_t &o) = default;
+        code_unit_t(const code_unit_t &) = default;
 
-        code_unit_t(const char_t * s, int32_t length, ast_file_t * file = nullptr)
+        code_unit_t(const char_t * s, int32_t length, const code_file_t * file)
             : s(s), length(length), file(file)
         { }
 
-        const char_t * s;       // Code position
-        int32_t length;         // Code length
-        ast_file_t * file;      // Code file
+        const char_t *  s;          // Code position
+        int32_t         length;     // Code length
+        const code_file_t * file;    // Code file
+
+        // Returns current line.
+        string_t current_line() const;
+
+        // Returns current line position.
+        std::pair<const char_t *, const char_t *> current_line_pos() const;
 
         // Converts to a string.
         operator string_t() const
@@ -440,21 +459,29 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Token in source codes.
     struct token_t : code_element_t
     {
+        // Constructors.
         token_t(token_value_t value, const char_t * s, int32_t length,
-            token_data_t * data = nullptr, ast_file_t * file = nullptr)
+            token_data_t * data = nullptr, const code_file_t * file = nullptr)
             : code_element_t(&code_unit), code_unit(s, length, file), value(value), data(data)
         { } 
 
+        // Constructors.
         token_t() = default; 
         token_t(const token_t &o) = default;
 
+        // Token data.
         token_data_t * data;
+
+        // Token value.
         token_value_t value;
 
+        // Converts to string.
         operator string_t() const { return (string_t)code_unit; }
 
+        // Code unit.
         code_unit_t code_unit;
 
+        // Converts to code_unit_t *.
         operator code_unit_t * () { return &code_unit; }
         operator const code_unit_t * () const { return &code_unit; }
     };
@@ -5366,8 +5393,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         string_t         assembly_path;
 
     private:
-        std::map<sid_t, ast_file_t *> __file_map;
-        std::vector<ast_file_t *> __files;
+        std::map<sid_t, ast_file_t *>   __file_map;
+        std::vector<ast_file_t *>       __files;
     };
 
     ////////// ////////// ////////// ////////// //////////

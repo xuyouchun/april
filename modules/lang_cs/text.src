@@ -150,7 +150,7 @@ $uncertain_type_name: var ;
 $type_name: $general_type_name | $array_type_name | $uncertain_type_name ;
 
 # Typedef generic param.
-$type_def_param:  name;
+$type_def_param: params? name;
 
 # Typedef generic params: typedef MyClass<int, T> NewType<T>.
 $type_def_params: < $type_def_param (, $type_def_param)* > ;
@@ -171,7 +171,7 @@ $generic_constraint: where name \: ($__item: $type_name | class | struct) (, $__
 $generic_constraints: $generic_constraint * ;
 
 # Generic argument.
-$generic_arg:  $type_name;
+$generic_arg: params? $type_name;
 
 # Generic arguments: MyClass<int, long>.
 $generic_args: < $generic_arg? (, $generic_arg?) * !:> ;

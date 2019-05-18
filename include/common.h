@@ -1243,8 +1243,17 @@ namespace X_ROOT_NS {
     //-------- ---------- ---------- ---------- ----------
     // A macro of _error function.
 
+    #if X_DEBUG
+
     #define X_ERROR(code, args...)                                          \
         __root_ns::_error(code, ##args, _T(__FILE__), __LINE__)
+
+    #else
+
+    #define X_ERROR(code, args...)                                          \
+        __root_ns::_error(code, ##args)
+
+    #endif
 
     ////////// ////////// ////////// ////////// //////////
     // X_ASSERT

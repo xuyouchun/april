@@ -2140,16 +2140,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __token_reader_context_t & __context;
 
-        code_section_t ** & __p_section;
-        code_section_t *    __section;
+        code_section_t ** &  __p_section;
+        code_section_t *     __section;
         int __depth;
 
-        token_reader_t * __reader;
+        token_reader_t *     __reader;
         token_enumerator_t * __enumerator;
 
         al::heap_t<__item_t> __items;
-        size_t __index = 0;
-        al::xheap_t __heap;
+        size_t               __index = 0;
+        al::xheap_t          __heap;
 
         // Reads next element.
         bool __read_next_element();
@@ -2295,6 +2295,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyzer_element_reader_t * __reader;           // Reader.
         analyze_callback_t        * __callback;         // Callback.
         analyze_context_t           __context;          // Context.
+        analyzer_element_t        * __element;          // Current element.
+
+        typedef logic_error_t<analyze_tree_error_t> __error_t;
+
+        // Do analyzer.
+        void __analyze();
 
         // Pushes a token.
         void __push_token(token_t * token, __tag_t * tag);
@@ -2314,6 +2320,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Pushes end.
         void __push_end(__tag_t * tag);
+
+        // Process analyze errors.
+        void __process_error(const __error_t & e);
+
+        // Process format errors.
+        void __process_format_error(const __error_t & e);
 
         // Returns possible value count.
         static size_t __possible_value_count(const token_value_t * possible_values);
@@ -2432,9 +2444,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ast_node_t * build();
 
     protected:
-        typedef analyzer_element_t __element_t;
-        typedef ast_builder_completed_args_t        __completed_args_t;
-        typedef ast_builder_apply_token_args_t      __apply_token_args_t;
+        typedef analyzer_element_t              __element_t;
+        typedef ast_builder_completed_args_t    __completed_args_t;
+        typedef ast_builder_apply_token_args_t  __apply_token_args_t;
         typedef ast_builder_apply_ast_args_t    __apply_ast_args_t;
 
         // Creates ast node.

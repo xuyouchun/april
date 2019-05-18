@@ -23,23 +23,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        ttoken_reader_t(token_reader_context_t & context, lang_t * lang,
-                                                    ast_file_t * file = nullptr)
-            : __context(context), __lang(lang), __file(file)
+        ttoken_reader_t(token_reader_context_t & context, lang_t * lang)
+            : __context(context), __lang(lang)
         { }
 
         // Returns token enumerator.
-        virtual token_enumerator_t * read(const char_t * code, size_t length) override
+        virtual token_enumerator_t * read(const char_t * code, size_t length,
+                                          const code_file_t * file) override
         {
             return __context.compile_context.new_obj<token_enumerator_t>(
-                __context, __lang, code, length, __file
+                __context, __lang, code, length, file
             );
         }
 
     private:
         token_reader_context_t & __context;
         lang_t * __lang;
-        ast_file_t * __file;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -51,13 +50,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor.
         token_enumerator_base_t(token_reader_context_t & context, lang_t * lang,
-                const char_t * code, size_t length, ast_file_t * file = nullptr);
+                const char_t * code, size_t length, const code_file_t * file);
         
     protected:
         token_reader_context_t & __context;
-        lang_t * __lang;
-        ast_file_t * __file;
-        compile_logger_t __logger;
+        lang_t *                 __lang;
+        compile_logger_t         __logger;
+        const code_file_t *      __file;
 
         typedef al::cptr_t<char_t> __cptr_t;
         __cptr_t __p;
@@ -166,10 +165,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         bool __try_escape_char(char_t * out_c);
 
         // Returns new token.
-        template<typename ... args_t>
-        token_t * __new_token(args_t ... args)
+        token_t * __new_token(token_value_t value, const char_t * s, int32_t length,
+                token_data_t * data = nullptr)
         {
-            return __tokens.new_obj(std::forward<args_t>(args) ...);
+            return __tokens.new_obj(value, s, length, data, __file);
         }
 
     private:

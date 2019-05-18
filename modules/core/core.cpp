@@ -671,6 +671,47 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
+    // Code unit structure.
+
+    // Returns current line.
+    string_t code_unit_t::current_line() const
+    {
+        auto pair = current_line_pos();
+        return string_t(pair.first, pair.second);
+    }
+
+    // Returns current line position.
+    std::pair<const char_t *, const char_t *> code_unit_t::current_line_pos() const
+    {
+        const char_t * source_code;
+        const char_t * s = this->s, * start = s, * end = s + length;
+
+        if(file != nullptr && (source_code = file->get_source_code()) != nullptr)
+        {
+            _A(start >= source_code);
+            for(; start >= source_code; start--)
+            {
+                if(al::is_lineend(*start))
+                {
+                    start++;
+                    break;
+                }
+            }
+        }
+
+        for(; *end != '\0'; end++)
+        {
+            if(al::is_lineend(*end))
+            {
+                end--;
+                break;
+            }
+        }
+
+        return std::make_pair(start, end);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
 
     // Code element.
     class __code_element_t : public code_element_t
@@ -678,7 +719,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        __code_element_t(const char_t * s, int32_t length, ast_file_t * file)
+        __code_element_t(const char_t * s, int32_t length, const code_file_t * file)
             : __unit(s, length, file), code_element_t(&__unit)
         { }
 

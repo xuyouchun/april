@@ -2844,8 +2844,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Matches the next token.
-    void analyze_context_t::go(const __node_key_t * keys, __tag_t * tag,
-                                             __node_value_t * out_value)
+    void analyze_context_t::go(const __node_key_t * keys, __tag_t * tag, __node_value_t * out_value)
     {
         if(__is_invisible(keys[0]) && keys[1] == __empty_node_key)
             return;
@@ -2867,7 +2866,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __merge_leafs();
 
             if(__leafs.size() == 0)
-                throw _EF(__e_t::parse_error, _T("parse error: at %1%"), (string_t)keys[0]);
+                throw _EF(__e_t::format_error, _T("format error"));
 
 #if __EnableTrace >= 2
             std::wcout << _T("TREE  2: ") << al::_detail(__stack_root) << std::endl;
@@ -2905,7 +2904,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 #endif
 
             if(__leafs.size() >= 2)
-                throw _EF(__e_t::parse_error, _T("parse error: conflict"));
+                throw _EF(__e_t::format_error, _T("conflict"));
 
             if(__leafs.size() > 0)
                 __execute_actions();
@@ -3793,7 +3792,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         , __p_section(p_section), __section(*__p_section), __depth(__section->depth)
     {
         __reader = __context.token_reader_of(__section->lang);
-        __enumerator = __reader->read(__section->code, __section->length);
+        __enumerator = __reader->read(__section->source_code, __section->length, __section->file());
     }
 
     // Returns element at specified tag.
@@ -3856,7 +3855,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if(__section->depth == __depth)
         {
-            __enumerator = __reader->read(__section->code, __section->length);
+            __enumerator = __reader->read(__section->source_code, __section->length,
+                                          __section->file());
             return __read_next_element();
         }
 
@@ -3898,28 +3898,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Do analyzer.
     void __analyzer_t::analyze()
     {
-        analyzer_element_t * element;
-
-        while((element = __reader->next())->type != analyzer_element_type_t::__unknown__)
+        try
         {
-            switch(element->type)
+            __analyze();
+        }
+        catch(const logic_error_t<__e_t> & e)
+        {
+            __process_error(e);
+        }
+    }
+
+    // Do analyzer.
+    void __analyzer_t::__analyze()
+    {
+        while((__element = __reader->next())->type != analyzer_element_type_t::__unknown__)
+        {
+            switch(__element->type)
             {
                 case analyzer_element_type_t::token:
-                    __push_token(element->token, &element->tag);
+                    __push_token(__element->token, &__element->tag);
                     break;
 
                 case analyzer_element_type_t::ast_node:
-                    __push_ast_node(element->ast_node, &element->tag);
+                    __push_ast_node(__element->ast_node, &__element->tag);
                     break;
 
                 default:
                     throw _E(analyze_tree_error_t::unknown_element_type,
-                        sprintf(_T("unknown element type: %1%"), element->type)
+                        sprintf(_T("unknown element type: %1%"), __element->type)
                     );
             }
         }
 
-        __push_end(&element->tag);
+        __push_end(&__element->tag);
     }
 
     // Pushes token.
@@ -3983,6 +3994,79 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __analyzer_t::__push_end(__tag_t * tag)
     {
         __push(__end_node_key, tag);
+    }
+
+    // Process analyze errors.
+    void __analyzer_t::__process_error(const logic_error_t<__e_t> & e)
+    {
+        switch(e.code)
+        {
+            case __e_t::format_error:
+                __process_format_error(e);
+                break;
+
+            default:
+                throw e;
+        }
+    }
+
+    // Returns format error line.
+    static string_t __format_error_line(code_unit_t * cu, const string_t & err_msg)
+    {
+        _A(cu != nullptr);
+
+        const code_file_t * file = cu->file;
+        string_t msg;
+
+        if(file != nullptr)
+        {
+            codepos_helper_t h(file->get_source_code());
+            codepos_t pos = h.pos_of(cu->s);
+
+            auto pair = cu->current_line_pos();
+            string_t line(pair.first, pair.second);
+
+            msg = _F(_T("%1%:%2%:%3%: error: %4%\n%5%\n%6%%7%"),
+                file->get_file_name(), pos.line, pos.col, err_msg,
+                line, string_t(cu->s - pair.first, ' '), string_t(cu->length, '~')
+            );
+        }
+        else
+        {
+            msg = _F(_T("%1%: %2%"), cu->current_line(), err_msg);
+        }
+
+        return msg;
+    }
+
+    // Process format error.
+    void __analyzer_t::__process_format_error(const logic_error_t<__e_t> & e)
+    {
+        typedef analyzer_element_type_t __element_type_t;
+
+        _A(__element != nullptr);
+
+        switch(__element->type)
+        {
+            case __element_type_t::token: {
+
+                token_t * token = __element->token;
+                _A(token != nullptr);
+
+                code_unit_t * cu = (code_unit_t *)*token;
+                if(cu != nullptr)
+                    throw _E(__e_t::format_error, __format_error_line(cu, e.get_message()));
+
+            }   break;
+
+            case __element_type_t::ast_node:
+                break;
+
+            default:
+                X_UNEXPECTED();
+        }
+
+        throw e;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4111,8 +4195,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Analyzes ast node.
-    ast_node_t * __analyze_ast(__token_reader_context_t & context, 
-                                                        code_section_t ** & p_section)
+    ast_node_t * __analyze_ast(__token_reader_context_t & context, code_section_t ** & p_section)
     {
         analyzer_element_reader_t reader(context, p_section);
 

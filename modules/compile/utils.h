@@ -18,19 +18,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class code_section_builder_t
     {
     public:
-        code_section_builder_t(global_context_t & global_context, const char_t * code,
+        code_section_builder_t(global_context_t & global_context, code_t * code,
             lang_id_t default_lang, std::vector<code_section_t *> & sections, pool_t & pool);
 
         void build();
 
     private:
-        global_context_t & __global_context;
-        const char_t * const __code;
-        const char_t * __p;
-        const lang_id_t __default_lang;
+        global_context_t &      __global_context;
+        code_t *                __code;
+        const char_t * const    __source_code;
+        const char_t *          __p;
+        const lang_id_t         __default_lang;
         std::vector<code_section_t *> & __sections;
-        pool_t & __pool;
-        std::stack<lang_id_t> __lang_stack;
+        pool_t &                __pool;
+        std::stack<lang_id_t>   __lang_stack;
 
         template<typename callback_t> void __build(callback_t callback);
         bool __skip_char(char_t c);

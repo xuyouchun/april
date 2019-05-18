@@ -18,9 +18,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     typedef uint32_t lang_id_t;
     const lang_id_t unknown_lang_id = 0;
 
-    ////////// ////////// ////////// ////////// //////////
-
+    class code_t;
     class analyze_node_t;
+
+    ////////// ////////// ////////// ////////// //////////
 
     typedef int32_t token_index_t;
 
@@ -218,7 +219,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     X_INTERFACE token_reader_t
     {
         // Returns a token enumerator.
-        virtual token_enumerator_t * read(const char_t * code, size_t length) = 0;
+        virtual token_enumerator_t * read(const char_t * code, size_t length,
+                                          const code_file_t * file) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -285,21 +287,29 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor
         code_section_t(global_context_t & global_context,
-            const char_t * code, size_t length, lang_id_t lang, int depth)
-            : code_object_t(global_context)
-            , code(code), length(length), lang(lang), depth(depth)
+            const char_t * source_code, size_t length, lang_id_t lang, int depth, code_t * code)
+            : code_object_t(global_context), code(code)
+            , source_code(source_code), length(length), lang(lang), depth(depth)
         { }
 
-        const char_t * const code;      // Code
-        const size_t length;            // Length
-        const lang_id_t lang;           // Language.
-        const int depth;                // Depth.
+        const char_t * const source_code;   // Source code
+        const size_t length;                // Length
+        const lang_id_t lang;               // Language.
+        const int depth;                    // Depth.
+
+        code_t * code;                      // Code
+
+        // Returns code file.
+        const code_file_t * file() const;
     };
 
     // Writes a code section to a stream.
     X_INLINE ostream_t & operator << (ostream_t & stream, const code_section_t & section)
     {
-        return stream.write(section.code, section.length), stream;
+        if(section.source_code != nullptr)
+            stream.write(section.source_code, section.length);
+
+        return stream;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -313,13 +323,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructors.
-        template<typename scode_t>
-        code_t(global_context_t & global_context, scode_t code, lang_id_t lang)
-            : code_object_t(global_context), code(code), lang(lang)
+        template<typename _scode_t>
+        code_t(global_context_t & global_context, _scode_t code, lang_id_t lang,
+                const code_file_t * file)
+            : code_object_t(global_context), code(code), lang(lang), file(file)
         { }
 
-        const string_t code;        // Code
-        const lang_id_t lang;       // Language
+        const string_t      code;       // Code
+        const lang_id_t     lang;       // Language
+        const code_file_t * file;       // Code file.
 
         // Returns code sections.
         range_t<__itor_t> sections();
@@ -330,6 +342,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Build ast tree.
         ast_node_t * build_ast(compile_context_t & context);
 
+        // Returns source code.
+        const char_t * source_code() const { return code.c_str(); }
+
     private:
         __sections_t        __sections;
         pool_t              __pool;
@@ -339,6 +354,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // File
     class file_t : public named_code_object_t
+                 , public code_file_t
     {
     public:
 
@@ -355,7 +371,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Loads file from specified path.
         static file_t * load(global_context_t & global_context,
                 memory_t * memory, const lib::path_t & path,
-                const char_t * lang=nullptr, const char_t * name=nullptr);
+                const char_t * lang = nullptr, const char_t * name = nullptr);
+
+        // Returns source code.
+        const char_t * source_code() const;
+
+        // Source code.
+        virtual const char_t * get_source_code() const override
+        {
+            return code? code->source_code() : nullptr;
+        }
+
+        // Name.
+        virtual const string_t & get_file_name() const override { return name; }
+
+        // Path.
+        virtual const string_t & get_file_path() const override { return path; }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -584,6 +615,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : compile_context(context)
         { }
 
+        // Compile context.
         compile_context_t & compile_context;
 
         // Creates a new object.

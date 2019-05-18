@@ -238,9 +238,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         file_t * file = memory_t::new_obj<file_t>(memory, global_context, lib::to_str(path), s_name);
         lang_id_t lang_id = global_context.lang_id_of(s_lang);
-        file->code = memory_t::new_obj<code_t>(memory, global_context, std::move(code), lang_id);
+        file->code = memory_t::new_obj<code_t>(memory, global_context, std::move(code),
+                                                                        lang_id, file);
 
         return file;
+    }
+
+    // Returns source code.
+    const char_t * file_t::source_code() const
+    {
+        if(code == nullptr)
+            return nullptr;
+
+        return code->code.c_str();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // code_section_t
+
+    // Returns code file.
+    const code_file_t * code_section_t::file() const
+    {
+        return code? code->file : nullptr;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -250,7 +269,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if(!__sections.size())
         {
-            code_section_builder_t(global_context, code.c_str(), lang, __sections, __pool).build();
+            code_section_builder_t(global_context, this, lang, __sections, __pool).build();
         }
 
         return _range(__sections);

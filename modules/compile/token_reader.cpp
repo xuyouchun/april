@@ -13,7 +13,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Constructor.
     token_enumerator_base_t::token_enumerator_base_t(token_reader_context_t & context,
-        lang_t * lang, const char_t * code, size_t length, ast_file_t * file)
+        lang_t * lang, const char_t * code, size_t length, const code_file_t * file)
        : __context(context), __lang(lang), __p(al::cptr(code, length)), __file(file)
        , __logger(context.compile_context, lang)
     {
