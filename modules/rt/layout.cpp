@@ -48,79 +48,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
 
     // Type placeholder.
-    class __type_place_holder_t : public rt_type_t, public object_t
+    class __type_place_holder_t : public empty_rt_type_t, public object_t
     {
-        // Pre new object.
-        virtual void pre_new(analyzer_env_t & env) override { }
-
-        // Pre call static method.
-        virtual void pre_static_call(analyzer_env_t & env) override { }
-
-        // Gets type name.
-        virtual rt_sid_t get_name(analyzer_env_t & env) override { return rt_sid_t(); }
-
-        // Gets type kind.
-        virtual rt_type_kind_t get_kind() override { return rt_type_kind_t::__unknown__; }
-
-        // Gets base type.
-        virtual rt_type_t * get_base_type(analyzer_env_t & env,
-                                          const __gp_mgr_t * gp_manager = nullptr) override
-        {
-            return nullptr;
-        }
-
-        // Gets method offset.
-        virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override
-        {
-            return 0;
-        }
-
-        // Gets field offset.
-        virtual msize_t get_field_offset(analyzer_env_t & env, ref_t ref) override
-        {
-            return 0;
-        }
-
-        virtual void each_field(analyzer_env_t & env, each_field_t f) override { }
-
-        // Enums all methods.
-        virtual void each_method(analyzer_env_t & env, each_method_t f) override { }
-
-        // Searches method.
-        virtual ref_t search_method(analyzer_env_t & env,
-                    method_prototype_t & prototype,
-                    search_method_options_t options = search_method_options_t::default_) override
-        {
-            return ref_t::null;
-        }
-
-        // Gets variable size.
-        virtual msize_t get_variable_size(analyzer_env_t & env,
-                                          storage_type_t * out_storage_type) override
-        {
-            return 0;
-        }
-
-        // Gets assembly.
-        virtual rt_assembly_t * get_assembly() override { return nullptr; }
-
-        // Gets data type.
-        virtual vtype_t get_vtype(analyzer_env_t & env) override { return vtype_t::__unknown__; }
-
-        // Returns host type.
-        virtual rt_type_t * get_host_type() override { return nullptr; }
-
-    protected:
-
-        // When caculate size.
-        virtual msize_t on_caculate_size(analyzer_env_t & env,
-                                        storage_type_t * out_storage_type) override { return 0; }
-
-
-        // When caculate layout.
-        virtual msize_t on_caculate_layout(analyzer_env_t & env, msize_t base_size,
-                                        storage_type_t * out_storage_type) override { return 0; }
-
+        // Empty
     };
 
     //-------- ---------- ---------- ---------- ----------

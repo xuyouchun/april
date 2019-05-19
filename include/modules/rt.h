@@ -915,7 +915,84 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return type->get_kind() == rt_type_kind_t::general;
     }
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
+
+    // The empty rt_type_t.
+    class empty_rt_type_t : public rt_type_t
+    {
+        // Pre new object.
+        virtual void pre_new(analyzer_env_t & env) override { X_UNIMPLEMENTED(); }
+
+        // Pre call static method.
+        virtual void pre_static_call(analyzer_env_t & env) override { X_UNIMPLEMENTED(); }
+
+        // Gets type name.
+        virtual rt_sid_t get_name(analyzer_env_t & env) override { X_UNIMPLEMENTED(); }
+
+        // Gets type kind.
+        virtual rt_type_kind_t get_kind() override { X_UNIMPLEMENTED(); }
+
+        // Gets base type.
+        virtual rt_type_t * get_base_type(analyzer_env_t & env,
+                                          const __gp_mgr_t * gp_manager = nullptr) override
+        {
+            X_UNIMPLEMENTED();
+        }
+
+        // Gets method offset.
+        virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override
+        {
+            X_UNIMPLEMENTED();
+        }
+
+        // Gets field offset.
+        virtual msize_t get_field_offset(analyzer_env_t & env, ref_t ref) override
+        {
+            X_UNIMPLEMENTED();
+        }
+
+        virtual void each_field(analyzer_env_t & env, each_field_t f) override { X_UNIMPLEMENTED(); }
+
+        // Enums all methods.
+        virtual void each_method(analyzer_env_t & env, each_method_t f) override { X_UNIMPLEMENTED(); }
+
+        // Searches method.
+        virtual ref_t search_method(analyzer_env_t & env,
+                    method_prototype_t & prototype,
+                    search_method_options_t options = search_method_options_t::default_) override
+        {
+            X_UNIMPLEMENTED();
+        }
+
+        // Gets variable size.
+        virtual msize_t get_variable_size(analyzer_env_t & env,
+                                          storage_type_t * out_storage_type) override
+        {
+            X_UNIMPLEMENTED();
+        }
+
+        // Gets assembly.
+        virtual rt_assembly_t * get_assembly() override { X_UNIMPLEMENTED(); }
+
+        // Gets data type.
+        virtual vtype_t get_vtype(analyzer_env_t & env) override { X_UNIMPLEMENTED(); }
+
+        // Returns host type.
+        virtual rt_type_t * get_host_type() override { X_UNIMPLEMENTED(); }
+
+    protected:
+
+        // When caculate size.
+        virtual msize_t on_caculate_size(analyzer_env_t & env,
+                    storage_type_t * out_storage_type) override { X_UNIMPLEMENTED(); }
+
+
+        // When caculate layout.
+        virtual msize_t on_caculate_layout(analyzer_env_t & env, msize_t base_size,
+                    storage_type_t * out_storage_type) override { X_UNIMPLEMENTED(); }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // General like type.
 
     class __rt_general_like_type_t : public rt_type_t
@@ -933,7 +1010,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                                 storage_type_t * out_storage_type) override final;
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime general type.
     class rt_general_type_t : public __rt_general_like_type_t
@@ -1022,7 +1099,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         void __build_vtbl(analyzer_env_t & env);
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime type ref.
     class rt_type_ref_t : public rt_object_t
@@ -1032,7 +1109,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime generic type.
     class rt_generic_type_t : public __rt_general_like_type_t
@@ -1123,7 +1200,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         int __b = 0;        // TODO: why it's setted valuel 1?
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime array time.
     class rt_array_type_t : public rt_type_t
@@ -1201,7 +1278,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                                         storage_type_t * out_storage_type) override final;
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime bytes.
     struct rt_bytes_t
@@ -1210,7 +1287,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         size_t         length   = 0;
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime method base.
     class rt_method_base_t
@@ -1221,7 +1298,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual rt_sid_t get_name() = 0;
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
     // rt_method_t
 
     // Runtime method.
@@ -1247,7 +1324,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         int generic_param_count();
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
     // rt_generic_method_t
 
     // Runtime generic method.
@@ -1282,7 +1359,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual rt_sid_t get_name() override;
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime method ref.
     class rt_method_ref_t : public rt_object_t
@@ -1294,7 +1371,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         msize_t     offset = unknown_msize;
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime field base.
 
@@ -1312,7 +1389,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime general field.
     class rt_field_t : public rt_member_t
@@ -1323,7 +1400,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime generic field.
     class rt_generic_field_t : public rt_object_t
@@ -1332,7 +1409,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime field ref.
     class rt_field_ref_t : public rt_object_t
@@ -1342,7 +1419,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime event.
     class rt_event_t : public rt_member_t
@@ -1352,7 +1429,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime event ref.
     class rt_event_ref_t : public rt_object_t
@@ -1362,7 +1439,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime property.
     class rt_property_t : public rt_member_t
@@ -1372,7 +1449,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime super type.
     class rt_super_type_t : public rt_object_t
@@ -1382,7 +1459,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime nest type.
     class rt_nest_type_t : public rt_object_t
@@ -1392,7 +1469,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime property ref.
     class rt_property_ref_t : public rt_object_t
@@ -1402,7 +1479,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime generic param.
     class rt_generic_param_t : public rt_object_t
@@ -1412,7 +1489,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime param.
     class rt_param_t : public rt_object_t
@@ -1422,7 +1499,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime generic argument.
     class rt_generic_argument_t : public rt_object_t
@@ -1432,7 +1509,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime attribute.
     class rt_attribute_t : public rt_object_t
@@ -1442,7 +1519,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime attribute arguments.
     class rt_attribute_argument_t : public rt_object_t
@@ -1452,7 +1529,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime method ref param.
     class rt_method_ref_param_t : public rt_object_t
@@ -1462,7 +1539,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime assembly ref.
     class rt_assembly_ref_t : public rt_object_t
@@ -1472,7 +1549,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime param type.
     struct rt_ptype_t
@@ -1489,7 +1566,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         param_type_t    param_type = param_type_t::__default__;
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     // Runtime assembly.
     class rt_assembly_t : public rt_object_t
