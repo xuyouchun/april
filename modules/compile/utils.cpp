@@ -200,4 +200,47 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns format error line.
+    string_t format_error_line(code_unit_t * cu, const string_t & err_msg)
+    {
+        _A(cu != nullptr);
+
+        const code_file_t * file = cu->file;
+        string_t msg;
+
+        if(file != nullptr)
+        {
+            codepos_helper_t h(file->get_source_code());
+            codepos_t pos = h.pos_of(cu->s);
+
+            auto pair = cu->current_line_pos();
+            const char_t * s = pair.first, * s_end = s;
+
+            while(*s_end != _T('\0') && !al::is_lineend(*s_end))
+            {
+                s_end ++;
+            }
+
+            string_t line(s, s_end);
+
+            msg = _F(_T("%1%:%2%:%3%: %4%\n%5%"),
+                file->get_file_name(), pos.line, pos.col, err_msg, line
+            );
+
+            if(cu->s - s > 0)
+            {
+                msg.append(cu->s - s, ' ');
+                msg.append(string_t(cu->length, '~'));
+            }
+        }
+        else
+        {
+            msg = _F(_T("%1%: %2%"), cu->current_line(), err_msg);
+        }
+
+        return msg;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
 } } }

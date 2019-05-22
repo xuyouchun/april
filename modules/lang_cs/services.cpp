@@ -109,8 +109,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Ast build service
-    ast_node_t * cs_lang_service_t::build_ast(ast_context_t & context,
-                                                        lang_ast_build_args_t & args)
+    ast_node_t * cs_lang_service_t::build_ast(ast_context_t & context, lang_ast_build_args_t & args)
     {
         #define __Build(name)   AstBuilderName(name)(context, args).build()
         #define __Case_(name, builder_name)  case type_t::name: return __Build(builder_name);

@@ -108,6 +108,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if(node == nullptr)
             return nullptr;
 
+        code_element_t * last_element = nullptr;
         for(analyzer_element_t & element : __args.elements)
         {
             switch(element.type)
@@ -115,11 +116,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 case analyzer_element_type_t::token: {
                     ast_builder_apply_token_args_t args;
                     this->apply_token(element.token, args);
+                    last_element = element.token;
                 }   break;
 
                 case analyzer_element_type_t::ast_node: {
                     ast_builder_apply_ast_args_t args { __get_node_flag(element) };
                     this->apply_ast(element.ast_node, args);
+                    last_element = element.ast_node;
                 } break;
 
                 default:
@@ -127,7 +130,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
-        ast_builder_completed_args_t args { nullptr };
+        if(last_element != nullptr)
+        {
+            code_unit_t * first = (*__args.elements.begin()).get_code_unit();
+            code_unit_t * last  = last_element->get_code_unit();
+
+            node->code_unit = combine(__context.compile_context.get_memory(), first, last);
+        }
+
+        ast_builder_completed_args_t args { };
         this->completed(args);
 
         return node;

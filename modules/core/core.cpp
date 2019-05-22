@@ -720,8 +720,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Constructor.
         __code_element_t(const char_t * s, int32_t length, const code_file_t * file)
-            : __unit(s, length, file), code_element_t(&__unit)
+            : __unit(s, length, file)
         { }
+
+        // Returns code unit.
+        virtual code_unit_t * get_code_unit() override
+        {
+            return &__unit;
+        }
 
     private:
         code_unit_t __unit;
@@ -732,23 +738,49 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Combines code elements.
     code_element_t * combine(memory_t * memory, code_element_t * from, code_element_t * to)
     {
+        if(from == to)
+            return from;
+
         if(from == nullptr || to == nullptr)
             return from != nullptr? from : to;
 
-        if(from->code_unit == nullptr || to->code_unit == nullptr)
-            return from->code_unit != nullptr? from : to;
+        code_unit_t * from_code_unit = from->get_code_unit();
+        code_unit_t * to_code_unit   = to->get_code_unit();
 
-        _A(from->code_unit->file == to->code_unit->file);
+        if(from_code_unit == nullptr || to_code_unit == nullptr)
+            return from_code_unit != nullptr? from : to;
 
-        if(to->code_unit->s < from->code_unit->s)
+        _A(from_code_unit->file == to_code_unit->file);
+
+        if(to_code_unit->s < from_code_unit->s)
             return from;
 
         return memory_t::new_obj<__code_element_t>(memory,
-            from->code_unit->s,
-            to->code_unit->s - from->code_unit->s + to->code_unit->length,
-            from->code_unit->file
+            from_code_unit->s,
+            to_code_unit->s - from_code_unit->s + to_code_unit->length,
+            from_code_unit->file
         );
     }
+
+    // Combines code units.
+    code_unit_t * combine(memory_t * memory, code_unit_t * from, code_unit_t * to)
+    {
+        if(from == to)
+            return from;
+
+        if(from == nullptr || to == nullptr)
+            return from != nullptr? from : to;
+
+        _A(from->file == to->file);
+
+        if(to->s < from->s)
+            return from;
+
+        return memory_t::new_obj<code_unit_t>(memory,
+            from->s, to->s - from->s + to->length, from->file
+        );
+    }
+
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -2066,6 +2098,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         if(from == to)
             return true;
+
+        if(is_null_type(from))
+        {
+            if(is_null_type(to) || is_ref_type(to))
+                return true;
+        }
 
         if(__is_mobject(from) || __is_mobject(to))
             return is_super_type(from, to);

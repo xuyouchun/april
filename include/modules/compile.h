@@ -1167,10 +1167,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
     public:
         virtual void log(code_element_t * element, log_level_t level,
-                            const string_t & name, const string_t & message) override
-        {
-            _PF(_T("[%1%] %2%:%3%"), level, name, message);
-        }
+                            const string_t & name, const string_t & message) override;
     };
 
     ////////// ////////// ////////// ////////// //////////

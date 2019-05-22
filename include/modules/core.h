@@ -180,28 +180,42 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
 
     // Code element with code unit.
-    class code_element_t
+    X_INTERFACE code_element_t
     {
-    public:
-        code_element_t() = default;
-        code_element_t(code_unit_t * unit) : code_unit(unit) { }
-
-        code_unit_t * code_unit = nullptr;
+        // Returns code unit.
+        virtual code_unit_t * get_code_unit() = 0;
     };
 
-    // Combines code elements, its code unit will combined.
+    // Combines code elements, its code unit will be combined.
     code_element_t * combine(memory_t * memory, code_element_t * from, code_element_t * to);
+
+    // Combines code units.
+    code_unit_t * combine(memory_t * memory, code_unit_t * from, code_unit_t * to);
 
     ////////// ////////// ////////// ////////// //////////
 
     // Code element wrapper, append code_unit to an object.
-    template<typename obj_t>
-    class code_element_wrapper_t : public obj_t, public code_element_t
+    template<typename _obj_t>
+    class code_element_wrapper_t : public _obj_t, public code_element_t
     {
-        typedef obj_t __super_t;
+        typedef _obj_t __super_t;
 
     public:
         using __super_t::__super_t;
+
+        // Returns code unit.
+        virtual code_unit_t * get_code_unit() override
+        {
+            static_assert(
+                !std::is_base_of<code_element_t, _obj_t>::value,
+                "an object for code element wrapper cannot be base of code_element_t"
+            );
+
+            return code_unit;
+        }
+
+        // Code unit.
+        code_unit_t * code_unit = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -462,7 +476,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Constructors.
         token_t(token_value_t value, const char_t * s, int32_t length,
             token_data_t * data = nullptr, const code_file_t * file = nullptr)
-            : code_element_t(&code_unit), code_unit(s, length, file), value(value), data(data)
+            : code_unit(s, length, file), value(value), data(data)
         { } 
 
         // Constructors.
@@ -480,6 +494,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Code unit.
         code_unit_t code_unit;
+
+        // Returns code unit.
+        virtual code_unit_t * get_code_unit() override { return &code_unit; }
 
         // Converts to code_unit_t *.
         operator code_unit_t * () { return &code_unit; }
@@ -1416,8 +1433,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef decorate_value_t __super_t;
 
     public:
-        decorate_t() = default;
-        decorate_t(const decorate_value_t & value) : __super_t(value) { }
+        decorate_t() _NE : decorate_t(default_value) { }
+        decorate_t(const decorate_value_t & value) _NE : __super_t(value) { }
 
         typedef decorate_t * itype_t;
 
@@ -2216,6 +2233,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     typedef __named_base_t<type_t> __named_type_t;
 
+    // Returns whether the type is reference type.
+    X_INLINE bool is_ref_type(type_t * type)
+    {
+        _A(type != nullptr);
+        return is_ref_type(type->this_ttype());
+    }
+
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Returns whether a type is a base type of specified type.
@@ -2318,6 +2342,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Signle instance of null type.
         static null_type_t * instance();
     };
+
+    // Returns whether the type is null type.
+    X_INLINE bool is_null_type(type_t * type)
+    {
+        return type == nullptr || type == null_type_t::instance();
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // generic_param_t
@@ -5097,6 +5127,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // On commit it.
         virtual void on_commit() { }
+
+        // Returns code unit.
+        virtual code_unit_t * get_code_unit() override { return code_unit; }
+
+        // Code unit.
+        code_unit_t * code_unit = nullptr;
 
         // Returns ast node at index.
         ast_node_t * operator[](size_t index) const

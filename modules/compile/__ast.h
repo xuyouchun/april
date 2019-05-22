@@ -11,8 +11,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename obj_t>
         using __w_t = code_element_wrapper_t<obj_t>;
 
-        template<typename exp_t>
-        using __wexp_t = __w_t<system_expression_t<exp_t>>;
+        template<typename _exp_t>
+        using __se_t = system_expression_t<_exp_t>;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -464,6 +464,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Unexpected param default value.
         unexpected_param_default_value,
+
+        // A params parameter must be a single dimensional array. 
+        params_parameter_type_error,
+
+        // A params parameter must be the last parameter in a formal parameter list.
+        params_parameter_must_at_last,
 
         // Condition missing.
         condition_missing,
@@ -1248,7 +1254,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __##name##_ast_node_data_t,                                 \
                     decltype(value), value>                                     \
             {                                                                   \
-                enum {
+                enum subnode_t {
 
 
     #define EndAst(name)                                                        \
@@ -1262,6 +1268,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         Ast(name, value)                                                        \
         EndAst(name)
 
+    ////////// ////////// ////////// ////////// //////////
+
+    template<
+        typename _method_ast_t,
+        typename _eobject_t = std::remove_pointer_t<typename _method_ast_t::etype_t>
+    >
+    class __ast_t : public _method_ast_t, public _eobject_t
+    {
+        typedef std::remove_pointer_t<typename _method_ast_t::etype_t> __eobject_t;
+
+    public:
+
+        // Returns this eobject.
+        virtual __eobject_t * to_eobject() override
+        {
+            return (__eobject_t *)this;
+        }
+
+    protected:
+
+        // Returns this eobject.
+        X_ALWAYS_INLINE _eobject_t * __this() const { return (_eobject_t *)this; }
+
+        // Sets this eobject.
+        X_ALWAYS_INLINE void __set_this(_eobject_t && obj) { (_eobject_t *)this = obj; }
+    };
     
     ////////// ////////// ////////// ////////// //////////
     // module
@@ -1288,9 +1320,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    namespace
+    {
+        class __mname_struct_t : public emname_t
+        {
+        protected:
+
+            // Returns this multi-name.
+            mname_t *  __this_mname()  { return (mname_t *)this; }
+
+            // Returns this eobject.
+            emname_t * __this_emname() { return (emname_t *)this; }
+
+        private:
+            byte_t __[sizeof(mname_t) - sizeof(emname_t)];
+        };
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     // Multi-name ast node.
     class mname_ast_node_t : public __mname_ast_node_t
-                           , public mname_ast_t
+                           , public __ast_t<mname_ast_t, __mname_struct_t>
     {
         typedef __mname_ast_node_t __super_t;
 
@@ -1298,7 +1349,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename ... args_t>
         mname_ast_node_t(args_t && ... args) : __super_t(std::forward<args_t>(args) ...)
         {
-            new ((void *)__mname) mname_t();
+            new ((void *)__this_mname()) mname_t();
         }
 
         // Walks this node.
@@ -1309,22 +1360,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Append part.
         void append_part(name_t name, __el_t * el);
-
-        // Returns eobject.
-        virtual emname_t * to_eobject() override;
-
-    private:
-        union
-        {
-            byte_t  __mname[sizeof(mname_t)];
-            byte_t  __emname[sizeof(__w_t<emname_t>)];
-        };
-
-        // Returns this multi-name.
-        mname_t *  __this_mname()  { return (mname_t *)__mname;   }
-
-        // Returns this eobject.
-        emname_t * __this_emname() { return (emname_t *)__emname; }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1341,7 +1376,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Expressions ast node.
     class expressions_ast_node_t : public __expressions_ast_node_t
-                                 , public expression_ast_t
+                                 , public __ast_t<expression_ast_t, expressions_t>
     {
         typedef __expressions_ast_node_t __super_t;
 
@@ -1356,9 +1391,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        expressions_t __expressions;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1601,7 +1633,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // General type name ast node.
     class general_type_name_ast_node_t
             : public __type_name_ast_node_base_t<__general_type_name_ast_node_t>
-            , public type_name_ast_t
+            , public __ast_t<type_name_ast_t, general_type_name_t>
     {
         typedef __type_name_ast_node_base_t<__general_type_name_ast_node_t> __super_t;
 
@@ -1614,15 +1646,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // On commits it.
         virtual void on_commit() override;
 
-        // Returns eobject.
-        virtual type_name_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<general_type_name_t> __type_name;
-
         // Walks confirm step.
         void __walk_confirm(ast_walk_context_t & context);
     };
@@ -1641,7 +1668,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Typename unit ast node.
     class type_name_unit_ast_node_t : public __type_name_unit_ast_node_t
-                                    , public type_name_unit_ast_t
+                                    , public __ast_t<type_name_unit_ast_t>
     {
         typedef __type_name_unit_ast_node_t __super_t;
 
@@ -1654,14 +1681,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits it.
         virtual void on_commit() override;
 
-        // Returns eobject.
-        virtual type_name_unit_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<type_name_unit_t> __type_name_unit;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1683,7 +1704,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Array typename ast node.
     class array_type_name_ast_node_t
             : public __type_name_ast_node_base_t<__array_type_name_ast_node_t>
-            , public type_name_ast_t
+            , public __ast_t<type_name_ast_t, array_type_name_t>
     {
         typedef __type_name_ast_node_base_t<__array_type_name_ast_node_t> __super_t;
 
@@ -1693,15 +1714,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits it.
         virtual void on_commit() override;
 
-        // Returns the eobject.
-        virtual type_name_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<array_type_name_t> __type_name;
-
         // Walks the confirm step.
         void __walk_confirm(ast_walk_context_t & context);
     };
@@ -1748,7 +1764,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Typedef param ast node.
     class type_def_param_ast_node_t : public __type_def_param_ast_node_t
-                                    , public type_def_param_ast_t
+                                    , public __ast_t<type_def_param_ast_t>
     {
         typedef __type_def_param_ast_node_t __super_t;
 
@@ -1761,14 +1777,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual type_def_param_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<type_def_param_t> __type_def_param;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1786,7 +1796,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Typedef params ast node.
     class type_def_params_ast_node_t : public __type_def_params_ast_node_t
-                                     , public type_def_params_ast_t
+                                     , public __ast_t<type_def_params_ast_t>
     {
         typedef __type_def_params_ast_node_t __super_t;
 
@@ -1796,14 +1806,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual type_def_params_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        type_def_params_t __type_def_params;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1824,7 +1828,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Typedef ast node.
     class type_def_ast_node_t : public __type_def_ast_node_t
-                              , public type_def_ast_t
+                              , public __ast_t<type_def_ast_t>
     {
         typedef __type_def_ast_node_t __super_t;
 
@@ -1837,14 +1841,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual type_def_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        type_def_t __type_def;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1862,7 +1860,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Typeof ast node.
     class type_of_ast_node_t : public __type_of_ast_node_t
-                             , public expression_ast_t
+                             , public __ast_t<expression_ast_t, type_of_expression_t>
     {
         typedef __type_of_ast_node_t __super_t;
 
@@ -1872,14 +1870,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual expression_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<type_of_expression_t> __type_of;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1900,7 +1892,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Argument ast node.
     class argument_ast_node_t : public __argument_ast_node_t
-                              , public argument_ast_t
+                              , public __ast_t<argument_ast_t>
     {
         typedef __argument_ast_node_t __super_t;
 
@@ -1916,14 +1908,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual argument_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        argument_t __argument;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1941,7 +1927,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Arguments ast node.
     class arguments_ast_node_t : public __arguments_ast_node_t
-                               , public arguments_ast_t
+                               , public __ast_t<arguments_ast_t>
     {
         typedef __arguments_ast_node_t __super_t;
 
@@ -1953,12 +1939,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-        // Returns this eobject.
-        virtual arguments_t * to_eobject() override;
-
-    private:
-        arguments_t __arguments;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1982,7 +1962,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Param ast node.
     class param_ast_node_t : public __param_ast_node_t
-                           , public param_ast_t
+                           , public __ast_t<param_ast_t>
     {
         typedef __param_ast_node_t __super_t;
 
@@ -1998,14 +1978,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual param_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        param_t __param;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2023,7 +1997,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Params ast node.
     class params_ast_node_t : public __params_ast_node_t
-                            , public params_ast_t
+                            , public __ast_t<params_ast_t>
     {
         typedef __params_ast_node_t __super_t;
 
@@ -2033,14 +2007,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits it.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual params_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        params_t __params;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2058,7 +2026,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Generic param ast node.
     class generic_param_ast_node_t : public __generic_param_ast_node_t
-                                   , public generic_param_ast_t
+                                   , public __ast_t<generic_param_ast_t>
     {
         typedef __generic_param_ast_node_t __super_t;
 
@@ -2074,14 +2042,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this node.
-        virtual generic_param_t * to_eobject() override;
-
         // Wallks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        generic_param_t __param;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2099,7 +2061,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Generic params ast node.
     class generic_params_ast_node_t : public __generic_params_ast_node_t
-                                    , public generic_params_ast_t
+                                    , public __ast_t<generic_params_ast_t>
     {
         typedef __generic_params_ast_node_t __super_t;
 
@@ -2109,14 +2071,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual generic_params_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        generic_params_t __generic_params;
     };
    
     ////////// ////////// ////////// ////////// //////////
@@ -2134,7 +2090,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Generic constraint ast node.
     class generic_constraint_ast_node_t : public __generic_constraint_ast_node_t
-                                        , public generic_constraint_ast_t
+                                        , public __ast_t<generic_constraint_ast_t>
     {
         typedef __generic_constraint_ast_node_t __super_t;
 
@@ -2150,14 +2106,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual generic_constraint_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-       generic_constraint_t __generic_constraint;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2175,7 +2125,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Generic constraints ast node.
     class generic_constraints_ast_node_t : public __generic_constraints_ast_node_t
-                                         , public generic_constraints_ast_t
+                                         , public __ast_t<generic_constraints_ast_t>
     {
         typedef __generic_constraints_ast_node_t __super_t;
 
@@ -2185,14 +2135,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits it.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual generic_constraints_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-       generic_constraints_t __generic_constraints;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2210,7 +2154,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Generic argument ast node.
     class generic_arg_ast_node_t : public __generic_arg_ast_node_t
-                                 , public generic_arg_ast_t
+                                 , public __ast_t<generic_arg_ast_t>
     {
         typedef __generic_arg_ast_node_t __super_t;
 
@@ -2220,14 +2164,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual generic_arg_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        generic_arg_t       __arg;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2245,7 +2183,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Generic arguments ast node.
     class generic_args_ast_node_t : public __generic_args_ast_node_t
-                                  , public generic_args_ast_t
+                                  , public __ast_t<generic_args_ast_t>
     {
         typedef __generic_args_ast_node_t __super_t;
 
@@ -2255,14 +2193,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual generic_args_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        generic_args_t __args;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2283,7 +2215,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Attribute ast node.
     class attribute_ast_node_t : public __attribute_ast_node_t
-                               , public attribute_ast_t
+                               , public __ast_t<attribute_ast_t>
     {
         typedef __attribute_ast_node_t __super_t;
 
@@ -2294,14 +2226,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void on_commit() override;
 
         // Returns this eobject.
-        virtual attribute_t * to_eobject() override;
+        attribute_t * to_eobject() override;
 
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        attribute_t __attr;
-
         // Returns compile time attribute.
         attribute_t * __get_compile_time_attribute();
 
@@ -2324,7 +2254,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Attributes ast node.
     class attributes_ast_node_t : public __attributes_ast_node_t
-                                , public attributes_ast_t
+                                , public __ast_t<attributes_ast_t>
     {
         typedef __attributes_ast_node_t __super_t;
 
@@ -2334,14 +2264,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual attributes_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        attributes_t __attributes;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2353,7 +2277,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Constant ast node.
     class cvalue_ast_node_t : public __cvalue_ast_node_t
-                            , public cvalue_ast_t
+                            , public __ast_t<cvalue_ast_t>
     {
         typedef __cvalue_ast_node_t __super_t;
 
@@ -2363,17 +2287,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
-        // Returns this eobject.
-        virtual cvalue_t * to_eobject() override;
-
         // Sets value.
         void set_value(const cvalue_t & value);
 
         // Sets value.
         void set_value(const token_data_t & data);
-
-    private:
-        cvalue_t __value;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2385,7 +2303,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Decorate ast node.
     class decorate_ast_node_t : public __decorate_ast_node_t
-                              , public decorate_ast_t
+                              , public __ast_t<decorate_ast_t>
     {
         typedef __decorate_ast_node_t __super_t;
 
@@ -2427,12 +2345,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Commits this node.
         virtual void on_commit() override;
-
-        // Returns this eobject.
-        virtual decorate_t * to_eobject() override;
-
-    private:
-        decorate_t __decorate = decorate_t::default_value;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2756,7 +2668,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Type ast node.
     class type_ast_node_t : public __type_ast_node_t
-                          , public type_ast_t
+                          , public __ast_t<type_ast_t, general_type_t>
     {
         typedef __type_ast_node_t __super_t;
 
@@ -2775,14 +2687,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        type_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<general_type_t> __type;
 
         // Walks default step.
         void __walk_default(ast_walk_context_t & context, int step, void * tag);
@@ -2809,7 +2717,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Expression statement ast node.
     class expression_st_ast_node_t : public __expression_st_ast_node_t
-                                   , public statement_ast_t
+                                   , public __ast_t<statement_ast_t, expression_statement_t>
     {
         typedef __expression_st_ast_node_t __super_t;
 
@@ -2819,14 +2727,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<expression_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2844,7 +2746,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Typedef statement ast node.
     class type_def_st_ast_node_t : public __type_def_st_ast_node_t
-                                 , public statement_ast_t
+                                 , public __ast_t<statement_ast_t, type_def_statement_t>
     {
         typedef __type_def_st_ast_node_t __super_t;
 
@@ -2854,14 +2756,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<type_def_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2882,7 +2778,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Defination statement ast node.
     class defination_st_ast_node_t : public __defination_st_ast_node_t
-                                   , public statement_ast_t
+                                   , public __ast_t<statement_ast_t, defination_statement_t>
     {
         typedef __defination_st_ast_node_t __super_t;
 
@@ -2892,9 +2788,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
@@ -2902,8 +2795,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void set_constant(bool constant);
 
     private:
-        __w_t<defination_statement_t> __statement;
-
         // Walks default step.
         void __walk_default(ast_walk_context_t & context);
 
@@ -2920,21 +2811,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Break statements ast node.
     class break_st_ast_node_t : public __break_st_ast_node_t
-                              , public statement_ast_t
+                              , public __ast_t<statement_ast_t, break_statement_t>
     {
         typedef __break_st_ast_node_t __super_t;
 
     public:
         using __break_st_ast_node_t::__break_st_ast_node_t;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<break_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2947,21 +2832,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Continue statement ast node.
     class continue_st_ast_node_t : public __continue_st_ast_node_t
-                                 , public statement_ast_t
+                                 , public __ast_t<statement_ast_t, continue_statement_t>
     {
         typedef __continue_st_ast_node_t __super_t;
 
     public:
         using __continue_st_ast_node_t::__continue_st_ast_node_t;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<continue_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2979,7 +2858,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Throw statement ast node.
     class throw_st_ast_node_t : public __throw_st_ast_node_t
-                              , public statement_ast_t
+                              , public __ast_t<statement_ast_t, throw_statement_t>
     {
         typedef __throw_st_ast_node_t __super_t;
 
@@ -2989,14 +2868,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<throw_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3009,7 +2882,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Goto statement ast node.
     class goto_st_ast_node_t : public __goto_st_ast_node_t
-                             , public statement_ast_t
+                             , public __ast_t<statement_ast_t, goto_statement_t>
     {
         typedef __goto_st_ast_node_t __super_t;
 
@@ -3022,14 +2895,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<goto_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3047,7 +2914,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Return statement ast node.
     class return_st_ast_node_t : public __return_st_ast_node_t
-                               , public statement_ast_t
+                               , public __ast_t<statement_ast_t, return_statement_t>
     {
         typedef __return_st_ast_node_t __super_t;
 
@@ -3057,15 +2924,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<return_statement_t> __statement;
-
         // Walks post analysis step.
         void __walk_post_analysis(ast_walk_context_t & context);
     };
@@ -3087,7 +2949,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Do ... while statement ast node.
     class do_while_st_ast_node_t : public __do_while_st_ast_node_t
-                                 , public statement_ast_t
+                                 , public __ast_t<statement_ast_t, do_while_statement_t>
     {
         typedef __do_while_st_ast_node_t __super_t;
 
@@ -3097,14 +2959,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<do_while_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3125,7 +2981,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Loop ... until statement ast node.
     class loop_until_st_ast_node_t : public __loop_until_st_ast_node_t
-                                   , public statement_ast_t
+                                   , public __ast_t<statement_ast_t, loop_until_statement_t>
     {
         typedef __loop_until_st_ast_node_t __super_t;
 
@@ -3135,14 +2991,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<loop_until_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3163,7 +3013,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // While statement ast node.
     class while_st_ast_node_t : public __while_st_ast_node_t
-                              , public statement_ast_t
+                              , public __ast_t<statement_ast_t, while_statement_t>
     {
         typedef __while_st_ast_node_t __super_t;
 
@@ -3173,14 +3023,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<while_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3207,7 +3051,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // For statement ast node.
     class for_st_ast_node_t : public __for_st_ast_node_t
-                            , public statement_ast_t
+                            , public __ast_t<statement_ast_t, for_statement_t>
     {
         typedef __for_st_ast_node_t __super_t;
 
@@ -3217,14 +3061,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits it.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<for_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3247,7 +3085,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // For...each statement ast node.
     class for_each_st_ast_node_t : public __for_each_st_ast_node_t
-                                 , public statement_ast_t
+                                 , public __ast_t<statement_ast_t, for_each_statement_t>
     {
         typedef __for_each_st_ast_node_t __super_t;
 
@@ -3260,14 +3098,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<for_each_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3291,7 +3123,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // If statement ast node.
     class if_st_ast_node_t : public __if_st_ast_node_t
-                           , public statement_ast_t
+                           , public __ast_t<statement_ast_t, if_statement_t>
     {
         typedef __if_st_ast_node_t __super_t;
 
@@ -3301,14 +3133,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<if_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3329,7 +3155,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Switch statement ast node.
     class switch_st_ast_node_t : public __switch_st_ast_node_t
-                               , public statement_ast_t
+                               , public __ast_t<statement_ast_t, switch_statement_t>
     {
         typedef __switch_st_ast_node_t __super_t;
 
@@ -3339,14 +3165,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<switch_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3367,7 +3187,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Case ast node.
     class case_ast_node_t : public __case_ast_node_t
-                          , public case_ast_t
+                          , public __ast_t<case_ast_t>
     {
         typedef __case_ast_node_t __super_t;
 
@@ -3380,14 +3200,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual case_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<case_t> __case;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3411,7 +3225,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Try statement ast node.
     class try_st_ast_node_t : public __try_st_ast_node_t
-                            , public statement_ast_t
+                            , public __ast_t<statement_ast_t, try_statement_t>
     {
         typedef __try_st_ast_node_t __super_t;
 
@@ -3421,14 +3235,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walk this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<try_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3449,7 +3257,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Catch ast node.
     class catch_ast_node_t : public __catch_ast_node_t
-                           , public catch_ast_t
+                           , public __ast_t<catch_ast_t>
     {
         typedef __catch_ast_node_t __super_t;
 
@@ -3462,15 +3270,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual catch_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __el_t * __variable_el;
-        __w_t<catch_t> __catch;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3483,21 +3287,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Empty statement ast node.
     class empty_st_ast_node_t : public __empty_st_ast_node_t
-                              , public statement_ast_t
+                              , public __ast_t<statement_ast_t, empty_statement_t>
     {
         typedef __empty_st_ast_node_t __super_t;
 
     public:
         using __empty_st_ast_node_t::__empty_st_ast_node_t;
 
-        // Returns this eobject.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<empty_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3515,7 +3313,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Statement group statement ast node.
     class statement_group_st_ast_node_t : public __statement_group_st_ast_node_t
-                                        , public statement_ast_t
+                                        , public __ast_t<statement_ast_t, statement_group_t>
     {
         typedef __statement_group_st_ast_node_t __super_t;
 
@@ -3525,14 +3323,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits it.
         virtual void on_commit() override;
 
-        // Returns this statement.
-        virtual statement_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<statement_group_t> __statement_group;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3550,7 +3342,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Typename expression ast node.
     class type_name_exp_ast_node_t : public __type_name_exp_ast_node_t
-                                   , public expression_ast_t
+                                   , public __ast_t<expression_ast_t, __se_t<type_name_expression_t>>
     {
         typedef __type_name_exp_ast_node_t __super_t;
 
@@ -3560,14 +3352,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual expression_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<type_name_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3588,7 +3374,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Type cast expression ast node.
     class type_cast_exp_ast_node_t : public __type_cast_exp_ast_node_t
-                                   , public expression_ast_t
+                                   , public __ast_t<expression_ast_t, __se_t<type_cast_expression_t>>
     {
         typedef __type_cast_exp_ast_node_t __super_t;
 
@@ -3598,14 +3384,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual expression_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<type_cast_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3629,7 +3409,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Functions ast node.
     class function_ast_node_t : public __function_ast_node_t
-                              , public expression_ast_t
+                              , public __ast_t<expression_ast_t, __se_t<function_expression_t>>
     {
         typedef __function_ast_node_t __super_t;
 
@@ -3639,14 +3419,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual expression_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<function_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3667,7 +3441,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Index ast node.
     class index_ast_node_t : public __index_ast_node_t
-                           , public expression_ast_t
+                           , public __ast_t<expression_ast_t, __se_t<index_expression_t>>
     {
         typedef __index_ast_node_t __super_t;
 
@@ -3677,14 +3451,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns thid eobject.
-        virtual expression_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<index_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3705,7 +3473,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // New ast node.
     class new_ast_node_t : public __new_ast_node_t
-                         , public expression_ast_t
+                         , public __ast_t<expression_ast_t, __se_t<new_expression_t>>
     {
         typedef __new_ast_node_t __super_t;
 
@@ -3715,14 +3483,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual expression_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<new_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3746,7 +3508,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // New array ast node.
     class new_array_ast_node_t : public __new_array_ast_node_t
-                               , public expression_ast_t
+                               , public __ast_t<expression_ast_t, __se_t<new_array_expression_t>>
     {
         typedef __new_array_ast_node_t __super_t;
 
@@ -3756,14 +3518,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual expression_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __wexp_t<new_array_expression_t> __expression;
         array_length_t __get_length(dimension_t dimension);
 
         // Walks default step.
@@ -3792,7 +3550,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Array initializer ast node.
     class array_initializer_ast_node_t : public __array_initializer_ast_node_t
-                                       , public array_initializer_ast_t
+                                       , public __ast_t<array_initializer_ast_t>
     {
         typedef __array_initializer_ast_node_t __super_t;
 
@@ -3802,14 +3560,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual array_initializer_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        array_initializer_t __initializer;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3827,7 +3579,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Array lengths ast node.
     class array_lengths_ast_node_t : public __array_lengths_ast_node_t
-                                   , public array_lengths_ast_t
+                                   , public __ast_t<array_lengths_ast_t>
     {
         typedef __array_lengths_ast_node_t __super_t;
 
@@ -3837,14 +3589,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commit this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual array_lengths_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        array_lengths_t __lengths;
     };
 
 
@@ -3863,7 +3609,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Default value ast node.
     class default_value_ast_node_t : public __default_value_ast_node_t
-                                   , public expression_ast_t
+           , public __ast_t<expression_ast_t, __se_t<default_value_expression_t>>
     {
         typedef __default_value_ast_node_t __super_t;
 
@@ -3873,14 +3619,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual expression_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<default_value_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3907,7 +3647,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Field ast node.
     class field_ast_node_t : public __field_ast_node_t
-                           , public field_ast_t
+                           , public __ast_t<field_ast_t>
     {
         typedef __field_ast_node_t __super_t;
 
@@ -3920,14 +3660,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commit this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual field_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<field_t> __field;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3969,7 +3703,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Method ast node.
     class method_ast_node_t : public __method_ast_node_t
-                            , public method_ast_t
+                            , public __ast_t<method_ast_t>
     {
         typedef __method_ast_node_t __super_t;
 
@@ -3988,14 +3722,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual method_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<method_t> __method;
         const operator_property_t * __op_property = nullptr;
 
         void __walk_default(ast_walk_context_t & context);
@@ -4035,7 +3765,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Property ast node.
     class property_ast_node_t : public __property_ast_node_t
-                              , public property_ast_t
+                              , public __ast_t<property_ast_t>
     {
         typedef __property_ast_node_t __super_t;
 
@@ -4048,15 +3778,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual property_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<property_t> __property;
-
         // Gets get/set method name.
         name_t __to_method_name(const char_t * prefix);
 
@@ -4094,7 +3819,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Events ast node.
     class event_ast_node_t : public __event_ast_node_t
-                           , public event_ast_t
+                           , public __ast_t<event_ast_t>
     {
         typedef __event_ast_node_t __super_t;
 
@@ -4107,14 +3832,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Commits this node.
         virtual void on_commit() override;
 
-        // Returns this eobject.
-        virtual event_t * to_eobject() override;
-
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<event_t> __event;
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -224,21 +224,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             ((__stack_branch_switched_buffer_t *)stack)->step : 0;
     }
 
-    /*
-    __AlwaysInline int16_t __stack_affinity(void ** stack)
-    {
-        return __branch_switched(stack)?
-            ((__stack_branch_switched_buffer_t *)stack)->affinity : 0;
-    }
-
-    __AlwaysInline __hstep_t __stack_hstep(void ** stack)
-    {
-        return __branch_switched(stack)?
-            ((__stack_branch_switched_buffer_t *)stack)->hstep :
-            ((__stack_normal_buffer_t *)stack)->hstep;
-    }
-    */
-
     // Returns tack path.
     __AlwaysInline void * __stack_path(void ** stack)
     {
@@ -298,11 +283,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         auto it = __node_units.find(u);
         if(it != __node_units.end())
         {
-            /*
-            if((*it).hstep >= u.hstep)
-                return;
-            */
-
             __node_units.erase(u);
         }
 
@@ -1311,7 +1291,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __exchange_empty();
 #endif
             __merge_branch(__branch);
-            //__print(__branch);
         }
 
     private:
@@ -1402,18 +1381,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Joins two nodes.
-        void __join(analyze_normal_node_t * prenode, __node_unit_t u/*, __hstep_t hstep = 0*/)
+        void __join(analyze_normal_node_t * prenode, __node_unit_t u)
         {
             switch(u->node_type())
             {
                 case __node_type_t::branch:
-                    __join_subnodes(prenode, ((analyze_branch_node_t *)*u)->subnodes/*, hstep*/);
+                    __join_subnodes(prenode, ((analyze_branch_node_t *)*u)->subnodes);
                     break;
 
                 case __node_type_t::branch_ref:
                 case __node_type_t::token:
                 case __node_type_t::empty:
-                    __join_node(prenode, u/*, hstep*/);
+                    __join_node(prenode, u);
                     __push(u);
                     break;
 
@@ -1421,17 +1400,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     analyze_branch_node_t * branch = __owner_branch(u);
                     if(branch->branch == nullptr)
                     {
-                        __join_node(prenode, *u/*, hstep*/);
+                        __join_node(prenode, *u);
                     }
                     else
                     {
-                        __join_subnodes(prenode, branch->nodes/*, hstep*/);
+                        __join_subnodes(prenode, branch->nodes);
 
                         typedef __repeat_type_t t;
                         __repeat_type_t repeat_type = branch->repeat_type;
                         if(repeat_type == t::star || repeat_type == t::plus)
                         {
-                            __join_subnodes(prenode, branch->subnodes/*, hstep*/);
+                            __join_subnodes(prenode, branch->subnodes);
                         }
                     }
                 }   break;
@@ -1446,17 +1425,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 switch(__get_repeat_type(normal_node))
                 {
                     case __repeat_type_t::question:
-                        __join_subnodes(prenode, normal_node->nodes/*, hstep + 1*/);
+                        __join_subnodes(prenode, normal_node->nodes);
                         break;
 
                     case __repeat_type_t::star:
-                        __join_subnodes(prenode, normal_node->nodes/*, hstep + 1*/);
+                        __join_subnodes(prenode, normal_node->nodes);
                         break;
 
                     case __repeat_type_t::plus:
                     default:
                         if(__is_illusory(*u))
-                            __join_subnodes(prenode, normal_node->nodes/*, hstep + 1*/);
+                            __join_subnodes(prenode, normal_node->nodes);
                         break;
                 }
             }
@@ -1480,8 +1459,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Join subnodes.
-        void __join_subnodes(analyze_normal_node_t * prenode, analyze_nodes_t & subnodes/*,
-                                                                        __hstep_t hstep*/)
+        void __join_subnodes(analyze_normal_node_t * prenode, analyze_nodes_t & subnodes)
         {
             auto is_self = [&subnodes](analyze_node_t * node) {
                 analyze_normal_node_t * normal_node = __to_normal(node);
@@ -1513,18 +1491,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 if(is_self(u.node))
                     continue;
 
-                __join(prenode, u.node/*, hstep + u.hstep*/); 
+                __join(prenode, u.node); 
             }
         }
 
         // Joins node.
-        void __join_node(analyze_normal_node_t * prenode, analyze_node_t * node/*, __hstep_t hstep*/)
+        void __join_node(analyze_normal_node_t * prenode, analyze_node_t * node)
         {
-            prenode->nodes.append(node/*, hstep*/);
+            prenode->nodes.append(node);
             node->branch = __branch;
-
-            //if(prenode->branch)
-            //    node->branch = prenode->branch;
         }
 
         //-------- ---------- ---------- ---------- ----------
@@ -1927,7 +1902,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             for(__node_unit_t u : nodes)
             {
-                _P(sprintf(_T("%1% => %2%(%3%)"), _str(node), _str(*u)/*, u.hstep*/));
+                _P(sprintf(_T("%1% => %2%(%3%)"), _str(node), _str(*u)));
             }
         }
     };
@@ -2029,8 +2004,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     if(ref_branch != nullptr)
                     {
                         ref_node->expandable = !ref_node->is_left_cycle || 
-                            (ref_node->index > ref_branch->index && __branch != ref_branch
-                            /*&& !__branch->inner*/);
+                            (ref_node->index > ref_branch->index && __branch != ref_branch);
 
                         ref_node->is_dead_cycle = ref_node->is_left_cycle &&
                                                    __is_dead_cycle(ref_node);
@@ -2039,14 +2013,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     {
                         ref_node->expandable = false;
                     }
-
-                    /*
-                    if(ref_node->flag[0] == _T('A'))
-                    {
-                        _PF("----------- %1%: %2% %3%",
-                            _str(ref_node), ref_node->expandable, ref_node->is_dead_cycle
-                        );
-                    }*/
                 }
             }
         }
@@ -2192,8 +2158,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         std::transform(begin, end, units, [](void ** stack) {
             return __stack_unit_t (
-                __next_stack_node(stack), __stack_step(stack), /*__stack_affinity(stack),*/
-                /*__stack_hstep(stack),*/ __stack_path(stack), __stack_entrance(stack)
+                __next_stack_node(stack), __stack_step(stack),
+                __stack_path(stack),      __stack_entrance(stack)
             );
         });
     }
@@ -2582,7 +2548,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __stack_normal_buffer_t & s = *(__stack_normal_buffer_t *)buffer;
             s.from  = *branch_stack[0];
             s.to    = *branch_stack[1];
-            //s.hstep = branch_stack[1].hstep;
         }
         else
         {
@@ -2593,17 +2558,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             s.to    = *branch_stack[size - 1];
             s.path  = context->to_stack_path(branch_stack.begin() + 1, branch_stack.end());
             s.entrance = this->entrance;
-
-            /*
-            s.affinity = std::count_if(
-                branch_stack.begin() + 1, branch_stack.begin() + size - 1,
-                [](const __node_unit_t & u) { return ((analyze_branch_node_t *)*u)->inner; }
-            );
-
-            s.hstep = al::sum(branch_stack.begin() + 1, branch_stack.end(),
-                [](const __node_unit_t & u) { return u.hstep; }
-            );
-            */
         }
 
         #undef __BufferSize
@@ -2702,17 +2656,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return _T("<NULL>");
 
         return _F(_T("%1% %2%"), _str(node), node->weight);
-        //return _F(_T("%1%(%2%)"), _str(node), (void *)node);
-        //return _F("%1% %2% %3%", _str(node), node? node->index : 0, step);
-        //return _F("%1% %2% %3%", _str(node), holes, affinity);
-
-        /*
-        string_t action_str = __action_to_string(this->action);
-
-        if(action_str.length() > 0)
-            return sprintf(_T("%1%:%2%"), _str(node), action_str);
-
-        return sprintf(_T("%1%"), _str(node));*/
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2914,19 +2857,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    /*
-    template<typename stack_nodes_t>
-    __AlwaysInline static void __increase(stack_nodes_t & nodes, __holes_t holes)
-    {
-        if(holes > 0)
-        {
-            al::for_each(nodes, [holes](__stack_node_t * n) {
-                (*n)->holes += holes;
-            });
-        }
-    }
-    */
-
     // When pushes a node to stack.
     __AlwaysInline void analyze_context_t::__stack_push(__stack_push_args_t & args,
                                                         __stack_node_t * stack_node)
@@ -2945,10 +2875,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // check end nodes
             __check_end_node(args, stack_node->parent, stack_node,
                 end_unit, (*stack_node)->action, (*stack_node)->weight
-                                        /*, 0, (*stack_node)->affinity*/
             );
-
-            //__increase(args, end_unit.hstep);
         }
 
         if(!grow_args.found)
@@ -2995,10 +2922,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Checks the node node.
     __AlwaysInline void analyze_context_t::__check_end_node(__check_end_node_args_t & args,
         __stack_node_t * parent, __stack_node_t * current, __node_unit_t end_unit,
-        __stack_node_action_t * next_action, int weight /*, __hstep_t hstep, __affinity_t affinity*/)
+        __stack_node_action_t * next_action, int weight)
     {
-        //_PF("__check_end_node: %1% %2%", _str(end_unit), *args.task.push_args.keys);
-
         if(__is_root(__owner_branch(end_unit)))
             return;
 
@@ -3020,8 +2945,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         for(__stack_unit_t & ref_unit : ref_stack->all())
         {
-            //_P(_T("__NewAction: %1% -> %2%"), (*parent)->child_tag, push_args.tag);
-
             #define __NewAction()  __new_raise_matched_event_action(            \
                 (const analyze_branch_ref_node_t *)ref_unit.node,               \
                 (*parent)->child_tag, push_args.tag, next_action                \
@@ -3055,16 +2978,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __stack_node_t * stack_node = __new_stack_node(__stack_node_value_t(
                     ref_unit.node,  (*parent)->child_tag, ref_path_node,
                     weight + ref_unit.node->weight
-                    /*, ref_unit.step*/
                 ));
 
                 if(ref_unit.step > 0)
                     parent->append_child(stack_node);
                 else
                     parent->append_sibling(stack_node);
-
-                //(*stack_node)->holes = hstep + ref_unit.hstep + (*parent)->holes;
-                //(*stack_node)->affinity = affinity + ref_unit.affinity + (*parent)->affinity;
 
                 __set_merge_identity(stack_node);
 
@@ -3088,30 +3007,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             auto ref_node = (const analyze_branch_ref_node_t *)ref_unit.node;
             __node_unit_t end_unit1;
 
-            //_PF("ref_node: %1%, expandable: %2%", _str(ref_node), ref_node->expandable);
-
             if(!ref_node->is_dead_cycle && (end_unit1 = ref_node->get_end_unit()) != nullptr)
             {
                 __check_end_node_args_t args1(args);
-                //__hstep_t hstep1 = hstep + ref_unit.hstep;
-                //__affinity_t affinity1 = affinity;
                 int weight1 = ref_unit.node->weight + weight;
 
                 if(ref_unit.step > 0)
                 {
                     __check_end_node(args1,
-                        parent, current, end_unit1, __Action(), weight1 /*, hstep1, affinity1*/
+                        parent, current, end_unit1, __Action(), weight1
                     );
                 }
                 else
                 {
                     __check_end_node(args1,
                         parent->parent, parent, end_unit1, __Action(), weight1
-                        /*, hstep1, affinity1*/
                     );
                 }
-
-                //__increase(args1, end_unit1.hstep);
             }
 
             #undef __NewAction
@@ -3167,7 +3079,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         args.found = false;
         __stack_push_args_t & push_args = args.task.push_args;
         __stack_node_t * next_stack_node = (args.model == __overwrite)? stack_node : nullptr;
-        //__holes_t holes = (*stack_node)->holes;
 
         // branch_switched stacks
         for(__stack_item_t & stack_item : stack_items)
@@ -3183,7 +3094,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 const analyze_node_t * node = unit.node;
                 __stack_node_t * new_leaf = __new_stack_node(__stack_node_value_t(
-                    node, push_args.tag, stack_item.dst /*, unit.step*/
+                    node, push_args.tag, stack_item.dst
                 ));
 
                 stack_node->append_child(new_leaf);
@@ -3192,8 +3103,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 if(push_args.tag != nullptr)
                     (*stack_node)->child_tag = push_args.tag;
 
-                //(*new_leaf)->holes = (*stack_node)->holes;
-                //(*new_leaf)->affinity = (*stack_node)->affinity + unit.affinity;
                 (*new_leaf)->weight = (*stack_node)->weight + node->weight;
 
                 __set_merge_identity(new_leaf);
@@ -3216,7 +3125,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __stack_node_value_t & value = next_stack_node->value;
                     value.node = node;
                     value.current = stack_item.dst;
-                    //value.holes += unit.hstep;
                     value.weight += node->weight;
                     __set_merge_identity(next_stack_node);
 
@@ -3228,7 +3136,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __stack_node_value_t value = stack_node->value;
                     value.node = node;
                     value.current = stack_item.dst;
-                    //value.holes = holes + unit.hstep;
                     value.weight += node->weight;
 
                     __stack_node_t * new_leaf = __new_stack_node(value);
@@ -3346,49 +3253,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef __stack_node_action_type_t atype_t;
         typedef __stack_node_raise_matched_event_action_t action_t;
 
-        //_PF(_T("__leaf_less: %1%, %2%"), leaf1, leaf2);
-        //_PF(_T("__leaf_less height: %1%, %2%"), leaf1->height(), leaf2->height());
-
-        // begin node index
-        /*_PF(_T("begin node: %1%(%2%,%3%), %4%(%5%,%6%)"),
-            _str((*leaf1)->begin_node), (*leaf1)->begin_node->index, (void *)(*leaf1)->begin_node,
-            _str((*leaf1)->begin_node), (*leaf2)->begin_node->index, (void *)(*leaf2)->begin_node
-        );*/
-
         // weight
         int weight1 = (*leaf1)->weight, weight2 = (*leaf2)->weight;
-        //_P(_T("weight : "), weight1, weight2);
         __LessReturn(weight2, weight1);
 
         int begin_index1 = (*leaf1)->begin_node->index;
         int begin_index2 = (*leaf2)->begin_node->index;
         __LessReturn(begin_index1, begin_index2);
 
-        // leaf affinity
-        //_PF(_T("affinity: %1%, %2%"), (*leaf1)->affinity, (*leaf2)->affinity);
-        //__LessReturn((*leaf2)->affinity, (*leaf1)->affinity);
-
         // action back track
         int back_track1 = __leaf_action_back_track(leaf1);
         int back_track2 = __leaf_action_back_track(leaf2);
-        //_PF(_T("back track: %1%, %2%"), back_track1, back_track2);
         __LessReturn(back_track1, back_track2);
 
         // action index
         int action_index1 = __leaf_action_index(leaf1);
         int action_index2 = __leaf_action_index(leaf2);
-        //_PF(_T("action index: %1%, %2%"), index1, index2);
         __LessReturn(action_index1, action_index2);
-
-        // leaf holes
-        //_PF(_T("holes: %1%, %2%"), (*leaf1)->holes, (*leaf2)->holes);
-        //__LessReturn((*leaf1)->holes, (*leaf2)->holes);
 
         // action value
         action_t * action1 = __leaf_first_action(leaf1), * action2 = __leaf_first_action(leaf2);
         __node_value_t value1 = action1? action1->get_value() : __unknown_node_value;
         __node_value_t value2 = action2? action2->get_value() : __unknown_node_value;
-        //_PF(_T("action value: %1%, %2%"), value1, value2);
         __LessReturn(value2, value1);
 
         return (void *)leaf1 < (void *)leaf2;
@@ -3438,15 +3324,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __sort_leafs(__leafs);
 
-        //__print_leaf_identities(__leafs);
-
         __merge_identity_t last = __I(__leafs[0]);
         __leafs.walk([&last, this](__stack_node_t * n) {
             return (__I(n) == last)?  (__remove_leaf(n), false) : (last = __I(n), true);
         }, 1);
-
-        //_P(_T("|"));
-        //__print_leaf_identities(__leafs);
     }
 
     // Prints actions.
@@ -3463,20 +3344,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Picks final leafs.
     void analyze_context_t::__pick_final_leafs()
     {
-        //_P(_T("__pick_final_leafs"));
-
         if(__leafs.size() <= 1)
             return;
 
         __sort_leafs(__leafs);
-
-        /*
-        for(const __stack_node_t * node : __leafs)
-        {
-            _P(_T("=============="));
-            __print_actions((*node)->action);
-        }
-        */
 
         __leafs.walk([this](__stack_node_t * n) {
             return __remove_leaf(n), false;
@@ -3517,7 +3388,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __node_key_t ref_key = to_branch_ref_key(branch_value);
         __node_key_t keys[] = { ref_key, __empty_node_key };
 
-        //__stack_push_args_t push_args(this, keys, args.end_tag);
         __stack_push_args_t push_args(this, keys, nullptr);
         __stack_push_task_t task(push_args);
         __stack_grow_args_t grow_args(task, __grow_only);
@@ -3527,22 +3397,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         for(__stack_node_t * leaf : push_args.new_stack_nodes)
         {
-            /*
-            _PF(_T("------ parent: %1%(%2%), node: %3%(%4%), child_tag: %5% -> %6%"),
-                (void *)parent, _str(parent->value), (void *)leaf, _str(leaf->value),
-                ((__tag_t *)(*parent)->child_tag)->index,
-                ((__tag_t *)args.end_tag)->index
-            );
-            */
-
             (*leaf)->action = __new_raise_matched_event_action(
                 (const analyze_branch_ref_node_t *)(*leaf)->node, (*parent)->child_tag,
                 args.end_tag, (*stack_node)->action
             );
-
-            //_P();
-
-            //(*leaf)->holes += end_unit.hstep;
 
             __do_stack_pop(args, leaf);
         }
@@ -3701,13 +3559,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             const analyze_branch_ref_node_t * branch_ref, __tag_t * begin_tag, __tag_t * end_tag,
             __stack_node_action_t * next_action)
     {
-        /*
-        _PF(_T("__new_raise_method_event_action: %1%, %2% -> %3%"),
-            _str(branch_ref),
-            ((token_tag_t *)begin_tag)->index, ((token_tag_t *)end_tag)->index
-        );
-        */
-
         auto action = __raise_matched_event_action_factory.new_obj(
             *this, branch_ref, begin_tag, end_tag
         );
@@ -4010,35 +3861,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    // Returns format error line.
-    static string_t __format_error_line(code_unit_t * cu, const string_t & err_msg)
-    {
-        _A(cu != nullptr);
-
-        const code_file_t * file = cu->file;
-        string_t msg;
-
-        if(file != nullptr)
-        {
-            codepos_helper_t h(file->get_source_code());
-            codepos_t pos = h.pos_of(cu->s);
-
-            auto pair = cu->current_line_pos();
-            string_t line(pair.first, pair.second);
-
-            msg = _F(_T("%1%:%2%:%3%: error: %4%\n%5%\n%6%%7%"),
-                file->get_file_name(), pos.line, pos.col, err_msg,
-                line, string_t(cu->s - pair.first, ' '), string_t(cu->length, '~')
-            );
-        }
-        else
-        {
-            msg = _F(_T("%1%: %2%"), cu->current_line(), err_msg);
-        }
-
-        return msg;
-    }
-
     // Process format error.
     void __analyzer_t::__process_format_error(const logic_error_t<__e_t> & e)
     {
@@ -4055,7 +3877,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 code_unit_t * cu = (code_unit_t *)*token;
                 if(cu != nullptr)
-                    throw _E(__e_t::format_error, __format_error_line(cu, e.get_message()));
+                    throw _E(__e_t::format_error, format_error_line(cu, e.get_message()));
 
             }   break;
 

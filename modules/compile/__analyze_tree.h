@@ -2011,9 +2011,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         union
         {
-            token_t * token;
+            token_t    * token;
             ast_node_t * ast_node;
         };
+
+        // Returns code unit.
+        code_unit_t * get_code_unit()
+        {
+            switch(type)
+            {
+                case analyzer_element_type_t::token:
+                    return token->get_code_unit();
+
+                case analyzer_element_type_t::ast_node:
+                    return ast_node->get_code_unit();
+
+                default:
+                    X_UNEXPECTED();
+            }
+        }
 
         // Returns whether two elements are equals.
         bool operator == (const analyzer_element_t & other) const;
@@ -2409,7 +2425,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Arguments for ast build completed.
     struct ast_builder_completed_args_t
     {
-        code_unit_t * code_unit;
+        // code_unit_t * code_unit;
     };
 
     //-------- ---------- ---------- ---------- ----------

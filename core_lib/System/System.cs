@@ -4,6 +4,8 @@
  *
  */
 
+using Reflection;
+
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
@@ -21,7 +23,7 @@ public class Object
         return "Object";
         //return GetType().ToString();
     }
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -33,7 +35,7 @@ public class Type
     {
         return "Type";
     }
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -68,7 +70,7 @@ public class Array : Object
 
     [__internal__]
     private static extern Int32 Array_GetLengthOfDimension(Array array, Int32 dimension);
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -76,7 +78,7 @@ public class Array : Object
 public class Array<T> : Array
 {
 
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -92,7 +94,7 @@ public class AttributeUsageAttribute : Attribute
 class __955825bf_d13a_4d1c_90d5_478e62ceaab6__
 {
 
-};
+}
 
 [__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
 class __internal__ : Attribute
@@ -124,7 +126,7 @@ public class InlineAttribute : Attribute
 public class EntryPointAttribute
 {
 
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -133,22 +135,35 @@ public class EntryPointAttribute
 public class Delegate
 {
 
-};
+    // Creates new delegate.
+    public static Delegate<TReturn, params TArgs>
+        Create<TReturn, params TArgs>(Reflection.MethodInfo methodInfo, Object firstArgument)
+    {
+        //return new Delegate<TReturn, params TArgs>(methodInfo, firstArgument);
+        return null;
+    }
+}
 
 // Delegate.
 public class Delegate<TReturn, params TArgs> : Delegate
 {
     // Constructor.
-    public Delegate()
+    public Delegate(Reflection.MethodInfo methodInfo, Object firstArgument)
     {
-        
+
     }
 
     public TReturn Invoke(TArgs a)
     {
         return default(TReturn);
     }
-};
+}
+
+// MulticastDelegate
+public class MulticastDelegate<TReturn, params TArgs> : Delegate<TReturn, params TArgs>
+{
+    
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -188,7 +203,7 @@ public class Exception
 
     // Inner exception that caused this exception.
     private Exception __innerException;
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -200,7 +215,7 @@ public class NullReferenceException : Exception
 
     // Constructor with message.
     public NullReferenceException(String message) : base(message) { }
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 

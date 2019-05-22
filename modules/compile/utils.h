@@ -119,6 +119,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns format error line.
+    string_t format_error_line(code_unit_t * cu, const string_t & err_msg);
+
+    ////////// ////////// ////////// ////////// //////////
+
 } } }
 
 #endif // __COMPILE_UTILS_H__

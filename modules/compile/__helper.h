@@ -210,7 +210,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Compileted.
         virtual void completed(__completed_args_t & args) override final
         {
-            this->__node->code_unit = args.code_unit;
             this->on_completed(args);
             this->__node->on_commit();
         }

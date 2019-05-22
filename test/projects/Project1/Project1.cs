@@ -2,16 +2,14 @@
 import System;
 
 using System;
+using System.Reflection;
 
 class Project1
 {
     [EntryPoint]
     public static void Main()
     {
-        Proc<int> proc;
-        int ret = proc.Invoke(10);
-
-        Console.Print(ret);
+        System.Delegate<int, int> proc = Delegate.Create<int, int>(new MethodInfo(), null);
     }
 
     typedef System.Delegate<int, params TArgs> Proc<params TArgs>;

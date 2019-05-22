@@ -677,6 +677,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // console_logger_t
+
+    // Outputs a log.
+    void console_logger_t::log(code_element_t * element, log_level_t level,
+                            const string_t & name, const string_t & message)
+    {
+        code_unit_t * cu = element? element->get_code_unit() : nullptr;
+
+        string_t s;
+
+        if(cu != nullptr)
+            s = format_error_line(cu, message);
+        else
+            s = message;
+
+        _PF(_T("[%1%] %2%:%3%"), level, name, s);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
 
     // Creates an assembly output stream.
     xostream_t * file_assembly_writer_t::new_stream(
