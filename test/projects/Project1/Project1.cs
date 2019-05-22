@@ -13,6 +13,7 @@ class Project1
     }
 
     typedef System.Delegate<int, params TArgs> Proc<params TArgs>;
-};
 
+    return;
+};
 

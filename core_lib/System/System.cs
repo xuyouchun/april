@@ -159,11 +159,13 @@ public class Delegate<TReturn, params TArgs> : Delegate
     }
 }
 
+/*
 // MulticastDelegate
 public class MulticastDelegate<TReturn, params TArgs> : Delegate<TReturn, params TArgs>
 {
     
 }
+*/
 
 ////////// ////////// ////////// ////////// //////////
 

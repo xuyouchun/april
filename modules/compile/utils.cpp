@@ -229,8 +229,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if(cu->s - s > 0)
             {
-                msg.append(cu->s - s, ' ');
-                msg.append(string_t(cu->length, '~'));
+                msg.append(
+                    _F(_T("\n%1%%2%"), string_t(cu->s - s, ' '), string_t(cu->length, '~'))
+                );
             }
         }
         else

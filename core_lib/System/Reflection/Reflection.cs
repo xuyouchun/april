@@ -1,0 +1,29 @@
+
+/*
+ *  System.dll
+ *
+ */
+
+////////// ////////// ////////// ////////// //////////
+
+
+namespace Reflection
+{
+    // Member info.
+    public class MemberInfo
+    {
+
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Method info.
+    public class MethodInfo : MemberInfo
+    {
+
+    }
+}
+
+
+////////// ////////// ////////// ////////// //////////
+

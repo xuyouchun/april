@@ -3984,18 +3984,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     typedef branch_matched_analyze_callback_data_t __data_t;
 
                     __data_t & data = ((__args_t &)args).data;
-
                     const __matched_item_t & item = data.matched_item;
-                    __ast_factory.on_branch_matched(
+                    __matched_items.push_back(__item_t {
                         item.node, item.branch_value,
                         item.tag? item.tag : __reader.begin_tag(),
                         data.end_tag? data.end_tag : __reader.end_tag()
-                    );
+                    });
 
                 }   break;
 
                 case analyze_callback_action_t::analyze_end: {
-                    __ast_factory.on_end();
+                    __do_analyze_end();
                 }   break;
 
                 default:
@@ -4009,9 +4008,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __ast_factory.get_result();
         }
 
+        // Do analyze end.
+        void __do_analyze_end()
+        {
+            for(__item_t & item : __matched_items)
+            {
+                __ast_factory.on_branch_matched(
+                    item.node, item.branch_value, item.tag, item.end_tag
+                );
+            }
+
+            __ast_factory.on_end();
+        }
+
     private:
         ast_factory_t __ast_factory;
         analyzer_element_reader_t & __reader;
+
+        struct __item_t
+        {
+            const analyze_node_t *  node;
+            __node_value_t          branch_value;
+            __tag_t *               tag;
+            __tag_t *               end_tag;
+        };
+
+        std::vector<__item_t> __matched_items;
     };
 
     ////////// ////////// ////////// ////////// //////////
