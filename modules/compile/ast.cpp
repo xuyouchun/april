@@ -1436,7 +1436,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 if(!is_empty(args))
                 {
-                    this->__log(select_type<code_element_t *>(node, type),
+                    this->__log(al::select_type<code_element_t *>(node, type),
                         __c_t::constructor_method_not_found, _T(">"), args
                     );
                 }
@@ -1447,7 +1447,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             method_t * ctor = find_constructor(this->__context, base_type, args);
             if(ctor == nullptr)
             {
-                this->__log(select_type<code_element_t *>(node, type),
+                this->__log(al::select_type<code_element_t *>(node, type),
                     __c_t::constructor_method_not_found, base_type, args
                 );
             }

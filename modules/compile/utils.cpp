@@ -216,9 +216,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             auto pair = cu->current_line_pos();
             const char_t * s = pair.first, * s_end = s;
 
-            while(*s_end != _T('\0') && !al::is_lineend(*s_end))
+            int line_count = 3;
+            for(; s_end < pair.second; s_end++)
             {
-                s_end ++;
+                if(*s_end == _T('\0'))
+                    break;
+
+                if(al::is_lineend(*s_end) && --line_count == 0)
+                    break;
             }
 
             string_t line(s, s_end);
@@ -227,11 +232,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 file->get_file_name(), pos.line, pos.col, err_msg, line
             );
 
-            if(cu->s - s > 0)
+            if(cu->s - s > 0 && line.size() > cu->length)
             {
-                msg.append(
-                    _F(_T("\n%1%%2%"), string_t(cu->s - s, ' '), string_t(cu->length, '~'))
-                );
+                msg.append(_F(_T("\n%1%%2%"),
+                    string_t(cu->s - s, ' '), string_t(cu->length, '~')
+                ));
             }
         }
         else

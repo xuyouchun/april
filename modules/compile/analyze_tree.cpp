@@ -3971,7 +3971,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 analyzer_element_reader_t & reader)
             : __ast_factory(*context.new_obj<ast_context_t>(context, lang), reader)
             , __reader(reader)
-        { }
+        {
+            __matched_items.reserve(2048);
+        }
 
         // On call back.
         virtual void on_call(void * sender, analyze_callback_args_t & args) override

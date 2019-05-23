@@ -3074,21 +3074,6 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
-    template<typename _t> _t select_type() { return nullptr; }
-
-    // Selects first object of specified type.
-    template<typename _t, typename _first_t, typename ... _args_t>
-    _t select_type(_first_t && first, _args_t && ... args)
-    {
-        _t obj = as<_t>(first);
-        if(obj != nullptr)
-            return obj;
-
-        return select_type<_t>(std::forward<_args_t>(args) ...);
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-
 }   // namespace X_ROOT_NS
 
 #include <common/__stream.h>

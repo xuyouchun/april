@@ -1,4 +1,5 @@
 *.o
+*.s
 *.dep
 *.sw*
 *.csec

@@ -16,22 +16,32 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns size of a container.
+    template <typename _container_t>
+    constexpr auto size(const _container_t & c) -> decltype(c.size()) { return c.size(); }
+
+    // Returns size of a array.
+    template <typename _tp_t, size_t _sz>
+    constexpr size_t size(const _tp_t (&)[_sz]) noexcept { return _sz; }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Returns the max value of given values.
 
     template<typename t>
-    X_INLINE constexpr decltype(auto) max(t && value)
+    X_INLINE constexpr decltype(auto) max(t && value) _NE
     {
         return std::forward<t>(value);
     }
 
     template<typename t, typename t2>
-    X_INLINE constexpr auto max(t && value1, t2 && value2) -> decltype(value1 + value2)
+    X_INLINE constexpr auto max(t && value1, t2 && value2) -> decltype(value1 + value2) _NE
     {
         return value1 < value2? value2 : value1;
     }
 
     template<typename t, typename ... rest_t>
-    X_INLINE constexpr decltype(auto) max(t value1, rest_t && ... rest)
+    X_INLINE constexpr decltype(auto) max(t value1, rest_t && ... rest) _NE
     {
         return max(std::forward<t>(value1), max(std::forward<rest_t>(rest) ...));
     }
@@ -41,19 +51,19 @@ namespace X_ROOT_NS { namespace algorithm {
     // Returns the min value of given values.
 
     template<typename t>
-    X_INLINE constexpr decltype(auto) min(t && value)
+    X_INLINE constexpr decltype(auto) min(t && value) _NE
     {
         return std::forward<t>(value);
     }
 
     template<typename t, typename t2>
-    X_INLINE constexpr auto min(t && value1, t2 && value2) -> decltype(value1 + value2)
+    X_INLINE constexpr auto min(t && value1, t2 && value2) -> decltype(value1 + value2) _NE
     {
         return value1 < value2? value1 : value2;
     }
 
     template<typename t, typename ... rest_t>
-    X_INLINE constexpr decltype(auto) min(t && value1, rest_t && ... rest)
+    X_INLINE constexpr decltype(auto) min(t && value1, rest_t && ... rest) _NE
     {
         return min(std::forward<t>(value1), min(std::forward<rest_t>(rest) ...));
     }
@@ -62,14 +72,14 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Return the max size of give value types.
     template<typename ... t>
-    X_INLINE constexpr auto max_size()
+    X_INLINE constexpr auto max_size() _NE
     {
         return max(sizeof(t) ...);
     }
 
     // Return the min size of give value types.
     template<typename ... t>
-    X_INLINE constexpr auto min_size()
+    X_INLINE constexpr auto min_size() _NE
     {
         return min(sizeof(t) ...);
     }
@@ -79,13 +89,13 @@ namespace X_ROOT_NS { namespace algorithm {
     // Detemines wheather a value in the given values.
 
     template<typename t, typename t1>
-    X_INLINE bool in(t && value, t1 && value1)
+    X_INLINE bool in(t && value, t1 && value1) _NE
     {
         return value == value1;
     }
 
     template<typename t, typename t1, typename ... values_t>
-    X_INLINE bool in(t && value, t1 && value1, values_t && ... rest)
+    X_INLINE bool in(t && value, t1 && value1, values_t && ... rest) _NE
     {
         return value == value1 || in(std::forward<t>(value), std::forward<values_t>(rest) ...);
     }
@@ -96,13 +106,13 @@ namespace X_ROOT_NS { namespace algorithm {
     // Return -1(less), 1(greater), 0(equals).
 
     template<typename t>
-    X_INLINE int cmp(const t & t1, const t & t2)
+    X_INLINE int cmp(const t & t1, const t & t2) _NE
     {
         return t1 < t2? -1 : t2 < t1? 1 : 0;
     }
 
     template<typename t, typename ... rest_t>
-    X_INLINE int cmp(const t & t1, const t & t2, rest_t && ... rest)
+    X_INLINE int cmp(const t & t1, const t & t2, rest_t && ... rest) _NE
     {
         return t1 < t2? -1 : t2 < t1? 1 : cmp(std::forward<rest_t>(rest) ...);
     }
@@ -161,6 +171,19 @@ namespace X_ROOT_NS { namespace algorithm {
         return select_max(container.begin(), container.end());
     }
 
+    template<typename _t> _t select_type() _NE { return nullptr; }
+
+    // Selects first object of specified type.
+    template<typename _t, typename _first_t, typename ... _args_t>
+    _t select_type(_first_t && first, _args_t && ... args) _NE
+    {
+        _t obj = as<_t>(first);
+        if(obj != nullptr)
+            return obj;
+
+        return select_type<_t>(std::forward<_args_t>(args) ...);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Splits the given list by specified predicate function.
@@ -194,7 +217,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Copies data with specified length to a destinate pointer.
     template<typename t>
-    void copy_array(const t * src, t * dst, size_t length)
+    void copy_array(const t * src, t * dst, size_t length) _NE
     {
         _A(src != nullptr);
         _A(dst != nullptr);
@@ -207,7 +230,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Assigns values to the given variables.
 
-    template<typename dst_itor_t> void assign(dst_itor_t itor) { }
+    template<typename dst_itor_t> void assign(dst_itor_t itor) _NE { }
 
     template<typename dst_itor_t, typename item_t, typename ... rest_t>
     void assign(dst_itor_t itor, item_t item, rest_t && ... rest)
@@ -316,7 +339,7 @@ namespace X_ROOT_NS { namespace algorithm {
         struct __zero_bytes_t
         {
             typedef int_type_t<unit_size> __int_type_t;
-            X_ALWAYS_INLINE static void zero(__int_type_t * p)
+            X_ALWAYS_INLINE static void zero(__int_type_t * p) _NE
             {
                 *p = (__int_type_t)0;
                 __zero_bytes_t<size, unit_size, n - 1>::zero(p + 1);
@@ -327,7 +350,7 @@ namespace X_ROOT_NS { namespace algorithm {
         struct __zero_bytes_t<size, unit_size, 0>
         {
             typedef int_type_t<unit_size> __int_type_t;
-            X_ALWAYS_INLINE static void zero(__int_type_t * p)
+            X_ALWAYS_INLINE static void zero(__int_type_t * p) _NE
             {
                 const size_t new_unit_size = unit_size >> 1;
                 typedef int_type_t<new_unit_size> __new_int_type_t;
@@ -340,11 +363,11 @@ namespace X_ROOT_NS { namespace algorithm {
         template<size_t size> struct __zero_bytes_t<size, 1, 0>
         {
             typedef int_type_t<1> __int_type_t;
-            X_ALWAYS_INLINE static void zero(__int_type_t * p) { }
+            X_ALWAYS_INLINE static void zero(__int_type_t * p) _NE { }
         };
 
         template<size_t size>
-        void __zero_bytes(byte_t * bytes)
+        void __zero_bytes(byte_t * bytes) _NE
         {
             const size_t unit_size = sizeof(arch_int_t);
             __zero_bytes_t<size, unit_size, size / unit_size>::zero((arch_int_t *)bytes);
@@ -354,20 +377,20 @@ namespace X_ROOT_NS { namespace algorithm {
     // Sets the specified buffer to zero.
 
     template<size_t size>
-    void zero_bytes(byte_t * bytes)
+    void zero_bytes(byte_t * bytes) _NE
     {
         _A(bytes != nullptr);
         __zero_bytes<size>(bytes);
     }
 
     template<size_t size>
-    void zero_bytes(byte_t (&bytes)[size])
+    void zero_bytes(byte_t (&bytes)[size]) _NE
     {
         __zero_bytes<size>(&bytes);
     }
 
     template<typename t>
-    void zero_object(t & obj)
+    void zero_object(t & obj) _NE
     {
         __zero_bytes<sizeof(t)>((byte_t *)&obj);
     }
@@ -387,20 +410,20 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef multikey_t<container_t, t> __self_t;
 
     public:
-        multikey_t(const container_t & data)
+        multikey_t(const container_t & data) _NE
             : __data(data) { }
 
-        multikey_t(container_t && data)
+        multikey_t(container_t && data) _NE
             : __data(std::forward<container_t>(data)) { }
 
         template<typename _itor_t>
-        multikey_t(_itor_t first, _itor_t last)
+        multikey_t(_itor_t first, _itor_t last) _NE
             : __data(_range(first, last)) { }
 
-        const container_t & data() const { return __data; }
+        const container_t & data() _NE const { return __data; }
 
-        auto begin() const { return __data.begin(); }
-        auto end()   const { return __data.end();   }
+        auto begin() const { return std::begin(__data); }
+        auto end()   const { return std::end(__data);   }
 
         bool operator < (const __self_t & other) const
         {
@@ -437,11 +460,11 @@ namespace X_ROOT_NS { namespace algorithm {
 
         int __cmp(const __self_t & other) const
         {
-            if(__data.size() != other.__data.size())
-                return (int)__data.size() - (int)other.__data.size();
+            if(size(__data) != size(other.__data))
+                return (int)size(__data) - (int)size(other.__data);
 
-            for(auto it1 = __data.begin(), it1_end = __data.end(),
-                     it2 = other.__data.begin(); it1 != it1_end; it1++, it2++)
+            for(auto && it1 = std::begin(__data), && it1_end = std::end(__data),
+                     && it2 = std::begin(other.__data); it1 != it1_end; it1++, it2++)
             {
                 if(*it1 < *it2)
                     return -1;
@@ -464,26 +487,31 @@ namespace X_ROOT_NS { namespace algorithm {
     public:
         typedef index_wrapper_t<index_t> __self_t;
 
-        index_wrapper_t(index_t index) : __index(index) { }
+        index_wrapper_t(index_t index) _NE : __index(index) { }
 
-        operator index_t() const { return __index; }
-        index_t    operator - (const __self_t & other) { return (index_t)(__index - other.__index); }
-        __self_t   operator + (index_t offset) { return __self_t(__index + offset); }
-        __self_t & operator ++ (int) { __index++; return *this; };
-        __self_t   operator ++ ()    { return __self_t(__index + 1); }
-        __self_t & operator -- (int) { __index--; return *this; };
-        __self_t   operator -- ()    { return __self_t(__index - 1); }
-        __self_t & operator += (index_t offset) { __index += offset; return *this; }
-        __self_t & operator -= (index_t offset) { __index -= offset; return *this; }
+        operator index_t() const _NE { return __index; }
 
-        index_t operator * () const { return __index; }
+        index_t operator - (const __self_t & other) _NE
+        {
+            return (index_t)(__index - other.__index);
+        }
+
+        __self_t   operator + (index_t offset) _NE  { return __self_t(__index + offset); }
+        __self_t & operator ++ (int) _NE { __index++; return *this; };
+        __self_t   operator ++ ()    _NE { return __self_t(__index + 1); }
+        __self_t & operator -- (int) _NE { __index--; return *this; };
+        __self_t   operator -- ()    _NE { return __self_t(__index - 1); }
+        __self_t & operator += (index_t offset) _NE { __index += offset; return *this; }
+        __self_t & operator -= (index_t offset) _NE { __index -= offset; return *this; }
+
+        index_t operator * () const _NE { return __index; }
 
     private:
         index_t __index;
     };
 
     template<typename index_t>
-    X_INLINE index_wrapper_t<index_t> _wrap_index(index_t index)
+    X_INLINE index_wrapper_t<index_t> _wrap_index(index_t index) _NE
     {
         return index_wrapper_t<index_t>(index);
     }
@@ -492,7 +520,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Assigns value to given variable pointer if it is not nullptr.
     template<typename t>
-    X_INLINE X_ALWAYS_INLINE void assign_value(t * out, const t & value)
+    X_INLINE X_ALWAYS_INLINE void assign_value(t * out, const t & value) _NE
     {
         if(out != nullptr)
             *out = value;
@@ -504,7 +532,7 @@ namespace X_ROOT_NS { namespace algorithm {
     // This can use less storage space for a ingeter value.
 
     template<typename t>
-    size_t to_varint(t value, byte_t * buffer)
+    size_t to_varint(t value, byte_t * buffer) _NE
     {
         size_t length = 0;
 
@@ -527,7 +555,7 @@ namespace X_ROOT_NS { namespace algorithm {
     // Converts a compress format interge to it's raw value
 
     template<typename t>
-    t from_varint(const byte_t * buffer, size_t * out_length = nullptr)
+    t from_varint(const byte_t * buffer, size_t * out_length = nullptr) _NE
     {
         t value = 0;
         int offset = 0;

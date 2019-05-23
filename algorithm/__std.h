@@ -106,16 +106,6 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Returns size of a container.
-    template <typename _container_t>
-    constexpr auto size(const _container_t & c) -> decltype(c.size()) { return c.size(); }
-
-    // Returns size of a array.
-    template <typename _tp_t, size_t _sz>
-    constexpr size_t size(const _tp_t (&)[_sz]) noexcept { return _sz; }
-
-    ////////// ////////// ////////// ////////// //////////
-
     // Writes a key/value pair to a stream.
     template<typename stream_t, typename key_t, typename value_t>
     stream_t & operator << (stream_t & stream, const std::pair<key_t, value_t> & pr)

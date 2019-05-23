@@ -147,25 +147,29 @@ public class Delegate
 // Delegate.
 public class Delegate<TReturn, params TArgs> : Delegate
 {
-    // Constructor.
-    public Delegate(Reflection.MethodInfo methodInfo, Object firstArgument)
-    {
-
-    }
-
-    public TReturn Invoke(TArgs a)
+    // Invoke this method.
+    public virtual TReturn Invoke(TArgs a)
     {
         return default(TReturn);
     }
 }
 
-/*
 // MulticastDelegate
 public class MulticastDelegate<TReturn, params TArgs> : Delegate<TReturn, params TArgs>
 {
-    
+    // Invoke this method.
+    public virtual TReturn Invoke(TArgs a)
+    {
+        return default(TReturn);
+    }
+
+    // Append a delegate.
+    public static MulticastDelegate<TReturn, params TArgs> operator += (
+        MulticastDelegate<TReturn, params TArgs> self, Delegate<TReturn, params TArgs> d)
+    {
+        return null;
+    }
 }
-*/
 
 ////////// ////////// ////////// ////////// //////////
 

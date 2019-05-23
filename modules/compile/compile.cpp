@@ -692,7 +692,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         else
             s = message;
 
-        _PF(_T("[%1%] %2%:%3%"), level, name, s);
+        //_PF(_T("[%1%] %2%:%3%"), level, name, s);
+        _PF(_T("[%1%] %2%"), level, s);
     }
 
     ////////// ////////// ////////// ////////// //////////

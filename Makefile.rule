@@ -15,9 +15,17 @@ EXTERN_LIBS     ?=
 
 VERSION      ?=
 RUN_ARGS     ?=
+ASAM         ?= no
+WARNING      ?= 
 REL_MODULES  ?=
 
 __REL_MODULES = $(addsuffix .*, $(addprefix $(LIBS_PATH)/lib, $(REL_MODULES)))
+
+ifeq ($(WARNING), all)
+    __WARNING = -Wall
+else
+    __WARNING =
+endif
 
 CC			  = $(CMD_CC)
 AR			  = $(CMD_AR)
@@ -33,6 +41,7 @@ CPPFLAGS     ?= -O$(OPTIMIZE) -std=c++14 $(GLOBAL_CPPFLAGS) $(EXTERN_CPPFLAGS) $
 __CPP_FILES  ?= $(wildcard *.cpp)
 SRC_FILES    ?= $(__CPP_FILES)
 OBJ_FILES    ?= $(__CPP_FILES:.cpp=.o)
+ASAM_FILES   ?= $(__CPP_FILES:.cpp=.s)
 
 __CSEC_FILES ?= $(wildcard *.src)
 CSEC_FILES   ?= $(__CSEC_FILES:.src=.csec)
@@ -49,7 +58,6 @@ else
     __VERSION_SUFFIX = .$(VERSION)
 endif
 
-
 # Build
 ifeq ($(TARGET_TYPE), static)
     __TARGET      = lib$(MODULE).a$(__VERSION_SUFFIX)
@@ -61,14 +69,14 @@ else
 ifeq ($(TARGET_TYPE), shared)
     __TARGET      = lib$(MODULE).so$(__VERSION_SUFFIX)
     __TARGET_PATH = $(LIBS_PATH)
-    __BUILD_CMD   = $(CMD_CC) $(CPPFLAGS) $(LDFLAGS) $(LIBS) -shared -fPIC -o $(__TARGET_PATH)/$(__TARGET) $(OBJ_FILES) $(__REL_MODULES);
+    __BUILD_CMD   = $(CMD_CC) $(CPPFLAGS) $(LDFLAGS) $(LIBS) $(__WARNING) -shared -fPIC -o $(__TARGET_PATH)/$(__TARGET) $(OBJ_FILES) $(__REL_MODULES);
     __REL_FILES   =$(__REL_MODULES)
     __RUN_CMD     = true
 else
 ifeq ($(TARGET_TYPE), execute)
     __TARGET      = $(MODULE)$(__VERSION_SUFFIX)
     __TARGET_PATH = $(BIN_PATH)
-    __BUILD_CMD   = $(CMD_CC) $(CPPFLAGS) $(LDFLAGS) $(LIBS) -o $(__TARGET_PATH)/$(__TARGET) $(OBJ_FILES) $(__REL_MODULES);
+    __BUILD_CMD   = $(CMD_CC) $(CPPFLAGS) $(LDFLAGS) $(LIBS) $(__WARNING) -o $(__TARGET_PATH)/$(__TARGET) $(OBJ_FILES) $(__REL_MODULES);
     __REL_FILES   = $(__REL_MODULES)
     __RUN_CMD     = $(__TARGET_PATH)/$(__TARGET)
 else
@@ -87,7 +95,14 @@ all: $(REL_MODULES) $(__TARGET_PATH)/$(__TARGET)
 $(REL_MODULES):
 	$(MAKE) -C $(BASE_PATH) $@;
 
-$(__TARGET_PATH)/$(__TARGET): $(__CONFIG_H) Makefile.dep $(CSEC_FILES) $(OBJ_FILES) $(REL_MODULES)
+# ASAM
+ifeq ($(ASAM), yes)
+    __ASAM_FILES = $(ASAM_FILES)
+else
+    __ASAM_FILES =
+endif
+
+$(__TARGET_PATH)/$(__TARGET): $(__CONFIG_H) Makefile.dep $(CSEC_FILES) $(OBJ_FILES) $(REL_MODULES) $(__ASAM_FILES)
 	@mkdir -p $(__TARGET_PATH) > /dev/null 2>&1;
 	$(__BUILD_CMD)
 
@@ -107,13 +122,17 @@ $(__CONFIG_H):
 	#define CONFIG_OPTIMIZE          $(OPTIMIZE) 	                \n\
 	" > $(__CONFIG_H)
 
+# *.s
+%.s: %.cpp
+	$(CMD_CC) $(CPPFLAGS) $(LDFLAGS) $(LIBS) -w -S "$^" -o "$@"
+
 # *.csec
 %.csec: %.src
 	$(BASE_PATH)/tools/csec < "$^" > "$@" --home "$(BASE_PATH)"
 
 # clean
 clean:
-	$(CMD_RM) $(__TARGET) $(OBJ_FILES) *.csec
+	$(CMD_RM) $(__TARGET) $(OBJ_FILES) $(ASAM_FILES) *.csec
 	$(CMD_RM) $(__TARGET_PATH)/$(__TARGET)
 
 # distclean

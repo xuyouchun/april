@@ -2,8 +2,8 @@
 
 source ./tools/xfunctions
 
-options='hd'
-longoptions='help,debug,run::,optimize::';
+options='hdSw'
+longoptions='help,debug,warning,run::,optimize::';
 _expand_args "$options" "$longoptions" "$*" "__g_";
 
 __projects=($__g___args__);
@@ -25,6 +25,10 @@ options:
         --run=\"running arguments\":      Running arguments.
 
         --optimize=<0|1|2|3>:           Optimize level, Default 0.
+
+    -S:                                 Output ASAM(*.s) files.
+
+    -w, --warning:                      Show all warnings.
 
 projects:
 
@@ -48,10 +52,23 @@ function __make_projects()
 {
     local args=$@;
 
+    X_ARGS="RUN_ARGS=$__g_run"
+
+    # Output asam files.
+    if _is_defined __g_S; then
+        X_ARGS="$X_ARGS ASAM=yes"
+    fi;
+
+    # Show all warnings.
+    if _is_defined __g_w || _is_defined __g_warning; then
+        X_ARGS="$XARGS WARNING=all"
+    fi;
+
+    # Make.
     if _is_defined __g_d || _is_defined __g_debug; then
-        make $args "RUN_ARGS=$__g_run";
+        make $args $X_ARGS;
     else
-        make -s $args "RUN_ARGS=$__g_run";
+        make -s $args $X_ARGS;
     fi;
 }
 
