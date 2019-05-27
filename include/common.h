@@ -42,12 +42,30 @@
 #include <global.h>
 #include <__types.h>
 
+#if CONFIG_PROFILE
+#   include <gperftools/profiler.h>
+#endif
+
 ////////// ////////// ////////// ////////// //////////
 
 // Definations
 
+// Defines optimize options.
+
+#ifdef CONFIG_OPTIMIZE
+    #define X_OPTIMIZE CONFIG_OPTIMIZE
+#else
+    #define X_OPTIMIZE 0
+#endif
+
+#if X_OPTIMIZE == 0
+    #define X_DEBUG     1
+#else
+    #define X_DEBUG     0
+#endif
+
 // Defines an inline function.
-#ifdef __INLINE
+#if defined __INLINE && !X_DEBUG
     #define X_INLINE        __INLINE
 #else
     #define X_INLINE        inline
@@ -68,19 +86,50 @@
     #define X_ALWAYS_INLINE X_INLINE
 #endif
 
-// Defines optimize options.
+////////// ////////// ////////// ////////// //////////
 
-#ifdef CONFIG_OPTIMIZE
-    #define X_OPTIMIZE CONFIG_OPTIMIZE
+// Performance analysis.
+#if CONFIG_PROFILE
+
+// Start profiler.
+X_INLINE void profiler_start(const char * name)
+{
+    ProfilerStart(name);
+}
+
+// Stop profiler.
+X_INLINE void profiler_stop()
+{
+    ProfilerStop();
+}
+
 #else
-    #define X_OPTIMIZE 0
+
+// Start profiler.
+X_INLINE void profiler_start(const char * name) { }
+
+// Stop profiler.
+X_INLINE void profiler_stop() { }
+
 #endif
 
-#if X_OPTIMIZE == 0
-    #define X_DEBUG     1
-#else
-    #define X_DEBUG     0
-#endif
+// Performance profiler
+class profiler_t
+{
+public:
+
+    // Constructors.
+    profiler_t(const char * name)
+    {
+        profiler_start(name);
+    }
+
+    // Destructor.
+    ~profiler_t()
+    {
+        profiler_stop();
+    }
+};
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -162,6 +211,9 @@ namespace __root_ns = ::X_ROOT_NS;
 #define X_TRY_R     return __root_ns::try_finally_r([&]() {
 #define X_FINALLY   }, [&]() {
 #define X_TRY_END   });
+
+// Performance analysis.
+#define X_PROFILER(_name)  profiler_t X_TEMP_VAR(_name)
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -1818,7 +1870,7 @@ namespace X_ROOT_NS {
         template<typename obj_t, typename ... args_t>
         obj_t * new_obj(args_t && ... args)
         {
-            memory_flag_t flag = __revise_memory_flag<obj_t>();
+            const memory_flag_t flag = __revise_memory_flag<obj_t>();
 
             void * buffer = (obj_t *)alloc(sizeof(obj_t), flag);
             return new(buffer) obj_t(std::forward<args_t>(args) ...);
@@ -1828,7 +1880,7 @@ namespace X_ROOT_NS {
         template<typename obj_t, typename ... args_t>
         obj_t * new_obj_with_size(size_t size, args_t && ... args)
         {
-            memory_flag_t flag = __revise_memory_flag<obj_t>();
+            const memory_flag_t flag = __revise_memory_flag<obj_t>();
 
             void * buffer = (obj_t *)alloc(size, flag);
             return new(buffer) obj_t(std::forward<args_t>(args) ...);
@@ -1839,7 +1891,7 @@ namespace X_ROOT_NS {
         template<typename obj_t, typename ... args_t>
         static obj_t * new_obj(memory_t * memory, args_t && ... args)
         {
-            memory_flag_t flag = __revise_memory_flag<obj_t>();
+            const memory_flag_t flag = __revise_memory_flag<obj_t>();
 
             if(!memory)
                 memory = __default_memory();
@@ -1852,7 +1904,7 @@ namespace X_ROOT_NS {
         template<typename obj_t, typename ... args_t>
         static obj_t * new_obj(size_t size, memory_t * memory, args_t && ... args)
         {
-            memory_flag_t flag = __revise_memory_flag<obj_t>();
+            const memory_flag_t flag = __revise_memory_flag<obj_t>();
 
             if(!memory)
                 memory = __default_memory();
@@ -1892,10 +1944,18 @@ namespace X_ROOT_NS {
         // Static member.
         // Creates multiy objects of specified count.
         template<typename obj_t>
-        static obj_t * alloc_objs(memory_t * memory, size_t count,
-                                  memory_flag_t flag = memory_flag_t::__default__)
+        static obj_t * alloc_objs(memory_t * memory, size_t count, memory_flag_t flag)
         {
             flag = __revise_memory_flag<obj_t>(flag);
+            return (obj_t *)alloc(memory, sizeof(obj_t) * count, flag);
+        }
+
+        // Static member.
+        // Creates multiy objects of specified count.
+        template<typename obj_t>
+        static obj_t * alloc_objs(memory_t * memory, size_t count)
+        {
+            const memory_flag_t flag = __revise_memory_flag<obj_t>();
             return (obj_t *)alloc(memory, sizeof(obj_t) * count, flag);
         }
 
@@ -1914,7 +1974,8 @@ namespace X_ROOT_NS {
 
         // Auto detemined the memory_flag_t.
         template<typename obj_t>
-        static memory_flag_t __revise_memory_flag(memory_flag_t flag = memory_flag_t::__default__)
+        static constexpr memory_flag_t __revise_memory_flag(
+                            memory_flag_t flag = memory_flag_t::__default__)
         {
             static_assert(
                 std::is_base_of<object_t, obj_t>::value ||

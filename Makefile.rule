@@ -17,6 +17,7 @@ VERSION      ?=
 RUN_ARGS     ?=
 ASAM         ?= no
 WARNING      ?= 
+PROFILE      ?= no
 REL_MODULES  ?=
 
 __REL_MODULES = $(addsuffix .*, $(addprefix $(LIBS_PATH)/lib, $(REL_MODULES)))
@@ -27,13 +28,22 @@ else
     __WARNING =
 endif
 
+ifeq ($(PROFILE), yes)
+    __PROFILE_LIB  = -lprofiler
+    CONFIG_PROFILE = 1
+else
+    __PROFILE_LIB =
+    CONFIG_PROFILE = 0
+endif
+
 CC			  = $(CMD_CC)
 AR			  = $(CMD_AR)
 
 OPTIMIZE     ?= 0
+CONFIG_OPTIMIZE = OPTIMIZE
 
 LDFLAGS      ?= $(GLOBAL_LDFLAGS) $(EXTERN_LDFLAGS)
-LIBS         ?= $(GLOBAL_LIBS) $(EXTERN_LIBS)
+LIBS         ?= $(GLOBAL_LIBS) $(EXTERN_LIBS) $(__PROFILE_LIB)
 INCLUDES     ?= $(addprefix -I, $(INC_PATH)) -I$(BASE_PATH) \
                  -I$(OS_PATH) -I$(ARCH_PATH) -I$(GLOBAL_PATH)
 CPPFLAGS     ?= -O$(OPTIMIZE) -std=c++14 $(GLOBAL_CPPFLAGS) $(EXTERN_CPPFLAGS) $(INCLUDES) 
@@ -119,7 +129,8 @@ $(__CONFIG_H):
 	@printf " \n\
 	#define CONFIG_NULLPTR_SUPPORTED $(CONFIG_NULLPTR_SUPPORTED)	\n\
 	#define CONFIG_BASE_NAMESPACE    $(CONFIG_BASE_NAMESPACE) 	    \n\
-	#define CONFIG_OPTIMIZE          $(OPTIMIZE) 	                \n\
+	#define CONFIG_OPTIMIZE          $(CONFIG_OPTIMIZE) 	        \n\
+	#define CONFIG_PROFILE           $(CONFIG_PROFILE) 	            \n\
 	" > $(__CONFIG_H)
 
 # *.s

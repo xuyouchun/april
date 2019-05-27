@@ -2,8 +2,8 @@
 
 source ./tools/xfunctions
 
-options='hdSw'
-longoptions='help,debug,warning,run::,optimize::';
+options='hdSwp'
+longoptions='help,debug,warning,profile,run::,optimize::';
 _expand_args "$options" "$longoptions" "$*" "__g_";
 
 __projects=($__g___args__);
@@ -29,6 +29,8 @@ options:
     -S:                                 Output ASAM(*.s) files.
 
     -w, --warning:                      Show all warnings.
+
+    -p, --profile:                      Use gperftools to do performance analysis.
 
 projects:
 
@@ -61,7 +63,12 @@ function __make_projects()
 
     # Show all warnings.
     if _is_defined __g_w || _is_defined __g_warning; then
-        X_ARGS="$XARGS WARNING=all"
+        X_ARGS="$X_ARGS WARNING=all"
+    fi;
+
+    # Do performance analysis.
+    if _is_defined __g_p || _is_defined __g_profile; then
+        X_ARGS="$X_ARGS PROFILE=yes"
     fi;
 
     # Make.

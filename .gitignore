@@ -4,6 +4,8 @@
 *.sw*
 *.csec
 *.apl
+*.prof
+
 libs/
 bin/
 include/config.h

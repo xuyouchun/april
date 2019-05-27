@@ -435,6 +435,8 @@ namespace __april = __root_ns::modules::april;
 // Main function
 int main(int argc, char ** argv)
 {
+    X_PROFILER("april.prof");
+
     return __april::__main(argc, argv);
 }
 
