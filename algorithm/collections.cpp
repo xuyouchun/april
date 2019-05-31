@@ -111,7 +111,7 @@ namespace X_ROOT_NS { namespace algorithm {
     bit_array_t::bit_array_t(size_t init_length) : __bit_length(init_length) { }
 
     // Sets/clear flag at the specified index.
-    void bit_array_t::set(size_t index, bool value)
+    void bit_array_t::set(size_t index, bool value) _NE
     {
         __check_length(index + 1);
 
@@ -126,7 +126,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Gets flag at the specified index.
     // Returns not_found value when not found.
-    bool bit_array_t::get(size_t index) const
+    bool bit_array_t::get(size_t index) const _NE
     {
         if(__data == nullptr || __data_length_of(index + 1) > __data_length)
             return false;
@@ -139,7 +139,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Gets index of next true bit from the specified index.
     // Returns not_found value when not found.
-    size_t bit_array_t::index_of(bool value, size_t from) const
+    size_t bit_array_t::index_of(bool value, size_t from) const _NE
     {
         if(from >= __bit_length)
             return not_found;
@@ -195,20 +195,20 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Position of underlying integer address that containing the specified bit.
     X_INLINE bit_array_t::__underlying_t & bit_array_t::__pos_of(size_t index,
-                                            __underlying_t * out_flag) const
+                                            __underlying_t * out_flag) const _NE
     {
         *out_flag = ((__underlying_t)0x01) << (index % __underlying_bits);
         return __data[index / __underlying_bits];
     }
 
     // Length of underlying integer enough to store specified bit counts.
-    X_INLINE size_t bit_array_t::__data_length_of(size_t bit_length)
+    X_INLINE size_t bit_array_t::__data_length_of(size_t bit_length) _NE
     {
         return _alignf(bit_length, __underlying_size) / 8;
     }
 
     // Next index of true bit from the specified index.
-    X_INLINE size_t bit_array_t::__index_of_true(__underlying_t value, size_t from, size_t end)
+    X_INLINE size_t bit_array_t::__index_of_true(__underlying_t value, size_t from, size_t end) _NE
     {
         if(from >= __underlying_bits)
             return not_found;
@@ -236,13 +236,13 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Returns the unserlying interger value of the bit range.
     X_INLINE bit_array_t::__underlying_t bit_array_t::__cut(
-                        __underlying_t value, size_t from, size_t to)
+                        __underlying_t value, size_t from, size_t to) _NE
     {
         size_t rshift = __underlying_bits - to - 1;
         return (value << rshift) >> (from + rshift);
     }
 
-    bit_array_t::~bit_array_t()
+    bit_array_t::~bit_array_t() _NE
     {
         if(__data)
             delete [] __data;

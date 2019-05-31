@@ -126,13 +126,13 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns the object at the specified idnex.
-        obj_t & operator[](size_t index) const
+        obj_t & operator[](size_t index) const _NE
         {
             return __pool[index / __row_size][index % __row_size];
         }
 
         // Returns the last object created. returns nullptr if empty.
-        obj_t * last() const
+        obj_t * last() const _NE
         {
             if(!__current_row_ptr)
                 return nullptr;
@@ -141,7 +141,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Clear all objects. ( deallocators of the objects will not executed. )
-        void clear()
+        void clear() _NE
         {
             __current_row_ptr = nullptr;
             __current_col = 0;
@@ -156,19 +156,19 @@ namespace X_ROOT_NS { namespace algorithm {
 
         public:
             // Constructor
-            _iterator(const _self_t * self, int index = 0) : __self(self), __index(index) { }
+            _iterator(const _self_t * self, int index = 0) _NE : __self(self), __index(index) { }
 
             // Move to next iterator.
-            void increase(int inc) { __index += inc; }
+            void increase(int inc) _NE { __index += inc; }
 
             // Whether two iterators are equals.
-            bool equals(const _iterator & it) const { return it.__index == __index; }
+            bool equals(const _iterator & it) const _NE { return it.__index == __index; }
 
             // Returns object at the specified index.
-            obj_t * get() const { return &(*__self)[__index]; }
+            obj_t * get() const _NE { return &(*__self)[__index]; }
 
             // Returns difference of two iterators.
-            int diff(const __iterator_self_t & it) const { return __index - it.__index; }
+            int diff(const __iterator_self_t & it) const _NE { return __index - it.__index; }
 
         private:
             const _self_t * __self;
@@ -239,7 +239,7 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef typename obj_arrays_t::iterator obj_itor_t;
 
         // Constructor
-        heap_t(memory_t * memory = nullptr, size_t row_size = 0)
+        heap_t(memory_t * memory = nullptr, size_t row_size = 0) _NE
             : memory_base_t(memory)
             , __row_size(row_size? row_size : max(1024 / sizeof(obj_t), 8))
             , __current_row(nullptr), __current_col(0), __current_size(0) { }
@@ -272,13 +272,13 @@ namespace X_ROOT_NS { namespace algorithm {
         }
     
         // Returns a range of all arrays.
-        range_t<obj_itor_t> all() const
+        range_t<obj_itor_t> all() const _NE
         {
             return range(__arrays);
         }
 
         // Array count.
-        size_t count() const
+        size_t count() const _NE
         {
             return __arrays.size();
         }
@@ -293,7 +293,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns the lost object created.
-        obj_t * last() const
+        obj_t * last() const _NE
         {
             return __rows.size()? __rows[__rows.size() - 1] : nullptr;
         }
@@ -319,7 +319,7 @@ namespace X_ROOT_NS { namespace algorithm {
     public:
     
         // Constructor
-        xheap_t(const string_t & name = _T(""));
+        xheap_t(const string_t & name = _T("")) _NE;
 
         // Allocates memory with specified size. ( memory_t::alloc )
         virtual void * alloc(size_t size, memory_flag_t flag = memory_flag_t::__default__) override;
@@ -370,22 +370,22 @@ namespace X_ROOT_NS { namespace algorithm {
         static const size_t __underlying_bits = __underlying_size * 8;
 
     public:
-        bit_array_t(size_t init_length = 1);
-        ~bit_array_t();
+        bit_array_t(size_t init_length = 1) _NE;
+        ~bit_array_t() _NE;
 
         // Sets/clear flag at the specified index.
-        void set(size_t index, bool value);
+        void set(size_t index, bool value) _NE;
 
         // Gets flag at the specified index.
         // Returns not_found value when not found.
-        bool get(size_t index) const;
+        bool get(size_t index) const _NE;
 
         // Gets index of next true bit from the specified index.
         // Returns not_found value when not found.
-        size_t index_of(bool value, size_t from = 0) const;
+        size_t index_of(bool value, size_t from = 0) const _NE;
 
         // Equvivalent to get method.
-        bool operator [] (size_t index) const
+        bool operator [] (size_t index) const _NE
         {
             return get(index);
         }
@@ -402,17 +402,17 @@ namespace X_ROOT_NS { namespace algorithm {
         void __check_length(size_t bit_length);
 
         // Position of underlying integer address that containing the specified bit.
-        __underlying_t & __pos_of(size_t index, __underlying_t * out_flag) const;
+        __underlying_t & __pos_of(size_t index, __underlying_t * out_flag) const _NE;
 
         // Length of underlying integer enough to store specified bit counts.
-        static size_t __data_length_of(size_t bit_length);
+        static size_t __data_length_of(size_t bit_length) _NE;
 
         // Next index of true bit from the specified index.
         static size_t __index_of_true(__underlying_t value, size_t from,
-                    size_t end = __underlying_bits - 1);
+                    size_t end = __underlying_bits - 1) _NE;
 
         // Returns the unserlying interger value of the bit range.
-        static __underlying_t __cut(__underlying_t value, size_t from, size_t to);
+        static __underlying_t __cut(__underlying_t value, size_t from, size_t to) _NE;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -427,13 +427,13 @@ namespace X_ROOT_NS { namespace algorithm {
 
     public:
         // Constructor
-        respool_t(memory_t * memory, __creator_t * creator, size_t capacity = __default_capacity)
+        respool_t(memory_t * memory, __creator_t * creator, size_t capacity = __default_capacity) _NE
             : __memory(memory? memory : default_memory_t::instance())
             , __creator(creator? creator : default_creator_t<t>::instance())
             , __capacity(capacity) { }
 
         // Constructor with specified capacity.
-        respool_t(size_t capacity = __default_capacity)
+        respool_t(size_t capacity = __default_capacity) _NE
             : respool_t(null<memory_t>, null<creator_t<t>>, capacity) { }
 
         // Acquires an object. 
@@ -519,11 +519,11 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef lr_tree_node_t<value_t> __self_t;
 
     public:
-        lr_tree_node_t() = default;
+        lr_tree_node_t() _NE = default;
 
         // Constructors with the value.
         template<typename _value_t>
-        lr_tree_node_t(_value_t && value)
+        lr_tree_node_t(_value_t && value) _NE
             : value(value), first_child(nullptr)
         { }
 
@@ -535,7 +535,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Appends a child.
-        __self_t * append_child(__self_t * node)
+        __self_t * append_child(__self_t * node) _NE
         {
             _A(node != nullptr);
 
@@ -548,7 +548,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
         // Appends a child, creates with the specified memory management and the value.
         template<typename _value_t>
-        __self_t * append_child(memory_t * memory, _value_t && value)
+        __self_t * append_child(memory_t * memory, _value_t && value) _NE
         {
             __self_t * node = append_child(memory);
             node->value = value;
@@ -557,7 +557,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
         // Finds child by a value, auto creates with the specified memory management.
         template<typename _value_t>
-        __self_t * find_or_append_child(memory_t * memory, _value_t && value)
+        __self_t * find_or_append_child(memory_t * memory, _value_t && value) _NE
         {
             __self_t * child = find_child(value);
             if(child == nullptr)
@@ -567,14 +567,14 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Appends sibling node, creates with the specified memory management.
-        __self_t * append_sibling(memory_t * memory)
+        __self_t * append_sibling(memory_t * memory) _NE
         {
             __self_t * node = memory_t::new_obj<__self_t>(memory);
             return append_sibling(node);
         }
 
         // Appends sibling node.
-        __self_t * append_sibling(__self_t * node)
+        __self_t * append_sibling(__self_t * node) _NE
         {
             node->parent = this->parent;
             node->next_sibling = this->next_sibling;
@@ -585,7 +585,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
         // Appends sibling node, creates with the specified memory management and value.
         template<typename _value_t>
-        __self_t * append_sibling(memory_t * memory, _value_t && value)
+        __self_t * append_sibling(memory_t * memory, _value_t && value) _NE
         {
             __self_t * node = append_sibling(memory);
             node->value = value;
@@ -593,7 +593,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Removes child that contains the specified value.
-        __self_t * remove_child(const value_t & value)
+        __self_t * remove_child(const value_t & value) _NE
         {
             __self_t * node = find_child(value);
             if(node != nullptr)
@@ -602,7 +602,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Removes child.
-        bool remove_child(const __self_t * node)
+        bool remove_child(const __self_t * node) _NE
         {
             _A(node != nullptr);
 
@@ -629,22 +629,21 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Removes self.
-        void remove()
+        void remove() _NE
         {
-            if(parent == nullptr)
-                throw _E(common_error_code_t::invalid_operation, _T("cannot delete root node"));
+            _A(parent != nullptr);
 
             parent->remove_child(this);
         }
 
         // Whether the node is a leaf. ( no child. )
-        bool is_leaf() const
+        bool is_leaf() const _NE
         {
             return first_child == nullptr;
         }
 
         // Returns the child that contains the specified value.
-        __self_t * find_child(const value_t & value) const
+        __self_t * find_child(const value_t & value) const _NE
         {
             for(__self_t * node = this->first_child; node; node = node->next_sibling)
             {
@@ -657,7 +656,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
         // Returns the child that match the predicate.
         template<typename pred_t>
-        __self_t * find_child(pred_t pred) const
+        __self_t * find_child(pred_t pred) const _NE
         {
             for(__self_t * node = this->first_child; node; node = node->next_sibling)
             {
@@ -695,13 +694,13 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Whether the node is a root node. ( no parent. )
-        bool is_root() const
+        bool is_root() const _NE
         {
             return this->parent == nullptr;
         }
 
         // Returns the height if the node.
-        size_t height() const
+        size_t height() const _NE
         {
             size_t size = 0;
             const __self_t * node = this;
@@ -714,7 +713,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns all childs.
-        range_t<__self_t **> children() const
+        range_t<__self_t **> children() const _NE
         {
             return range_t<__self_t **>(first_child, (__self_t **)nullptr);
         }
@@ -744,18 +743,18 @@ namespace X_ROOT_NS { namespace algorithm {
             return stream;
         }
 
-        const value_t * operator ->() const { return &value; }
-        const value_t & operator *()  const { return value;  }
+        const value_t * operator ->() const _NE { return &value; }
+        const value_t & operator *()  const _NE { return value;  }
 
-        value_t * operator ->() { return &value; }
-        value_t & operator *()  { return value;  }
+        value_t * operator ->() _NE { return &value; }
+        value_t & operator *()  _NE { return value;  }
 
         value_t    value;
         __self_t * first_child;
         __self_t * next_sibling;
         __self_t * parent;
 
-        virtual ~lr_tree_node_t() override { }
+        virtual ~lr_tree_node_t() _NE override { }
     };
 
     // Creates a new lr_tree.
@@ -837,18 +836,18 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef t value_type;
 
         // Constructor, with specified memory management.
-        walk_list_t(memory_t * memory = nullptr)
+        walk_list_t(memory_t * memory = nullptr) _NE
             : memory_base_t(memory) { }
 
         // Constructor, with specified memory management and initialize elements.
-        walk_list_t(std::initializer_list<t> il, memory_t * memory = nullptr)
+        walk_list_t(std::initializer_list<t> il, memory_t * memory = nullptr) _NE
             : memory_base_t(memory)
         {
             append(il.begin(), il.end());
         }
 
         // Push an element to the back.
-        void push_back(const t & obj)
+        void push_back(const t & obj) _NE
         {
             __check_buffer_size(__count + 1);
             __buffer[__count++] = obj;
@@ -856,7 +855,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
         // Append an element list to the back.
         template<typename itor_t>
-        void append(itor_t begin, itor_t end)
+        void append(itor_t begin, itor_t end) _NE
         {
             std::copy(begin, end, std::back_inserter(*this));
         }
@@ -880,17 +879,17 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns element count.
-        size_t size() const { return __count; }
+        size_t size() const _NE { return __count; }
 
         // Returns the element at the index.
-        t & operator[] (size_t index) const
+        t & operator[] (size_t index) const _NE
         {
             _A(index < __count);
             return __buffer[index];
         }
 
         // Removes all elements.
-        void clear()
+        void clear() _NE
         {
             if(__buffer)
             {
@@ -903,10 +902,11 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns all elements.
-        range_t<t *> all() const
+        range_t<t *> all() const _NE
         {
             if(__buffer == nullptr)
                 return range_t<t *>(nullptr, nullptr);
+
             return range_t<t *>(__buffer, __buffer + __count);
         }
 
@@ -917,10 +917,10 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns iterator at the begin.
-        t * begin() const { return __buffer; }
+        t * begin() const _NE { return __buffer; }
 
         // Returns iterator at the end.
-        t * end() const { return __buffer? __buffer + __count : nullptr; }
+        t * end() const _NE { return __buffer? __buffer + __count : nullptr; }
 
         // Destructor, free the buffer.
         ~walk_list_t()
@@ -987,7 +987,7 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef t * iterator;
 
         // Constructor, with specified memory management.
-        svector_t(memory_t * memory = nullptr)
+        svector_t(memory_t * memory = nullptr) _NE
             : memory_base_t(memory), __p(__array)
         { }
 
@@ -1131,7 +1131,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Truncates the vector to the specified size.
-        void truncate(size_t new_size)
+        void truncate(size_t new_size) _NE
         {
             if(new_size < size())
             {
@@ -1143,7 +1143,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns the element at the specified index.
-        t & operator[](size_t index) const
+        t & operator[](size_t index) const _NE
         {
             if(__is_in_array())
                 return __array[index];
@@ -1152,7 +1152,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // The iterator at the begin.
-        t * begin() const
+        t * begin() const _NE
         {
             if(__is_in_array())
                 return __array;
@@ -1161,13 +1161,13 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // The iterator at the end.
-        t * end() const
+        t * end() const _NE
         {
             return __p;
         }
 
         // Returns element count.
-        size_t size() const
+        size_t size() const _NE
         {
             if(__is_in_array())
                 return __p - __array;
@@ -1176,13 +1176,13 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Whether the vector is empty.
-        bool empty() const
+        bool empty() const _NE
         {
             return size() == 0;
         }
 
         // Removes all elements.
-        void clear()
+        void clear() _NE
         {
             if(__is_in_array())
                 __p = __array;
@@ -1220,7 +1220,7 @@ namespace X_ROOT_NS { namespace algorithm {
         t * __p;
 
         // Whether the data is on heap.
-        bool __is_in_array() const
+        bool __is_in_array() const _NE
         {
             return __p >= __array && __p <= __array + init_size;
         }
@@ -1240,7 +1240,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     public:
         // Constructor, with the specified memory management.
-        small_map_t(memory_t * memory = nullptr)
+        small_map_t(memory_t * memory = nullptr) _NE
             : __inner_vector(memory)
         { }
 
@@ -1297,13 +1297,13 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns the begin iterator.
-        iterator_t begin() const
+        iterator_t begin() const _NE
         {
             return __inner_vector.begin();
         }
 
         // Returns the end iterator.
-        iterator_t end() const
+        iterator_t end() const _NE
         {
             return __inner_vector.end();
         }
@@ -1330,19 +1330,19 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns element count.
-        size_t size() const
+        size_t size() const _NE
         {
             return __inner_vector.size();
         }
 
         // Whether the map is empty.
-        bool empty() const
+        bool empty() const _NE
         {
             return size() == 0;
         }
 
         // Removes all elements.
-        void clear()
+        void clear() _NE
         {
             __inner_vector.clear();
         }
@@ -1372,11 +1372,11 @@ namespace X_ROOT_NS { namespace algorithm {
             typedef __self_t __owner_t;
 
         public:
-            iterator(const __owner_t & owner, size_t index) : __owner(owner), __index(index) { }
+            iterator(const __owner_t & owner, size_t index) _NE : __owner(owner), __index(index) { }
 
             value_t get() const { return __owner[__index]; }
-            void increase(int inc) { __index += inc; }
-            bool equals(const iterator itor) const { return __index == itor.__index; }
+            void increase(int inc) _NE { __index += inc; }
+            bool equals(const iterator itor) _NE const { return __index == itor.__index; }
 
         private:
             const __owner_t & __owner;
@@ -1388,26 +1388,22 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef value_t     value_type;
 
         // Constructor, with the specified memory management.
-        fixed_map_t(memory_t * memory = nullptr)
+        fixed_map_t(memory_t * memory = nullptr) _NE
             : memory_base_t(memory) { }
 
         // Append a key/value pair.
         void append(const key_t & key, const value_t & value)
         {
-            if(__items == nullptr)
-                throw _EC(invalid_operation, _T("not initialized"));
-
-            if(__p >= __items_end)
-                throw _EC(overflow, _T("overflow"));
+            _A(__items == nullptr);
+            _A(__p < __items_end);
 
             *__p++ = __item_t { key, value };
         }
 
         // Initialize with the specified size.
-        void init(size_t size)
+        void init(size_t size) _NE
         {
-            if(__items != nullptr)
-                throw _EC(invalid_operation, _T("already initialized"));
+            _A(__items == nullptr);
 
             __items = this->__alloc_objs<__item_t>(max(size, 1));
             __items_end = __items + size;
@@ -1431,13 +1427,13 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Returns the begin iterator.
-        itor_t begin() const { return itor_t(*this, 0); }
+        itor_t begin() const _NE { return itor_t(*this, 0); }
 
         // Returns the end iterator.
-        itor_t end()   const { return itor_t(*this, __p - __items); }
+        itor_t end()   const _NE { return itor_t(*this, __p - __items); }
 
         // Returns the value at the specified index.
-        value_t operator [](size_t index) const { return __items[index].value; }
+        value_t operator [](size_t index) const _NE { return __items[index].value; }
 
         // Destructor, free buffer.
         ~fixed_map_t()
@@ -1471,7 +1467,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
         // Constructor, with specified creator.
         template<typename creator_t>
-        auto_cache_t(creator_t creator) : __creator(creator) { }
+        auto_cache_t(creator_t creator) _NE : __creator(creator) { }
 
         // Returns value of the key.
         value_t & get(const key_t & key)
@@ -1505,7 +1501,7 @@ namespace X_ROOT_NS { namespace algorithm {
     public:
 
         // Constructor, use the specified memory management.
-        respool_wrapper_t(memory_t * memory = nullptr)
+        respool_wrapper_t(memory_t * memory = nullptr) _NE
             : memory_base_t(memory)
         { }
 
@@ -1572,14 +1568,14 @@ namespace X_ROOT_NS { namespace algorithm {
         public:
             typedef std::remove_reference_t<decltype(*_D(itor_t))> value_type;
 
-            __zip_iterator_impl_base_t() { }
+            __zip_iterator_impl_base_t() _NE { }
 
             template<typename pair_t>
-            __zip_iterator_impl_base_t(pair_t pair)
+            __zip_iterator_impl_base_t(pair_t pair) _NE
                 : __it(pair.first) , __it_end(pair.second)  { }
 
             // Move to the next iterator.
-            bool move_next()
+            bool move_next() _NE
             {
                 if(__it == __it_end)
                     return false;
@@ -1609,10 +1605,10 @@ namespace X_ROOT_NS { namespace algorithm {
             typedef __zip_iterator_impl_t<idx - 1, itors_t ...>  __super_t;
 
         public:
-            __zip_iterator_impl_t() { }
+            __zip_iterator_impl_t() _NE { }
 
             template<typename pair_t, typename ... pairs_t>
-            __zip_iterator_impl_t(pair_t pair, pairs_t ... pairs)
+            __zip_iterator_impl_t(pair_t pair, pairs_t ... pairs) _NE
                 : __base_t(pair), __super_t(pairs ...)
             { }
 
@@ -1627,7 +1623,8 @@ namespace X_ROOT_NS { namespace algorithm {
                 __super_t::set_value((typename _tuple_t::super_t &)tuple);
             }
 
-            bool move_next()
+            // Moves to next element.
+            bool move_next() _NE
             {
                 return __base_t::move_next() && __super_t::move_next();
             }
@@ -1660,7 +1657,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
         public:
             __zip_tuple_base_t() = default;
-            __zip_tuple_base_t(value_t value) : __value(value) { }
+            __zip_tuple_base_t(value_t value) _NE : __value(value) { }
 
             template<typename _value_t>
             void assign_value(_value_t && value)
@@ -1689,7 +1686,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
             __zip_tuple_t() = default;
 
-            __zip_tuple_t(value_t value, values_t ... values)
+            __zip_tuple_t(value_t value, values_t ... values) _NE
                 : __base_t(value), super_t(values ...) { }
 
             using __base_t::assign_value;
@@ -1742,8 +1739,8 @@ namespace X_ROOT_NS { namespace algorithm {
                                                                         value_type;
 
         public:
-            __zip_iterator_t() : __impl(nullptr) { }
-            __zip_iterator_t(__impl_t * impl) : __impl(impl)
+            __zip_iterator_t() _NE : __impl(nullptr) { }
+            __zip_iterator_t(__impl_t * impl) _NE : __impl(impl)
             {
                 _A(impl != nullptr);
 
@@ -1751,7 +1748,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }
 
             // Move next
-            __self_t & operator ++()
+            __self_t & operator ++() _NE
             {
                 _A(__impl != nullptr);
 
@@ -1760,7 +1757,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }
 
             // Move next
-            __self_t operator ++(int)
+            __self_t operator ++(int) _NE
             {
                 _A(__impl != nullptr);
 
@@ -1779,10 +1776,10 @@ namespace X_ROOT_NS { namespace algorithm {
             }
 
             // Returns the value.
-            value_type & operator * () { return __value; }
+            value_type & operator * () _NE { return __value; }
 
             // Returns whether this iterator is equals to another.
-            bool operator == (const __self_t & o) const
+            bool operator == (const __self_t & o) const _NE
             {
                 if(__impl == nullptr)
                     return o.__impl == nullptr;
@@ -1791,7 +1788,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }
 
             // Returns whether this iterator is not equals to another.
-            bool operator != (const __self_t & o) const
+            bool operator != (const __self_t & o) const _NE
             {
                 return ! operator == (o);
             }
@@ -1814,18 +1811,18 @@ namespace X_ROOT_NS { namespace algorithm {
             typedef std::tuple<typename ts_t::value_type ...> value_type;
             typedef __zip_iterator_t<ts_t ...> iterator;
 
-            __zip_container_t(ts_t & ... ts)
+            __zip_container_t(ts_t & ... ts) _NE
                 : __impl(std::make_pair(ts.begin(), ts.end()) ...)
                 , __begin_itor(&__impl) { }
 
             // Returns the begin iterator.
-            iterator begin() const
+            iterator begin() const _NE
             {
                 return __begin_itor;
             }
 
             // Returns the end iterator.
-            iterator end() const
+            iterator end() const _NE
             {
                 return __end_itor;
             }
