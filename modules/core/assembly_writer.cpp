@@ -149,7 +149,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if(type->host_type != nullptr)
                 __W->__commit_type(type->host_type);
 
-
             al::sort(type->methods, [](method_t * m1, method_t * m2) {
                 return (int)call_type_of_method(m1) < (int)call_type_of_method(m2);
             });
@@ -167,8 +166,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->nest_types      = __W->__commit_nest_types(type->nest_types);
             mt->super_types     = __W->__commit_super_type_names(type->super_type_names);
             mt->attributes      = __W->__commit_attributes(type->attributes);
+
             mt->ttype           = (uint8_t)type->ttype;
             mt->vtype           = (uint8_t)type->vtype;
+			mt->mtype			= (uint8_t)type->mtype;
         }
 
         // Assigns type_ref metadata.
@@ -335,6 +336,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             mt->host      = __W->__commit_type(host);
             mt->template_ = __W->__commit_field(template_);
+        }
+
+        // Assigns position field metadata.
+        void __assign_mt(mt_position_field_t * mt, uint16_t position, type_t * host)
+        {
+            mt->host      = __W->__commit_type(host);
+            mt->position  = position;;
         }
 
         // Assigns param metadata.
@@ -568,8 +576,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     __AssignMtCase(nest_type)
                     __AssignMtCase(super_type)
 
-                    default:
-                        __Unexpected();
+                    default: ;
+						_PP(it.tidx);
+						__Unexpected();
 
                     #undef __AssignMtCaseEx
                     #undef __AssignMtCase
@@ -730,7 +739,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             auto & mgr = __mt_manager<__tidx_t::generic_param>();
 
-            if(__size(params) == 0)
+            if (__size(params) == 0)
                 return mgr.current_null();
 
             return mgr.acquire(*params,
@@ -983,6 +992,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref;
         }
 
+        // Commits position field.
+        ref_t __commit_position_field(position_field_t * field)
+        {
+            if(field == nullptr)
+                return __current_null<__tidx_t::position_field>();
+
+            auto & mgr = __mt_manager<__tidx_t::position_field>();
+            __SearchRet(mgr, field);
+
+            mt_position_field_t * mt_position_field;
+            ref_t ref = mgr.append(field, &mt_position_field);
+
+            __assign_mt(mt_position_field, field->position, field->host_type);
+
+            return ref;
+        }
+
         // Commits params
         template<typename _params_t>
         ref_t __commit_params(_params_t & params)
@@ -1051,8 +1077,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commit field.
         ref_t __commit_field(field_t * field)
         {
-            if(field->this_family() == member_family_t::impl)
+            if(field == nullptr)
+                return ref_t::null;
+
+            if (field->this_family() == member_family_t::impl)
                 return __commit_generic_field((impl_field_t *)field);
+
+			if (field->this_family() == member_family_t::position)
+				return __commit_position_field((position_field_t *)field);
 
             auto & mgr = __mt_manager<__tidx_t::field>();
             __SearchRet(mgr, field);
@@ -1076,6 +1108,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits event.
         ref_t __commit_event(event_t * event)
         {
+            if(event == nullptr)
+                return ref_t::null;
+
             auto & mgr = __mt_manager<__tidx_t::event>();
             __SearchRet(mgr, event);
 
@@ -1099,6 +1134,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits type def.
         ref_t __commit_type_def(type_def_t * type_def)
         {
+            if(type_def == nullptr)
+                return ref_t::null;
+
             auto & mgr = __mt_manager<__tidx_t::type_def>();
             __SearchRet(mgr, type_def);
 
@@ -1348,6 +1386,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 case __tidx_t::generic_field:
                     return __commit_generic_field((impl_field_t *)entity);
 
+				case __tidx_t::position_field:
+					return __commit_position_field((position_field_t *)entity);
+
                 default:
                     X_UNEXPECTED();
             }
@@ -1390,14 +1431,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits field ref.
         ref_t __commit_field_ref(field_t * field)
         {
-            auto & mgr = __mt_manager<__tidx_t::field_ref>();
-            __SearchRet(mgr, field);
+			member_family_t family = field->this_family();
 
-            mt_field_ref_t * field_ref;
-            ref_t ref = mgr.append(field, &field_ref);
-            __enque_assign(__tidx_t::field_ref, field_ref, field);
+			if (family == member_family_t::position)
+				throw _EC(unexpected);
 
-            return ref;
+			auto & mgr = __mt_manager<__tidx_t::field_ref>();
+			__SearchRet(mgr, field);
+
+			mt_field_ref_t * field_ref;
+			ref_t ref = mgr.append(field, &field_ref);
+			__enque_assign(__tidx_t::field_ref, field_ref, field);
+
+			return ref;
         }
 
         // Compiles methods.

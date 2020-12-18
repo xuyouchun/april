@@ -166,6 +166,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             virtual gtype_t this_gtype() const override final { return gtype_t::__unknown__; }
             virtual ttype_t this_ttype() const override final { return ttype_t::__unknown__; }
             virtual vtype_t this_vtype() const override final { return vtype_t::__unknown__; }
+            virtual mtype_t this_mtype() const override final { return mtype_t::__unknown__; }
 
             virtual member_t * get_member(analyze_member_args_t & args) override { return nullptr; }
             virtual void get_members(analyze_members_args_t & args) override { }

@@ -129,6 +129,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         void __set_name(const string_t & name, token_t * token, bool is_root = true);
 
         global_type_t __global_type = global_type_t::__default__;
+		bool		  __extends = false;
 
     __EndBuilder
 

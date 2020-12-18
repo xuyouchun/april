@@ -134,7 +134,7 @@ $type_name_unit: name $generic_args? ;
 
 # General type name.
 $general_type_name:
-        (global? \:\:)? $type_name_unit (. $type_name_unit)*
+        (global? \:\:)? $type_name_unit (. $type_name_unit)* ...?
      |  void | object
      |  char | string | byte | sbyte | short | ushort | int | uint | long | ulong | bool
      |  double | float | decimal
@@ -150,7 +150,7 @@ $uncertain_type_name: var ;
 $type_name: $general_type_name | $array_type_name | $uncertain_type_name ;
 
 # Typedef generic param.
-$type_def_param: params? name;
+$type_def_param: name ...?;
 
 # Typedef generic params: typedef MyClass<int, T> NewType<T>.
 $type_def_params: < $type_def_param (, $type_def_param)* > ;
@@ -159,7 +159,7 @@ $type_def_params: < $type_def_param (, $type_def_param)* > ;
 $type_def: typedef $type_name name $type_def_params? \; ;
 
 # Generic param.
-$generic_param:  $attributes (in | out | params)? name;
+$generic_param:  $attributes (in | out)? name ...?;
 
 # Generic params: MyClass<T, K>.
 $generic_params: < $generic_param (, $generic_param)* > ;
@@ -171,10 +171,10 @@ $generic_constraint: where name \: ($__item: $type_name | class | struct) (, $__
 $generic_constraints: $generic_constraint * ;
 
 # Generic argument.
-$generic_arg: params? $type_name;
+$generic_arg: params? $type_name name?;
 
 # Generic arguments: MyClass<int, long>.
-$generic_args: < $generic_arg? (, $generic_arg?) * !:> ;
+$generic_args: < $generic_arg? (, $generic_arg?) * ...? !:> ;
 
 # Param of methods.
 $param:  $attributes (out | ref | params)? $type_name name (= $expression)? ;

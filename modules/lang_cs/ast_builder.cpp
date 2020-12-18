@@ -215,6 +215,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 __global_type = global_type_t::global;
                 break;
 
+			case __TokenValue(three_dots):
+				__extends = true;
+				break;
+
             case __TokenValue(double_colon):
                 if(__global_type == global_type_t::__default__)
                     __global_type = global_type_t::root;
@@ -244,6 +248,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         if(__global_type != global_type_t::__default__)
         {
             __This->set_global_type(__global_type);
+			__This->set_extends(__extends);
         }
     }
 
@@ -297,6 +302,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
             case __TokenValue(name):
                 __This->set_name(this->__to_name(token), token);
                 break;
+
+			case __TokenValue(three_dots):
+				__This->set_extends(true);
+				break;
         }
     }
 
@@ -387,9 +396,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 __This->set_param_type(generic_param_type_t::out, token);
                 break;
 
-            case __TokenValue(k_params):
+			case __TokenValue(three_dots):
                 __This->set_param_type(generic_param_type_t::params, token);
-                break;
+				break;
         }
     }
 

@@ -100,15 +100,17 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     #define __DefineFunc(name) void name(rtlib_context_t & ctx)
 
     // System functions.
-    __DefineFunc(write);
-    __DefineFunc(test_add);
-    __DefineFunc(write_int32);
-    __DefineFunc(write_boolean);
+    __DefineFunc(console_write);
 
     // Array functions.
     __DefineFunc(array_get_rank);
     __DefineFunc(array_get_length);
     __DefineFunc(array_get_length_of_dimension);
+
+	// Tuple functions.
+	__DefineFunc(tuple_set_range);
+	__DefineFunc(tuple_get);
+	__DefineFunc(tuple_get_count);
 
     ////////// ////////// ////////// ////////// //////////
 

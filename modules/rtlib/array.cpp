@@ -61,4 +61,55 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Tuple arguments
+    struct __tuple_args_t
+    {
+        robject_t   tuple;
+    };
+
+
+    ////////// ////////// ////////// ////////// //////////
+
+	// Tuple_SetRange
+	struct __tuple_set_range_args_t : __tuple_args_t
+	{
+		rptr_t	args;
+	};
+
+	void tuple_set_range(rtlib_context_t & ctx)
+	{
+		typedef __tuple_set_range_args_t args_t;
+		args_t * args = ctx.args<args_t>();
+	}
+
+    ////////// ////////// ////////// ////////// //////////
+
+	// Tuple_Get
+	struct __tuple_get_args_t : __tuple_args_t
+	{
+		rint32_t	index;
+	};
+
+	void tuple_get(rtlib_context_t & ctx)
+	{
+		typedef __tuple_get_args_t args_t;
+		args_t * args = ctx.args<args_t>();
+	}
+
+    ////////// ////////// ////////// ////////// //////////
+
+	// Tuple_GetCount
+	struct __tuple_get_count_args_t : __tuple_args_t
+	{
+		// empty.
+	};
+
+	void tuple_get_count(rtlib_context_t & ctx)
+	{
+		typedef __tuple_get_count_args_t args_t;
+		args_t * args = ctx.args<args_t>();
+	}
+
+    ////////// ////////// ////////// ////////// //////////
+
 } } }

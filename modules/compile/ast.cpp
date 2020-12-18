@@ -635,6 +635,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __type_name.global_type = global_type;
     }
 
+	// Set if it's a extends type.
+	void general_type_name_ast_node_t::set_extends(bool extends)
+	{
+		__type_name.extends = extends;
+	}
+
     // Commits this node.
     void general_type_name_ast_node_t::on_commit()
     {
@@ -777,6 +783,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         this->__assign_name(__type_def_param.name, name, el, _T("typedef param"));
     }
+
+	// Sets if it's a extends type.
+	void type_def_param_ast_node_t::set_extends(bool extends)
+	{
+		__type_def_param.extends = extends;
+	}
 
     // Commits this node.
     void type_def_param_ast_node_t::on_commit()

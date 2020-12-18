@@ -113,6 +113,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         __C(semicolon, _T(";"))     __C(comma, _T(","))             // ; ,
         __C(dollar, _T("$"))        __C(ampersand, _T("@"))         // $ @
         __C(base_mark, _T(":"))     __C(double_colon, _T("::"))     // : ::
+		__C(three_dots, _T("..."))									// ...
 
     X_ENUM_INFO_END
 

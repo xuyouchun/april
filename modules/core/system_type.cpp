@@ -289,6 +289,36 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+	// Impl for System.ITuple<...>
+	class __t_ituple_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+	{
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+	public:
+		using __super_t::__super_t;
+
+		static const char_t type_name[];
+	};
+
+	const char_t __t_ituple_type_impl_t::type_name[] = __CoreTypeName(CoreType_ITuple);
+
+    //-------- ---------- ---------- ---------- ----------
+
+	// Impl for System.Tuple<...>
+	class __t_tuple_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+	{
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+	public:
+		using __super_t::__super_t;
+
+		static const char_t type_name[];
+	};
+
+	const char_t __t_tuple_type_impl_t::type_name[] = __CoreTypeName(CoreType_Tuple);
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Impl for System.Int8.
     class __int8_type_impl_t : public __tcore_type_impl_t<vtype_t::int8_>
     {
@@ -559,6 +589,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __impls.append<__attribute_type_impl_t>();
             __impls.append<__array_type_impl_t>();
             __impls.append<__t_array_type_impl_t>();
+			__impls.append<__t_ituple_type_impl_t>();
+			__impls.append<__t_tuple_type_impl_t>();
 
             // Core data types.
             __impls.append<__void_type_impl_t>();
@@ -587,31 +619,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             general_type_t * type = as<general_type_t *>(bind_object);
             method_t * method;
 
-            if(type != nullptr)
+            if (type != nullptr)
             {
                 const string_t type_identity = type->to_identity();
                 type_impl_t * impl = __impls.get_impl(type_identity);
-                if(impl == nullptr)
+                if (impl == nullptr)
                     throw _ECF(not_found, _T("cannot find internal type \"%1%\""), type_identity);
 
                 type->impl = impl;
                 impl->commit(ctx, type);
             }
-            else if((method = as<method_t *>(bind_object)) != nullptr)
+            else if ((method = as<method_t *>(bind_object)) != nullptr)
             {
                 #define __CplLogError(error_name, args ...)                             \
                 cpl_log_errorf(ctx.logger, method,                                      \
                     __e_t::extern_method_prototype_mistake__##error_name, ##args)
 
-                if(!method->is_static())
+                if (!method->is_static())
                     __CplLogError(should_be_static);
 
-                if(!method->is_extern())
+                if (!method->is_extern())
                     __CplLogError(should_be_extern);
 
                 al::svector_t<const char_t *> not_allowed_list;
                 #define __NotAllowed(name)                                              \
-                    if(method->is_##name())                                             \
+                    if (method->is_##name())                                             \
                         not_allowed_list.push_back(_S(name));
 
                 __NotAllowed(sealed)
@@ -622,7 +654,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 __NotAllowed(const)
                 __NotAllowed(readonly)
 
-                if(!not_allowed_list.empty())
+                if (!not_allowed_list.empty())
                 {
                     auto & ls = not_allowed_list;
                     string_t names = al::join_str(ls.begin(), ls.end(), _T(", "));

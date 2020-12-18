@@ -38,15 +38,17 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
         void __append_libfuncs()
         {
             // System fynctions
-            __append_libfunc(_T("Write"), write);
-            __append_libfunc(_T("TestAdd"), test_add);
-            __append_libfunc(_T("WriteInt32"), write_int32);
-            __append_libfunc(_T("WriteBoolean"), write_boolean);
+            __append_libfunc(_T("Console_Write"), console_write);
 
             // Array functions.
             __append_libfunc(_T("Array_GetRank"), array_get_rank);
             __append_libfunc(_T("Array_GetLength"), array_get_length);
             __append_libfunc(_T("Array_GetLengthOfDimension"), array_get_length_of_dimension);
+
+			// Tuple functions.
+			__append_libfunc(_T("Tuple_SetRange"), tuple_set_range);
+			__append_libfunc(_T("Tuple_Get"), tuple_get);
+			__append_libfunc(_T("Tuple_GetCount"), tuple_get_count);
         }
     };
 

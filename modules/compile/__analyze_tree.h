@@ -1985,7 +1985,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     struct analyzer_element_t
     {
         // Constructor.
-        analyzer_element_t() = default;
+        analyzer_element_t() = delete;
         analyzer_element_t(const analyzer_element_t &) = default;
 
         // Constructor with type and index.

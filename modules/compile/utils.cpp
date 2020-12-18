@@ -185,8 +185,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(field != nullptr);
 
-        if(field->this_family() == member_family_t::impl)
+		member_family_t family = field->this_family();
+
+        if (family == member_family_t::impl)
             return __ref_of<__tidx_t::generic_field>(ctx, (impl_field_t *)field);
+
+		if (family == member_family_t::position)
+			return __ref_of<__tidx_t::position_field>(ctx, (position_field_t *)field);
 
         ref_t ref = __is_extern(ctx, field)?
             __ref_of<__tidx_t::field_ref>(ctx, field) :

@@ -49,25 +49,17 @@ public class Attribute
 public class Array : Object
 {
     // Returns rank of array.
-    public Int32 Rank { get { return Array_GetRank(this); } }
+    public Int32 Rank { get { return Internal.Array_GetRank(this); } }
 
     // Returns length of array.
-    public Int32 Length { get { return Array_GetLength(this); } }
+    public Int32 Length { get { return Internal.Array_GetLength(this); } }
 
     // Returns length of array at specified dimension.
     public Int32 GetLength(Int32 dimension)
     {
-        return Array_GetLengthOfDimension(this, dimension);
+        return Internal.Array_GetLengthOfDimension(this, dimension);
     }
 
-    [__internal__]
-    private static extern Int32 Array_GetRank(Array array);
-
-    [__internal__]
-    private static extern Int32 Array_GetLength(Array array);
-
-    [__internal__]
-    private static extern Int32 Array_GetLengthOfDimension(Array array, Int32 dimension);
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -75,6 +67,44 @@ public class Array : Object
 [__internal__]
 public class Array<T> : Array
 {
+
+};
+
+////////// ////////// ////////// ////////// //////////
+
+[__internal__]
+public interface ITuple<TItems ...>
+{
+	Int32 Count { get; }
+
+	Object Get(Int32 index);
+
+	T Get<T>(Int32 index);
+};
+
+////////// ////////// ////////// ////////// //////////
+
+[__internal__]
+public struct Tuple<TItems ...> : ITuple<TItems ...>
+{
+	public Tuple(TItems ... items)
+	{
+		// Internal.Tuple_SetRange(this, (Ptr)items);
+	}
+
+	public Object Get(Int32 index)
+	{
+		return Internal.Object_FromPtr(
+			Internal.Tuple_Get(this, index)
+		);
+	}
+
+	public T Get<T>(Int32 index)
+	{
+		return (T)Internal.Tuple_Get(this, index);
+	}
+
+	public Int32 Count { get { return Internal.Tuple_GetCount(this); } }
 
 };
 
@@ -136,7 +166,7 @@ public class Delegate
 };
 
 // Delegate.
-public class Delegate<TReturn, params TArgs> : Delegate
+public class Delegate<TReturn, TArgs ...> : Delegate
 {
     // Constructor.
     public Delegate()

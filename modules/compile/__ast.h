@@ -1484,6 +1484,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Typename units.
         unit_list_t     units;
 
+		// Extends type.
+		bool			extends = false;
+
         // Global type.
         global_type_t   global_type = global_type_t::__default__;
 
@@ -1610,6 +1613,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Set global type.
         void set_global_type(global_type_t global_type);
+
+		// Set if it's a extends type.
+		void set_extends(bool extends);
 
         // On commits it.
         virtual void on_commit() override;
@@ -1757,6 +1763,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Sets name.
         void set_name(name_t name, __el_t * el);
+
+		// Sets if it's a extends type.
+		void set_extends(bool extends);
 
         // Commits this node.
         virtual void on_commit() override;

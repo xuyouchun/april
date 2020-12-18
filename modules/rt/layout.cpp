@@ -81,6 +81,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             return 0;
         }
 
+        // Gets field offset.
+        virtual msize_t get_field_offset(analyzer_env_t & env, int position) override
+        {
+            return 0;
+        }
+
         virtual void each_field(analyzer_env_t & env, each_field_t f) override { }
 
         // Enums all methods.
@@ -201,7 +207,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     void generic_param_manager_builder_t::append(ref_t generic_params, rt_type_t ** types,
                                                  int type_count)
     {
-        _A(generic_params.count == type_count);
+        _A(generic_params.count <= type_count);
 
         for(ref_t gp_ref : generic_params)
         {

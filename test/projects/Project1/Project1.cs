@@ -8,13 +8,37 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        Proc<int> proc;
-        int ret = proc.Invoke(10);
+		// Tuple<int, string> tuple = new Tuple<int, string>(100, "Hello World");
+		// new Tuple<int>(100);
 
-        Console.Print(ret);
+		int a = 1, b = 2;
+		if (a + b != 3)
+		{
+			Console.WriteLine("Yes!");
+		}
+		else
+		{
+			Console.WriteLine("NO!");
+		}
+
+		// Console.Write(tuple.Item2);
+        // Console.WriteLine("Hello World");
     }
 
-    typedef System.Delegate<int, params TArgs> Proc<params TArgs>;
+    typedef System.Delegate<int, TArgs ...> Proc<TArgs ...>;
 };
 
+
+class MyClass
+{
+
+}
+
+
+/*
+class MyClass1<TArgs ...>
+{
+	// public Delegate<void, TArgs ...> Func;
+};
+*/
 

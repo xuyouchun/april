@@ -166,35 +166,38 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Generic field.
         generic_field       =   22,
 
+		// Tuple field.
+		position_field		=	23,
+
         // Generic method.
-        generic_method      =   23,
+        generic_method      =   24,
 
         // Generic property.
-        generic_property    =   24,
+        generic_property    =   25,
 
         // Generic event.
-        generic_event       =   25,
+        generic_event       =   26,
 
         // Generic typedef.
-        generic_type_def    =   26,
+        generic_type_def    =   27,
         
         // Typedef param.
-        type_def_param      =   27,
+        type_def_param      =   28,
         
         // Generic param
-        generic_param       =   28,
+        generic_param       =   29,
         
         // Param
-        param               =   29,
+        param               =   30,
         
         // Generic argument
-        generic_argument    =   30,
+        generic_argument    =   31,
 
         // Attribute
-        attribute           =   31,
+        attribute           =   32,
         
         // Attribute argument.
-        attribute_argument  =   32,
+        attribute_argument  =   33,
         
         // Vesion1 assembly.
         __V1 = attribute_argument,
@@ -258,6 +261,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef _entity_t entity_t;
         static const int extra = _extra;
     };
+
+    template<__tidx_t _tidx, typename _entity_t, int _extra>
+	const __tidx_t mt_base_t<_tidx, _entity_t, _extra>::tidx;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -886,6 +892,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             uint8_t     __tv_type;
         };
 
+		uint8_t			mtype;				// mtype
         ref_t           generic_params;     // Generic params
         ref_t           super_types;        // Super types
         ref_t           methods;            // Methods
@@ -931,6 +938,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         import,                             // Import, defined in other assembly.
 
         generic,                            // Generic method.
+
+		position,							// Position.
 
     X_ENUM_END
 
@@ -1108,6 +1117,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ref_t           template_;          // Field template.
 
     __EndDefineMt(generic_field)
+
+    ////////// ////////// ////////// ////////// //////////
+    // mt_position_field_t
+    __DefineMt(position_field, position_field_t *, (int)mt_member_extra_t::position)
+
+        ref_t           host;               // Host type.
+        uint16_t        position;			// Field template.
+
+    __EndDefineMt(position_field)
 
     ////////// ////////// ////////// ////////// //////////
     // mt_generic_method_t
@@ -1642,7 +1660,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             size_t tbl_count = _table_count - __mttbl_count;
             __mt_manager<__tidx_t::table>().acquire(tbl_count, std::back_inserter(tables));
 
-            int idx = __mttbl_count;
             for(mt_table_t * mt_table : tables)
             {
                 __read(mt_table);

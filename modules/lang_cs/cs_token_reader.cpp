@@ -223,6 +223,12 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 return __Nw(right_brace);
 
             case _T('.'):   // .
+				if (*__p == _T('.') && *(__p + 1) == _T('.'))
+				{
+					__p += 2;
+					return __Nw(three_dots);
+				}
+
                 return __Nw(member_point);
 
             case _T(';'):   // ;

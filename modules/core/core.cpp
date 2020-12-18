@@ -1472,6 +1472,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Generic member implement with specified type arguments.
         X_C(impl,           _T("impl"))
 
+		// Specified member by position, from index 0.
+		X_C(position,		_T("position"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -1903,6 +1906,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+	// Mobject type.
+	X_ENUM_INFO(mtype_t)
+
+		X_C(tuple,			_T("tuple"))
+
+	X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Category of a type.
     X_ENUM_INFO(ttype_t)
 
@@ -2290,6 +2302,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             auto analyze_method = std::bind(&__self_t::__analyze, this, _1);
 
             size_t generic_args_count = __generic_args_count();
+
             if(__args.method_trait == method_trait_t::__default__)
                 __methods.each(__args.name, generic_args_count, analyze_method);
             else
@@ -2948,11 +2961,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         if(params != nullptr && params->size() > 0)
         {
+			typedef generic_param_type_t gpt_t;
             ss << _T("<");
 
-            for(int index = 1, size = params->size(); index < size; index++)
+            for(int index = 0, size = params->size(); index < size; index++)
             {
-                ss << _T(",");
+				generic_param_t * param = (*params)[index];
+				if (param->param_type == gpt_t::params)
+				{
+					if (index > 0 && (*params)[index - 1]->param_type == gpt_t::params)
+						ss << _T(",");
+
+					ss << _T("...");
+				}
+				else if (index > 0)
+				{
+	                ss << _T(",");
+				}
             }
 
             ss << _T(">");
@@ -2961,21 +2986,48 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return ss.str();
     }
 
+	// Returns param at specified position.
+	generic_param_t * general_type_t::param_at(size_t index) const
+	{
+		_A(index < this->params_count());
+		return (*params)[index];
+	}
+
+	// Returns if specified param count match this type.
+	bool general_type_t::is_match(size_t params_count) const
+	{
+		if (this->uncertain_params())
+			return params_count >= this->params_count() - 1;
+
+		return params_count == this->params_count();
+	}
+
+	// Returns if specified param count match this type.
+	bool general_type_t::uncertain_params() const
+	{
+		size_t count = this->params_count();
+		return count > 0 && this->param_at(count - 1)->param_type == generic_param_type_t::params;
+	}
+
+
     // Commits general type.
     void general_type_t::commit(eobject_commit_context_t & ctx)
     {
-        if(!__ensure_size_initialize())
+        if (!__ensure_size_initialize())
             __super_t::commit(ctx);
 
-        if(get_base_type() == nullptr)
+        if (get_base_type() == nullptr)
         {
             type_name_t * object_type_name = ctx.xpool.get_object_type_name();
-            if(object_type_name->type != this)
+            if (object_type_name->type != this)
             {
                 type_name_t * base_types[] = { object_type_name };
                 super_type_names.push_front(base_types);
             }
         }
+
+		if (this == ctx.xpool.get_tuple_type())
+			mtype = mtype_t::tuple;
     }
 
     // Returns vsize.
@@ -3053,18 +3105,95 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(template_ != nullptr);
         _A(template_->committed());
 
-        __transform_context_t tctx(ctx.xpool);
+		xpool_t & xpool = ctx.xpool;
+		if (template_ == xpool.get_tuple_type())	// Tuple
+		{
+			__transform_tuple_type(xpool);
+		}
+		else
+		{
+			__transform_context_t tctx(xpool);
 
-        __transform_members(tctx, template_->fields, fields);
-        __transform_members(tctx, template_->methods, methods);
-        __transform_members(tctx, template_->properties, properties);
-        __transform_members(tctx, template_->events, events);
-        __transform_members(tctx, template_->nest_types, nest_types);
-        __transform_members(tctx, template_->type_defs, type_defs);
-        __transform_members(tctx, template_->super_type_names, super_type_names);
+			__transform_members(tctx, template_->fields, fields);
+			__transform_members(tctx, template_->methods, methods);
+			__transform_members(tctx, template_->properties, properties);
+			__transform_members(tctx, template_->events, events);
+			__transform_members(tctx, template_->nest_types, nest_types);
+			__transform_members(tctx, template_->type_defs, type_defs);
+			__transform_members(tctx, template_->super_type_names, super_type_names);
+		}
 
         __super_t::commit(ctx);
     }
+
+
+	// Transform tuple type.
+	void generic_type_t::__transform_tuple_type(xpool_t & xpool)
+	{
+		__transform_context_t ctx(xpool);
+
+		// Fields.
+		for (int index = 0, count = args.size(); index < count; index++)
+		{
+			type_t * type = args[index];
+			string_t name = _F(_T("Item%1%"), index + 1);
+
+			position_field_t * new_field = xpool.new_obj<position_field_t>();
+			new_field->position	  = index;
+			new_field->name       = xpool.to_name(name.c_str());
+			new_field->type_name  = xpool.new_obj<type_name_t>(type);
+			new_field->init_value = nullptr;
+			new_field->decorate   = nullptr;
+			new_field->host_type  = this;
+			new_field->variable   = xpool.new_obj<field_variable_t>(new_field);
+
+			fields.push_back(new_field);
+		}
+
+		// Methods.
+		for (method_t * method : template_->methods)
+		{
+			if (method->trait == method_trait_t::constructor)
+			{
+				impl_method_t * new_method = ctx.xpool.new_obj<impl_method_t>();
+		        new_method->raw = method;
+
+				new_method->owner_type_name = nullptr;
+				new_method->type_name		= nullptr;
+				new_method->generic_params  = nullptr;
+		        new_method->name			= method->name;
+				new_method->decorate		= method->decorate;
+				new_method->trait			= method->trait;
+				new_method->host_type		= this;
+
+				new_method->params = ctx.xpool.new_obj<params_t>();
+
+				for (int index = 0, count = args.size(); index < count; index++)
+				{
+					type_t * type = args[index];
+					string_t name = _F(_T("item%1%"), index + 1);
+
+					param_t * new_param = ctx.xpool.new_obj<param_t>();
+
+	                new_param->name			 = xpool.to_name(name.c_str());
+		            new_param->attributes	 = nullptr;
+			        new_param->type_name	 = xpool.new_obj<type_name_t>(type);
+				    new_param->ptype		 = param_type_t::__default__;
+					new_param->default_value = nullptr;
+
+	                new_method->params->push_back(new_param);
+		        }
+
+				ctx.add_relation(method, new_method);
+				methods.push_back(new_method);
+			}
+			else
+			{
+				method_t * new_method = __transform_member(ctx, method);
+				methods.push_back(new_method);
+			}
+		}
+	}
 
     // Transform members.
     template<typename _members_t>
@@ -3428,6 +3557,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     }
 
+	const string_t generic_param_t::to_identity() const
+	{
+		if (param_type == generic_param_type_t::params)
+			return _T("?") + _str(name) + _T("...");
+
+		return _T("?") + _str(name);
+	}
+
     ////////// ////////// ////////// ////////// //////////
     // array_type_t
 
@@ -3722,7 +3859,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                                        xtype_collection_t & types, type_t * host_type)
     {
         _A(template_ != nullptr);
-        _A(template_->params_count() == types.size());
+        _A(template_->is_match(types.size()));
 
         generic_type_cache_key_t key(template_, types.get_tcid(*this), host_type);
         generic_type_t * type = generic_type_cache->get(key);
@@ -3894,6 +4031,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     general_type_t * xpool_t::get_exception_type()
     {
         return __get_specified_type(__CoreTypeName(CoreType_Exception), __exception_type);
+    }
+
+    // Returns System.Tuple type.
+    general_type_t * xpool_t::get_tuple_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Tuple), __tuple_type);
     }
 
     // Returns System.Diagnostics.TraceAttribute type.

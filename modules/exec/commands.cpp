@@ -419,10 +419,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             case xil_storage_type_t::field: {
 
-                rt_field_t * rt_field = ctx.get_field(xil.field_ref());
+                rt_field_base_t * rt_field = ctx.get_field(xil.field_ref());
                 _A(rt_field != nullptr);
 
-                return __to_dtype(ctx, ctx.get_type((*rt_field)->type));
+                return __to_dtype(ctx, rt_field->get_field_type(ctx));
             }
 
             case xil_storage_type_t::constant: {
@@ -624,7 +624,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case mt_member_extra_t::internal: {
 
                 rt_type_t * rt_type;
-                rt_field_t * rt_field = ctx.get_field(field_ref, &rt_type);
+                rt_field_base_t * rt_field = ctx.get_field(field_ref, &rt_type);
 
                 _A(rt_field != nullptr);
                 _A(rt_type != nullptr);
@@ -640,6 +640,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                 return type->get_field_offset(ctx.env, field_ref);
             }
+
+			case mt_member_extra_t::position: {
+
+                rt_type_t * type = ctx.get_host_type_by_field_ref(field_ref);
+                _A(type != nullptr);
+
+				mt_position_field_t * mt = ctx.current->mt_of_position_field(field_ref);
+				return type->get_field_offset(ctx.env, mt->position);
+			}
 
             case mt_member_extra_t::generic: {
 
@@ -981,7 +990,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __push_array_element_command_template_t, xil_type_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
-        if(xil.stype() == xil_storage_type_t::duplicate)
+        if (xil.stype() == xil_storage_type_t::duplicate)
             return &__duplicate_command;
 
         #define __V(s, d) (((uint32_t)(s) << 16) | (uint32_t)(d))
@@ -996,7 +1005,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         xil_storage_type_t stype = xil.stype();
         xil_type_t dtype = __fetch_dtype(ctx, xil);
 
-        switch(__V(stype, dtype))
+        switch (__V(stype, dtype))
         {
             // Constant values.
             #define __CaseConstant(_name, _t, _d)                               \
@@ -1168,7 +1177,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             default:
                 _PF(_T("stype: %1%, dtype: %2%"), xil.stype(), xil.dtype());
                 X_UNEXPECTED();
-
         }
 
         #undef __V

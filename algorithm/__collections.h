@@ -1146,7 +1146,7 @@ namespace X_ROOT_NS { namespace algorithm {
         t & operator[](size_t index) const
         {
             if(__is_in_array())
-                return __array[index];
+                return (t &)__array[index];
 
             return __buffer_start[index];
         }
@@ -1155,7 +1155,7 @@ namespace X_ROOT_NS { namespace algorithm {
         t * begin() const
         {
             if(__is_in_array())
-                return __array;
+                return (t *)__array;
 
             return __buffer_start;
         }

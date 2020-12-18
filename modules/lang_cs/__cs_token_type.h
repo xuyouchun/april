@@ -115,6 +115,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         name,           cvalue,     comment,
         semicolon,      base_mark,              // ; :
         dollar,         ampersand,              // $ @
+		three_dots,								// ...
 
     X_ENUM_END
 
