@@ -103,6 +103,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         typedef object_t __super_t;
         typedef generic_param_manager_t __self_t;
+		typedef std::tuple<rt_type_t *, int> __type_item_t;
 
     public:
         // Constructor.
@@ -115,27 +116,30 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             generic_param_manager_builder_t(analyzer, *this).import(entity);
         }
 
-        // Append a generic type with name.
+        // Append a generic param type with name.
         void append(rt_sid_t name, rt_type_t * atype);
+
+		// Append a generic param types has params attribute.
+		void append(rt_type_t * atype);
 
         // Returns type at index.
         rt_type_t * type_at(int index) const;
 
         // Returns type of specified name.
-        rt_type_t * type_at(rt_sid_t sid) const;
+        rt_type_t * type_at(rt_sid_t sid, int * out_index = nullptr) const;
 
         // Returns whether it is empty.
-        bool empty() const { return __type_map.empty(); }
+        bool empty() const { return __atypes.empty(); }
 
         // Returns size.
-        size_t size() const { return __type_map.size(); }
+        size_t size() const { return __atypes.size(); }
 
         // Returns the empty manager.
         static const __self_t * empty_instance();
 
     private:
         al::svector_t<rt_type_t *, 10> __atypes;
-        std::map<rt_sid_t, rt_type_t *> __type_map;
+        std::map<rt_sid_t, __type_item_t> __type_map;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -154,7 +158,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         assembly_analyzer_t & __ctx;          // Context of assembly analyzer.
 
         // Gets runtime type of typeref.
-        rt_type_t * __get_type(ref_t type_ref);
+        rt_type_t * __get_type(ref_t type_ref,
+			rt_generic_param_t ** out_generic_param = nullptr, int * out_index = nullptr);
     };
 
     ////////// ////////// ////////// ////////// //////////

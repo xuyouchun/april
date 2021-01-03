@@ -85,11 +85,11 @@ public interface ITuple<TItems ...>
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-public struct Tuple<TItems ...> : ITuple<TItems ...>
+public class Tuple<TItems ...> : ITuple<TItems ...>
 {
 	public Tuple(TItems ... items)
 	{
-		// Internal.Tuple_SetRange(this, (Ptr)items);
+		Internal.Tuple_SetRange(this, (Ptr)items);
 	}
 
 	public Object Get(Int32 index)

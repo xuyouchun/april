@@ -73,13 +73,15 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 	// Tuple_SetRange
 	struct __tuple_set_range_args_t : __tuple_args_t
 	{
-		rptr_t	args;
+		rint32_t	item1;
 	};
 
 	void tuple_set_range(rtlib_context_t & ctx)
 	{
 		typedef __tuple_set_range_args_t args_t;
 		args_t * args = ctx.args<args_t>();
+
+		//std::wcout << L"Tuple " << *args->item1 << std::endl;
 	}
 
     ////////// ////////// ////////// ////////// //////////

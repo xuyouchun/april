@@ -2669,7 +2669,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void type_cast_exp_ast_node_t::on_commit()
     {
         __expression.type_name  = __to_eobject<type_name_t *>(type_name);
-        __expression.expression = __to_eobject<expression_t *>(expression);
+        __expression.set_expression(__to_eobject<expression_t *>(expression));
     }
 
     // Returns this eobject.

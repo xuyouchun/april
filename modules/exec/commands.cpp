@@ -498,7 +498,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
             __BeginToString(ctx)                                                \
                                                                                 \
-                return _F(_T("push %1% %2%"), xil_storage_type_t::s, __offset); \
+                return _F(_T("push %1% %2% [%3%]"), xil_storage_type_t::s,		\
+					xil_type_t::d, __offset);									\
                                                                                 \
             __EndToString()                                                     \
                                                                                 \
@@ -611,6 +612,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __BeginPushCommand(argument, string, rt_ref_t)
         ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
     __EndPushCommand()
+
+	__BeginPushCommand(argument, ptr, rt_ref_t)
+		_P(_T("---------------------------------------"));
+	__EndPushCommand()
 
     #undef __ArgumentPushCommand
 
@@ -1205,7 +1210,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
             __BeginToString(ctx)                                                \
                                                                                 \
-                return _F(_T("pop %1% %2%"), xil_storage_type_t::s, __offset);  \
+                return _F(_T("pop %1% %2% [%3%]"), xil_storage_type_t::s,		\
+									xil_type_t::d, __offset);					\
                                                                                 \
             __EndToString()                                                     \
                                                                                 \
@@ -2287,7 +2293,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginToString(ctx)
 
-            return _str(cmd);
+            return _F(_T("%1% %2% %3%"), _str(cmd), dtype1, dtype2);
 
         __EndToString()
     };
@@ -2330,7 +2336,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginToString(ctx)
 
-            return _str(cmd);
+            return _F(_T("%1% %2%"), _str(cmd), dtype1);
 
         __EndToString()
     };
@@ -3994,8 +4000,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     __AlwaysInline void __execute_command(command_execute_context_t & ctx, command_t * command)
     {
-        // _P(_T("----"), (void *)command);
-
         #if EXEC_TRACE
 
         _P(_T("[execute]"), command->to_string(ctx));
@@ -4073,6 +4077,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __Case( __ret_command_t<1> )
             __Case( __ret_command_t<2> )
             __Case( __ret_command_t<3> )
+            __Case( __ret_command_t<4> )
             __Case( __ret_command_t<5> )
             __Case( __ret_command_t<6> )
             __Case( __ret_command_t<7> )

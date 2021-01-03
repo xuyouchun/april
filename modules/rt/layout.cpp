@@ -15,27 +15,38 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         _A(atype != nullptr);
         _A(__type_map.find(name) == __type_map.end());
 
-        __type_map[name] = atype;
+        __type_map[name] = __type_item_t(atype, __atypes.size());
         __atypes.push_back(atype);
     }
+
+	// Append a generic params types.
+	void generic_param_manager_t::append(rt_type_t * atype)
+	{
+		_A(atype != nullptr);
+
+		__atypes.push_back(atype);
+	}
 
     // Returns type at index.
     rt_type_t * generic_param_manager_t::type_at(int index) const
     {
-        if(index < 0 || index >= __atypes.size())
+        if (index < 0 || index >= __atypes.size())
             throw _ED(__e_t::generic_param_index_out_of_range);
 
         return __atypes[index];
     }
 
     // Returns type of specified name.
-    rt_type_t * generic_param_manager_t::type_at(rt_sid_t sid) const
+    rt_type_t * generic_param_manager_t::type_at(rt_sid_t sid, int * out_index) const
     {
         auto it = __type_map.find(sid);
-        if(it == __type_map.end())
+        if (it == __type_map.end())
             return nullptr;
 
-        return it->second;
+		if (out_index != nullptr)
+			*out_index = std::get<int>(it->second);
+
+        return std::get<rt_type_t *>(it->second);
     }
 
     // Returns the empty manager.
@@ -132,7 +143,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     //-------- ---------- ---------- ---------- ----------
 
     // Type placeholder manager.
-    class type_place_holder_manager_t : public memory_base_t
+    class type_place_holder_manager_t : private memory_base_t
     {
         typedef memory_base_t __super_t;
         typedef __type_place_holder_t __holder_t;
@@ -209,6 +220,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         _A(generic_params.count <= type_count);
 
+		rt_type_t ** types_end = types + type_count;
+
         for(ref_t gp_ref : generic_params)
         {
             rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
@@ -216,6 +229,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             __gp_mgr.append(name, *types++);
         }
+
+		while (types < types_end)
+		{
+			__gp_mgr.append(*types++);
+		}
     }
 
     // Appends generic params
@@ -333,7 +351,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // __variables_layout_t
 
     // Gets runtime type of typeref.
-    rt_type_t * __variables_layout_t::__get_type(ref_t type_ref)
+    rt_type_t * __variables_layout_t::__get_type(ref_t type_ref,
+			rt_generic_param_t ** out_generic_param, int * out_index)
     {
         switch((mt_type_extra_t)type_ref.extra)
         {
@@ -341,14 +360,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
                 rt_generic_param_t * gp = __ctx.get_generic_param(type_ref);
                 _A(gp != nullptr);
+				al::assign_value(out_generic_param, gp);
 
                 rt_sid_t name = __ctx.to_sid((*gp)->name);
-
-                return __ctx.gp_manager->type_at(name);
+                return __ctx.gp_manager->type_at(name, out_index);
 
             }   break;
 
             default:
+				al::assign_value(out_generic_param, (rt_generic_param_t *)nullptr);
                 return __ctx.get_type(type_ref);
         }
     }
@@ -646,8 +666,22 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Appends a param.
     void params_layout_t::append(ref_t type_ref, param_type_t param_type)
     {
-        rt_type_t * type = __get_type(type_ref);
-        append(type, param_type);
+		rt_generic_param_t * gp;
+		int index;
+
+        rt_type_t * type = __get_type(type_ref, &gp, &index);
+		append(type, param_type);
+
+		// Params generic type.
+		if (gp != nullptr && (generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
+		{
+			for (size_t index1 = index + 1, count = __ctx.gp_manager->size();
+				index1 < count; index1++)
+			{
+				rt_type_t * type1 = __ctx.gp_manager->type_at(index1);
+				append(type1, param_type);
+			}
+		}
     }
 
     // Appends a param.

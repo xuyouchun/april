@@ -577,6 +577,49 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    #define __TTypeItem(name) name = (int8_t)value_type_t::name
+
+    // Value types
+    X_ENUM(vtype_t)
+
+        __TTypeItem(int8_),
+
+        __TTypeItem(uint8_),
+
+        __TTypeItem(int16_),
+
+        __TTypeItem(uint16_),
+
+        __TTypeItem(int32_),
+
+        __TTypeItem(uint32_),
+
+        __TTypeItem(int64_),
+
+        __TTypeItem(uint64_),
+
+        __TTypeItem(float_),
+
+        __TTypeItem(double_),
+
+        __TTypeItem(bool_),
+
+        __TTypeItem(char_),
+
+        string_,
+
+        void_,
+
+        ptr_,
+
+        mobject_,
+
+    X_ENUM_END
+
+    #undef __TTypeItem
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Constant value type
 
     X_ENUM(cvalue_type_t)
@@ -597,6 +640,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         nan,
 
     X_ENUM_END
+
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1526,6 +1570,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bool is_nan() const { return value_type == cvalue_type_t::nan; }
         bool is_null() const { return value_type == cvalue_type_t::null; }
 
+		cvalue_t change_type(vtype_t vtype) const;
+
         X_TO_STRING
     };
 
@@ -1822,50 +1868,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     typedef indexed_eobjects_t<param_t *> params_t;
     typedef eobject_ast_t<params_t *> params_ast_t;
 
-    ////////// ////////// ////////// ////////// //////////
-    // type_t, member_type_t, vtype_t, ttype_t
-
-    #define __TTypeItem(name) name = (int8_t)value_type_t::name
-
-    // Value types
-    X_ENUM(vtype_t)
-
-        __TTypeItem(int8_),
-
-        __TTypeItem(uint8_),
-
-        __TTypeItem(int16_),
-
-        __TTypeItem(uint16_),
-
-        __TTypeItem(int32_),
-
-        __TTypeItem(uint32_),
-
-        __TTypeItem(int64_),
-
-        __TTypeItem(uint64_),
-
-        __TTypeItem(float_),
-
-        __TTypeItem(double_),
-
-        __TTypeItem(bool_),
-
-        __TTypeItem(char_),
-
-        string_,
-
-        void_,
-
-        ptr_,
-
-        mobject_,
-
-    X_ENUM_END
-
-    #undef __TTypeItem
-
     // Converts value_type (defines in common module) to vtype.
     vtype_t to_vtype(value_type_t value_type);
 
@@ -1976,7 +1978,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_END
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
+    // type_t, member_type_t, ttype_t
 
     // Member type
     X_ENUM(member_type_t)
@@ -2925,7 +2928,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
              xil_buffer_t & buffer, xil_pool_t & xil_pool, logger_t & logger,
              method_compile_controller_t * controller = method_compile_controller_t::default_())
             : layout(layout), xpool(xpool), xil_pool(xil_pool), buffer(buffer), logger(logger)
-            , controller(controller)
+            , controller(controller? controller : method_compile_controller_t::default_())
         { }
 
         xpool_t &               xpool;
@@ -5610,7 +5613,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual cvalue_t execute(expression_execute_context_t & ctx) { return cvalue_t::nan; }
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool)
+        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
+			xil_type_t dtype = xil_type_t::empty)
         {
             throw _unimplemented_error(this, _T("compile"));
         }
@@ -5660,6 +5664,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef expression_t __super_t;
 
     public:
+
+		using __super_t::__super_t;
 
         // Constructor.
         template<typename ... exps_t> texpression_t(exps_t ... exps_)
@@ -5875,9 +5881,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Type cast expression, e.g. (int)value.
-    class type_cast_expression_t : public __simple_expression_base_t
+    class type_cast_expression_t : public texpression_t<1>
     {
-        typedef __simple_expression_base_t __super_t;
+        typedef texpression_t<1> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -5886,7 +5892,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_name_t  * type_name = nullptr;
 
         // Expression.
-        expression_t * expression = nullptr;
+        expression_t * expression() const { return exps[0]; }
+
+		// Set expression.
+		void set_expression(expression_t * expression);
 
         // Returns this family.
         virtual expression_family_t this_family() const override
@@ -5900,10 +5909,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns type.
         virtual type_t * get_type(xpool_t & xpool) const override;
 
+        // Executes the expression.
+        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
         // Converts to string.
         virtual const string_t to_string() const override
         {
-            return _F(_T("(%1%)%2%"), type_name, expression);
+            return _F(_T("(%1%)%2%"), type_name, expression());
         }
     };
 
@@ -6910,6 +6922,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Converts to statement context.
         operator statement_compile_context_t & () const { return sc_context; }
+
+		// Converts to method context.
+		operator method_compile_context_t & () const;
 
         // Standalone regions.
         std::queue<statement_region_t *> regions;

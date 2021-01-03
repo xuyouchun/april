@@ -24,7 +24,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     // Compiles this expression.
     void cs_condition_expression_t::compile(expression_compile_context_t & ctx,
-                                                xil_pool_t & pool)
+										xil_pool_t & pool, xil_type_t dtype)
     {
         //_PF(_T("__compile: %1%"), this);
 
@@ -95,7 +95,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Compiles this expression.
-    void cs_expressions_t::compile(expression_compile_context_t & ctx, xil_pool_t & pool)
+    void cs_expressions_t::compile(expression_compile_context_t & ctx, xil_pool_t & pool,
+											xil_type_t dtype)
     {
         _A(this->expression_count() > 0);
 

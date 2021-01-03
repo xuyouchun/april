@@ -1163,6 +1163,41 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // The sigleton instance of null.
     const cvalue_t cvalue_t::null(nullptr);
 
+	cvalue_t cvalue_t::change_type(vtype_t vtype) const
+	{
+		switch (vtype)
+		{
+            case vtype_t::string_:
+				if (value_type == cvalue_type_t::string)
+					return *this;
+				break;
+
+			#define __Case(t)											\
+				case vtype_t::t##_:										\
+					return cvalue_t(number.get_value<t##_t>());
+
+			__Case(int8)
+			__Case(uint8)
+			__Case(int16)
+			__Case(uint16)
+			__Case(int32)
+			__Case(uint32)
+			__Case(int64)
+			__Case(uint64)
+			__Case(float)
+			__Case(double)
+			__Case(bool)
+			__Case(char)
+
+			#undef __Case
+
+			default:
+				break;
+		}
+
+		return nan;
+	}
+
     ////////// ////////// ////////// ////////// //////////
     // statement_exit_type_t
 
@@ -3165,6 +3200,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 				new_method->decorate		= method->decorate;
 				new_method->trait			= method->trait;
 				new_method->host_type		= this;
+				new_method->body			= method->body;
 
 				new_method->params = ctx.xpool.new_obj<params_t>();
 
@@ -4952,8 +4988,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_C(function,       _T("function"))
         X_C(index,          _T("index"))
         X_C(new_,           _T("new"))
+        X_C(new_array,		_T("new_array"))
         X_C(default_value,  _T("default_value"))
         X_C(type_of,        _T("type_of"))
+        X_C(type_name,		_T("type_name"))
+        X_C(type_cast,      _T("type_cast"))
         X_C(this_,          _T("this"))
         X_C(base,           _T("base"))
 
@@ -5133,6 +5172,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
     // type_cast_expression_t
+
+	// Set expression.
+	void type_cast_expression_t::set_expression(expression_t * expression)
+	{
+		_A(expression != nullptr);
+
+		exps[0] = expression;
+		expression->parent = this;
+	}
 
     // Returns vtype of a type_cast expression.
     vtype_t type_cast_expression_t::get_vtype() const
@@ -5838,6 +5886,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if(region != nullptr)
             regions.push(region);
     }
+
+	// Converts to method context.
+	xilx_write_context_t::operator method_compile_context_t & () const
+	{
+		return (method_compile_context_t &)sc_context;
+	}
 
     //-------- ---------- ---------- ---------- ----------
 

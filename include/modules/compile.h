@@ -202,6 +202,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts switch to if statement when case lables is too little.
         convert_switch_to_if_statement,
 
+		// Auto determine constant variables.
+		auto_determine_constant_variables,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////

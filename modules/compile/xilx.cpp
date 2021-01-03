@@ -441,18 +441,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Local assign xilx.
     void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        if(expression == nullptr)
+        if (expression == nullptr)
         {
             write_assign_xil(ctx, pool, local);
             return;
         }
 
-        if(local->write_count == 1)
+        if (local->write_count == 1)
         {
-            if(is_constant_expression(ctx, expression))
+            if (is_constant_expression(ctx, expression))
             {
-                local->constant = true;
-                local->expression = expression;
+				if (is_optimize(ctx, compile_optimize_code_t::auto_determine_constant_variables))
+				{
+					local->constant = true;
+					local->expression = expression;
+				}
+
                 return;
             }
 

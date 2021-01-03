@@ -25,6 +25,11 @@ public static class Console
     {
         Write("\n");
     }
+
+    public static Void Write(Int32 value)
+	{
+		// Internal.Console_WriteInt32(value);
+	}
 };
 
 

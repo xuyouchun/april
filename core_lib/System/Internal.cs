@@ -30,7 +30,7 @@ internal static class Internal
 	// Tuple
 
 	[__internal__]
-	public static extern Void Tuple_SetRange(Object tuple, Ptr items);
+	public static extern Void Tuple_SetRange(Object tuple, Ptr data);
 
 	[__internal__]
 	public static extern Ptr Tuple_Get(Object tuple, Int32 index);
@@ -43,6 +43,9 @@ internal static class Internal
 	
 	[__internal__]
 	public static extern Void Console_Write(String s);
+
+	[__internal__]
+	public static extern Void Console_WriteInt32(Int32 number);
 }
 
 
