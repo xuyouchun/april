@@ -100,7 +100,18 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     #define __DefineFunc(name) void name(rtlib_context_t & ctx)
 
     // System functions.
-    __DefineFunc(console_write);
+    __DefineFunc(console_write_string);
+    __DefineFunc(console_write_char);
+    __DefineFunc(console_write_int8);
+    __DefineFunc(console_write_uint8);
+    __DefineFunc(console_write_int16);
+    __DefineFunc(console_write_uint16);
+    __DefineFunc(console_write_int32);
+    __DefineFunc(console_write_uint32);
+    __DefineFunc(console_write_int64);
+    __DefineFunc(console_write_uint64);
+    __DefineFunc(console_write_float);
+    __DefineFunc(console_write_double);
 
     // Array functions.
     __DefineFunc(array_get_rank);

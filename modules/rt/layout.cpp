@@ -409,7 +409,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     void locals_layout_t::append(local_variable_defination_t & def)
     {
         storage_type_t storage_type;
-        msize_t size = __ctx.variable_size_of(__get_type(def.type), &storage_type);
+		rt_type_t * type = __get_type(def.type);
+        msize_t size = __ctx.variable_size_of(type, &storage_type);
 
         if(__items.size() > 0 && def.index <= __items[__items.size() - 1].index)
         {
@@ -423,7 +424,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
 
         __item_t * item = __items.new_obj(
-            def.index, __current_identity(), size, storage_type
+            def.index, __current_identity(), size, storage_type, type
         );
 
         __groups[(size_t)storage_type].append(item);
@@ -642,6 +643,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         return __items[index].offset;
     }
+
+	// Returns type of local variable index.
+	rt_type_t * locals_layout_t::type_at(int index)
+	{
+        if(index >= __items.size())
+            throw _ED(__e_t::local_index_out_of_range);
+
+        return __items[index].type;
+	}
 
     // Converts to string.
     locals_layout_t::operator string_t() const

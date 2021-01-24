@@ -42,10 +42,41 @@ internal static class Internal
 	// Console
 	
 	[__internal__]
-	public static extern Void Console_Write(String s);
+	public static extern Void Console_WriteString(String value);
 
 	[__internal__]
-	public static extern Void Console_WriteInt32(Int32 number);
+	public static extern Void Console_WriteChar(Char value);
+
+	[__internal__]
+	public static extern Void Console_WriteInt8(Int8 value);
+
+	[__internal__]
+	public static extern Void Console_WriteUInt8(UInt8 value);
+
+	[__internal__]
+	public static extern Void Console_WriteInt16(Int16 value);
+
+	[__internal__]
+	public static extern Void Console_WriteUInt16(UInt16 value);
+
+	[__internal__]
+	public static extern Void Console_WriteInt32(Int32 value);
+
+	[__internal__]
+	public static extern Void Console_WriteUInt32(Int32 value);
+
+	[__internal__]
+	public static extern Void Console_WriteInt64(Int64 value);
+
+	[__internal__]
+	public static extern Void Console_WriteUInt64(UInt64 value);
+
+	[__internal__]
+	public static extern Void Console_WriteSingle(Single value);
+
+	[__internal__]
+	public static extern Void Console_WriteDouble(Double value);
+
 }
 
 

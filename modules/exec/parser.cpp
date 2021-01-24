@@ -143,7 +143,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         assembly_analyzer_t analyzer = to_analyzer(env, host_type);
 
-        _PF(_T("parse_commands: %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
+        // _PF(_T("parse_commands: %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
 
         rt_assembly_t * assembly = host_type->get_assembly();
 

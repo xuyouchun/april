@@ -185,6 +185,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns offset of local variable index.
         msize_t offset_of(int index);
 
+		// Returns type of local variable index.
+		rt_type_t * type_at(int index);
+
         // Returns unit size of variables.
         msize_t unit_size() { return __local_unit_size; }
 
@@ -197,8 +200,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         struct __item_t
         {
             // Constructor.
-            __item_t(msize_t index, msize_t identity, msize_t size, storage_type_t storage_type)
-                : index(index), identity(identity), size(size), storage_type(storage_type)
+            __item_t(msize_t index, msize_t identity, msize_t size,
+				storage_type_t storage_type, rt_type_t * type)
+                : index(index), identity(identity), size(size)
+				, storage_type(storage_type), type(type)
             { }
 
             msize_t index;                  // Index.
@@ -206,6 +211,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             msize_t size;                   // Size.
 
             storage_type_t storage_type;    // Storage type.
+			rt_type_t *	   type;			// Xil type.
             bool region_flag = false;       // Region flag.
 
             msize_t offset;                 // Offset

@@ -275,19 +275,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     // Returns xil type of the expression.
-    xil_type_t __xil_type(expression_t * exp)
+    X_INLINE xil_type_t __xil_type(expression_t * exp)
     {
         vtype_t vtype = exp->get_vtype();
-
-        /* ??
-        if(vtype == vtype_t::__unknown__ || vtype == vtype_t::mobject_)
-            return xil_type_t::__unknown__;
-        */
-
         return to_xil_type(vtype);
     }
 
-	xil_type_t __xil_type(type_name_t * type_name)
+	// Returns xil type of type_name.
+	X_INLINE xil_type_t __xil_type(type_name_t * type_name)
 	{
 		type_t * type = to_type(type_name);
 		vtype_t vtype = type->this_vtype();
@@ -804,16 +799,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         switch(var->this_type())
         {
             case variable_type_t::local:
-                xil::write_assign_xil(ctx, pool, (local_variable_t *)var, pick);
+                xil::write_assign_xil(ctx, pool, (local_variable_t *)var, xil_type_t::empty, pick);
                 break;
 
             case variable_type_t::param:
-                xil::write_assign_xil(ctx, pool, (param_variable_t *)var, pick);
+                xil::write_assign_xil(ctx, pool, (param_variable_t *)var, xil_type_t::empty, pick);
                 break;
 
             case variable_type_t::field:
                 __push_this(ctx, pool, ca.this_);
-                xil::write_assign_xil(ctx, pool, (field_variable_t *)var, pick);
+                xil::write_assign_xil(ctx, pool, (field_variable_t *)var, xil_type_t::empty, pick);
                 break;
 
             case variable_type_t::property: {
@@ -1601,6 +1596,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             default:
             case value_type_t::ldouble_:
+				_PP(value.type);
                 throw _EC(unexpected);
         }
     }

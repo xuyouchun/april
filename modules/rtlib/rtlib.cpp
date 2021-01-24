@@ -38,7 +38,18 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
         void __append_libfuncs()
         {
             // System fynctions
-            __append_libfunc(_T("Console_Write"), console_write);
+            __append_libfunc(_T("Console_WriteString"),		console_write_string);
+            __append_libfunc(_T("Console_WriteChar"),		console_write_char);
+            __append_libfunc(_T("Console_WriteInt8"),		console_write_int8);
+            __append_libfunc(_T("Console_WriteUInt8"),		console_write_uint8);
+            __append_libfunc(_T("Console_WriteInt16"),		console_write_int16);
+            __append_libfunc(_T("Console_WriteUInt16"),		console_write_uint16);
+            __append_libfunc(_T("Console_WriteInt32"),		console_write_int32);
+            __append_libfunc(_T("Console_WriteUInt32"),		console_write_uint32);
+            __append_libfunc(_T("Console_WriteInt64"),		console_write_int64);
+            __append_libfunc(_T("Console_WriteUInt64"),		console_write_uint64);
+            __append_libfunc(_T("Console_WriteSingle"),		console_write_float);
+            __append_libfunc(_T("Console_WriteDouble"),		console_write_double);
 
             // Array functions.
             __append_libfunc(_T("Array_GetRank"), array_get_rank);

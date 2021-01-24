@@ -10,11 +10,13 @@ class Project1
     {
 		// Tuple<int, string> tuple = new Tuple<int, string>(10000, "Hello");
 
-		int a = 10;
-		long b = 20;
+		// int a = 100;
+		// int b = 200;
+		// long c = a + b;
 
-		long c = a + (long)b;
-		Console.Write(c);
+		float f1 = 1.01;
+
+		Console.Write(f1);
     }
 
     typedef System.Delegate<int, TArgs ...> Proc<TArgs ...>;

@@ -11,6 +11,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns xil type of the expression.
+    X_INLINE xil_type_t __xil_type(expression_t * exp)
+    {
+        vtype_t vtype = exp->get_vtype();
+        return to_xil_type(vtype);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Pop local xil.
     struct __pop_local_xil_t : xil_extra_t<pop_xil_t>
     {
@@ -171,70 +180,46 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Writes assign xil for local variable.
     void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, local_variable_t * local,
-                                                                  bool pick)
+									  xil_type_t dtype, bool pick)
     {
         type_t * type = to_type(local->type_name);
         _A(type != nullptr);
 
         #define __Append(name, xil_type)                                    \
             pool.append<__##name##_local_xil_t>(                            \
-                xil_type_t::xil_type, local->identity                       \
+                xil_type, local->identity									\
             )
 
-        #define __Write(xil_type)                                           \
-            if(pick)                                                        \
-                __Append(pick, xil_type);                                   \
-            else                                                            \
-                __Append(pop, xil_type);
+        #define __Write(xil_type)											\
+			do {															\
+				if (pick)                                                   \
+	                __Append(pick, xil_type);                               \
+		        else                                                        \
+			        __Append(pop, xil_type);								\
+			} while (false)
             
-
-        #define __Case(type, xil_type)                                      \
-            case vtype_t::type:                                             \
-                __Write(xil_type)                                           \
-                break;
 
         switch(type->this_gtype())
         {
-            case gtype_t::general: 
-                switch(((general_type_t *)type)->vtype)
-                {
-                    __Case(int8_, int8)
-                    __Case(uint8_, uint8)
+            case gtype_t::general: {
 
-                    __Case(int16_, int16)
-                    __Case(uint16_, uint16)
+				if (dtype == xil_type_t::empty)
+					dtype = to_xil_type(((general_type_t *)type)->vtype);
 
-                    __Case(int32_, int32)
-                    __Case(uint32_, uint32)
+				__Write(dtype);
 
-                    __Case(int64_, int64)
-                    __Case(uint64_, uint64)
-
-                    __Case(float_, float_)
-                    __Case(double_, double_)
-
-                    __Case(bool_, bool_)
-                    __Case(char_, char_)
-                    
-                    __Case(string_, string)
-                    __Case(mobject_, object)
-
-                    __Case(ptr_, ptr)
-
-                    default:
-                        X_UNEXPECTED();
-                } break;
+			}	break;
 
             case gtype_t::array:
-                __Write(object);
+                __Write(xil_type_t::object);
                 break;
 
             case gtype_t::generic_param:
-                __Write(empty);
+                __Write(xil_type_t::empty);
                 break;
 
             case gtype_t::generic:
-                __Write(object);        // TODO: struct?
+                __Write(xil_type_t::object);        // TODO: struct?
                 break;
 
             default:
@@ -248,7 +233,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Writes assign xil for param variable.
     void xil::write_assign_xil(__sctx_t & sctx, xil_pool_t & pool, param_variable_t * param_var,
-                                                                   bool pick)
+							xil_type_t dtype, bool pick)
     { 
         _A(param_var != nullptr);
         _A(param_var->param != nullptr);
@@ -332,7 +317,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Writes assign xil for field variable.
     void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, field_variable_t * field_var,
-                                                                  bool pick)
+								xil_type_t dtype, bool pick)
     {
         _A(field_var != nullptr);
         _A(field_var->field != nullptr);
@@ -413,22 +398,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Writes assign xils for variable.
-    void __write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, variable_t * var, bool pick = false)
+    void __write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, variable_t * var,
+							xil_type_t dtype, bool pick = false)
     {
         _A(var != nullptr);
 
         switch(var->this_type())
         {
             case variable_type_t::local:
-                write_assign_xil(ctx, pool, (local_variable_t *)var, pick);
+                write_assign_xil(ctx, pool, (local_variable_t *)var, dtype, pick);
                 break;
 
             case variable_type_t::param:
-                write_assign_xil(ctx, pool, (param_variable_t *)var, pick);
+                write_assign_xil(ctx, pool, (param_variable_t *)var, dtype, pick);
                 break;
 
             case variable_type_t::field:
-                write_assign_xil(ctx, pool, (field_variable_t *)var, pick);
+                write_assign_xil(ctx, pool, (field_variable_t *)var, dtype, pick);
                 break;
 
             default:
@@ -443,7 +429,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (expression == nullptr)
         {
-            write_assign_xil(ctx, pool, local);
+            write_assign_xil(ctx, pool, local, xil_type_t::empty);
             return;
         }
 
@@ -455,9 +441,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 				{
 					local->constant = true;
 					local->expression = expression;
-				}
 
-                return;
+					return;
+				}
             }
 
             /*
@@ -471,7 +457,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         __compile_expression(ctx, pool, expression);
-        write_assign_xil(ctx, pool, local);
+        write_assign_xil(ctx, pool, local, __xil_type(expression));
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -529,7 +515,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Writes xils to pool.
     void pop_variable_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        __write_assign_xil(ctx.sc_context, pool, variable);
+        __write_assign_xil(ctx.sc_context, pool, variable, xil_type_t::empty);
     }
 
     ////////// ////////// ////////// ////////// //////////
