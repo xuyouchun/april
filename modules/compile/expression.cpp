@@ -785,11 +785,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles variable.
     static void __compile_variable(__cctx_t & ctx, xil_pool_t & pool, variable_t * variable,
-                                                           expression_t * owner_exp = nullptr);
+								xil_type_t dtype, expression_t * owner_exp = nullptr);
 
     // Compiles assign to expression.
     static void __compile_assign_to(__cctx_t & ctx, xil_pool_t & pool, __compile_assign_t & ca,
-        __assign_to_type_t assign_type = __assign_to_type_t::default_)
+        __assign_to_type_t assign_type = __assign_to_type_t::default_,
+		xil_type_t dtype = xil_type_t::empty)
     {
         expression_t * exp = ca.exp;
         bool pick = (assign_type == __assign_to_type_t::default_)?
@@ -799,16 +800,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         switch(var->this_type())
         {
             case variable_type_t::local:
-                xil::write_assign_xil(ctx, pool, (local_variable_t *)var, xil_type_t::empty, pick);
+                xil::write_assign_xil(ctx, pool, (local_variable_t *)var, dtype, pick);
                 break;
 
             case variable_type_t::param:
-                xil::write_assign_xil(ctx, pool, (param_variable_t *)var, xil_type_t::empty, pick);
+                xil::write_assign_xil(ctx, pool, (param_variable_t *)var, dtype, pick);
                 break;
 
             case variable_type_t::field:
                 __push_this(ctx, pool, ca.this_);
-                xil::write_assign_xil(ctx, pool, (field_variable_t *)var, xil_type_t::empty, pick);
+                xil::write_assign_xil(ctx, pool, (field_variable_t *)var, dtype, pick);
                 break;
 
             case variable_type_t::property: {
@@ -1059,7 +1060,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles local variable.
     static void __compile_local_variable(__cctx_t & ctx, xil_pool_t & pool,
-                                                            local_variable_t * variable)
+								local_variable_t * variable, xil_type_t dtype)
     {
         //_PF(_T("-------- variable: %1%, %2%, %3%"), variable,
         //                variable->read_count, variable->write_count);
@@ -1075,15 +1076,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else
         {
+			if (dtype == xil_type_t::empty)
+				dtype = xil_type;
+
             pool.append<__push_variable_xil_t>(
-                xil_storage_type_t::local, xil_type, variable->identity
+                xil_storage_type_t::local, dtype, variable->identity
             );
         }
     }
 
     // Compiles param variable.
     static void __compile_param_variable(__cctx_t & ctx, xil_pool_t & pool,
-                                                            param_variable_t * variable)
+									param_variable_t * variable, xil_type_t dtype)
     {
         xil_type_t xil_type = __to_xil_type(variable);
 
@@ -1098,7 +1102,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles field variable.
     static void __compile_field_variable(__cctx_t & ctx, xil_pool_t & pool,
-                                                            field_variable_t * field_var)
+										field_variable_t * field_var, xil_type_t dtype)
     {
         field_t * field = field_var->field;
         if(field == nullptr)
@@ -1142,7 +1146,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compile property variable.
     static void __compile_property_variable(__cctx_t & ctx, xil_pool_t & pool,
-                        property_t * property, arguments_t * arguments, expression_t * owner_exp)
+		property_t * property, arguments_t * arguments, xil_type_t dtype, expression_t * owner_exp)
     {
         method_t * method = property->get_method;
         if(method == nullptr)
@@ -1160,24 +1164,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compile property variable.
     static void __compile_property_variable(__cctx_t & ctx, xil_pool_t & pool,
-                                    property_variable_t * property_var, expression_t * owner_exp)
+			property_variable_t * property_var, xil_type_t dtype, expression_t * owner_exp)
     {
         property_t * property = property_var->property;
         if(property == nullptr)
             throw _ED(__e_t::unknown_property, property_var);
 
-        __compile_property_variable(ctx, pool, property, nullptr, owner_exp);
+        __compile_property_variable(ctx, pool, property, nullptr, dtype, owner_exp);
     }
 
     // Compiles property index variable.
     static void __compile_property_index_variable(__cctx_t & ctx, xil_pool_t & pool,
-                            property_index_variable_t * property_var, expression_t * owner_exp)
+			property_index_variable_t * property_var, xil_type_t dtype, expression_t * owner_exp)
     {
         property_t * property = property_var->property;
         if(property == nullptr)
             throw _ED(__e_t::unknown_property, property_var);
 
-        __compile_property_variable(ctx, pool, property, property_var->arguments, owner_exp);
+        __compile_property_variable(ctx, pool, property, property_var->arguments, dtype, owner_exp);
     }
 
     // Pushes this with check.
@@ -1189,28 +1193,29 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles variable.
     static void __compile_variable(__cctx_t & ctx, xil_pool_t & pool,
-                        variable_t * variable, expression_t * owner_exp)
+                        variable_t * variable, xil_type_t dtype, expression_t * owner_exp)
     {
         _A(variable != nullptr);
 
         switch(variable->this_type())
         {
             case variable_type_t::local:
-                __compile_local_variable(ctx, pool, (local_variable_t *)variable);
+                __compile_local_variable(ctx, pool, (local_variable_t *)variable, dtype);
                 break;
 
             case variable_type_t::param:
-                __compile_param_variable(ctx, pool, (param_variable_t *)variable);
+                __compile_param_variable(ctx, pool, (param_variable_t *)variable, dtype);
                 break;
 
             case variable_type_t::field:
                 __push_this_with_check(ctx, pool, owner_exp);
-                __compile_field_variable(ctx, pool, (field_variable_t *)variable);
+                __compile_field_variable(ctx, pool, (field_variable_t *)variable, dtype);
                 break;
 
             case variable_type_t::property:
                 __push_this_with_check(ctx, pool, owner_exp);
-                __compile_property_variable(ctx, pool, (property_variable_t *)variable, owner_exp);
+                __compile_property_variable(ctx, pool, (property_variable_t *)variable,
+																	dtype, owner_exp);
                 break;
 
             default:
@@ -1458,7 +1463,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         switch(this->expression_type)
         {
             case name_expression_type_t::variable:
-                __compile_variable(ctx, pool, this->variable, this);
+                __compile_variable(ctx, pool, this->variable, dtype, this);
                 break;
 
             case name_expression_type_t::type:
@@ -1763,12 +1768,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             switch(variable->this_type())
             {
                 case variable_type_t::array_index:
-                    __compile_array_index(ctx, pool, (array_index_variable_t *)variable, namex);
+                    __compile_array_index(ctx, pool, (array_index_variable_t *)variable,
+																		namex, dtype);
                     break;
 
                 case variable_type_t::property_index:
                     __compile_property_index(ctx, pool, (property_index_variable_t *)variable,
-                                                                                    namex);
+																		namex, dtype);
                     break;
 
                 default:
@@ -1783,7 +1789,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles array index expression.
     void __sys_t<index_expression_t>::__compile_array_index(__cctx_t & ctx, xil_pool_t & pool,
-                                    array_index_variable_t * variable, expression_t * namex)
+				array_index_variable_t * variable, expression_t * namex, xil_type_t dtype)
     {
         __compile_arguments(ctx, pool, this->arguments());
 		namex->compile(ctx, pool);
@@ -1802,10 +1808,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles property index expression.
     void __sys_t<index_expression_t>::__compile_property_index(__cctx_t & ctx, xil_pool_t & pool,
-                                    property_index_variable_t * variable, expression_t * namex)
+					property_index_variable_t * variable, expression_t * namex, xil_type_t dtype)
     {
 		namex->compile(ctx, pool);
-        __compile_property_index_variable(ctx, pool, variable, this);
+        __compile_property_index_variable(ctx, pool, variable, dtype, this);
     }
 
     ////////// ////////// ////////// ////////// //////////

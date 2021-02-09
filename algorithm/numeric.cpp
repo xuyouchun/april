@@ -527,7 +527,7 @@ namespace X_ROOT_NS { namespace algorithm {
                         break;
 
                     case _T('F'): case _T('f'):
-                        if(__radix == 10)
+                        if(__radix == 10 || __radix == 0)
                         {
                             __set_float(tf_float);
                             if(!p_end)

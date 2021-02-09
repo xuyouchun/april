@@ -14,9 +14,11 @@ class Project1
 		// int b = 200;
 		// long c = a + b;
 
-		float f1 = 1.01;
+		double f1 = 111.111, f2 = 222.222;
+		float f = (float)f1 + (float)f2;
 
-		Console.Write(f1);
+		Console.Write(f);
+		Console.WriteLine();
     }
 
     typedef System.Delegate<int, TArgs ...> Proc<TArgs ...>;
