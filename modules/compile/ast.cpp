@@ -635,12 +635,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __type_name.global_type = global_type;
     }
 
-	// Set if it's a extends type.
-	void general_type_name_ast_node_t::set_extends(bool extends)
-	{
-		__type_name.extends = extends;
-	}
-
     // Commits this node.
     void general_type_name_ast_node_t::on_commit()
     {

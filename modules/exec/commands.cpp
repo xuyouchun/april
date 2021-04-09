@@ -88,8 +88,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    typedef int __nokey_t;
-    const __nokey_t __nokey = 0;
+    typedef unsigned long long __nokey_t;
+    const __nokey_t __nokey = (__nokey_t)0;
 
     typedef rt_stack_unit_t __unit_t;
     const msize_t __stack_stub_size = unit_size_of(sizeof(__calling_stub_t));
@@ -579,6 +579,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.stack.push(__Local(rt_ref_t, __offset));
     __EndPushCommand()
 
+    __BeginPushCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
+        ctx.stack.push(__Local(rt_ref_t, __offset));
+    __EndPushCommand()
+
     #undef __LocalPushCommand
     #undef __LocalPushCommands
 
@@ -674,7 +678,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __EndPushCommand()
 
 	__BeginPushCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
-		_P(_T("---------------------------------------"));
+        ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
 	__EndPushCommand()
 
     #undef __ArgumentPushCommand
@@ -711,8 +715,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                 rt_type_t * type = ctx.get_host_type_by_field_ref(field_ref);
                 _A(type != nullptr);
+				_A(type->get_kind() == rt_type_kind_t::generic);
 
-				return type;
+				rt_generic_type_t * generic_type = (rt_generic_type_t *)type;
+				_A(generic_type->atypes != nullptr);
+
+				int index = field_ref.index;
+				_A(index < generic_type->atype_count());
+
+				return generic_type->atypes[index];
 			}
 
             case mt_member_extra_t::generic: {
@@ -862,6 +873,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __EndPushCommand()
 
     __BeginPushCommand(field, string, rt_ref_t, string, rt_ref_t)
+        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset));
+    __EndPushCommand()
+
+    __BeginPushCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
         ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset));
     __EndPushCommand()
 
@@ -1103,6 +1118,28 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 		return __array_type(ctx, type_ref)->dimension;
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
+    class __push_params_address_command_t : public __command_base_t
+    {
+    public:
+
+        __BeginToString(ctx)
+
+            return _F(_T("push params argument address"));
+
+        __EndToString()
+
+        __BeginExecute(ctx, __ToCmdValue(params, ((cmd_value_t)xil_storage_type_t::params << 16)))
+
+            ctx.stack.push<rt_stack_unit_t *>((rt_stack_unit_t *)ctx.stack.lp());
+
+        __EndExecute()
+
+    } __push_params_address_command;
+
+    //-------- ---------- ---------- ---------- ----------
+
 	static xil_type_t __xil_type_of(__context_t & ctx, rt_type_t * type)
 	{
 		_A(type != nullptr);
@@ -1141,7 +1178,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 				*out_dtype1 = *out_dtype2;
 				break;
 		}
-
 	}
 
     static command_t * __new_push_command(__context_t & ctx, const push_xil_t & xil)
@@ -1191,8 +1227,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __push_array_element_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
-        if (xil.stype() == xil_storage_type_t::duplicate)
+        xil_storage_type_t stype = xil.stype();
+
+		// Duplicate command.
+        if (stype == xil_storage_type_t::duplicate)
             return &__duplicate_command;
+
+		// Push params argument address command.
+		if (stype == xil_storage_type_t::params)
+			return &__push_params_address_command;
 
         #define __V(s, d1, d2) (((uint32_t)(s) << 16) | ((uint32_t)(d1) << 12) | ((uint32_t)(d2)) << 8)
         #define __ConstantValue(_xil, _t)                                       \
@@ -1205,8 +1248,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 		xil_type_t dtype1, dtype2;
 		__analyze_xil_types(ctx, xil, &dtype1, &dtype2);
-
-        xil_storage_type_t stype = xil.stype();
 
         switch (__V(stype, dtype1, dtype2))
         {
@@ -1317,9 +1358,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseLocals(char_)
             __CaseLocals(bool_)
 
-
             __CaseLocal(object, object)
             __CaseLocal(string, string)
+            __CaseLocal(ptr,	ptr)
 
             #undef __CaseLocal
             #undef __CaseLocals
@@ -1374,6 +1415,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseArgument(object,	object)
             __CaseArgument(string,	string)
+            __CaseArgument(ptr,		ptr)
 
             #undef __CaseArgument
             #undef __CaseArguments
@@ -1429,6 +1471,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseField(object,		object)
             __CaseField(string,		string)
+            __CaseField(ptr,		ptr)
 
             #undef __CaseField
             #undef __CaseFields
@@ -1483,6 +1526,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseArrayElement(object,	object)
             __CaseArrayElement(string,	string)
+            __CaseArrayElement(ptr,		ptr)
 
             #undef __CaseArrayElement
             #undef __CaseArrayElements
@@ -1490,7 +1534,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
             default:
-                _PF(_T("stype: %1%, dtype: %2%"), xil.stype(), xil.dtype());
+                _PF(_T("stype: %1%, %2% %3%"), xil.stype(), dtype1, dtype2);
                 X_UNEXPECTED();
         }
 
@@ -1603,6 +1647,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __Local(rt_ref_t, __offset) = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
+    __BeginPopCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
+        __Local(rt_ref_t, __offset) = ctx.stack.pop<rt_ref_t>();
+    __EndPopCommand();
+
     //-------- ---------- ---------- ---------- ----------
 
     #define __ArgumentPopCommand(_d1, _v1_t, _d2, _v2_t)                        \
@@ -1654,6 +1702,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __EndPopCommand();
 
     __BeginPopCommand(argument, string, rt_ref_t, string, rt_ref_t)
+        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pop<rt_ref_t>();
+    __EndPopCommand();
+
+    __BeginPopCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
         __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
@@ -1713,6 +1765,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __EndPopCommand()
 
     __BeginPopCommand(field, string, rt_ref_t, string, rt_ref_t)
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        *field = ctx.stack.pop<rt_ref_t>();
+    __EndPopCommand()
+
+    __BeginPopCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
         rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
         *field = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand()
@@ -1984,6 +2041,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseLocal(object,	object)
             __CaseLocal(string, string)
+            __CaseLocal(ptr,	ptr)
 
             #undef __CaseLocal
             #undef __CaseLocals
@@ -2038,6 +2096,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 			__CaseArgument(object,	object)
 			__CaseArgument(string,	string)
+			__CaseArgument(ptr,		ptr)
 
             #undef __CaseArgument
             #undef __CaseArguments
@@ -2091,6 +2150,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseField(object,		object)
             __CaseField(string,		string)
+            __CaseField(ptr,		ptr)
 
             #undef __CaseField
             #undef __CaseFields
@@ -2144,8 +2204,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseArrayElements(char_)
             __CaseArrayElements(bool_)
 
-            __CaseArrayElement(object,		object)
-            __CaseArrayElement(string,		string)
+            __CaseArrayElement(object,	object)
+            __CaseArrayElement(string,	string)
+            __CaseArrayElement(ptr,		ptr)
 
             #undef __CaseArrayElement
             #undef __CaseArrayElements
@@ -2155,6 +2216,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             #undef __Case
 
             default:
+				_P(stype, dtype1, dtype2);
                 X_UNEXPECTED();
         }
 
@@ -2262,6 +2324,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __Local(rt_ref_t, __offset) = ctx.stack.pick<rt_ref_t>();
     __EndPopCommand();
 
+    __BeginPickCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
+        __Local(rt_ref_t, __offset) = ctx.stack.pick<rt_ref_t>();
+    __EndPopCommand();
+
     //-------- ---------- ---------- ---------- ----------
 
     #define __ArgumentPickCommand(_d1, _v1_t, _d2, _v2_t)                       \
@@ -2313,6 +2379,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __EndPopCommand();
 
     __BeginPickCommand(argument, string, rt_ref_t, string, rt_ref_t)
+        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pick<rt_ref_t>();
+    __EndPopCommand();
+
+    __BeginPickCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
         __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pick<rt_ref_t>();
     __EndPopCommand();
 
@@ -2372,6 +2442,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __EndPickCommand()
 
     __BeginPickCommand(field, string, rt_ref_t, string, rt_ref_t)
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        *field = ctx.stack.pick<rt_ref_t>();
+    __EndPickCommand()
+
+    __BeginPickCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
         rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
         *field = ctx.stack.pick<rt_ref_t>();
     __EndPickCommand()
@@ -2590,6 +2665,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseLocal(object,	object)
             __CaseLocal(string, string)
+            __CaseLocal(ptr,	ptr)
 
             #undef __CaseLocal
             #undef __CaseLocals
@@ -2644,6 +2720,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 			__CaseArgument(object,	object)
 			__CaseArgument(string,	string)
+			__CaseArgument(ptr,		ptr)
 
             #undef __CaseArgument
             #undef __CaseArguments
@@ -2697,6 +2774,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseField(object,		object)
             __CaseField(string,		string)
+            __CaseField(ptr,		ptr)
 
             #undef __CaseField
             #undef __CaseFields
@@ -2750,8 +2828,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseArrayElements(char_)
             __CaseArrayElements(bool_)
 
-            __CaseArrayElement(object,		object)
-            __CaseArrayElement(string,		string)
+            __CaseArrayElement(object,	object)
+            __CaseArrayElement(string,	string)
+            __CaseArrayElement(ptr,		ptr)
 
             #undef __CaseArrayElement
             #undef __CaseArrayElements

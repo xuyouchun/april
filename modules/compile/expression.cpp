@@ -387,6 +387,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __push_duplicate_xil_t() : __super_t(xil_storage_type_t::duplicate) { }
     };
 
+	// Pushes params address xil.
+	struct __push_params_xil_t : xil_extra_t<push_xil_t>
+	{
+		typedef xil_extra_t<push_xil_t> __super_t;
+
+		__push_params_xil_t() : __super_t(xil_storage_type_t::params) { }
+	};
+
     ////////// ////////// ////////// ////////// //////////
     // binary expressions
 
@@ -716,10 +724,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns array element type.
-    static type_t * __array_element_type_of(index_expression_t * exp)
+    static type_t * __array_element_type_of(__cctx_t & ctx, index_expression_t * exp)
     {
         variable_t * var = __pick_var((variable_expression_t *)exp);
-        type_t * type = var->get_type();
+        type_t * type = var->get_type(__xpool(ctx));
         if(type == nullptr)
             throw _ED(__e_t::index_type_undetermined, var);
 
@@ -842,7 +850,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __compile_arguments(ctx, pool, args);
                 body->compile(ctx, pool);
 
-                type_t * element_type = arr_var->get_type();
+                type_t * element_type = arr_var->get_type(__xpool(ctx));
                 type_t * array_type = __xpool(ctx).new_array_type(
                     element_type, arr_var->dimension()
                 );
@@ -1048,9 +1056,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    xil_type_t __to_xil_type(variable_t * variable)
+    xil_type_t __to_xil_type(__cctx_t & ctx, variable_t * variable)
     {
-        type_t * type = variable->get_type();
+        type_t * type = variable->get_type(__xpool(ctx));
         if(type->this_gtype() == gtype_t::generic_param)
             return xil_type_t::empty;
 
@@ -1065,7 +1073,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         //_PF(_T("-------- variable: %1%, %2%, %3%"), variable,
         //                variable->read_count, variable->write_count);
 
-        xil_type_t xil_type = __to_xil_type(variable);
+        xil_type_t xil_type = __to_xil_type(ctx, variable);
 
         if(variable->constant)
         {
@@ -1089,15 +1097,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_param_variable(__cctx_t & ctx, xil_pool_t & pool,
 									param_variable_t * variable, xil_type_t dtype)
     {
-        xil_type_t xil_type = __to_xil_type(variable);
+		param_t * param = variable->param;
 
-        msize_t index = variable->param->index;
-        if(!__is_static(call_type_of_method(ctx.statement_ctx.method)))
-            index++;
+		if (param->ptype == param_type_t::extends)
+		{
+			pool.append<__push_params_xil_t>();
+		}
+		else
+		{
+			xil_type_t xil_type = __to_xil_type(ctx, variable);
 
-        pool.append<__push_variable_xil_t>(
-            xil_storage_type_t::argument, xil_type, index
-        );
+			msize_t index = variable->param->index;
+			if(!__is_static(call_type_of_method(ctx.statement_ctx.method)))
+				index++;
+
+			pool.append<__push_variable_xil_t>(
+				xil_storage_type_t::argument, xil_type, index
+			);
+		}
     }
 
     // Compiles field variable.
@@ -1113,7 +1130,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if(field_type == nullptr)
             throw _ED(__e_t::unknown_field_type, field);
 
-        xil_type_t xil_type = __to_xil_type(field_type);
+        xil_type_t xil_type = (dtype != xil_type_t::empty)? dtype : __to_xil_type(field_type);
         pool.append<__push_field_xil_t>(field_ref, xil_type);
     }
 
@@ -1727,6 +1744,34 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 		expression_t * exp = this->expression();
 		_A(exp != nullptr);
 
+		/*
+		variable_t * var;
+
+		if (dtype1 == xil_type_t::ptr
+			&& exp->this_family() == expression_family_t::name
+			&& (var = ((name_expression_t *)exp)->get_variable()) != nullptr)
+		{
+			switch (var->this_type())
+			{
+				case variable_type_t::param: {
+
+					param_variable_t * param_var = (param_variable_t *)var;
+					int param_index = param_var->param->index;
+
+					method_t * method = ctx.statement_ctx.method;
+					if (!method->get_decorate()->is_static)
+						param_index++;
+
+					_PP(param_index);
+
+				}	break;
+
+				default:
+					X_UNEXPECTED();
+			}
+		}
+		*/
+
 		exp->compile(ctx, pool, __xil_type(type_name));
     }
 
@@ -1794,7 +1839,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __compile_arguments(ctx, pool, this->arguments());
 		namex->compile(ctx, pool);
 
-        type_t * element_type = __array_element_type_of(this);
+        type_t * element_type = __array_element_type_of(ctx, this);
         type_t * array_type = __xpool(ctx).new_array_type(
             element_type, variable->dimension()
         );

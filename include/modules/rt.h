@@ -877,6 +877,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     method_prototype_t & prototype,
                     search_method_options_t options = search_method_options_t::default_) = 0;
 
+		typedef std::function<bool (ref_t, rt_type_t *)> each_type_t;
+		virtual void each_extend_types(analyzer_env_t & env, rt_sid_t name, each_type_t f) { }
+
         // Gets size.
         msize_t get_size(analyzer_env_t & env, storage_type_t * out_storage_type);
 
@@ -1107,6 +1110,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Searches method.
         virtual ref_t search_method(analyzer_env_t & env,
                 method_prototype_t & prototype, search_method_options_t options) override final;
+
+		// Enumerates all extend types.
+		virtual void each_extend_types(analyzer_env_t & env, rt_sid_t name, each_type_t f)
+																		override;
 
         // Gets assembly.
         virtual rt_assembly_t * get_assembly() override final;
@@ -1380,7 +1387,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 		int position = 0;
 
 		virtual rt_type_t * get_field_type(assembly_analyzer_t & analyzer,
-			rt_generic_type_t * owner) { return type; }
+								rt_generic_type_t * owner) { return type; }
 	};
 
     //-------- ---------- ---------- ---------- ----------
@@ -1877,6 +1884,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Gets generic param.
         rt_generic_param_t * get_generic_param(ref_t ref);
 
+        // Callback function for enums members.
+        using each_extern_params_func_t = std::function<bool(ref_t ref, mt_param_t & mt)>;
+
+		// Each extends types.
+		void each_extend_params(ref_t extern_param_ref, each_extern_params_func_t f);
+
         // Returns char_t * by resource.
         const char_t * to_cstr(res_t res)
         {
@@ -1957,7 +1970,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     };
 
     // Converts to assembly analyzer.
-    assembly_analyzer_t to_analyzer(analyzer_env_t & env, rt_type_t * rt_type);
+    assembly_analyzer_t to_analyzer(analyzer_env_t & env, rt_type_t * rt_type,
+							const generic_param_manager_t * gp_manager = nullptr);
 
     ////////// ////////// ////////// ////////// //////////
 

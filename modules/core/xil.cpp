@@ -323,6 +323,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(constant,       _T("constant"))
 
+        X_C(params,			_T("params"))
+
         X_C(array_element,  _T("array_element"))
 
         X_C(duplicate,      _T("duplicate"))

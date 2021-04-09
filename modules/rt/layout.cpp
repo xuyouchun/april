@@ -222,18 +222,31 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
 		rt_type_t ** types_end = types + type_count;
 
-        for(ref_t gp_ref : generic_params)
-        {
-            rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
-            rt_sid_t name = __analyzer.to_sid((*gp)->name);
+		if ((param_type_t)generic_params.extra == param_type_t::extends)
+		{
+			rt_generic_param_t * gp = __analyzer.get_generic_param(generic_params);
+			rt_sid_t name = __analyzer.to_sid((*gp)->name);
 
-            __gp_mgr.append(name, *types++);
-        }
+			_PP(name);
+		}
+		else
+		{
+			for (ref_t gp_ref : generic_params)
+			{
+				rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
+				rt_sid_t name = __analyzer.to_sid((*gp)->name);
+
+				__gp_mgr.append(name, *types++);
+			}
+		}
 
 		while (types < types_end)
 		{
+			// _PP((*types)->get_name(__analyzer.env));
 			__gp_mgr.append(*types++);
 		}
+
+		// _PP(__gp_mgr.size());
     }
 
     // Appends generic params
@@ -715,8 +728,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns offset of index.
     msize_t params_layout_t::offset_of(int index)
     {
-        if(index >= __items.size())
-            throw _ED(__e_t::argument_index_out_of_range);
+        if (index >= __items.size())
+		{
+			if (index == __items.size())
+				return 0;
+
+			throw _ED(__e_t::argument_index_out_of_range);
+		}
 
         return __current_offset - __items[index].offset;
     }
@@ -724,7 +742,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns param type of index.
     rt_type_t * params_layout_t::type_at(int index)
     {
-        if(index >= __items.size())
+        if (index >= __items.size())
             throw _ED(__e_t::argument_index_out_of_range);
 
         return __items[index].type;

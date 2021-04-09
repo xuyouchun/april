@@ -134,7 +134,7 @@ $type_name_unit: name $generic_args? ;
 
 # General type name.
 $general_type_name:
-        (global? \:\:)? $type_name_unit (. $type_name_unit)* ...?
+        (global? \:\:)? $type_name_unit (. $type_name_unit)*
      |  void | object
      |  char | string | byte | sbyte | short | ushort | int | uint | long | ulong | bool
      |  double | float | decimal
@@ -177,7 +177,7 @@ $generic_arg: params? $type_name name?;
 $generic_args: < $generic_arg? (, $generic_arg?) * ...? !:> ;
 
 # Param of methods.
-$param:  $attributes (out | ref | params)? $type_name name (= $expression)? ;
+$param:  $attributes (out | ref | params)? $type_name ...? name (= $expression)? ;
 
 # Params of methods.
 $params: $param (, $param)* ;

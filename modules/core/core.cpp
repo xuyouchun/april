@@ -668,6 +668,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Params
         X_C(params,     _T("params"))
 
+		// Extends
+		X_C(extends,	_T("extends"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -1330,7 +1333,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         for(local_variable_t * variable : __variables)
         {
-            type_t * type = variable->get_type();
+            type_t * type = variable->get_type(xpool);
             ref_t ref = layout.ref_of(type);
             if(ref == ref_t::null)
                 throw _ED(compile_error_code_t::type_not_found, type);
@@ -3759,15 +3762,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Execute the variable.
-    cvalue_t local_variable_t::execute(expression_execute_context_t & ctx)
-    {
-        return expression == nullptr || !constant? cvalue_t::nan : 
-               expression->execute(ctx);
-    }
-
-    //-------- ---------- ---------- ---------- ----------
-
     // Returns vtype of specified type.
     vtype_t __get_vtype(type_t * type)
     {
@@ -3798,11 +3792,42 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __get_vtype(type_name->type);
     }
 
-    // Returns vtype.
-    vtype_t variable_t::get_vtype()
+    //-------- ---------- ---------- ---------- ----------
+
+    // Execute the variable.
+    cvalue_t local_variable_t::execute(expression_execute_context_t & ctx)
     {
-        return __get_vtype(get_type());
+        return expression == nullptr || !constant? cvalue_t::nan : 
+               expression->execute(ctx);
     }
+
+	// Returns vtype.
+	vtype_t local_variable_t::get_vtype()
+	{
+		return __get_vtype(type_name);
+	}
+
+    //-------- ---------- ---------- ---------- ----------
+
+	// Returns type of the param.
+	type_t * param_variable_t::get_type(xpool_t & xpool)
+	{
+		if (param->ptype == param_type_t::extends)
+			return xpool.get_ptr_type();
+
+		return to_type(param->type_name);
+	}
+
+	// Returns vtype of the param.
+	vtype_t param_variable_t::get_vtype()
+	{
+		if (param->ptype == param_type_t::params)
+			return vtype_t::ptr_;
+
+		return __get_vtype(param->type_name);
+	}
+
+    //-------- ---------- ---------- ---------- ----------
 
     // Converts local variable to a string.
     X_DEFINE_TO_STRING(local_variable_t)
@@ -3811,12 +3836,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //return _F(_T("%1% %2%"), type_name, name);
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
     // Converts param variable to a string.
     X_DEFINE_TO_STRING(param_variable_t)
     {
         return param->name;
         //return _F(_T("%1% %2%"), param->type_name, param->name);
     }
+
+    //-------- ---------- ---------- ---------- ----------
+
+	// Returns vtype.
+	vtype_t field_variable_t::get_vtype()
+	{
+		return __get_vtype(field->type_name);
+	}
 
     // Converts field variable to a string.
     X_DEFINE_TO_STRING(field_variable_t)
@@ -3825,6 +3860,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //return _F(_T("%1% %2%"), field->type_name, field->name);
     }
 
+    //-------- ---------- ---------- ---------- ----------
+
+	// Returns vtype.
+	vtype_t property_variable_t::get_vtype()
+	{
+		return __get_vtype(property->type_name);
+	}
+
     // Converts property variable to a string.
     X_DEFINE_TO_STRING(property_variable_t)
     {
@@ -3832,18 +3875,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         //return _F(_T("%1% %2%"), property->type_name, property->name);
     }
 
-    // Converts event variable to a string.
-    X_DEFINE_TO_STRING(event_variable_t)
-    {
-        return event->name;
-        //return _F(_T("%1% %2%"), event->type_name, event->name);
-    }
+    //-------- ---------- ---------- ---------- ----------
+
+	// Returns vtype.
+	vtype_t property_index_variable_t::get_vtype()
+	{
+		return __get_vtype(property->type_name);
+	}
 
     // Converts property index variable to a string.
     X_DEFINE_TO_STRING(property_index_variable_t)
     {
         return _F(_T("%1%[%2%]"), get_name(), arguments);
     }
+
+    //-------- ---------- ---------- ---------- ----------
 
     // Constructor.
     array_index_variable_t::array_index_variable_t(expression_t * body, type_t * element_type,
@@ -3861,16 +3907,37 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of array index variable.
-    type_t * array_index_variable_t::get_type()
+    type_t * array_index_variable_t::get_type(xpool_t & xpool)
     {
         return element_type;
     }
+
+	// Returns vtype.
+	vtype_t array_index_variable_t::get_vtype()
+	{
+		return __get_vtype(element_type);
+	}
 
     // Converts array index variable to a string.
     X_DEFINE_TO_STRING(array_index_variable_t)
     {
         return _F(_T("%1%[%2%]"), get_name(), arguments);
     }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Converts event variable to a string.
+    X_DEFINE_TO_STRING(event_variable_t)
+    {
+        return event->name;
+        //return _F(_T("%1% %2%"), event->type_name, event->name);
+    }
+
+	// Returns vtype.
+	vtype_t event_variable_t::get_vtype()
+	{
+		return __get_vtype(event->type_name);
+	}
 
     ////////// ////////// ////////// ////////// //////////
     // xpool_t
@@ -4061,6 +4128,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     general_type_t * xpool_t::get_type_type()
     {
         return __get_specified_type(__CoreTypeName(CoreType_Type), __type_type);
+    }
+
+    // Returns System.Ptr type.
+    general_type_t * xpool_t::get_ptr_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Ptr), __type_type);
     }
 
     // Returns System.Exception type.
@@ -4975,6 +5048,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
+	// expression_compile_context_t
+
+	xpool_t & expression_compile_context_t::xpool()
+	{
+		return statement_ctx.xpool();
+	}
+
+    ////////// ////////// ////////// ////////// //////////
     // expression
 
     // Expression family.
@@ -5080,7 +5161,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch(expression_type)
         {
             case name_expression_type_t::variable:
-                return variable->get_type();
+                return variable->get_type(xpool);
 
             case name_expression_type_t::type:
                 return type;
@@ -5316,7 +5397,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if(variable == nullptr)
             return nullptr;
 
-        return variable->get_type();
+        return variable->get_type(xpool);
     }
 
     // Converts index expression to a string.

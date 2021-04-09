@@ -1484,9 +1484,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Typename units.
         unit_list_t     units;
 
-		// Extends type.
-		bool			extends = false;
-
         // Global type.
         global_type_t   global_type = global_type_t::__default__;
 

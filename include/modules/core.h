@@ -1794,6 +1794,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         params,     // e.g. params int[] values
 
+		extends,	// e.g. TArgs ... args
+
     X_ENUM_END
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4269,6 +4271,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns System.Type type.
         general_type_t * get_type_type();
 
+		// Returns System.Ptr type.
+		general_type_t * get_ptr_type();
+
         // Returns System.Exception type.
         general_type_t * get_exception_type();
 
@@ -4302,6 +4307,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         general_type_t * __array_type  = nullptr;
         general_type_t * __string_type = nullptr;
         general_type_t * __type_type   = nullptr;
+		general_type_t * __ptr_type    = nullptr;
 
         general_type_t * __exception_type = nullptr;
         general_type_t * __tuple_type = nullptr;
@@ -4354,7 +4360,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual name_t get_name() const = 0;
 
         // Returns type of the varible.
-        virtual type_t * get_type() = 0;
+        virtual type_t * get_type(xpool_t & xpool) = 0;
 
         // Returns this variable's type.
         virtual variable_type_t this_type() = 0;
@@ -4366,7 +4372,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual cvalue_t execute(expression_execute_context_t & ctx) = 0;
 
         // Returns vtype.
-        vtype_t  get_vtype();
+        virtual vtype_t get_vtype() = 0;
 
         // Write count.
         int write_count = 0;
@@ -4452,7 +4458,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         expression_t * expression   = nullptr;          // Constant initialize value.
 
         // Returns this variable's type.
-        virtual type_t * get_type() override { return to_type(type_name); }
+        virtual type_t * get_type(xpool_t & xpool) override { return to_type(type_name); }
+
+		// Returns vtype.
+		virtual vtype_t get_vtype() override;
 
         // Returns name of this variable.
         virtual name_t get_name() const override { return name; }
@@ -4481,10 +4490,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         param_t * param     = nullptr;
 
         // Returns type of the param.
-        virtual type_t * get_type() override
-        {
-            return to_type(param->type_name);
-        }
+        virtual type_t * get_type(xpool_t & xpool) override;
+
+		// Returns vtype.
+		virtual vtype_t get_vtype() override;
 
         // Returns name of the param.
         virtual name_t get_name() const override
@@ -4513,10 +4522,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         field_t * field = nullptr;
 
         // Returns type of the field.
-        virtual type_t * get_type() override
+        virtual type_t * get_type(xpool_t & xpool) override
         {
             return to_type(field->type_name);
         }
+
+		// Returns vtype.
+		virtual vtype_t get_vtype() override;
 
         // Retuns name of the field.
         virtual name_t get_name() const override
@@ -4545,10 +4557,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         property_t * property = nullptr;
 
         // Returns type of the property.
-        virtual type_t * get_type() override
+        virtual type_t * get_type(xpool_t & xpool) override
         {
             return to_type(property->type_name);
         }
+
+		// Returns vtype.
+		virtual vtype_t get_vtype() override;
 
         // Returns name of the property.
         virtual name_t get_name() const override
@@ -4584,10 +4599,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         property_t * property = nullptr;
 
         // Returns type of the property index.
-        virtual type_t * get_type() override
+        virtual type_t * get_type(xpool_t & xpool) override
         {
             return to_type(property->type_name);
         }
+
+		// Returns vtype.
+		virtual vtype_t get_vtype() override;
 
         // Returns name of the property.
         virtual name_t get_name() const override
@@ -4619,7 +4637,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_t * element_type = nullptr;
 
         // Returns type of the element in the array.
-        virtual type_t * get_type() override;
+        virtual type_t * get_type(xpool_t & xpool) override;
+
+		// Returns vtype.
+		virtual vtype_t get_vtype() override;
 
         // Returns name of the array index.
         virtual name_t get_name() const override;
@@ -4645,10 +4666,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         event_t * event = nullptr;
 
         // Returns type of the event.
-        virtual type_t * get_type() override
+        virtual type_t * get_type(xpool_t & xpool) override
         {
             return to_type(event->type_name);
         }
+
+		// Returns vtype.
+		virtual vtype_t get_vtype() override;
 
         // Returns name of the event.
         virtual name_t get_name() const override
@@ -5550,6 +5574,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Relation statement context.
         statement_compile_context_t & statement_ctx;
+
+        // Returns xpool.
+        xpool_t & xpool();
     };
 
     //-------- ---------- ---------- ---------- ----------

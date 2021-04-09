@@ -89,7 +89,7 @@ public class Tuple<TItems ...> : ITuple<TItems ...>
 {
 	public Tuple(TItems ... items)
 	{
-		Internal.Tuple_SetRange(this, (Ptr)items);
+		Internal.Tuple_SetRange(this, items);
 	}
 
 	public Object Get(Int32 index)

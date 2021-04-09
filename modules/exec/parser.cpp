@@ -141,7 +141,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         _A(host_type != nullptr);
 
-        assembly_analyzer_t analyzer = to_analyzer(env, host_type);
+        assembly_analyzer_t analyzer = to_analyzer(env, host_type, gp_manager);
 
         // _PF(_T("parse_commands: %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
 
@@ -170,8 +170,23 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             params_layout.append(host_type, param_type_t::__default__);
 
         assembly->each_params((*method)->params, [&](int index, mt_param_t & mt_param) {
-            return params_layout.append(mt_param.type, mt_param.param_type), true;
+
+			// _PP(assembly->to_sid(mt_param.name));
+			if (mt_param.param_type == param_type_t::extends)
+			{
+				ref_t ref = (*method)->params.at(index);
+				analyzer.each_extend_params(ref, [&](ref_t param_ref, mt_param_t & mt_param0) {
+					return params_layout.append(mt_param0.type, mt_param0.param_type), true;
+				});
+			}
+			else
+			{
+				params_layout.append(mt_param.type, mt_param.param_type);
+			}
+
+			return true;
         });
+
         params_layout.commit();
 
         // _P( (string_t)params_layout );

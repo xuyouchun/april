@@ -262,6 +262,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         constant        = 4,        // Constant
 
+		params			= 13,		// Stack address of dynamic arguments
+
         array_element   = 14,       // Array element
 
         duplicate       = 15,       // Duplicate top unit of the stack.
@@ -351,8 +353,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref_t(index + offset, 1, extra);
         }
 
+		// Returns ref_t of specified position.
+		ref_t at(size_t index) const
+		{
+			return ref_t(index, 1, extra);
+		}
+
         // Returns difference of two refs.
         int operator - (ref_t f) const { return index - f.index; }
+
+		// Returns a new ref with specified offset.
+		ref_t operator + (int offset) const { return ref_t(index + offset, 1, extra); }
 
         // Moves to next ref_t.
         ref_t & operator ++ () { index++; return *this; }
@@ -737,6 +748,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::duplicate:
+			case xil_storage_type_t::params:
                 size -= 1;      // __dtype, identity no use
                 break;
 

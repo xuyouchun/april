@@ -824,7 +824,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Pre calling static method.
     void rt_generic_type_t::pre_static_call(analyzer_env_t & env)
     {
-
+		// Do nothing.
     }
 
     // Builds virtual table.
@@ -1024,6 +1024,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         return ref_t::null;
     }
+
+	// Enumerates all extend types.
+	void rt_generic_type_t::each_extend_types(analyzer_env_t & env, rt_sid_t name, each_type_t f)
+	{
+		_PP(_T("EACH"));
+	}
 
     // Gets assembly.
     rt_assembly_t * rt_generic_type_t::get_assembly()
@@ -1999,6 +2005,17 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return current->get_generic_param(ref);
     }
 
+	// Each extends types.
+	void assembly_analyzer_t::each_extend_params(ref_t param_ref, each_extern_params_func_t f)
+	{
+		rt_param_t * rt_param = current->get_param(param_ref);
+		_A((*rt_param)->param_type == param_type_t::extends);
+
+		_P(_T("---- 2"));
+
+		_PP( get_type((*rt_param)->type)->get_name(env) );
+	}
+
     // Joins method name.
     string_t assembly_analyzer_t::__join_method_name(rt_assembly_t * assembly,
             rt_type_t * type, mt_method_ref_t * mt_method_ref, rt_ptype_t * ptypes)
@@ -2189,11 +2206,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     }
 
     // Converts to assembly_analyzer_t.
-    assembly_analyzer_t to_analyzer(analyzer_env_t & env, rt_type_t * rt_type)
+    assembly_analyzer_t to_analyzer(analyzer_env_t & env, rt_type_t * rt_type,
+									const generic_param_manager_t * gp_manager)
     {
         _A(rt_type != nullptr);
 
-        return assembly_analyzer_t(env, rt_type->get_assembly());
+        return assembly_analyzer_t(env, rt_type->get_assembly(), gp_manager);
     }
 
     ////////// ////////// ////////// ////////// //////////
