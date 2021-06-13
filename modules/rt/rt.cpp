@@ -2011,9 +2011,23 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 		rt_param_t * rt_param = current->get_param(param_ref);
 		_A((*rt_param)->param_type == param_type_t::extends);
 
-		_P(_T("---- 2"));
+		ref_t type_ref = (*rt_param)->type;
+		rt_generic_param_t * gp = get_generic_param(type_ref);
+		_A(gp != nullptr);
 
-		_PP( get_type((*rt_param)->type)->get_name(env) );
+		rt_sid_t name = to_sid((*gp)->name);
+
+		int index, count;
+		if (gp_manager->types_of(name, &index, &count))
+		{
+			for (; index < count; index++)
+			{
+				rt_type_t * type = gp_manager->type_at(index);
+
+				if (!f(type))
+					break;
+			}
+		}
 	}
 
     // Joins method name.

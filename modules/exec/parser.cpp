@@ -175,8 +175,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 			if (mt_param.param_type == param_type_t::extends)
 			{
 				ref_t ref = (*method)->params.at(index);
-				analyzer.each_extend_params(ref, [&](ref_t param_ref, mt_param_t & mt_param0) {
-					return params_layout.append(mt_param0.type, mt_param0.param_type), true;
+				analyzer.each_extend_params(ref, [&](rt_type_t * type) {
+					// _PP(type->get_name(analyzer.env));
+					return params_layout.append(type, param_type_t::__default__), true;
 				});
 			}
 			else

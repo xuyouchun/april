@@ -27,6 +27,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 		__atypes.push_back(atype);
 	}
 
+	// Append generic param types with name.
+	void generic_param_manager_t::append(rt_sid_t name, int index, int count)
+	{
+		__named_atypes[name] = std::make_tuple(index, count);
+	}
+
     // Returns type at index.
     rt_type_t * generic_param_manager_t::type_at(int index) const
     {
@@ -48,6 +54,24 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         return std::get<rt_type_t *>(it->second);
     }
+
+	// Returns types position of specified name, for generic params.
+	bool generic_param_manager_t::types_of(rt_sid_t sid, int * out_index, int * out_count) const
+	{
+		auto it = __named_atypes.find(sid);
+		if (it == __named_atypes.end())
+			return false;
+
+		std::tuple<int, int> & r = it->value;
+
+		if (out_index != nullptr)
+			*out_index = std::get<0>(r);
+
+		if (out_count != nullptr)
+			*out_count = std::get<1>(r);
+
+		return true;
+	}
 
     // Returns the empty manager.
     const generic_param_manager_t * generic_param_manager_t::empty_instance()
@@ -227,7 +251,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 			rt_generic_param_t * gp = __analyzer.get_generic_param(generic_params);
 			rt_sid_t name = __analyzer.to_sid((*gp)->name);
 
-			_PP(name);
+			__gp_mgr.append(name, __gp_mgr.size(), type_count);
 		}
 		else
 		{

@@ -1885,7 +1885,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_generic_param_t * get_generic_param(ref_t ref);
 
         // Callback function for enums members.
-        using each_extern_params_func_t = std::function<bool(ref_t ref, mt_param_t & mt)>;
+        using each_extern_params_func_t = std::function<bool(rt_type_t * type)>;
 
 		// Each extends types.
 		void each_extend_params(ref_t extern_param_ref, each_extern_params_func_t f);

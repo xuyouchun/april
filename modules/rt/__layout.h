@@ -119,6 +119,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Append a generic param type with name.
         void append(rt_sid_t name, rt_type_t * atype);
 
+		// Append generic param types with name.
+		void append(rt_sid_t name, int index, int count);
+
 		// Append a generic param types has params attribute.
 		void append(rt_type_t * atype);
 
@@ -127,6 +130,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Returns type of specified name.
         rt_type_t * type_at(rt_sid_t sid, int * out_index = nullptr) const;
+
+		// Returns types position of specified name, for generic params.
+		bool types_of(rt_sid_t sid, int * out_index, int * out_count) const;
 
         // Returns whether it is empty.
         bool empty() const { return __atypes.empty(); }
@@ -139,6 +145,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     private:
         al::svector_t<rt_type_t *, 10> __atypes;
+		al::small_map_t<rt_sid_t, std::tuple<int, int>> __named_atypes;
         std::map<rt_sid_t, __type_item_t> __type_map;
     };
 
