@@ -136,7 +136,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _A(method != nullptr);
 
-        if(host_type == nullptr)
+        if (host_type == nullptr)
             host_type = method->get_host_type();
 
         _A(host_type != nullptr);
@@ -166,7 +166,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Read params variables
         params_layout_t & params_layout = creating_ctx.params_layout;
-        if(!((decorate_value_t)(*method)->decorate).is_static)
+        if (!((decorate_value_t)(*method)->decorate).is_static)
             params_layout.append(host_type, param_type_t::__default__);
 
         assembly->each_params((*method)->params, [&](int index, mt_param_t & mt_param) {
@@ -177,7 +177,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 				ref_t ref = (*method)->params.at(index);
 				analyzer.each_extend_params(ref, [&](rt_type_t * type) {
 					// _PP(type->get_name(analyzer.env));
-					return params_layout.append(type, param_type_t::__default__), true;
+					return params_layout.append(type, param_type_t::extends), true;
 				});
 			}
 			else
@@ -220,7 +220,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Converts xil blocks.
         exec_method_block_manager_t * block_manager = nullptr;
-        if(!block_array.empty())
+        if (!block_array.empty())
         {
             block_manager = memory_t::new_obj<exec_method_block_manager_t>(memory);
             block_manager->count = block_array.size();
@@ -228,7 +228,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             exec_method_block_t * p_block = block_manager->blocks;
 
-            for(method_xil_block_t & block : block_array)
+            for (method_xil_block_t & block : block_array)
             {
                 #define __CommandAt(_index) (                                       \
                     _index < commands.size()? command_arr + _index :                \
@@ -244,10 +244,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 // _PF(_T("BLOCK [%1%] %2% %3% %4%"),
                 //     block.type, block.xil_start, block.xil_end, block.entry_point);
 
-                if(block.relation_type != ref_t::null)
+                if (block.relation_type != ref_t::null)
                 {
                     p_block->relation_type = analyzer.get_type(block.relation_type);
-                    if(p_block->relation_type == nullptr)
+                    if (p_block->relation_type == nullptr)
                         throw _ED(__e_t::type_not_found, block.relation_type);
                 }
                 else
@@ -260,14 +260,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 #undef __CommandAt
             }
 
-            for(exec_method_block_t * p_block = block_manager->blocks,
+            for (exec_method_block_t * p_block = block_manager->blocks,
                     * p_block_end = p_block + block_manager->count;
                     p_block < p_block_end; p_block++)
             {
-                for(exec_method_block_t * p_block1 = p_block + 1; p_block1 < p_block_end;
+                for (exec_method_block_t * p_block1 = p_block + 1; p_block1 < p_block_end;
                                                                             p_block1++)
                 {
-                    if(p_block1->include(p_block))
+                    if (p_block1->include(p_block))
                     {
                         p_block->parent = p_block1;
                         break;

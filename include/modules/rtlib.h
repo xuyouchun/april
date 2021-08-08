@@ -4,8 +4,11 @@
 #include <common.h>
 #include <algorithm.h>
 #include <jc.h>
+#include <rt.h>
 
 namespace X_ROOT_NS { namespace modules { namespace rtlib {
+
+	using namespace rt;
 
     struct rtlib_context_t;
 
@@ -74,21 +77,22 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     struct rtlib_context_t
     {
         // Constructor.
-        rtlib_context_t() = default;
-        rtlib_context_t(rt_stack_unit_t * argument) : argument(argument) { }
+        rtlib_context_t(assembly_analyzer_t & analyzer, rt_stack_unit_t * argument) _NE
+			: analyzer(analyzer), argument(argument) { }
 
-        rt_stack_unit_t * argument        = nullptr;
-        int               ret_code        = 0;
-        string_t          ret_message;
+		assembly_analyzer_t & analyzer;
+        rt_stack_unit_t     * argument;
+        int                   ret_code        = 0;
+        string_t              ret_message;
 
         // Arguments.
-        template<typename t> t * args()
+        template<typename t> t * args() _NE
         {
             return (t *)argument;
         }
 
         // Returns specified value.
-        template<typename t> void return_(t value)
+        template<typename t> void return_(t value) _NE
         {
             typedef rt_arg_t<t> rt;
             *(rt *)argument = rt(value);

@@ -1029,7 +1029,7 @@ namespace X_ROOT_NS { namespace algorithm {
             {
                 __buffer_size = v.__buffer_size;
                 __buffer_start = this->__alloc_objs<t>(__buffer_size);
-                __p = __buffer_start + __buffer_size;
+                __p = __buffer_start + v.size();
                 std::copy(v.__buffer_start, v.__buffer_start + v.__buffer_size, __buffer_start);
             }
         }

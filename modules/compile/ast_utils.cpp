@@ -300,30 +300,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Ascertains param types.
         generic_param_t * __ascertain_param_type()
         {
-            if(__type_name->units.size() != 1)
+            if (__type_name->units.size() != 1)
                 return nullptr;
 
             type_name_unit_t * unit = __type_name->units[0];
-            if(unit == nullptr || unit->is_generic())
+            if (unit == nullptr || unit->is_generic())
                 return nullptr;
 
             name_t name = unit->name;
             
-            if(__current_method != nullptr)
+            if (__current_method != nullptr)
             {
                 generic_param_t * param = __current_method->find_param(name);
-                if(param != nullptr)
+                if (param != nullptr)
                     return param;
             }
 
-            if(__current_type == nullptr)
+            if (__current_type == nullptr)
                 return nullptr;
 
-            for(general_type_t * type = __current_type; type != nullptr;
+            for (general_type_t * type = __current_type; type != nullptr;
                                     type = as<general_type_t *>(type->host_type))
             {
                 generic_param_t * param = type->find_param(name);
-                if(param != nullptr)
+                if (param != nullptr)
                     return param;
             }
 
@@ -336,63 +336,63 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             const mname_t * current_ns = ns_to_full_name(__wctx.current_namespace());
             mname_operate_context_t op_ctx = to_mname_operate_context(__wctx.xpool);
 
-            if(__type_name->global_type == global_type_t::global)
+            if (__type_name->global_type == global_type_t::global)
                 return __search_global_type(__type_name->begin(), __type_name->end()).type;
 
-            if(__type_name->global_type == global_type_t::root)
+            if (__type_name->global_type == global_type_t::root)
             {
                 __find_ret_t r = __find_type(
                     &__wctx.assembly, nullptr, __type_name->begin(), __type_name->end()
                 );
 
-                if(r.success)
+                if (r.success)
                     return r.type;
 
                 return __search_global_type(__type_name->begin(), __type_name->end()).type;
             }
 
             // nest type
-            if(__current_type != nullptr)
+            if (__current_type != nullptr)
             {
                 __find_ret_t r = __find_nest_type(&__wctx.assembly, current_ns,
                     __current_type, __type_name->begin(), __type_name->end()
                 );
 
-                if(r.success)
+                if (r.success)
                     return r.type;
             }
 
             // from current & parent namespace
-            for(const mname_t * ns = current_ns; ; ns = __wctx.parent_of(ns))
+            for (const mname_t * ns = current_ns; ; ns = __wctx.parent_of(ns))
             {
                 __find_ret_t r = __find_type(&__wctx.assembly, ns, __type_name->begin(),
                                                                    __type_name->end());
-                if(r.success)
+                if (r.success)
                     return r.type;
 
-                if(ns == nullptr)
+                if (ns == nullptr)
                     break;
             }
 
             __find_ret_t r = __search_global_type(__type_name->begin(), __type_name->end());
 
-            if(r.success)
+            if (r.success)
                 return r.type;
 
             // from using namespace
             document_t * document = __wctx.current_document();
-            if(document != nullptr)
+            if (document != nullptr)
             {
-                for(using_namespace_t * using_ns : document->all_using_namespaces())
+                for (using_namespace_t * using_ns : document->all_using_namespaces())
                 {
-                    if(using_ns->alias.empty())
+                    if (using_ns->alias.empty())
                     {
                         __multi_units_t units(__to_mname(using_ns), __type_name);
                         r = __search_global_type(units.begin(), units.end());
                     }
                     else
                     {
-                        if(__type_name->units.size() >= 2
+                        if (__type_name->units.size() >= 2
                                 && *__type_name->units[0] == using_ns->alias)
                         {
                             __multi_units_t units(to_mname(using_ns->ns),
@@ -402,7 +402,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                         }
                     }
 
-                    if(r.success)
+                    if (r.success)
                         return r.type;
                 }
             }
@@ -443,7 +443,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 size_t generic_param_count, type_t * host_type, type_name_unit_t * unit = nullptr)
         {
             type_t * raw_host_type = host_type;
-            if(host_type != nullptr && host_type->this_gtype() == gtype_t::generic)
+            if (host_type != nullptr && host_type->this_gtype() == gtype_t::generic)
             {
                 raw_host_type = ((generic_type_t *)host_type)->template_;
                 assembly = ((general_type_t *)raw_host_type)->assembly;
@@ -451,10 +451,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             // from type_def params
             type_def_t * current_type_def;
-            if(!generic_param_count && (current_type_def = __get_current_type_def()))
+            if (!generic_param_count && (current_type_def = __get_current_type_def()))
             {
                 type_def_param_t * param = current_type_def->find_param((name_t)name);
-                if(param != nullptr)
+                if (param != nullptr)
                     return param;
             }
 
@@ -463,10 +463,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 ns, name, generic_param_count, raw_host_type
             );
 
-            if(type != nullptr)
+            if (type != nullptr)
             {
-                if(unit != nullptr && unit->generic_args_count() > 0)
+                if (unit != nullptr && unit->generic_args_count() > 0)
                     type = __new_generic_type((general_type_t *)type, unit, host_type);
+
                 return type;
             }
 
@@ -475,9 +476,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 ns, name, generic_param_count, raw_host_type
             );
 
-            if(type_def && type_def->type_name)
+            if (type_def && type_def->type_name)
             {
-                if(!type_def->type_name->type)
+                if (!type_def->type_name->type)
                     throw _E(ascertain_type_error_t::type_def_unsolved);
 
                 type_t * type = type_def->type_name->type;
@@ -492,21 +493,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __find_ret_t __find_nest_type(assembly_t * assembly, const mname_t * ns,
                                                 type_t * type, itor_t begin, itor_t end)
         {
-            if(begin == end)
+            if (begin == end)
                 return __find_ret_t { type, type != nullptr };
 
-            while(type != nullptr)
+            while (type != nullptr)
             {
                 type_t * nest_type = type;
 
                 bool found = false;
 
-                for(type_name_unit_t * unit : _range(begin, end))
+                for (type_name_unit_t * unit : _range(begin, end))
                 {
                     generic_type_t * generic_type = nullptr;
                     type_t * host_type = nest_type;
 
-                    if(nest_type->this_gtype() == gtype_t::generic)
+                    if (nest_type->this_gtype() == gtype_t::generic)
                     {
                         generic_type = (generic_type_t *)nest_type;
                         nest_type = generic_type->template_;
@@ -515,11 +516,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     type_t * nest_type0 = __get_type(assembly, to_sid(ns),
                             (sid_t)unit->name, unit->generic_args_count(), host_type, unit);
 
-                    if(nest_type0 != nullptr)
+                    if (nest_type0 != nullptr)
                     {
                         found = true;
 
-                        if((generic_type != nullptr || unit->generic_args_count() > 0)
+                        if ((generic_type != nullptr || unit->generic_args_count() > 0)
                             && nest_type0->host_type == nest_type
                             && nest_type0->this_gtype() == gtype_t::general)
                         {
@@ -531,7 +532,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                         nest_type = nest_type0;
                     }
-                    else if(found)
+                    else if (found)
                     {
                         return __find_ret_t { nullptr, false };
                     }
@@ -541,7 +542,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     }
                 }
 
-                if(found)
+                if (found)
                     return __find_ret_t { nest_type, true };
 
                 type = as<general_type_t *>(type->host_type);
@@ -555,23 +556,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __find_ret_t __search_global_type(itor_t begin, itor_t end)
         {
             document_t * document = __wctx.current_document();
-            if(document == nullptr)
+            if (document == nullptr)
                 return __find_ret_t { nullptr, false };
 
-            for(import_t * import : document->all_imports())
+            for (import_t * import : document->all_imports())
             {
                 int prefix_count = __import_starts_with(import, begin, end);
-                if(prefix_count > 0)
+                if (prefix_count > 0)
                 {
                     itor_t it = begin + prefix_count;
                     assembly_t * assembly = __wctx.load_assembly(
                         to_mname(import->package), to_mname(import->assembly)
                     );
 
-                    if(assembly != nullptr)
+                    if (assembly != nullptr)
                     {
                         __find_ret_t r = __search_type(assembly, nullptr, it, end);
-                        if(r.success)
+                        if (r.success)
                             return r;
                     }
                 }
@@ -622,7 +623,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __find_ret_t __search_type(assembly_t * assembly, const mname_t * ns,
                                                     itor_t begin, itor_t end)
         {
-            if(begin == end)
+            if (begin == end)
                 return __find_ret_t { nullptr, false };
 
             itor_t it = begin;
@@ -630,10 +631,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             do
             {
                 __find_ret_t r = __find_type(assembly, ns, it, end);
-                if(r.success)
+                if (r.success)
                     return r;
 
-            } while((it + 1) != end && !(*it)->is_generic()
+            } while ((it + 1) != end && !(*it)->is_generic()
                 && (ns = __wctx.combine(ns, (*it++)->name), true));
 
             return __find_ret_t { nullptr, false };
@@ -644,7 +645,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __find_ret_t __find_type(assembly_t * assembly, const mname_t * ns,
                                                     itor_t type_begin, itor_t type_end)
         {
-            for(itor_t it = type_begin; it != type_end; it++)
+            for (itor_t it = type_begin; it != type_end; it++)
             {
                 type_name_unit_t * unit = *it;
                 type_t * type = __get_type(assembly, mname_to_sid(ns),
@@ -652,10 +653,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 );
 
                 __find_ret_t r = __find_nest_type(assembly, ns, type, it + 1, type_end);
-                if(r.success)
+                if (r.success)
                     return r;
 
-                if(unit->generic_args_count() == 0)
+                if (unit->generic_args_count() == 0)
                     ns = __wctx.combine(ns, unit->name);
                 else
                     break;
@@ -760,7 +761,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             type_collection_t types;
             xtype_collection_t xtypes(types);
 
-            if(unit->args != nullptr)
+            if (unit->args != nullptr)
             {
                 al::transform(*unit->args, std::back_inserter(types),
                     [this](generic_arg_t * arg) { return __transform_generic_arg(arg); }

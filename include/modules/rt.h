@@ -888,7 +888,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets variable size.
         virtual msize_t get_variable_size(analyzer_env_t & env,
-                                          storage_type_t * out_storage_type) = 0;
+                                          storage_type_t * out_storage_type = nullptr) = 0;
 
         // Gets assembly.
         virtual rt_assembly_t * get_assembly() = 0;

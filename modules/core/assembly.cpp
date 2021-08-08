@@ -161,7 +161,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(template_ != nullptr);
 
         return __get_type(__generic_types, __generic_type_key_t(
-            template_, types.get_tcid(__xpool), host_type
+            template_, types.get_tcid(__xpool), types.size(), host_type
         ));
     }
 
@@ -176,7 +176,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             generic_type = __xpool.new_generic_type(template_, types, host_type);
             __append(__generic_types,
-                __generic_type_key_t(template_, types.get_tcid(__xpool), host_type),
+                __generic_type_key_t(template_, types.get_tcid(__xpool), types.size(), host_type),
                 generic_type
             );
         }

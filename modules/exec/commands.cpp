@@ -976,7 +976,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    #define __RtTypeOf(rt_ref)  (*((rt_type_t **)(void *)rt_ref - 1))
+    #define __RtTypeOf(rt_ref)  (mm::get_object_type(rt_ref))
 
     #define __ToPushArrayElementCmdValue(_xil_type1, _xil_type2, _dimension) (	\
         __ToCmdValue(push,														\
@@ -1120,9 +1120,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+	template<__nokey_t>
     class __push_params_address_command_t : public __command_base_t
     {
     public:
+		__push_params_address_command_t(__offset_t offset)
+			: __offset(offset)
+		{ }
 
         __BeginToString(ctx)
 
@@ -1132,11 +1136,23 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx, __ToCmdValue(params, ((cmd_value_t)xil_storage_type_t::params << 16)))
 
-            ctx.stack.push<rt_stack_unit_t *>((rt_stack_unit_t *)ctx.stack.lp());
+            ctx.stack.push<rt_stack_unit_t *>((rt_stack_unit_t *)ctx.stack.lp() - __offset);
 
         __EndExecute()
 
-    } __push_params_address_command;
+	private:
+		__offset_t __offset;
+    };
+
+    struct __push_params_address_template_t
+    {
+        template<__nokey_t nokey, typename ... args_t>
+        static auto new_command(memory_t * memory, args_t && ... args)
+        {
+            typedef __push_params_address_command_t<nokey> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+        }
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1227,6 +1243,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __push_array_element_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
+		static __command_manager_t<
+			__push_params_address_template_t, __nokey_t
+		>::with_args_t<__offset_t> __params_address_command_manager;
+
         xil_storage_type_t stype = xil.stype();
 
 		// Duplicate command.
@@ -1235,7 +1255,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 		// Push params argument address command.
 		if (stype == xil_storage_type_t::params)
-			return &__push_params_address_command;
+		{
+			__offset_t offset = ctx.params_layout.extends_offset();
+			_PP(offset);
+			return __params_address_command_manager.template get_command<__nokey>(
+				ctx.params_layout.extends_offset()
+			);
+		}
 
         #define __V(s, d1, d2) (((uint32_t)(s) << 16) | ((uint32_t)(d1) << 12) | ((uint32_t)(d2)) << 8)
         #define __ConstantValue(_xil, _t)                                       \
@@ -2889,7 +2915,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx, __ToCallCmdValue(internal))
 
-            rtlib_context_t context(ctx.stack.top() - __param_unit_size);
+            rtlib_context_t context(
+				(assembly_analyzer_t &)ctx, ctx.stack.top() - __param_unit_size
+			);
             __func(context);
 
             ctx.stack.pop(__pop_unit_size);
@@ -5112,11 +5140,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         switch(command->cmd_value)
         {
+			// push
             __Case( __push_command_t<xil_storage_type_t::constant, xil_type_t::int32> )
             __Case( __push_command_t<xil_storage_type_t::constant, xil_type_t::string> )
             __Case( __push_command_t<xil_storage_type_t::local, xil_type_t::int32> )
             __Case( __push_command_t<xil_storage_type_t::argument, xil_type_t::int32> )
 
+			// pop
             __Case( __pop_command_t<xil_storage_type_t::local, xil_type_t::int32> )
 
             // al

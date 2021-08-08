@@ -148,7 +148,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __full_class_name_t, __namespace_t, __generic_argument_count_t, __host_type_t
         > __general_type_key_t;
 
-        typedef std::tuple<type_t *, type_collection_id_t, __host_type_t> __generic_type_key_t;
+        typedef std::tuple<
+			type_t *, type_collection_id_t, __generic_argument_count_t,  __host_type_t
+		> __generic_type_key_t;
+
         typedef std::tuple<type_t *, size_t> __array_type_key_t;
 
         typedef std::tuple<

@@ -1735,6 +1735,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns whether it's a reference type.
     bool field_t::is_ref_type() const
     {
+		if (this->this_family() == member_family_t::position)
+		{
+			position_field_t * f = (position_field_t *)this;
+			type_t * type = get_type();
+		}
+
         type_t * type = get_type();
         if(type == nullptr)
             return true;                    // treat as object
@@ -2781,7 +2787,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Ensure size of the type initialized.
     void __general_type_like_base_t::__ensure_size_initialize()
     {
-        if(__rcount != unknown_msize)
+        if (__rcount != unknown_msize)
             return;
 
         __rcount = 0;
@@ -2790,7 +2796,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         field_t * value_fields[fields.size()];
         field_t ** value_fields_end = value_fields;
 
-        for(field_t * field : fields)
+        for (field_t * field : fields)
         {
             if(field->is_ref_type())
                 __rcount++;
@@ -2798,7 +2804,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 *value_fields_end++ = field;
         }
 
-        if(value_fields_end > value_fields)
+        if (value_fields_end > value_fields)
         {
             const size_t align_size = 4;
 
@@ -2806,11 +2812,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return f1->get_size() > f2->get_size();
             });
 
-            for(field_t * f : _range(value_fields, value_fields_end))
+            for (field_t * f : _range(value_fields, value_fields_end))
             {
                 msize_t size = f->get_size();
 
-                if(size >= 4)
+                if (size >= 4)
                 {
                     f->offset = __value_size;
                     __value_size += _alignf(size, align_size);
@@ -2825,7 +2831,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 }
             }
 
-            if(__value_size > align_size)
+            if (__value_size > align_size)
                 __value_size = _alignf(__value_size, align_size);
         }
     }
@@ -2833,9 +2839,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Enum super types by applies all super types for calling callback function.
     void __general_type_like_base_t::each_super_type(each_super_type_callback_t callback)
     {
-        for(type_name_t * super_type_name : super_type_names)
+        for (type_name_t * super_type_name : super_type_names)
         {
-            if(super_type_name->type != nullptr)
+            if (super_type_name->type != nullptr)
                 callback(super_type_name->type);
         }
     }
@@ -2843,7 +2849,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Commits it.
     void __general_type_like_base_t::commit(eobject_commit_context_t & ctx)
     {
-        if(!__committed)
+        if (!__committed)
         {
             __ensure_size_initialize();
 

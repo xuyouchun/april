@@ -6,7 +6,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
 
     // Returns aligned unit.
-    constexpr msize_t unit_align(msize_t offset, msize_t size)
+    constexpr msize_t unit_align(msize_t offset, msize_t size) _NE
     {
         switch(size)
         {
@@ -26,16 +26,58 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     }
 
     // Returns whether a size is aligned.
-    constexpr msize_t unit_is_aligned(msize_t offset, msize_t size)
+    constexpr msize_t unit_is_aligned(msize_t offset, msize_t size) _NE
     {
         return unit_align(offset, size) == offset;
     }
 
     // Returns unit size.
-    constexpr msize_t unit_size_of(msize_t size)
+    constexpr msize_t unit_size_of(msize_t size) _NE
     {
         return _alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
     }
+
+	template<msize_t size, typename _src_t>
+	X_ALWAYS_INLINE void set_variable_value_t(void * dst, const _src_t * src) _NE
+	{
+		typedef uint_type_t<size> t;
+		*(t *)dst = *(const t *)src;
+	}
+
+	template<typename _src_t>
+	X_ALWAYS_INLINE void set_variable_value(void * dst, const _src_t * src, msize_t size) _NE
+	{
+		switch (size)
+		{
+			case 0:
+				break;
+
+			case 1:
+				set_variable_value_t<1>(dst, src);
+				break;
+
+			case 2:
+				set_variable_value_t<2>(dst, src);
+				break;
+
+			case 3:
+			case 4:
+				set_variable_value_t<4>(dst, src);
+				break;
+
+			case 5:
+			case 6:
+			case 7:
+			case 8:
+				set_variable_value_t<8>(dst, src);
+				break;
+
+			default:  // > 8
+				set_variable_value_t<8>(dst, src);
+				set_variable_value((byte_t *)dst + 8, (byte_t *)src + 8, size - 8);
+				break;
+		}
+	}
 
     ////////// ////////// ////////// ////////// //////////
     // generic_context_t
@@ -333,6 +375,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns offset of param index.
         msize_t offset_of(int index);
 
+		// Returns offset of the first extends param.
+		msize_t extends_offset();
+
         // Returns param type of param index.
         rt_type_t * type_at(int index);
 
@@ -356,6 +401,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         __items_t __items;
 
         msize_t __current_offset = 0;
+		msize_t __extends_params_offset = -1;
     };
 
     ////////// ////////// ////////// ////////// //////////

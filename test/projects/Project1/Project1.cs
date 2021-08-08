@@ -8,9 +8,17 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-		Tuple<int, string> tuple = new Tuple<int, string>(10000, "Hello");
+		Tuple<int, long, short> tuple = new Tuple<int, long, short>(10, 20, 30);
+		// Tuple<int> tuple = new Tuple<int>(10);
+
 		Console.Write(tuple.Item1);
 		Console.WriteLine();
+		Console.Write(tuple.Item2);
+		Console.WriteLine();
+		Console.Write(tuple.Item3);
+		Console.WriteLine();
+
+		// Console.WriteLine();
 
 		/*
 		Console.Write(tuple.Item1);

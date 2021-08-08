@@ -92,6 +92,7 @@ public class Tuple<TItems ...> : ITuple<TItems ...>
 		Internal.Tuple_SetRange(this, items);
 	}
 
+	/*
 	public Object Get(Int32 index)
 	{
 		return Internal.Object_FromPtr(
@@ -103,6 +104,7 @@ public class Tuple<TItems ...> : ITuple<TItems ...>
 	{
 		return (T)Internal.Tuple_Get(this, index);
 	}
+	*/
 
 	public Int32 Count { get { return Internal.Tuple_GetCount(this); } }
 

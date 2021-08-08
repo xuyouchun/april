@@ -713,6 +713,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Appends a param.
     void params_layout_t::append(ref_t type_ref, param_type_t param_type)
     {
+		if (param_type == param_type_t::extends)
+		{
+			if (__extends_params_offset < 0)
+				__extends_params_offset = __current_offset;
+
+			param_type = param_type_t::__default__;
+		}
+
 		rt_generic_param_t * gp;
 		int index;
 
@@ -762,6 +770,15 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         return __current_offset - __items[index].offset;
     }
+
+	// Returns offset of the first extends param.
+	msize_t params_layout_t::extends_offset()
+	{
+		if (__extends_params_offset < 0)
+			return 0;
+
+		return __current_offset - __extends_params_offset;
+	}
 
     // Returns param type of index.
     rt_type_t * params_layout_t::type_at(int index)

@@ -602,16 +602,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         enum { unknown, yes, no } is_empty = unknown;
 
-        if(args.size() <= 1)
+        if (args.size() <= 1)
             return false;
 
-        for(generic_arg_t * arg : args)
+        for (generic_arg_t * arg : args)
         {
-            if(is_empty == unknown)
+            if (is_empty == unknown)
             {
                 is_empty = (arg? yes : no);
             }
-            else if((arg? yes : no) != is_empty)
+            else if ((arg? yes : no) != is_empty)
             {
                 return true;
             }
@@ -650,7 +650,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void general_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __super_t::on_walk(context, step, tag);
@@ -668,7 +668,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks confirm step.
     void general_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
-        if(__type_name.type == nullptr)
+        if (__type_name.type == nullptr)
         {
             __type_name.type = __ascertain_type(context, &__type_name);
         }
