@@ -242,7 +242,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         hash = (hash << 4) + v;
         _size_t x;
 
-        if((x = hash & mask) != 0) 
+        if ((x = hash & mask) != 0) 
         {
             hash ^= (x >> (sizeof(_size_t) - (sizeof(_size_t) >> 2))); 
             hash &= ~x;
@@ -267,7 +267,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             hash = __hash(hash, *t);
         }
 
-        if(s_len > t_len)
+        if (s_len > t_len)
         {
             _size_t v = 0;
             std::memcpy((void *)&v, (byte_t *)s + t_len, s_len - t_len);
@@ -289,10 +289,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             bool operator == (const __string_key_t & other) const _NE
             {
-                if(s == other.s)
+                if (s == other.s)
                     return true;
 
-                if(length != other.length)
+                if (length != other.length)
                     return false;
 
                 return al::strcmp(s, other.s) == cmp_t::equals;
@@ -360,7 +360,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // Clean all nodes.
             __AlwaysInline void clean() _NE
             {
-                while(head != nullptr)
+                while (head != nullptr)
                 {
                     __node_t * node = head;
                     head = head->next;
@@ -382,13 +382,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             virtual ~__resource_manager_base_t()
             {
                 __node_t * node = head;
-                while(node != nullptr)
+                while (node != nullptr)
                 {
                     this->__free((void *)node);
                     node = node->next;
                 }
 
-                while(!__node_queue.empty())
+                while (!__node_queue.empty())
                 {
                     this->__free((void *)__node_queue.front());
                     __node_queue.pop();
@@ -403,7 +403,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             {
                 __node_t * node;
 
-                if(!__node_queue.empty())
+                if (!__node_queue.empty())
                 {
                     node = __node_queue.front();
                     __node_queue.pop();
@@ -553,18 +553,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             for(; block < block_end; block++)
             {
-                if(__MatchBlockType(block) && point >= block->start && point < block->end)
+                if (__MatchBlockType(block) && point >= block->start && point < block->end)
                 {
-                    if(!f(block))
+                    if (!f(block))
                         return;
 
                     break;
                 }
             }
 
-            while((block = block->parent) != nullptr)
+            while ((block = block->parent) != nullptr)
             {
-                if(__MatchBlockType(block) && !f(block))
+                if (__MatchBlockType(block) && !f(block))
                     return;
             }
 
@@ -679,10 +679,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Returns true if blocks overwrited, happend when throws exceptions in finally block.
         __AlwaysInline bool end_group() _NE
         {
-            if(__current != nullptr)
+            if (__current != nullptr)
             {
                 __node_t * h = __old_head;
-                while(__old_head != nullptr && __old_head->identity == __current->identity
+                while (__old_head != nullptr && __old_head->identity == __current->identity
                         && __current->block->include(__old_head->block))
                 {
                     __release_node(__old_head);
@@ -718,7 +718,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __AlwaysInline __node_t * deque() _NE
         {
             __node_t * node = this->head;
-            if(node == nullptr)
+            if (node == nullptr)
                 return nullptr;
 
             this->head = node->next;
@@ -730,7 +730,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Returns head block.
         __AlwaysInline __node_t * pick() _NE
         {
-            if(this->head != nullptr)
+            if (this->head != nullptr)
                 return this->head;
 
             return nullptr;
@@ -740,12 +740,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __AlwaysInline __node_t * deque_for_executing() _NE
         {
             __node_t * node = this->head;
-            if(node == nullptr)
+            if (node == nullptr)
                 return nullptr;
 
             this->head = node->next;
 
-            if(__executing == nullptr)
+            if (__executing == nullptr)
             {
                 __executing = node;
             }
@@ -796,7 +796,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __node_t * node = this->__acquire_node(__identity, block, exception_node);
             node->next = nullptr;
 
-            if(__current == nullptr)
+            if (__current == nullptr)
             {
                 __current  = node;
                 this->head = node;
@@ -844,7 +844,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         template<method_xil_block_type_t _type, typename _f_t>
         __AlwaysInline void find_block(command_t ** point, _f_t f) _NE
         {
-            if(block_manager == nullptr)
+            if (block_manager == nullptr)
                 return;
 
             block_manager->find_block<_type>(point, f);

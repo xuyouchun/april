@@ -1034,22 +1034,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         auto end()   const { return eobjects.end();   }
 
         // Returns whether the collection is empty.
-        bool   empty() const { return eobjects.empty(); }
+        bool empty() const { return eobjects.empty(); }
 
         // Returns count of the collection.
         size_t size()  const { return eobjects.size();  }
 
         // Returns the eobject at specified index.
-        etype_t & operator[](size_t index)
-        {
-            return eobjects[index];
-        }
+        etype_t & operator[](size_t index) { return eobjects[index]; }
 
         // Returns the eobject at specified index.
-        const etype_t & operator[](size_t index) const
-        {
-            return eobjects[index];
-        }
+		etype_t & at(size_t index) { return eobjects[index]; }
+
+        // Returns the eobject at specified index.
+        const etype_t & operator[](size_t index) const { return eobjects[index]; }
+
+        // Returns the eobject at specified index.
+		const etype_t & at(size_t index) const { return eobjects[index]; }
 
         // Converts to string.
         operator string_t() const
@@ -1551,56 +1551,56 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             object_t     * mobject;
         };
 
-        bool operator == (const cvalue_t & other) const;
-        bool operator != (const cvalue_t & other) const;
-        bool operator <  (const cvalue_t & other) const;
-        bool operator >  (const cvalue_t & other) const;
-        bool operator <= (const cvalue_t & other) const;
-        bool operator >= (const cvalue_t & other) const;
+        bool operator == (const cvalue_t & other) const _NE;
+        bool operator != (const cvalue_t & other) const _NE;
+        bool operator <  (const cvalue_t & other) const _NE;
+        bool operator >  (const cvalue_t & other) const _NE;
+        bool operator <= (const cvalue_t & other) const _NE;
+        bool operator >= (const cvalue_t & other) const _NE;
 
-        bool operator == (bool value) const;
-        bool operator != (bool value) const;
+        bool operator == (bool value) const _NE;
+        bool operator != (bool value) const _NE;
 
-        bool operator == (std::nullptr_t) const { return is_null();  }
-        bool operator != (std::nullptr_t) const { return !is_null(); }
+        bool operator == (std::nullptr_t) const _NE { return is_null();  }
+        bool operator != (std::nullptr_t) const _NE { return !is_null(); }
 
         static const cvalue_t nan;
         static const cvalue_t null;
 
-        bool is_nan() const { return value_type == cvalue_type_t::nan; }
-        bool is_null() const { return value_type == cvalue_type_t::null; }
+        bool is_nan() const _NE  { return value_type == cvalue_type_t::nan; }
+        bool is_null() const _NE { return value_type == cvalue_type_t::null; }
 
-		cvalue_t change_type(vtype_t vtype) const;
+		cvalue_t change_type(vtype_t vtype) const _NE;
 
         X_TO_STRING
     };
 
     // Converts a type_t to constant value.
-    X_INLINE cvalue_t to_cvalue(type_t * type)
+    X_INLINE cvalue_t to_cvalue(type_t * type) _NE
     {
         return cvalue_t(cvalue_type_t::type, (object_t *)type);
     }
 
     // Returns whether a const value is nan.
-    X_INLINE bool is_nan(const cvalue_t & v)
+    X_INLINE bool is_nan(const cvalue_t & v) _NE
     {
         return v.value_type == cvalue_type_t::nan;
     }
 
     // Returns whether a const value is a number.
-    X_INLINE bool is_number(const cvalue_t & v)
+    X_INLINE bool is_number(const cvalue_t & v) _NE
     {
         return v.value_type == cvalue_type_t::number;
     }
 
     // Returns whether a const value is a string.
-    X_INLINE bool is_string(const cvalue_t & v)
+    X_INLINE bool is_string(const cvalue_t & v) _NE
     {
         return v.value_type == cvalue_type_t::string;
     }
 
     // Returns whether a const value is null.
-    X_INLINE bool is_null(const cvalue_t & v)
+    X_INLINE bool is_null(const cvalue_t & v) _NE
     {
         return v.value_type == cvalue_type_t::null;
     }
@@ -2959,6 +2959,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the type of this type.
         virtual type_t * get_type() const = 0;
 
+		// Returns param type of specified index.
+		virtual type_t * get_param_type(int index) const = 0;
+
+		// Returns param vtype of specified index.
+		vtype_t get_param_vtype(int index) const;
+
         // Returns Decorates.
         virtual decorate_t * get_decorate() const = 0;
 
@@ -3014,6 +3020,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns return type of the method.
         virtual type_t * get_type() const override { return to_type(type_name); }
+
+		// Returns param type of specified index.
+		virtual type_t * get_param_type(int index) const override;
 
         // Returns param count.
         size_t param_count() const
@@ -3079,6 +3088,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // The raw general template method.
         method_t * raw = nullptr;
 
+		// Returns param type of specified index.
+		virtual type_t * get_param_type(int index) const override;
+
         // Returns this family.
         virtual member_family_t this_family() const override
         {
@@ -3134,6 +3146,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return __template()->get_type();
         }
+
+		// Returns param type of specified index.
+		virtual type_t * get_param_type(int index) const override;
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() const override

@@ -11,19 +11,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts ref_t to a string.
     ref_t::operator string_t() const
     {
-        if(*this == ref_t::null)
+        if (*this == ref_t::null)
             return _T("<ref::null>");
 
-        if(extra == 0)
+        if (extra == 0)
         {
-            if(count > 1) 
+            if (count > 1) 
                 return _F(_T("%1%-%2%"), index, index + count);
 
             return _F(_T("%1%"), index);
         }
         else
         {
-            if(count > 1) 
+            if (count > 1) 
                 return _F(_T("%1%-%2%(%3%)"), index, index + count, extra);
 
             return _F(_T("%1%(%2%)"), index, extra);
@@ -33,7 +33,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts res_t to a string.
     res_t::operator string_t() const
     {
-        if(*this == res_t::null)
+        if (*this == res_t::null)
             return _T("<res:null>");
 
         return _F(_T("%1%"), pos);
@@ -190,9 +190,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     X_ENUM_INFO_END
 
     // Converts vtype to xil_type.
-    xil_type_t to_xil_type(vtype_t vtype)
+    xil_type_t to_xil_type(vtype_t vtype) _NE
     {
-        switch(vtype)
+        switch (vtype)
         {
             case vtype_t::int8_:
                 return xil_type_t::int8;
@@ -243,6 +243,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return xil_type_t::__unknown__;
         }
     }
+
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -376,7 +377,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         #define __ToStr(t) (al::to_str(xil.template get_extra<t>()))
 
-        switch(xil_type)
+        switch (xil_type)
         {
             case xil_type_t::int8:
                 return __ToStr(int8_t);
@@ -430,7 +431,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts push_xil_t to a string.
     push_xil_t::operator string_t() const
     {
-        switch(stype())
+        switch (stype())
         {
             case xil_storage_type_t::local:
                 return _F(_T("push local (%1%)%2%"), dtype(), get_identity());
@@ -462,7 +463,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts pop_xil_t to a string.
     pop_xil_t::operator string_t() const
     {
-        switch(stype())
+        switch (stype())
         {
             case xil_storage_type_t::local:
                 return _F(_T("pop local (%1%)%2%"), dtype(), get_identity());
@@ -497,7 +498,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts pick_xil_t to a string.
     pick_xil_t::operator string_t() const
     {
-        switch(stype())
+        switch (stype())
         {
             case xil_storage_type_t::local:
                 return _F(_T("pick local %1%"), get_identity());
@@ -572,7 +573,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts simple xil to a string.
     smp_xil_t::operator string_t() const
     {
-        switch(smp())
+        switch (smp())
         {
             case xil_smp_t::empty:
                 return _T("empty");
@@ -603,7 +604,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts jmp xil to a string.
     jmp_xil_t::operator string_t() const
     {
-        switch(model())
+        switch (model())
         {
             case xil_jmp_model_t::none:
                 return _F(_T("jmp %1%"), step());
@@ -612,7 +613,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return _T("switch");
 
             case xil_jmp_model_t::leave:
-                if(step() == 0)
+                if (step() == 0)
                     return _T("leave.ret");
                 return _F(_T("leave %1%"), step());
 
@@ -624,12 +625,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Sets jmp xil step.
     void jmp_xil_t::set_step(xil_jmp_step_t step)
     {
-        if(in_range<int8_t>(step))
+        if (in_range<int8_t>(step))
         {
             *((int8_t *)__extra) = step;
             set_distance(xil_jmp_distance_t::near);
         }
-        else if(in_range<int32_t, 24>(step))
+        else if (in_range<int32_t, 24>(step))
         {
             set_value_of_bits<int32_t, 24, 8>(this, step);
             set_distance(xil_jmp_distance_t::far);
@@ -643,7 +644,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns jmp step.
     xil_jmp_step_t jmp_xil_t::step() const
     {
-        switch(distance())
+        switch (distance())
         {
             case xil_jmp_distance_t::near:
                 return (xil_jmp_step_t)(int8_t)__extra[0];
@@ -659,7 +660,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Sets switch-case table index.
     void jmp_xil_t::set_tbl(int32_t index)
     {
-        if(index < 0 || index > (int32_t)max_value<byte_t>())
+        if (index < 0 || index > (int32_t)max_value<byte_t>())
             throw _EC(overflow, _T("switch table index overflow"));
 
         __extra[0] = (byte_t)index;
@@ -676,7 +677,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts new_xil_t to string.
     new_xil_t::operator string_t() const
     {
-        switch(new_type())
+        switch (new_type())
         {
             case xil_new_type_t::array:
                 return _F(_T("new array"));
@@ -694,7 +695,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts copy xil to a string.
     copy_xil_t::operator string_t() const
     {
-        switch(copy_type())
+        switch (copy_type())
         {
             case xil_copy_type_t::stack_copy:
                 return _T("stack copy");
@@ -715,7 +716,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts init xil to a string.
     init_xil_t::operator string_t() const
     {
-        switch(init_type())
+        switch (init_type())
         {
             case xil_init_type_t::array_begin:
                 return _T("begin init array");
@@ -736,10 +737,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts xil to a string.
     string_t __to_string(const xil_t * xil) _NE
     {
-        if(xil == nullptr)
+        if (xil == nullptr)
             return _T("<NULL>");
 
-        switch((xil_command_t)((const xil_base_t *)xil)->command())
+        switch ((xil_command_t)((const xil_base_t *)xil)->command())
         {
             case xil_command_t::empty:
                 return _T("<EMPTY>");
@@ -793,7 +794,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         _A(xil != nullptr);
 
-        switch(((const xil_base_t *)xil)->command())
+        switch (((const xil_base_t *)xil)->command())
         {
             case xil_command_t::empty:
                 return 1;
@@ -845,7 +846,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts xil to a string.
     string_t __to_hex(const xil_t * xil) _NE
     {
-        if(xil == nullptr)
+        if (xil == nullptr)
             return _T("");
 
         stringstream_t ss;
@@ -857,7 +858,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Reads a xil.
     bool xil_reader_t::read(const xil_base_t ** out_xil)
     {
-        if(__bytes >= __bytes_end)
+        if (__bytes >= __bytes_end)
             return false;
 
         *out_xil = (const xil_base_t *)__bytes;
@@ -903,7 +904,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             #if CORE_TRACE_XIL_WRITE
 
-            if(trace_type == __trace_type_t::trace)
+            if (trace_type == __trace_type_t::trace)
             {
                 _PF(_T("  %|1$4| | %|2$-40|%3% [%4%]"),
                     index++, __to_string(xil), __size_of(xil), __to_hex(xil)
@@ -926,7 +927,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Prints trace message.
     void xil_buffer_writer_t::__trace_method()
     {
-        if(!__traced_method && __get_trace_type() == __trace_type_t::trace)
+        if (!__traced_method && __get_trace_type() == __trace_type_t::trace)
         {
             _PF(_T("\n%1%"), __method);
             __traced_method = true;
@@ -936,9 +937,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns trace type.
     xil_buffer_writer_t::__trace_type_t xil_buffer_writer_t::__get_trace_type()
     {
-        if(__trace_type == __trace_type_t::unknown)
+        if (__trace_type == __trace_type_t::unknown)
         {
-            if(__method->has_attribute(__xpool.get_trace_attribute_type(), true))
+            if (__method->has_attribute(__xpool.get_trace_attribute_type(), true))
                 __trace_type = __trace_type_t::trace;
             else
                 __trace_type = __trace_type_t::no_trace;
@@ -956,13 +957,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         method_t * m = to_general(method);
 
-        if(m->is_extern())
+        if (m->is_extern())
             return xil_call_type_t::internal;
 
-        if(m->is_static())
+        if (m->is_static())
             return xil_call_type_t::static_;
 
-        if(m->is_virtual() || m->is_override() || m->is_abstract())
+        if (m->is_virtual() || m->is_override() || m->is_abstract())
             return xil_call_type_t::virtual_;
 
         return xil_call_type_t::instance;

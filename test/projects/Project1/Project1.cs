@@ -8,22 +8,10 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-		Tuple<int, long, short> tuple = new Tuple<int, long, short>(10, 20, 30);
-		// Tuple<int> tuple = new Tuple<int>(10);
+		Tuple<long, int, short> tuple = new Tuple<long, int, short>(123, 456, 789);
+		// Tuple<int, int, int> tuple = new Tuple<int, int, int>(100, 200, 300);
 
-		Console.Write(tuple.Item1);
-		Console.WriteLine();
-		Console.Write(tuple.Item2);
-		Console.WriteLine();
-		Console.Write(tuple.Item3);
-		Console.WriteLine();
-
-		// Console.WriteLine();
-
-		/*
-		Console.Write(tuple.Item1);
-		Console.WriteLine();
-		*/
+		Console.WriteLine(tuple.Item1 + tuple.Item2 + tuple.Item3);
     }
 
     typedef System.Delegate<int, TArgs ...> Proc<TArgs ...>;
@@ -34,7 +22,15 @@ class MyClass
 {
 	public MyClass(int a)
 	{
-		
+		// __a = a;
+	}
+
+	private int __a;
+
+	public void Print()
+	{
+		// Console.Write(__a);
+		// Console.WriteLine();
 	}
 }
 

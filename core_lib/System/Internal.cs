@@ -77,6 +77,42 @@ internal static class Internal
 	[__internal__]
 	public static extern Void Console_WriteDouble(Double value);
 
+	[__internal__]
+	public static extern Void Console_WriteStringLine(String value);
+
+	[__internal__]
+	public static extern Void Console_WriteCharLine(Char value);
+
+	[__internal__]
+	public static extern Void Console_WriteInt8Line(Int8 value);
+
+	[__internal__]
+	public static extern Void Console_WriteUInt8Line(UInt8 value);
+
+	[__internal__]
+	public static extern Void Console_WriteInt16Line(Int16 value);
+
+	[__internal__]
+	public static extern Void Console_WriteUInt16Line(UInt16 value);
+
+	[__internal__]
+	public static extern Void Console_WriteInt32Line(Int32 value);
+
+	[__internal__]
+	public static extern Void Console_WriteUInt32Line(Int32 value);
+
+	[__internal__]
+	public static extern Void Console_WriteInt64Line(Int64 value);
+
+	[__internal__]
+	public static extern Void Console_WriteUInt64Line(UInt64 value);
+
+	[__internal__]
+	public static extern Void Console_WriteSingleLine(Single value);
+
+	[__internal__]
+	public static extern Void Console_WriteDoubleLine(Double value);
+
 }
 
 

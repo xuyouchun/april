@@ -74,7 +74,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         _A(template_ != nullptr);
 
         auto it = __generic_type_map.find(template_);
-        if(it != __generic_type_map.end())
+        if (it != __generic_type_map.end())
             return it->second;
 
         rt_type_t * type = __super_t::to_generic_type(template_);
@@ -147,7 +147,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     msize_t command_creating_context_t::ret_unit_size()
     {
-        if(__ret_unit_size == unknown_msize)
+        if (__ret_unit_size == unknown_msize)
         {
             msize_t size = variable_size_of((*method)->type, &__ret_storage_type);
             __ret_unit_size = unit_size_of(size);
@@ -232,7 +232,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             {
                 __key_t key(keys ..., args ...);
                 auto it = __map.find(key);
-                if(it != __map.end())
+                if (it != __map.end())
                     return it->second;
 
                 command_t * command = _command_template_t::template new_command<keys ...>(
@@ -362,12 +362,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     static msize_t __size_of(assembly_analyzer_t & analyzer, ref_t type_ref)
     {
-        if(type_ref.empty())
+        if (type_ref.empty())
             return 0;
 
         rt_type_t * rt_type = analyzer.get_type(type_ref);
 
-        switch((mt_type_extra_t)type_ref.extra)
+        switch ((mt_type_extra_t)type_ref.extra)
         {
             case mt_type_extra_t::type_ref:
             case mt_type_extra_t::general: {
@@ -413,10 +413,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         xil_type_t dtype = xil.dtype();
 
-        if(dtype != xil_type_t::empty)
+        if (dtype != xil_type_t::empty)
             return dtype;
 
-        switch(xil.stype())
+        switch (xil.stype())
         {
             case xil_storage_type_t::field: {
 
@@ -688,7 +688,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 	static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
 	{
-        switch((mt_member_extra_t)field_ref.extra)
+        switch ((mt_member_extra_t)field_ref.extra)
         {
             case mt_member_extra_t::import:
             case mt_member_extra_t::internal: {
@@ -702,7 +702,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                 rt_general_type_t * general_type = (rt_general_type_t *)rt_type;
 
-                if(!general_type->is_generic_template())
+                if (!general_type->is_generic_template())
                     return rt_type;
 
                 rt_type_t * type = ctx.to_generic_type(general_type);
@@ -742,7 +742,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     static msize_t __field_offset(__context_t & ctx, ref_t field_ref)
     {
-        switch((mt_member_extra_t)field_ref.extra)
+        switch ((mt_member_extra_t)field_ref.extra)
         {
             case mt_member_extra_t::import:
             case mt_member_extra_t::internal: {
@@ -756,7 +756,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                 rt_general_type_t * general_type = (rt_general_type_t *)rt_type;
 
-                if(!general_type->is_generic_template())
+                if (!general_type->is_generic_template())
                     return rt_type->get_field_offset(ctx.env, field_ref);
 
                 rt_type_t * type = ctx.to_generic_type(general_type);
@@ -945,9 +945,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         array_length_t index = 0;
         const dimension_t partical_dimension = 8;
 
-        while(true)
+        while (true)
         {
-            switch(dimension)
+            switch (dimension)
             {
                 case 0: return index;
 
@@ -1004,7 +1004,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
 
-            if(_dimension >= 2)
+            if (_dimension >= 2)
             {
                 array_length_t * lengths = mm::get_array_lengths(array_ref);
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
@@ -1066,7 +1066,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     memory, std::forward<_args_t>(args) ...                         \
                 )
 
-            switch(dimension)
+            switch (dimension)
             {
                 #define __Case(_dimension)                                          \
                     case _dimension:                                                \
@@ -1136,7 +1136,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx, __ToCmdValue(params, ((cmd_value_t)xil_storage_type_t::params << 16)))
 
-            ctx.stack.push<rt_stack_unit_t *>((rt_stack_unit_t *)ctx.stack.lp() - __offset);
+            ctx.stack.push<rt_stack_unit_t *>(
+				(rt_stack_unit_t *)ctx.stack.lp() - __offset - 1
+			);
 
         __EndExecute()
 
@@ -1256,8 +1258,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 		// Push params argument address command.
 		if (stype == xil_storage_type_t::params)
 		{
-			__offset_t offset = ctx.params_layout.extends_offset();
-			_PP(offset);
 			return __params_address_command_manager.template get_command<__nokey>(
 				ctx.params_layout.extends_offset()
 			);
@@ -1842,7 +1842,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
 
-            if(_dimension >= 2)
+            if (_dimension >= 2)
             {
                 array_length_t * lengths = mm::get_array_lengths(array_ref);
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
@@ -1904,7 +1904,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     memory, std::forward<_args_t>(args) ...                         \
                 )
 
-            switch(dimension)
+            switch (dimension)
             {
                 #define __Case(_dimension)                                          \
                     case _dimension:                                                \
@@ -1965,7 +1965,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _A(xil.stype() == xil_storage_type_t::empty);
 
-        if(xil.dtype() != xil_type_t::empty)
+        if (xil.dtype() != xil_type_t::empty)
             return get_vtype_size(to_vtype(xil.dtype()));
 
         ref_t type_ref = xil.type_ref();
@@ -1999,7 +1999,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __pop_array_element_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
-        if(xil.stype() == xil_storage_type_t::empty)
+        if (xil.stype() == xil_storage_type_t::empty)
 		{
             return __empty_command_manager.template get_command<__nokey>(
                 __unit_size_of_pop_empty(ctx, xil)
@@ -2014,7 +2014,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         xil_storage_type_t stype = xil.stype();
 
-        switch(__V(stype, dtype1, dtype2))
+        switch (__V(stype, dtype1, dtype2))
         {
             #define __Case(_s, _d1, _d2)											\
                 case __V(xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2):	\
@@ -2519,7 +2519,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
 
-            if(_dimension >= 2)
+            if (_dimension >= 2)
             {
                 array_length_t * lengths = mm::get_array_lengths(array_ref);
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
@@ -2581,7 +2581,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     memory, std::forward<_args_t>(args) ...                         \
                 )
 
-            switch(dimension)
+            switch (dimension)
             {
                 #define __Case(_dimension)                                          \
                     case _dimension:                                                \
@@ -2637,7 +2637,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         xil_storage_type_t stype = xil.stype();
 
-        switch(__V(stype, dtype1, dtype2))
+        switch (__V(stype, dtype1, dtype2))
         {
             #define __Case(_s, _d1, _d2)												\
                 case __V(xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2):		\
@@ -2981,7 +2981,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         rt_sid_t method_name = rt_method->get_name();
 
         __libfunc_t libfunc = rtlib::get_libfunc(method_name);
-        if(libfunc == nullptr)
+        if (libfunc == nullptr)
             throw _ED(exec_error_code_t::internal_function_not_found, method_name);
 
         command_t * cmd = __internal_call_command_manager.template get_command<__nokey>(
@@ -3008,7 +3008,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     protected:
         __AlwaysInline exec_method_t * __get_method(command_execute_context_t & ctx)
         {
-            if(__method == nullptr)
+            if (__method == nullptr)
                 __method = __parse_method(ctx);
 
             return __method;
@@ -3072,7 +3072,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     command_t * new_static_call_command(__context_t & ctx, ref_t method_ref)
     {
-        switch((mt_member_extra_t)method_ref.extra)
+        switch ((mt_member_extra_t)method_ref.extra)
         {
             case mt_member_extra_t::generic: {
 
@@ -3154,7 +3154,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         ref_t method_ref = (ref_t)xil.method;
 
-        switch((mt_member_extra_t)method_ref.extra)
+        switch ((mt_member_extra_t)method_ref.extra)
         {
             case mt_member_extra_t::generic: {
 
@@ -3222,7 +3222,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             rt_vtable_t * vtbl = get_vtable(rt_type);
             rt_vfunction_t func = vtbl->functions[__offset];
 
-            if(!func.is_method())
+            if (!func.is_method())
             {
                 rt_assembly_t * rt_assembly = ctx.env.assemblies.at(func.assembly_idx);
 
@@ -3281,7 +3281,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     static command_t * __new_call_command(__context_t & ctx, const call_xil_t & xil)
     {
-        switch(xil.call_type())
+        switch (xil.call_type())
         {
             case xil_call_type_t::internal:
                 return __new_internal_call_command(ctx, xil);
@@ -3449,7 +3449,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         #define __V(cmd, dtype1, dtype2) \
             (((uint32_t)(cmd) << 16) | ((uint32_t)(dtype1) << 8) | (uint32_t)(dtype2))
 
-        switch(__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
+        switch (__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
         {
             #define __CaseBinary(cmd, dtype1, dtype2)                                       \
                 case __V(xil_al_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2):    \
@@ -3603,7 +3603,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         #define __V(cmd, dtype1, dtype2) \
             (((uint32_t)(cmd) << 16) | ((uint32_t)(dtype1) << 8) | (uint32_t)(dtype2))
 
-        switch(__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
+        switch (__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
         {
             #define __CaseBinary(cmd, dtype1, dtype2)                                       \
                 case __V(xil_bit_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2):   \
@@ -3711,7 +3711,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         static __binary_command_manager_t<xil_logic_command_t> __binary_command_manager;
         static __unitary_command_manager_t<xil_logic_command_t> __unitary_command_manager;
 
-        switch(xil.cmd())
+        switch (xil.cmd())
         {
             case xil_logic_command_t::and_:
                 return __binary_command_manager.template get_command<
@@ -3744,7 +3744,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         #define __V(cmd, dtype1, dtype2) \
             (((uint32_t)(cmd) << 16) | ((uint32_t)(dtype1) << 8) | (uint32_t)(dtype2))
 
-        switch(__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
+        switch (__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
         {
             #define __CaseBinary(cmd, dtype1, dtype2)                                       \
                 case __V(xil_cmp_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2):   \
@@ -3960,7 +3960,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         msize_t ret_unit_size = ctx.ret_unit_size();
 
-        switch(ret_unit_size)
+        switch (ret_unit_size)
         {
             #define __CaseRet(size)                                                     \
                 case size:                                                              \
@@ -4027,9 +4027,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     bool __is_base_type(analyzer_env_t & env, rt_type_t * type, rt_type_t * base_type)
     {
-        while(type != base_type)
+        while (type != base_type)
         {
-            if(type == nullptr)
+            if (type == nullptr)
                 return false;
 
             type = type->get_base_type(env);
@@ -4084,14 +4084,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __AlwaysInline __process_block_nodes_ret __process_block_nodes(command_execute_context_t & ctx)
     {
         block_node_t * node = ctx.block_queue.pick();
-        if(node == nullptr)
+        if (node == nullptr)
             return __process_block_nodes_ret::empty;
 
-        if(node->identity != (block_node_identity_t *)ctx.stack.lp())
+        if (node->identity != (block_node_identity_t *)ctx.stack.lp())
             return __process_block_nodes_ret::current_empty;
 
         // Exception block.
-        if(node->exception_node != nullptr)
+        if (node->exception_node != nullptr)
         {
             ctx.block_queue.deque();
             ctx.stack.push(node->exception_node->exception);
@@ -4111,7 +4111,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         ctx.pop_calling();
 
-        if(ctx.stack_empty())
+        if (ctx.stack_empty())
             throw _E(exec_env_code_t::terminal);
 
         ctx.restore_stack();
@@ -4133,11 +4133,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __find_block<__block_type_t::__unknown__>(ctx, [&](exec_method_block_t * block) {
 
-            switch(block->type)
+            switch (block->type)
             {
                 case __block_type_t::catch_:
 
-                    if(__is_base_type(ctx.env, exception_type, block->relation_type))
+                    if (__is_base_type(ctx.env, exception_type, block->relation_type))
                     {
                         ctx.block_queue.enque_catch(block, node);
                         ctx.pop_exception();
@@ -4156,7 +4156,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
         });
 
-        if(ctx.block_queue.end_group())
+        if (ctx.block_queue.end_group())
         {
             _A(ctx.block_queue.current_executing() != nullptr);
 
@@ -4165,7 +4165,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Pop to calling method.
         block_node_t * last_node = ctx.block_queue.last_current();
-        if(last_node == nullptr)
+        if (last_node == nullptr)
         {
             __pop_calling(ctx);
             goto __continue_find__;
@@ -4181,7 +4181,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __find_block<__block_type_t::finally_>(ctx, [&](exec_method_block_t * block) {
 
-            if(block->exclude(next_command))
+            if (block->exclude(next_command))
             {
                 ctx.block_queue.enque_finally(block);
                 return true;
@@ -4193,7 +4193,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.block_queue.end_group();
         block_node_t * last_node = ctx.block_queue.last_current();
 
-        if(last_node != nullptr)
+        if (last_node != nullptr)
         {
             // Executes finally blocks.
             last_node->set_next_command(next_command);
@@ -4214,7 +4214,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.block_queue.end_group();
         block_node_t * last_node = ctx.block_queue.last_current();
 
-        if(last_node != nullptr)
+        if (last_node != nullptr)
         {
             // Executes finally blocks.
             last_node->set_following_command(return_command);
@@ -4282,7 +4282,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             block_node_t * node = ctx.block_queue.pop_executing();
 
-            switch(node->action)
+            switch (node->action)
             {
                 case block_node_finally_action_t::jmp_to_next_command:
                     _A(node->next_command != nullptr);
@@ -4300,12 +4300,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __retry__:
 
-            switch(__process_block_nodes(ctx))
+            switch (__process_block_nodes(ctx))
             {
                 case __process_block_nodes_ret::current_empty:
                 case __process_block_nodes_ret::empty:
                     __pop_calling(ctx);
-                    if(!ctx.exception_stack.empty())
+                    if (!ctx.exception_stack.empty())
                     {
                         __process_exception(ctx);
                         return;
@@ -4337,7 +4337,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     static command_t * __new_smp_command(__context_t & ctx, const smp_xil_t & xil)
     {
-        switch(xil.smp())
+        switch (xil.smp())
         {
             case xil_smp_t::ret:
                 return new_ret_command(ctx);
@@ -4423,7 +4423,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx, __ToCmdValue(jmp, model))
 
-            if(__jmp_model_t()(ctx))
+            if (__jmp_model_t()(ctx))
             {
                 ctx.current += __step;
             }
@@ -4543,7 +4543,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             exec_switch_row_t * row = __binary_search(rows, rows_end, value);
 
-            if(row != nullptr)
+            if (row != nullptr)
                 ctx.current += row->step - 1;
             else
                 ctx.current += __table->default_step - 1;
@@ -4562,14 +4562,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __AlwaysInline static exec_switch_row_t * __binary_search(
                 exec_switch_row_t * begin, exec_switch_row_t * end, int32_t value)
         {
-            if(begin == end)
+            if (begin == end)
                 return nullptr;
 
             exec_switch_row_t * r = begin + (end - begin) / 2;
-            if(value < r->value)
+            if (value < r->value)
                 return __binary_search(begin, r, value);
 
-            if(value > r->value)
+            if (value > r->value)
                 return __binary_search(r + 1, end, value);
 
             return r;
@@ -4588,7 +4588,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         typedef xil_jmp_model_t model_t;
 
-        switch(xil.model())
+        switch (xil.model())
         {
             #define __Case(_model)                                              \
                 case xil_jmp_model_t::_model:                                   \
@@ -4608,7 +4608,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 );
 
             case xil_jmp_model_t::leave:
-                if(xil.step() == 0)
+                if (xil.step() == 0)
                 {
                     return __leave_ret_command_manager.template get_command<__nokey>(
                         new_ret_command(ctx)
@@ -4709,10 +4709,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         rt_type_t * type = ctx.get_type(type_ref);
 
-        if(type == nullptr)
+        if (type == nullptr)
             throw _ED(exec_error_code_t::type_not_found, type_ref);
 
-        switch(xil.new_type())
+        switch (xil.new_type())
         {
             case xil_new_type_t::default_:
                 return __command_manager.template get_command<xil_new_type_t::default_>(
@@ -4823,7 +4823,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         static __copy_command_t<xil_copy_type_t::block_copy> __block_copy_command;
 
-        switch(xil.copy_type())
+        switch (xil.copy_type())
         {
             case xil_copy_type_t::stack_copy:
                 return __stack_copy_command_manager.template get_command<__nokey>(xil.dtype());
@@ -4954,7 +4954,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     static msize_t __size_of_array_element(__context_t & ctx, const init_xil_t & xil)
     {
-        if(xil.dtype() == xil_type_t::empty)
+        if (xil.dtype() == xil_type_t::empty)
         {
             rt_type_t * rt_type = ctx.get_type(xil.type_ref());
             //assembly_analyzer_t analyzer = __assembly_analyzer(ctx, rt_type);
@@ -4973,7 +4973,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __init_command_template_t, xil_init_type_t, msize_t
         >::with_args_t<> __stack_init_command_manager;
 
-        switch(xil.init_type())
+        switch (xil.init_type())
         {
             case xil_init_type_t::array_begin:
                 return __stack_init_command_manager.template
@@ -4981,7 +4981,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_init_type_t::array_element: {
                 msize_t size = __size_of_array_element(ctx, xil);
-                switch(size)
+                switch (size)
                 {
                     #define __Case(_size)                                               \
                         case _size:                                                     \
@@ -5020,7 +5020,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     command_t * new_command(command_creating_context_t & ctx, const xil_base_t * xil)
     {
         //_P(_T(">> new_command: "), (xil_command_t)xil->command());
-        switch(xil->command())
+        switch (xil->command())
         {
             case xil_command_t::empty:
                 return &__empty_command;
@@ -5138,7 +5138,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         command_t * command = *commands++;
 
-        switch(command->cmd_value)
+        switch (command->cmd_value)
         {
 			// push
             __Case( __push_command_t<xil_storage_type_t::constant, xil_type_t::int32> )
@@ -5217,7 +5217,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Process the exception at the end of executing.
     void __process_application_exception(command_execute_context_t & ctx, __exec_env_error_t & e)
     {
-        switch(e.code)
+        switch (e.code)
         {
             case exec_env_code_t::end:
                 _A(ctx.exception_stack.empty());

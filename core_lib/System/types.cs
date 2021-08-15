@@ -49,11 +49,7 @@ public struct UInt16
 [__internal__]
 public struct Int32
 {
-    // Parse to System.Int32 value.
-    public static Int32 Parse(String s)
-    {
-        return 123;
-    }
+
 };
 
 ////////// ////////// ////////// ////////// //////////

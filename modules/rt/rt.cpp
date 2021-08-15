@@ -15,7 +15,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Assembly not found.
         X_D(assembly_not_found,         _T("assembly '%1%' not found"))
 
-        // Assembly format error.
+        // Assembly for mat error.
         X_D(assembly_format_error,      _T("%1%"))
 
         // Type not found.
@@ -75,7 +75,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Options for searching method.
+    // Options for  searching method.
     X_ENUM_INFO(search_method_options_t)
 
         // Default.
@@ -123,7 +123,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Compare two strings.
     int rt_string_t::compare (const rt_string_t & str) const
     {
-        if(__reference_equals(str))
+        if (__reference_equals(str))
             return true;
 
         return __compare(str);
@@ -132,10 +132,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns whether two strings are equals.
     bool rt_string_t::equals(const rt_string_t & str) const
     {
-        if(length != str.length)
+        if (length != str.length)
             return false;
 
-        if(__reference_equals(str))
+        if (__reference_equals(str))
             return true;
 
         return __compare(str) == 0;
@@ -151,10 +151,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     int rt_string_t::__compare(const rt_string_t & str) const
     {
         rt_size_t min_length = al::min(length, str.length);
-        for(const char_t * s0 = s, * s0_end = s0 + min_length, * s1 = str.s;
+        for (const char_t * s0 = s, * s0_end = s0 + min_length, * s1 = str.s;
                                             s0 < s0_end; s0++, s1++)
         {
-            if(*s0 != *s1)
+            if (*s0 != *s1)
                 return *s0 - *s1;
         }
 
@@ -176,7 +176,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         rt_string_t str(s.c_str(), s.length());
         auto it = __string_set.find(str);
-        if(it == __string_set.end())
+        if (it == __string_set.end())
         {
             char_t * dst = __heap.acquire(s.length() + 1);
             al::strcpy(dst, s.c_str());
@@ -219,7 +219,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         auto it = __types_map.find(args_key);
 
-        if(it != __types_map.end())
+        if (it != __types_map.end())
             return *it;
 
         rt_type_t ** new_types = __types_heap.acquire(count);
@@ -294,7 +294,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns size of runtime type.
     msize_t rt_type_t::get_size(analyzer_env_t & env)
     {
-        if(__size == unknown_msize)
+        if (__size == unknown_msize)
             __size = this->on_caculate_size(env, &__storage_type);
 
         _A(__size != unknown_msize);
@@ -318,7 +318,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         vtype_t vtype = type->get_vtype(env);
 
-        if(vtype != vtype_t::mobject_)
+        if (vtype != vtype_t::mobject_)
         {
             al::assign(out_storage_type, storage_type_t::value);
             return get_vtype_size(vtype);
@@ -347,7 +347,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
 		msize_t msize;
 
-        switch(this->get_ttype(env))
+        switch (this->get_ttype(env))
         {
             case ttype_t::interface_:
                 X_UNEXPECTED();
@@ -371,7 +371,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_type_t * base_type = get_base_type(env);
 
         msize_t base_size;
-        if(base_type == nullptr)
+        if (base_type == nullptr)
             base_size = 0;
         else
             base_size = base_type->get_size(env);
@@ -385,7 +385,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         ttype_t ttype = get_ttype(env);
 
-        switch(ttype)
+        switch (ttype)
         {
             case ttype_t::class_:
             case ttype_t::interface_:
@@ -407,11 +407,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Pre new object.
     void rt_general_type_t::pre_new(analyzer_env_t & env)
     {
-        if(__size != unknown_msize)
+        if (__size != unknown_msize)
             return;
 
         rt_type_t * base_type = get_base_type(env);
-        if(base_type != nullptr)
+        if (base_type != nullptr)
             base_type->pre_new(env);
 
         // size
@@ -448,7 +448,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             ss << assembly->to_sid(mt->name).c_str();
             ss << _T("<");
 
-            for (ref_t gp : generic_params)
+            for  (ref_t gp : generic_params)
             {
                 if (gp.index > generic_params.index)
                     ss << _T(",");
@@ -477,9 +477,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Enumerates all fields.
     void rt_general_type_t::each_field(analyzer_env_t & env, each_field_t f)
     {
-        for (ref_t field_ref : mt->fields)
+        for  (ref_t field_ref : mt->fields)
         {
-            if(!f(field_ref, assembly->get_field(field_ref)))
+            if (!f(field_ref, assembly->get_field(field_ref)))
                 break;
         }
     }
@@ -487,9 +487,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Enumerates all methods.
     void rt_general_type_t::each_method(analyzer_env_t & env, each_method_t f)
     {
-        for(ref_t method_ref : mt->methods)
+        for (ref_t method_ref : mt->methods)
         {
-            if(!f(method_ref, assembly->get_method(method_ref)))
+            if (!f(method_ref, assembly->get_method(method_ref)))
                 break;
         }
     }
@@ -499,7 +499,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                                                  const generic_param_manager_t * gp_manager)
     {
         ref_t super_types = mt->super_types;
-        if(super_types == ref_t::null)
+        if (super_types == ref_t::null)
             return nullptr;
 
         rt_super_type_t * super_type = assembly->get_super_type(super_types[0]);
@@ -510,7 +510,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         _A(base_type != nullptr);
 
-        if(base_type->get_ttype(env) == ttype_t::class_)
+        if (base_type->get_ttype(env) == ttype_t::class_)
             return base_type;
 
         return nullptr;
@@ -528,7 +528,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_field_base_t * field = __analyzer(env).get_field(ref);
         _A(field != nullptr);
 
-        if(field->offset == unknown_msize)
+        if (field->offset == unknown_msize)
             this->get_size(env);
 
         _A(field->offset != unknown_msize);
@@ -549,35 +549,35 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_assembly_t * rt_assembly = analyzer.current;
         mt_method_t & mt = *rt_method->mt;
 
-        if(rt_assembly->get_name(rt_method) != prototype.name)
+        if (rt_assembly->get_name(rt_method) != prototype.name)
             return false;
 
-        if(prototype.generic_param_count != mt.generic_params.count)
+        if (prototype.generic_param_count != mt.generic_params.count)
             return false;
 
-        if(prototype.param_count() != mt.params.count)
+        if (prototype.param_count() != mt.params.count)
             return false;
 
-        if(prototype.return_type != analyzer.get_type(mt.type))
+        if (prototype.return_type != analyzer.get_type(mt.type))
             return false;
 
-        if(prototype.param_count() > 0)
+        if (prototype.param_count() > 0)
         {
             auto p = prototype.arg_types.begin();
             typedef rt_mt_t<__tidx_t::param> mt_param_t;
 
             bool r = rt_assembly->each_params(mt.params, [&](int, mt_param_t & param) {
-                if(param.param_type != p->param_type)
+                if (param.param_type != p->param_type)
                     return false;
 
-                if(analyzer.get_type(param.type) != p->type)
+                if (analyzer.get_type(param.type) != p->type)
                     return false;
 
                 p++;
                 return true;
             });
 
-            if(!r)
+            if (!r)
                 return false;
         }
 
@@ -596,14 +596,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         assembly_analyzer_t analyzer = __analyzer(env);
         assembly->each_methods(mt->methods, [&, this](int idx, mt_t & mt) {
 
-            if(only_virtual && !__is_virtual((decorate_t)mt.decorate))
+            if (only_virtual && !__is_virtual((decorate_t)mt.decorate))
                 return false;
 
             ref_t method_ref = ref_t(idx);
             rt_method_t * rt_method = analyzer.get_method(method_ref);
             _A(rt_method != nullptr);
 
-            if(__compare_method(analyzer, prototype, rt_method))
+            if (__compare_method(analyzer, prototype, rt_method))
             {
                 ret = method_ref;
                 return false;
@@ -689,10 +689,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns whether it's a generic template.
     bool rt_general_type_t::is_generic_template()
     {
-        if(generic_param_count() > 0)
+        if (generic_param_count() > 0)
             return true;
 
-        if(host_type == nullptr)
+        if (host_type == nullptr)
             return false;
 
         return host_type->is_generic_template();
@@ -706,7 +706,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         rt_type_t * base_type = type->get_base_type(analyzer.env);
 
-        if(base_type != nullptr)
+        if (base_type != nullptr)
             __build_vtbl(analyzer, base_type, vfuncs);
 
         ref_t ret = ref_t::null;
@@ -720,17 +720,17 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             decorate_t decorate = (decorate_t)(*rt_method)->decorate;
 
-            if(__is_virtual(decorate))
+            if (__is_virtual(decorate))
             {
                 vfuncs.push_back(rt_vtable_function_t(assembly->index, method_ref.index));
             }
-            else if(__is_override(decorate))
+            else if (__is_override(decorate))
             {
                 method_prototype_t prototype;
                 analyzer.get_prototype(method_ref, &prototype);
 
                 bool found = false;
-                for(rt_vtable_function_t & func : vfuncs)
+                for (rt_vtable_function_t & func : vfuncs)
                 {
                     rt_assembly_t * rt_assembly0 = base_analyzer.env.assemblies.at(
                         func.assembly_idx
@@ -739,7 +739,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     rt_method_t * rt_method0 = rt_assembly0->get_method(ref_t(func.method_idx));
 
                     assembly_analyzer_t analyzer0(analyzer, rt_assembly0);
-                    if(__compare_method(analyzer0, prototype, rt_method0))
+                    if (__compare_method(analyzer0, prototype, rt_method0))
                     {
                         func = rt_vtable_function_t(assembly->index, method_ref.index);
 
@@ -748,7 +748,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     }
                 }
 
-                if(!found)
+                if (!found)
                 {
                     auto method_name = assembly->get_name(rt_method);
                     throw _ED(__e_t::virtual_method_not_found, method_name);
@@ -762,7 +762,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             return true;
         });
 
-        if(vfuncs.size() == 0)
+        if (vfuncs.size() == 0)
         {
             set_vtable(type, __EmptyVTbl);
         }
@@ -801,14 +801,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Pre new object.
     void rt_generic_type_t::pre_new(analyzer_env_t & env)
     {
-        if(__size != unknown_msize)
+        if (__size != unknown_msize)
             return;
 
         assembly_analyzer_t analyzer = __analyzer(env);
         generic_param_manager_t gp_mgr(analyzer, this);
 
         rt_type_t * base_type = get_base_type(env, &gp_mgr);
-        if(base_type != nullptr)
+        if (base_type != nullptr)
             base_type->pre_new(env);
 
         // size
@@ -852,7 +852,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 			int atype_count = this->atype_count();
 			__tuple_fields = env.rpool.new_tuple_field_array(atype_count);
 
-			for (int k = 0, count = atype_count; k < count; k++)
+			for  (int k = 0, count = atype_count; k < count; k++)
 			{
 				rt_type_t * field_type = atypes[k];
 				rt_tuple_field_t & field = __tuple_fields[k];
@@ -881,7 +881,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
 		ttype_t ttype = get_ttype(env);
 
-        if(is_ref_type(get_ttype(env)) || ttype == ttype_t::struct_)
+        if (is_ref_type(get_ttype(env)) || ttype == ttype_t::struct_)
             return vtype_t::mobject_;
 
         return vtype_t::ptr_;
@@ -902,29 +902,29 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         stringstream_t ss;
 
-        if(host_type != nullptr)
+        if (host_type != nullptr)
             ss << host_type->get_name(env).c_str() << _T(".");
 
-        if(template_ == nullptr)
+        if (template_ == nullptr)
             ss << _T("?");
         else
             ss << analyzer.to_sid(((*template_)->name)).c_str();
 
         ss << _T("<");
 
-        if(template_ == nullptr)
+        if (template_ == nullptr)
         {
             ss << _T("??");
         }
         else
         {
-            for(size_t k = 0, count = atype_count(); k < count; k++)
+            for (size_t k = 0, count = atype_count(); k < count; k++)
             {
-                if(k > 0)
+                if (k > 0)
                     ss << _T(",");
 
                 rt_type_t * atype = atypes[k];
-                if(atype == nullptr)
+                if (atype == nullptr)
                     ss << _T("?");
                 else
                     ss << atype->get_name(env).c_str();
@@ -946,14 +946,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         generic_param_manager_t gp_mgr(analyzer, this);
 
         rt_type_t * base_type = template_->get_base_type(env, &gp_mgr);
-        if(base_type == nullptr)
+        if (base_type == nullptr)
             return nullptr;
 
-        if(base_type->get_kind() != rt_type_kind_t::general)
+        if (base_type->get_kind() != rt_type_kind_t::general)
             return base_type;
 
         rt_general_type_t * general_type = (rt_general_type_t *)base_type;
-        if(!general_type->is_generic_template())
+        if (!general_type->is_generic_template())
             return general_type;
 
         X_UNEXPECTED();
@@ -968,7 +968,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 	// Ensure field offset initialzed.
 	void rt_generic_type_t::__ensure_field_offset_initialized(analyzer_env_t & env)
 	{
-		if(__field_offsets == nullptr)
+		if (__field_offsets == nullptr)
 			this->get_size(env);
 
 		_A(__field_offsets != nullptr);
@@ -1005,7 +1005,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 		if (__is_tuple())
 		{
 			rt_tuple_field_t * fields = __get_tuple_fields(env);
-			for (int k = 0, count = atype_count(); k < count; k++)
+			for  (int k = 0, count = atype_count(); k < count; k++)
 			{
 				f(ref_t::null, fields + k);
 			}
@@ -1054,12 +1054,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         _A(template_ != nullptr);
 
         ref_t params = (*template_)->generic_params;
-        for(ref_t gp_ref : params)
+        for (ref_t gp_ref : params)
         {
             rt_generic_param_t * gp = analyzer.get_generic_param(gp_ref);
             _A(gp != nullptr);
 
-            if(analyzer.to_sid((*gp)->name) == name)
+            if (analyzer.to_sid((*gp)->name) == name)
             {
                 int index = gp_ref - params;
                 _A(index < host_type->atype_count());
@@ -1069,7 +1069,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         }
 
         rt_type_t * parent_type = host_type->host_type;
-        if(parent_type == nullptr || parent_type->get_kind() != rt_type_kind_t::generic)
+        if (parent_type == nullptr || parent_type->get_kind() != rt_type_kind_t::generic)
             return nullptr;
 
         return __find_type_by_generic_param_name(analyzer, (rt_generic_type_t *)parent_type, name);
@@ -1078,7 +1078,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Fetch type by ref.
     rt_type_t * __fetch_type(assembly_analyzer_t & analyzer, rt_generic_type_t * this_, ref_t type)
     {
-        if((mt_type_extra_t)type.extra == mt_type_extra_t::generic_param)
+        if ((mt_type_extra_t)type.extra == mt_type_extra_t::generic_param)
         {
 			_A(this_ != nullptr);
 
@@ -1145,7 +1145,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 			field_count = field_refs.count;
 		}
 
-        if(field_count == 0)
+        if (field_count == 0)
         {
             al::assign(out_storage_type, storage_type_t::value);
             return base_size;
@@ -1194,7 +1194,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_type_t * type = this->element_type;
 
         stringstream_t ss;
-        if(type == nullptr)
+        if (type == nullptr)
         {
             ss << _T("?");
         }
@@ -1206,7 +1206,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         ss << _T("[");
 
-        for(int k = 1, dimension = this->dimension; k < dimension; k++)
+        for (int k = 1, dimension = this->dimension; k < dimension; k++)
         {
             ss << _T(", ");
         }
@@ -1387,7 +1387,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Joins assembly name.
     string_t join_assembly_name(const string_t & package, const string_t & name)
     {
-        if(package.length() == 0)
+        if (package.length() == 0)
             return name;
 
         return _F(_T("%s.%s"), package, name);
@@ -1398,16 +1398,16 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         stringstream_t ss;
 
-        if(!ns.empty())
+        if (!ns.empty())
             ss << ns.c_str() << _T(".");
 
         ss << name.c_str();
 
-        if(generic_param_count > 0)
+        if (generic_param_count > 0)
         {
             ss << _T("<");
 
-            for(int k = 0; k < generic_param_count; k++)
+            for (int k = 0; k < generic_param_count; k++)
             {
                 ss << _T(",");
             }
@@ -1426,24 +1426,24 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         stringstream_t ss;
 
-        if(!return_type.empty())
+        if (!return_type.empty())
             ss << return_type << _T(" ");
 
-        if(!assembly.empty())
+        if (!assembly.empty())
             ss << assembly;
 
         ss << _T(".") << type_name;
-        if(type_generic_param_count > 0)
+        if (type_generic_param_count > 0)
             ss << _T("<") << string_t(type_generic_param_count, _T(',')) << _T(">");
 
         ss << _T(".") << method_name;
 
-        if(generic_param_count > 0)
+        if (generic_param_count > 0)
             ss << _T("<") << string_t(generic_param_count, _T(',')) << _T(">");
 
         ss << _T("(");
 
-        if(param_count > 0)
+        if (param_count > 0)
             ss << al::join_str(params, params + param_count, _T(", "));
 
         ss << _T(")");
@@ -1457,7 +1457,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Loads main assembly.
     rt_assembly_t * rt_assemblies_t::load_main_assembly()
     {
-        if(__main_assembly == nullptr)
+        if (__main_assembly == nullptr)
         {
             __main_assembly = __provider->load_main_assembly(__ctx);
             __revise_assembly(__main_assembly);
@@ -1472,13 +1472,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         __assembly_key_t key(package, name);
 
         auto it = __assembly_map.find(key);
-        if(it != __assembly_map.end())
+        if (it != __assembly_map.end())
             return it->second;
 
         rt_assembly_t * assembly = __provider->load_assembly(__ctx, package, name);
         __revise_assembly(assembly);
 
-        if(assembly == nullptr)
+        if (assembly == nullptr)
             throw _ED(__e_t::assembly_not_found, join_assembly_name(package, name));
 
         __assembly_map[key] = assembly;
@@ -1488,7 +1488,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns assembly at specified index.
     rt_assembly_t * rt_assemblies_t::at(int index)
     {
-        if(index < 0 || index >= __assembly_vector.size())
+        if (index < 0 || index >= __assembly_vector.size())
             throw _EC(overflow);
 
         return __assembly_vector[index];
@@ -1497,7 +1497,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Revise assembly, Assigns it's index.
     void rt_assemblies_t::__revise_assembly(rt_assembly_t * assembly)
     {
-        if(assembly->index < 0)
+        if (assembly->index < 0)
         {
             assembly->index = __assembly_vector.size();
             __assembly_vector.push_back(assembly);
@@ -1559,7 +1559,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     rt_type_t * assembly_analyzer_t::get_host_type_by_method_ref(ref_t method_ref,
                                                 rt_method_ref_t ** out_method_ref)
     {
-        switch((mt_member_extra_t)method_ref.extra)
+        switch ((mt_member_extra_t)method_ref.extra)
         {
             case mt_member_extra_t::import: {
                 rt_method_ref_t * rt_method_ref = current->get_method_ref(method_ref);
@@ -1589,7 +1589,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     rt_type_t * assembly_analyzer_t::get_host_type_by_field_ref(ref_t field_ref,
                                                 rt_field_ref_t ** out_field_ref)
     {
-        switch((mt_member_extra_t)field_ref.extra)
+        switch ((mt_member_extra_t)field_ref.extra)
         {
             case mt_member_extra_t::import: {
                 rt_field_ref_t * rt_field_ref = current->get_field_ref(field_ref);
@@ -1689,7 +1689,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             package, name
         );
 
-        if(ref_assembly == nullptr)
+        if (ref_assembly == nullptr)
             throw _ED(rt_error_code_t::assembly_not_found, join_assembly_name(package, name));
 
         return ref_assembly;
@@ -1698,10 +1698,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Gets type.
     rt_type_t * assembly_analyzer_t::get_type(ref_t type_ref)
     {
-        if(type_ref == ref_t::null)
+        if (type_ref == ref_t::null)
             return nullptr;
 
-        switch((mt_type_extra_t)type_ref.extra)
+        switch ((mt_type_extra_t)type_ref.extra)
         {
             case mt_type_extra_t::general: {
                 return current->get_type(type_ref);
@@ -1737,7 +1737,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 				_A(template_->is_match(*this, atype_count));
 
                 rt_type_t ** ptype = (rt_type_t **)atypes;
-                for(ref_t ga_ref : mt->args)
+                for (ref_t ga_ref : mt->args)
                 {
                     rt_generic_argument_t * ga = current->get_generic_argument(ga_ref);
                     ref_t atype_ref = (*ga)->type;
@@ -1793,19 +1793,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     rt_type_t * assembly_analyzer_t::__to_generic(rt_general_type_t * template_)
     {
-        if(template_ == nullptr)
+        if (template_ == nullptr)
             return nullptr;
 
         rt_type_t * host_type = __to_generic(template_->host_type);
 
-        if((host_type != nullptr && host_type->get_kind() == rt_type_kind_t::generic)
+        if ((host_type != nullptr && host_type->get_kind() == rt_type_kind_t::generic)
             || template_->generic_param_count() > 0)
         {
             size_t generic_param_count = template_->generic_param_count();
             rt_type_t * atypes[generic_param_count];
             rt_type_t ** p_atypes = (rt_type_t **)atypes;
 
-            for(ref_t gp_ref : (*template_)->generic_params)
+            for (ref_t gp_ref : (*template_)->generic_params)
             {
                 rt_generic_param_t * gp = get_generic_param(gp_ref);
                 _A(gp != nullptr);
@@ -1848,7 +1848,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_assembly_t * rt_assembly = rt_type->get_assembly();
         rt_method_t * rt_method;
 
-        if(__is_current(rt_assembly))
+        if (__is_current(rt_assembly))
         {
             rt_method = rt_assembly->get_method(method_ref);
         }
@@ -1864,7 +1864,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             rt_ptype_t params[param_count];
 
             ref_t param_ref = params_ref[0];
-            for(rt_ptype_t * p = params, * p_end = p + param_count; p < p_end; p++)
+            for (rt_ptype_t * p = params, * p_end = p + param_count; p < p_end; p++)
             {
                 rt_method_ref_param_t * param = current->get_method_ref_param(param_ref++);
                 rt_type_t * type = analyzer.get_type(param->mt->type);
@@ -1879,13 +1879,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 rt_mt_t<__tidx_t::method> & mt = *rt_method0->mt;
 
                 bool r = analyzer.__compare_method(rt_assembly, mt, method_name,
-                    mt.generic_params.count, return_type, mt.params.count, params
+                    mt.generic_params.count, return_type, param_count, params
                 );
 
                 return r? rt_method = rt_assembly->get_method(method_ref), false : true;
             });
 
-            if(rt_method == nullptr)
+            if (rt_method == nullptr)
             {
                 throw _ED(rt_error_code_t::method_not_found,
                     __join_method_name(rt_assembly, rt_type, mt, params)
@@ -1901,38 +1901,38 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_assembly_t * rt_assembly, rt_mt_t<__tidx_t::method> & mt, rt_sid_t name,
         int generic_param_count, rt_type_t * return_type, int param_count, rt_ptype_t * params)
     {
-        if(rt_assembly->to_sid(mt.name) != name)
+        if (rt_assembly->to_sid(mt.name) != name)
             return false;
 
-        if(generic_param_count != mt.generic_params.count)
+        if (generic_param_count != mt.generic_params.count)
             return false;
 
-        if(param_count != mt.params.count)
+        if (param_count != mt.params.count)
             return false;
 
         __self_t analyzer = __bind(rt_assembly);
 
-        if(return_type != analyzer.get_type(mt.type))
+        if (return_type != analyzer.get_type(mt.type))
             return false;
 
-        if(param_count > 0)
+        if (param_count > 0)
         {
             rt_ptype_t * p = params;
             typedef rt_mt_t<__tidx_t::param> mt_param_t;
 
             bool r = rt_assembly->each_params(mt.params, [&p, &analyzer](int, mt_param_t & param) {
                 
-                if(param.param_type != p->param_type)
+                if (param.param_type != p->param_type)
                     return false;
 
-                if(analyzer.get_type(param.type) != p->type)
+                if (analyzer.get_type(param.type) != p->type)
                     return false;
 
                 p++;
                 return true;
             });
 
-            if(!r)
+            if (!r)
                 return false;
         }
 
@@ -1988,7 +1988,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 return r? rt_field = rt_assembly->get_field(field_ref), false : true;
             });
 
-            if(rt_field == nullptr)
+            if (rt_field == nullptr)
             {
                 throw _ED(rt_error_code_t::field_not_found,
                     __join_field_name(rt_assembly, rt_type, mt)
@@ -2020,7 +2020,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 		int index, count;
 		if (gp_manager->types_of(name, &index, &count))
 		{
-			for (; index < count; index++)
+			for  (; index < count; index++)
 			{
 				rt_type_t * type = gp_manager->type_at(index);
 
@@ -2049,7 +2049,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         rt_type_t * type = this->get_type(type_ref);
 
-        if(type == nullptr)
+        if (type == nullptr)
             return 0;
 
         return type->get_size(env, out_storage_type);
@@ -2058,7 +2058,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns size of type.
     msize_t assembly_analyzer_t::size_of(rt_type_t * type, storage_type_t * out_storage_type)
     {
-        if(type == nullptr)
+        if (type == nullptr)
             return 0;
 
         return type->get_size(env, out_storage_type);
@@ -2069,7 +2069,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                                                         storage_type_t * out_storage_type)
     {
         rt_type_t * type = this->get_type(type_ref);
-        if(type == nullptr)
+        if (type == nullptr)
             return 0;
 
         return type->get_variable_size(env, out_storage_type);
@@ -2079,7 +2079,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     msize_t assembly_analyzer_t::variable_size_of(rt_type_t * type,
                                                         storage_type_t * out_storage_type)
     {
-        if(type == nullptr)
+        if (type == nullptr)
             return 0;
 
         return type->get_variable_size(env, out_storage_type);
@@ -2106,7 +2106,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         _A(host_type != nullptr);
 
-        switch((mt_member_extra_t)field_ref.extra)
+        switch ((mt_member_extra_t)field_ref.extra)
         {
             case mt_member_extra_t::internal:
                 return host_type->get_field_offset(env, field_ref);
@@ -2130,10 +2130,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_type_t * rt_type = method->get_host_type();
 
         decorate_t decorate = (decorate_t)(*method)->decorate;
-        if(__is_virtual(decorate))
+        if (__is_virtual(decorate))
             return rt_type->get_method_offset(analyzer.env, method_ref);
 
-        if(decorate.is_override)
+        if (decorate.is_override)
         {
             method_prototype_t prototype;
             analyzer.get_prototype(method_ref, &prototype);
@@ -2141,13 +2141,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             do
             {
                 rt_type = rt_type->get_base_type(analyzer.env);
-                if(rt_type == nullptr)
+                if (rt_type == nullptr)
                     throw _ED(__e_t::virtual_method_not_found, analyzer.current->get_name(method));
 
                 assembly_analyzer_t analyzer0(analyzer, rt_type->get_assembly());
                 method_ref = rt_type->search_method(analyzer0.env, prototype);
 
-            } while(method_ref == ref_t::null);
+            } while (method_ref == ref_t::null);
 
             return get_virtual_method_offset(analyzer, method_ref);
         }
@@ -2175,7 +2175,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         mt_method_t * mt = rt_method->mt;
 
-        for(ref_t param_ref : mt->params)
+        for (ref_t param_ref : mt->params)
         {
             rt_param_t * rt_param = current->get_param(param_ref);
             _A(rt_param != nullptr);
@@ -2239,7 +2239,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Creates a new metadata for generic method.
+    // Creates a new metadata for  generic method.
     rt_generic_method_t * rt_mt_t<__tidx_t::generic_method>::new_entity(rt_context_t & ctx,
             ref_t ref, __mt_t * mt, rt_assembly_t * assembly, const __gp_mgr_t * gp_mgr)
     {
@@ -2249,12 +2249,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_type_t * host_type;
         rt_method_t * template_;
 
-        switch((mt_member_extra_t)mt->template_.extra)
+        switch ((mt_member_extra_t)mt->template_.extra)
         {
             case mt_member_extra_t::internal: {
                 template_ = analyzer.get_method(mt->template_);
 
-                if(mt->host.empty())    // it's general host type.
+                if (mt->host.empty())    // it's general host type.
                     host_type = assembly->get_host_by_method_ref(mt->template_);
                 else                    // the generic host type, with generic arguments.
                     host_type = analyzer.get_type(mt->host);
@@ -2276,7 +2276,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             case mt_member_extra_t::import: {
                 template_ = analyzer.get_method(mt->template_);
 
-                if(mt->host.empty())    // it's general host type.
+                if (mt->host.empty())    // it's general host type.
                     host_type = template_->get_host_type();
                 else                    // the generic host type, with generic arguments.
                     host_type = analyzer.get_type(mt->host);
@@ -2294,7 +2294,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         type_t * atypes[atype_count];
 
         rt_type_t ** ptype = (rt_type_t **)atypes;
-        for(ref_t ga_ref : mt->args)
+        for (ref_t ga_ref : mt->args)
         {
             rt_generic_argument_t * generic_argument = assembly->get_generic_argument(ga_ref);
             ref_t atype_ref = (*generic_argument)->type;
@@ -2321,7 +2321,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Creates a new metadata for general method.
+    // Creates a new metadata for  general method.
     rt_method_t * rt_mt_t<__tidx_t::method>::new_entity(rt_context_t & ctx,
                                 ref_t ref, __mt_t * mt, rt_assembly_t * assembly)
     {

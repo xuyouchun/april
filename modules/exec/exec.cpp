@@ -102,9 +102,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _A(rt_generic_method != nullptr);
 
+		/*
         _PF(_T("exec_method_of: %1%.%2%"),
             rt_generic_method->host_type->get_name(*this), rt_generic_method->get_name()
         );
+		*/
 
         __CheckCache(rt_generic_method);
 

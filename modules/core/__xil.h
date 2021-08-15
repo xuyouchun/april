@@ -183,7 +183,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     __EnumEnd
 
     // Converts a vtype to xil_type.
-    xil_type_t to_xil_type(vtype_t vtype);
+    xil_type_t to_xil_type(vtype_t vtype) _NE;
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -548,7 +548,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns command.
         xil_command_t command() const
         {
-            if((xil_command_t)__cmd1 == xil_command_t::external)
+            if ((xil_command_t)__cmd1 == xil_command_t::external)
                 return (xil_command_t)(__cmd2 + ((byte_t)xil_command_t::external));
 
             return (xil_command_t)__cmd1;
@@ -614,7 +614,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns size of a xil type.
     constexpr size_t size_of(xil_type_t type)
     {
-        switch(type)
+        switch (type)
         {
             case xil_type_t::int8:
             case xil_type_t::uint8:
@@ -687,7 +687,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Sets identity for local / param variables.
         void set_identity(uint16_t identity)
         {
-            if(identity < 15)
+            if (identity < 15)
             {
                 this->identity = identity;
             }
@@ -727,11 +727,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     constexpr size_t size_of(const push_xil_t & xil)
     {
         size_t size = 0;
-        switch(xil.stype())
+        switch (xil.stype())
         {
             case xil_storage_type_t::local:
             case xil_storage_type_t::argument:
-                if(xil.identity == 15)
+                if (xil.identity == 15)
                     size += sizeof(uint16_t);
                 break;
 
@@ -741,7 +741,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::constant:
-                if(xil.dtype() == xil_type_t::empty)    // generic
+                if (xil.dtype() == xil_type_t::empty)    // generic
                     size += sizeof(__ref_t);            // generic type ref
                 else
                     size += size_of(xil.dtype());
@@ -816,7 +816,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Sets identity form local / param variables.
         void set_identity(uint16_t identity)
         {
-            if(identity < 15)
+            if (identity < 15)
             {
                 this->identity = identity;
             }
@@ -854,16 +854,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     constexpr size_t size_of(const pop_xil_t & xil)
     {
         size_t size = 0;
-        switch(xil.stype())
+        switch (xil.stype())
         {
             case xil_storage_type_t::empty:
-                if(xil.dtype() == xil_type_t::empty)
+                if (xil.dtype() == xil_type_t::empty)
                     size += sizeof(ref_t);
                 break;
 
             case xil_storage_type_t::local:
             case xil_storage_type_t::argument:
-                if(xil.identity == 15)
+                if (xil.identity == 15)
                     size += sizeof(uint16_t);
                 break;
 
@@ -928,7 +928,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Sets identity for local / param variables.
         void set_identity(uint16_t identity)
         {
-            if(identity < 15)
+            if (identity < 15)
             {
                 this->identity = identity;
             }
@@ -966,11 +966,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     constexpr size_t size_of(const pick_xil_t & xil)
     {
         size_t size = 0;
-        switch(xil.stype())
+        switch (xil.stype())
         {
             case xil_storage_type_t::local:
             case xil_storage_type_t::argument:
-                if(xil.identity == 15)
+                if (xil.identity == 15)
                     size += sizeof(uint16_t);
                 break;
 
@@ -1330,10 +1330,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns jmp xil step size.
     constexpr X_INLINE size_t jmp_xil_step_size(const jmp_xil_t & x)
     {
-        if(x.model() == xil_jmp_model_t::switch_)
+        if (x.model() == xil_jmp_model_t::switch_)
             return 1;
 
-        if(x.distance() == xil_jmp_distance_t::far)
+        if (x.distance() == xil_jmp_distance_t::far)
             return sizeof(xil_jmp_step_t) - 1;
 
         return 1;
@@ -1453,7 +1453,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         size_t size = sizeof(copy_xil_t);
 
-        switch(xil.copy_type())
+        switch (xil.copy_type())
         {
             case xil_copy_type_t::stack_copy:
                 break;
@@ -1521,7 +1521,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         size_t size = sizeof(init_xil_t);
 
-        if(xil.dtype() == xil_type_t::empty)
+        if (xil.dtype() == xil_type_t::empty)
             size += sizeof(ref_t);
 
         return size;

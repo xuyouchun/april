@@ -90,9 +90,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
 		int position = 0;
 		byte_t * ptr = (byte_t *)tuple;
-		_PP(*args->arguments);
-		rt_stack_unit_t * argument = (rt_stack_unit_t *)*args->arguments + 1;
-		_PP(*(int *)argument);
+		rt_stack_unit_t * argument = (rt_stack_unit_t *)*args->arguments;
 
 		// Each all tuple fields.
 		rt_type->each_field(ctx.analyzer.env, [&](ref_t ref, rt_field_base_t * field) {
@@ -121,8 +119,6 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 	{
 		typedef __tuple_get_args_t args_t;
 		args_t * args = ctx.args<args_t>();
-
-		_P(_T("tuple_get"));
 	}
 
     ////////// ////////// ////////// ////////// //////////

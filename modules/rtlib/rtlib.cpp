@@ -51,6 +51,19 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
             __append_libfunc(_T("Console_WriteSingle"),		console_write_float);
             __append_libfunc(_T("Console_WriteDouble"),		console_write_double);
 
+            __append_libfunc(_T("Console_WriteStringLine"),		console_write_string_line);
+            __append_libfunc(_T("Console_WriteCharLine"),		console_write_char_line);
+            __append_libfunc(_T("Console_WriteInt8Line"),		console_write_int8_line);
+            __append_libfunc(_T("Console_WriteUInt8Line"),		console_write_uint8_line);
+            __append_libfunc(_T("Console_WriteInt16Line"),		console_write_int16_line);
+            __append_libfunc(_T("Console_WriteUInt16Line"),		console_write_uint16_line);
+            __append_libfunc(_T("Console_WriteInt32Line"),		console_write_int32_line);
+            __append_libfunc(_T("Console_WriteUInt32Line"),		console_write_uint32_line);
+            __append_libfunc(_T("Console_WriteInt64Line"),		console_write_int64_line);
+            __append_libfunc(_T("Console_WriteUInt64Line"),		console_write_uint64_line);
+            __append_libfunc(_T("Console_WriteSingleLine"),		console_write_float_line);
+            __append_libfunc(_T("Console_WriteDoubleLine"),		console_write_double_line);
+
             // Array functions.
             __append_libfunc(_T("Array_GetRank"), array_get_rank);
             __append_libfunc(_T("Array_GetLength"), array_get_length);

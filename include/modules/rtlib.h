@@ -117,6 +117,19 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     __DefineFunc(console_write_float);
     __DefineFunc(console_write_double);
 
+    __DefineFunc(console_write_string_line);
+    __DefineFunc(console_write_char_line);
+    __DefineFunc(console_write_int8_line);
+    __DefineFunc(console_write_uint8_line);
+    __DefineFunc(console_write_int16_line);
+    __DefineFunc(console_write_uint16_line);
+    __DefineFunc(console_write_int32_line);
+    __DefineFunc(console_write_uint32_line);
+    __DefineFunc(console_write_int64_line);
+    __DefineFunc(console_write_uint64_line);
+    __DefineFunc(console_write_float_line);
+    __DefineFunc(console_write_double_line);
+
     // Array functions.
     __DefineFunc(array_get_rank);
     __DefineFunc(array_get_length);
