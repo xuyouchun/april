@@ -67,7 +67,6 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
         robject_t   tuple;
     };
 
-
     ////////// ////////// ////////// ////////// //////////
 
 	// Tuple_SetRange

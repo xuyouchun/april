@@ -42,7 +42,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static vtype_t __vtype_of(xpool_t & xpool, expression_t * exp)
     {
         type_t * type = exp->get_type(xpool);
-        if(type != nullptr)
+        if (type != nullptr)
             return type->this_vtype();
 
         return exp->get_vtype();
@@ -57,7 +57,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Converts multi-name to sid.
     sid_t mname_to_sid(const mname_t * mname)
     {
-        if(mname == nullptr)
+        if (mname == nullptr)
             return sid_t::null;
 
         return mname->sid;
@@ -75,13 +75,42 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return get_expression_type(__xpool(cctx), expression);
     }
 
+	// Pick type from current context, includes.
+	// int a = [exp];		=> exp type is int
+	// func([exp]);			=> exp type is argument type
+	type_t * pick_type_from_current_context(xpool_t & xpool, expression_t * exp)
+	{
+		_A(exp != nullptr);
+
+		expression_t * parent_exp = exp->parent;
+
+		if (parent_exp == nullptr)
+			return nullptr;
+
+		expression_family_t family = parent_exp->this_family();
+		if (family == expression_family_t::binary)
+		{
+			binary_expression_t * binary_exp = (binary_expression_t *)parent_exp;
+			if (binary_exp->op() == operator_t::assign)
+			{
+				expression_t * exp1 = binary_exp->exp1();
+				return exp1->get_type(xpool);
+				return nullptr;
+			}
+
+			return pick_type_from_current_context(xpool, parent_exp);
+		}
+
+		return pick_type_from_current_context(xpool, parent_exp);
+	}
+
     // Fills argument types.
     void __fill_atypes(ast_context_t & cctx, atypes_t & atypes, arguments_t * arguments)
     {
-        if(arguments == nullptr)
+        if (arguments == nullptr)
             return;
 
-        for(argument_t * argument : *arguments)
+        for (argument_t * argument : *arguments)
         {
             type_t * type = get_expression_type(cctx, argument->expression);
             atypes.push_back(atype_t(type, argument->atype));
@@ -91,7 +120,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Convets to mname_t *.
     static const mname_t * __to_mname(const emname_t * ns)
     {
-        if(ns == nullptr)
+        if (ns == nullptr)
             return nullptr;
 
         return ns->mname;
@@ -100,7 +129,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Converts to mname_t *.
     static const mname_t * __to_mname(const using_namespace_t * ns)
     {
-        if(ns == nullptr)
+        if (ns == nullptr)
             return nullptr;
 
         return __to_mname(ns->ns);
@@ -153,7 +182,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 __index = index;
 
-                if(__in_mname())
+                if (__in_mname())
                     new ((void *)unit) type_name_unit_t(name_t((*__units.__mname)[index]));
                 else
                     punit = *(__units.__begin + (index - __units.__mname_part_count()));
@@ -168,7 +197,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // Returns typename unit.
             type_name_unit_t * get()
             {
-                if(__in_mname())
+                if (__in_mname())
                     return (type_name_unit_t *)&unit;
 
                 return punit;
@@ -202,9 +231,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             stringstream_t ss;
 
             int index = 0;
-            for(__itor_t it = this->begin(), it_end = this->end(); it != it_end; it++)
+            for (__itor_t it = this->begin(), it_end = this->end(); it != it_end; it++)
             {
-                if(index++ > 0)
+                if (index++ > 0)
                     ss << _T(".");
 
                 ss << *it;
@@ -219,9 +248,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     stream_t & operator << (stream_t & stream, __multi_units_t & units)
     {
         int index = 0;
-        for(auto it : units)
+        for (auto it : units)
         {
-            if(index++ > 0)
+            if (index++ > 0)
                 stream << _T(".");
 
             stream << _str(*it);
@@ -291,7 +320,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __current_module = __wctx.current_module();
 
             type_t * type = __ascertain_param_type();
-            if(type != nullptr)
+            if (type != nullptr)
                 return type;
 
             return __ascertain_general_type();
@@ -413,16 +442,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Transforms generic argument.
         type_t * __transform_generic_arg(generic_arg_t * arg)
         {
-            if(arg == nullptr || arg->type_name == nullptr)
+            if (arg == nullptr || arg->type_name == nullptr)
                 return nullptr;
 
             type_t * type = arg->type_name->type;
-            if(type == nullptr)
+            if (type == nullptr)
                 return nullptr;
 
-            if(type->this_gtype() == gtype_t::type_def_param)
+            if (type->this_gtype() == gtype_t::type_def_param)
             {
-                if(__get_current_type_def() != nullptr)
+                if (__get_current_type_def() != nullptr)
                     return type;
             }
 
@@ -432,7 +461,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Gets current typedef.
         type_def_t * __get_current_type_def()
         {
-            if(__current_type_def == __EmptyTypeDef)
+            if (__current_type_def == __EmptyTypeDef)
                 __current_type_def = __wctx.current_type_def();
 
             return __current_type_def;
@@ -559,6 +588,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (document == nullptr)
                 return __find_ret_t { nullptr, false };
 
+			// From current assembly.
+			__find_ret_t r = __search_type(&__wctx.assembly, nullptr, begin, end);
+			if (r.success)
+				return r;
+
+			// From all imports.
             for (import_t * import : document->all_imports())
             {
                 int prefix_count = __import_starts_with(import, begin, end);
@@ -585,15 +620,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename itor_t>
         int __import_starts_with(import_t * import, itor_t begin, itor_t end)
         {
-            if(begin == end)
+            if (begin == end)
                 return 0;
 
-            if(!import->alias.empty())
+            if (!import->alias.empty())
             {
-                if(**begin == import->alias)
+                if (**begin == import->alias)
                     return 1;
             }
-            else if(__starts_with(to_mname(import->assembly), begin, end))
+            else if (__starts_with(to_mname(import->assembly), begin, end))
             {
                 return to_mname(import->assembly)->part_count();
             }
@@ -605,13 +640,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename itor_t>
         bool __starts_with(const mname_t * assembly_name, itor_t begin, itor_t end)
         {
-            if(assembly_name == nullptr)
+            if (assembly_name == nullptr)
                 return false;
 
             itor_t it = begin;
-            for(sid_t sid : *assembly_name)
+            for (sid_t sid : *assembly_name)
             {
-                if(it == end || **it++ != sid)
+                if (it == end || **it++ != sid)
                     return false;
             }
 
@@ -669,38 +704,38 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * __assign_type_def_param(type_t * type, type_name_unit_t * unit,
                                                     type_t * host_type = nullptr)
         {
-            if(type == nullptr)
+            if (type == nullptr)
                 return type;
 
             gtype_t gtype = type->this_gtype();
-            if(gtype == gtype_t::type_def_param)
+            if (gtype == gtype_t::type_def_param)
             {
                 type_def_param_t * param = (type_def_param_t *)type;
                 _A(unit != nullptr && param->index < unit->generic_args_count());
                 return __transform_generic_arg((*unit)[param->index]);
             }
-            else if(gtype == gtype_t::array)
+            else if (gtype == gtype_t::array)
             {
                 array_type_t * array_type = (array_type_t *)type;
                 type_t * element_type1 = __assign_type_def_param(array_type->element_type,
                                                                     unit, host_type);
-                if(element_type1 != array_type->element_type)
+                if (element_type1 != array_type->element_type)
                 {
                     return __new_array_type(element_type1, array_type->dimension);
                 }
 
                 return type;
             }
-            else if(gtype == gtype_t::generic_param)
+            else if (gtype == gtype_t::generic_param)
             {
                 generic_param_t * param = (generic_param_t *)type;
-                for(type_t * t = host_type; t != nullptr; t = t->host_type)
+                for (type_t * t = host_type; t != nullptr; t = t->host_type)
                 {
-                    if(t->this_gtype() == gtype_t::generic)
+                    if (t->this_gtype() == gtype_t::generic)
                     {
                         generic_type_t * generic_type = (generic_type_t *)t;
                         generic_param_t * p = generic_type->template_->find_param(param->name);
-                        if(p != nullptr)
+                        if (p != nullptr)
                         {
                             _A(p->index < generic_type->args.size());
                             return generic_type->args[p->index];
@@ -714,18 +749,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             std::stack<type_t *> type_stack;
             type_t * current_type = type;
 
-            for(; current_type; current_type = current_type->host_type)
+            for (; current_type; current_type = current_type->host_type)
             {
                 type_stack.push(current_type);
             }
 
             bool break_away = false;
-            for(; !type_stack.empty(); type_stack.pop())
+            for (; !type_stack.empty(); type_stack.pop())
             {
                 type_t * t = type_stack.top();
                 gtype_t gtype = t->this_gtype();
 
-                if(break_away || gtype == gtype_t::generic)
+                if (break_away || gtype == gtype_t::generic)
                 {
                     generic_type_t * generic_type = (generic_type_t *)t;
                     type_collection_t types;
@@ -737,7 +772,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                         }
                     );
 
-                    if(break_away)
+                    if (break_away)
                     {
                         xtype_collection_t xtypes(types);
                         current_type = __new_generic_type(
@@ -802,7 +837,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         type_t * type = __ascertain_type(cctx, wctx, type_name);
 
-        if(type == nullptr)
+        if (type == nullptr)
             throw _ED(ascertain_type_error_t::unknown_type, type_name);
 
         return type;
@@ -824,7 +859,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         type_t * type = __ascertain_type(cctx, wctx, name);
 
-        if(type == nullptr)
+        if (type == nullptr)
             throw _ED(ascertain_type_error_t::unknown_type, name);
 
         return type;
@@ -843,9 +878,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         general_type_name_t * general_type_name;
         array_type_name_t   * array_type_name;
 
-        if((general_type_name = as<general_type_name_t *>(element_type_name)) != nullptr)
+        if ((general_type_name = as<general_type_name_t *>(element_type_name)) != nullptr)
             element_type = ascertain_type(cctx, wctx, general_type_name);
-        else if((array_type_name = as<array_type_name_t *>(element_type_name)) != nullptr)
+        else if ((array_type_name = as<array_type_name_t *>(element_type_name)) != nullptr)
             element_type = ascertain_type(cctx, wctx, array_type_name);
         else
             throw _E(ascertain_type_error_t::element_type_not_supported);
@@ -879,7 +914,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Checks walk expression
         bool __check_walk(expression_t * exp)
         {
-            if(exp->walked)
+            if (exp->walked)
                 return false;
 
             exp->walked = true;
@@ -889,15 +924,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         #define __CheckWalk(exp)                    \
             do                                      \
             {                                       \
-                if(!__check_walk(exp))  return;     \
-            } while(false)
+                if (!__check_walk(exp))  return;     \
+            } while (false)
 
         // Walks expression.
         void __walk(expression_t * exp)
         {
             __CheckWalk(exp);
 
-            switch(exp->this_family())
+            switch (exp->this_family())
             {
                 case expression_family_t::name:
                     __walk_name((name_expression_t *)exp);
@@ -908,7 +943,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     return;
 
                 case expression_family_t::binary:
-                    switch(((binary_expression_t *)exp)->op())
+                    switch (((binary_expression_t *)exp)->op())
                     {
                         case operator_t::member_point:
                             __walk_member((binary_expression_t *)exp);
@@ -937,7 +972,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 case expression_family_t::base: {
                     type_t * base_type = __wctx.current_type()->get_base_type();
-                    if(base_type == nullptr)
+                    if (base_type == nullptr)
                         ast_log(__cctx, exp, __c_t::no_base_type, __wctx.current_type());
                     else
                         ((base_expression_t *)exp)->set_type(base_type);
@@ -959,7 +994,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Avoid to walk expression.
         void __avoid_walk(expression_t * exp)
         {
-            if(exp != nullptr)
+            if (exp != nullptr)
                 exp->walked = true;
         }
 
@@ -972,15 +1007,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Walks name expression.
         void __walk_name(name_expression_t * name_exp, type_t * parent_type = nullptr)
         {
-            if(name_exp->is_variable_expression() && name_exp->variable != nullptr)
+            if (name_exp->is_variable_expression() && name_exp->variable != nullptr)
                 return;
 
             name_t name = name_exp->name;
 
             variable_t * variable;
-            if(__region == nullptr || (variable = __region->get(name)) == nullptr)
+            if (__region == nullptr || (variable = __region->get(name)) == nullptr)
             {
-                if(!__walk_type(name_exp))
+                if (!__walk_type(name_exp))
                 {
                     ast_log(__cctx, name_exp, __c_t::variable_undefined, name);
                 }
@@ -1003,7 +1038,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             arguments_t * arguments = index_exp->arguments();
             __walk_arguments(arguments);
 
-            if(is_array(body_type)) // array index
+            if (is_array(body_type)) // array index
             {
                 index_exp->variable = __new_obj<array_index_variable_t>(
                     body_exp, ((array_type_t *)body_type)->element_type, arguments
@@ -1016,7 +1051,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 analyze_member_args_t args(member_type_t::property, name_t::null, &atypes);
                 member_t * member = body_type->get_member(args);
-                if(member == nullptr)
+                if (member == nullptr)
                 {
                     ast_log(__cctx, index_exp, __c_t::property_index_undetermind, index_exp);
                     return;
@@ -1036,7 +1071,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             type_t * type = __ascertain_type(__cctx, __wctx, name_exp->name);
 
-            if(type != nullptr)
+            if (type != nullptr)
             {
                 name_exp->set(type);
                 return true;
@@ -1054,7 +1089,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             __walk(exp1);
 
-            if(__walk_member(exp1, exp2) != __exp2_walked_t::yes)
+            if (__walk_member(exp1, exp2) != __exp2_walked_t::yes)
                 __walk(exp2);
         }
 
@@ -1066,7 +1101,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             _A(op_property != nullptr);
 
             operator_t op = op_property->op;
-            switch(op_property->overload)
+            switch (op_property->overload)
             {
                 case operator_overload_model_t::no_check:
                     return;
@@ -1084,12 +1119,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return __is_mobject(__xpool(__cctx), exp);
             });
 
-            if(!has_mobject)
+            if (!has_mobject)
                 return;
 
             // Collect argument types.
             atypes_t atypes;
-            for(expression_t * exp : exp->exps)
+            for (expression_t * exp : exp->exps)
             {
                 type_t * arg_type = exp->get_type(__xpool(__cctx));
                 _A(arg_type != nullptr);
@@ -1103,17 +1138,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             name_t name = __to_name(__cctx, _F(_T("op_%1%"), op_name));
 
             method_t * method = nullptr;
-            for(atype_t atype : atypes)
+            for (atype_t atype : atypes)
             {
                 method = find_method(__cctx,
                     atype.type, method_trait_t::default_, name, nullptr, &atypes
                 );
 
-                if(method != nullptr && method->is_static())
+                if (method != nullptr && method->is_static())
                     break;
             }
 
-            if(method == nullptr)
+            if (method == nullptr)
             {
                 string_t s = al::join_str(atypes.begin(), atypes.end(), _T(", "));
                 ast_log(__cctx, exp, __c_t::operator_overload_not_defined, op_property->op, s);
@@ -1129,14 +1164,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             type_t * type = get_expression_type(__cctx, exp1);
 
-            if(type == nullptr)
+            if (type == nullptr)
             {
                 ast_log(__cctx, exp1, __c_t::type_undetermind, exp1);
                 return __exp2_walked_t::no;
             }
 
             // field & property
-            switch(exp2->this_family())
+            switch (exp2->this_family())
             {
                 case expression_family_t::name:
                     return __walk_fieldx(type, (name_expression_t *)exp2);
@@ -1153,21 +1188,91 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __exp2_walked_t::no;
         }
 
-        // Walks field.
-        __exp2_walked_t __walk_fieldx(type_t * type, name_expression_t * name_exp)
-        {
+		void __pick_argument_types_from_context_type(type_t * context_type, atypes_t & atypes)
+		{
+			xpool_t & xpool = __xpool(__cctx);
+
+			if (context_type->this_gtype() == gtype_t::generic)
+			{
+				generic_type_t * generic_type = (generic_type_t *)context_type;
+				general_type_t * general_type = generic_type->template_;
+
+				if (general_type == xpool.get_delegate_type()
+					|| general_type == xpool.get_multicast_delegate_type())
+				{
+					if (generic_type->args.size() > 0)	// The first is return type.
+						al::copy(generic_type->args, std::back_inserter(atypes), 1);
+				}
+			}
+		}
+
+		bool __try_get_member(type_t * type, name_expression_t * name_exp, member_t ** out_member)
+		{
             name_t name = name_exp->name;
             analyze_member_args_t args(member_type_t::all, name);
-            member_t * member = type->get_member(args);
 
-            if(member == nullptr)
-            {
-                ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
-                return __exp2_walked_t::no;
-            }
+			try
+			{
+				*out_member = type->get_member(args);
 
-            //_PP(member->this_type());
-            switch(member->this_type())
+				if (*out_member == nullptr)
+				{
+					ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
+					return false;
+				}
+
+				return true;
+			}
+            catch (const logic_error_t<common_error_code_t> & e)
+			{
+				if (e.code == common_error_code_t::conflict)
+				{
+					try
+					{
+						type_t * context_type = pick_type_from_current_context(
+							__xpool(__cctx), name_exp
+						);
+
+						if (context_type == nullptr)
+							return false;
+
+						atypes_t atypes;
+						__pick_argument_types_from_context_type(context_type, atypes);
+
+						analyze_member_args_t args1(member_type_t::method, name, &atypes);
+						*out_member = type->get_member(args1);
+
+						if (*out_member == nullptr)
+						{
+							ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
+							return false;
+						}
+
+						return true;
+					}
+					catch (const logic_error_t<common_error_code_t> & e)
+					{
+						ast_log(__cctx, name_exp, __c_t::method_conflict, name, type, _T(""));
+						return false;
+					}
+				}
+				else
+				{
+					ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
+					return false;
+				}
+			}
+		}
+
+        // Walks field, property, event, type, type_def, method.
+        __exp2_walked_t __walk_fieldx(type_t * type, name_expression_t * name_exp)
+        {
+			member_t * member;
+			if (!__try_get_member(type, name_exp, &member))
+				return __exp2_walked_t::no;
+
+            // _PP(member->this_type());
+            switch (member->this_type())
             {
                 case member_type_t::property:
                     name_exp->set(((property_t *)member)->variable);
@@ -1189,7 +1294,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     name_exp->set((type_def_t *)member);
                     break;
 
+				case member_type_t::method:
+					// name_exp->set(variable);
+					break;
+
                 default:
+					_PP(member->this_type());
                     throw _EC(unexpected);
             }
 
@@ -1200,13 +1310,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __walk_function(function_expression_t * function_exp, type_t * type = nullptr)
         {
             expression_t * namex_exp = function_exp->namex;
-            if(namex_exp == nullptr)
+            if (namex_exp == nullptr)
                 return;
 
             //_PP(function_exp);
             __avoid_walk(namex_exp);
 
-            switch(namex_exp->this_family())
+            switch (namex_exp->this_family())
             {
                 case expression_family_t::name:
                     __walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
@@ -1215,7 +1325,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 case expression_family_t::binary: {
                     binary_expression_t * binary_exp = (binary_expression_t *)namex_exp;
 
-                    if(binary_exp->op() == operator_t::member_point)
+                    if (binary_exp->op() == operator_t::member_point)
                     {
                         expression_t * exp1 = binary_exp->exp1();
                         expression_t * exp2 = binary_exp->exp2();
@@ -1223,7 +1333,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                         __walk(exp1);
                         __avoid_walk(exp2);
 
-                        switch(exp2->this_family())
+                        switch (exp2->this_family())
                         {
                             case expression_family_t::name: {
                                 auto name_exp = (name_expression_t *)exp2;
@@ -1266,10 +1376,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Walks arguments.
         void __walk_arguments(arguments_t * arguments)
         {
-            if(arguments == nullptr)
+            if (arguments == nullptr)
                 return;
 
-            for(argument_t * argument : *arguments)
+            for (argument_t * argument : *arguments)
                 __walk(argument->expression);
         }
 
@@ -1278,10 +1388,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             //_PF(_T("type: %1%, name: %2%, function_exp: %3%"), type, name, function_exp);
 
-            if(type == nullptr)
+            if (type == nullptr)
             {
                 type = __wctx.current_type();
-                if(type == nullptr)
+                if (type == nullptr)
                 {
                     ast_log(__cctx, function_exp, __c_t::type_undetermind, function_exp);
                     return;
@@ -1299,7 +1409,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 member_type_t::method, name, &atypes, function_exp->generic_args
             );
 
-            if(__try_get_method(type, am_args, &method) == common_error_code_t::conflict)
+            if (__try_get_method(type, am_args, &method) == common_error_code_t::conflict)
             {
                 analyze_members_args_t ams_args(
                     member_type_t::method, name, &atypes, function_exp->generic_args
@@ -1314,7 +1424,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return;
             }
 
-            if(method == nullptr)
+            if (method == nullptr)
             {
                 analyze_members_args_t ams_args(
                     member_type_t::method, name, &atypes, function_exp->generic_args
@@ -1323,7 +1433,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 type->get_members(ams_args);
 
                 members_t & members = ams_args.out_members;
-                if(members.empty())
+                if (members.empty())
                     ast_log(__cctx, function_exp, __c_t::method_not_found, name, type);
                 else
                     ast_log(__cctx, function_exp, __c_t::method_not_match, name, type);
@@ -1334,21 +1444,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 type_collection_t tc;
 
-                if(function_exp->generic_args == nullptr)
+                if (function_exp->generic_args == nullptr)
                     al::copy(am_args.out_arg_types, std::back_inserter(tc));
                 else
                     fill_type_collection(tc, function_exp->generic_args);
 
-                if(tc.empty())
+                if (tc.empty())
                     function_exp->method = method;
                 else
                     function_exp->method = __xpool(__cctx).new_generic_method(method, tc);
             }
 
-            if(!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)
+            if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)
             {
                 function_exp->generic_args = __new_obj<generic_args_t>();
-                for(type_t * arg_type : am_args.out_arg_types)
+                for (type_t * arg_type : am_args.out_arg_types)
                 {
                     generic_arg_t * generic_arg = __new_obj<generic_arg_t>();
                     generic_arg->type_name = __new_obj<type_name_t>(arg_type);
@@ -1362,7 +1472,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __walk_new(new_expression_t * exp)
         {
             type_name_t * type_name = exp->type_name;
-            if(type_name == nullptr)
+            if (type_name == nullptr)
             {
                 ast_log(__cctx, exp, __c_t::type_name_missing, _T("object creation"));
                 return;
@@ -1383,9 +1493,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void walk_expression(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                 expression_t * expression)
     {
-        //_P(_T("walk_expression: "), expression);
+        // _P(_T("walk_expression: "), expression);
 
-        if(expression != nullptr)
+        if (expression != nullptr)
             __walk_expression_t(cctx, wctx).walk(expression);
     }
 
@@ -1452,7 +1562,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Converts to argument types string.
     string_t to_arg_types_str(ast_context_t & cctx, arguments_t * arguments)
     {
-        if(arguments == nullptr || arguments->empty())
+        if (arguments == nullptr || arguments->empty())
             return empty_str;
 
         atypes_t atypes;
@@ -1471,7 +1581,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(type_name != nullptr);
 
-        if(__region == nullptr)
+        if (__region == nullptr)
         {
             __log(__c_t::unexpected_variable_defination, _str(name));
             return nullptr;
@@ -1493,7 +1603,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(param != nullptr);
 
-        if(__region == nullptr)
+        if (__region == nullptr)
         {
             __log(__c_t::unexpected_param_defination, _str(param));
             return nullptr;
@@ -1515,7 +1625,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(field != nullptr);
 
-        if(__region == nullptr)
+        if (__region == nullptr)
         {
             __log(__c_t::unexpected_field_defination, _str(field));
             return nullptr;
@@ -1537,7 +1647,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(property != nullptr);
 
-        if(__region == nullptr)
+        if (__region == nullptr)
         {
             __log(__c_t::unexpected_property_defination, _str(property));
             return nullptr;
@@ -1558,7 +1668,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void variable_defination_t::__deal_error(const logic_error_t<ast_error_t> & e,
                                             name_t name, __code_element_t element)
     {
-        switch(e.code)
+        switch (e.code)
         {
             case ast_error_t::variable_duplicated:
                 __log(__c_t::variable_defination_duplicate, (string_t)name, element);

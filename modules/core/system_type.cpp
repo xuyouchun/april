@@ -40,7 +40,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_impl_t * get_impl(name_t name)
         {
             auto it = __impls.find(name);
-            if(it != __impls.end())
+            if (it != __impls.end())
                 return it->second;
 
             return nullptr;
@@ -97,7 +97,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void commit(eobject_commit_context_t & ctx, eobject_t * bind_object) override
         {
             general_type_t * type = as<general_type_t *>(bind_object);
-            if(type != nullptr)
+
+            if (type != nullptr)
             {
                 type->vtype = vtype;
                 bind_type = type;
@@ -259,6 +260,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+	// Impl for System.Enum.
+	class __enum_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+	{
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+	public:
+		using __super_t::__super_t;
+
+		static const char_t type_name[];
+	};
+
+    const char_t __enum_type_impl_t::type_name[] = __CoreTypeName(CoreType_Enum);
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Impl for System.Array.
     class __array_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
@@ -316,6 +332,52 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 	};
 
 	const char_t __t_tuple_type_impl_t::type_name[] = __CoreTypeName(CoreType_Tuple);
+
+    //-------- ---------- ---------- ---------- ----------
+
+	// Impl for System.IDelegate
+	class __idelegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+	{
+		typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+	public:
+		using __super_t::__super_t;
+
+		static const char_t type_name[];
+	};
+
+	const char_t __idelegate_type_impl_t::type_name[] = __CoreTypeName(CoreType_IDelegate);
+
+    //-------- ---------- ---------- ---------- ----------
+
+	// Impl for System.Delegate
+	class __t_delegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+	{
+		typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+	public:
+		using __super_t::__super_t;
+
+		static const char_t type_name[];
+	};
+
+	const char_t __t_delegate_type_impl_t::type_name[] = __CoreTypeName(CoreType_Delegate);
+
+    //-------- ---------- ---------- ---------- ----------
+
+	// Impl for System.MulticastDelegate
+	class __t_multicast_delegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+	{
+		typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+	public:
+		using __super_t::__super_t;
+
+		static const char_t type_name[];
+	};
+
+	const char_t __t_multicast_delegate_type_impl_t::type_name[]
+												= __CoreTypeName(CoreType_MulticastDelegate);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -558,7 +620,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __internal_type_impl_t * get_impl(vtype_t vtype)
         {
             auto it = __vtype_map.find(vtype);
-            if(it == __vtype_map.end())
+            if (it == __vtype_map.end())
                 return nullptr;
 
             return it->second;
@@ -587,10 +649,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __impls.append<__exception_type_impl_t>();
             __impls.append<__null_reference_exception_type_impl_t>();
             __impls.append<__attribute_type_impl_t>();
+			__impls.append<__enum_type_impl_t>();
             __impls.append<__array_type_impl_t>();
             __impls.append<__t_array_type_impl_t>();
 			__impls.append<__t_ituple_type_impl_t>();
 			__impls.append<__t_tuple_type_impl_t>();
+			__impls.append<__idelegate_type_impl_t>();
+			__impls.append<__t_delegate_type_impl_t>();
+			__impls.append<__t_multicast_delegate_type_impl_t>();
 
             // Core data types.
             __impls.append<__void_type_impl_t>();
@@ -643,7 +709,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
                 al::svector_t<const char_t *> not_allowed_list;
                 #define __NotAllowed(name)                                              \
-                    if (method->is_##name())                                             \
+                    if (method->is_##name())                                            \
                         not_allowed_list.push_back(_S(name));
 
                 __NotAllowed(sealed)
@@ -675,7 +741,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             __internal_type_impl_t * impl = __impls.get_impl(vtype);
 
-            if(impl == nullptr)
+            if (impl == nullptr)
                 return nullptr;
 
             return impl->bind_type;
@@ -686,7 +752,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             __internal_type_impl_t * impl = as<__internal_type_impl_t *>(__impls.get_impl(name));
 
-            if(impl == nullptr)
+            if (impl == nullptr)
                 return nullptr;
 
             return impl->bind_type;
@@ -713,7 +779,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void commit(eobject_commit_context_t & ctx, eobject_t * bind_object) override
         {
             method_t * method = as<method_t *>(bind_object);
-            if(method != nullptr)
+            if (method != nullptr)
             {
                 method->inline_type = method_inline_type_t::always;
             }
@@ -738,7 +804,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void commit(eobject_commit_context_t & ctx, eobject_t * bind_object) override
         {
             method_t * method = as<method_t *>(bind_object);
-            if(method != nullptr)
+            if (method != nullptr)
             {
                 assembly_t * assembly = get_assembly(method);
                 _A(assembly != nullptr);
@@ -757,19 +823,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 cpl_log_errorf(ctx.logger, method,                                  \
                     __e_t::entry_point_prototype_mistake__##error_name, ##args)
 
-            if(ret_type != nullptr && !is_void_type(ret_type))
+            if (ret_type != nullptr && !is_void_type(ret_type))
                 __CplLogError(should_no_return_type);
 
-            if(method->is_generic())
+            if (method->is_generic())
                 __CplLogError(should_not_generic);
 
-            if(method->param_count() > 0)
+            if (method->param_count() > 0)
                 __CplLogError(should_no_params);
 
             decorate_value_t decorate = method->decorate?
                     *(decorate_value_t *)method->decorate : decorate_value_t::default_value;
 
-            if(!decorate.is_static || !enum_has_flag(decorate.access, access_value_t::public_))
+            if (!decorate.is_static || !enum_has_flag(decorate.access, access_value_t::public_))
                 __CplLogError(should_be_public_static);
 
             al::svector_t<const char_t *> not_allowed_keywords;
@@ -777,9 +843,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             #define __CheckDecorate(name)                           \
                 do                                                  \
                 {                                                   \
-                    if(decorate.is_##name)                          \
+                    if (decorate.is_##name)                          \
                         not_allowed_keywords.push_back(_S(name));   \
-                } while(false)
+                } while (false)
 
             __CheckDecorate(sealed);
             __CheckDecorate(override);
@@ -789,7 +855,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __CheckDecorate(const);
             __CheckDecorate(readonly);
 
-            if(not_allowed_keywords.size() > 0)
+            if (not_allowed_keywords.size() > 0)
             {
                 __CplLogError(decorate_not_allowed,
                     al::join_str(not_allowed_keywords.begin(), not_allowed_keywords.end(), _T(", "))
@@ -804,7 +870,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __set_entry_point(eobject_commit_context_t & ctx, eobject_t * bind_object,
                                 assembly_t * assembly, method_t * method)
         {
-            if(assembly->entry_point != nullptr)
+            if (assembly->entry_point != nullptr)
                 cpl_log_errorf(ctx.logger, bind_object, __e_t::duplicated_entry_point);
             else
                 assembly->entry_point = method;
@@ -857,10 +923,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void set_owner(eobject_t * object) override
         {
             general_type_t * type = as<general_type_t *>(object);
-            if(type != nullptr)
+            if (type != nullptr)
             {
                 type_impl_t * impl = __impls.get_impl(type->name);
-                if(impl == nullptr)
+                if (impl == nullptr)
                 {
                     throw _ECF(not_found,
                         _T("internal type \"%1%\" implemention not found"), type->name
@@ -870,7 +936,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 type->impl = impl;
             }
 
-            //__super_t::set_owner(object);
+            // __super_t::set_owner(object);
         }
 
         __internal_attribute_type_impl_t * get_internal_attribute_type_impl()

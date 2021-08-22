@@ -52,6 +52,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Gets expression type.
     type_t * get_expression_type(ast_context_t & cctx, expression_t * expression);
 
+	// Picks type from current context.
+	type_t * pick_type_from_current_context(xpool_t & xpool, expression_t * expression);
+
     // Logs message.
     template<typename _code_element_t, typename ... args_t>
     void ast_log(ast_context_t & cctx, _code_element_t * element, args_t && ... args)

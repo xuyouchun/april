@@ -47,6 +47,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define CoreType_TArray       _T("Array<>")
 	#define CoreType_ITuple		  _T("ITuple<...>")
 	#define CoreType_Tuple		  _T("Tuple<...>")
+	#define CoreType_IDelegate	  _T("IDelegate")
+	#define CoreType_Delegate	  _T("Delegate<,...>")
+	#define CoreType_MulticastDelegate _T("MulticastDelegate<,...>")
+	#define CoreType_Enum		  _T("Enum")
     #define CoreType_Int8         _T("Int8")
     #define CoreType_UInt8        _T("UInt8")
     #define CoreType_Int16        _T("Int16")
@@ -120,7 +124,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Append a element, auto set owner.
         void push_back(t obj)
         {
-            if(obj != nullptr)
+            if (obj != nullptr)
                 obj->set_owner(__owner);
 
             __super_t::push_back(obj);
@@ -331,11 +335,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             #define __Between(begin, end) \
                 (__Code(code) >= __Code(c_t::begin) && __Code(code) < __Code(c_t::end))
 
-            if(__Between(__info__, __warning__))
+            if (__Between(__info__, __warning__))
                 level = log_level_t::info;
-            else if(__Between(__warning__, __error__))
+            else if (__Between(__warning__, __error__))
                 level = log_level_t::warning;
-            else if(__Between(__error__, __the_end__))
+            else if (__Between(__error__, __the_end__))
                 level = log_level_t::error;
             else
                 throw _ECF(argument_error, _T("argument %1% out of range"), __Code(code));
@@ -405,7 +409,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void log(code_element_t * element, log_level_t level,
                                 const string_t & name, const string_t & message)
         {
-            for(logger_t * logger : __loggers)
+            for (logger_t * logger : __loggers)
             {
                 logger->log(element, level, name, message);
             }
@@ -979,7 +983,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Walks each eobject, Applies each element for callback function f.
         virtual void each_eobjects(std::function<void (eobject_t *)> f) override
         {
-            for(size_t index = 0, count = eobject_count(); index < count; index++)
+            for (size_t index = 0, count = eobject_count(); index < count; index++)
             {
                 f(eobject_at(index));
             }
@@ -1092,7 +1096,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             __owner = owner;
 
-            for(_etype_t eobj : *this)
+            for (_etype_t eobj : *this)
             {
                 eobj->set_owner(owner);
             }
@@ -1123,7 +1127,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename _eobjects_t, typename _eobject_t = typename _eobjects_t::etype_t>
         static void on_append(_eobjects_t & eobjects, _eobject_t obj)
         {
-            if(obj != nullptr)
+            if (obj != nullptr)
                 obj->index = eobjects.size();
         }
     };
@@ -1226,12 +1230,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         const mname_t * from_cache(const sid_t & sid, load_func_t load_func)
         {
             const mname_t * name;
-            if(cache != nullptr && (name = cache->get(sid)) != nullptr)
+            if (cache != nullptr && (name = cache->get(sid)) != nullptr)
                 return name;
 
             name = load_func();
 
-            if(cache != nullptr)
+            if (cache != nullptr)
                 cache->set(sid, name);
 
             return name;
@@ -1346,7 +1350,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename itor_t>
         static const mname_t * join(__context_t & ctx, itor_t begin, itor_t end)
         {
-            if(begin == end)
+            if (begin == end)
                 return nullptr;
 
             string_t s = al::join_str(begin, end, _T("."));
@@ -1391,7 +1395,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts emname_t to mname_t
     X_INLINE const mname_t * to_mname(const emname_t * emname)
     {
-        if(emname == nullptr)
+        if (emname == nullptr)
             return nullptr;
 
         return emname->mname;
@@ -1400,7 +1404,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts mname to sid.
     X_INLINE sid_t to_sid(const mname_t * mname)
     {
-        if(mname == nullptr)
+        if (mname == nullptr)
             return sid_t::null;
 
         return mname->sid;
@@ -1718,6 +1722,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     class argument_t;
     class method_t;
+	class type_impl_t;
     typedef indexed_eobjects_t<argument_t *> arguments_t;
 
     // Attribute eobject.
@@ -1740,6 +1745,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         eobject_t   * bind_object = nullptr;
 
         X_TO_STRING
+
+	private:
+		type_impl_t * __get_impl();
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1898,7 +1906,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns size of a vtype.
     constexpr msize_t get_vtype_size(vtype_t vtype)
     {
-        switch(vtype)
+        switch (vtype)
         {
             case vtype_t::void_:
                 return 0;
@@ -2974,6 +2982,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+	class method_variable_t;
+
     // General method.
     class method_t : public method_base_t, public __named_member_t
     {
@@ -3534,7 +3544,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _member_t get(name_t name)
         {
             auto it = __member_map.find(name);
-            if(it == __member_map.end())
+            if (it == __member_map.end())
                 return nullptr;
 
             return it->second;
@@ -3585,7 +3595,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void each(name_t name, int generic_param_count, type_t * owner_type, f_t f)
         {
             __key_t key(name, generic_param_count, owner_type);
-            for(auto it = __method_map.lower_bound(key), it_end = __method_map.upper_bound(key);
+            for (auto it = __method_map.lower_bound(key), it_end = __method_map.upper_bound(key);
                 it != it_end; it++)
             {
                 f(it->second);
@@ -3607,7 +3617,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             __ensure_init_trait_method_map();
 
-            for(auto it = __trait_method_map.lower_bound(trait),
+            for (auto it = __trait_method_map.lower_bound(trait),
                 it_end = __trait_method_map.upper_bound(trait); it != it_end; it++)
             {
                 f(it->second);
@@ -3621,9 +3631,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Ensure initialized the method map.
         void __ensure_init_trait_method_map()
         {
-            if(__trait_method_map.empty())
+            if (__trait_method_map.empty())
             {
-                for(method_t * method : *this)
+                for (method_t * method : *this)
                 {
                     __trait_method_map.insert(std::make_pair(method->trait, method));
                 }
@@ -4136,10 +4146,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename _type_collection_t>
         __tcid_t get_tcid(_type_collection_t && types)
         {
-            if(types.empty())
+            if (types.empty())
                 return __tcid_t(nullptr);
 
-            if(types.size() == 1)
+            if (types.size() == 1)
                 return __tcid_t((void *)types[0]);
 
             auto r = __set.insert(__key_t(std::forward<_type_collection_t>(types)));
@@ -4274,6 +4284,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns System.Object type.
         type_name_t * get_object_type_name();
 
+		// Returns System.Void type.
+		general_type_t * get_void_type();
+
         // Returns System.Array<> type.
         general_type_t * get_tarray_type();
 
@@ -4288,6 +4301,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
 		// Returns System.Ptr type.
 		general_type_t * get_ptr_type();
+
+		// Returns System.Delegate type.
+		general_type_t * get_delegate_type();
+
+		// Returns System.MulticastDelegate type.
+		general_type_t * get_multicast_delegate_type();
 
         // Returns System.Exception type.
         general_type_t * get_exception_type();
@@ -4317,15 +4336,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns specified type with cache.
         general_type_t * __get_specified_type(const char_t * name, general_type_t * & __cache);
 
-        general_type_t * __object_type = nullptr;
-        general_type_t * __tarray_type = nullptr;
-        general_type_t * __array_type  = nullptr;
-        general_type_t * __string_type = nullptr;
-        general_type_t * __type_type   = nullptr;
-		general_type_t * __ptr_type    = nullptr;
+        general_type_t * __object_type		= nullptr;
+		general_type_t * __void_type		= nullptr;
+        general_type_t * __tarray_type		= nullptr;
+        general_type_t * __array_type		= nullptr;
+        general_type_t * __string_type		= nullptr;
+        general_type_t * __type_type		= nullptr;
+		general_type_t * __ptr_type			= nullptr;
+		general_type_t * __delegate_type	= nullptr;
+		general_type_t * __multicast_delegate_type = nullptr;
 
-        general_type_t * __exception_type = nullptr;
-        general_type_t * __tuple_type = nullptr;
+        general_type_t * __exception_type	= nullptr;
+        general_type_t * __tuple_type		= nullptr;
         general_type_t * __trace_attribute_type = nullptr;
 
         type_name_t __object_type_name;
@@ -4348,21 +4370,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // variable_t
 
-    X_ENUM(variable_type_t)
+    X_ENUM_(variable_type_t, 2)
 
-        local       = 1 << 0,       // Local valiable in method.
+        local			=	1 << 0,				// Local valiable in method.
 
-        param       = 1 << 1,       // Param variable of method.
+        param			=	1 << 1,				// Param variable of method.
 
-        field       = 1 << 2,       // Field variable of type.
+        field			=	1 << 2,				// Field variable of type.
 
-        property    = 1 << 3,       // Property variable of type.
+        property		=	1 << 3,				// Property variable of type.
 
-        event       = 1 << 4,       // Event variable of type.
+        event			=	1 << 4,				// Event variable of type.
 
-        array_index = 1 << 5,       // Array index variable.
+		method			=	1 << 5,				// Method variable of type.
 
-        property_index = 1 << 6,    // Property index.
+        array_index		=	1 << 6,				// Array index variable.
+
+        property_index	=	1 << 7,				// Property index.
 
     X_ENUM_END
 
@@ -4699,6 +4723,43 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_TO_STRING
     };
 
+    //-------- ---------- ---------- ---------- ----------
+
+	// Method variable.
+	class method_variable_t : public __variable_base_t<variable_type_t::method>
+	{
+	public:
+
+		// Constructor.
+		method_variable_t(method_t * method, expression_t * owner)
+			: method(method), owner(owner)
+		{
+			_A(method != nullptr);
+		}
+
+		// Relation method.
+		method_t * method = nullptr;
+
+		// Owner.
+		expression_t * owner = nullptr;
+
+		// Returns type of the method.
+		virtual type_t * get_type(xpool_t & xpool) override;
+
+		// Returns vtype.
+		virtual vtype_t get_vtype() override;
+
+		// Returns name of the event.
+		virtual name_t get_name() const override
+		{
+			return method->name;
+		}
+
+		// Converters to string.
+		X_TO_STRING
+
+	};
+
     ////////// ////////// ////////// ////////// //////////
 
     // Ast error codes.
@@ -4744,6 +4805,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Defines a event.
         event_variable_t * define_event(event_t * event);
+
+		// Defines a method.
+		method_variable_t * define_method(method_t * method, expression_t * owner);
 
         // Gets the variable of the name.
         variable_t * get(const name_t & name);
@@ -4889,7 +4953,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Constructor
         ast_walk_queue_t()
         {
-            for(size_t index = 0; index < __queue_size; index++)
+            for (size_t index = 0; index < __queue_size; index++)
             {
                 __qitems[index] = memory_t::new_obj<__queue_item_t>(&__qitems_pool);
             }
@@ -4906,9 +4970,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Deque an item.
         bool deque(element_t * out_element)
         {
-            for(; __qitem_index < __queue_size; __qitem_index++)
+            for (; __qitem_index < __queue_size; __qitem_index++)
             {
-                if(__qitems[__qitem_index]->deque(out_element))
+                if (__qitems[__qitem_index]->deque(out_element))
                     return true;
             }
 
@@ -4931,7 +4995,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             // Deque an element.
             bool deque(element_t * out_element)
             {
-                if(__queue.empty())
+                if (__queue.empty())
                     return false;
 
                 *out_element = __queue.front();
@@ -5161,7 +5225,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         _module_ast_node_t * module_node = walk_context.xpool.new_obj<_module_ast_node_t>();
 
-        for(ast_node_t * node : nodes)
+        for (ast_node_t * node : nodes)
         {
             module_node->append(node);
         }
@@ -5402,7 +5466,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Converts to string.
         const string_t to_string() const
         {
-            if(name == nullptr)
+            if (name == nullptr)
                 return empty_str;
 
             return (string_t)*name;
@@ -5872,7 +5936,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns behaviour.
         virtual expression_behaviour_t get_behaviour() const override
         {
-            if(expression_type == name_expression_type_t::variable && variable != nullptr)
+            if (expression_type == name_expression_type_t::variable && variable != nullptr)
             {
                 return variable->is_calling()? expression_behaviour_t::execute
                                              : expression_behaviour_t::default_;
@@ -6070,7 +6134,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns behaviour.
         virtual expression_behaviour_t get_behaviour() const override
         {
-            if(op_property->is_assign)
+            if (op_property->is_assign)
                 return expression_behaviour_t::assign;
 
             return expression_behaviour_t::default_;
@@ -6215,7 +6279,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename exp_itor_t>
         void append(exp_itor_t begin, exp_itor_t end)
         {
-            for(exp_itor_t it = begin; it != end; it++)
+            for (exp_itor_t it = begin; it != end; it++)
             {
                 append(*it);
             }
@@ -6276,9 +6340,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             {
                 __arguments = arguments;
 
-                if(arguments != nullptr)
+                if (arguments != nullptr)
                 {
-                    for(argument_t * arg : *arguments)
+                    for (argument_t * arg : *arguments)
                     {
                         arg->expression->parent = this;
                     }
@@ -6297,7 +6361,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             // Returns argument at specified index.
             argument_t * argument_at(size_t index) const
             {
-                if(__arguments == nullptr || index >= __arguments->size())
+                if (__arguments == nullptr || index >= __arguments->size())
                     return nullptr;
 
                 return (*__arguments)[index];
@@ -6312,7 +6376,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             // Returns expression at specified index.
             virtual expression_t * expression_at(size_t index) const override final
             {
-                if(__arguments == nullptr)
+                if (__arguments == nullptr)
                     return nullptr;
 
                 return (*__arguments)[index]->expression;
@@ -6887,15 +6951,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     X_INLINE void each_expression(expression_t * expression, callback_t callback,
                                                              bool deep = false)
     {
-        if(expression == nullptr)
+        if (expression == nullptr)
             return;
 
-        for(size_t index = 0, count = expression->expression_count(); index < count; index++)
+        for (size_t index = 0, count = expression->expression_count(); index < count; index++)
         {
             expression_t * exp = expression->expression_at(index);
             callback(exp);
 
-            if(deep)
+            if (deep)
                 each_expression(exp, callback, true);
         }
     }
@@ -7265,7 +7329,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             _region_t * region = __new_region<_region_t>(std::forward<args_t>(args) ...);
 
-            if(region->parent != nullptr)
+            if (region->parent != nullptr)
                 region->parent->append_xilx(new_obj<region_xilx_t>(region));
 
             return region;

@@ -83,7 +83,7 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
     template<typename _t>
     X_ALWAYS_INLINE bool __zero(size_t size, _t * p)
     {
-        switch(size)
+        switch (size)
         {
             #define __Case(_n)      case _n: __zero<_n>(p); return true;
 
@@ -103,7 +103,7 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
     // Sets memory zero.
     template<typename _t> void zero_memory(_t * p, size_t size)
     {
-        while(!__zero(size, p))
+        while (!__zero(size, p))
         {
             p    += __max_zero_size;
             size -= __max_zero_size;
@@ -137,7 +137,7 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
         size_t size = _alignf(length * element_size, sizeof(rt_stack_unit_t));
 
         void * obj;
-        if(dimension == 1)
+        if (dimension == 1)
         {
             const size_t extern_size = _alignf(
                 sizeof(rt_type_t *) + sizeof(array_length_t), sizeof(rt_stack_unit_t)
@@ -148,9 +148,9 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
             __set_object_type(obj, type);
             __set_array_length(obj, length);
         }
-        else if(dimension >= 2)
+        else if (dimension >= 2)
         {
-            for(const l_t * l = lengths + 1, * l_end = lengths + dimension; l < l_end; l++)
+            for (const l_t * l = lengths + 1, * l_end = lengths + dimension; l < l_end; l++)
             {
                 length *= *l;
             }
@@ -167,7 +167,7 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
             l_t * the_lengths = get_array_lengths(obj);
             l_t base = 1;
 
-            for(const l_t * l = lengths + dimension - 1, * l_end = lengths; l >= l_end; l--)
+            for (const l_t * l = lengths + dimension - 1, * l_end = lengths; l >= l_end; l--)
             {
                 *the_lengths = *l * base;
                 base = *the_lengths--;

@@ -30,10 +30,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define __CheckLimit(value, max_value, name)                        \
         do                                                              \
         {                                                               \
-            if(value > max_value)                                       \
+            if (value > max_value)                                      \
                 throw _ECF(overflow, _T("'%1%(%2%)' overlimit: '%3%' "),\
                         name, value, max_value);                        \
-        } while(false)
+        } while (false)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -44,23 +44,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define __SearchRet(mgr, entity)                                    \
         do                                                              \
         {                                                               \
-            if(entity == nullptr)                                       \
+            if (entity == nullptr)                                      \
                 return mgr.current_null();                              \
                                                                         \
             ref_t ref = mgr.search_ref(entity);                         \
-            if(ref != ref_t::null)                                      \
+            if (ref != ref_t::null)                                     \
                 return ref;                                             \
-        } while(false)
+        } while (false)
 
     // Checks if it's empty.
     // Raise exception if empty.
     #define __CheckEmptyV(element, value, element_name, field_name)     \
         do                                                              \
         {                                                               \
-            if(__is_empty_value(value))                                 \
+            if (__is_empty_value(value))                                \
                 throw _ED(__e_t::missing, _T("") element_name, element, \
                     _T("") field_name);                                 \
-        } while(false)
+        } while (false)
 
     // Checks empty.
     #define __CheckEmpty(element, field, element_name, field_name)      \
@@ -140,13 +140,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             mt->name  = __S(type->name);
 
-            if(type->decorate != nullptr)
+            if (type->decorate != nullptr)
                 mt->decorate = *type->decorate;
 
-            if(type->namespace_ != nullptr)
+            if (type->namespace_ != nullptr)
                 mt->namespace_ = __S(type->namespace_->full_name->sid);
 
-            if(type->host_type != nullptr)
+            if (type->host_type != nullptr)
                 __W->__commit_type(type->host_type);
 
             al::sort(type->methods, [](method_t * m1, method_t * m2) {
@@ -181,7 +181,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->generic_param_count = type->params_count();
 
             const mname_t * mname;
-            if(type->namespace_ && (mname = type->namespace_->full_name) != nullptr)
+            if (type->namespace_ && (mname = type->namespace_->full_name) != nullptr)
             {
                 mt->namespace_ = __S(mname->sid);
             }
@@ -223,7 +223,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->ptype = param->ptype;
 
             type_t * type = to_type(param->type_name);
-            switch(type->this_gtype())
+            switch (type->this_gtype())
             {
                 case gtype_t::generic_param: {
                     generic_param_t * p = (generic_param_t *)type;
@@ -242,7 +242,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             type_t * attr_type = to_type(attr->type_name);
             __CheckEmptyV(attr, attr_type, "attribute", "type");
 
-            if(attr_type->this_gtype() != gtype_t::general ||
+            if (attr_type->this_gtype() != gtype_t::general ||
                     ((general_type_t *)attr_type)->is_generic())
             {
                 throw _ED(__e_t::unexpected_attribute_type,
@@ -294,7 +294,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             mt->name = __S(method->name);
 
-            if(method->decorate)
+            if (method->decorate)
                 mt->decorate = *method->decorate;
 
             __CheckEmpty(method, name, "method", "name");
@@ -305,7 +305,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             type_t * method_type = to_type(method->type_name);
 
             typedef method_trait_t __t;
-            if(method_type == nullptr && !al::in(method->trait, __t::constructor,
+            if (method_type == nullptr && !al::in(method->trait, __t::constructor,
                                         __t::static_constructor, __t::destructor))
             __CheckEmptyV(method, method_type, "method", "type");
             mt->generic_params = __W->__commit_generic_params(method->generic_params);
@@ -363,7 +363,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Assigns property metadata.
         void __assign_mt(mt_property_t * mt, property_t * property)
         {
-            if(property->decorate)
+            if (property->decorate)
                 mt->decorate = *property->decorate;
 
             //__CheckEmpty(property, name, "property", "name"); property index has no name.
@@ -382,7 +382,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Assigns field metadata.
         void __assign_mt(mt_field_t * mt, field_t * field)
         {
-            if(field->decorate)
+            if (field->decorate)
                 mt->decorate = *field->decorate;
 
             __CheckEmpty(field, name, "field", "name");
@@ -399,7 +399,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Assigns event metadata.
         void __assign_mt(mt_event_t * mt, event_t * event)
         {
-            if(event->decorate)
+            if (event->decorate)
                 mt->decorate = *event->decorate;
 
             __CheckEmpty(event, name, "event", "name");
@@ -420,14 +420,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             type_t * type = to_type(type_def->type_name);
             __CheckEmptyV(type_def, type, "type_def", "type");
 
-            if(type_def->decorate != nullptr)
+            if (type_def->decorate != nullptr)
                 mt->decorate = *type_def->decorate;
 
             mt->params = __W->__commit_type_def_params(type_def->params);
             mt->type   = __W->__commit_type(type);
             mt->name   = __S(type_def->name);
 
-            if(type_def->namespace_ != nullptr)
+            if (type_def->namespace_ != nullptr)
                 mt->namespace_ = __S(type_def->namespace_->full_name->sid);
         }
 
@@ -531,11 +531,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __assign_mts()
         {
             // assign
-            while(__assign_queue.size() > 0)
+            while (__assign_queue.size() > 0)
             {
                 __assign_item_t & it = __assign_queue.front();
 
-                switch(it.tidx)
+                switch (it.tidx)
                 {
                     #define __AssignMtCase(tidx)                                        \
                         case __tidx_t::tidx:                                            \
@@ -606,7 +606,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             auto & mgr = __mt_manager<__tidx_t::assembly_ref>();
             assembly_reference_t * reference = this->__assembly.references.get_reference(assembly);
 
-            if(reference == nullptr)
+            if (reference == nullptr)
                 throw _ED(__e_t::assembly_reference_not_found, assembly->name);
 
             __SearchRet(mgr, reference);
@@ -622,7 +622,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits general types.
         ref_t __commit_general_type(general_type_t * type)
         {
-            if(type->assembly == &this->__assembly)
+            if (type->assembly == &this->__assembly)
                 return __commit_internal_general_type(type);
 
             return __commit_extern_general_type(type);
@@ -688,7 +688,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             auto & mgr = __mt_manager<__tidx_t::attribute>();
 
-            if(__size(attributes) == 0)
+            if (__size(attributes) == 0)
                 return mgr.current_null();
 
             return mgr.acquire(*attributes,
@@ -700,12 +700,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits attribute arguments.
         ref_t __commit_attribute_arguments(arguments_t * arguments, method_t * method)
         {
-            if(method->param_count() != __size(arguments))
+            if (method->param_count() != __size(arguments))
                 throw _ED(__e_t::mismatched_argument_count);
 
             auto & mgr = __mt_manager<__tidx_t::attribute_argument>();
 
-            if(arguments == nullptr || arguments->empty())
+            if (arguments == nullptr || arguments->empty())
                 return mgr.current_null();
 
             size_t param_index = 0;
@@ -772,7 +772,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             auto & mgr = __mt_manager<__tidx_t::type_def_param>();
 
-            if(__size(params) == 0)
+            if (__size(params) == 0)
                 return mgr.current_null();
 
             return mgr.acquire(*params,
@@ -790,10 +790,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits type.
         ref_t __commit_type(type_t * type)
         {
-            if(type == nullptr)
+            if (type == nullptr)
                 return ref_t::null;
 
-            switch(type->this_gtype())
+            switch (type->this_gtype())
             {
                 case gtype_t::general:
                     return __commit_general_type((general_type_t *)type);
@@ -832,11 +832,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             auto & mgr = __mt_manager<__tidx_t::nest_type>();
 
-            if(types.empty())
+            if (types.empty())
                 return mgr.current_null();
 
             return mgr.acquire(types, [this](ref_t ref0, type_t * type, mt_nest_type_t * mt) {
-                if(!__is_internal_type(type))
+                if (!__is_internal_type(type))
                     throw _ED(__e_t::write_unexpected_nest_type, _str(type));
                 __enque_assign(__tidx_t::nest_type, mt, type);
             });
@@ -848,7 +848,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             auto & mgr = __mt_manager<__tidx_t::super_type>();
 
-            if(type_names.empty())
+            if (type_names.empty())
                 return mgr.current_null();
 
             al::svector_t<type_t *> types;
@@ -871,7 +871,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                                                     mt_method_t * mt_method) {
                 __enque_assign(__tidx_t::method, mt_method, method);
 
-                if(method->body != nullptr)
+                if (method->body != nullptr)
                     __compile_elements.push_back(__compile_element_t { method, mt_method, ref0 });
             });
         }
@@ -879,21 +879,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commit method.
         ref_t __commit_method(method_t * method)
         {
-            if(method == nullptr)
+            if (method == nullptr)
                 return ref_t::null;
 
-            if(!this->__is_extern(method))
+            if (!this->__is_extern(method))
             {
                 auto & mgr = __mt_manager<__tidx_t::method>();
                 __SearchRet(mgr, method);
 
                 type_t * host_type = method->host_type;
-                if(method->this_family() == member_family_t::impl)
+                if (method->this_family() == member_family_t::impl)
                     return __commit_impl_method((impl_method_t *)method);
 
-                if(host_type != nullptr)
+                if (host_type != nullptr)
                 {
-                    switch(host_type->this_gtype())
+                    switch (host_type->this_gtype())
                     {
                         case gtype_t::general:
                             __commit_type(method->host_type);
@@ -922,7 +922,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             method_base_t * raw = impl_method->raw;
             _A(raw != nullptr);
 
-            if(raw->this_family() == member_family_t::impl)
+            if (raw->this_family() == member_family_t::impl)
                 return __raw_method_of((impl_method_t *)raw);
 
             return raw;
@@ -931,13 +931,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits impl method.
         ref_t __commit_impl_method(impl_method_t * impl_method)
         {
-            if(impl_method == nullptr)
+            if (impl_method == nullptr)
                 return ref_t::null;
 
             method_base_t * raw = __raw_method_of(impl_method);
             type_t * host = impl_method->host_type;
 
-            switch(raw->this_family())
+            switch (raw->this_family())
             {
                 case member_family_t::generic:
                     return __commit_generic_method((generic_method_t *)raw, host);
@@ -961,7 +961,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits generic method.
         ref_t __commit_generic_method(generic_method_t * method, type_t * host = nullptr)
         {
-            if(method == nullptr)
+            if (method == nullptr)
                 return __current_null<__tidx_t::generic_method>();
 
             auto & mgr = __mt_manager<__tidx_t::generic_method>();
@@ -978,7 +978,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits generic field.
         ref_t __commit_generic_field(impl_field_t * field)
         {
-            if(field == nullptr)
+            if (field == nullptr)
                 return __current_null<__tidx_t::generic_field>();
 
             auto & mgr = __mt_manager<__tidx_t::generic_field>();
@@ -995,7 +995,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits position field.
         ref_t __commit_position_field(position_field_t * field)
         {
-            if(field == nullptr)
+            if (field == nullptr)
                 return __current_null<__tidx_t::position_field>();
 
             auto & mgr = __mt_manager<__tidx_t::position_field>();
@@ -1024,7 +1024,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename _params_t>
         ref_t __commit_params(_params_t * params)
         {
-            if(params == nullptr)
+            if (params == nullptr)
                 return __current_null<__tidx_t::param>();
 
             return __commit_params(*params);
@@ -1077,7 +1077,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commit field.
         ref_t __commit_field(field_t * field)
         {
-            if(field == nullptr)
+            if (field == nullptr)
                 return ref_t::null;
 
             if (field->this_family() == member_family_t::impl)
@@ -1108,7 +1108,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits event.
         ref_t __commit_event(event_t * event)
         {
-            if(event == nullptr)
+            if (event == nullptr)
                 return ref_t::null;
 
             auto & mgr = __mt_manager<__tidx_t::event>();
@@ -1134,7 +1134,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits type def.
         ref_t __commit_type_def(type_def_t * type_def)
         {
-            if(type_def == nullptr)
+            if (type_def == nullptr)
                 return ref_t::null;
 
             auto & mgr = __mt_manager<__tidx_t::type_def>();
@@ -1153,7 +1153,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits constants.
         ref_t __commit_constant(expression_t * exp, type_t ** out_type)
         {
-            if(exp == nullptr)
+            if (exp == nullptr)
             {
                 al::assign_value(out_type, (type_t *)nullptr);
                 return __current_null<__tidx_t::constant>();
@@ -1162,7 +1162,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             expression_execute_context_t ctx(this->__xpool);
             cvalue_t value = exp->execute(ctx);
 
-            if(is_nan(value))
+            if (is_nan(value))
                 throw _ED(__e_t::unexpected_const_value, exp);
 
             return __commit_constant(value, out_type);
@@ -1174,7 +1174,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             auto & mgr = __mt_manager<__tidx_t::constant>();
             __SearchRet(mgr, value);
 
-            switch(value.value_type)
+            switch (value.value_type)
             {
                 case cvalue_type_t::number:
                     al::assign_value(out_type, this->__get_internal_type(value.number.type));
@@ -1201,10 +1201,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Checks whether two types are compatible.
         void __check_type_compatible(type_t * from, type_t * to)
         {
-            if(to == nullptr)
+            if (to == nullptr)
                 return;
 
-            if(!is_type_compatible(from, to))
+            if (!is_type_compatible(from, to))
                 throw _ED(__e_t::unexpected_const_type, from, to);
         }
 
@@ -1215,7 +1215,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             type_t * type;
             ref_t ref = __commit_constant(std::forward<value_t>(value), &type);
 
-            if(ref != ref_t::null)
+            if (ref != ref_t::null)
                 __check_type_compatible(type, expect_type);
 
             return ref;
@@ -1240,11 +1240,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             *(uint32_t *)c.data2 = (uint32_t)v;
             uint32_t v1 = (uint32_t)(v >> 32);
 
-            if(v1 <= max_value<uint16_t>())
+            if (v1 <= max_value<uint16_t>())
             {
                 *(uint16_t *)c.data1 = v1;
             }
-            else if((v1 = ~v1) <= max_value<uint16_t>())
+            else if ((v1 = ~v1) <= max_value<uint16_t>())
             {
                 c.constant_flag.cpl = true;
                 *(uint16_t *)c.data1 = v1;
@@ -1263,7 +1263,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             ref_t ref = mgr.append(value, &c);
             c->constant_type = (constant_type_t)(((int)cvalue_type_t::number << 5)
                                                     | (int)value.type);
-            switch(value.type)
+            switch (value.type)
             {
                 case value_type_t::int8_:
                     *(int8_t *)c->data2 = (int8_t)value;
@@ -1360,10 +1360,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // On load ref for specified entity.
         virtual ref_t on_load_ref(__tidx_t tidx, void * entity) override
         {
-            if(entity == nullptr)
+            if (entity == nullptr)
                 return ref_t::null;
 
-            switch(tidx)
+            switch (tidx)
             {
                 case __tidx_t::method_ref:
                     return __commit_method_ref((method_t *)entity);
@@ -1419,7 +1419,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             auto & mgr = __mt_manager<__tidx_t::method_ref_param>();
 
             params_t * params = method->params;
-            if(params == nullptr)
+            if (params == nullptr)
                 return mgr.current_null();
 
             return mgr.acquire(*params, [this](ref_t ref0, param_t * param,
@@ -1449,7 +1449,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Compiles methods.
         void __compile()
         {
-            for(__compile_element_t & e : __compile_elements)
+            for (__compile_element_t & e : __compile_elements)
             {
                 e.mt_method->body = __compile_method(e.method);
             }
@@ -1470,7 +1470,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             xil_buffer_writer_t writer(this->__xpool, buffer, method);
             writer.write(pool);
 
-            if(writer.empty())
+            if (writer.empty())
                 return res_t::null;
 
             const byte_t * bytes = buffer.bytes();
@@ -1506,7 +1506,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             // tables
             auto & table_mgr = __mt_manager<__tidx_t::table>();
             size_t offset = __table_size(__tidx_t::header) + __table_size(__tidx_t::table);
-            for(int index = __mttbl_count; index < (int)__tidx_t::__end__; index++)
+            for (int index = __mttbl_count; index < (int)__tidx_t::__end__; index++)
             {
                 mt_manager_object_t * mgr = __mt_manager(index);
                 size_t row_size = mgr->row_size(lv);
@@ -1530,7 +1530,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __write()
         {
             int table_count = this->value_of(__ln_t::table_count);
-            for(int index = 0; index < table_count; index++)
+            for (int index = 0; index < table_count; index++)
             {
                 mt_manager_object_t * mgr = __mt_manager(index);
                 mgr->write_to(this->__stream, lv);
@@ -1550,7 +1550,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     void assembly_write(xostream_t & stream, assembly_t & assembly, __lv_t lv, logger_t & logger,
                         method_compile_controller_t * controller)
     {
-        switch(lv)
+        switch (lv)
         {
             case 1:
                 __assembly_writer_t<1>(stream, assembly, logger, controller).write();

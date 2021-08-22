@@ -77,7 +77,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Reads bytes from resource.
         rt_bytes_t read_bytes(res_t res)
         {
-            if(res == res_t::null)
+            if (res == res_t::null)
                 return rt_bytes_t();
 
             size_t length;
@@ -103,7 +103,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_general_type_t * get_type(rt_sid_t ns, rt_sid_t name, int generic_param_count)
         {
             auto it = __general_type_map.find(__general_type_key_t(ns, name, generic_param_count));
-            if(it == __general_type_map.end())
+            if (it == __general_type_map.end())
                 return nullptr;
 
             return __entity_at<__tidx_t::type>(*it);
@@ -113,16 +113,16 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         template<typename itor_t, typename cmp_t>
         bool __binary_find(itor_t begin, itor_t end, itor_t * out_r, cmp_t f)
         {
-            if(begin == end)
+            if (begin == end)
                 return false;
 
             itor_t it = begin + (end - begin) / 2;
             auto r = f(**it);
 
-            if(r < 0)
+            if (r < 0)
                 return __binary_find(begin, it, out_r, f);
 
-            if(r > 0)
+            if (r > 0)
                 return __binary_find(it + 1, end, out_r, f);
 
             al::assign_value(out_r, it);
@@ -151,7 +151,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             typedef rt_mt_t<__tidx_t::type> mt_t;
             auto it = binary_find(type_mgr, f);
 
-            if(it == type_mgr.end())
+            if (it == type_mgr.end())
                 return nullptr;
 
             ref_t ref(it - type_mgr.begin());
@@ -205,7 +205,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Initialize metadata items.
         void __init_mt_items()
         {
-            for(__mt_item_t * it = __mt_items, * it_end = it + X_ARRAY_SIZE(__mt_items);
+            for (__mt_item_t * it = __mt_items, * it_end = it + X_ARRAY_SIZE(__mt_items);
                 it < it_end; it++)
             {
                 it->mt_ptr = nullptr;
@@ -253,9 +253,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         {
             typedef __entity_t<tidx> entity_t;
 
-            if(sizeof ... (args) == 0)
+            if (sizeof ... (args) == 0)
             {
-                if(mt.rt_object == nullptr)
+                if (mt.rt_object == nullptr)
                     mt.rt_object = rt_mt_t<tidx>::new_entity(__ctx, ref, &mt, &__assembly);
 
                 return mt.rt_object;
@@ -270,7 +270,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         template<__tidx_t tidx, typename ... _args_t>
         __entity_t<tidx> * __entity_at(ref_t ref, _args_t && ... args)
         {
-            if(ref == ref_t::null)
+            if (ref == ref_t::null)
                 return nullptr;
 
             return __entity_at<tidx>(ref.index, std::forward<_args_t>(args) ...);
@@ -280,7 +280,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         template<__tidx_t tidx> rt_mt_t<tidx> & __metadata_at(int index)
         {
             auto & mgr = __mt_manager<tidx>();
-            if(index >= mgr.count())
+            if (index >= mgr.count())
             {
                 throw __FormatError(_F(_T("'%1%:%2%' ref index '%3%' overflow"),
                     __assembly_name(), tidx, index
@@ -296,10 +296,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         void __read_assembly()
         {
             auto & assembly_mgr = __mt_manager<__tidx_t::assembly>();
-            if(assembly_mgr.count() == 0)
+            if (assembly_mgr.count() == 0)
                 throw __FormatError(_T("no assembly information"));
 
-            if(assembly_mgr.count() >= 2)
+            if (assembly_mgr.count() >= 2)
                 throw __FormatError(_T("multiply assembly information"));
 
             rt_mt_t<__tidx_t::assembly> & mt_assembly = assembly_mgr[0];
@@ -317,7 +317,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             auto & type_mgr = __mt_manager<__tidx_t::type>();
             __general_type_map.init(type_mgr.count());
 
-            for(int index = 0, end = index + type_mgr.count(); index < end; index++)
+            for (int index = 0, end = index + type_mgr.count(); index < end; index++)
             {
                 rt_mt_t<__tidx_t::type> & mt = type_mgr[index];
                 __general_type_map.append(__general_type_key_t(
@@ -614,7 +614,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual rt_general_type_t * get_host_by_nest_type_ref(ref_t nest_type_ref) override
         {
             auto it = __nest_type_map.find(nest_type_ref);
-            if(it == __nest_type_map.end())
+            if (it == __nest_type_map.end())
                 return nullptr;
 
             rt_general_type_t * t = __loader.search_host([index=*it](
@@ -652,7 +652,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             __nest_type_map.init(nest_type_mgr.count());
 
-            for(int index = 0, end = index + nest_type_mgr.count(); index < end; index++)
+            for (int index = 0, end = index + nest_type_mgr.count(); index < end; index++)
             {
                 rt_mt_t<__tidx_t::nest_type> & mt = nest_type_mgr[index];
                 __nest_type_map.append(mt.type, index);
@@ -715,7 +715,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         rt_assembly_t * assembly;
 
-        switch(guide.layout)
+        switch (guide.layout)
         {
             case 1:
                 assembly = __load_rt_assembly<1>(ctx, stream);
@@ -741,7 +741,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     rt_assembly_t * load_assembly(rt_context_t & ctx, const string_t & path,
             const string_t & package, const string_t & name)
     {
-        if(package.empty())
+        if (package.empty())
         {
             return load_assembly(ctx,
                 _F(_T("%1%/%2%.%3%"), path, name, JC_ASSEMBLY_EXT)

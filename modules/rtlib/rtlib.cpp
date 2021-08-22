@@ -73,6 +73,10 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 			__append_libfunc(_T("Tuple_SetRange"), tuple_set_range);
 			__append_libfunc(_T("Tuple_Get"), tuple_get);
 			__append_libfunc(_T("Tuple_GetCount"), tuple_get_count);
+
+			// Reflection functions.
+			__append_libfunc(_T("Reflection_GetType"), reflection_get_type);
+			__append_libfunc(_T("Reflection_GetTypeName"), reflection_get_type_name);
         }
     };
 

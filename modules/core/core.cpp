@@ -546,14 +546,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Commits it.
     void attribute_t::commit(eobject_commit_context_t & ctx)
     {
-        general_type_t * type;
+		type_impl_t * impl = __get_impl();
 
-        if (type_name && (type = as<general_type_t *>(type_name->type))
-            && type->impl != nullptr)
-        {
-            type->impl->commit(ctx, this->bind_object);
-        }
+		if (impl != nullptr)
+			impl->commit(ctx, this->bind_object);
     }
+
+	type_impl_t * attribute_t::__get_impl()
+	{
+		general_type_t * type;
+
+        if (type_name && (type = as<general_type_t *>(type_name->type)))
+			return type->impl;
+
+		return nullptr;
+	}
 
     // Converts to string.
     X_DEFINE_TO_STRING(attribute_t)
@@ -2154,8 +2161,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // E.g. int32 -> int64. System.String -> System.Object.
     bool is_type_compatible(type_t * from, type_t * to)
     {
+		_A(from != nullptr);
+		_A(to != nullptr);
+
         if (from == to)
             return true;
+
+		if (from->this_gtype() == gtype_t::null)
+			return __is_mobject(from) || from->this_gtype() == gtype_t::null;
+
+		if (to->this_gtype() == gtype_t::null)
+			return __is_mobject(to) || from->this_gtype() == gtype_t::null;
 
         if (__is_mobject(from) || __is_mobject(to))
             return is_super_type(from, to);
@@ -3048,18 +3064,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             for (int index = 0, size = params->size(); index < size; index++)
             {
+				if (index > 0)
+					ss << _T(",");
+
 				generic_param_t * param = (*params)[index];
 				if (param->param_type == gpt_t::params)
-				{
-					if (index > 0 && (*params)[index - 1]->param_type == gpt_t::params)
-						ss << _T(",");
-
 					ss << _T("...");
-				}
-				else if (index > 0)
-				{
-	                ss << _T(",");
-				}
             }
 
             ss << _T(">");
@@ -3983,6 +3993,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 		return __get_vtype(event->type_name);
 	}
 
+    //-------- ---------- ---------- ---------- ----------
+
+	// Returns type of the method.
+	type_t * method_variable_t::get_type(xpool_t & xpool)
+	{
+		return to_type(method->type_name);
+	}
+
+	// Returns vtype.
+	vtype_t method_variable_t::get_vtype()
+	{
+		return __get_vtype(method->type_name);
+	}
+
+    // Converts event variable to a string.
+    X_DEFINE_TO_STRING(method_variable_t)
+    {
+        return _str(method);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // xpool_t
 
@@ -3998,7 +4028,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Initialize.
     void xpool_t::initialize()
     {
-
+		// Do nothing.
     }
 
     // Creates a new generic type.
@@ -4150,6 +4180,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return &__object_type_name;
     }
 
+	// Returns System.Void type.
+	general_type_t * xpool_t::get_void_type()
+	{
+		return __get_specified_type(__CoreTypeName(CoreType_Void), __void_type);
+	}
+
     // Returns System.Array<> type.
     general_type_t * xpool_t::get_tarray_type()
     {
@@ -4177,8 +4213,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns System.Ptr type.
     general_type_t * xpool_t::get_ptr_type()
     {
-        return __get_specified_type(__CoreTypeName(CoreType_Ptr), __type_type);
+        return __get_specified_type(__CoreTypeName(CoreType_Ptr), __ptr_type);
     }
+
+	// Returns System.Delegate type.
+	general_type_t * xpool_t::get_delegate_type()
+	{
+		return __get_specified_type(__CoreTypeName(CoreType_Delegate), __delegate_type);
+	}
+
+	// Returns System.MulticastDelegate type.
+	general_type_t * xpool_t::get_multicast_delegate_type()
+	{
+		return __get_specified_type(__CoreTypeName(CoreType_MulticastDelegate),
+			__multicast_delegate_type
+		);
+	}
 
     // Returns System.Exception type.
     general_type_t * xpool_t::get_exception_type()
@@ -4354,21 +4404,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Creates a new variable.
-    template<typename _variable_t, typename ... args_t>
-    _variable_t * variable_region_t::__new_variable(args_t && ... args)
+    template<typename _variable_t, typename ... _args_t>
+    _variable_t * variable_region_t::__new_variable(_args_t && ... args)
     {
         _variable_t * variable = memory_t::new_obj<_variable_t>(
-            __memory, std::forward<args_t>(args) ...
+            __memory, std::forward<_args_t>(args) ...
         );
 
         return variable;
     }
 
     // Defines a new variable.
-    template<typename _variable_t, typename ... args_t>
-    _variable_t * variable_region_t::__define(args_t && ... args)
+    template<typename _variable_t, typename ... _args_t>
+    _variable_t * variable_region_t::__define(_args_t && ... args)
     {
-        _variable_t * variable = __new_variable<_variable_t>(std::forward<args_t>(args) ...);
+        _variable_t * variable = __new_variable<_variable_t>(std::forward<_args_t>(args) ...);
         name_t name = variable->get_name();
 
         _A(name != name_t::null);
@@ -4658,10 +4708,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        template<typename ... args_t>
+        template<typename ... _args_t>
         __x_ast_walk_context_layer_t(__context_t & context, __layer_t * previous,
-                                        __obj_t * obj, args_t && ... args)
-            : __super_t(context, previous, obj, std::forward<args_t>(args) ...), __obj(obj)
+                                        __obj_t * obj, _args_t && ... args)
+            : __super_t(context, previous, obj, std::forward<_args_t>(args) ...), __obj(obj)
         { }
 
         // Gets the eobject of specified layer state.
@@ -5873,8 +5923,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return e2 != nullptr? e2->get_type(xpool) : nullptr;
             }   break;
 
-            default:
-                return nullptr;
+            default: {
+				vtype_t vtype = get_vtype();
+				return xpool.get_internal_type(vtype);
+			}	break;
         }
     }
 

@@ -241,30 +241,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Rt object.
     class rt_object_t
     {
-
+		// Empty.
     };
-
-    /*
-    public:
-        rt_object_t() : __value__(0) { }
-
-        union
-        {
-            struct
-            {
-                bool        external : 1;
-                bool        fixed    : 1;
-                bool        static_  : 1;
-
-                byte_t      gc_version;
-                byte_t      sync_lock;
-                byte_t      no_use;
-            };
-
-            uint32_t __value__;
-        };
-    };
-    */
     
     //-------- ---------- ---------- ---------- ----------
 

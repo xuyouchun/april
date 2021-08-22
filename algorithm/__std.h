@@ -315,6 +315,20 @@ namespace X_ROOT_NS { namespace algorithm {
         std::copy(std::begin(container), std::end(container), inserter);
     }
 
+    // Copies the elements in the container into the range begining at inserter.
+    template<typename container_t, typename inserter_t>
+    void copy(const container_t & container, inserter_t inserter, size_t from)
+    {
+        std::copy(std::begin(container) + from, std::end(container), inserter);
+    }
+
+    // Copies the elements in the container into the range begining at inserter.
+    template<typename container_t, typename inserter_t>
+    void copy(const container_t & container, inserter_t inserter, size_t from, size_t length)
+    {
+        std::copy(std::begin(container) + from, std::begin(container) + (from + length), inserter);
+    }
+
     // Applies an operation sequentially to the elements in the container.
     //  and stores the result into the range that begins at inserter.
     template<typename container_t, typename inserter_t, typename operation_t>

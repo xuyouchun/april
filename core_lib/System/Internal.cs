@@ -113,6 +113,14 @@ internal static class Internal
 	[__internal__]
 	public static extern Void Console_WriteDoubleLine(Double value);
 
+
+	// Reflection
+
+	[__internal__]
+	public static extern Type Reflection_GetType(Object obj);
+
+	[__internal__]
+	public static extern String Reflection_GetTypeName(Object obj);
 }
 
 

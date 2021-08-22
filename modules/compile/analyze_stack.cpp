@@ -57,10 +57,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns whether two elements are equals.
     bool analyze_stack_element_t::operator == (const analyze_stack_element_t & other) const
     {
-        if(type != other.type)
+        if (type != other.type)
             return false;
 
-        switch(type)
+        switch (type)
         {
             case analyze_stack_element_type_t::token:
                 return token == other.token;
@@ -85,7 +85,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Converts to a string.
     analyze_stack_element_t::operator string_t() const
     {
-        switch(type)
+        switch (type)
         {
             case analyze_stack_element_type_t::token:
                 return (string_t)*token;
@@ -120,7 +120,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                             token_value_t value)
     {
         const operator_property_t * property = __service_helper.get_operator_property(value);
-        if(property != nullptr && is_system_operator(property->op))
+        if (property != nullptr && is_system_operator(property->op))
             property = get_system_operator_property(property->op);
 
         int arity = property->arity, adhere = property->adhere;
@@ -141,7 +141,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __expression_t ** expressions = args.expressions;
 
-        switch(property->arity)
+        switch (property->arity)
         {
             case 1:
                 return __context->to_exp(
@@ -165,12 +165,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __expression_t * analyze_stack_t::analyze()
     {
         __stack_element_t element;
-        while((element = __elements->read_next()) != __stack_element_t::end)
+        while ((element = __elements->read_next()) != __stack_element_t::end)
         {
-            switch(element.type)
+            switch (element.type)
             {
                 case analyze_stack_element_type_t::token:
-                    if(element.token->value == __end_token_value)
+                    if (element.token->value == __end_token_value)
                         goto __end;
                     __push_token(element.token);
                     break;
@@ -195,7 +195,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
     __end:
-        if(__end_token_value != __no_end_token_value && element == __stack_element_t::end)
+        if (__end_token_value != __no_end_token_value && element == __stack_element_t::end)
         {
             token_value_t value = __context->
                     get_expression_box_property(__end_token_value)->pair_to;
@@ -211,11 +211,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(token != nullptr);
 
-        if(__context->is_operator(token->value))
+        if (__context->is_operator(token->value))
         {
             __push_operator(token);
         }
-        else if(__context->is_expression_box(token->value))
+        else if (__context->is_expression_box(token->value))
         {
             __push_expression_box(token);
         }
@@ -225,7 +225,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             lang_expression_build_args_t args(token, nullptr, nullptr, 0);
             __expression_t * expression = __context->build_expression(ctx, args);
 
-            if(expression == nullptr)
+            if (expression == nullptr)
                 throw _E(e_t::unknown_token, _F(_T("unknown token \"%1%\""), _str(token)));
 
             __push_expression(expression);
@@ -251,16 +251,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Pushes an operator.
     void analyze_stack_t::__push_operator(const operator_property_t * property, token_t * token)
     {
-        if(property->adhere > property->arity)
+        if (property->adhere > property->arity)
             throw _Ef(adhere_overflow, (string_t)*token);
 
         int left_placeholder = property->adhere;
-        if(left_placeholder > __exp_stack.size())
+        if (left_placeholder > __exp_stack.size())
             throw _Ef(format_error, (string_t)*token);
 
         int right_placeholder = property->arity - left_placeholder;
 
-        if(__right_placeholder > 0 && left_placeholder > 0)
+        if (__right_placeholder > 0 && left_placeholder > 0)
             throw _Ef(format_error, (string_t)*token);
 
         __combine_expressions(property->priority);
@@ -272,7 +272,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Combines expressions.
     void analyze_stack_t::__combine_expressions(operator_priority_t until_priority)
     {
-        while(!__op_stack.empty() && __low_privilege(until_priority,
+        while (!__op_stack.empty() && __low_privilege(until_priority,
                 __context->get_priority(__op_stack.top().token->value)))
         {
             __op_t top_op = __op_stack.pop_back();
@@ -288,11 +288,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns top operator property.
     const operator_property_t * analyze_stack_t::__top_op_property()
     {
-        if(__op_stack.empty())
+        if (__op_stack.empty())
             return nullptr;
 
         __op_t op = __op_stack.top();
-        if(op.op_property != nullptr)
+        if (op.op_property != nullptr)
             return op.op_property;
 
         return __context->get_operator_property(op.token->value);
@@ -308,17 +308,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         expression_t * exps[2];
         expression_t ** p_exp = (expression_t **)exps + arity - 1;
 
-        if(arity > adhere)
+        if (arity > adhere)
             *p_exp-- = __pop_expression();
 
-        if(p_exp < exps)
+        if (p_exp < exps)
             return __combine_expression(property, token, (expression_t **)exps);
 
         const operator_property_t * top_property = __top_op_property();
 
-        if(top_property != nullptr)
+        if (top_property != nullptr)
         {
-            if(property->parent_op == top_property->op)
+            if (property->parent_op == top_property->op)
             {
                 *p_exp = __pop_expression();
                 __push_expression(
@@ -328,25 +328,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return __combine_expressions(top_property, __op_stack.pop_back().token);
             }
 
-            if(property->parent_op != operator_t::__default__)
+            if (property->parent_op != operator_t::__default__)
             {
-                for(; ; __push_expression(*p_exp))
+                for (; ; __push_expression(*p_exp))
                 {
                     token_t * token = __op_stack.pop_back().token;
                     *p_exp = __combine_expressions(top_property, token);
 
                     top_property = __top_op_property();
-                    if(top_property == nullptr)
+                    if (top_property == nullptr)
                         throw _Ef(format_error, (string_t)*token);
 
-                    if(top_property->op == property->parent_op)
+                    if (top_property->op == property->parent_op)
                         break;
                 }
 
                 return __combine_expression(property, token, (expression_t **)exps);
             }
 
-            if(!__high_privilege(priority, top_property->priority) && 
+            if (!__high_privilege(priority, top_property->priority) && 
                 top_property->direct != operator_direct_t::right_to_left)
             {
                 *p_exp = __combine_expressions(top_property, __op_stack.pop_back().token);
@@ -366,10 +366,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         lang_expression_build_args_t args(token, property, expressions, property->arity);
         __expression_t * expression = __context->build_expression(ctx, args);
 
-        if(expression == nullptr)
+        if (expression == nullptr)
             expression = ctx.create_default_expression(args);
 
-        if(!__op_stack.empty())
+        if (!__op_stack.empty())
             __right_placeholder = __get_right_placeholder(__op_stack.top().token);
 
         return expression;
@@ -381,7 +381,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const operator_property_t * property = __context->get_operator_property(token->value);
         int right_placeholder = property->arity - property->adhere;
 
-        if(right_placeholder < 0)
+        if (right_placeholder < 0)
             throw _Ef(adhere_overflow, (string_t)*token);
 
         return right_placeholder;
@@ -399,7 +399,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const expression_box_property_t * property
                                     = __context->get_expression_box_property(token->value);
 
-        if(property->side != expression_box_side_t::left)
+        if (property->side != expression_box_side_t::left)
             throw _Ef(format_error, (string_t)*token);
 
         analyze_stack_t stack(__context, __elements, property->pair_to, __deep + 1);
@@ -413,7 +413,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         //_PF(_T("push expression: %1%"), expression);
         _A(expression != nullptr);
 
-        if(!__op_stack.empty() && __right_placeholder <= 0)
+        if (!__op_stack.empty() && __right_placeholder <= 0)
             throw _Ef(format_error, expression->to_string());
 
         __right_placeholder--;
@@ -423,7 +423,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Pop expressions.
     expression_t * analyze_stack_t::__pop_expression()
     {
-        if(__exp_stack.empty())
+        if (__exp_stack.empty())
             throw _E(e_t::format_error, _T("format error"));
 
         return __exp_stack.pop_back().exp;

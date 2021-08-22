@@ -140,6 +140,10 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 	__DefineFunc(tuple_get);
 	__DefineFunc(tuple_get_count);
 
+	// Reflection functions.
+	__DefineFunc(reflection_get_type);
+	__DefineFunc(reflection_get_type_name);
+
     ////////// ////////// ////////// ////////// //////////
 
 } } }

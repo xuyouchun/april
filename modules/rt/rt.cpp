@@ -121,7 +121,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // rt_string_t
 
     // Compare two strings.
-    int rt_string_t::compare (const rt_string_t & str) const
+    int rt_string_t::compare(const rt_string_t & str) const
     {
         if (__reference_equals(str))
             return true;

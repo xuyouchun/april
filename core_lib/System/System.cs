@@ -4,6 +4,8 @@
  *
  */
 
+using Reflection;
+
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
@@ -12,36 +14,88 @@ public class Object
     // Returns the object type.
     public Type GetType()
     {
-        return new Type();
+        return Internal.Reflection_GetType(this);
     }
 
     // Converts to string.
     public String ToString()
     {
-        return "Object";
-        //return GetType().ToString();
+        return GetType().Name;
     }
 };
+
 
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-public class Type
+public sealed class Type
 {
-    // Converts to string.
-    public String ToString()
-    {
-        return "Type";
-    }
+	public String Name
+	{
+		get { return Internal.Reflection_GetTypeName(this); }
+	}
+
+	public Array<Field> GetFields()
+	{
+		return new Array<Field>(10);
+	}
+
+	public Field GetField(String name)
+	{
+		return null;
+	}
+
+	public Array<Method> GetMethods()
+	{
+		return new Array<Method>(10);
+	}
+
+	public Array<Method> GetMethods(String name)
+	{
+		return new Array<Method>(10);
+	}
+
+	public Method GetMethod(String name, Array<Type> parameterTypes)
+	{
+		return null;
+	}
+
+	public Array<Property> GetProperties()
+	{
+		return new Array<Property>(10);
+	}
+
+	public Property GetProperty(String name)
+	{
+		return null;
+	}
+
+	public Array<Event> GetEvents()
+	{
+		return new Array<Event>(10);
+	}
+
+	public Event GetEvent(String name)
+	{
+		return null;
+	}
+
+	public Array<GenericParameter> GetGenericParameters()
+	{
+		return new Array<GenericParameter>(10);
+	}
+
+	public Assembly Assembly
+	{
+		get { return null; }
+	}
+
+	// Converts to string.
+	public String ToString()
+	{
+		return "Type";
+	}
 };
-
-////////// ////////// ////////// ////////// //////////
-
-[__internal__]
-public class Attribute
-{
-
-}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -67,7 +121,10 @@ public class Array : Object
 [__internal__]
 public class Array<T> : Array
 {
-
+	public Array(Int32 length)
+	{
+		
+	}
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -92,99 +149,74 @@ public class Tuple<TItems ...> : ITuple<TItems ...>
 		Internal.Tuple_SetRange(this, items);
 	}
 
-	/*
-	public Object Get(Int32 index)
-	{
-		return Internal.Object_FromPtr(
-			Internal.Tuple_Get(this, index)
-		);
-	}
-
-	public T Get<T>(Int32 index)
-	{
-		return (T)Internal.Tuple_Get(this, index);
-	}
-	*/
-
 	public Int32 Count { get { return Internal.Tuple_GetCount(this); } }
-
 };
 
 ////////// ////////// ////////// ////////// //////////
 
-[__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
-public class AttributeUsageAttribute : Attribute
+[__internal__]
+public class Enum
 {
-
-}
-
-////////// ////////// ////////// ////////// //////////
-
-// Core Compile Attribute
-class __955825bf_d13a_4d1c_90d5_478e62ceaab6__
-{
-
+	
 };
 
-[__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
-class __internal__ : Attribute
-{
-
-}
-
 ////////// ////////// ////////// ////////// //////////
 
-[__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
-public class InlineAttribute : Attribute
+
+// IDelegate
+[__internal__]
+public interface IDelegate
+{
+	Object Invoke(Array<Object> arguments);
+};
+
+// Delegate<TReturn, TArgs ...>
+[__internal__]
+public struct Delegate<TReturn, TArgs ...> : IDelegate
 {
     // Constructor.
-    public InlineAttribute()
+    public Delegate(Object instance, Method method)
     {
-
+        __instance = instance;
+		__method = method;
     }
 
-    // Constructor.
-    public InlineAttribute(Boolean value)
-    {
+	private readonly Object __instance;
 
-    }
-}
+	public Object Instance
+	{
+		get { return __instance; }
+	}
 
-////////// ////////// ////////// ////////// //////////
+	private readonly Method __method;
 
-[__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
-public class EntryPointAttribute
-{
+	public Method Method
+	{
+		get { return __method; }
+	}
 
-};
-
-////////// ////////// ////////// ////////// //////////
-
-
-// Delegate.
-public class Delegate
-{
-
-};
-
-// Delegate.
-public class Delegate<TReturn, TArgs ...> : Delegate
-{
-    // Constructor.
-    public Delegate()
-    {
-        
-    }
-
-    public TReturn Invoke(TArgs a)
+    public TReturn Invoke(TArgs ... args)
     {
         return default(TReturn);
     }
 };
 
+// MulticastDelegate<TReturn, TArgs ...>
+[__internal__]
+public sealed class MulticastDelegate<TReturn, TArgs ...> : IDelegate
+{
+	private readonly Array<Delegate<TReturn, TArgs ...> > __delegates;
+
+	public TReturn Invoke(TArgs ... args)
+	{
+		return default(TReturn);
+	}
+};
+
 ////////// ////////// ////////// ////////// //////////
 
 // Exception.
+[__internal__]
 public class Exception
 {
     // Default constructor.
@@ -225,6 +257,7 @@ public class Exception
 ////////// ////////// ////////// ////////// //////////
 
 // NullException.
+[__internal__]
 public class NullReferenceException : Exception
 {
     // Default constructor.

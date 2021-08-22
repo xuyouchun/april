@@ -183,7 +183,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             lang_service_helper_t h(lang);
             const operator_property_t * property = h.get_operator_property(op_token->value);
-            if(property != nullptr && property->adhere > 0)
+            if (property != nullptr && property->adhere > 0)
             {
                 return sprintf(_T("%1%%2%"), _str(expression_at(0)), (string_t)*op_token);
             }
@@ -345,7 +345,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename ret_t, typename value_t>
         ret_t __check_ret(ret_t ret, __e_t error, value_t value)
         {
-            if(ret == nullptr)
+            if (ret == nullptr)
                 throw _E(error, sprintf(_title(error), value));
 
             return ret;
@@ -440,7 +440,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             t pop_back()
             {
-                if(this->size() > 0)
+                if (this->size() > 0)
                 {
                     t top = this->top();
                     this->pop();
@@ -535,7 +535,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // Read next element.
             virtual __stack_element_t read_next() override
             {
-                if(__cur != __end)
+                if (__cur != __end)
                 {
                     return *__cur++;
                 }
@@ -556,7 +556,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(lang != nullptr);
 
-        if(begin == end)
+        if (begin == end)
             return nullptr;
 
         analyze_stack_context_t context(memory, lang);

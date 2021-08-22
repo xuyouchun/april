@@ -8,29 +8,38 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-		Tuple<long, int, short> tuple = new Tuple<long, int, short>(123, 456, 789);
-		// Tuple<int, int, int> tuple = new Tuple<int, int, int>(100, 200, 300);
+		MyClass obj = new MyClass();
 
-		Console.WriteLine(tuple.Item1 + tuple.Item2 + tuple.Item3);
+		System.Delegate<int, int, int, int, int> func;
+		func = obj.Add;
+
+		// int sum = obj.Add(3, 2) + obj.Sub(9, 1);
+		int sum = func(2, 3);
+		Console.WriteLine(sum);
     }
-
-    typedef System.Delegate<int, TArgs ...> Proc<TArgs ...>;
 };
 
 
 class MyClass
 {
-	public MyClass(int a)
+	public int Add(int a, int b)
 	{
-		// __a = a;
+		return a + b;
 	}
 
-	private int __a;
-
-	public void Print()
+	public int Add(int a, int b, int c)
 	{
-		// Console.Write(__a);
-		// Console.WriteLine();
+		return a + b + c;
+	}
+
+	public int Add(int a, int b, int c, int d)
+	{
+		return a + b + c + d;
+	}
+
+	public int Sub(int a, int b)
+	{
+		return a - b;
 	}
 }
 

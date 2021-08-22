@@ -435,7 +435,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walk this node.
     void __module_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __super_t::on_walk(context, step, tag);
@@ -504,7 +504,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns this eobject.
     expression_t * expressions_ast_node_t::to_eobject()
     {
-        if(__expressions.expression_count() == 1)
+        if (__expressions.expression_count() == 1)
         {
             expression_t * exp = __expressions.expression_at(0);
             return exp->parent = nullptr, exp;
@@ -558,7 +558,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Converts to string.
     type_name_unit_t::operator string_t() const
     {
-        if(args == nullptr)
+        if (args == nullptr)
             return _str(name);
 
         return _F(_T("%1%<%2%>"), _str(name), _str(args));
@@ -579,12 +579,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ss << _str(element_type_name) << _T("[");
 
         int index = 0;
-        for(expression_t * exp : dimensions)
+        for (expression_t * exp : dimensions)
         {
-            if(index++ > 0)
+            if (index++ > 0)
                 ss << _T(",");
 
-            if(exp != 0)
+            if (exp != 0)
                 ss << _str(exp);
         }
 
@@ -723,7 +723,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void array_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 this->__check_empty(__type_name.element_type_name, this,
@@ -745,7 +745,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         array_type_name_t * type_name = &__type_name;
 
-        if(type_name->element_type_name != nullptr && type_name->type == nullptr)
+        if (type_name->element_type_name != nullptr && type_name->type == nullptr)
         {
             type_name->type = __ascertain_type(context, type_name);
         }
@@ -859,7 +859,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const mname_t * ns = ns_to_full_name(context.current_namespace());
 
         type_def_t * type_def = to_eobject();
-        if(!context.assembly.types.append_type_def(to_sid(ns), type_def))
+        if (!context.assembly.types.append_type_def(to_sid(ns), type_def))
             this->__log(this, __c_t::type_def_defination_duplicate, type_def);
 
         __super_t::on_walk(context, step, tag);
@@ -925,9 +925,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->__check_empty(__argument.expression, this, __c_t::argument_missing);
 
         typedef param_type_t t;
-        if(__argument.atype == t::ref || __argument.atype == t::out)
+        if (__argument.atype == t::ref || __argument.atype == t::out)
         {
-            if(__argument.expression != nullptr
+            if (__argument.expression != nullptr
                     && __argument.expression->this_family() != expression_family_t::name)
             {
                 this->__log(this, __c_t::argument_type_error, _title(__argument.atype));
@@ -980,7 +980,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Sets value.
     void cvalue_ast_node_t::set_value(const token_data_t & data)
     {
-        switch(data.value_type)
+        switch (data.value_type)
         {
             case cvalue_type_t::number:
                 set_value(cvalue_t(*(tvalue_t *)data.value));
@@ -1149,7 +1149,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void method_body_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __super_t::on_walk(context, step, tag);
@@ -1176,12 +1176,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // method_t * method = context.current_method();
         // _PF(_T("%1%: %2%"), method, _eflags(exit_type));
 
-        if(exit_type.has(__exit_type_t::pass) || exit_type == __exit_type_t::none)
+        if (exit_type.has(__exit_type_t::pass) || exit_type == __exit_type_t::none)
         {
             method_t * method = context.current_method();
             _A(method != nullptr);
 
-            if(method->type_name == nullptr || is_void_type(method->type_name->type))
+            if (method->type_name == nullptr || is_void_type(method->type_name->type))
             {
                 __body.push_back(__new_obj<return_statement_t>());
             }
@@ -1247,17 +1247,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void expression_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
-                if(is_top_expression(__expression))
+                if (is_top_expression(__expression))
                     this->__delay(context, walk_step_t::analysis);
                 __super_t::on_walk(context, step, tag);
                 break;
 
             case walk_step_t::analysis: {
                 expression_t * exp = this->to_eobject();
-                if(!exp->walked)
+                if (!exp->walked)
                     walk_expression(this->__context, context, exp);
             }   break;
 
@@ -1271,7 +1271,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Commits this node.
     void statement_ast_node_t::on_commit()
     {
-        if(this->child_at(underlying) == nullptr)
+        if (this->child_at(underlying) == nullptr)
             this->__log(this, __c_t::statement_missing);
     }
 
@@ -1314,14 +1314,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         import_t * import = to_eobject();
 
-        if(!__import.assembly)
+        if (!__import.assembly)
         {
             this->__log(this, __c_t::assembly_name_missing);
         }
         else
         {
             document_t * document = context.current_document();
-            if(document == nullptr)
+            if (document == nullptr)
             {
                 this->__log(this, __c_t::unexpected_import, _str(import));
             }
@@ -1330,7 +1330,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 #define __LogAssembly(code) \
                     this->__log(this, __c_t::code, _str(import->assembly))
                     
-                if(!import->package && context.assembly.name == to_mname(import->assembly))
+                if (!import->package && context.assembly.name == to_mname(import->assembly))
                 {
                     __LogAssembly(assembly_reference_itself);
                 }
@@ -1351,7 +1351,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     }
                     catch(const logic_error_t<compile_error_code_t> & e)
                     {
-                        switch(e.code)
+                        switch (e.code)
                         {
                             case compile_error_code_t::assembly_circular_reference:
                                 __LogAssembly(assembly_circular_reference);
@@ -1399,14 +1399,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void using_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        if(!__using_namespace.ns)
+        if (!__using_namespace.ns)
         {
             this->__log(this, __c_t::namespace_name_missing);
         }
         else
         {
             document_t * document = context.current_document();
-            if(document == nullptr)
+            if (document == nullptr)
             {
                 this->__log(this, __c_t::unexpected_using_namespace, _str(this->to_eobject()));
             }
@@ -1468,7 +1468,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __statements_t statements;
 
             // super ctor
-            if(base_ctor != nullptr)
+            if (base_ctor != nullptr)
             {
                 statements.push_back(__new_expression_statement<function_expression_t>(
                     base_ctor, args
@@ -1479,9 +1479,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __init_fields(statements, method);
 
             // Appends to method body.
-            if(statements.size() > 0)
+            if (statements.size() > 0)
             {
-                if(method.body == nullptr)
+                if (method.body == nullptr)
                     method.body = __new_obj<method_body_t>();
 
                 method.body->push_front(statements);
@@ -1499,16 +1499,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             type_t * base_type = type->get_base_type();
 
-            if(base_type == nullptr)
+            if (base_type == nullptr)
             {
-                if(!is_empty(args))
+                if (!is_empty(args))
                     this->__log(node, __c_t::constructor_method_not_found, _T(">"), args);
 
                 return nullptr;
             }
 
             method_t * ctor = find_constructor(this->__context, base_type, args);
-            if(ctor == nullptr)
+            if (ctor == nullptr)
                 this->__log(node, __c_t::constructor_method_not_found, base_type, args);
 
             return ctor;
@@ -1524,13 +1524,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             analyze_members_args_t members_args(member_type_t::field, name_t::null);
             type->get_members(members_args);
 
-            for(member_t * member : members_args.out_members)
+            for (member_t * member : members_args.out_members)
             {
                 field_t * field = (field_t *)member;
                 expression_t * init_exp = field->init_value;
                 type_t * field_type = to_type(field->type_name);
 
-                if(field_type != nullptr && __check_default_value(field_type, init_exp))
+                if (field_type != nullptr && __check_default_value(field_type, init_exp))
                 {
                     statements.push_back(__new_expression_statement<binary_expression_t>(
                         operator_t::assign, __new_field_expression(field), init_exp
@@ -1544,11 +1544,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             _A(type != nullptr);
 
-            if(exp == nullptr)
+            if (exp == nullptr)
                 return false;
 
             cvalue_t cv = this->__execute_expression(exp);
-            if(is_nan(cv))
+            if (is_nan(cv))
                 throw _ED(__c_t::invalid_initialize_value, exp);
 
             cvalue_t def_cv = default_value_of(type->this_vtype());
@@ -1602,7 +1602,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void type_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 context.push(this->to_eobject());
@@ -1625,7 +1625,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         mname_operate_context_t mctx = to_mname_operate_context(__global_context().xpool);
         type->namespace_ = context.current_namespace();
 
-        if(!context.assembly.types.append_type(type))
+        if (!context.assembly.types.append_type(type))
             this->__log(this, __c_t::type_defination_duplicate, type);
 
         context.xpool.append_new_type(type);
@@ -1636,7 +1636,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return m->trait == method_trait_t::constructor;
         });
 
-        if(!has_constructor && al::in(type->this_gtype(), gtype_t::general, gtype_t::generic))
+        if (!has_constructor && al::in(type->this_gtype(), gtype_t::general, gtype_t::generic))
         {
             method_t * method = __append_default_constructor();
             this->__delay(context, walk_step_t::analysis, method);
@@ -1819,10 +1819,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void generic_args_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        if(__args.empty())
+        if (__args.empty())
             this->__log(this, __c_t::type_name_missing, _T("generic arguments"));
 
-        if(__is_partial_specialization(__args))
+        if (__is_partial_specialization(__args))
             this->__log(this, __c_t::partial_specialization_not_supported);
 
         __super_t::on_walk(context, step, tag);
@@ -1860,7 +1860,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 this->__check_name_empty(__param.name, _T("param"));
@@ -1871,7 +1871,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
 
             case walk_step_t::pre_analysis:
-                if(__param.default_value != nullptr)
+                if (__param.default_value != nullptr)
                 {
                     expression_t * exp = __param.default_value;
 
@@ -1879,7 +1879,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     {
                         cvalue_t cv = this->__execute_expression(exp);
 
-                        if(is_nan(cv))
+                        if (is_nan(cv))
                         {
                             this->__log(exp, __c_t::unexpected_param_default_value,
                                                 _T("unexpected constant expression"));
@@ -1931,7 +1931,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns this eobject.
     attribute_t * attribute_ast_node_t::to_eobject()
     {
-        if(__is_compile_time_attribute(&__attr))
+        if (__is_compile_time_attribute(&__attr))
             return __get_compile_time_attribute();
 
         return &__attr;
@@ -1940,7 +1940,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void attribute_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 context.current_module()->register_commit(this->to_eobject());
@@ -1949,7 +1949,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
 
             case walk_step_t::post_confirm:
-                if(__is_compile_time_attribute(&__attr))
+                if (__is_compile_time_attribute(&__attr))
                     __get_compile_time_attribute()->type_name = __attr.type_name;
 
                 this->__delay(context, walk_step_t::analysis);
@@ -1975,11 +1975,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_name_t * type_name = __attr.type_name;
         type_t * type;
 
-        if(type_name == nullptr || (type = type_name->type) == nullptr)
+        if (type_name == nullptr || (type = type_name->type) == nullptr)
             return;
 
         method_t * method = find_constructor(this->__context, type, __attr.arguments);
-        if(method == nullptr)
+        if (method == nullptr)
         {
             __log(&__attr, __c_t::attribute_constructor_not_match, type,
                 to_arg_types_str(this->__context, __attr.arguments)
@@ -1988,13 +1988,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return;
         }
 
-        if(__attr.arguments != nullptr)
+        if (__attr.arguments != nullptr)
         {
             expression_execute_context_t ctx(__get_xpool());
-            for(argument_t * argument : *__attr.arguments)
+            for (argument_t * argument : *__attr.arguments)
             {
                 expression_t * exp = argument->expression;
-                if(exp != nullptr)
+                if (exp != nullptr)
                 {
                     try
                     {
@@ -2100,12 +2100,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __statement.constant = constant;
     }
 
-    ////////// ////////// ////////// ////////// //////////
-
     // Walks this node.
     void defination_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __super_t::on_walk(context, step, tag);
@@ -2128,7 +2126,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                         _T("variable defination"));
         variable_defination_t vd(this->__context, context, &__statement);
 
-        for(defination_statement_item_t * var_item : __statement.items)
+        for (defination_statement_item_t * var_item : __statement.items)
         {
             var_item->variable = vd.define_local(
                 __statement.type_name, var_item->name, __statement.constant,
@@ -2140,16 +2138,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks analysis step.
     void defination_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        if(!__statement.constant)
+        if (!__statement.constant)
             return;
 
-        for(defination_statement_item_t * var_item : __statement.items)
+        for (defination_statement_item_t * var_item : __statement.items)
         {
-            if(var_item->expression == nullptr)
+            if (var_item->expression == nullptr)
             {
                 this->__log(this, __c_t::constant_variable_initialize_missing, var_item->name);
             }
-            else if(__execute_expression(var_item->expression) == cvalue_t::nan)
+            else if (__execute_expression(var_item->expression) == cvalue_t::nan)
             {
                 this->__log(this, __c_t::constant_variable_required_constant_value, var_item->name);
             }
@@ -2254,7 +2252,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Wallks this node.
     void return_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __super_t::on_walk(context, step, tag);
@@ -2275,23 +2273,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         method_t * method = context.current_method();
         _A(method != nullptr);
 
-        if(method->type_name == nullptr || is_void_type(method->type_name->type))
+        if (method->type_name == nullptr || is_void_type(method->type_name->type))
         {
-            if(__statement.expression != nullptr)
+            if (__statement.expression != nullptr)
                 this->__log(this, __c_t::method_unexpected_return_value, method);
         }
         else
         {
-            if(__statement.expression == nullptr)
+            if (__statement.expression == nullptr)
             {
                 this->__log(this, __c_t::method_return_value_missing, method);
             }
             else
             {
-                type_t * method_type = __statement.expression->get_type(__get_xpool());
-                type_t * return_type = method->type_name->type;
+                type_t * return_type = __statement.expression->get_type(__get_xpool());
+                type_t * method_type = method->type_name->type;
 
-                if(!is_type_compatible(return_type, method_type))
+                if (!is_type_compatible(return_type, method_type))
                     this->__log(this, __c_t::method_incompatible_return_value, method);
             }
         }
@@ -2379,7 +2377,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void for_st_ast_node_t::on_commit()
     {
         auto init_statement = __try_to_eobject<statement_t *>(initialize);
-        if(init_statement != nullptr)
+        if (init_statement != nullptr)
             __statement.defination_initialize = _M(defination_statement_t *, init_statement);
         else
             __statement.initialize = __to_eobject<expression_t *>(initialize);
@@ -2400,7 +2398,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         this->__check_empty(__statement.body, this, __c_t::body_missing, _T("while"));
 
-        if(__statement.defination_initialize != nullptr)
+        if (__statement.defination_initialize != nullptr)
         {
             context.push_new_region();
             __super_t::on_walk(context, step, tag);
@@ -2550,7 +2548,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void try_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        if(__statement.catches.empty() && __statement.finally_statement == nullptr)
+        if (__statement.catches.empty() && __statement.finally_statement == nullptr)
         {
             this->__log(this, __c_t::catch_or_finally_missing);
         }
@@ -2584,7 +2582,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void catch_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        if(__catch.type_name == nullptr && !__catch.name.empty())
+        if (__catch.type_name == nullptr && !__catch.name.empty())
         {
             this->__log(__variable_el, __c_t::type_name_missing, _T("catch statement"));
         }
@@ -2701,7 +2699,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         this->__check_name_empty(__expression.namex, _T("function"));
 
-        if(__expression.generic_args != nullptr && __expression.get_name() == name_t::null)
+        if (__expression.generic_args != nullptr && __expression.get_name() == name_t::null)
         {
             this->__log(this->child_at(generic_args), __c_t::function_generic_args_redundance);
         }
@@ -2757,7 +2755,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                             _T("object creation"));
         __super_t::on_walk(context, step, tag);
 
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 this->__delay(context, walk_step_t::analysis);
@@ -2766,13 +2764,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             case walk_step_t::analysis: {
                 type_t * type = to_type(__expression.type_name);
-                if(type != nullptr)
+                if (type != nullptr)
                 {
                     __expression.constructor = find_constructor(
                         this->__context, type, __expression.arguments()
                     );
 
-                    if(__expression.constructor == nullptr)
+                    if (__expression.constructor == nullptr)
                     {
                         __log(&__expression, __c_t::type_constructor_not_match, type,
                             to_arg_types_str(this->__context, __expression.arguments())
@@ -2808,7 +2806,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this eobject.
     void new_array_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __walk_default(context);
@@ -2817,7 +2815,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 this->__delay(context, walk_step_t::confirm);
 
-                if(__expression.initializer() != nullptr)
+                if (__expression.initializer() != nullptr)
                     this->__delay(context, walk_step_t::analysis);
 
                 break;
@@ -2844,17 +2842,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // dimension
         array_lengths_t * p_lengths = this->__to_eobject<array_lengths_t *>(lengths);
-        if(p_lengths != nullptr)
+        if (p_lengths != nullptr)
         {
             array_lengths_t & lengths = *p_lengths;
-            for(int dimension = 0, dimensions = lengths.size(); dimension < dimensions;
+            for (int dimension = 0, dimensions = lengths.size(); dimension < dimensions;
                                                                   dimension++)
             {
                 expression_t * exp = lengths[dimension];
-                if(exp == nullptr)
+                if (exp == nullptr)
                 {
                     array_length_t length = __get_length(dimension);
-                    if(length != unkown_array_length)
+                    if (length != unkown_array_length)
                         __expression.set_length(dimension, __to_value_expression(length));
                     else
                         this->__log(this, __c_t::expected_array_length);
@@ -2876,7 +2874,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void new_array_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         array_initializer_t * initializer = __expression.initializer();
-        if(initializer != nullptr)
+        if (initializer != nullptr)
         {
             initializer->each_element([&, this](expression_t * exp) -> bool {
                 walk_expression(this->__context, context, exp);
@@ -2890,16 +2888,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         array_initializer_t * initializer = __expression.initializer();
 
-        while(dimension-- > 0 && initializer != nullptr)
+        while (dimension-- > 0 && initializer != nullptr)
         {
             array_initialize_element_t element = (*initializer)[0];
-            if(element.type != array_initialize_element_type_t::initializer)
+            if (element.type != array_initialize_element_type_t::initializer)
                 return unkown_array_length;
 
             initializer = element.initializer;
         }
 
-        if(initializer == nullptr)
+        if (initializer == nullptr)
             return unkown_array_length;
 
         return initializer->size();
@@ -2916,11 +2914,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             expression_ast_t * expression_ast;
             array_initializer_ast_t * initializer_ast;
 
-            if((expression_ast = as<expression_ast_t *>(node)) != nullptr)
+            if ((expression_ast = as<expression_ast_t *>(node)) != nullptr)
             {
                 __initializer.append(expression_ast->to_eobject());
             }
-            else if((initializer_ast = as<array_initializer_ast_t *>(node)) != nullptr)
+            else if ((initializer_ast = as<array_initializer_ast_t *>(node)) != nullptr)
             {
                 __initializer.append(initializer_ast->to_eobject());
             }
@@ -3042,7 +3040,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Sets name.
     void method_ast_node_t::set_name(name_t name, __el_t * el)
     {
-        if(__op_property != nullptr)
+        if (__op_property != nullptr)
         {
             __log(el, __c_t::duplicate, _T("method name / operator overload"), name);
             return;
@@ -3056,13 +3054,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(op_property != nullptr);
 
-        if(__op_property != nullptr)
+        if (__op_property != nullptr)
         {
             __log(el, __c_t::duplicate, _F(_T("operator overload")), op_property);
             return;
         }
 
-        if(!__method.name.empty())
+        if (!__method.name.empty())
         {
             __log(el, __c_t::duplicate, _F(_T("method name / operator overload")), op_property);
             return;
@@ -3103,7 +3101,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks this node.
     void method_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 context.push(this->to_eobject());
@@ -3127,12 +3125,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void method_ast_node_t::__walk_default(ast_walk_context_t & context)
     {
         type_t * type = context.current_type();
-        if(type != nullptr && __method.name == type->get_name()
+        if (type != nullptr && __method.name == type->get_name()
                                 && __method.owner_type_name == nullptr)  // constructor
         {
-            if(__method.trait == method_trait_t::__default__)
+            if (__method.trait == method_trait_t::__default__)
             {
-                if(__method.decorate && __method.decorate->is_static)
+                if (__method.decorate && __method.decorate->is_static)
                     __method.trait = method_trait_t::static_constructor;
                 else
                     __method.trait = method_trait_t::constructor;
@@ -3140,7 +3138,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else
         {
-            if(__method.trait == method_trait_t::__default__)
+            if (__method.trait == method_trait_t::__default__)
                 __method.trait = method_trait_t::normal;
 
             this->__check_empty(__method.type_name, this, __c_t::type_name_missing,
@@ -3148,9 +3146,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             );
         }
 
-        if(__method.type_name != nullptr)
+        if (__method.type_name != nullptr)
         {
-            switch(__method.trait)
+            switch (__method.trait)
             {
                 case method_trait_t::constructor:
                     this->__log(this, __c_t::constructor_method_should_no_return_type,
@@ -3174,16 +3172,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         this->__check_empty(__method.name, this, __c_t::name_empty, _T("method"));
 
-        if(__method.params && !__method.params->empty())
+        if (__method.params && !__method.params->empty())
         {
             variable_defination_t vd(this->__context, context, &__method);
 
-            for(param_t * param : *__method.params)
+            for (param_t * param : *__method.params)
             {
                 vd.define_param(param);
             }
 
-            switch(__method.trait)
+            switch (__method.trait)
             {
                 case method_trait_t::static_constructor:
                     this->__log(this, __c_t::static_constructor_method_should_no_params,
@@ -3205,7 +3203,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void method_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         // Construct, static constructor, destructor.
-        switch(__method.trait)
+        switch (__method.trait)
         {
             case method_trait_t::static_constructor:
                 break;
@@ -3224,13 +3222,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Operator overload, checks prototype.
-        if(__op_property == nullptr)
+        if (__op_property == nullptr)
             return;
 
-        if(!__method.is_static() || !__method.is_public())
+        if (!__method.is_static() || !__method.is_public())
             this->__log(this, __c_t::operator_overload_prototype_error);
 
-        if(__method.param_count() != __op_property->arity)
+        if (__method.param_count() != __op_property->arity)
         {
             this->__log(this, (__op_property->arity == 1)?
                     __c_t::unitary_operator_overload_wrong_param_count :
@@ -3242,7 +3240,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return param->get_type() == context.current_type();
         });
 
-        if(!has_containing_type)
+        if (!has_containing_type)
         {
             this->__log(this, (__op_property->arity == 1)?
                     __c_t::unitary_operator_overload_wrong_containing_type :
@@ -3251,7 +3249,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         type_t * return_type = __method.get_type();
-        if(return_type == nullptr || is_void_type(return_type))
+        if (return_type == nullptr || is_void_type(return_type))
         {
             this->__log(this, __c_t::operator_overload_cannot_return_void);
         }
@@ -3288,7 +3286,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     bool __append_member(ast_context_t & cctx, ast_walk_context_t & wctx, member_t * member)
     {
         type_t * type = wctx.current_type();
-        if(type == nullptr || type->this_gtype() != gtype_t::general)
+        if (type == nullptr || type->this_gtype() != gtype_t::general)
         {
             ast_log(cctx, member, __c_t::type_undetermind, member);
             return false;
@@ -3301,18 +3299,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walk this node.
     void property_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        if(!__property.name.empty())
+        if (!__property.name.empty())
         {
-            if(__property.params != nullptr)
+            if (__property.params != nullptr)
                 this->__log(this->child_at(params), __c_t::unexpected_params, "property");
         }
         else
         {
-            if(__property.params == nullptr)
+            if (__property.params == nullptr)
                 this->__log(this, __c_t::name_empty, _T("property"));
         }
 
-        if(__property.get_method != nullptr)
+        if (__property.get_method != nullptr)
         {
             __property.get_method->name = __to_method_name(_T("get"));
             __property.get_method->type_name = __property.type_name;
@@ -3323,7 +3321,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         param_t * value_param = nullptr;
 
-        if(__property.set_method != nullptr)
+        if (__property.set_method != nullptr)
         {
             __property.set_method->name = __to_method_name(_T("set"));
             __property.set_method->type_name = context.to_type_name(vtype_t::void_);
@@ -3331,7 +3329,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             params_t * params = __new_obj<params_t>();
 
-            if(__property.params != nullptr)
+            if (__property.params != nullptr)
                 al::copy(*__property.params, std::back_inserter(*params));
 
             value_param = __new_obj<param_t>(__property.type_name, __to_name(_T("value")));
@@ -3366,15 +3364,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         #define __BodyIgnored(name)                                             \
             (!__AccessorEmpty(name)  && __BodyEmpty(name))
 
-        if(__AccessorEmpty(get) && __AccessorEmpty(set))
+        if (__AccessorEmpty(get) && __AccessorEmpty(set))
         {
             this->__log(&__property, __c_t::property_accessor_missing, &__property);
             return;
         }
 
-        if(!__AccessorEmpty(get) && !__AccessorEmpty(set))
+        if (!__AccessorEmpty(get) && !__AccessorEmpty(set))
         {
-            if(__BodyEmpty(get) != __BodyEmpty(set))
+            if (__BodyEmpty(get) != __BodyEmpty(set))
             {
                 this->__log(&__property, __c_t::property_method_body_missing,
                     __BodyEmpty(set)? _T("set") : _T("get")
@@ -3384,7 +3382,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
-        if(!__BodyIgnored(get) && !__BodyIgnored(set))
+        if (!__BodyIgnored(get) && !__BodyIgnored(set))
             return;
 
         // Appends a field for the property.
@@ -3401,7 +3399,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __append_member(this->__context, context, field);
 
         // Appends get method body.
-        if(__BodyIgnored(get))
+        if (__BodyIgnored(get))
         {
             statement_t * statement = __new_obj<return_statement_t>(
                 __new_field_expression(field)
@@ -3411,7 +3409,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __property.get_method->body->push_back(statement);
         }
 
-        if(__BodyIgnored(set))
+        if (__BodyIgnored(set))
         {
             _A(value_param != nullptr);
 
@@ -3438,7 +3436,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Gets get/set method name.
     name_t property_ast_node_t::__to_method_name(const char_t * prefix)
     {
-        if(__property.name != name_t::null)
+        if (__property.name != name_t::null)
             return __to_name(_F(_T("%1%_%2%"), prefix, __property.name));
 
         return __to_name(_F(_T("%1%_Item"), prefix));
@@ -3475,14 +3473,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         this->__check_name_empty(__event.name, _T("event"));
 
-        if(__event.add_method != nullptr)
+        if (__event.add_method != nullptr)
         {
             __event.add_method->name = __to_name(_F(_T("add_%1%"), __event.name));
             __event.add_method->type_name = __event.type_name;
             __append_member(this->__context, context, __event.add_method);
         }
 
-        if(__event.remove_method != nullptr)
+        if (__event.remove_method != nullptr)
         {
             __event.remove_method->name = __to_name(_F(_T("remove_%1%"), __event.name));
             __event.remove_method->type_name = __event.type_name;
