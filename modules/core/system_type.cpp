@@ -335,21 +335,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-	// Impl for System.IDelegate
-	class __idelegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
-	{
-		typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
-
-	public:
-		using __super_t::__super_t;
-
-		static const char_t type_name[];
-	};
-
-	const char_t __idelegate_type_impl_t::type_name[] = __CoreTypeName(CoreType_IDelegate);
-
-    //-------- ---------- ---------- ---------- ----------
-
 	// Impl for System.Delegate
 	class __t_delegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
 	{
@@ -654,7 +639,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __impls.append<__t_array_type_impl_t>();
 			__impls.append<__t_ituple_type_impl_t>();
 			__impls.append<__t_tuple_type_impl_t>();
-			__impls.append<__idelegate_type_impl_t>();
 			__impls.append<__t_delegate_type_impl_t>();
 			__impls.append<__t_multicast_delegate_type_impl_t>();
 

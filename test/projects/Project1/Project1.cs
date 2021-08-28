@@ -8,14 +8,11 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-		MyClass obj = new MyClass();
-
-		System.Delegate<int, int, int, int, int> func;
-		func = obj.Add;
+		System.Delegate<int, int, int, int> func = obj.Add;
 
 		// int sum = obj.Add(3, 2) + obj.Sub(9, 1);
-		int sum = func(2, 3);
-		Console.WriteLine(sum);
+		// int sum = func(2, 3);
+		// Console.WriteLine(sum);
     }
 };
 
@@ -40,6 +37,17 @@ class MyClass
 	public int Sub(int a, int b)
 	{
 		return a - b;
+	}
+
+	public int AddAll(int[] arr)
+	{
+		int sum = 0;
+		for (int k = 0; k < arr.Length; k++)
+		{
+			sum += arr[k];
+		}
+
+		return sum;
 	}
 }
 

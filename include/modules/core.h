@@ -47,7 +47,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define CoreType_TArray       _T("Array<>")
 	#define CoreType_ITuple		  _T("ITuple<...>")
 	#define CoreType_Tuple		  _T("Tuple<...>")
-	#define CoreType_IDelegate	  _T("IDelegate")
 	#define CoreType_Delegate	  _T("Delegate<,...>")
 	#define CoreType_MulticastDelegate _T("MulticastDelegate<,...>")
 	#define CoreType_Enum		  _T("Enum")
@@ -1798,7 +1797,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         ref,        // e.g. ref int value
 
-        out,        // e.g. out int value
+        out,        // e.g. out int value   or   out T (for generic params)
 
         params,     // e.g. params int[] values
 
@@ -1981,7 +1980,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_param,  // Generic params.
         
         array,          // Array type.
-        
+
         type_def_param, // Param in typedef.
         
         null,           // Null type.
@@ -2381,7 +2380,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef generic_param_t * itype_t;
 
         // Generic param type.
-        generic_param_type_t param_type		= generic_param_type_t::__default__;
+        generic_param_type_t param_type	= generic_param_type_t::__default__;
 
         // Returns gtype, ttype, vtype.
         virtual gtype_t this_gtype() const override final { return gtype_t::generic_param; }
@@ -2421,6 +2420,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+	X_ENUM(generic_arg_type_t)
+
+		ref,		// ref int
+
+		out,		// out int
+
+		params,		// params int[]
+
+	X_ENUM_END
+
     // Generic argument of eobject.
     class generic_arg_t : public with_index_t, public eobject_t
     {
@@ -2431,6 +2440,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Type of the generic argument.
         type_name_t * type_name = nullptr;
+
+		// Argument type.
+		generic_arg_type_t atype = generic_arg_type_t::__default__;
 
         // Returns type of the generic argument.
         type_t * get_type() const { return type_name? type_name->type : nullptr; }
@@ -2997,6 +3009,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_params_t *  generic_params  = nullptr;      // Generic parameters.
         params_t *          params          = nullptr;      // Params.
         method_body_t *     body            = nullptr;      // Method body.
+		method_variable_t * variable		= nullptr;		// Relation variable.
 
         // Method trait.
         method_trait_t      trait           = method_trait_t::__default__;
@@ -3134,7 +3147,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         { }
 
         // Returns the family.
-        virtual member_family_t this_family() const override
+        virtual member_family_t this_family() const override _NE
         {
             return member_family_t::generic;
         }
@@ -3831,21 +3844,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_collection_t args;
 
         // Returns gtype.
-        virtual gtype_t this_gtype() const override final { return gtype_t::generic; }
+        virtual gtype_t this_gtype() const override final _NE { return gtype_t::generic; }
 
         // Returns ttype.
-        virtual ttype_t this_ttype() const override final
+        virtual ttype_t this_ttype() const override final _NE
         {
             return template_? template_->this_ttype() : ttype_t::__unknown__;
         }
 
         // Returns vtype.
-        virtual vtype_t this_vtype() const override final
+        virtual vtype_t this_vtype() const override final _NE
         {
             return template_? template_->this_vtype() : vtype_t::__unknown__;
         }
 
-        virtual mtype_t this_mtype() const override final
+        virtual mtype_t this_mtype() const override final _NE
 		{
 			return template_? template_->this_mtype() : mtype_t::__unknown__;
 		}
@@ -3860,13 +3873,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void commit(eobject_commit_context_t & ctx) override;
 
         // Returns generic argument count.
-        size_t argument_count() const { return args.size(); }
+        size_t argument_count() const _NE { return args.size(); }
 
         // Returns whether it has any typedef param.
-        bool any_type_def_param() const;
+        bool any_type_def_param() const _NE;
 
         // Returns type at specified index.
-        type_t * type_at(size_t index) const;
+        type_t * type_at(size_t index) const _NE;
 
         // Returns type of specified name.
         type_t * type_at(name_t name) const;
@@ -4198,13 +4211,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_collection_id_t      tcid;     // Type collection id.
 
         // Returns type collection.
-        operator const type_collection_t & () const { return types; }
+        operator const type_collection_t & () const _NE { return types; }
 
         // Return size.
-        size_t size()  const { return types.size(); }
+        size_t size()  const _NE { return types.size(); }
 
         // Returns whether the collection is empty.
-        bool   empty() const { return size() == 0;  }
+        bool   empty() const _NE { return size() == 0;  }
 
         // Returns type collection id.
         type_collection_id_t get_tcid(xpool_t & pool);
@@ -4404,6 +4417,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns this variable's type.
         virtual variable_type_t this_type() = 0;
 
+		// Returns if it's allowd duplicate in a region, like methods.
+		virtual bool allow_duplicate() = 0;
+
         // Returns whether this will call a method.
         virtual bool is_calling() = 0;
 
@@ -4425,7 +4441,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     namespace
     {
         // Base class of variable.
-        template<variable_type_t _type>
+        template<variable_type_t _type, bool _allow_duplicate = false>
         class __variable_base_t : public variable_t
         {
             typedef variable_t __super_t;
@@ -4433,18 +4449,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         public:
 
             // Returns this variable's type.
-            virtual variable_type_t this_type() override { return _type; }
+            virtual variable_type_t this_type() _NE override { return _type; }
+
+			// Returns if it's allowd duplicate in a region, like methods.
+			virtual bool allow_duplicate() _NE override { return _allow_duplicate; }
 
             // Returns whether this will call a method.
-            virtual bool is_calling() override { return false; }
+            virtual bool is_calling() _NE override { return false; }
 
             // Execute the variable.
-            virtual cvalue_t execute(expression_execute_context_t & ctx) override
+            virtual cvalue_t execute(expression_execute_context_t & ctx) override _NE
             {
                 return cvalue_t::nan;
             }
 
             static const variable_type_t type = _type;
+			static const bool allow_duplicate_ = _allow_duplicate;
         };
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4726,13 +4746,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
 	// Method variable.
-	class method_variable_t : public __variable_base_t<variable_type_t::method>
+	class method_variable_t : public __variable_base_t<variable_type_t::method, true>
 	{
 	public:
 
 		// Constructor.
-		method_variable_t(method_t * method, expression_t * owner)
-			: method(method), owner(owner)
+		method_variable_t(method_t * method) : method(method)
 		{
 			_A(method != nullptr);
 		}
@@ -4740,20 +4759,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 		// Relation method.
 		method_t * method = nullptr;
 
-		// Owner.
-		expression_t * owner = nullptr;
-
 		// Returns type of the method.
 		virtual type_t * get_type(xpool_t & xpool) override;
 
 		// Returns vtype.
 		virtual vtype_t get_vtype() override;
 
-		// Returns name of the event.
-		virtual name_t get_name() const override
-		{
-			return method->name;
-		}
+		// Returns name of the method.
+		virtual name_t get_name() const override;
 
 		// Converters to string.
 		X_TO_STRING
@@ -4803,20 +4816,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Defines a property.
         property_variable_t * define_property(property_t * property);
 
-        // Defines a event.
+        // Defines an event.
         event_variable_t * define_event(event_t * event);
 
 		// Defines a method.
-		method_variable_t * define_method(method_t * method, expression_t * owner);
+		method_variable_t * define_method(method_t * method);
 
         // Gets the variable of the name.
         variable_t * get(const name_t & name);
 
     private:
-        memory_t * __memory;                            // Memory management.
-        std::map<name_t, variable_t *> __variables;     // Variable map.
-        variable_type_t __mask;                         // Variable mask.
-        object_t * __owner;                             // The region owner.
+        memory_t * __memory;                             // Memory management.
+        std::multimap<name_t, variable_t *> __variables; // Variable map.
+        variable_type_t __mask;                          // Variable mask.
+        object_t * __owner;                              // The region owner.
 
         static const msize_t __empty_index = unknown_msize;
         msize_t __local_index = __empty_index, __local_identity = 0;
@@ -4835,7 +4848,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Checks whether it has a variable with the same name in the region context.
-        void __check_duplicate(const name_t & name);
+        void __check_duplicate(variable_t * variable);
 
         // Returns next local identity.
         msize_t __next_local_identity();
@@ -5994,17 +6007,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
         using __super_t::__super_t;
 
+		// Constructor.
+		type_cast_expression_t(type_name_t * type_name, expression_t * expression) _NE
+			: __super_t(expression), type_name(type_name)
+		{ }
+
         // Type name.
         type_name_t  * type_name = nullptr;
 
         // Expression.
-        expression_t * expression() const { return exps[0]; }
+        expression_t * expression() const _NE { return exps[0]; }
 
 		// Set expression.
 		void set_expression(expression_t * expression);
 
         // Returns this family.
-        virtual expression_family_t this_family() const override
+        virtual expression_family_t this_family() const override _NE
         {
             return expression_family_t::type_cast;
         }

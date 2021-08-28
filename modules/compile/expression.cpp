@@ -1243,6 +1243,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 																	dtype, owner_exp);
                 break;
 
+			case variable_type_t::method:
+				X_UNEXPECTED();
+				break;
+
             default:
                 X_UNEXPECTED();
         }

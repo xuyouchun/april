@@ -187,6 +187,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Defines property variable.
         property_variable_t * define_property(property_t * property);
 
+		// Defines method variable.
+		method_variable_t * define_method(method_t * method);
+
         // Returns whether it has no error.
         operator bool() const { return __region != nullptr; }
 

@@ -255,6 +255,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected property defination.
         X_D(unexpected_property_defination, _T("properties cannot be defined here: \"%1%\""))
 
+        // Unexpected method defination.
+        X_D(unexpected_method_defination, _T("methods cannot be defined here: \"%1%\""))
+
         // A constant variable require a value to be provided.
         X_D(constant_variable_initialize_missing,
                             _T("A constant variable \"%1%\" require a value to be provided"))
@@ -1781,6 +1784,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // generic_arg
 
+	// Set param type, ref, out, params ...
+	void generic_arg_ast_node_t::set_atype(generic_arg_type_t type)
+	{
+		__arg.atype = type;
+	}
+
     // Commits this node.
     void generic_arg_ast_node_t::on_commit()
     {
@@ -2132,6 +2141,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __statement.type_name, var_item->name, __statement.constant,
                 var_item->expression, var_item
             );
+
+			var_item->expression->parent = __new_obj<type_cast_expression_t>(
+				__statement.type_name, var_item->expression
+			);
         }
     }
 
@@ -3111,6 +3124,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->__delay(context, walk_step_t::analysis);
 
                 context.pop();
+
+				if (__method.trait == method_trait_t::normal)
+				{
+					variable_defination_t vd(this->__context, context, &__method);
+					vd.define_method(&__method);
+				}
+
                 break;
 
             case walk_step_t::analysis:
@@ -3181,22 +3201,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 vd.define_param(param);
             }
 
-            switch (__method.trait)
-            {
-                case method_trait_t::static_constructor:
-                    this->__log(this, __c_t::static_constructor_method_should_no_params,
-                                                        _str(__method.name));
-                    break;
+			switch (__method.trait)
+			{
+				case method_trait_t::static_constructor:
+					this->__log(this, __c_t::static_constructor_method_should_no_params,
+														_str(__method.name));
+					break;
 
-                case method_trait_t::destructor:
-                    this->__log(this, __c_t::destructor_method_should_no_params,
-                                                        _str(__method.name));
-                    break;
+				case method_trait_t::destructor:
+					this->__log(this, __c_t::destructor_method_should_no_params,
+														_str(__method.name));
+					break;
 
-                default:
-                    break;
-            }
-        }
+				default:
+					break;
+			}
+		}
     }
 
     // Walks the analysis step.

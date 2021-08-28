@@ -3526,7 +3526,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns whether a generic type has any type def param.
-    bool generic_type_t::any_type_def_param() const
+    bool generic_type_t::any_type_def_param() const _NE
     {
         return al::any_of(args, [](type_t * t) {
             return t && t->this_gtype() == gtype_t::type_def_param;
@@ -3534,7 +3534,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type at specified index.
-    type_t * generic_type_t::type_at(size_t index) const
+    type_t * generic_type_t::type_at(size_t index) const _NE
     {
         if (index >= argument_count())
             return nullptr;
@@ -4007,7 +4007,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 		return __get_vtype(method->type_name);
 	}
 
-    // Converts event variable to a string.
+	// Returns name of the method.
+	name_t method_variable_t::get_name() const
+	{
+		return method->name;
+	}
+
+    // Converts method variable to a string.
     X_DEFINE_TO_STRING(method_variable_t)
     {
         return _str(method);
@@ -4333,7 +4339,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return variable;
     }
 
-    // Defines a event variable.
+    // Defines an event variable.
     event_variable_t * variable_region_t::define_event(event_t * event)
     {
         _A(event != nullptr);
@@ -4344,15 +4350,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return variable;
     }
 
+	// Defines a method variable.
+	method_variable_t * variable_region_t::define_method(method_t * method)
+	{
+		_A(method != nullptr);
+
+		method_variable_t * variable = __define<method_variable_t>(method);
+		method->variable = variable;
+
+		return variable;
+	}
+
     // Checks whether it has a variable with the same name in the region context.
-    void variable_region_t::__check_duplicate(const name_t & name)
+    void variable_region_t::__check_duplicate(variable_t * variable)
     {
+		name_t name = variable->get_name();
+
         if (name == name_t::null)    // for property index.
             return;
 
         auto it = __variables.find(name);
         if (it != __variables.end())
-            throw _EF(ast_error_t::variable_duplicated, _T("variable \%1%\" duplicate"), name);
+		{
+			if (!variable->allow_duplicate() || it->second->this_type() != variable->this_type())
+	            throw _EF(ast_error_t::variable_duplicated, _T("variable \%1%\" duplicate"), name);
+		}
     }
 
     // Returns next local identity.
@@ -4430,8 +4452,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             );
         }
 
-        __check_duplicate(name);
-        __variables[name] = variable;
+		__check_duplicate(variable);
+		__variables.insert(std::make_pair(name, (variable_t *)variable));
 
         return variable;
     }
@@ -4739,7 +4761,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Type ast walk context layer.
     typedef __x_ast_walk_context_layer_t<
         type_t, __layer_state_t::type,
-        __region_layer_t<enum_or(variable_type_t::field, variable_type_t::property)>
+        __region_layer_t<enum_or(variable_type_t::field, variable_type_t::property,
+													  	 variable_type_t::method)>
     > __type_ast_walk_context_layer_t;
 
     // Method ast walk context layer.

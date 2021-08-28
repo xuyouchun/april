@@ -100,6 +100,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
 			return pick_type_from_current_context(xpool, parent_exp);
 		}
+		else if (family == expression_family_t::type_cast)
+		{
+			type_cast_expression_t * type_cast_exp = (type_cast_expression_t *)parent_exp;
+			_A(type_cast_exp->type_name != nullptr);
+			return type_cast_exp->type_name->type;
+		}
 
 		return pick_type_from_current_context(xpool, parent_exp);
 	}
@@ -1017,6 +1023,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 if (!__walk_type(name_exp))
                 {
+					_PP(name_exp);
                     ast_log(__cctx, name_exp, __c_t::variable_undefined, name);
                 }
             }
@@ -1286,6 +1293,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     name_exp->set(((event_t *)member)->variable);
                     break;
 
+				case member_type_t::method:
+					name_exp->set(((method_t *)member)->variable);
+					break;
+
                 case member_type_t::type:
                     name_exp->set((type_t *)member);
                     break;
@@ -1293,10 +1304,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 case member_type_t::type_def:
                     name_exp->set((type_def_t *)member);
                     break;
-
-				case member_type_t::method:
-					// name_exp->set(variable);
-					break;
 
                 default:
 					_PP(member->this_type());
@@ -1663,6 +1670,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return nullptr;
         }
     }
+
+    // Defines property variable.
+    method_variable_t * variable_defination_t::define_method(method_t * method)
+	{
+		_A(method != nullptr);
+
+		if (__region == nullptr)
+		{
+			__log(__c_t::unexpected_method_defination, _str(method));
+			return nullptr;
+		}
+
+		try
+		{
+			return __region->define_method(method);
+		}
+		catch (const logic_error_t<ast_error_t> & e)
+		{
+			__deal_error(e, method->name, method);
+			return nullptr;
+		}
+	}
 
     // Deals defination error.
     void variable_defination_t::__deal_error(const logic_error_t<ast_error_t> & e,

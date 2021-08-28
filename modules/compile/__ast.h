@@ -504,6 +504,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected property defination.
         unexpected_property_defination,
 
+		// Unexpected method defination.
+		unexpected_method_defination,
+
         // A constant variable require a value to be provided.
         constant_variable_initialize_missing,
 
@@ -2222,6 +2225,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     public:
         using __generic_arg_ast_node_t::__generic_arg_ast_node_t;
+
+		// Set param type, ref, out, params ...
+		void set_atype(generic_arg_type_t atype);
 
         // Commits this node.
         virtual void on_commit() override;

@@ -1143,7 +1143,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 		rt_tuple_field_t * __tuple_fields = nullptr;
 		int __atype_count = 0;
 
-        int __b = 0;        // TODO: why it's set valuel 1?
+        // int __b = 0;        // TODO: why it's set valuel 1?
     };
 
     //-------- ---------- ---------- ---------- ----------

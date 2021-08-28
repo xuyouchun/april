@@ -162,17 +162,9 @@ public class Enum
 
 ////////// ////////// ////////// ////////// //////////
 
-
-// IDelegate
-[__internal__]
-public interface IDelegate
-{
-	Object Invoke(Array<Object> arguments);
-};
-
 // Delegate<TReturn, TArgs ...>
 [__internal__]
-public struct Delegate<TReturn, TArgs ...> : IDelegate
+public struct Delegate<TReturn, TArgs ...>
 {
     // Constructor.
     public Delegate(Object instance, Method method)
@@ -203,7 +195,7 @@ public struct Delegate<TReturn, TArgs ...> : IDelegate
 
 // MulticastDelegate<TReturn, TArgs ...>
 [__internal__]
-public sealed class MulticastDelegate<TReturn, TArgs ...> : IDelegate
+public sealed class MulticastDelegate<TReturn, TArgs ...>
 {
 	private readonly Array<Delegate<TReturn, TArgs ...> > __delegates;
 
