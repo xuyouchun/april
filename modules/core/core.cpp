@@ -1280,7 +1280,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts param to string.
     param_t::operator string_t() const
     {
-        return _F(_T("%1% %2%"), type_name, name);
+		if (ptype == param_type_t::__default__)
+	        return _F(_T("%1% %2%"), type_name, name);
+
+		return _F(_T("%1% %2% %3%"), ptype, type_name, name);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1463,12 +1466,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Fill type collection with generic arguments.
     void fill_type_collection(type_collection_t & tc, generic_args_t * args)
     {
-        if (args != nullptr)
-        {
-            for (generic_arg_t * arg : *args)
-            {
-                tc.push_back(arg->get_type());
-            }
+        if (args == nullptr)
+			return;
+
+		for (generic_arg_t * arg : *args)
+		{
+			tc.push_back(typex_t(arg->get_type(), arg->atype));
         }
     }
 
@@ -1669,6 +1672,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
     // generic_method_t
+
+    typex_t::operator string_t() const
+	{
+		__gatype_t atype = this->atype();
+		type_t * type = this->type();
+
+		if (atype == __gatype_t::__default__)
+			return _str(type);
+
+		return _F(_T("%s %s"), _str(atype), _str(type));
+	}
 
 	// Returns param type of specified index.
 	type_t * generic_method_t::get_param_type(int index) const
@@ -2051,6 +2065,28 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
+	// generic_arg_type_t
+
+	// Generic argument type
+	X_ENUM_INFO(generic_arg_type_t)
+
+		X_C(ref,		_T("ref"))
+
+		X_C(out,		_T("out"))
+
+		X_C(params,		_T("params"))
+
+	X_ENUM_INFO_END
+
+	generic_arg_t::operator string_t() const
+	{
+		if (atype == generic_arg_type_t::__default__)
+			return _str(type_name);
+
+		return _F(_T("%s %s"), atype, type_name);
+	}
+
+    ////////// ////////// ////////// ////////// //////////
     // generic_constraint_type_t
 
     // Generic constraint type.
@@ -2135,6 +2171,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_C(auto_determined,    _T("auto_determined"))
         X_C(auto_determined_failed, _T("auto_determined_failed"))
     X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
+	// Constructor of atype_t.
+	atype_t::atype_t(typex_t typex) _NE
+		: type((type_t *)typex), atype((param_type_t)typex)
+	{ }
 
     //-------- ---------- ---------- ---------- ----------
 

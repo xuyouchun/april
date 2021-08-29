@@ -558,6 +558,32 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+	namespace
+	{
+		typedef arch_uint_t __incorp_int_t;
+		const __incorp_int_t __incorp_mask = 0x7;
+	}
+
+	template<typename _incorp_t, typename _t>
+	X_INLINE _t * incorp(_t * p, _incorp_t v) _NE
+	{
+		return (_t *)((__incorp_int_t)p | (__incorp_int_t)v);
+	}
+
+	template<typename _t>
+	X_INLINE _t * incorp_p(_t * p) _NE
+	{
+		return (_t *)((__incorp_int_t)p & ~__incorp_mask);
+	}
+
+	template<typename _incorp_t>
+	X_INLINE _incorp_t incorp_v(void * p) _NE
+	{
+		return (_incorp_t)(((__incorp_int_t)p & __incorp_mask));
+	}
+
+    ////////// ////////// ////////// ////////// //////////
+
 } }  // X_ROOT_NS::algorithm
 
 

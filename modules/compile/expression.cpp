@@ -1209,6 +1209,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __compile_property_variable(ctx, pool, property, property_var->arguments, dtype, owner_exp);
     }
 
+	// Compiles method variable.
+	static void __compile_method_variable(__cctx_t & ctx, xil_pool_t & pool,
+			method_variable_t * method_var, xil_type_t dtype)
+	{
+		method_t * method = method_var->method;
+		_PP(method);
+
+		if (method == nullptr)
+			throw _ED(__e_t::unknown_method, method_var);
+	}
+
     // Pushes this with check.
     static void __push_this_with_check(__cctx_t & ctx, xil_pool_t & pool, expression_t * owner_exp)
     {
@@ -1222,7 +1233,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(variable != nullptr);
 
-        switch(variable->this_type())
+        switch (variable->this_type())
         {
             case variable_type_t::local:
                 __compile_local_variable(ctx, pool, (local_variable_t *)variable, dtype);
@@ -1244,7 +1255,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
 
 			case variable_type_t::method:
-				X_UNEXPECTED();
+				__push_this_with_check(ctx, pool, owner_exp);
+				__compile_method_variable(ctx, pool, (method_variable_t *)variable, dtype);
 				break;
 
             default:
@@ -1292,7 +1304,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __compile_##op_(ctx, pool, exp1, exp2);     \
                     break;
 
-            switch(op())
+            switch (op())
             {
                 __Case(add)
                 __Case(sub)
@@ -1454,7 +1466,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __compile_##op_(ctx, pool, exp);            \
                     break;
 
-            switch(op())
+            switch (op())
             {
                 __Case(positive)
                 __Case(minus)
@@ -1489,7 +1501,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (!__is_this_effective(this))
             return;
 
-        switch(this->expression_type)
+        switch (this->expression_type)
         {
             case name_expression_type_t::variable:
                 __compile_variable(ctx, pool, this->variable, dtype, this);
@@ -1578,7 +1590,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles numeric.
     void __compile_number(__cctx_t & ctx, xil_pool_t & pool, const tvalue_t & value)
     {
-        switch(value.type)
+        switch (value.type)
         {
 		    case value_type_t::int8_:
                 pool.append<__push_const_xil_t<int8_t>>(xil_type_t::int8, value);
@@ -1824,7 +1836,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (is_effective(this->parent))
         {
             variable_t * variable = __pick_var((variable_expression_t *)this);
-            switch(variable->this_type())
+            switch (variable->this_type())
             {
                 case variable_type_t::array_index:
                     __compile_array_index(ctx, pool, (array_index_variable_t *)variable,
@@ -1895,7 +1907,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __EConstructor(should_no_return_type);
 
         xil_call_type_t call_type = call_type_of_method(constructor);
-        switch(call_type)
+        switch (call_type)
         {
             case xil_call_type_t::static_:
                 __EConstructor(should_no_static);
@@ -2049,7 +2061,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (!is_effective(this->parent))
             return;
 
-        switch(type->this_gtype())
+        switch (type->this_gtype())
         {
             case gtype_t::generic_param: {
 

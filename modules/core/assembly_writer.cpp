@@ -275,9 +275,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Assigns generic argument metadata.
-        void __assign_mt(mt_generic_argument_t * mt, type_t * type)
+        void __assign_mt(mt_generic_argument_t * mt, typex_t typex)
         {
-            mt->type = __W->__commit_type(type);
+            mt->type  = __W->__commit_type((type_t *)typex);
+			mt->atype = (uint8_t)(generic_arg_type_t)typex;
         }
 
         // Assigns type def param metadata.
@@ -753,8 +754,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             auto & mgr = __mt_manager<__tidx_t::generic_argument>();
 
-            return mgr.acquire(types, [this](ref_t ref, type_t * type, mt_generic_argument_t * mt) {
-                __enque_assign(__tidx_t::generic_argument, mt, type);
+            return mgr.acquire(types, [this](ref_t ref, typex_t typex, mt_generic_argument_t * mt) {
+                __enque_assign(__tidx_t::generic_argument, mt, typex);
             });
         }
 

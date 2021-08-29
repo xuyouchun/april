@@ -228,7 +228,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename container_t>
     bool any_of_empty(const container_t & container)
     {
-        return any_of(container, [](auto & v) { return v == nullptr; });
+        return any_of(container, [](auto & v) { return (void *)v == nullptr; });
     }
 
     // Returns true if pred returns false for all of elements.
@@ -242,7 +242,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename container_t>
     bool none_of_empty(const container_t & container)
     {
-        return none_of(container, [](auto & v) { return v == nullptr; });
+        return none_of(container, [](auto & v) { return (void *)v == nullptr; });
     }
 
     // Returns true if pred returns true for all of lements.
@@ -256,7 +256,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename container_t>
     bool all_of_empty(const container_t & container)
     {
-        return all_of(container, [](auto & v) { return v == nullptr; });
+        return all_of(container, [](auto & v) { return (void *)v == nullptr; });
     }
 
     // Returns the number of elements in the container.

@@ -773,7 +773,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Metadata: generic_argument
     __DefineMt(generic_argument, type_t *)
 
-        ref_t       type;               // Argument type.
+        ref_t       type;           // Argument type.
+		uint8_t		atype;			// Generic argument type.
 
     __EndDefineMt(generic_argument)
 

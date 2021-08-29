@@ -804,9 +804,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if (unit->args != nullptr)
             {
-                al::transform(*unit->args, std::back_inserter(types),
-                    [this](generic_arg_t * arg) { return __transform_generic_arg(arg); }
-                );
+                al::transform(*unit->args, std::back_inserter(types), [this](generic_arg_t * arg) {
+					return typex_t(__transform_generic_arg(arg), arg->atype);
+				});
             }
 
             return __new_generic_type(template_, xtypes, host_type);
@@ -1195,7 +1195,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __exp2_walked_t::no;
         }
 
-		void __pick_argument_types_from_context_type(type_t * context_type, atypes_t & atypes)
+		void __pick_argument_types_from_context_type(type_t * context_type, atypes_t & atypes,
+			type_t ** out_return_type)
 		{
 			xpool_t & xpool = __xpool(__cctx);
 
@@ -1207,8 +1208,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 				if (general_type == xpool.get_delegate_type()
 					|| general_type == xpool.get_multicast_delegate_type())
 				{
-					if (generic_type->args.size() > 0)	// The first is return type.
-						al::copy(generic_type->args, std::back_inserter(atypes), 1);
+					auto & args = generic_type->args;
+					_A(args.size() > 0);
+
+					al::assign(out_return_type, args[0]);
+					
+					if (args.size() >= 2)	// The first is return type.
+						al::copy(args, std::back_inserter(atypes), 1);
 				}
 			}
 		}
@@ -1244,9 +1250,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 							return false;
 
 						atypes_t atypes;
-						__pick_argument_types_from_context_type(context_type, atypes);
+						type_t * return_type;
 
-						analyze_member_args_t args1(member_type_t::method, name, &atypes);
+						__pick_argument_types_from_context_type(context_type, atypes, &return_type);
+
+						analyze_member_args_t args1(
+							member_type_t::method, name, &atypes, nullptr, return_type
+						);
 						*out_member = type->get_member(args1);
 
 						if (*out_member == nullptr)
@@ -1393,7 +1403,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Walks methods.
         void __walk_method(type_t * type, name_t name, function_expression_t * function_exp)
         {
-            //_PF(_T("type: %1%, name: %2%, function_exp: %3%"), type, name, function_exp);
+            // _PF(_T("type: %1%, name: %2%, function_exp: %3%"), type, name, function_exp);
 
             if (type == nullptr)
             {

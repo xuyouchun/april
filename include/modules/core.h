@@ -2086,12 +2086,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     typedef __named_base_t<member_t> __named_member_t;
 
     //-------- ---------- ---------- ---------- ----------
+	struct typex_t;
 
     // Argument type structure with a type and it's argument type.
     struct atype_t
     {
         atype_t() = default;
-        atype_t(type_t * type, param_type_t atype = param_type_t::__default__)
+		atype_t(typex_t typex) _NE;
+        atype_t(type_t * type, param_type_t atype = param_type_t::__default__) _NE
             : type(type), atype(atype) { }
 
         type_t * type = nullptr;
@@ -2139,12 +2141,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
         // Constructor.
         analyze_member_args_t(member_type_t member_type, name_t name,
-                atypes_t * atypes = nullptr, generic_args_t * generic_args = nullptr)
+                atypes_t * atypes = nullptr, generic_args_t * generic_args = nullptr,
+				type_t * return_type = nullptr)
             : member_type(member_type), name(name), atypes(atypes), generic_args(generic_args)
+			, return_type(return_type)
         { }
 
         member_type_t       member_type;        // Member type.
         name_t              name;               // Member name.
+		type_t *			return_type;		// Return type.
         atypes_t *          atypes;             // Argument types.
         generic_args_t *    generic_args;       // Generic arguments.
         method_trait_t      method_trait    = method_trait_t::__default__;  // Method trait.
@@ -2422,11 +2427,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
 	X_ENUM(generic_arg_type_t)
 
-		ref,		// ref int
+		ref		= (int)param_type_t::ref,		// ref int
 
-		out,		// out int
+		out		= (int)param_type_t::out,		// out int
 
-		params,		// params int[]
+		params	= (int)param_type_t::params,	// params int[]
 
 	X_ENUM_END
 
@@ -2448,7 +2453,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_t * get_type() const { return type_name? type_name->type : nullptr; }
 
         // Converts to a string.
-        operator string_t() const { return _str(type_name); }
+        operator string_t() const;
 
         // Converts to a string.
         virtual const string_t to_string() const override { return (string_t)*this; }
@@ -3122,15 +3127,43 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     //-------- ---------- ---------- ---------- ----------
-    // generic_method_t
+    // typex_t
 
-    typedef __vector_t<type_t *> type_collection_t;
+	struct typex_t : compare_operators_t<typex_t, void *>
+	{
+		typedef generic_arg_type_t __gatype_t;
+
+		typex_t() _NE : __v(nullptr) { }
+		typex_t(type_t * type) _NE : __v(type) { }
+		typex_t(type_t * type, __gatype_t atype) _NE : __v(al::incorp(type, atype)) { }
+
+		type_t *  type() const _NE     { return incorp_p((type_t *)__v);  }
+		__gatype_t atype() const _NE   { return incorp_v<__gatype_t>(__v); }
+		param_type_t ptype() const _NE { return (param_type_t)atype(); }
+
+		operator type_t * () const _NE     { return type(); }
+		operator __gatype_t () const _NE   { return atype(); }
+		operator param_type_t () const _NE { return ptype(); }
+		operator void *   () const _NE     { return __v; }
+
+        // Converts to string.
+		operator string_t() const;
+
+	private:
+		void * __v;
+	};
+
+	// Type collection.
+	typedef __vector_t<typex_t> type_collection_t;
 
     // Converts generic arguments to a type collection.
     type_collection_t to_type_collection(generic_args_t * args);
 
     // Fill generic arguments to a type collection.
     void fill_type_collection(type_collection_t & tc, generic_args_t * args);
+
+    //-------- ---------- ---------- ---------- ----------
+    // generic_method_t
 
     // Generic method.
     class generic_method_t : public method_base_t, public eobject_t

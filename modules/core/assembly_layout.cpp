@@ -431,7 +431,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Metadata: Generic argument.
     __DefineEntityIOFunctions
-        __M(type), __V(1),
+        __M(type), __M(atype), __V(1),
     __EndDefineEntityIOFunctions
 
     #undef  __Mt
