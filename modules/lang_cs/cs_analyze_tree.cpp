@@ -17,7 +17,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         typedef analyze_node_value_t __node_value_t;
         #define __NodeKeyOfName(type_t, name) ((__node_value_t)(type_t)X_ET(type_t, name))
 
-        switch(node_type)
+        switch (node_type)
         {
             case __node_type_t::token:
                 return __NodeKeyOfName(cs_token_value_t, name);

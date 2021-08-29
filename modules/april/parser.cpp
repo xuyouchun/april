@@ -23,7 +23,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         __fstream_t fs;
 
         fs.open(path.string(), std::ios_base::in);
-        if(!fs.is_open())
+        if (!fs.is_open())
             throw _ED(__e_t::open_file_failed, path);
 
         try
@@ -31,7 +31,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             this->parse(fs);
             fs.close();
         }
-        catch(...)
+        catch (...)
         {
             fs.close();
             throw;
@@ -41,7 +41,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     // Returns the root.
     __ptree_t & parser_t::root()
     {
-        if(__ptree.empty())
+        if (__ptree.empty())
             throw _ED(__e_t::config_format_error, "[root]");
 
         return __ptree.begin()->second;
@@ -74,7 +74,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         {
             return node.get_child(path);
         }
-        catch(...)
+        catch (...)
         {
             throw _ED(__e_t::config_format_error, path);
         }
@@ -87,7 +87,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         {
             return node.get<string_t>(path);
         }
-        catch(...)
+        catch (...)
         {
             throw _ED(__e_t::config_format_error, path);
         }
@@ -100,14 +100,14 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         this->name = __read_string(root, _T("name"));
         __ptree_t & project_nodes = __read_child(root, _T("projects"));
 
-        for(auto && it : project_nodes)
+        for (auto && it : project_nodes)
         {
             __ptree_t & project_node = it.second;
 
             string_t project_path = project_node.get<string_t>(_T("path"));
             project_config_t * project_config;
 
-            if(project_path.empty())
+            if (project_path.empty())
             {
                 project_config = memory_t::new_obj<project_config_t>(memory);
                 project_config->read(memory, project_node, relative_path);
@@ -132,7 +132,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         this->name = __read_string(root, _T("name"));
 
         __ptree_t & file_nodes = __read_child(root, _T("files"));
-        for(auto && it : file_nodes)
+        for (auto && it : file_nodes)
         {
             __ptree_t & file_node = it.second;
             file_config_t * file_config = memory_t::new_obj<file_config_t>(memory);
@@ -157,7 +157,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     // Parses the config.
     config_t * parse_config(memory_t * memory, const lib::path_t & path)
     {
-        switch(file_type_of(path))
+        switch (file_type_of(path))
         {
             case compile_file_type_t::solution:
                 return parse_solution(memory, path);

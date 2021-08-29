@@ -58,9 +58,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Acquires a object, Creates when the pool is empty.
         resource_object_t * __acquire()
         {
-            if(__set.size() == 0)
+            if (__set.size() == 0)
             {
-                if(__count >= __capacity)
+                if (__count >= __capacity)
                     
             }
             else

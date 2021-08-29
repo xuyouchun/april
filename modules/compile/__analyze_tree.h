@@ -370,7 +370,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual bool less(const analyze_node_t & node) const override
         {
             const __node_type_t type1 = __node_type_t::token, type2 = node.node_type();
-            if(type1 != type2)
+            if (type1 != type2)
                 return type1 < type2;
 
             return value < ((const analyze_token_node_t &)node).value;
@@ -418,7 +418,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts to a  string.
         virtual const string_t __to_string() const override
         {
-            if(name.empty())
+            if (name.empty())
                 return _T("EMPTY");
 
             return name;
@@ -486,7 +486,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual bool less(const analyze_node_t & node) const override
         {
             const __node_type_t type1 = __node_type_t::branch_ref, type2 = node.node_type();
-            if(type1 != type2)
+            if (type1 != type2)
                 return type1 < type2;
 
             return branch_value < ((const analyze_branch_ref_node_t &)node).branch_value;
@@ -725,7 +725,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns whether two actions are equals.
         virtual bool equals(const __stack_node_action_t & action) const override final
         {
-            if(action.action_type() != __stack_node_action_type_t::assign_key)
+            if (action.action_type() != __stack_node_action_type_t::assign_key)
                 return false;
 
             const __self_t & a = (const __self_t &)action;
@@ -786,7 +786,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns whether two actions are equals.
         virtual bool equals(const __stack_node_action_t & action) const override final
         {
-            if(action.action_type() != __stack_node_action_type_t::raise_matched_event)
+            if (action.action_type() != __stack_node_action_type_t::raise_matched_event)
                 return false;
 
             const __self_t & a = (const __self_t &)action;
@@ -887,7 +887,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename t>
         t ** copy_ptr_array(t ** array, size_t len = (size_t)-1)
         {
-            if(len == (size_t)-1)
+            if (len == (size_t)-1)
                 len = __len((void **)array);
 
             t ** buffer = new_ptr_array<t>(len);
@@ -1095,12 +1095,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 _A(tree != nullptr);
 
-                for(const analyze_node_t * node : tree->root->nodes.all())
+                for (const analyze_node_t * node : tree->root->nodes.all())
                 {
                     const analyze_branch_node_t * branch = 
                             dynamic_cast<const analyze_branch_node_t *>(node);
 
-                    if(branch != nullptr)
+                    if (branch != nullptr)
                     {
                         write(branch);
                         __stream << std::endl;
@@ -1114,7 +1114,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // Writes node.
             void __write_node(const analyze_node_t * node)
             {
-                switch(node->node_type())
+                switch (node->node_type())
                 {
                     case __node_type_t::end:
                         break;
@@ -1138,7 +1138,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                         const analyze_normal_node_t * normal_node = 
                                 dynamic_cast<const analyze_normal_node_t *>(node);
 
-                        if(normal_node != nullptr)
+                        if (normal_node != nullptr)
                             __write_nodes(normal_node->nodes);
                     }   break;
                 }
@@ -1148,9 +1148,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             void __write_nodes(const analyze_nodes_t & nodes)
             {
                 int index = 0;
-                for(const analyze_node_t * subnode : nodes.all())
+                for (const analyze_node_t * subnode : nodes.all())
                 {
-                    if(index++ > 0)
+                    if (index++ > 0)
                         __stream << _T("|");
 
                     __write_node(subnode);
@@ -1162,7 +1162,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename stream_t>
         void __write_to_stream(stream_t & stream, const analyze_node_t * node, int level)
         {
-            for(int k = 0; k < level; k++)
+            for (int k = 0; k < level; k++)
             {
                 stream << _T("  ");
             }
@@ -1173,7 +1173,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const analyze_node_t * node)
     {
-        if(node != nullptr)
+        if (node != nullptr)
             __node_writer_t<stream_t>(stream).write(node);
 
         return stream;
@@ -1183,7 +1183,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const analyze_tree_t * tree)
     {
-        if(tree != nullptr)
+        if (tree != nullptr)
             __node_writer_t<stream_t>(stream).write(tree);
 
         return stream;
@@ -1305,17 +1305,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         };
 
         int index = 0;
-        for(const __stack_unit_t & unit : stack.all(__stack_type_t::normal))
+        for (const __stack_unit_t & unit : stack.all(__stack_type_t::normal))
         {
-            if(index++ > 0)
+            if (index++ > 0)
                 stream << _T(", ");
 
             write_node(unit.node);
         }
 
-        for(const __stack_unit_t & unit : stack.all(__stack_type_t::branch_switched))
+        for (const __stack_unit_t & unit : stack.all(__stack_type_t::branch_switched))
         {
-            if(index++ > 0)
+            if (index++ > 0)
                 stream << _T(", ");
 
             stream << _T("...");
@@ -1354,9 +1354,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     stream_t & operator << (stream_t & stream, const __path_node_stacks_t & stacks)
     {
         int index = 0;
-        for(const __path_node_stack_t * stack = stacks.stack; stack; stack = stack->next)
+        for (const __path_node_stack_t * stack = stacks.stack; stack; stack = stack->next)
         {
-            if(index++ > 0)
+            if (index++ > 0)
                 stream << _T("; ");
 
             stream << *stack;
@@ -2024,7 +2024,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts to a string.
         operator string_t() const
         {
-            switch(type)
+            switch (type)
             {
                 case analyzer_element_type_t::token:
                     return (string_t)*token;

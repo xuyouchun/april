@@ -20,7 +20,7 @@ namespace X_ROOT_NS {
         // Writes log to the stream that given by log type.
         void write(log_type_t type, const wchar_t * s)
         {
-            switch(type)
+            switch (type)
             {
                 case log_type_t::trace:
                     __X_BLT(trace) << s;
@@ -74,7 +74,7 @@ namespace X_ROOT_NS {
     {
         typedef int_type_t<sizeof(type)> t;
         t & mask = *(t *)&__log_mask;
-        if(open)
+        if (open)
             mask |= (t)type;
         else
             mask &= ~(t)type;

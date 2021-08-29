@@ -71,7 +71,7 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             _UL(__mutex, guard);
 
-            if(__try_acquire())
+            if (__try_acquire())
                 return true;
 
             std::unique_lock<std::mutex> lk(__wait_mutex);
@@ -81,13 +81,13 @@ namespace X_ROOT_NS { namespace algorithm {
 
             // TODO: not a atomic operation
             bool success = true;
-            if(timeout == _duration_t::zero())
+            if (timeout == _duration_t::zero())
                 __condition_var.wait(lk);
             else
-                success = __condition_var.wait_for(lk, timeout) == std::cv_status::no_timeout;
+                success = __condition_var.wait_for (lk, timeout) == std::cv_status::no_timeout;
 
             _L(__mutex);
-            if(success)
+            if (success)
                 __signal_count--;
 
             __waiting_count--;
@@ -159,10 +159,10 @@ namespace X_ROOT_NS { namespace algorithm {
 
             __mutex_wrap_t & mutex_wrap = __get_mutex_wrap(owner);
 
-            if(mutex_wrap.ref_count <= 0)
+            if (mutex_wrap.ref_count <= 0)
                 throw _EC(invalid_operation, _T("exit too many times"));
 
-            if(--mutex_wrap.ref_count == 0)
+            if (--mutex_wrap.ref_count == 0)
                 __exited_count++;
 
             mutex_wrap.mutex.unlock();
@@ -197,7 +197,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Auto create if not exists. ( when auto_create is true. )
         __mutex_wrap_t & __get_mutex_wrap(void * owner, bool auto_create=false)
         {
-            if(__exited_count >= 10)
+            if (__exited_count >= 10)
             {
                 __clean_up();
                 __exited_count = 0;
@@ -205,10 +205,10 @@ namespace X_ROOT_NS { namespace algorithm {
 
             __key_t key = (__key_t)owner;
             auto it = __mutex_map.find(key);
-            if(it != __mutex_map.end())
+            if (it != __mutex_map.end())
                 return *it->second;
             
-            if(!auto_create)
+            if (!auto_create)
                 throw _EC(invalid_operation, _T("object locker not exists"));
 
             return *(__mutex_map[key] = __pool.acquire());
@@ -218,9 +218,9 @@ namespace X_ROOT_NS { namespace algorithm {
         void __clean_up()
         {
             std::map<__key_t, __mutex_wrap_t *> new_map;
-            for(auto &it : __mutex_map)
+            for (auto &it : __mutex_map)
             {
-                if(it.second->ref_count == 0)
+                if (it.second->ref_count == 0)
                     __pool.release(it.second);
                 else
                     new_map.insert(it);
@@ -260,7 +260,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Unlock
         void unlock()
         {
-            if(__owner)
+            if (__owner)
                 __lm.exit(__owner);
         }
 

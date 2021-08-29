@@ -36,7 +36,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     {
         typedef lang_service_type_t t;
 
-        switch(service_type)
+        switch (service_type)
         {
             case t::token_read:
                 return __get_service<lang_token_read_service_t>();

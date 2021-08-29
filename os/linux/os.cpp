@@ -24,7 +24,7 @@ namespace X_ROOT_NS { namespace os {
     // Frees memory.
     void free(void * p)
     {
-        if(p)
+        if (p)
         {
             ::free(p);
         }

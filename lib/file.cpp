@@ -42,9 +42,9 @@ namespace X_ROOT_NS { namespace lib {
     template<typename c_t>
     size_t __len(const c_t * s)
     {
-        for(const c_t * p = s; ; p++)
+        for (const c_t * p = s; ; p++)
         {
-            if(!*p)
+            if (!*p)
                 return p - s;
         }
     }
@@ -73,7 +73,7 @@ namespace X_ROOT_NS { namespace lib {
     {
         ostream_t f;
         f.open(file, mode | std::ios_base::out);
-        if(!f.is_open())
+        if (!f.is_open())
             throw _E(file_error_code_t::open_error);
 
         __write_all(f, s, length);
@@ -95,7 +95,7 @@ namespace X_ROOT_NS { namespace lib {
         s_t ret_s;
 
         typedef typename istream_t::char_type _c_t;
-        while((size = __read_stream(stream, (_c_t *)buffer, array_size(buffer))) > 0)
+        while ((size = __read_stream(stream, (_c_t *)buffer, array_size(buffer))) > 0)
         {
             ret_s.append(buffer, size);
         }
@@ -112,7 +112,7 @@ namespace X_ROOT_NS { namespace lib {
     {
         istream_t f;
         f.open(file, std::ios_base::in);
-        if(!f.is_open())
+        if (!f.is_open())
             throw _E(file_error_code_t::open_error);
 
         s_t ret = __read_all<istream_t, c_t, s_t>(f);
@@ -209,11 +209,11 @@ namespace X_ROOT_NS { namespace lib {
     string_t fileext(const path_t & path)
     {
         auto s = path.extension().wstring();
-        if(s.length() == 0)
+        if (s.length() == 0)
             return _T("");
         
         const char_t * start = s.c_str(), * end = start + s.length();
-        if(s[0] == '.')
+        if (s[0] == '.')
             start++;
 
         return string_t(start, end);
@@ -232,7 +232,7 @@ namespace X_ROOT_NS { namespace lib {
         auto ext = path.extension().wstring();
 
         size_t len = s.length();
-        if(s.length() > 0)
+        if (s.length() > 0)
             len -= ext.length();
 
         const char_t * start = s.c_str(), * end = start + len;
@@ -244,11 +244,11 @@ namespace X_ROOT_NS { namespace lib {
     bool __pre_with(const char_t * p_start, const char_t * p, const char_t (&prefix)[_size])
     {
         const size_t size = _size - 1;
-        if(p - p_start + 1 < size)
+        if (p - p_start + 1 < size)
             return false;
 
         const char_t * s = p - size + 1;
-        if(s <= p_start || *(s - 1) == _T('/'))
+        if (s <= p_start || *(s - 1) == _T('/'))
             return al::starts_with(s, prefix);
 
         return false;
@@ -256,29 +256,29 @@ namespace X_ROOT_NS { namespace lib {
 
     bool __jmp_relative(const char_t * p_start, const char_t * & p)
     {
-        if(__pre_with(p_start, p - 1, _T(".")))             // ./
+        if (__pre_with(p_start, p - 1, _T(".")))             // ./
         {
             p -= 2;
-            if(p >= p_start && *p == _T('/'))
+            if (p >= p_start && *p == _T('/'))
                 __jmp_relative(p_start, p);
 
             return true;
         }
 
-        if(__pre_with(p_start, p - 1, _T("..")))
+        if (__pre_with(p_start, p - 1, _T("..")))
         {
             p -= 3;
-            if(p >= p_start)
+            if (p >= p_start)
             {
-                if(*p == _T('/'))
+                if (*p == _T('/'))
                     __jmp_relative(p_start, p);
             }
             else
                 throw _EC(format_error);
 
-            for(p--; p >= p_start; p--)
+            for (p--; p >= p_start; p--)
             {
-                if(*p == _T('/'))
+                if (*p == _T('/'))
                     break;
             }
 
@@ -294,20 +294,20 @@ namespace X_ROOT_NS { namespace lib {
         *out-- = _T('\0');
         __jmp_relative(p_start, p);
 
-        if(*p == _T('\0') || *p == _T('/'))
+        if (*p == _T('\0') || *p == _T('/'))
             p--;
 
-        while(p >= p_start)
+        while (p >= p_start)
         {
-            if(*p == _T('/'))
+            if (*p == _T('/'))
             {
-                while(__jmp_relative(p_start, p))
+                while (__jmp_relative(p_start, p))
                 {
-                    if(p < p_start || *p != _T('/'))
+                    if (p < p_start || *p != _T('/'))
                         break;
                 }
 
-                if(p >= p_start)
+                if (p >= p_start)
                     *out-- = *p--;
             }
             else
@@ -391,7 +391,7 @@ namespace X_ROOT_NS { namespace lib {
         size_t index = spath.find_last_of(_T("/"));
 
         auto npos = string_t::npos;
-        if(index == npos || spath.find_first_of(_T("?*"), index + 1) == npos)
+        if (index == npos || spath.find_first_of(_T("?*"), index + 1) == npos)
             return false;
 
         out_dir = path_t(spath.substr(0, index));

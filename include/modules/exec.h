@@ -262,7 +262,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         _size_t hash = 0;
 
-        for(; t < t_end; t++)
+        for (; t < t_end; t++)
         {
             hash = __hash(hash, *t);
         }
@@ -551,7 +551,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             #define __MatchBlockType(_block)                    \
                 (_type == method_xil_block_type_t::__unknown__ || _type == _block->type)
 
-            for(; block < block_end; block++)
+            for (; block < block_end; block++)
             {
                 if (__MatchBlockType(block) && point >= block->start && point < block->end)
                 {

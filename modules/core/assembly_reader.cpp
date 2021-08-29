@@ -8,9 +8,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Check ref limit.
     #define __CheckRefLimit(ref, limit, name)                           \
         do {                                                            \
-            if(ref.count > 0 && ref.index + ref.count - 1 >= limit)     \
+            if (ref.count > 0 && ref.index + ref.count - 1 >= limit)     \
                 throw _ED(__e_t::overlimit, name);                      \
-        } while(false)
+        } while (false)
 
     #define __FakeEntryPoint    ((method_t *)0x01)
 
@@ -79,7 +79,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Read metadatas.
         void read(bool brief)
         {
-            if(!brief)
+            if (!brief)
             {
                 __read_metadata<>(&this->__heap);
                 __build_entities();
@@ -131,7 +131,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             attribute_t * operator [] (__size_t pos)
             {
                 attribute_t * attr = __super_t::operator[](pos);
-                if(__owner->__is_compile_time_attribute(attr))
+                if (__owner->__is_compile_time_attribute(attr))
                     return __owner->__xpool.get_compile_time_attribute();
 
                 return attr;
@@ -150,7 +150,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             virtual void log(code_element_t * element, log_level_t level,
                             const string_t & name, const string_t & message) override
             {
-                if(level == log_level_t::error)
+                if (level == log_level_t::error)
                     throw _E(__e_t::format_error, message);
             }
         };
@@ -272,7 +272,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns mname of sid.
         const mname_t * __to_mname(sid_t sid)
         {
-            if(__is_null_or_empty(sid))
+            if (__is_null_or_empty(sid))
                 return nullptr;
 
             mname_operate_context_t mctx = to_mname_operate_context(this->__xpool);
@@ -289,7 +289,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns namespace_t of ns.
         namespace_t * __to_namespace(sid_t ns)
         {
-            if(ns == sid_t::null)
+            if (ns == sid_t::null)
                 return nullptr;
 
             // TODO: ?
@@ -299,11 +299,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns namespace_t of res.
         namespace_t * __to_namespace(res_t res)
         {
-            if(res == res_t::null)
+            if (res == res_t::null)
                 return nullptr;
 
             auto it = __ns_map.find(res);
-            if(it != __ns_map.end())
+            if (it != __ns_map.end())
                 return it->second;
 
             namespace_t * ns = __to_namespace(__to_sid(res));
@@ -315,11 +315,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns typename of type.
         type_name_t * __to_type_name(type_t * type)
         {
-            if(type == nullptr)
+            if (type == nullptr)
                 return nullptr;
 
             auto it = __type_name_map.find(type);
-            if(it != __type_name_map.end())
+            if (it != __type_name_map.end())
                 return it->second;
 
             type_name_t * type_name = __new_obj<type_name_t>(type);
@@ -337,10 +337,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns type of ref.
         type_t * __get_type(ref_t ref)
         {
-            if(ref == ref_t::null)
+            if (ref == ref_t::null)
                 return nullptr;
 
-            switch((mt_type_extra_t)ref.extra)
+            switch ((mt_type_extra_t)ref.extra)
             {
                 case mt_type_extra_t::general:
                     __CheckRefLimit(ref, __general_types.size(), _T("general type"));
@@ -373,7 +373,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __CheckRefLimit(ref, __generic_types.size(), _T("generic type"));
 
             generic_type_t * generic_type = __generic_types[ref.index];
-            if(generic_type == nullptr)
+            if (generic_type == nullptr)
             {
                 auto & mgr = __mt_manager<__tidx_t::generic_type>();
 
@@ -409,7 +409,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __CheckRefLimit(ref, __array_types.size(), _T("array type"));
 
             array_type_t * array_type = __array_types[ref.index];
-            if(array_type == nullptr)
+            if (array_type == nullptr)
             {
                 auto & mgr = __mt_manager<__tidx_t::array_type>();
 
@@ -430,7 +430,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __CheckRefLimit(ref, __generic_methods, _T("generic method"));
 
             generic_method_t * generic_method = __generic_methods[ref.index];
-            if(generic_method == nullptr)
+            if (generic_method == nullptr)
             {
                 auto & mgr = __mt_manager<__tidx_t::generic_method>();
 
@@ -480,7 +480,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         cvalue_t __new_cvalue(const mt_constant_t & mt)
         {
             cvalue_type_t cvalue_type = to_cvalue_type(mt.constant_type);
-            if(cvalue_type == cvalue_type_t::type)
+            if (cvalue_type == cvalue_type_t::type)
                 return __read_const_type(mt);
 
             return __res_reader.read_const(mt);
@@ -561,7 +561,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<__tidx_t tidx, typename entity_t = typename mt_t<tidx>::entity_t>
         auto __get(__list_t<entity_t> & entities, ref_t ref, const char_t * name)
         {
-            if(ref == ref_t::null)
+            if (ref == ref_t::null)
                 return (entity_t)nullptr;
 
             __CheckRefLimit(ref, entities.size(), name);
@@ -607,14 +607,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         >
         _entities_t * __to_entities(_list_t & all_entities, ref_t refs, const char_t * name)
         {
-            if(refs == ref_t::null)
+            if (refs == ref_t::null)
                 return nullptr;
 
             __CheckRefLimit(refs, all_entities.size(), name);
             _entities_t * entities = __new_obj<_entities_t>();
 
             auto & mgr = __mt_manager<tidx>();
-            for(ref_t ref : refs)
+            for (ref_t ref : refs)
             {
                 entities->push_back(all_entities[ref.index]);
             }
@@ -633,7 +633,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 all_entities, refs, name
             );
 
-            if(entities != nullptr)
+            if (entities != nullptr)
                 entities->set_owner(owner);
 
             return entities;
@@ -683,11 +683,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         decorate_t * __to_decorate(__decorate_t decorate)
         {
             decorate_value_t value = (decorate_value_t)decorate;
-            if(value == decorate_value_t::default_value)
+            if (value == decorate_value_t::default_value)
                 return nullptr;
 
             auto it = __decorate_map.find(value);
-            if(it != __decorate_map.end())
+            if (it != __decorate_map.end())
                 return it->second;
 
             decorate_t * d = __new_obj<decorate_t>(value);
@@ -702,16 +702,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Import assembly refs.
         void __import_assembly_refs()
         {
-            for(mt_assembly_ref_t * mt : __mt_manager<__tidx_t::assembly_ref>())
+            for (mt_assembly_ref_t * mt : __mt_manager<__tidx_t::assembly_ref>())
             {
                 const mname_t * package = __to_mname(mt->package);
                 const mname_t * name    = __to_mname(mt->name);
 
                 assembly_t * assembly;
-                if(__assembly_loader == nullptr
+                if (__assembly_loader == nullptr
                     || (assembly = __assembly_loader->load_assembly(package, name)) == nullptr)
                 {
-                    if(package != nullptr)
+                    if (package != nullptr)
                         throw _ED(__e_t::assembly_load_error_in_package, name, package);
                     else
                         throw _ED(__e_t::assembly_load_error, name);
@@ -726,7 +726,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             __set_placeholders_null<__tidx_t::type_ref>(__type_refs);
 
-            for(size_t index = 0, count = __type_refs.size(); index < count; index++)
+            for (size_t index = 0, count = __type_refs.size(); index < count; index++)
             {
                 __import_type_ref(index);
             }
@@ -737,27 +737,27 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             general_type_t * type = __type_refs[index];
 
-            if(type == nullptr)
+            if (type == nullptr)
             {
                 auto & mgr = __mt_manager<__tidx_t::type_ref>();
                 mt_type_ref_t & mt = mgr[index];
 
                 assembly_t * assembly = __get_assembly_ref(mt.assembly);
-                if(assembly == nullptr)
+                if (assembly == nullptr)
                     throw _ED(__e_t::assembly_empty, mt.assembly);
 
                 sid_t namespace_   = __to_sid(mt.namespace_);
                 sid_t name         = __to_sid(mt.name);
 
                 general_type_t * host_type = nullptr;
-                if(mt.host != ref_t::null)
+                if (mt.host != ref_t::null)
                 {
-                    if((mt_type_extra_t)mt.host.extra != mt_type_extra_t::type_ref
+                    if ((mt_type_extra_t)mt.host.extra != mt_type_extra_t::type_ref
                                                                 || mt.host.count != 1)
                         throw _ED(__e_t::invalid_ref, _T("host type"));
 
                     host_type = __import_type_ref(mt.host.index);
-                    if(host_type->assembly != assembly)
+                    if (host_type->assembly != assembly)
                         throw _ED(__e_t::invalid_host_type, host_type);
                 }
 
@@ -765,9 +765,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     namespace_, name, mt.generic_param_count, host_type
                 );
 
-                if(type == nullptr)
+                if (type == nullptr)
                 {
-                    if(!__is_null_or_empty(namespace_))
+                    if (!__is_null_or_empty(namespace_))
                         throw _ED(__e_t::type_load_error, _F(_T("%1%.%2%"), namespace_, name),
                                                                             assembly);
                     else
@@ -783,7 +783,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Import field refs.
         void __import_field_refs()
         {
-            for(mt_field_ref_t * mt : __mt_manager<__tidx_t::field_ref>())
+            for (mt_field_ref_t * mt : __mt_manager<__tidx_t::field_ref>())
             {
                 
             }
@@ -792,12 +792,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Gets generic param placeholder type.
         type_t * __get_generlc_param_placeholder_type(int index)
         {
-            while(__generlc_param_placeholder_types.size() < index + 1)
+            while (__generlc_param_placeholder_types.size() < index + 1)
             {
                 __generlc_param_placeholder_types.push_back(nullptr);
             }
 
-            if(__generlc_param_placeholder_types[index] == nullptr)
+            if (__generlc_param_placeholder_types[index] == nullptr)
             {
                 __generlc_param_placeholder_types[index] = 
                     __pool.template new_obj<__generlc_param_placeholder_type_t>();
@@ -811,7 +811,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Gets import method param type.
         type_t * __get_import_method_param_type(ref_t ref)
         {
-            switch((mt_type_extra_t)ref.extra)
+            switch ((mt_type_extra_t)ref.extra)
             {
                 case mt_type_extra_t::generic_param_index:
                     return __GenericParamType(ref.index);
@@ -824,18 +824,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Imports method refs.
         void __import_method_refs()
         {
-            for(mt_method_ref_t * mt : __mt_manager<__tidx_t::method_ref>())
+            for (mt_method_ref_t * mt : __mt_manager<__tidx_t::method_ref>())
             {
                 name_t name = __to_name(mt->name);
 
                 type_t * host_type = __get_type(mt->host);
-                if(host_type == nullptr)
+                if (host_type == nullptr)
                     throw _ED(__e_t::method_host_type_empty, name);
 
                 atypes_t atypes;
                 auto & m = __mt_manager<__tidx_t::method_ref_param>();
 
-                for(ref_t ref : mt->params)
+                for (ref_t ref : mt->params)
                 {
                     mt_method_ref_param_t & p = m[ref];
                     type_t * arg_type = __get_import_method_param_type(p.type);
@@ -852,17 +852,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 host_type->commit(ctx);
 
                 method_t * method = (method_t *)host_type->get_member(args);
-                if(method == nullptr)
+                if (method == nullptr)
                     throw _ED(__e_t::method_not_found, name);
 
                 type_t * ret_type = __get_import_method_param_type(mt->type);
-                if(to_type(method->type_name) != ret_type)
+                if (to_type(method->type_name) != ret_type)
                 {
                     throw _ED(__e_t::method_return_type_not_matched, name);
                 }
                 else
                 {
-                    if(ret_type == nullptr && method->trait == method_trait_t::normal)
+                    if (ret_type == nullptr && method->trait == method_trait_t::normal)
                         throw _ED(__e_t::method_return_type_empty, name);
                 }
 
@@ -873,17 +873,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Creates a generic arguments of specified count.
         generic_args_t * __to_generic_args(int args_count)
         {
-            if(args_count == 0)
+            if (args_count == 0)
                 return nullptr;
 
             // _A(args_count < );  TODO
 
-            while(__generic_args_array.size() < args_count)
+            while (__generic_args_array.size() < args_count)
             {
                 __generic_args_array.push_back(nullptr);
             }
 
-            if(__generic_args_array[args_count - 1] == nullptr)
+            if (__generic_args_array[args_count - 1] == nullptr)
                 __generic_args_array[args_count - 1] = __build_generic_args(args_count);
 
             return __generic_args_array[args_count - 1];
@@ -893,7 +893,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_args_t * __build_generic_args(int args_count)
         {
             generic_args_t * args = __pool.template new_obj<generic_args_t>();
-            for(int index = 0; index < args_count; index++)
+            for (int index = 0; index < args_count; index++)
             {
                 generic_arg_t * arg = __pool.template new_obj<generic_arg_t>();
                 arg->type_name = __to_type_name(__GenericParamType(index));
@@ -906,7 +906,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Import property refs.
         void __import_property_refs()
         {
-            for(mt_property_ref_t * mt : __mt_manager<__tidx_t::property_ref>())
+            for (mt_property_ref_t * mt : __mt_manager<__tidx_t::property_ref>())
             {
                 
             }
@@ -915,7 +915,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Import event refs.
         void __import_event_refs()
         {
-            for(mt_event_ref_t * mt : __mt_manager<__tidx_t::event_ref>())
+            for (mt_event_ref_t * mt : __mt_manager<__tidx_t::event_ref>())
             {
                 
             }
@@ -928,7 +928,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __load_super_types()
         {
             auto & mgr = __mt_manager<__tidx_t::super_type>();
-            for(mt_super_type_t * mt : mgr)
+            for (mt_super_type_t * mt : mgr)
             {
                 __super_types.push_back(__get_type(mt->type));
             }
@@ -938,13 +938,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __load_nest_types()
         {
             auto & mgr = __mt_manager<__tidx_t::nest_type>();
-            for(mt_nest_type_t * mt : mgr)
+            for (mt_nest_type_t * mt : mgr)
             {
-                if(!__is_internal_type(mt->type))
+                if (!__is_internal_type(mt->type))
                     throw _ED(__e_t::read_unexpected_nest_type);
 
                 type_t * type = __get_type(mt->type);
-                if(!is_general(type))
+                if (!is_general(type))
                     throw _ED(__e_t::read_unexpected_nest_type);
 
                 __nest_types.push_back((general_type_t *)type);
@@ -957,11 +957,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             std::map<cvalue_t, expression_t *> map;
 
             auto & mgr = __mt_manager<__tidx_t::constant>();
-            for(mt_constant_t * mt : mgr)
+            for (mt_constant_t * mt : mgr)
             {
                 cvalue_t cvalue = __new_cvalue(*mt);
                 auto it = map.find(cvalue);
-                if(it != map.end())
+                if (it != map.end())
                 {
                     __constants.push_back(it->second);
                 }
@@ -982,10 +982,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             auto & mgr = __mt_manager<__tidx_t::assembly>();
 
-            if(mgr.count() == 0)
+            if (mgr.count() == 0)
                 throw __format_error(_T("no assembly information"));
 
-            if(mgr.count() >= 2)
+            if (mgr.count() >= 2)
                 throw __format_error(_T("multiply assembly information"));
 
             mt_assembly_t & mt_assembly = mgr[0];
@@ -998,7 +998,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt_assembly_t & mt_assembly = __mt_assembly();
             const mname_t * mname0 = __to_mname(mt_assembly.name);
 
-            if(__assembly.name != nullptr && __assembly.name != __to_mname(mt_assembly.name))
+            if (__assembly.name != nullptr && __assembly.name != __to_mname(mt_assembly.name))
                 throw __format_error(_T("assembly name not matched"));
 
             __assembly.name        = __to_mname(mt_assembly.name);
@@ -1013,7 +1013,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             mt_assembly_t & mt_assembly = __mt_assembly();
 
-            if(mt_assembly.entry_point != ref_t::null)
+            if (mt_assembly.entry_point != ref_t::null)
                 __assembly.entry_point = __FakeEntryPoint;
         }
 
@@ -1024,7 +1024,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<__tidx_t tidx, typename entity_t = typename mt_t<tidx>::entity_t>
         void __set_placeholders(std::vector<entity_t> & entities)
         {
-            for(int k = 0, count = __mt_manager<tidx>().row_count(); k < count; k++)
+            for (int k = 0, count = __mt_manager<tidx>().row_count(); k < count; k++)
             {
                 typedef std::remove_pointer_t<entity_t> _entity_t;
                 entities.push_back(__new_obj<_entity_t>());
@@ -1035,7 +1035,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<__tidx_t tidx, typename entity_t = typename mt_t<tidx>::entity_t>
         void __set_placeholders_null(std::vector<entity_t> & entities)
         {
-            for(int k = 0, count = __mt_manager<tidx>().row_count(); k < count; k++)
+            for (int k = 0, count = __mt_manager<tidx>().row_count(); k < count; k++)
             {
                 entities.push_back(nullptr);
             }
@@ -1046,11 +1046,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __fill_entities(_list_t & entities, __list_t<entity_t> & all_entities,
                                                     ref_t refs, const char_t * name)
         {
-            if(refs == ref_t::null)
+            if (refs == ref_t::null)
                 return;
 
             __CheckRefLimit(refs, all_entities.size(), name);
-            for(ref_t ref : refs)
+            for (ref_t ref : refs)
             {
                 entities.push_back(all_entities[ref.index]);
             }
@@ -1062,7 +1062,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 __list_t<entity_t> & all_members, ref_t refs, const char_t * name)
         {
             __fill_entities<tidx>(members, all_members, refs, name);
-            for(auto && member : members)
+            for (auto && member : members)
             {
                 member->host_type = host_type;
             }
@@ -1073,13 +1073,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __fill_type_names(__list_t<type_t *> & all_types, _list_t & type_names, ref_t refs,
                                                                         const char_t * name)
         {
-            if(refs == ref_t::null)
+            if (refs == ref_t::null)
                 return;
 
             __CheckRefLimit(refs, all_types.size(), name);
 
             auto & ref_array = __mt_manager<tidx>();
-            for(ref_t ref : refs)
+            for (ref_t ref : refs)
             {
                 type_names.push_back(
                     __to_type_name(all_types[ref.index])
@@ -1095,7 +1095,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __build(__list_t<entity_t> & all_entities, f_t f)
         {
             auto & mgr = __mt_manager<tidx>();
-            for(auto && it : al::zip(mgr, all_entities))
+            for (auto && it : al::zip(mgr, all_entities))
             {
                 mt_t<tidx> * mt;
                 entity_t entity;
@@ -1240,7 +1240,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             attribute->constructor = __get_method(mt.constructor);
             attribute->arguments   = __to_attribute_arguments(mt.arguments);
 
-            if(mt.flag.compile_time)
+            if (mt.flag.compile_time)
                 __compile_time_attributes.insert(attribute);
         }
 
@@ -1268,7 +1268,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __commit(__list_t<entity_t> & entities)
         {
             eobject_commit_context_t ctx(this->__xpool, __logger);
-            for(entity_t entity : entities)
+            for (entity_t entity : entities)
             {
                 entity->commit(ctx);
             }
@@ -1279,9 +1279,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             eobject_commit_context_t ctx(this->__xpool, __logger);
 
-            for(general_type_t * type : __general_types)
+            for (general_type_t * type : __general_types)
             {
-                if(type->namespace_ != nullptr)
+                if (type->namespace_ != nullptr)
                     type->namespace_->append_type(type);
 
                 this->__assembly.types.append_type(type);
@@ -1292,10 +1292,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Converts namespace to a sid.
         sid_t __ns_to_sid(namespace_t * ns)
         {
-            if(ns != nullptr)
+            if (ns != nullptr)
             {
                 const mname_t * full_name = ns->full_name;
-                if(full_name != nullptr)
+                if (full_name != nullptr)
                 {
                     return full_name->sid;
                 }
@@ -1307,7 +1307,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits type defs.
         void __commit_type_defs()
         {
-            for(type_def_t * type_def : __type_defs)
+            for (type_def_t * type_def : __type_defs)
             {
                 this->__assembly.types.append_type_def(
                     __ns_to_sid(type_def->namespace_), type_def
@@ -1350,7 +1350,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         __entity_operation_t<mt_guide_t>::read(stream, *guide);
 
-        if(guide->flag != guid_t::parse(JC_ASSEMBLY_FLAG))
+        if (guide->flag != guid_t::parse(JC_ASSEMBLY_FLAG))
             throw __format_error(_T("unexpected assembly flag"));
     }
 
@@ -1361,7 +1361,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         mt_guide_t guide;
         assembly_read_guide(stream, &guide);
 
-        switch(guide.layout)
+        switch (guide.layout)
         {
             case 1:
                 __assembly_reader_t<1>(stream, assembly, loader).read(brief);
@@ -1382,14 +1382,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         try
         {
             assembly_read(stream, assembly, nullptr, nullptr, true);
-            if(assembly.entry_point != nullptr)
+            if (assembly.entry_point != nullptr)
                 return assembly_type_t::executable;
 
             return assembly_type_t::dynamic_library;
         }
-        catch(logic_error_t<__e_t> & e)
+        catch (logic_error_t<__e_t> & e)
         {
-            if(e.code == __e_t::unsupported_layout)
+            if (e.code == __e_t::unsupported_layout)
                 return assembly_type_t::unknown;
 
             throw;

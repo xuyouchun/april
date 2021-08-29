@@ -56,7 +56,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     expression_t * cs_lang_service_t::build_expression(lang_expression_build_context_t & ctx,
                                                    const lang_expression_build_args_t & args)
     {
-        switch((cs_token_value_t)args.token->value)
+        switch ((cs_token_value_t)args.token->value)
         {
             case cs_token_value_t::k_this:
                 return ctx.create_system_expression<this_expression_t>();
@@ -76,7 +76,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
             case cs_token_value_t::comma: {
                 cs_expressions_t * expressions = as<cs_expressions_t *>(args.expressions[0]);
-                if(expressions != nullptr)
+                if (expressions != nullptr)
                 {
                     expressions->append(args.expressions + 1, args.expressions + args.count);
                 }
@@ -118,7 +118,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         typedef cs_branch_type_t type_t;
 
-        switch((cs_branch_type_t)args.node_value)
+        switch ((cs_branch_type_t)args.node_value)
         {
             __Case(_fields)
             __Case(_fields_item)

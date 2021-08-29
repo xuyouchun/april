@@ -293,10 +293,10 @@ namespace X_ROOT_NS {
     // Gets the min value that large or equals than aligne_size, times by 2.
     constexpr size_t _alignd(size_t size, size_t align_size) _NE
     {
-        if(size == 0)
+        if (size == 0)
             size = 1;
 
-        while(size < align_size)
+        while (size < align_size)
         {
             size <<= 1;
         }
@@ -337,13 +337,13 @@ namespace X_ROOT_NS {
         {
             static_assert(size <= 8, "size must less than 64");
 
-            if(size <= 1)
+            if (size <= 1)
                 return 1;
 
-            if(size <= 2)
+            if (size <= 2)
                 return 2;
 
-            if(size <= 4)
+            if (size <= 4)
                 return 4;
 
             return 8;
@@ -583,7 +583,7 @@ namespace X_ROOT_NS {
                 case value_type_t::type##_:                     \
                     return __value_t<type##_t>::to_string(value);
 
-            switch(type)
+            switch (type)
             {
                 #define __X_TYPE_OP __X_CASE
                 __X_EACH_TYPES 
@@ -598,14 +598,14 @@ namespace X_ROOT_NS {
 
         template<typename numeric_t> numeric_t get_value() const _NE
         {
-            if(__value_t<numeric_t>::value_type == type)
+            if (__value_t<numeric_t>::value_type == type)
                 return __root_ns::get_value<numeric_t>(value);
 
             #define __X_CASE(type)                              \
                 case value_type_t::type##_:                     \
                     return static_cast<numeric_t>(__root_ns::get_value<type##_t>(value));
 
-            switch(type)
+            switch (type)
             {
                 #define __X_TYPE_OP __X_CASE
                 __X_EACH_TYPES 
@@ -624,7 +624,7 @@ namespace X_ROOT_NS {
 
         bool operator == (const tvalue_t & other) const _NE
         {
-            if(type != other.type)
+            if (type != other.type)
                 return false;
 
             #define __X_CASE(type)                                          \
@@ -632,7 +632,7 @@ namespace X_ROOT_NS {
                     return __root_ns::get_value<type##_t>(value)            \
                         == __root_ns::get_value<type##_t>(other.value);
 
-            switch(type)
+            switch (type)
             {
                 #define __X_TYPE_OP __X_CASE
                 __X_EACH_TYPES 
@@ -647,7 +647,7 @@ namespace X_ROOT_NS {
 
         bool operator < (const tvalue_t & other) const _NE
         {
-            if(type != other.type)
+            if (type != other.type)
                 return type < other.type;
 
             #define __X_CASE(type)                                          \
@@ -655,7 +655,7 @@ namespace X_ROOT_NS {
                     return __root_ns::get_value<type##_t>(value)            \
                         < __root_ns::get_value<type##_t>(other.value);
 
-            switch(type)
+            switch (type)
             {
                 #define __X_TYPE_OP __X_CASE
                 __X_EACH_TYPES 
@@ -670,7 +670,7 @@ namespace X_ROOT_NS {
 
         bool operator <= (const tvalue_t & other) const _NE
         {
-            if(type != other.type)
+            if (type != other.type)
                 return type <= other.type;
 
             #define __X_CASE(type)                                          \
@@ -678,7 +678,7 @@ namespace X_ROOT_NS {
                     return __root_ns::get_value<type##_t>(value)            \
                         <= __root_ns::get_value<type##_t>(other.value);
 
-            switch(type)
+            switch (type)
             {
                 #define __X_TYPE_OP __X_CASE
                 __X_EACH_TYPES 
@@ -712,7 +712,7 @@ namespace X_ROOT_NS {
                 case value_type_t::type##_:                 \
                     return tvalue_t(-value.type##_value);
 
-            switch(type)
+            switch (type)
             {
                 #define __X_TYPE_OP __X_CASE
                 __X_EACH_TYPES 
@@ -728,7 +728,7 @@ namespace X_ROOT_NS {
         // Converts to unsigned type.
         tvalue_t to_unsigned() const _NE
         {
-            switch(type)
+            switch (type)
             {
                 case value_type_t::int8_:
                     return tvalue_t((uint8_t)value.int8_value);
@@ -750,7 +750,7 @@ namespace X_ROOT_NS {
         // Converts to signed type.
         tvalue_t to_signed() const _NE
         {
-            switch(type)
+            switch (type)
             {
                 case value_type_t::uint8_:
                     return tvalue_t((int8_t)value.uint8_value);
@@ -916,9 +916,9 @@ namespace X_ROOT_NS {
     template<typename stream_t, typename itor_t>
     stream_t & operator << (stream_t & stream, const range_t<itor_t> & r)
     {
-        for(itor_t it_begin = r.begin(), it_end = r.end(), it = it_begin; it != it_end; it++)
+        for (itor_t it_begin = r.begin(), it_end = r.end(), it = it_begin; it != it_end; it++)
         {
-            if(it != it_begin)
+            if (it != it_begin)
                 stream << _T(" ");
             stream << *it;
         }
@@ -971,7 +971,7 @@ namespace X_ROOT_NS {
         {
             static void func(callback_t & callback)
             {
-                if(callback.template operator()<t>())
+                if (callback.template operator()<t>())
                 {
                     __each_types_t<type_count - 1, callback_t, types_t ...>::func(callback);
                 }
@@ -1090,7 +1090,7 @@ namespace X_ROOT_NS {
     template<typename stream_t>
     stream_t & operator << (stream_t & stream, const object_t * obj)
     {
-        if(obj != nullptr)
+        if (obj != nullptr)
             stream << obj->to_string().c_str();
 
         return stream;
@@ -1197,7 +1197,7 @@ namespace X_ROOT_NS {
             const char_t * file=nullptr, size_t line=(size_t)-1) _NE
     {
         const char_t * desc = _desc(code);
-        if(desc == nullptr or desc[0] == _T('\0'))
+        if (desc == nullptr or desc[0] == _T('\0'))
             desc = _title(code);
 
         return _error(code, desc, file, line);
@@ -1262,11 +1262,11 @@ namespace X_ROOT_NS {
 
     #define X_ASSERT(x, args...)                                            \
         do {                                                                \
-            if(!(x)) {                                                      \
+            if (!(x)) {                                                      \
                 __root_ns::__raise_assert_error(_T("") #x,                  \
                     _T(__FILE__), __LINE__, ##args);                        \
             }                                                               \
-        } while(0)
+        } while (0)
 
     #else
 
@@ -1295,7 +1295,7 @@ namespace X_ROOT_NS {
     template<typename t, typename t0> X_INLINE t must(t0 obj)
     {
         t obj1 = dynamic_cast<t>(obj);
-        if(obj1 == nullptr)
+        if (obj1 == nullptr)
             throw _E(common_error_code_t::convert_error);
         return obj1;
     }
@@ -1309,10 +1309,10 @@ namespace X_ROOT_NS {
     // Assert a value must be a specified type.
     #define X_MUST(type_t, value)             						    \
 		(([](auto v) -> type_t {                  				        \
-            if(v == nullptr)                                            \
+            if (v == nullptr)                                            \
                 return (type_t)nullptr;                                 \
 			type_t v2 = dynamic_cast<type_t>(v);    				    \
-			if(v2 == nullptr)                       				    \
+			if (v2 == nullptr)                       				    \
             	throw _ECF(convert_error, _T("cannot convert from %1% to %2%"),  \
                         type_str<decltype(v)>(), type_str<type_t>());	\
 			return v2;                              				    \
@@ -1566,7 +1566,7 @@ namespace X_ROOT_NS {
 
         typedef std::remove_reference_t<t> _t;
 		box_t<_t> * p = dynamic_cast<box_t<_t> *>(obj);
-		if(p != nullptr)
+		if (p != nullptr)
 			return p->value;
 
 		throw _E(common_error_code_t::convert_error);
@@ -1610,7 +1610,7 @@ namespace X_ROOT_NS {
         void remove(const key_t & key)
         {
 			auto it = __data.find(key);
-            if(it != __data.end())
+            if (it != __data.end())
                 __data.erase(it);
         }
 
@@ -1618,7 +1618,7 @@ namespace X_ROOT_NS {
         value_t & get(const key_t & key)
         {
             value_t * value;
-            if(try_get(key, &value))
+            if (try_get(key, &value))
                 return *value;
 
 			throw _E(common_error_code_t::not_found);
@@ -1630,9 +1630,9 @@ namespace X_ROOT_NS {
         bool try_get(const key_t & key, value_t ** out_value=nullptr)
         {
 			auto it = __data.find(key);
-			if(it != __data.end())
+			if (it != __data.end())
             {
-                if(out_value)
+                if (out_value)
             	    *out_value = &it->second;
                 return true;
             }
@@ -1679,7 +1679,7 @@ namespace X_ROOT_NS {
 
             auto ret = __data.insert(pair);
             bool success = ret.second;
-            if(!success)
+            if (!success)
             {
                 __erase(ret.first);
                 ret = __data.insert(pair);
@@ -1692,7 +1692,7 @@ namespace X_ROOT_NS {
         void remove(const key_t & key)
         {
 			auto it = __data.find(key);
-			if(it != __data.end())
+			if (it != __data.end())
                 __erase(it);
         }
 
@@ -1701,7 +1701,7 @@ namespace X_ROOT_NS {
         t & get(const key_t & key)
         {
             t * value;
-            if(try_get(key, &value))
+            if (try_get(key, &value))
                 return *value;
 
 			throw _E(common_error_code_t::not_found);
@@ -1713,7 +1713,7 @@ namespace X_ROOT_NS {
         t & get(key_t_ && key, creator_t creator)
         {
             t * value;
-            if(try_get(key, &value))
+            if (try_get(key, &value))
                 return *value;
 
             typedef remove_rc_t<key_t_> key_t;
@@ -1726,7 +1726,7 @@ namespace X_ROOT_NS {
         t & get(key_t_ && key, bool auto_create)
         {
             typedef remove_rc_t<key_t_> key_t;
-            if(auto_create)
+            if (auto_create)
                 return get<t>(std::forward<key_t>(key), []() { return t(); });
             return get<t>(key);
         }
@@ -1738,9 +1738,9 @@ namespace X_ROOT_NS {
         bool try_get(const key_t & key, t ** out_value=nullptr)
         {
             auto it = __data.find(key);
-            if(it != __data.end())
+            if (it != __data.end())
             {
-                if(out_value)
+                if (out_value)
                     *out_value = &_unbox<std::remove_reference_t<t>>(it->second.value);
                 return true;
             }
@@ -1751,10 +1751,10 @@ namespace X_ROOT_NS {
         // Deallocator, delete all values. (inherited by object_t)
         ~metadata_t()
         {
-            for(auto it = __data.begin(), it_end = __data.end();
+            for (auto it = __data.begin(), it_end = __data.end();
                 it != it_end; it++)
             {
-                if(it->second.boxed)
+                if (it->second.boxed)
                     delete it->second.value;
             }
         }
@@ -1774,7 +1774,7 @@ namespace X_ROOT_NS {
         // Delete the object. (inherited by object_t)
         void __erase(itor_t it)
         {
-            if(it->second.boxed)
+            if (it->second.boxed)
                 delete it->second.value;
             __data.erase(it);
         }
@@ -1841,7 +1841,7 @@ namespace X_ROOT_NS {
         {
             memory_flag_t flag = __revise_memory_flag<obj_t>();
 
-            if(!memory)
+            if (!memory)
                 memory = __default_memory();
 
             return memory->new_obj<obj_t>(std::forward<args_t>(args) ...);
@@ -1854,7 +1854,7 @@ namespace X_ROOT_NS {
         {
             memory_flag_t flag = __revise_memory_flag<obj_t>();
 
-            if(!memory)
+            if (!memory)
                 memory = __default_memory();
 
             return memory->new_obj_with_size<obj_t>(size, std::forward<args_t>(args) ...);
@@ -1872,7 +1872,7 @@ namespace X_ROOT_NS {
         // Static member.  Deletes an object.
         static void delete_obj(memory_t * memory, object_t * obj)
         {
-            if(!memory)
+            if (!memory)
                 memory = __default_memory();
 
             memory->delete_obj(obj);
@@ -1883,7 +1883,7 @@ namespace X_ROOT_NS {
         static void * alloc(memory_t * memory, size_t size,
                 memory_flag_t flag = memory_flag_t::__default__)
         {
-            if(!memory)
+            if (!memory)
                 memory = __default_memory();
 
             return memory->alloc(size, flag);
@@ -1903,7 +1903,7 @@ namespace X_ROOT_NS {
         // Frees specified object.
         static void free(memory_t * memory, void * obj)
         {
-            if(!memory)
+            if (!memory)
                 memory = __default_memory();
 
             memory->free(obj);
@@ -1922,7 +1922,7 @@ namespace X_ROOT_NS {
                 "not an object class, it's destructor will not be executed"
             );
 
-            if(std::is_base_of<object_t, obj_t>::value)
+            if (std::is_base_of<object_t, obj_t>::value)
                 enum_add_flag(flag, memory_flag_t::is_object);
             else
                 enum_remove_flag(flag, memory_flag_t::is_object);
@@ -2366,19 +2366,19 @@ namespace X_ROOT_NS {
             > _t;
 
             // An enum value
-            if(std::is_enum<_t>::value)
+            if (std::is_enum<_t>::value)
                 return __object_type_t::enum_;
 
             // A string
-            if(std::is_same<_t, string_t>::value)
+            if (std::is_same<_t, string_t>::value)
                 return __object_type_t::string;
 
             // An object. ( inherited by object_t. )
-            if(std::is_convertible<_t, object_t>())
+            if (std::is_convertible<_t, object_t>())
                 return __object_type_t::object;
 
             // Can converted to string.
-            if(std::is_convertible<_t, string_t>())
+            if (std::is_convertible<_t, string_t>())
                 return __object_type_t::string_like;
 
             // Unknown
@@ -2419,7 +2419,7 @@ namespace X_ROOT_NS {
         {
             static const string_t to_str(const _obj_t * obj)
             {
-                if(obj == nullptr)
+                if (obj == nullptr)
                     return __null_str;
 
                 return _title(*obj);
@@ -2446,7 +2446,7 @@ namespace X_ROOT_NS {
         {
             static const string_t to_str(const _obj_t * obj)
             {
-                if(obj == nullptr)
+                if (obj == nullptr)
                     return __null_str;
 
                 return (string_t)*obj;
@@ -2473,7 +2473,7 @@ namespace X_ROOT_NS {
         {
             static const string_t to_str(const _obj_t * obj)
             {
-                if(obj == nullptr)
+                if (obj == nullptr)
                     return __null_str;
 
                 return *obj;
@@ -2500,7 +2500,7 @@ namespace X_ROOT_NS {
         {
             static const string_t to_str(const _obj_t * obj)
             {
-                if(obj == nullptr)
+                if (obj == nullptr)
                     return __null_str;
 
                 return obj->to_string();
@@ -2689,16 +2689,16 @@ namespace X_ROOT_NS {
             operator string_t() const _NE
             {
                 __underly_t v = (__underly_t)value;
-                if(v == 0)
+                if (v == 0)
                     return _title(value);
 
                 stringstream_t ss;
 
-                for(int index = 0; v != 0; index++)
+                for (int index = 0; v != 0; index++)
                 {
                     __underly_t v0 = v & (v - 1);
 
-                    if(index > 0)
+                    if (index > 0)
                         ss << _T(",");
 
                     ss << _title((_enum_t)(v - v0));
@@ -2782,13 +2782,13 @@ namespace X_ROOT_NS {
         // Convert a char to hex value, returns -1 when converts fault.
         constexpr int __digit_value(char_t c) _NE
         {
-            if(c <= _T('9') && c >= _T('0'))
+            if (c <= _T('9') && c >= _T('0'))
                 return c - _T('0');
 
-            if(c <= _T('F') && c >= _T('A'))
+            if (c <= _T('F') && c >= _T('A'))
                 return c - _T('A') + 10;
 
-            if(c <= _T('f') && c >= _T('a'))
+            if (c <= _T('f') && c >= _T('a'))
                 return c - _T('a') + 10;
 
             return -1;
@@ -2831,25 +2831,25 @@ namespace X_ROOT_NS {
         // Parses a string to guid_t structure.
         static constexpr guid_t parse(const char_t * s)
         {
-            if(s == nullptr)
+            if (s == nullptr)
                 return guid_t::empty;
 
             guid_t g;
 
             uint8_t * gp = (uint8_t *)&g;
-            for(const char_t * p = s, * p_end = p + 36; p < p_end;)
+            for (const char_t * p = s, * p_end = p + 36; p < p_end;)
             {
-                if(*p == _T('-'))
+                if (*p == _T('-'))
                 {
                     size_t index = p - s;
-                    if(index != 8 && index != 13 && index != 18 && index != 23)
+                    if (index != 8 && index != 13 && index != 18 && index != 23)
                         throw _EC(format_error, _T("guid format error"));
                     p++;
                 }
                 else
                 {
                     int digit1 = __digit_value(*p), digit2 = __digit_value(*(p + 1));
-                    if(digit1 < 0 || digit2 < 0)
+                    if (digit1 < 0 || digit2 < 0)
                     {
                         throw _EC(format_error, _T("guid format error"));
                     }
@@ -2893,7 +2893,7 @@ namespace X_ROOT_NS {
         // Converts digit number to char.
         X_INLINE char_t __digit_to_char(int value) _NE
         {
-            if(value <= 9)
+            if (value <= 9)
                 return _T('0') + value;
 
             return _T('A') + (value - 10);
@@ -2904,12 +2904,12 @@ namespace X_ROOT_NS {
     template<typename _stream_t>
     _stream_t & operator << (_stream_t & stream, const buffer_t & buffer) _NE
     {
-        if(buffer.length == 0)
+        if (buffer.length == 0)
             return stream;
 
         #define __ToChars(byte) __digit_to_char(byte >> 4), __digit_to_char(byte & 0x0F)
 
-        for(const byte_t * p = buffer.bytes, * p_end = p + buffer.length - 1;
+        for (const byte_t * p = buffer.bytes, * p_end = p + buffer.length - 1;
                                     p < p_end; p++)
         {
             byte_t byte = *p;
@@ -2937,7 +2937,7 @@ namespace X_ROOT_NS {
         {
             try_function();
         }
-        catch(...)
+        catch (...)
         {
             finally_function();
             throw;
@@ -2957,7 +2957,7 @@ namespace X_ROOT_NS {
         {
             r = try_function();
         }
-        catch(...)
+        catch (...)
         {
             finally_function();
             throw;

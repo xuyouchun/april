@@ -37,9 +37,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     bool token_enumerator_base_t::__skip_whitespace()
     {
         char_t c;
-        while((c = *__p))
+        while ((c = *__p))
         {
-            if(al::is_whitespace(c))
+            if (al::is_whitespace(c))
                 __p++;
             else
                 return true;
@@ -52,7 +52,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     token_error_t * token_enumerator_base_t::__new_token_error(token_error_code_t error_code,
         const char_t * error_message)
     {
-        if(error_code != token_error_code_t::__default__)
+        if (error_code != token_error_code_t::__default__)
             return __token_errors.new_obj(error_code, error_message);
 
         return nullptr;
@@ -74,11 +74,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         token_data_t * data = __token_datas.new_obj();
         data->value_type = value_type;
-        if(value_type == cvalue_type_t::number)
+        if (value_type == cvalue_type_t::number)
         {
             data->value = __values.new_obj(*(tvalue_t *)value);
         }
-        else if(value_type == cvalue_type_t::string)
+        else if (value_type == cvalue_type_t::string)
         {
             const string_t & s = *(const string_t *)value;
             data->value = __new_string(s);
@@ -120,9 +120,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     token_data_t * token_enumerator_base_t::__read_line_comment()
     {
         char_t c;
-        while((c = *__p))
+        while ((c = *__p))
         {
-            if(al::is_lineend(c))
+            if (al::is_lineend(c))
                 break;
             __p++;
         }
@@ -134,9 +134,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     token_data_t * token_enumerator_base_t::__read_multiline_comment()
     {
         char_t c;
-        while((c = *__p++))
+        while ((c = *__p++))
         {
-            if(c == _T('*') && *__p == _T('/'))
+            if (c == _T('*') && *__p == _T('/'))
             {
                 __p++;
                 return nullptr;
@@ -155,7 +155,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ne_t code = al::try_parse_numeric(__p, value);
         e_t error_code;
 
-        switch(code)
+        switch (code)
         {
             case ne_t::__default__:
                 error_code = e_t::__default__;
@@ -177,7 +177,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Reads a name.
     token_data_t * token_enumerator_base_t::__read_name()
     {
-        while(al::is_word(*__p))
+        while (al::is_word(*__p))
         {
             __p++;
         }
@@ -191,9 +191,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         char_t first_c = *(__p - 1);
         char_t c;
 
-        while((c = *__p))
+        while ((c = *__p))
         {
-            if(c != first_c && !al::is_word(c))
+            if (c != first_c && !al::is_word(c))
             {
                 break;
             }
@@ -207,7 +207,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Tries to escape char.
     bool token_enumerator_base_t::__try_escape_char(char_t * out_c)
     {
-        switch(*__p++)
+        switch (*__p++)
         {
             case _T('n'):
                 *out_c = _T('\n');
@@ -272,18 +272,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         e_t error_code = e_t::__default__;
         const char_t * error_message = nullptr;
 
-        while(true)
+        while (true)
         {
-            switch((c = *__p))
+            switch ((c = *__p))
             {
                 case _T('\\'):
-                    if((c = *(++__p)) == _T('\0'))
+                    if ((c = *(++__p)) == _T('\0'))
                     {
                         error_code = e_t::string_format_error;
                         error_message = _T("missing terminating \" character");
                         goto __end;
                     }
-                    else if(__try_escape_char(&c1))
+                    else if (__try_escape_char(&c1))
                     {
                         s << c1;
                     }
@@ -322,12 +322,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         e_t error_code = e_t::__default__;
         const char_t * error_message = nullptr;
 
-        while(true)
+        while (true)
         {
-            switch((c = *__p))
+            switch ((c = *__p))
             {
                 case _T('"'):
-                    if(*(++__p) == _T('"'))
+                    if (*(++__p) == _T('"'))
                         s << *(__p++);
                     else
                         goto __end;
@@ -357,22 +357,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         e_t error_code = e_t::__default__;
         const char_t * error_message;
 
-        while(true)
+        while (true)
         {
-            switch((c = *__p))
+            switch ((c = *__p))
             {
                 case _T('\''):
                     __p++;
                     goto __end;
 
                 case _T('\\'):
-                    if((c = *(++__p)) == _T('\0'))
+                    if ((c = *(++__p)) == _T('\0'))
                     {
                         error_code = e_t::char_format_error;
                         error_message = _T("missing terminating ' character");
                         goto __end;
                     }
-                    else if(!__try_escape_char(&ret_c))
+                    else if (!__try_escape_char(&ret_c))
                     {
                         error_code = e_t::char_format_error;
                         error_message = __new_string(_T("unknown escape sequence '\\%1%'"), c);
@@ -393,12 +393,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
     __end:
-        if(c_count == 0)
+        if (c_count == 0)
         {
             error_code = e_t::char_format_error;
             error_message = _T("empty character constant");
         }
-        else if(c_count > 1)
+        else if (c_count > 1)
         {
             error_code = e_t::char_format_error;
             error_message = _T("multi-character character constant");

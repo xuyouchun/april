@@ -199,7 +199,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 			} while (false)
             
 
-        switch(type->this_gtype())
+        switch (type->this_gtype())
         {
             case gtype_t::general: {
 
@@ -242,7 +242,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(type != nullptr);
 
         msize_t index = param_var->param->index;
-        if(call_type_of_method(sctx.method) != xil_call_type_t::static_)
+        if (call_type_of_method(sctx.method) != xil_call_type_t::static_)
             index++;
 
         #define __Append(name, xil_type)                                    \
@@ -251,7 +251,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             )
 
         #define __Write(xil_type)                                           \
-            if(pick)                                                        \
+            if (pick)                                                        \
                 __Append(pick, xil_type);                                   \
             else                                                            \
                 __Append(pop, xil_type);
@@ -261,10 +261,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __Write(xil_type)                                           \
                 break;
 
-        switch(type->this_gtype())
+        switch (type->this_gtype())
         {
             case gtype_t::general: 
-                switch(((general_type_t *)type)->vtype)
+                switch (((general_type_t *)type)->vtype)
                 {
                     __Case(int8_, int8)
                     __Case(uint8_, uint8)
@@ -332,7 +332,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             )
 
         #define __Write(xil_type)                                           \
-                if(pick)                                                    \
+                if (pick)                                                    \
                     __Append(pick, xil_type);                               \
                 else                                                        \
                     __Append(pop, xil_type);
@@ -342,10 +342,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __Write(xil_type)                                           \
                 break;
 
-        switch(type->this_gtype())
+        switch (type->this_gtype())
         {
             case gtype_t::general:
-                switch(((general_type_t *)type)->vtype)
+                switch (((general_type_t *)type)->vtype)
                 {
                     __Case(int8_, int8)
                     __Case(uint8_, uint8)
@@ -403,7 +403,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(var != nullptr);
 
-        switch(var->this_type())
+        switch (var->this_type())
         {
             case variable_type_t::local:
                 write_assign_xil(ctx, pool, (local_variable_t *)var, dtype, pick);
@@ -447,7 +447,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             /*
-            if(local->read_count == 1)
+            if (local->read_count == 1)
             {
                 local->inline_ = true;
                 local->expression = expression;

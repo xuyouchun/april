@@ -37,7 +37,7 @@ namespace X_ROOT_NS {
                 stream << get_value<type##_t>(v.value);     \
                 break;
 
-        switch(v.type)
+        switch (v.type)
         {
             #define __X_TYPE_OP __X_CASE
             __X_EACH_TYPES 
@@ -69,12 +69,12 @@ namespace X_ROOT_NS {
     {
         string_t s = this->get_message();
 
-        if(file.length() > 0)
+        if (file.length() > 0)
         {
             std::basic_ostringstream<char_t> os;
             os << s.c_str() << _T(", file: ") << file.c_str();
 
-            if(line != (size_t)-1)
+            if (line != (size_t)-1)
             {
                 os << _T(", line: ") << line;
             }
@@ -153,7 +153,7 @@ namespace X_ROOT_NS {
     {
         string_t msg;
 
-        if(reason && reason[0])
+        if (reason && reason[0])
             msg = sprintf(_T("Assert error: %1%, %2%"), exp, reason);
         else
             msg = sprintf(_T("Assert error: %1%"), exp);
@@ -187,7 +187,7 @@ namespace X_ROOT_NS {
     void * default_memory_t::alloc(size_t size, memory_flag_t flag)
     {
         void * bytes = ::operator new(size);
-        if(!bytes)
+        if (!bytes)
             throw _E(common_error_code_t::no_memory);
 
         return bytes;
@@ -221,10 +221,10 @@ namespace X_ROOT_NS {
     void * pool_t::alloc(size_t size, memory_flag_t flag)
     {
         void * bytes = ::operator new(size);
-        if(!bytes)
+        if (!bytes)
             throw _E(common_error_code_t::no_memory);
 
-        if(enum_has_flag(flag, memory_flag_t::is_object))
+        if (enum_has_flag(flag, memory_flag_t::is_object))
             __objects.insert((object_t *)bytes);
 
         return bytes;
@@ -235,7 +235,7 @@ namespace X_ROOT_NS {
     void pool_t::free(void * obj)
     {
         auto it = __objects.find((object_t *)obj);
-        if(it != __objects.end())
+        if (it != __objects.end())
         {
             (*it)->~object_t();
             __objects.erase(it);
@@ -254,7 +254,7 @@ namespace X_ROOT_NS {
     // Executes the deallocators for objects in the pool.
     pool_t::~pool_t()
     {
-        for(object_t * obj : __objects)
+        for (object_t * obj : __objects)
         {
             obj->~object_t();
 
@@ -270,14 +270,14 @@ namespace X_ROOT_NS {
         __open_mode_t mode = (open_mode | __i::in) & ~(__i::out | __i::trunc);
         __stream.open(string_convert<char_t, char>(path), mode);
 
-        if(!__stream.is_open())
+        if (!__stream.is_open())
             throw _ECF(invalid_operation, _T("cannot open file '%1%'"), path);
     }
 
     // Read bytes of specified size from the stream.
     size_t file_xistream_t::read(byte_t * buffer, size_t length)
     {
-        if(buffer == nullptr)
+        if (buffer == nullptr)
             throw _EC(argument_error, _T("buffer is null"));
 
         return __stream.read((char *)buffer, length), __stream.gcount();
@@ -303,14 +303,14 @@ namespace X_ROOT_NS {
         __open_mode_t mode = (open_mode | __i::out) & ~__i::in;
         __stream.open(string_convert<char_t, char>(path), mode);
 
-        if(!__stream.is_open())
+        if (!__stream.is_open())
             throw _ECF(invalid_operation, _T("cannot open file '%1%'"), path);
     }
 
     // Writes bytes to the stream.
     void file_xostream_t::write(const byte_t * buffer, size_t length)
     {
-        if(buffer == nullptr)
+        if (buffer == nullptr)
             throw _EC(argument_error, _T("buffer is null"));
 
         __stream.write((const char *)buffer, length);

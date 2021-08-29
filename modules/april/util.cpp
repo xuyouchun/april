@@ -12,13 +12,13 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     {
         string_t ext = lib::fileext(file);
 
-        if(ext == solution_file_ext)
+        if (ext == solution_file_ext)
             return compile_file_type_t::solution;
 
-        if(ext == project_file_ext)
+        if (ext == project_file_ext)
             return compile_file_type_t::project;
 
-        if(ext == april_file_ext)
+        if (ext == april_file_ext)
             return compile_file_type_t::assembly;
 
         return compile_file_type_t::source;

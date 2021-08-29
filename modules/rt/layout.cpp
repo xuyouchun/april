@@ -177,7 +177,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Constructor.
         type_place_holder_manager_t(memory_t * memory = nullptr) : __super_t(memory)
         {
-            for(__holder_t ** p = (__holder_t **)__types, ** p_end = p + __types_size;
+            for (__holder_t ** p = (__holder_t **)__types, ** p_end = p + __types_size;
                                                                     p < p_end; p++)
             {
                 *p = this->__new_obj<__holder_t>();
@@ -187,13 +187,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns placeholder for index.
         rt_type_t * get(int index)
         {
-            if(index < __types_size)
+            if (index < __types_size)
                 return __types[index];
 
             _L(__mutex);
 
             auto it = __type_map.find(index);
-            if(it != __type_map.end())
+            if (it != __type_map.end())
                 return it->second;
 
             __holder_t * type = this->__new_obj<__holder_t>();
@@ -206,12 +206,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual ~type_place_holder_manager_t()
         {
             /* TODO:
-            for(__holder_t * p : __types)
+            for (__holder_t * p : __types)
             {
                 this->__delete_obj(p);
             }
 
-            for(auto && it : __type_map)
+            for (auto && it : __type_map)
             {
                 this->__delete_obj(it.second);
             }
@@ -276,7 +276,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Appends generic params
     void generic_param_manager_builder_t::append(ref_t generic_params)
     {
-        for(ref_t gp_ref : generic_params)
+        for (ref_t gp_ref : generic_params)
         {
             rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
             rt_sid_t name = __analyzer.to_sid((*gp)->name);
@@ -314,7 +314,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         _A(t != nullptr);
 
-        switch(t->get_kind())
+        switch (t->get_kind())
         {
             case rt_type_kind_t::generic:
                 append((rt_generic_type_t *)t);
@@ -333,7 +333,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     template<typename _f_t> void __each_generic_hosts(rt_type_t * type, _f_t f)
     {
         rt_type_t * host_type = type->get_host_type();
-        if(host_type != nullptr)
+        if (host_type != nullptr)
             __each_generic_hosts((rt_generic_type_t *)host_type, f);
 
         f(type);
@@ -391,7 +391,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     rt_type_t * __variables_layout_t::__get_type(ref_t type_ref,
 			rt_generic_param_t ** out_generic_param, int * out_index)
     {
-        switch((mt_type_extra_t)type_ref.extra)
+        switch ((mt_type_extra_t)type_ref.extra)
         {
             case mt_type_extra_t::generic_param: {
 
@@ -427,13 +427,13 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     msize_t locals_layout_t::__find_reset_index(msize_t index,
                                         storage_type_t storage_type)
     {
-        for(int k = __items.size() - 1; k >= 0; k--)
+        for (int k = __items.size() - 1; k >= 0; k--)
         {
             __item_t & it = __items[k];
-            if(it.index > index || it.storage_type != storage_type)
+            if (it.index > index || it.storage_type != storage_type)
                 continue;
 
-            if(it.index == index)
+            if (it.index == index)
                 return it.new_index;
 
             return it.new_index + 1;
@@ -449,9 +449,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 		rt_type_t * type = __get_type(def.type);
         msize_t size = __ctx.variable_size_of(type, &storage_type);
 
-        if(__items.size() > 0 && def.index <= __items[__items.size() - 1].index)
+        if (__items.size() > 0 && def.index <= __items[__items.size() - 1].index)
         {
-            for(int k = 0; k < X_ARRAY_SIZE(__groups); k++)
+            for (int k = 0; k < X_ARRAY_SIZE(__groups); k++)
             {
                 __group_t & g = __groups[k];
                 msize_t reset_index = __find_reset_index(def.index, (storage_type_t)k);
@@ -481,7 +481,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         item->new_index = __index++;
         items.push_back(item);
 
-        if(__is_reset)
+        if (__is_reset)
         {
             __is_reset = false;
             msize_t new_index = item->new_index;
@@ -503,12 +503,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     void locals_layout_t::commit()
     {
         msize_t offset = 0;
-        for(int storage_type = 0; storage_type < (int)storage_type_t::__end__; storage_type++)
+        for (int storage_type = 0; storage_type < (int)storage_type_t::__end__; storage_type++)
         {
             __group_t & g = __groups[storage_type];
-            if(!g.items.empty())
+            if (!g.items.empty())
             {
-                switch((storage_type_t)storage_type)
+                switch ((storage_type_t)storage_type)
                 {
                     case storage_type_t::ref:
                     case storage_type_t::value:
@@ -550,7 +550,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         msize_t new_offset = f(offset, begin, end);
 
-        if(child_index != __empty_msize)
+        if (child_index != __empty_msize)
         {
             msize_t max_offset = 0;
 
@@ -559,20 +559,20 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             max_offset = al::max(max_offset, caller(g, new_offset, it_begin, it_end));
             **it_begin = bk;
 
-            for(__partial_iterator_t it = it_begin + 1; it < it_end; it++)
+            for (__partial_iterator_t it = it_begin + 1; it < it_end; it++)
             {
                 __partial_t * partial1 = *it;
-                if(partial1->index <= partial->index)
+                if (partial1->index <= partial->index)
                     break;
 
-                if(partial1->index == child_index)
+                if (partial1->index == child_index)
                     max_offset = al::max(max_offset, caller(g, new_offset, it, it_end));
             }
 
             return al::max(new_offset, max_offset);
         }
 
-        if(it_begin + 1 < it_end)
+        if (it_begin + 1 < it_end)
         {
             return al::max(new_offset,
                 __arrange_variables_f(g, offset, it_begin + 1, it_end, f, caller)
@@ -615,11 +615,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         __partial_t * partial = *it_begin;
 
         msize_t min_index = __empty_msize;
-        for(__partial_iterator_t it = it_begin + 1; it < it_end; it++)
+        for (__partial_iterator_t it = it_begin + 1; it < it_end; it++)
         {
             __partial_t * partial1 = *it;
 
-            if(partial1->index <= partial->index)
+            if (partial1->index <= partial->index)
             {
                 *out_end = partial1->begin;
                 return min_index;
@@ -644,11 +644,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         msize_t offset_aligned = unit_align(offset, (*it_begin)->size);
 
-        for(; it_end > it_begin + 1 && !unit_is_aligned(offset, (*it_begin)->size); )
+        for (; it_end > it_begin + 1 && !unit_is_aligned(offset, (*it_begin)->size); )
         {
             __item_t * it = *(it_end - 1);
             msize_t offset0 = unit_align(offset, it->size) + it->size;
-            if(offset0 <= offset_aligned)
+            if (offset0 <= offset_aligned)
             {
                 it->offset = offset;
                 offset = offset0;
@@ -656,11 +656,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 it_end--;
             }
 
-            if(offset0 >= offset_aligned)
+            if (offset0 >= offset_aligned)
                 break;
         }
 
-        for(__item_iterator_t it = it_begin; it < it_end; it++)
+        for (__item_iterator_t it = it_begin; it < it_end; it++)
         {
             msize_t size = (*it)->size;
             (*it)->offset = offset;
@@ -675,7 +675,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns offset of field index.
     msize_t locals_layout_t::offset_of(int index)
     {
-        if(index >= __items.size())
+        if (index >= __items.size())
             throw _ED(__e_t::local_index_out_of_range);
 
         return __items[index].offset;
@@ -684,7 +684,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 	// Returns type of local variable index.
 	rt_type_t * locals_layout_t::type_at(int index)
 	{
-        if(index >= __items.size())
+        if (index >= __items.size())
             throw _ED(__e_t::local_index_out_of_range);
 
         return __items[index].type;
@@ -696,9 +696,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         stringstream_t ss;
         ss << _T("identity index offset size\n");
 
-        for(const __group_t & g : __groups)
+        for (const __group_t & g : __groups)
         {
-            for(const __item_t * it : g.items)
+            for (const __item_t * it : g.items)
             {
                 ss << it->identity << _T("\t") << it->index << _T("\t")
                    << it->offset << _T("\t") << it->size << _T("\n");

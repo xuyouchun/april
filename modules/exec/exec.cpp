@@ -60,7 +60,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Returns method name.
     string_t exec_method_t::get_name() const
     {
-        if(rt_method == nullptr)
+        if (rt_method == nullptr)
             return _T("");
 
         return rt_method->get_name();
@@ -78,9 +78,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __CheckCache(_method)                                               \
         do {                                                                    \
             exec_method_t * method = __from_cache(_method);                     \
-            if(method != nullptr)                                               \
+            if (method != nullptr)                                               \
                 return method;                                                  \
-        } while(false);                                         
+        } while (false);                                         
 
     // Execute method of runtime method.
     exec_method_t * executor_env_t::exec_method_of(rt_method_t * rt_method)
@@ -141,7 +141,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     exec_method_t * executor_env_t::__from_cache(void * method)
     {
         auto it = __method_map.find((void *)method);
-        if(it != __method_map.end())
+        if (it != __method_map.end())
             return it->second;
 
         return nullptr;
@@ -166,7 +166,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         rt_assembly_t * main_assembly = env.assemblies.load_main_assembly();
         rt_method_t * entry_point = main_assembly->get_entry_point();
 
-        if(entry_point == nullptr)
+        if (entry_point == nullptr)
             throw _ED(exec_error_code_t::assembly_no_entry_point, main_assembly);
 
         rt_type_t * host_type = entry_point->get_host_type();
@@ -194,7 +194,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         _A(assembly != nullptr);
 
         string_t assembly_name = name;
-        if(assembly_name.empty())
+        if (assembly_name.empty())
             assembly_name = assembly->get_name();
 
         __map[__key_t(package, assembly_name)] = assembly;
@@ -205,7 +205,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     rt_assembly_t * exec_assemblies_t::get(const string_t & package, const string_t & name)
     {
         auto it = __map.find(__key_t(package, name));
-        if(it == __map.end())
+        if (it == __map.end())
             return nullptr;
 
         return it->second;

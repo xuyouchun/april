@@ -79,7 +79,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // Walks this node.
     void _attribute_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch((walk_step_t)step)
+        switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 this->__delay(context, walk_step_t::confirm);
@@ -100,19 +100,19 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         typedef ascertain_type_error_t e_t;
 
         general_type_name_t * type_name = as<general_type_name_t *>(to_eobject());
-        if(type_name != nullptr)
+        if (type_name != nullptr)
         {
             e_t error_code = __ascertain_type(context, type_name);
-            if(error_code == e_t::unknown_type)
+            if (error_code == e_t::unknown_type)
             {
                 type_name_unit_t * unit;
-                if(type_name->units.size() > 0 && 
+                if (type_name->units.size() > 0 && 
                     (unit = type_name->units[type_name->units.size() - 1]) != nullptr)
                 {
                     name_t old_name = unit->name;
                     unit->name = __to_name(_F(_T("%s%s"), _str(old_name), _T("Attribute")));
 
-                    if(__ascertain_type(context, type_name) == e_t::unknown_type)
+                    if (__ascertain_type(context, type_name) == e_t::unknown_type)
                     {
                         unit->name = old_name;
                     }
@@ -130,7 +130,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
             type_t * type = ascertain_type(this->__context, context, type_name);
             return ascertain_type_error_t::__default__;
         }
-        catch(const logic_error_t<ascertain_type_error_t> & e)
+        catch (const logic_error_t<ascertain_type_error_t> & e)
         {
             return e.code;
         }

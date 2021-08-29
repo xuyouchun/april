@@ -1382,7 +1382,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 *out_method = (method_t *)type->get_member(args);
             }
-            catch(const logic_error_t<common_error_code_t> & e)
+            catch (const logic_error_t<common_error_code_t> & e)
             {
                 return e.code;
             }
@@ -1608,7 +1608,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             return __region->define_local(type_name, name, constant, expression);
         }
-        catch(const logic_error_t<ast_error_t> & e)
+        catch (const logic_error_t<ast_error_t> & e)
         {
             __deal_error(e, name, element);
             return nullptr;
@@ -1630,7 +1630,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             return __region->define_param(param);
         }
-        catch(const logic_error_t<ast_error_t> & e)
+        catch (const logic_error_t<ast_error_t> & e)
         {
             __deal_error(e, param->name, param);
             return nullptr;
@@ -1652,7 +1652,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             return __region->define_field(field);
         }
-        catch(const logic_error_t<ast_error_t> & e)
+        catch (const logic_error_t<ast_error_t> & e)
         {
             __deal_error(e, field->name, field);
             return nullptr;
@@ -1674,7 +1674,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             return __region->define_property(property);
         }
-        catch(const logic_error_t<ast_error_t> & e)
+        catch (const logic_error_t<ast_error_t> & e)
         {
             __deal_error(e, property->name, property);
             return nullptr;

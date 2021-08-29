@@ -176,7 +176,7 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename func_t>
         void each(func_t func)
         {
-            for(size_t index = 0; index < __size; index++)
+            for (size_t index = 0; index < __size; index++)
             {
                 func(property_t::from_index(index), __properties[index]);
             }
@@ -204,7 +204,7 @@ namespace X_ROOT_NS { namespace algorithm {
             size_t start_index = property_t::to_index(start);
             size_t end_index = property_t::to_index(end);
 
-            for(size_t index = start_index; index <= end_index; index++)
+            for (size_t index = start_index; index <= end_index; index++)
             {
                 func(property_t::from_index(index), __properties[index]);
             }
@@ -214,7 +214,7 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename func_t, size_t n>
         void each(const object_t (&objs)[n], func_t func)
         {
-            for(int k = 0; k < n; k++)
+            for (int k = 0; k < n; k++)
             {
                 const object_t & obj = objs[k];
                 func(obj, __properties[property_t::to_index(obj)]);

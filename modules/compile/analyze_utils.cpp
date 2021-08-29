@@ -14,17 +14,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __ensure_initialized();
 
-        if(p < __pos_arr[0] || p >= __pos_arr[__pos_arr.size() -1])
+        if (p < __pos_arr[0] || p >= __pos_arr[__pos_arr.size() -1])
             return codepos_t { 0, 0 };
 
-        for(size_t start = 0, end = __pos_arr.size() - 2; start <= end; )
+        for (size_t start = 0, end = __pos_arr.size() - 2; start <= end; )
         {
             size_t index = (start + end) / 2;
-            if(p < __pos_arr[index])
+            if (p < __pos_arr[index])
             {
                 end = index - 1;
             }
-            else if(p >= __pos_arr[index + 1])
+            else if (p >= __pos_arr[index + 1])
             {
                 start = index + 1;
             }
@@ -40,7 +40,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Ensures it's initialized.
     void codepos_helper_t::__ensure_initialized()
     {
-        if(__initialized)
+        if (__initialized)
             return;
 
         __pos_arr.push_back(__code);
@@ -49,9 +49,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const char_t * p_end = p + __length < p?
                 (const char_t *)max_value<size_t>() : p + __length;
 
-        for(; *p && p < p_end; p++)
+        for (; *p && p < p_end; p++)
         {
-            if(*p == _T('\n'))
+            if (*p == _T('\n'))
             {
                 __pos_arr.push_back(p + 1);
             }

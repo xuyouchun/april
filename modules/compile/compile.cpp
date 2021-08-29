@@ -247,7 +247,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns source code.
     const char_t * file_t::source_code() const
     {
-        if(code == nullptr)
+        if (code == nullptr)
             return nullptr;
 
         return code->code.c_str();
@@ -267,7 +267,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns code sections.
     range_t<code_t::__itor_t> code_t::sections()
     {
-        if(!__sections.size())
+        if (!__sections.size())
         {
             code_section_builder_t(global_context, this, lang, __sections, __pool).build();
         }
@@ -296,7 +296,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     file_t * project_t::get_file(const string_t & path) const
     {
         auto it = __file_map.find(path);
-        if(it != __file_map.end())
+        if (it != __file_map.end())
             return it->second;
 
         return nullptr;
@@ -322,7 +322,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Converts ref_assembly_t to a stirng.
     X_DEFINE_TO_STRING(ref_assembly_t)
     {
-        if(package.empty())
+        if (package.empty())
             return name;
 
         return _F(_T("%1%.%2%"), package, name);
@@ -337,9 +337,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(ref_assembly != nullptr);
 
         __ref_assembly_key_t key(ref_assembly->package, ref_assembly->name);
-        if(__ref_assemblies.find(key) != __ref_assemblies.end())
+        if (__ref_assemblies.find(key) != __ref_assemblies.end())
         {
-            if(ref_assembly->package.empty())
+            if (ref_assembly->package.empty())
                 throw _ECF(invalid_operation, _T("duplicate assembly '%1%'"), ref_assembly);
         }
 
@@ -353,7 +353,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __ref_assembly_key_t key(package, name);
 
         auto it = __ref_assemblies.find(key);
-        if(it != __ref_assemblies.end())
+        if (it != __ref_assemblies.end())
             return it->second;
 
         return nullptr;
@@ -379,7 +379,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Ensures file is opened.
     void file_ref_assembly_t::__ensure_open()
     {
-        if(!__opened)
+        if (!__opened)
         {
             typedef std::ios_base __i;
             typedef std::ios_base::openmode __open_mode_t;
@@ -407,7 +407,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     project_t * solution_t::get_project(const string_t & name) const
     {
         auto it = __project_map.find(name);
-        if(it != __project_map.end())
+        if (it != __project_map.end())
             return it->second;
 
         return nullptr;
@@ -472,7 +472,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     lang_id_t global_context_t::lang_id_of(const string_t & lang_name)
     {
         lang_id_t lang_id = lang_factory->get_lang_id(lang_name);
-        if(lang_id == unknown_lang_id)
+        if (lang_id == unknown_lang_id)
         {
             throw _E(compile_error_code_t::unknown_lang,
                 sprintf(_T("unknown lang \"%1%\""), lang_name)
@@ -543,7 +543,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __ref_assembly_key_t key(to_sid(package), to_sid(name));
 
             auto it = __ref_assemblies.find(key);
-            if(it == __ref_assemblies.end())
+            if (it == __ref_assemblies.end())
                 return nullptr;
 
             return it->second;
@@ -593,7 +593,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 }
             );
 
-            if(assembly == nullptr)
+            if (assembly == nullptr)
                 throw _E(compile_error_code_t::assembly_not_found);
 
             return assembly;
@@ -615,7 +615,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Loads assembly.
         __assembly_t * __load_assembly(const mname_t * package_name, const mname_t * assembly_name)
         {
-            if(package_name == nullptr)
+            if (package_name == nullptr)
                 return __load_assembly(assembly_name);
 
             return __load_assembly_from_package(package_name, assembly_name);
@@ -625,11 +625,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __assembly_t * __load_assembly(const mname_t * assembly_name)
         {
             assembly_t * assembly = __bctx.assemblies->get(assembly_name);
-            if(assembly != nullptr)
+            if (assembly != nullptr)
                 return (__assembly_t *)assembly;
 
             ast_project_t * cproject = __csolution->get_project(assembly_name);
-            if(cproject != nullptr)
+            if (cproject != nullptr)
                 return __build_project(cproject);
 
             return __load_assembly_from_package(nullptr, assembly_name);
@@ -640,10 +640,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                     const mname_t * assembly_name)
         {
             __assembly_t * assembly = __bctx.get_ref_assembly(package_name, assembly_name);
-            if(assembly != nullptr)
+            if (assembly != nullptr)
                 return assembly;
 
-            if(__ref_assemblies == nullptr)
+            if (__ref_assemblies == nullptr)
                 return nullptr;
 
             ref_assembly_t * ref_assembly = __ref_assemblies->get_ref_assembly(
@@ -651,7 +651,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 assembly_name? (string_t)*assembly_name : empty_str
             );
 
-            if(ref_assembly == nullptr)
+            if (ref_assembly == nullptr)
                 return nullptr;
 
             try
@@ -659,7 +659,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 assembly = __context.new_obj<__assembly_t>(__xpool(), assembly_name);
                 assembly->load(*ref_assembly, this);
             }
-            catch(error_t & e)
+            catch (error_t & e)
             {
                 // TODO:
                 throw;
@@ -682,7 +682,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     xostream_t * file_assembly_writer_t::new_stream(
                             compile_context_t & ctx, ast_project_t * cproject)
     {
-        if(cproject->name == nullptr)
+        if (cproject->name == nullptr)
             throw _EC(unexpected, _T("project name empty"));
 
         string_t name = (string_t)*cproject->name;
@@ -703,7 +703,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Creates an assembly output stream for a project.
     xostream_t * compile_context_t::create_output_stream(ast_project_t * project)
     {
-        if(__writer == nullptr)
+        if (__writer == nullptr)
             return nullptr;
 
         return __writer->new_stream(*this, project);
@@ -738,7 +738,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __code_relation_map[csolution] = solution;
 
-        for(project_t * project : solution->projects())
+        for (project_t * project : solution->projects())
         {
             ast_project_t * cproject = __build_project(context, project);
             __code_relation_map[cproject] = project;
@@ -755,7 +755,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __to_mname(__global_context, project->name)
         );
 
-        for(file_t * file : project->files())
+        for (file_t * file : project->files())
         {
             ast_file_t * cfile = __build_file(context, file);
             cproject->add_file(cfile);
@@ -785,9 +785,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __building_context_t bctx(assemblies);
         __assembly_loader_t assembly_loader(bctx, this, context, csolution, ref_assemblies);
 
-        for(ast_project_t * cproject : *csolution)
+        for (ast_project_t * cproject : *csolution)
         {
-            if(!bctx.is_compiling(cproject->name) && !bctx.is_compiled(cproject->name))
+            if (!bctx.is_compiling(cproject->name) && !bctx.is_compiled(cproject->name))
             {
                 assembly_t * assembly = __compile_project(bctx, context, cproject, &assembly_loader);
             }
@@ -811,7 +811,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     compiler_t::__assembly_t * compiler_t::__compile_project(__building_context_t & bctx,
         compile_context_t & context, ast_project_t * cproject, assembly_loader_t * assembly_loader)
     {
-        if(!bctx.begin_compile(cproject))
+        if (!bctx.begin_compile(cproject))
             throw _E(compile_error_code_t::assembly_circular_reference);
 
         __assembly_t * assembly = context.new_obj<__assembly_t>(
@@ -824,7 +824,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         );
 
         std::vector<ast_node_t *> nodes;
-        for(ast_file_t * cfile : *cproject)
+        for (ast_file_t * cfile : *cproject)
         {
             ast_node_t * root = cfile->root;
             _A(root != nullptr);
@@ -833,15 +833,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         ast_walk<__module_ast_node_t>(walk_context, nodes);
-        if(context.error_count() == 0)
+        if (context.error_count() == 0)
         {
             xostream_t * stream = nullptr;
-            if(assembly->name == nullptr || assembly->name->sid == sid_t::null)
+            if (assembly->name == nullptr || assembly->name->sid == sid_t::null)
                 context.log(__l_t::warning, __c_t::no_assembly_name);
             else
                 stream = context.create_output_stream(cproject);
 
-            if(stream == nullptr)
+            if (stream == nullptr)
                 stream = &__empty_xostream;
 
             assembly->write(*stream, logger, default_controller());
@@ -899,11 +899,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(memory != nullptr);
 
-        if(args.lang_id == unknown_lang_id)
+        if (args.lang_id == unknown_lang_id)
             throw _E(compile_error_code_t::unknown_lang);
 
         auto creator_it = __creators.find(args.lang_id);
-        if(creator_it == __creators.end())
+        if (creator_it == __creators.end())
         {
             throw _E(compile_error_code_t::unknown_lang, 
                 sprintf(_T("unknown language \"%1%\""), get_lang_name(args.lang_id))

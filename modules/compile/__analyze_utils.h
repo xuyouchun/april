@@ -73,9 +73,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             end_index = al::min(size(), end_index);
 
-            for(size_t index = begin_index; index < end_index; index++)
+            for (size_t index = begin_index; index < end_index; index++)
             {
-                if(index != begin_index)
+                if (index != begin_index)
                     stream << _T(" ");
 
                 token_t * token = __tokens[index];
@@ -94,9 +94,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     bool walk(itor_t & p, pred_t pred)
     {
         char_t c;
-        while((c = *p) != _T('\0'))
+        while ((c = *p) != _T('\0'))
         {
-            if(!pred(p))
+            if (!pred(p))
                 return true;
             p++;
         }
@@ -109,7 +109,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     template<typename itor_t>
     bool skip_char(itor_t & p, char_t c)
     {
-        if(walk(p, [c](itor_t & p) { return *p != c; }))
+        if (walk(p, [c](itor_t & p) { return *p != c; }))
         {
             p++;
             return true;

@@ -98,15 +98,15 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
     X_INLINE array_length_t get_array_length_of_dimension(void * arr_obj, dimension_t dimension)
     {
         dimension_t rank = get_array_dimension(arr_obj);
-        if(dimension == 0)
+        if (dimension == 0)
         {
-            if(rank == 1)
+            if (rank == 1)
                 return get_array_length(arr_obj);
         }
 
         array_length_t * lengths = get_array_lengths(arr_obj);
         int index = rank - dimension - 1;
-        if(index == 0)
+        if (index == 0)
             return *lengths;
             
         return lengths[-index] / lengths[-index + 1];

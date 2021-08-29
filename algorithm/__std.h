@@ -128,7 +128,7 @@ namespace X_ROOT_NS { namespace algorithm {
     auto & map_get(map_t & map, const typename map_t::key_type & key, creator_t creator)
     {
         auto it = map.find(key);
-        if(it != map.end())
+        if (it != map.end())
             return it->second;
 
         map[key] = creator();
@@ -148,7 +148,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename queue_t>
     auto queue_pop(queue_t & queue)
     {
-        if(queue.size() == 0)
+        if (queue.size() == 0)
             throw _E(common_error_code_t::invalid_operation, _T("queue empty"));
 
         auto value = queue.front();
@@ -161,7 +161,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename stack_t>
     auto stack_pop(stack_t & stack)
     {
-        if(stack.size() == 0)
+        if (stack.size() == 0)
             throw _E(common_error_code_t::invalid_operation, _T("stack empty"));
 
         auto value = stack.top();
@@ -174,7 +174,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename list_t>
     auto list_pop_front(list_t & list)
     {
-        if(list.size() == 0)
+        if (list.size() == 0)
             throw _E(common_error_code_t::invalid_operation, _T("list empty"));
 
         auto value = list.front();
@@ -187,7 +187,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename list_t>
     auto list_pop_back(list_t & list)
     {
-        if(list.size() == 0)
+        if (list.size() == 0)
             throw _E(common_error_code_t::invalid_operation, _T("list empty"));
 
         auto value = list.back();
@@ -212,9 +212,9 @@ namespace X_ROOT_NS { namespace algorithm {
     // Returns an iterator to the first element in the range, for which pred returns true.
     // If no such element is found, return the container.end().
     template<typename container_t, typename pred_t>
-    auto find_if(const container_t & container, pred_t pred)
+    auto find_if (const container_t & container, pred_t pred)
     {
-        return std::find_if(std::begin(container), std::end(container), pred);
+        return std::find_if (std::begin(container), std::end(container), pred);
     }
 
     // Returns true if any pred returns true for any element in the container.
@@ -270,7 +270,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename itor_t> size_t count(itor_t begin, itor_t end)
     {
         size_t size = 0;
-        for(; begin != end; begin++)
+        for (; begin != end; begin++)
         {
             size++;
         }
@@ -284,7 +284,7 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef decltype(*begin + *begin) sum_t;
         sum_t sum = _D(sum_t);
 
-        for(; begin != end; begin++)
+        for (; begin != end; begin++)
         {
             sum += *begin;
         }
@@ -300,7 +300,7 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef decltype(converter(*begin) + converter(*begin)) sum_t;
         sum_t sum = _D(sum_t);
 
-        for(; begin != end; begin++)
+        for (; begin != end; begin++)
         {
             sum += converter(*begin);
         }

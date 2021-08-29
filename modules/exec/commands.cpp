@@ -3919,7 +3919,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             ctx.pop_calling((const __calling_stub_t *)(p + __param_unit_ret_size));
 
             // TODO: optimize
-            for(rt_stack_unit_t * dst = p - __ret_unit_size, * dst_end = dst + __ret_unit_size,
+            for (rt_stack_unit_t * dst = p - __ret_unit_size, * dst_end = dst + __ret_unit_size,
                 * src = p + __total_unit_ret_size; dst < dst_end;)
             {
                 *dst++ = *src++;
@@ -4139,7 +4139,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                     if (__is_base_type(ctx.env, exception_type, block->relation_type))
                     {
-                        ctx.block_queue.enque_catch(block, node);
+                        ctx.block_queue.enque_catch (block, node);
                         ctx.pop_exception();
 
                         return false;
@@ -4664,7 +4664,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             dimension_t dimension = __type->dimension;
 
             array_length_t lengths[dimension];
-            for(int * len = lengths + dimension - 1; len >= lengths; len--)
+            for (int * len = lengths + dimension - 1; len >= lengths; len--)
             {
                 *len = ctx.stack.pop<int32_t>();
             }
@@ -5251,7 +5251,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             __execute_commands(ctx);
         }
-        catch(__exec_env_error_t & e)
+        catch (__exec_env_error_t & e)
         {
             __process_application_exception(ctx, e);
         }

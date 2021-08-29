@@ -1352,7 +1352,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                             to_mname(import->package), assembly
                         );
                     }
-                    catch(const logic_error_t<compile_error_code_t> & e)
+                    catch (const logic_error_t<compile_error_code_t> & e)
                     {
                         switch (e.code)
                         {
@@ -1894,7 +1894,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                 _T("unexpected constant expression"));
                         }
                     }
-                    catch(logic_error_t<expression_execute_error_code_t> & e)
+                    catch (logic_error_t<expression_execute_error_code_t> & e)
                     {
                         this->__log(exp, __c_t::unexpected_param_default_value, e.get_message());
                     }
@@ -2009,7 +2009,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     {
                         exp->execute(ctx);
                     }
-                    catch(const error_t & e)
+                    catch (const error_t & e)
                     {
                         _PP(e);
                     }
@@ -2955,7 +2955,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             __initializer.check();
         }
-        catch(logic_error_t<array_initialize_check_error_code_t> & e)
+        catch (logic_error_t<array_initialize_check_error_code_t> & e)
         {
             this->__log(this, __c_t::array_initializer_error, _str(e));
         }

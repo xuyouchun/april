@@ -28,32 +28,32 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     #define __Eqk_(keyword, data)                                           \
         do {                                                                \
-            if(__equals_keyword(__p, _S(keyword)))                          \
+            if (__equals_keyword(__p, _S(keyword)))                          \
             {                                                               \
                 const size_t keyword_size = string_length(_S(keyword));     \
                 __p += keyword_size - 1;                                    \
                 return __new_token(__Wt(k_##keyword),                       \
                         p0, keyword_size, data);                            \
             }                                                               \
-        } while(false)
+        } while (false)
 
     #define __Eqk(keyword)  __Eqk_(keyword, nullptr)
 
     #define __Eqks(keyword, value, values...)                               \
         do {                                                                \
-            if(__equals_keyword(__p, _S(keyword)))                          \
+            if (__equals_keyword(__p, _S(keyword)))                          \
             {                                                               \
                 const size_t keyword_size = string_length(_S(keyword));     \
                 __p += keyword_size - 1;                                    \
                 return __Nws(value, ##values);                              \
             }                                                               \
-        } while(false)
+        } while (false)
 
 
     // Returns the next token.
     token_t * cs_token_enumerator_t::next()
     {
-        if(!__skip_whitespace())
+        if (!__skip_whitespace())
             return nullptr;
 
         char_t c;
@@ -61,7 +61,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         const __cptr_t p0 = __p;
         cs_token_value_t value;
 
-        switch((c = *__p++))
+        switch ((c = *__p++))
         {
             case _T('a'):
                 __Eqk(abstract);
@@ -241,7 +241,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 return __Nw(question_mark);
 
             case _T(':'):   // :
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T(':'):
                         __p++;
@@ -256,10 +256,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 return __Nw(dollar);
 
             case _T('<'):   // < <= << <<=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('<'):
-                        if(*++__p == _T('='))                   // <<=
+                        if (*++__p == _T('='))                   // <<=
                         {
                             __p++;
                             return __Nw(left_shift_assign);
@@ -279,10 +279,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('>'):   // > >= >> >>=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('>'):
-                        if(*++__p == _T('='))                   // >>=
+                        if (*++__p == _T('='))                   // >>=
                         {
                             __p++;
                             return __Nw(right_shift_assign);
@@ -302,7 +302,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('+'):   // + ++ +=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('+'):   // ++
                         __p++;
@@ -313,7 +313,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                         return __Nw(add_assign);
 
                     default:
-                        if(is_numeric_prefix(*__p)
+                        if (is_numeric_prefix(*__p)
                             && (value = (w_t)__last_value()) != w_t::name && value != w_t::cvalue)
                         {
                             __p--;
@@ -325,7 +325,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('-'):   // - -- -=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('-'):   // --
                         __p++;
@@ -336,7 +336,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                         return __Nw(sub_assign);
 
                     default:
-                        if(is_numeric_prefix(*__p)
+                        if (is_numeric_prefix(*__p)
                             && (value = (w_t)__last_value()) != w_t::name && value != w_t::cvalue)
                         {
                             __p--;
@@ -348,7 +348,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('*'):   // * *=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('='):   // *=
                         __p++;
@@ -360,7 +360,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('/'):   // // /* /= /
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('/'):   // //
                         __p++;
@@ -380,7 +380,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('%'):   // % %=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('='):   // %=
                         __p++;
@@ -395,19 +395,19 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 return __Nw_(cvalue, __read_string());
 
             case _T('@'):   // multiline string
-                if(*__p == _T('"'))
+                if (*__p == _T('"'))
                 {
                     __p++;
                     return __Nw_(cvalue, __read_multiline_string());
                 }
-                else if(is_name_prefix(*__p))
+                else if (is_name_prefix(*__p))
                 {
                     return __Nw_(name, __read_name());
                 }
                 break;
 
             case _T('&'):   // & && &=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('&'):
                         __p++;
@@ -423,7 +423,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('|'):   // | || |=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('|'):
                         __p++;
@@ -442,7 +442,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 return __Nw(bit_not);
 
             case _T('^'):   // ^ ^=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('='):
                         __p++;
@@ -454,7 +454,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('!'):   // ! !=
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('='):
                         __p++;
@@ -466,7 +466,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case _T('='):   // = ==
-                switch(*__p)
+                switch (*__p)
                 {
                     case _T('='):
                         __p++;
@@ -482,13 +482,13 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         }
 
-        if(is_numeric_prefix(c))
+        if (is_numeric_prefix(c))
         {
             __p--;
             return __Nw_(cvalue, __read_number());
         }
 
-        if(is_name_prefix(c))
+        if (is_name_prefix(c))
             return __Nw_(name, __read_name());
 
         return __Nw_(__default__, __read_unknown());

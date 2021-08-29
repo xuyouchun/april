@@ -191,7 +191,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         // Destory the object.
         void __destroy_obj()
         {
-            if(obj != nullptr)
+            if (obj != nullptr)
             {
                 obj->~object_t();
                 obj = nullptr;

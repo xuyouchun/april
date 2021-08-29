@@ -139,7 +139,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const token_value_t * __new_token_values(token_value_t first, values_t ... values)
         {
             auto it = __possible_values_cache.find(first);
-            if(it != __possible_values_cache.end())
+            if (it != __possible_values_cache.end())
                 return it->second;
 
             size_t size = sizeof...(values) + 2;

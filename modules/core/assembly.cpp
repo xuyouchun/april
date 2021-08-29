@@ -17,13 +17,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __assembly_reference_key_t key(package_name, assembly->name);
 
         auto it = __assembly_references.find(key);
-        if(it != __assembly_references.end())
+        if (it != __assembly_references.end())
             return it->second;
 
         assembly_reference_t * ref = __xpool.new_reference(package_name, assembly);
         __assembly_references[key] = ref;
 
-        if(!al::map_insert(__assembly_reference_relation, assembly, ref))
+        if (!al::map_insert(__assembly_reference_relation, assembly, ref))
             throw _ED(__e_t::assembly_duplicated, assembly->name);
 
         return ref;
@@ -33,7 +33,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     assembly_reference_t * assembly_references_t::get_reference(assembly_t * assembly)
     {
         auto it = __assembly_reference_relation.find(assembly);
-        if(it == __assembly_reference_relation.end())
+        if (it == __assembly_reference_relation.end())
             return nullptr;
 
         return it->second;
@@ -49,7 +49,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         auto it = map.find(key);
 
-        if(it != map.end())
+        if (it != map.end())
             return it->second;
 
         return nullptr;
@@ -79,10 +79,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts namespace to a sid.
     static sid_t __ns_to_sid(type_t * type, sid_t default_ = sid_t::null)
     {
-        if(type == nullptr)
+        if (type == nullptr)
             return default_;
 
-        while(type->host_type != nullptr)
+        while (type->host_type != nullptr)
         {
             type = type->host_type;
         }
@@ -125,7 +125,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             size_t template_param_count, type_t * host_type)
     {
         ns = __ns_to_sid(host_type, ns);
-        if(ns.is_empty())
+        if (ns.is_empty())
             ns = sid_t::null;
 
         general_type_t * t = __get_type(__general_types,
@@ -172,7 +172,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(template_ != nullptr);
 
         generic_type_t * generic_type = get_generic_type(template_, types, host_type);
-        if(generic_type == nullptr)
+        if (generic_type == nullptr)
         {
             generic_type = __xpool.new_generic_type(template_, types, host_type);
             __append(__generic_types,
@@ -187,11 +187,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Creates a array type.
     array_type_t * types_t::new_array_type(type_t * type, size_t dimension)
     {
-        if(type == nullptr)
+        if (type == nullptr)
             type = null_type_t::instance();
 
         array_type_t * array_type = __get_type(__array_types, __array_type_key_t(type, dimension));
-        if(array_type == nullptr)
+        if (array_type == nullptr)
         {
             array_type = __xpool.new_array_type(type, dimension);
             __append(__array_types, __array_type_key_t(type, dimension), array_type);
@@ -233,7 +233,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     assembly_t * assemblies_t::get(const mname_t * name)
     {
         auto it = __assembly_sid_map.find(to_sid(name));
-        if(it != __assembly_sid_map.end())
+        if (it != __assembly_sid_map.end())
             return it->second;
 
         return nullptr;
@@ -243,7 +243,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     assembly_t * assemblies_t::get(const string_t & name)
     {
         auto it = __assembly_string_map.find(name);
-        if(it != __assembly_string_map.end())
+        if (it != __assembly_string_map.end())
             return it->second;
 
         return nullptr;

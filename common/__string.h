@@ -168,9 +168,9 @@ namespace X_ROOT_NS
         private:
             static size_t __len(const from_ch_t * bytes)
             {
-                for(const from_ch_t * p = bytes; ; p++)
+                for (const from_ch_t * p = bytes; ; p++)
                 {
-                    if(!*p)
+                    if (!*p)
                         return p - bytes;
                 }
             }

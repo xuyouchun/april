@@ -37,7 +37,7 @@ namespace X_ROOT_NS { namespace algorithm {
     // Try to acquire a signal.
     bool semaphore_t::__try_acquire()
     {
-        if(__waiting_count == 0 && __signal_count > 0)
+        if (__waiting_count == 0 && __signal_count > 0)
         {
             __signal_count--;
             return true;
@@ -51,7 +51,7 @@ namespace X_ROOT_NS { namespace algorithm {
     {
         _L(__mutex);
 
-        if(__signal_count >= __max_signal_count)
+        if (__signal_count >= __max_signal_count)
             throw _E(common_error_code_t::invalid_operation, _T("signal count overflow"));
 
         __signal_count++;

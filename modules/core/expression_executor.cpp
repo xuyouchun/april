@@ -14,11 +14,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     vtype_t unitary_expression_t::get_vtype() const
     {
         expression_t * e = exp();
-        if(e == nullptr)
+        if (e == nullptr)
             return vtype_t::__unknown__;
 
         vtype_t vtype = e->get_vtype();
-        if(vtype == vtype_t::__unknown__)
+        if (vtype == vtype_t::__unknown__)
             return vtype_t::__unknown__;
 
         return get_unitary_vtype(this->op(), vtype);
@@ -117,7 +117,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         static bool try_execute(tvalue_t v, tvalue_t * out_value)
         {
-            switch((int)v.type)
+            switch ((int)v.type)
             {
                 __C(int8)
                 __C(uint8)
@@ -142,7 +142,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         static bool try_execute(tvalue_t v, tvalue_t * out_value)
         {
-            switch((int)v.type)
+            switch ((int)v.type)
             {
                 __C(float)
                 __C(double)
@@ -161,7 +161,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         static bool try_execute(tvalue_t v, tvalue_t * out_value)
         {
-            switch((int)v.type)
+            switch ((int)v.type)
             {
                 __C(bool)
 
@@ -194,7 +194,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef __unitary_execute_t<op, region> executor_t;
 
         tvalue_t v;
-        if(executor_t::try_execute(cv.number, &v))
+        if (executor_t::try_execute(cv.number, &v))
             return cvalue_t(v);
 
         throw _ED(__e_t::invalid_unitary_operator, op, cv.number.type);
@@ -204,17 +204,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     cvalue_t unitary_expression_t::execute(expression_execute_context_t & ctx)
     {
         expression_t * e = exp();
-        if(e == nullptr)
+        if (e == nullptr)
             return cvalue_t::null;
 
         cvalue_t cv = e->execute(ctx);
-        if(!is_number(cv))
+        if (!is_number(cv))
             return cvalue_t::nan;
 
         typedef __operate_region_t g_t;
         const __operate_region_t df = enum_xor(g_t::default_, g_t::float_);
 
-        switch(this->op())
+        switch (this->op())
         {
             case operator_t::minus:
                 return __unitary_execute<operator_t::minus, df>(cv);
@@ -252,12 +252,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     vtype_t binary_expression_t::get_vtype() const
     {
         expression_t * e1 = exp1(), * e2 = exp2();
-        if(e1 == nullptr || e2 == nullptr)
+        if (e1 == nullptr || e2 == nullptr)
             return vtype_t::__unknown__;
 
         vtype_t vtype1 = e1->get_vtype(), vtype2 = e2->get_vtype();
 
-        if(vtype1 == vtype_t::__unknown__ || vtype2 == vtype_t::__unknown__)
+        if (vtype1 == vtype_t::__unknown__ || vtype2 == vtype_t::__unknown__)
             return vtype_t::__unknown__;
 
         return get_binary_vtype(this->op(), vtype1, vtype2);
@@ -345,7 +345,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
-            switch(((int)v1.type << 8) | (int)v2.type)
+            switch (((int)v1.type << 8) | (int)v2.type)
             {
                 __C2(float,     int8)
                 __C2(float,     uint8)
@@ -382,13 +382,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
-            switch(op)
+            switch (op)
             {
                 case operator_t::sub:
                 case operator_t::equal:
                 case operator_t::not_equal:
 
-                    switch(((int)v1.type << 8) | (int)v2.type)
+                    switch (((int)v1.type << 8) | (int)v2.type)
                     {
                         __C1(char, char)
                     }
@@ -401,7 +401,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 case operator_t::less:
                 case operator_t::less_equal:
 
-                    switch(((int)v1.type << 8) | (int)v2.type)
+                    switch (((int)v1.type << 8) | (int)v2.type)
                     {
                         __C2(char,  int8);
                         __C2(char,  uint8);
@@ -430,7 +430,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
-            switch(((int)v1.type << 8) | (int)v2.type)
+            switch (((int)v1.type << 8) | (int)v2.type)
             {
                 __C1(int8,      int8)
                 __C2(int8,      uint8)
@@ -490,7 +490,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
-            switch(((int)v1.type << 8) | (int)v2.type)
+            switch (((int)v1.type << 8) | (int)v2.type)
             {
                 __C1(bool, bool)
 
@@ -509,7 +509,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef __binary_execute_t<op, region> executor_t;
 
         tvalue_t value;
-        if(executor_t::try_execute(cv1.number, cv2.number, &value))
+        if (executor_t::try_execute(cv1.number, cv2.number, &value))
             return cvalue_t(value);
 
         throw _ED(__e_t::invalid_binary_operator, op, cv1.number.type, cv2.number.type);
@@ -519,17 +519,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     cvalue_t binary_expression_t::execute(expression_execute_context_t & ctx)
     {
         expression_t * e1 = exp1(), * e2 = exp2();
-        if(e1 == nullptr || e2 == nullptr)
+        if (e1 == nullptr || e2 == nullptr)
             return cvalue_t::nan;
 
         cvalue_t cv1 = e1->execute(ctx), cv2 = e2->execute(ctx);
-        if(is_string(cv1) || is_string(cv2))
+        if (is_string(cv1) || is_string(cv2))
         {
             string_t s = _F(_T("%1%%2%"), cv1, cv2);
             return cvalue_t(ctx.xpool.spool.to_sid(s).c_str());
         }
 
-        if(!is_number(cv1) || !is_number(cv2))
+        if (!is_number(cv1) || !is_number(cv2))
             return cvalue_t::nan;
 
         typedef __operate_region_t g_t;
@@ -537,7 +537,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         const __operate_region_t df  = enum_xor(g_t::default_, g_t::float_);
         const __operate_region_t dfc = enum_xor(g_t::default_, g_t::float_, g_t::char_);
 
-        switch(this->op())
+        switch (this->op())
         {
             case operator_t::add:
                 return __binary_execute<operator_t::add, dfc>(cv1, cv2);

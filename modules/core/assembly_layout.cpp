@@ -217,13 +217,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     void mt_heap_buffer_t::__check_grow_size(size_t length)
     {
         size_t need_size = __p - __buffer + length;
-        if(__buffer == nullptr || need_size > __size)
+        if (__buffer == nullptr || need_size > __size)
         {
-            while(__size < need_size)
+            while (__size < need_size)
                 __size <<= 1;
 
             byte_t * new_buffer = this->__alloc_objs<byte_t>(__size);
-            if(__buffer != nullptr)
+            if (__buffer != nullptr)
             {
                 std::copy(__buffer, __p, new_buffer);
                 this->__free(__buffer);
@@ -243,7 +243,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Destructor.
     mt_heap_buffer_t::~mt_heap_buffer_t()
     {
-        if(__buffer != nullptr)
+        if (__buffer != nullptr)
             this->__free(__buffer);
     }
 
@@ -253,11 +253,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Append string.
     res_t mt_heap_t::append_string(sid_t sid)
     {
-        if(sid.is_empty())
+        if (sid.is_empty())
             return res_t::null;
 
         auto it = __map.find(sid);
-        if(it != __map.end())
+        if (it != __map.end())
             return it->second;
 
         std::string s = string_convert<char_t, char>(sid.c_str());
@@ -282,7 +282,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Append mname.
     res_t mt_heap_t::append_string(const mname_t * mname)
     {
-        if(mname == nullptr)
+        if (mname == nullptr)
             return res_t::null;
 
         return append_string(mname->sid);
@@ -291,7 +291,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Append a block.
     res_t mt_heap_t::append_block(const byte_t * bytes, size_t length)
     {
-        if(bytes == nullptr || length == 0)
+        if (bytes == nullptr || length == 0)
             return res_t::null;
 
         byte_t size_buffer[16];
@@ -309,7 +309,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Append bytes.
     res_t mt_heap_t::append_bytes(const byte_t * bytes, size_t length)
     {
-        if(bytes == nullptr || length == 0)
+        if (bytes == nullptr || length == 0)
             return res_t::null;
 
         size_t current_index = __buffer.current_index();
@@ -772,16 +772,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __mt_field_t * f0 = __fields_t::fields, *f = f0;
             int last_lv = 1;
 
-            for(size_t index = 0; index < field_count; index++)
+            for (size_t index = 0; index < field_count; index++)
             {
                 __mt_field_t field = __fields_t::fields[index];
                 __lv_t lv = __ToLv(field);
 
-                if(lv > 0)  // layout version
+                if (lv > 0)  // layout version
                 {
                     _A(lv <= (int)__current_lv);
 
-                    while(last_lv <= lv)
+                    while (last_lv <= lv)
                     {
                         fields_count[last_lv - 1][(int)tidx] = (__field_count_t)(f - f0);
                         last_lv++;
@@ -793,7 +793,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 }
             }
 
-            while(last_lv <= __current_lv)
+            while (last_lv <= __current_lv)
             {
                 fields_count[last_lv - 1][(int)tidx] = fields_count[last_lv - 2][(int)tidx];
                 last_lv++;

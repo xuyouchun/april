@@ -8,7 +8,7 @@ namespace X_ROOT_NS { namespace algorithm {
     // Constructor
     xheap_t::xheap_t(const string_t & name) : __name(name)
     {
-        for(size_t index = 0; index < array_size(__row_collections); index++)
+        for (size_t index = 0; index < array_size(__row_collections); index++)
         {
             __row_collection_t & rc = __row_collections[index];
 
@@ -22,10 +22,10 @@ namespace X_ROOT_NS { namespace algorithm {
     void * xheap_t::alloc(size_t size, memory_flag_t flag)
     {
         size_t new_size = _alignf(size);
-        if(new_size > __large_object_size)
+        if (new_size > __large_object_size)
         {
             byte_t * bytes = new byte_t[new_size];
-            if(enum_has_flag(flag, memory_flag_t::is_object))
+            if (enum_has_flag(flag, memory_flag_t::is_object))
             {
                 __large_objs.push_back((object_t *)bytes);
             }
@@ -38,7 +38,7 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         __row_collection_t & rc = __row_collections[new_size / sizeof(int) - 1];
-        if(!rc.current_row || (rc.bytes_count + rc.current_row->object_count) >= rc.capacity)
+        if (!rc.current_row || (rc.bytes_count + rc.current_row->object_count) >= rc.capacity)
         {
             __row_t new_row { new byte_t[__row_size], 0 };
             rc.rows.push_back(new_row);
@@ -49,7 +49,7 @@ namespace X_ROOT_NS { namespace algorithm {
         __row_t & r = *rc.current_row;
         byte_t * placeholder;
 
-        if(enum_has_flag(flag, memory_flag_t::is_object))
+        if (enum_has_flag(flag, memory_flag_t::is_object))
         {
             placeholder = r.buffer + r.object_count * new_size;
             r.object_count++;
@@ -78,25 +78,25 @@ namespace X_ROOT_NS { namespace algorithm {
     // Deallocator
     xheap_t::~xheap_t()
     {
-        for(object_t * obj : __large_objs)
+        for (object_t * obj : __large_objs)
         {
             obj->~object_t();
             delete [] (byte_t *)obj;
         }
 
-        for(byte_t * bytes : __large_bytes)
+        for (byte_t * bytes : __large_bytes)
         {
             delete [] bytes;
         }
 
-        for(size_t k = 0; k < array_size(__row_collections); k++)
+        for (size_t k = 0; k < array_size(__row_collections); k++)
         {
             __row_collection_t & rc = __row_collections[k];
             size_t obj_size = (k + 1) * sizeof(int);
 
-            for(__row_t & r : rc.rows)
+            for (__row_t & r : rc.rows)
             {
-                for(size_t obj_index = 0; obj_index < r.object_count; obj_index++)
+                for (size_t obj_index = 0; obj_index < r.object_count; obj_index++)
                 {
                     ((object_t *)(r.buffer + obj_index * obj_size))->~object_t();
                 }
@@ -118,7 +118,7 @@ namespace X_ROOT_NS { namespace algorithm {
         __underlying_t flag;
         __underlying_t & item = __pos_of(index, &flag);
 
-        if(value)
+        if (value)
             item |= flag;
         else
             item &= ~flag;
@@ -128,7 +128,7 @@ namespace X_ROOT_NS { namespace algorithm {
     // Returns not_found value when not found.
     bool bit_array_t::get(size_t index) const
     {
-        if(__data == nullptr || __data_length_of(index + 1) > __data_length)
+        if (__data == nullptr || __data_length_of(index + 1) > __data_length)
             return false;
 
         __underlying_t flag;
@@ -141,20 +141,20 @@ namespace X_ROOT_NS { namespace algorithm {
     // Returns not_found value when not found.
     size_t bit_array_t::index_of(bool value, size_t from) const
     {
-        if(from >= __bit_length)
+        if (from >= __bit_length)
             return not_found;
 
         size_t pos = from / __underlying_bits;
         size_t data_length = __data_length_of(__bit_length);
-        if(pos >= data_length)
+        if (pos >= data_length)
             return false;
 
         size_t from0 = from % __underlying_bits;
-        for(const __underlying_t * p = __data + pos, *p_end = __data + data_length;
+        for (const __underlying_t * p = __data + pos, *p_end = __data + data_length;
                 p < p_end; from0 = 0, p++)
         {
             size_t index = __index_of_true(value? *p : ~*p, from0);
-            if(index != not_found)
+            if (index != not_found)
             {
                 size_t ret = index + (p - __data) * __underlying_bits;
                 return ret >= __bit_length? not_found : ret;
@@ -167,21 +167,21 @@ namespace X_ROOT_NS { namespace algorithm {
     // Checks and resizes memory to store bits of the specified count.
     X_INLINE void bit_array_t::__check_length(size_t bit_length)
     {
-        if(bit_length <= __bit_length && __data != nullptr)
+        if (bit_length <= __bit_length && __data != nullptr)
             return;
 
         __bit_length = bit_length;
 
         size_t data_length = __data_length_of(bit_length);
-        if(__data == nullptr || data_length > __data_length)
+        if (__data == nullptr || data_length > __data_length)
         {
-            if(data_length < 16)
+            if (data_length < 16)
                 data_length *= 2;
             else
                 data_length += 10;
 
             __underlying_t * new_data = new __underlying_t[data_length];
-            if(__data != nullptr)
+            if (__data != nullptr)
             {
                 copy_array(__data, new_data, data_length);
                 delete [] __data;
@@ -210,24 +210,24 @@ namespace X_ROOT_NS { namespace algorithm {
     // Next index of true bit from the specified index.
     X_INLINE size_t bit_array_t::__index_of_true(__underlying_t value, size_t from, size_t end)
     {
-        if(from >= __underlying_bits)
+        if (from >= __underlying_bits)
             return not_found;
 
-        if(value & ((__underlying_t)0x01 << from))
+        if (value & ((__underlying_t)0x01 << from))
             return from;
 
-        for(size_t index = (from + end) >> 1; ; index = (from + end) >> 1)
+        for (size_t index = (from + end) >> 1; ; index = (from + end) >> 1)
         {
             __underlying_t v1 = __cut(value, from, index);
-            if(v1)
+            if (v1)
             {
-                if(index == from)
+                if (index == from)
                     return index;
                 end = index;
             }
             else
             {
-                if(index >= end)
+                if (index >= end)
                     return not_found;
                 from = index + 1;
             }
@@ -244,7 +244,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     bit_array_t::~bit_array_t()
     {
-        if(__data)
+        if (__data)
             delete [] __data;
     }
 

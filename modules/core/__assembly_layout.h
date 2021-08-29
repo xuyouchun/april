@@ -306,7 +306,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static size_t get_size(__lv_t lv)
         {
             size_t size = 0, field_count = get_field_count(lv);
-            for(size_t index = 0; index < field_count; index++)
+            for (size_t index = 0; index < field_count; index++)
             {
                 size += __ef_t::fields[index].size;
             }
@@ -318,7 +318,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename stream_t>
         static void write(stream_t & stream, const mt_t & e, int field_count)
         {
-            for(size_t index = 0; index < field_count; index++)
+            for (size_t index = 0; index < field_count; index++)
             {
                 __mt_field_t ef = __ef_t::fields[index];
                 stream.write((const byte_t *)&e + ef.offset, ef.size);
@@ -329,10 +329,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename stream_t>
         static void read(stream_t & stream, mt_t & e, int field_count)
         {
-            for(size_t index = 0; index < field_count; index++)
+            for (size_t index = 0; index < field_count; index++)
             {
                 __mt_field_t ef = __ef_t::fields[index];
-                if(stream.read((byte_t *)&e + ef.offset, ef.size) != ef.size)
+                if (stream.read((byte_t *)&e + ef.offset, ef.size) != ef.size)
                     throw _ECF(invalid_operation, _T("assembly format error: EOF"));
             }
         }
@@ -390,7 +390,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt_t * mt = __heap.new_obj();
             al::zero_object(*mt);
 
-            if(out_mt != nullptr)
+            if (out_mt != nullptr)
                 *out_mt = mt;
 
             ref_t ref(index, 1, mt_t::extra);
@@ -435,15 +435,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Enums metadatas for specified ref.
         template<typename f_t> bool each(ref_t ref, f_t f)
         {
-            if(ref.count == 0)
+            if (ref.count == 0)
                 return true;
 
-            if(ref.index + ref.count > __heap.size())
+            if (ref.index + ref.count > __heap.size())
                 throw _EC(overflow, _T("ref overflow"));
 
-            for(size_t index = ref.index, end = index + ref.count; index < end; index++)
+            for (size_t index = ref.index, end = index + ref.count; index < end; index++)
             {
-                if(!f(index, __heap[index]))
+                if (!f(index, __heap[index]))
                     return false;
             }
 
@@ -453,9 +453,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Enums metadatas.
         template<typename f_t> bool each(f_t f)
         {
-            for(size_t index = 0, end = index + count(); index < end; index++)
+            for (size_t index = 0, end = index + count(); index < end; index++)
             {
-                if(!f(index, __heap[index]))
+                if (!f(index, __heap[index]))
                     return false;
             }
 
@@ -466,7 +466,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ref_t search_ref(const entity_t & entity)
         {
             auto it = __mt_map.find(entity);
-            if(it == __mt_map.end())
+            if (it == __mt_map.end())
                 return ref_t(0, 0, 0);
 
             return it->second;
@@ -476,7 +476,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         mt_t * search_mt(const entity_t & entity)
         {
             ref_t ref = (*this)[entity];
-            if(ref.empty())
+            if (ref.empty())
                 return nullptr;
 
             return &get(ref);
@@ -486,7 +486,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename output_itor_t>
         ref_t acquire(size_t count, output_itor_t output_itor)
         {
-            if(count == 0)
+            if (count == 0)
                 return current_null();
 
             size_t index = __heap.new_objs(count, output_itor);
@@ -500,13 +500,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             typedef typename entities_t::value_type entity_t;
 
-            if(entities.empty())
+            if (entities.empty())
                 return current_null();
 
             __vector_t<mt_t *> mts;
             ref_t ref = acquire(entities.size(), std::back_inserter(mts));
 
-            for(auto && it : al::zip(ref, entities, mts))
+            for (auto && it : al::zip(ref, entities, mts))
             {
                 ref_t       ref0;
                 mt_t *      mt;
@@ -535,7 +535,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             typedef __entity_operation_t<mt_t> entity_operation_t;
             size_t field_count = entity_operation_t::get_field_count(lv);
 
-            for(size_t index = 0, count = __heap.size(); index < count; index++)
+            for (size_t index = 0, count = __heap.size(); index < count; index++)
             {
                 entity_operation_t::write(stream, __heap[index], field_count);
             }
@@ -679,7 +679,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Reads entity at specified pos.
         template<typename t> t read(size_t pos) const
         {
-            if(pos + sizeof(t) >= __buffer.size())
+            if (pos + sizeof(t) >= __buffer.size())
                 throw _ED(assembly_error_code_t::unexpected_heap_size);
 
             return *(const t *)at(pos);
@@ -1330,7 +1330,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns value of specified item.
         constexpr static int32_t value_of(__ln_t ln)
         {
-            switch(ln)
+            switch (ln)
             {
                 default:
                     return 0;
@@ -1342,7 +1342,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ref_t ref_of(const typename mt_t<tidx>::entity_t & entity)
         {
             ref_t ref = ((mt_manager_base_t<tidx> *)__mt_objects[(int)tidx])->search_ref(entity);
-            if(ref == ref_t::null)
+            if (ref == ref_t::null)
                 ref = on_load_ref(tidx, entity);
 
             return ref;
@@ -1351,7 +1351,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the ref of specified type.
         ref_t ref_of(type_t * type)
         {
-            if(type == nullptr)
+            if (type == nullptr)
                 return ref_t::null;
 
             return on_load_type_ref(type);
@@ -1416,7 +1416,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the value of specified item.
         constexpr static int32_t value_of(__ln_t ln)
         {
-            switch(ln)
+            switch (ln)
             {
                 case __ln_t::table_count:
                     return (int32_t)__tidx_t::__V1 + 1;
@@ -1467,7 +1467,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_t * __get_internal_type(identity_t identity)
         {
             type_t * type = __xpool.get_internal_type(identity);
-            if(type == nullptr)
+            if (type == nullptr)
                 throw _ED(assembly_error_code_t::type_not_found, identity);
 
             return type;
@@ -1477,10 +1477,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename identity_t>
         type_t * __get_internal_type(type_t *& cache, identity_t identity)
         {
-            if(cache == nullptr)
+            if (cache == nullptr)
             {
                 cache = __xpool.get_internal_type(identity);
-                if(cache == nullptr)
+                if (cache == nullptr)
                     throw _ED(assembly_error_code_t::type_not_found, identity);
             }
 
@@ -1547,13 +1547,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 mt_table_t * mt_table = ctx.tables[(int)tidx - __mttbl_count];
                 size_t rows = mt_table->rows;
 
-                if(rows > 0)
+                if (rows > 0)
                 {
                     __mt_t * mts[rows];
                     mgr.acquire(rows, mts);
 
                     int field_count = __entity_operation_t<__mt_t>::get_field_count(_lv);
-                    for(__mt_t ** p_mt = mts, ** p_mt_end = p_mt + rows; p_mt < p_mt_end; p_mt++)
+                    for (__mt_t ** p_mt = mts, ** p_mt_end = p_mt + rows; p_mt < p_mt_end; p_mt++)
                     {
                         __mt_t * mt = *p_mt;
                         __mt_t::init(*mt);
@@ -1624,7 +1624,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             table_reader_t::read(ctx);
 
             // Read heap
-            if(__heap != nullptr)
+            if (__heap != nullptr)
                 __read_heap();
         }
 
@@ -1661,7 +1661,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             size_t tbl_count = _table_count - __mttbl_count;
             __mt_manager<__tidx_t::table>().acquire(tbl_count, std::back_inserter(tables));
 
-            for(mt_table_t * mt_table : tables)
+            for (mt_table_t * mt_table : tables)
             {
                 __read(mt_table);
             }
@@ -1679,13 +1679,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             byte_t buffer[1024];
             size_t length, total = __header->heap_size;
 
-            while((length = __stream.read(buffer, al::min(sizeof(buffer), total))) > 0)
+            while ((length = __stream.read(buffer, al::min(sizeof(buffer), total))) > 0)
             {
                 this->__heap->append_bytes(buffer, length);
                 total -= length;
             }
 
-            if(total != 0)
+            if (total != 0)
                 throw _E(assembly_error_code_t::unexpected_heap_size);
         }
     };
@@ -1744,7 +1744,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             cvalue_type_t cvalue_type = to_cvalue_type(mt.constant_type);
             value_type_t  value_type  = to_value_type(mt.constant_type);
 
-            switch(cvalue_type)
+            switch (cvalue_type)
             {
                 case cvalue_type_t::number:
                     return __read_const_number(mt, value_type);
@@ -1768,7 +1768,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         sid_t read_sid(res_t res)
         {
             auto it = __str_map.find(res);
-            if(it != __str_map.end())
+            if (it != __str_map.end())
                 return it->second;
 
             const char * p =  (const char *)__heap_at(res);
@@ -1791,7 +1791,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns heap at res.
         const byte_t * __heap_at(res_t res)
         {
-            if(res.pos >= this->__heap.size())
+            if (res.pos >= this->__heap.size())
                 throw _E(__e_t::unexpected_heap_size);
 
             return this->__heap + res.pos;
@@ -1800,12 +1800,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Reads uint64 by a metadata.
         uint64_t __read_uint64(const mt_constant_t & mt)
         {
-            if(!mt.constant_flag.extern_)
+            if (!mt.constant_flag.extern_)
             {
                 uint32_t v2 = *(uint32_t *)mt.data2;
                 uint32_t v1 = *(uint32_t *)mt.data1;
 
-                if(mt.constant_flag.cpl)
+                if (mt.constant_flag.cpl)
                     v1 = ~v1;
 
                 return ((uint64_t)v1 << 32) | v2;
@@ -1819,7 +1819,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Read constant number.
         cvalue_t __read_const_number(const mt_constant_t & mt, value_type_t value_type)
         {
-            switch(value_type)
+            switch (value_type)
             {
                 case value_type_t::int8_:
                     return cvalue_t(*(int8_t *)mt.data2);

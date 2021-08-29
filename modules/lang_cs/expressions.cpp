@@ -35,13 +35,13 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         cvalue_t condition_value = execute_expression(ctx, this->condition());
 
-        if(value1_effective || value2_effective)
+        if (value1_effective || value2_effective)
         {
-            if(condition_value == true)
+            if (condition_value == true)
             {
                 value1()->compile(ctx, pool);
             }
-            else if(condition_value == false)
+            else if (condition_value == false)
             {
                 value2()->compile(ctx, pool);
             }
@@ -53,7 +53,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 value1()->compile(ctx, pool);
                 jmp_xil_t * finally_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
 
-                if(false_jmp_xil != nullptr)
+                if (false_jmp_xil != nullptr)
                     xil::append_label_xil(sctx, pool, false_jmp_xil);
 
                 value2()->compile(ctx, pool);
@@ -68,10 +68,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     {
         cvalue_t condition_value = execute_expression(ctx, this->condition());
 
-        if(condition_value == true)
+        if (condition_value == true)
             return execute_expression(ctx, this->value1());
 
-        if(condition_value == false)
+        if (condition_value == false)
             return execute_expression(ctx, this->value2());
 
         return cvalue_t::nan;
@@ -83,7 +83,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     static void __compile_single_expression(expression_compile_context_t & ctx,
                                             xil_pool_t & pool, expression_t * exp)
     {
-        if(exp != nullptr)
+        if (exp != nullptr)
         {
             expression_t * parent_exp = exp->parent;
             exp->parent = nullptr;
@@ -100,7 +100,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     {
         _A(this->expression_count() > 0);
 
-        for(auto it = this->begin(), it_end = this->end() - 1; it < it_end; it++)
+        for (auto it = this->begin(), it_end = this->end() - 1; it < it_end; it++)
         {
             __compile_single_expression(ctx, pool, *it);
         }

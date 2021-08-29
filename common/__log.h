@@ -54,7 +54,7 @@ namespace X_ROOT_NS {
     template<typename format_t, typename ... args_t>
     void logf(log_type_t type, const format_t & format, args_t ... args)
     {
-        if(test_log_mask(type))
+        if (test_log_mask(type))
         {
             string_t s = sprintf(format, args ...);
             __::write(type, s.c_str());
@@ -65,7 +65,7 @@ namespace X_ROOT_NS {
     template<typename ... args_t>
     void log(log_type_t type, args_t ... args)
     {
-        if(test_log_mask(type))
+        if (test_log_mask(type))
         {
             string_t s = sprint(args ...);
             __::write(type, s.c_str());

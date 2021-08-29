@@ -84,7 +84,7 @@ namespace X_ROOT_NS {
         enum_info_t<enum_t> * buffer = new enum_info_t<enum_t>[(sizeof...(args))];
         __init_enum_info_map<enum_t>(map->enum_map, buffer, args ...);
 
-        for(auto it = map->enum_map.begin(), it_end = map->enum_map.end(); it != it_end; it++)
+        for (auto it = map->enum_map.begin(), it_end = map->enum_map.end(); it != it_end; it++)
         {
             const enum_info_t<enum_t> * info = it->second;
             map->name_map[string_t(info->name)] = info;
@@ -104,7 +104,7 @@ namespace X_ROOT_NS {
         // Searchs enum info by title/name.
         static const enum_info_t<enum_t> & search(const char_t * s, enum_search_type_t search_type)
         {
-            if(!s)
+            if (!s)
                 return _enum(enum_t::__unknown__);
             return search(string_t(s), search_type);
         }
@@ -114,7 +114,7 @@ namespace X_ROOT_NS {
         {
             const enum_info_t<enum_t> * enum_info;
             auto map = __get_enum_info_map(enum_t());
-            switch(search_type)
+            switch (search_type)
             {
                 case enum_search_type_t::name:
                     enum_info = __try_search(map.name_map, s);
@@ -126,7 +126,7 @@ namespace X_ROOT_NS {
 
                 default:
                     enum_info = __try_search(map.name_map, s);
-                    if(!enum_info)
+                    if (!enum_info)
                         enum_info = __try_search(map.title_map, s);
                     break;
             }
@@ -164,7 +164,7 @@ namespace X_ROOT_NS {
         void each(enum_t value, callback_t callback)                                    \
         {                                                                               \
             auto map = __get_enum_info_map(enum_t()).enum_map;                          \
-            for(auto it = map.cbegin(); it != map.cend(); it++)                         \
+            for (auto it = map.cbegin(); it != map.cend(); it++)                         \
             {                                                                           \
                 callback(*it->second);                                                  \
             }                                                                           \

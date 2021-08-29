@@ -30,7 +30,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     {
         std::vector<string_t> commands;
         each(april_command_t(), [&](auto & it) {
-            if(it.value != april_command_t::__default__ && it.value != april_command_t::__unknown__)
+            if (it.value != april_command_t::__default__ && it.value != april_command_t::__unknown__)
                 commands.push_back(it.title);
         });
 
@@ -149,16 +149,16 @@ Use \"april help [command]\" for more information about a command.          \n\
     // Converts to april command.
     static april_command_t __to_april_command(const char_t * cmd)
     {
-        if(al::equals(cmd, _T("compile")))
+        if (al::equals(cmd, _T("compile")))
             return april_command_t::compile;
 
-        if(al::equals(cmd, _T("run")))
+        if (al::equals(cmd, _T("run")))
             return april_command_t::run;
 
-        if(al::equals(cmd, _T("version")))
+        if (al::equals(cmd, _T("version")))
             return april_command_t::version;
 
-        if(al::equals(cmd, _T("help")))
+        if (al::equals(cmd, _T("help")))
             return april_command_t::help;
 
         return april_command_t::__unknown__;
@@ -173,7 +173,7 @@ Use \"april help [command]\" for more information about a command.          \n\
     // Parses arguments.
     bool april_options_t::parse(int argc, char ** argv)
     {
-        if(argc == 1)
+        if (argc == 1)
         {
             show_help();
             return false;
@@ -189,7 +189,7 @@ Use \"april help [command]\" for more information about a command.          \n\
         argc -= 1;
         argv += 1;
 
-        if(!__parse(this->command, parser, argc, argv))
+        if (!__parse(this->command, parser, argc, argv))
         {
             std::cout << parser.usage().c_str() << std::endl;
             return false;
@@ -202,7 +202,7 @@ Use \"april help [command]\" for more information about a command.          \n\
     void april_options_t::show_help(april_command_t command)
     {
         __cmdline_parser_t parser;
-        if(__parse(command, parser, 0, nullptr))
+        if (__parse(command, parser, 0, nullptr))
         {
             std::cout << parser.usage().c_str() << std::endl;
         }
@@ -221,7 +221,7 @@ Use \"april help [command]\" for more information about a command.          \n\
         string_t program_name = _F(_T("april %1%"), command);
         parser.set_program_name(string_convert<char_t, char>(program_name));
 
-        switch(command)
+        switch (command)
         {
             case april_command_t::run:
                 return __parse_run(parser, argc, argv);
@@ -248,7 +248,7 @@ Use \"april help [command]\" for more information about a command.          \n\
         __init_compile_parser(parser);
         parser.add<std::string>("execute", 'e', "execute assembly name", false, "");
 
-        if(argc == 0)
+        if (argc == 0)
             return true;
 
         parser.parse_check(argc, argv);
@@ -264,7 +264,7 @@ Use \"april help [command]\" for more information about a command.          \n\
     {
         __init_compile_parser(parser);
 
-        if(argc == 0)
+        if (argc == 0)
             return true;
 
         parser.parse_check(argc, argv);
@@ -280,18 +280,18 @@ Use \"april help [command]\" for more information about a command.          \n\
             _F(_T("<command: %1%>"), __all_commands())
         ));
 
-        if(argc == 0)
+        if (argc == 0)
             return true;
 
         parser.parse_check(argc, argv);
 
-        if(parser.rest().empty())
+        if (parser.rest().empty())
         {
             std::wcout << _T("command missing") << std::endl;
             return false;
         }
 
-        if(parser.rest().size() > 1)
+        if (parser.rest().size() > 1)
         {
             std::wcout << _T("multipy commands") << std::endl;
             return false;
@@ -323,7 +323,7 @@ Use \"april help [command]\" for more information about a command.          \n\
         __copy_strings(parser.rest(), options.files);
         options.output_path = __read_string(parser, "output");
 
-        if(options.files.empty())
+        if (options.files.empty())
         {
             _P(_T("source files missing"));
             return false;
@@ -352,7 +352,7 @@ Use \"april help [command]\" for more information about a command.          \n\
     // Executes.
     void april_t::execute()
     {
-        switch(__options.command)
+        switch (__options.command)
         {
             case april_command_t::compile:
                 __execute_compile(__options.get<__t::compile_options_t>());
@@ -391,7 +391,7 @@ Use \"april help [command]\" for more information about a command.          \n\
     void april_t::__execute_help(const __t::help_options_t & options)
     {
         april_command_t command = __to_april_command(options.sub_command.c_str());
-        if(command == april_command_t::__unknown__)
+        if (command == april_command_t::__unknown__)
         {
             _PF(_T("unknown command %1%"), options.sub_command);
             __options.show_help();
@@ -409,13 +409,13 @@ Use \"april help [command]\" for more information about a command.          \n\
         try
         {
             april_options_t options;
-            if(options.parse(argc, argv))
+            if (options.parse(argc, argv))
             {
                 april_t(options).execute();
                 return 0;
             }
         }
-        catch(const error_t & err)
+        catch (const error_t & err)
         {
             _P(_str(err));
         }

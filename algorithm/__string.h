@@ -222,7 +222,7 @@ namespace X_ROOT_NS { namespace algorithm {
     {
         _A(arr != nullptr);
 
-        if(arr_size < prefix_size)
+        if (arr_size < prefix_size)
             return false;
 
         return __starts_with_t<type_t, prefix_size, equals_t>::starts_with(arr, prefix);
@@ -324,7 +324,7 @@ namespace X_ROOT_NS { namespace algorithm {
         typedef typename s_t::size_type pos_t;
 
         pos_t pos;
-        while((pos = s.find(src, pos)) != s_t::npos)
+        while ((pos = s.find(src, pos)) != s_t::npos)
         {
             s.replace(pos, src.size(), dst);
             pos += dst.size();
@@ -362,9 +362,9 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename itor_t>
     void join_str(stringstream_t & ss, itor_t begin, itor_t end, const string_t & sep)
     {
-        for(itor_t it = begin; it != end; it++)
+        for (itor_t it = begin; it != end; it++)
         {
-            if(it != begin)
+            if (it != begin)
                 ss << sep.c_str();
 
             ss << *it;
@@ -385,9 +385,9 @@ namespace X_ROOT_NS { namespace algorithm {
     void join_str(stringstream_t & ss, itor_t begin, itor_t end, const string_t & sep,
                                                                     strfunc_t strfunc)
     {
-        for(itor_t it = begin; it != end; it++)
+        for (itor_t it = begin; it != end; it++)
         {
-            if(it != begin)
+            if (it != begin)
                 ss << sep.c_str();
 
             ss << strfunc(*it);
@@ -430,7 +430,7 @@ namespace X_ROOT_NS { namespace algorithm {
     string_t join(const string_t & sep, values_t ... values)
     {
         stringstream_t ss;
-        if(sizeof ... (values) > 0)
+        if (sizeof ... (values) > 0)
         {
             __join_head(ss, sep, values ...);
         }
@@ -685,7 +685,7 @@ namespace X_ROOT_NS { namespace algorithm {
             template<typename callback_t>
             void match(__string_itor_t begin, __string_itor_t end, callback_t callback)
             {
-                for(__regex_itor_t it(begin, end, __regex), it_end; it != it_end; it++)
+                for (__regex_itor_t it(begin, end, __regex), it_end; it != it_end; it++)
                 {
                     callback(it->str());
                 }
@@ -694,7 +694,7 @@ namespace X_ROOT_NS { namespace algorithm {
             // Returns whether the string is matched.
             bool is_match(__string_itor_t begin, __string_itor_t end)
             {
-                for(__regex_itor_t it(begin, end, __regex), it_end; it != it_end; it++)
+                for (__regex_itor_t it(begin, end, __regex), it_end; it != it_end; it++)
                 {
                     return true;
                 }
@@ -705,7 +705,7 @@ namespace X_ROOT_NS { namespace algorithm {
             // Matches the first string.
             string_t match_one(__string_itor_t begin, __string_itor_t end)
             {
-                for(__regex_itor_t it(begin, end, __regex), it_end; it != it_end; it++)
+                for (__regex_itor_t it(begin, end, __regex), it_end; it != it_end; it++)
                 {
                     return it->str();
                 }

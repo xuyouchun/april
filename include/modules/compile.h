@@ -309,7 +309,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Writes a code section to a stream.
     X_INLINE ostream_t & operator << (ostream_t & stream, const code_section_t & section)
     {
-        if(section.source_code != nullptr)
+        if (section.source_code != nullptr)
             stream.write(section.source_code, section.length);
 
         return stream;
@@ -861,7 +861,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual value_t get(const key_t & key) override
         {
             auto it = __cache.find(key);
-            if(it != __cache.end())
+            if (it != __cache.end())
                 return it->second;
 
             return _D(value_t);
@@ -1102,7 +1102,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             logs.append(new_obj<compile_log_t>(lang, element, level, name, message));
 
-            if(level == __log_level_t::error)
+            if (level == __log_level_t::error)
                 __error_count++;
         }
 
@@ -1410,7 +1410,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     _lang_service_t * require_lang_service(lang_t * lang)
     {
         _lang_service_t * service = get_lang_service<_lang_service_t>(lang);
-        if(service == nullptr)
+        if (service == nullptr)
         {
             throw _E(compile_error_code_t::service_not_supported,
                     sprintf(_T("service \"%1%\" not supported"), _lang_service_t::service_type));
@@ -1449,7 +1449,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _lang_service_t * require_service()
         {
             _lang_service_t * service = get_service<_lang_service_t>();
-            if(service == nullptr)
+            if (service == nullptr)
             {
                 throw _E(compile_error_code_t::service_not_supported,
                     sprintf(_T("service \"%1%\" not supported"), _lang_service_t::service_type)
@@ -1513,7 +1513,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const property_t * get_property(const key_t & key)
         {
             const property_t * property = try_get_property(key);
-            if(property == nullptr)
+            if (property == nullptr)
                 throw _ECF(not_found, _T("connot find property of %1%"), key);
 
             return property;

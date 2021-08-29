@@ -28,7 +28,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     {
         X_INLINE __path_t __revise(const __path_t & path, bool absolute)
         {
-            if(absolute)
+            if (absolute)
                 return lib::absolute(path);
 
             return path;
@@ -45,22 +45,22 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         __path_t directory;
         string_t filter;
 
-        if(lib::split_path_filter(path, directory, filter))
+        if (lib::split_path_filter(path, directory, filter))
         {
-            for(__path_t file : lib::all_files(directory, filter.c_str()))
+            for (__path_t file : lib::all_files(directory, filter.c_str()))
             {
                 f(__revise(file, absolute));
             }
         }
-        else if(__bf::is_directory(path))
+        else if (__bf::is_directory(path))
         {
-            for(__path_t file : lib::all_files(directory, _T("*.*")))
+            for (__path_t file : lib::all_files(directory, _T("*.*")))
             {
-                if(!is_hidden_file(file))
+                if (!is_hidden_file(file))
                     f(__revise(file, absolute));
             }
         }
-        else if(__bf::exists(path))
+        else if (__bf::exists(path))
         {
             f(__revise(path, absolute));
         }

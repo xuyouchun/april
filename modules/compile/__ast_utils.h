@@ -123,7 +123,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts to code_element_t *.
         operator code_element_t *() const
         {
-            switch(__type)
+            switch (__type)
             {
                 case __type_null:       return nullptr;
                 case __type_object:     return as<code_element_t *>(__object);
@@ -204,7 +204,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __log(_code_t code, const string_t & name, __code_element_t element = nullptr)
         {
             code_element_t * e = (code_element_t *)element;
-            if(e != nullptr)
+            if (e != nullptr)
                 e = (code_element_t *)__element;
 
             ast_log(__cctx, e, code, name);

@@ -8,7 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Returns aligned unit.
     constexpr msize_t unit_align(msize_t offset, msize_t size) _NE
     {
-        switch(size)
+        switch (size)
         {
             case 1:
                 return offset;
@@ -347,7 +347,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         template<typename f_t> void each(f_t f)
         {
             msize_t index = 0;
-            for(auto && it : __items)
+            for (auto && it : __items)
             {
                 f(index++, it->offset);
             }
@@ -454,19 +454,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             __storage_type = storage_type_t::__unknown__;
 
-            for(__item_t & it : __items)
+            for (__item_t & it : __items)
             {
                 __offset = unit_align(__offset, it.size);
                 it.field->set_offset(__offset);
                 __offset += it.size;
 
-                if(__storage_type == storage_type_t::__unknown__)
+                if (__storage_type == storage_type_t::__unknown__)
                     __storage_type = it.storage_type;
-                else if(__storage_type != it.storage_type)
+                else if (__storage_type != it.storage_type)
                     __storage_type = storage_type_t::mixture;
             }
 
-            if(__storage_type == storage_type_t::__unknown__)
+            if (__storage_type == storage_type_t::__unknown__)
                 __storage_type = storage_type_t::value;
         }
 

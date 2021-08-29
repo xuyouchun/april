@@ -27,7 +27,7 @@ namespace X_ROOT_NS { namespace algorithm {
             template<typename ... args_t>
             static void new_obj(obj_t * hole, args_t && ... args)
             {
-                new(hole) obj_t(std::forward<args_t>(args) ...);
+                new (hole) obj_t(std::forward<args_t>(args) ...);
             }
 
             // Destories an object. ( no need. )
@@ -45,14 +45,14 @@ namespace X_ROOT_NS { namespace algorithm {
             template<typename ... args_t>
             static void new_obj(obj_t ** hole, args_t && ... args)
             {
-                new(*hole) obj_t(std::forward<args_t>(args) ...);
+                new (*hole) obj_t(std::forward<args_t>(args) ...);
             }
 
             // Destories object by it's pointer.
             template<typename obj_itor_t>
             static void destory(range_t<obj_itor_t> & range)
             {
-                for(auto it = range.begin(); it != range.end(); it++)
+                for (auto it = range.begin(); it != range.end(); it++)
                 {
                     operator delete(**it);
                 }
@@ -87,7 +87,7 @@ namespace X_ROOT_NS { namespace algorithm {
             auto range = _rrange(__pool);
             obj_creator_t::destory(range);
 
-            for(auto it = __pool.begin(); it != __pool.end(); it++)
+            for (auto it = __pool.begin(); it != __pool.end(); it++)
             {
                 this->__free(*it);
             }
@@ -110,7 +110,7 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             size_t index = size();
 
-            for(size_t k = 0; k < count; k++)
+            for (size_t k = 0; k < count; k++)
             {
                 *output_itor++ = new_obj(std::forward<args_t>(args) ...);
             }
@@ -134,7 +134,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Returns the last object created. returns nullptr if empty.
         obj_t * last() const
         {
-            if(!__current_row_ptr)
+            if (!__current_row_ptr)
                 return nullptr;
 
             return __current_row_ptr + __current_col - 1;
@@ -200,9 +200,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Current hole for creating a new object.
         obj_t * __current_hole()
         {
-            if(!__current_row_ptr || __current_col >= __row_size)
+            if (!__current_row_ptr || __current_col >= __row_size)
             {
-                if(++__current_row < __pool.size())
+                if (++__current_row < __pool.size())
                 {
                     __current_row_ptr = __pool[__current_row];
                 }
@@ -247,9 +247,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Creates a object array with specified size.
         obj_t * acquire(size_t n)
         {
-            if(!__current_row || (__current_size - __current_col) < n)
+            if (!__current_row || (__current_size - __current_col) < n)
             {
-                if(n >= __row_size)
+                if (n >= __row_size)
                 {
                     obj_t * objs = this->__alloc_objs<obj_t>(n);
                     __rows.push_back(objs);
@@ -286,7 +286,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Destructor
         virtual ~heap_t() override
         {
-            for(auto it = __rows.begin(); it != __rows.end(); it++)
+            for (auto it = __rows.begin(); it != __rows.end(); it++)
             {
                 this->__free((*it));
             }
@@ -443,7 +443,7 @@ namespace X_ROOT_NS { namespace algorithm {
             _L(__mutex);
 
             t * obj;
-            if(__released_queue.empty())
+            if (__released_queue.empty())
             {
                 obj = __creator->create(__memory);
                 _A(obj != nullptr);
@@ -467,15 +467,15 @@ namespace X_ROOT_NS { namespace algorithm {
             _L(__mutex);
 
             auto it = __acquired_set.find(obj);
-            if(it == __acquired_set.end())
+            if (it == __acquired_set.end())
                 throw _EC(invalid_operation, _T("not in this pool"));
 
             __acquired_set.erase(it);
             __released_queue.push(obj);
 
-            if(__released_queue.size() > __capacity * 3 / 2)
+            if (__released_queue.size() > __capacity * 3 / 2)
             {
-                while(__released_queue.size() > __capacity)
+                while (__released_queue.size() > __capacity)
                 {
                     __creator->destory(__memory, __released_queue.front());
                     __released_queue.pop();
@@ -486,12 +486,12 @@ namespace X_ROOT_NS { namespace algorithm {
         // Destructor, releases all object in the pool.
         virtual ~respool_t() override
         {
-            for(t * obj : __acquired_set)
+            for (t * obj : __acquired_set)
             {
                 __creator->destory(__memory, obj);
             }
 
-            while(!__released_queue.empty())
+            while (!__released_queue.empty())
             {
                 __creator->destory(__memory, __released_queue.front());
                 __released_queue.pop();
@@ -560,7 +560,7 @@ namespace X_ROOT_NS { namespace algorithm {
         __self_t * find_or_append_child(memory_t * memory, _value_t && value)
         {
             __self_t * child = find_child(value);
-            if(child == nullptr)
+            if (child == nullptr)
                 child = append_child(memory, std::forward<_value_t>(value));
 
             return child;
@@ -596,7 +596,7 @@ namespace X_ROOT_NS { namespace algorithm {
         __self_t * remove_child(const value_t & value)
         {
             __self_t * node = find_child(value);
-            if(node != nullptr)
+            if (node != nullptr)
                 remove_child(node);
             return node;
         }
@@ -606,19 +606,19 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             _A(node != nullptr);
 
-            if(first_child == nullptr)
+            if (first_child == nullptr)
                 return false;
 
-            if(node == first_child)
+            if (node == first_child)
             {
                 first_child = node->next_sibling;
                 return true;
             }
 
-            for(__self_t * child = first_child, * sibling;
+            for (__self_t * child = first_child, * sibling;
                 sibling = child->next_sibling, sibling; child = sibling)
             {
-                if(sibling == node)
+                if (sibling == node)
                 {
                     child->next_sibling = sibling->next_sibling;
                     return true;
@@ -631,7 +631,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Removes self.
         void remove()
         {
-            if(parent == nullptr)
+            if (parent == nullptr)
                 throw _E(common_error_code_t::invalid_operation, _T("cannot delete root node"));
 
             parent->remove_child(this);
@@ -646,9 +646,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Returns the child that contains the specified value.
         __self_t * find_child(const value_t & value) const
         {
-            for(__self_t * node = this->first_child; node; node = node->next_sibling)
+            for (__self_t * node = this->first_child; node; node = node->next_sibling)
             {
-                if(node->value == value)
+                if (node->value == value)
                     return node;
             }
 
@@ -659,9 +659,9 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename pred_t>
         __self_t * find_child(pred_t pred) const
         {
-            for(__self_t * node = this->first_child; node; node = node->next_sibling)
+            for (__self_t * node = this->first_child; node; node = node->next_sibling)
             {
-                if(pred(node))
+                if (pred(node))
                     return node;
             }
 
@@ -672,10 +672,10 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename pred_t>
         void walk(pred_t pred) const
         {
-            if(!pred(this))
+            if (!pred(this))
                 return;
 
-            for(__self_t * node = this->first_child; node; node = node->next_sibling)
+            for (__self_t * node = this->first_child; node; node = node->next_sibling)
             {
                 node->walk(pred);
             }
@@ -685,10 +685,10 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename pred_t>
         void walk(pred_t pred)
         {
-            if(!pred(this))
+            if (!pred(this))
                 return;
 
-            for(__self_t * node = this->first_child; node; node = node->next_sibling)
+            for (__self_t * node = this->first_child; node; node = node->next_sibling)
             {
                 node->walk(pred);
             }
@@ -705,7 +705,7 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             size_t size = 0;
             const __self_t * node = this;
-            while((node = node->parent) != nullptr)
+            while ((node = node->parent) != nullptr)
             {
                 size++;
             }
@@ -725,14 +725,14 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             stream << this->value;
 
-            if(this->first_child)
+            if (this->first_child)
             {
                 stream << _T(" </ ");
 
-                for(const __self_t * subnode = this->first_child; subnode != nullptr;
+                for (const __self_t * subnode = this->first_child; subnode != nullptr;
                         subnode = subnode->next_sibling)
                 {
-                    if(subnode != this->first_child)
+                    if (subnode != this->first_child)
                         stream << _T(" | ");
 
                     subnode->write_to(stream);
@@ -802,7 +802,7 @@ namespace X_ROOT_NS { namespace algorithm {
     stream_t & operator << (stream_t & stream,
                             const __lr_node_details_wrapper_t<value_t> & node_wrapper)
     {
-        if(node_wrapper.node != nullptr)
+        if (node_wrapper.node != nullptr)
             node_wrapper.node->write_to(stream);
 
         return stream;
@@ -819,7 +819,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename stream_t, typename value_t>
     stream_t & operator << (stream_t & stream, const lr_tree_node_t<value_t> * node)
     {
-        if(node != nullptr)
+        if (node != nullptr)
             stream << node->value;
         return stream;
     }
@@ -865,14 +865,14 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename pred_t>
         void walk(pred_t pred, int start_index = 0, int end_index = -1)
         {
-            if(!__buffer)
+            if (!__buffer)
                 return;
 
             t * out = __buffer + start_index;
-            for(t * obj = out, * end = __buffer + (end_index < 0? __count : end_index);
+            for (t * obj = out, * end = __buffer + (end_index < 0? __count : end_index);
                 obj < end; obj++)
             {
-                if(pred(*obj))
+                if (pred(*obj))
                     *out++ = *obj;
             }
 
@@ -892,7 +892,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Removes all elements.
         void clear()
         {
-            if(__buffer)
+            if (__buffer)
             {
                 __free(__buffer);
                 __buffer = nullptr;
@@ -905,7 +905,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Returns all elements.
         range_t<t *> all() const
         {
-            if(__buffer == nullptr)
+            if (__buffer == nullptr)
                 return range_t<t *>(nullptr, nullptr);
             return range_t<t *>(__buffer, __buffer + __count);
         }
@@ -925,7 +925,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Destructor, free the buffer.
         ~walk_list_t()
         {
-            if(__buffer)
+            if (__buffer)
                 __free(__buffer);
         }
 
@@ -936,16 +936,16 @@ namespace X_ROOT_NS { namespace algorithm {
         // Checks or resizes the buffer to store elements of specified size enough.
         void __check_buffer_size(size_t size)
         {
-            if(__buffer && __size >= size)
+            if (__buffer && __size >= size)
                 return;
 
-            while(__size < size)
+            while (__size < size)
             {
                 __size *= 2;
             }
 
             t * new_buffer = __alloc_objs<t>(__size);
-            if(__buffer != nullptr)
+            if (__buffer != nullptr)
             {
                 std::copy(__buffer, __buffer + __count, new_buffer);
                 __free(__buffer);
@@ -960,9 +960,9 @@ namespace X_ROOT_NS { namespace algorithm {
     stream_t & operator << (stream_t & stream, const walk_list_t<t> & list)
     {
         int index = 0;
-        for(const t & obj : list.all())
+        for (const t & obj : list.all())
         {
-            if(index++ > 0)
+            if (index++ > 0)
                 stream << ", ";
 
             stream << obj;
@@ -1001,7 +1001,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Move constructor.
         svector_t(__self_t && v)
         {
-            if(v.__is_in_array())            
+            if (v.__is_in_array())            
             {
                 std::copy(v.__array, v.__array + array_size(v.__array), __array);
                 __p = __array + (v.__p - v.__array);
@@ -1020,7 +1020,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Copy constructor.
         svector_t(const __self_t & v) : memory_base_t(v.__memory)
         {
-            if(v.__is_in_array())            
+            if (v.__is_in_array())            
             {
                 std::copy(v.__array, v.__array + array_size(v.__array), __array);
                 __p = __array + (v.__p - v.__array);
@@ -1038,11 +1038,11 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename _value_t>
         t & push_back(_value_t && value)
         {
-            if(__p >= __array && __p < __array + init_size)
+            if (__p >= __array && __p < __array + init_size)
             {
                 *__p = value;
             }
-            else if(__p == __array + init_size)
+            else if (__p == __array + init_size)
             {
                 size_t buffer_size = init_size * 2;
                 t * buffer_start = this->__alloc_objs<t>(buffer_size);
@@ -1057,7 +1057,7 @@ namespace X_ROOT_NS { namespace algorithm {
             }
             else
             {
-                if(__p - __buffer_start >= __buffer_size)
+                if (__p - __buffer_start >= __buffer_size)
                 {
                     size_t old_buffer_size = __buffer_size;
                     __buffer_size = old_buffer_size * 2;
@@ -1082,10 +1082,10 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             size_t obj_size = __ns::size(objs);
 
-            if(__is_in_array())
+            if (__is_in_array())
             {
                 t * p = __p + obj_size;
-                if(p <= __array + init_size)
+                if (p <= __array + init_size)
                 {
                     std::move_backward(__array, __p, __p + obj_size);
                     std::copy(std::begin(objs), std::end(objs), __array);
@@ -1108,7 +1108,7 @@ namespace X_ROOT_NS { namespace algorithm {
             else
             {
                 size_t size = this->size(), new_size = size + obj_size;
-                if(new_size <= __buffer_size)
+                if (new_size <= __buffer_size)
                 {
                     std::move_backward(__buffer_start, __p, __p + obj_size);
                     std::copy(std::begin(objs), std::end(objs), __buffer_start);
@@ -1133,9 +1133,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Truncates the vector to the specified size.
         void truncate(size_t new_size)
         {
-            if(new_size < size())
+            if (new_size < size())
             {
-                if(__is_in_array())
+                if (__is_in_array())
                     __p = __array + new_size;
                 else
                     __p = __buffer_start + new_size;
@@ -1145,7 +1145,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Returns the element at the specified index.
         t & operator[](size_t index) const
         {
-            if(__is_in_array())
+            if (__is_in_array())
                 return (t &)__array[index];
 
             return __buffer_start[index];
@@ -1154,7 +1154,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // The iterator at the begin.
         t * begin() const
         {
-            if(__is_in_array())
+            if (__is_in_array())
                 return (t *)__array;
 
             return __buffer_start;
@@ -1169,7 +1169,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Returns element count.
         size_t size() const
         {
-            if(__is_in_array())
+            if (__is_in_array())
                 return __p - __array;
 
             return __p - __buffer_start;
@@ -1184,7 +1184,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Removes all elements.
         void clear()
         {
-            if(__is_in_array())
+            if (__is_in_array())
                 __p = __array;
             else
                 __p = __buffer_start;
@@ -1199,7 +1199,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Destructor, free buffer if allocated on heap.
         ~svector_t()
         {
-            if(__buffer_start && !__is_in_array())
+            if (__buffer_start && !__is_in_array())
             {
                 this->__free(__buffer_start);
             }
@@ -1256,9 +1256,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Add a key/value pair
         void add(const key_t & key, const value_t & value)
         {
-            for(item_t & it : __inner_vector)
+            for (item_t & it : __inner_vector)
             {
-                if(it.key == key)
+                if (it.key == key)
                 {
                     it.value = value;
                     return;
@@ -1271,9 +1271,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Gets a value by the key.
         value_t & get(const key_t & key) const
         {
-            for(item_t & it : __inner_vector)
+            for (item_t & it : __inner_vector)
             {
-                if(it.key == key)
+                if (it.key == key)
                 {
                     return it.value;
                 }
@@ -1285,9 +1285,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Finds the iterator by the key.
         iterator_t find(const key_t & key) const
         {
-            for(item_t & it : __inner_vector)
+            for (item_t & it : __inner_vector)
             {
-                if(it.key == key)
+                if (it.key == key)
                 {
                     return &it;
                 }
@@ -1311,9 +1311,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Gets/Sets a value by the key.
         value_t & operator [](const key_t & key)
         {
-            for(item_t & it : __inner_vector)
+            for (item_t & it : __inner_vector)
             {
-                if(it.key == key)
+                if (it.key == key)
                 {
                     return it.value;
                 }
@@ -1394,10 +1394,10 @@ namespace X_ROOT_NS { namespace algorithm {
         // Append a key/value pair.
         void append(const key_t & key, const value_t & value)
         {
-            if(__items == nullptr)
+            if (__items == nullptr)
                 throw _EC(invalid_operation, _T("not initialized"));
 
-            if(__p >= __items_end)
+            if (__p >= __items_end)
                 throw _EC(overflow, _T("overflow"));
 
             *__p++ = __item_t { key, value };
@@ -1406,7 +1406,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Initialize with the specified size.
         void init(size_t size)
         {
-            if(__items != nullptr)
+            if (__items != nullptr)
                 throw _EC(invalid_operation, _T("already initialized"));
 
             __items = this->__alloc_objs<__item_t>(max(size, 1));
@@ -1424,7 +1424,7 @@ namespace X_ROOT_NS { namespace algorithm {
         itor_t find(const key_t & key) const
         {
             auto it = std::equal_range(__items, __p, __item_t { key }, __compare);
-            if(it.first == it.second)
+            if (it.first == it.second)
                 return end();
 
             return itor_t(*this, it.first - __items);
@@ -1442,7 +1442,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Destructor, free buffer.
         ~fixed_map_t()
         {
-            if(__items != nullptr)
+            if (__items != nullptr)
                 this->__free(__items);
         }
 
@@ -1477,7 +1477,7 @@ namespace X_ROOT_NS { namespace algorithm {
         value_t & get(const key_t & key)
         {
             auto it = __cache.find(key);
-            if(it != __cache.end())
+            if (it != __cache.end())
                 return it->second;
 
             return __cache.insert(std::make_pair(key, __creator(key))).first->second;
@@ -1514,7 +1514,7 @@ namespace X_ROOT_NS { namespace algorithm {
         t * new_obj(args_t && ... args)
         {
             t * obj;
-            if(!__queue.empty())
+            if (!__queue.empty())
             {
                 obj = __queue.front();
                 __queue.pop();
@@ -1552,7 +1552,7 @@ namespace X_ROOT_NS { namespace algorithm {
        std::vector<int>   arr1({ 1, 2, 3, 4, 5 });
        std::vector<long>  arr2({ 4, 5, 6, 7, 8 });
 
-       for(auto && it in zip(arr1, arr2))
+       for (auto && it in zip(arr1, arr2))
        {
             int value1;
             long value2;
@@ -1581,7 +1581,7 @@ namespace X_ROOT_NS { namespace algorithm {
             // Move to the next iterator.
             bool move_next()
             {
-                if(__it == __it_end)
+                if (__it == __it_end)
                     return false;
 
                 __value = *__it;
@@ -1772,7 +1772,7 @@ namespace X_ROOT_NS { namespace algorithm {
             // Move next
             void __move_next()
             {
-                if(__impl->move_next())
+                if (__impl->move_next())
                     __impl->set_value(__value);
                 else
                     __impl = nullptr;
@@ -1784,7 +1784,7 @@ namespace X_ROOT_NS { namespace algorithm {
             // Returns whether this iterator is equals to another.
             bool operator == (const __self_t & o) const
             {
-                if(__impl == nullptr)
+                if (__impl == nullptr)
                     return o.__impl == nullptr;
 
                 return false;

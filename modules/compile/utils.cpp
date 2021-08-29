@@ -43,13 +43,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         lang_id_t lang = __default_lang;
 
-        while(true)
+        while (true)
         {
             char_t c = *__p++;
-            switch(c)
+            switch (c)
             {
                 case _T('<'):
-                    if(*__p == _T('`'))
+                    if (*__p == _T('`'))
                     {
                         callback(start, __p - 1, lang, __lang_stack.size());
                         __lang_stack.push(lang);
@@ -61,9 +61,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     break;
 
                 case _T('`'):
-                    if(*__p == _T('>'))
+                    if (*__p == _T('>'))
                     {
-                        if(__lang_stack.size() == 0)
+                        if (__lang_stack.size() == 0)
                             throw _E(__e_t::format_error, _T("unexpected langage end flag \"?>\""));
 
                         callback(start, __p - 1, lang, __lang_stack.size());
@@ -76,13 +76,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 /*
                 case _T('"'): case _T('\''):
-                    if(!__skip_char(c))
+                    if (!__skip_char(c))
                         throw _E(__e_t::format_error);
                     break;
                 */
 
                 case _T('\0'):
-                    if(__lang_stack.size() > 0)
+                    if (__lang_stack.size() > 0)
                         throw _E(__e_t::format_error, _T("langage end flag \"`>\" missing"));
                     callback(start, __p, lang, 0);
                     return;
@@ -94,16 +94,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     bool code_section_builder_t::__skip_char(char_t c0)
     {
         char_t c;
-        while((c = *__p++))
+        while ((c = *__p++))
         {
-            if(c == _T('\\'))
+            if (c == _T('\\'))
             {
-                if(*__p++ == _T('\0'))
+                if (*__p++ == _T('\0'))
                     return false;
                 continue;
             }
 
-            if(c == c0)
+            if (c == c0)
                 return true;
         }
 
@@ -113,14 +113,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Read language.
     string_t code_section_builder_t::__read_lang()
     {
-        if(al::is_whitespace(*__p))
+        if (al::is_whitespace(*__p))
             throw _E(__e_t::format_error, _T("language name error"));
 
         const char_t * start = __p++;
-        while(true)
+        while (true)
         {
             char_t c = *__p;
-            if((c == _T('?') && *(__p + 1) == _T('>')) || al::is_whitespace(c))
+            if ((c == _T('?') && *(__p + 1) == _T('>')) || al::is_whitespace(c))
                 return string_t(start, __p++);
             __p++;
         }
@@ -145,7 +145,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         ref_t ref = ref_t::null;
 
-        switch(method->this_family())
+        switch (method->this_family())
         {
             case member_family_t::general: {
                 method_t * m = (method_t *)method;
@@ -174,7 +174,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 X_UNEXPECTED();
         }
 
-        if(ref == ref_t::null)
+        if (ref == ref_t::null)
             throw _ECF(not_found, _T("method ref of '%1%' not found"), method);
 
         return ref;
@@ -197,7 +197,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __ref_of<__tidx_t::field_ref>(ctx, field) :
             __ref_of<__tidx_t::field>(ctx, field);
 
-        if(ref == ref_t::null)
+        if (ref == ref_t::null)
             throw _ECF(not_found, _T("field ref of '%1%' not found"), field);
 
         return ref;

@@ -9,7 +9,9 @@ class Project1
     public static void Main()
     {
 		MyClass obj = new MyClass();
-		System.Delegate<int, int, int> func = obj.Add;
+
+		typedef System.Delegate<int, int, int> Func;
+		Func func = obj.Add;
 
 		int sum = func(1, 2);
 

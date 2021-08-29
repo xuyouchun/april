@@ -114,13 +114,13 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename itor_t, typename cmp_t>
     itor_t select(itor_t begin, itor_t end, cmp_t cmp_func)
     {
-        if(begin == end)
+        if (begin == end)
             return end;
 
         itor_t max = begin;
-        for(itor_t it = begin + 1; it != end; it++)
+        for (itor_t it = begin + 1; it != end; it++)
         {
-            if(cmp_func(*max, *it))
+            if (cmp_func(*max, *it))
                 max = it;
         }
 
@@ -165,15 +165,15 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Splits the given list by specified predicate function.
     template<typename itor_t, typename pred_t, typename callback_t>
-    void split_if(itor_t begin, itor_t end, pred_t pred, callback_t callback)
+    void split_if (itor_t begin, itor_t end, pred_t pred, callback_t callback)
     {
-        if(begin == end)
+        if (begin == end)
             return;
 
         itor_t it0 = begin;
-        for(itor_t it = begin; it != end; it++)
+        for (itor_t it = begin; it != end; it++)
         {
-            if(pred(*it))
+            if (pred(*it))
             {
                 callback(it0, it);
                 it0 = it + 1;
@@ -187,7 +187,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename itor_t, typename separator_t, typename callback_t>
     void split(itor_t begin, itor_t end, const separator_t & separator, callback_t callback)
     {
-        split_if(begin, end, [&separator](auto & it) { return it == separator; }, callback);
+        split_if (begin, end, [&separator](auto & it) { return it == separator; }, callback);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -199,7 +199,7 @@ namespace X_ROOT_NS { namespace algorithm {
         _A(src != nullptr);
         _A(dst != nullptr);
 
-        for(const t * src_end = src + length; src < src_end;)
+        for (const t * src_end = src + length; src < src_end;)
         {
             *dst++ = *src++;
         }
@@ -234,16 +234,16 @@ namespace X_ROOT_NS { namespace algorithm {
     {
         typedef decltype(key_selector(*begin)) key_t;
 
-        if(begin == end)
+        if (begin == end)
             return;
 
         itor_t it0 = begin, it = begin + 1;
         key_t key0 = key_selector(*it0);
 
-        for(; it != end; it++)
+        for (; it != end; it++)
         {
             key_t key = key_selector(*it);
-            if(!(key == key0))
+            if (!(key == key0))
             {
                 proc(key0, it0, it);
                 it0 = it;
@@ -284,7 +284,7 @@ namespace X_ROOT_NS { namespace algorithm {
     {
         _A(dst != nullptr);
 
-        for(const t * dst_end = dst + length; dst < dst_end;)
+        for (const t * dst_end = dst + length; dst < dst_end;)
         {
             *dst++ = value;
         }
@@ -437,16 +437,16 @@ namespace X_ROOT_NS { namespace algorithm {
 
         int __cmp(const __self_t & other) const
         {
-            if(__data.size() != other.__data.size())
+            if (__data.size() != other.__data.size())
                 return (int)__data.size() - (int)other.__data.size();
 
-            for(auto it1 = __data.begin(), it1_end = __data.end(),
+            for (auto it1 = __data.begin(), it1_end = __data.end(),
                      it2 = other.__data.begin(); it1 != it1_end; it1++, it2++)
             {
-                if(*it1 < *it2)
+                if (*it1 < *it2)
                     return -1;
 
-                if(*it2 < *it1)
+                if (*it2 < *it1)
                     return 1;
             }
 
@@ -494,7 +494,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename t>
     X_INLINE X_ALWAYS_INLINE void assign_value(t * out, const t & value)
     {
-        if(out != nullptr)
+        if (out != nullptr)
             *out = value;
     }
 
@@ -514,12 +514,12 @@ namespace X_ROOT_NS { namespace algorithm {
             length ++;
 
             value >>= 7;
-            if(value != 0)
+            if (value != 0)
                 *buffer |= 0x80;
 
             buffer++;
 
-        } while(value != 0);
+        } while (value != 0);
 
         return length;
     }
@@ -533,13 +533,13 @@ namespace X_ROOT_NS { namespace algorithm {
         int offset = 0;
         const byte_t * buffer0 = buffer;
 
-        while(true)
+        while (true)
         {
-            if(offset + 7 > sizeof(t) * 8)
+            if (offset + 7 > sizeof(t) * 8)
                 throw _EC(overflow, _T("from_varint number overflow"));
 
             byte_t byte = *buffer++;
-            if((byte & 0x80) != 0)
+            if ((byte & 0x80) != 0)
             {
                 value |= (((t)(byte & 0x7F)) << offset);
             }

@@ -44,7 +44,7 @@ int main(int argc, char ** argv)
         tvalue_t v = al::parse_numeric(_T("123HU"));
         _PP(v);
     }
-    catch(const error_t & e)
+    catch (const error_t & e)
     {
         _PP(e);
     }

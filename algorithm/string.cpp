@@ -58,9 +58,9 @@ namespace X_ROOT_NS { namespace algorithm {
     {
         _A(s != nullptr);
 
-        for(const char_t * p = s; ; p++)
+        for (const char_t * p = s; ; p++)
         {
-            if(!*p)
+            if (!*p)
                 return p - s;
         }
     }
@@ -71,7 +71,7 @@ namespace X_ROOT_NS { namespace algorithm {
         _A(dst != nullptr);
         _A(src != nullptr);
 
-        while((*dst = *src++))
+        while ((*dst = *src++))
         {
             dst++;
         }
@@ -100,9 +100,9 @@ namespace X_ROOT_NS { namespace algorithm {
         template<typename equals_t>
         X_INLINE __str_equals_ret __str_equals(const char_t * s, const char_t * s0)
         {
-            for(; *s && *s0; s++, s0++)
+            for (; *s && *s0; s++, s0++)
             {
-                if(!equals_t::equals(*s, *s0))
+                if (!equals_t::equals(*s, *s0))
                     return __str_equals_ret::no;
             }
 
@@ -118,13 +118,13 @@ namespace X_ROOT_NS { namespace algorithm {
             _A(s != nullptr);
             _A(s0 != nullptr);
 
-            if(!*s0)
+            if (!*s0)
                 return s;
 
-            for(; *s; s++)
+            for (; *s; s++)
             {
                 r_t r;
-                if(equals_t::equals(*s, *s0) 
+                if (equals_t::equals(*s, *s0) 
                         && (r = __str_equals<equals_t>(s + 1, s0 + 1)) != r_t::no)
                 {
                     return r == r_t::yes? s : nullptr; 
@@ -140,9 +140,9 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             _A(s != nullptr);
 
-            while(*s)
+            while (*s)
             {
-                if(equals_t::equals(*s, c))
+                if (equals_t::equals(*s, c))
                     return s;
                 s++;
             }
@@ -157,11 +157,11 @@ namespace X_ROOT_NS { namespace algorithm {
             _A(s1 != nullptr);
             _A(s2 != nullptr);
 
-            for(; ; s1++, s2++)
+            for (; ; s1++, s2++)
             {
-                if(equals_t::equals(*s1, *s2))
+                if (equals_t::equals(*s1, *s2))
                 {
-                    if(*s1)
+                    if (*s1)
                         continue;
 
                     return cmp_t::equals;
@@ -261,7 +261,7 @@ namespace X_ROOT_NS { namespace algorithm {
     // Write a escape format of char to a stream.
     X_ALWAYS_INLINE void __escape_char(stringstream_t & ss, char_t c)
     {
-        switch(c)
+        switch (c)
         {
             case _T('\n'):
                 ss << _T("\\n");
@@ -308,7 +308,7 @@ namespace X_ROOT_NS { namespace algorithm {
                 break;
 
             default:
-                if((int)c < 32)
+                if ((int)c < 32)
                 {
                     ss << _T("\\x")
                        << (char_t)(((int)c) >> 4)
@@ -326,14 +326,14 @@ namespace X_ROOT_NS { namespace algorithm {
     // Converts a string to is escape format.
     string_t escape_string(const char_t * s, int length)
     {
-        if(s == nullptr || s[0] == _T('\0'))
+        if (s == nullptr || s[0] == _T('\0'))
             return string_t();
 
         stringstream_t ss;
 
-        if(length >= 0)
+        if (length >= 0)
         {
-            for(const char_t * s_end = s + length; s < s_end; s++)
+            for (const char_t * s_end = s + length; s < s_end; s++)
             {
                 __escape_char(ss, *s);
             }
@@ -341,7 +341,7 @@ namespace X_ROOT_NS { namespace algorithm {
         else
         {
             char_t c;
-            while((c = *s++) != _T('\0'))
+            while ((c = *s++) != _T('\0'))
             {
                 __escape_char(ss, c);
             }

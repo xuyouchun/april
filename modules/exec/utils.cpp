@@ -19,7 +19,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         _A(name.length() > 0);
 
         rt_assembly_t * assembly = assemblies.get(package, name);
-        if(assembly == nullptr)
+        if (assembly == nullptr)
             throw _ED(exec_error_code_t::assembly_not_found, join_assembly_name(package, name));
 
         return assembly;
@@ -38,7 +38,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Gets switch table for specified index.
     exec_switch_table_t * exec_switch_manager_t::get_table(int index)
     {
-        if(index >= __tables.size())
+        if (index >= __tables.size())
             throw _ED(__e_t::switch_table_index_overflow);
 
         return __tables[index];

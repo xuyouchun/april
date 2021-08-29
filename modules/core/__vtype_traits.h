@@ -353,7 +353,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         #define __V(op, vtype)  (((uint32_t)op << 16) | (uint32_t)vtype)
 
-        switch(__V(op, vtype))
+        switch (__V(op, vtype))
         {
             #define __UnitaryOp(op, r, t1)                                                  \
                 case __V(op, t1):                                                           \
@@ -426,10 +426,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns return vtype.
         static constexpr vtype_t __pick_ret_vtype(vtype_t ret, vtype_t vtype1, vtype_t vtype2)
         {
-            if(ret == __use_vtype1)
+            if (ret == __use_vtype1)
                 return vtype1;
 
-            if(ret == __use_vtype2)
+            if (ret == __use_vtype2)
                 return vtype2;
 
             return ret;
@@ -646,7 +646,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         #define __V(op, vtype1, vtype2) \
             (((uint32_t)op << 16) | ((uint32_t)vtype1 << 8) | (uint32_t)vtype2)
 
-        switch(op)
+        switch (op)
         {
             case operator_t::member_point:
                 return vtype2;
@@ -655,7 +655,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return vtype1;
 
             default:
-                switch(__V(op, vtype1, vtype2))
+                switch (__V(op, vtype1, vtype2))
                 {
                     #define __BinaryOp(op, r, t1, t2)                                   \
                         case __V(op, t1, t2):                                           \
@@ -679,7 +679,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns operator of a xil_al_command.
     constexpr operator_t to_operator(xil_al_command_t cmd)
     {
-        switch(cmd)
+        switch (cmd)
         {
             case xil_al_command_t::add:
                 return operator_t::add;
@@ -710,7 +710,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns operator of a xil_bit_command.
     constexpr operator_t to_operator(xil_bit_command_t cmd)
     {
-        switch(cmd)
+        switch (cmd)
         {
             case xil_bit_command_t::bit_and:
                 return operator_t::bit_and;
@@ -738,7 +738,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns operator of a xil_cmp_command.
     constexpr operator_t to_operator(xil_cmp_command_t cmd)
     {
-        switch(cmd)
+        switch (cmd)
         {
             case xil_cmp_command_t::greater:
                 return operator_t::greater;
@@ -766,7 +766,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns a operator of a logic command.
     constexpr operator_t to_operator(xil_logic_command_t cmd)
     {
-        switch(cmd)
+        switch (cmd)
         {
             case xil_logic_command_t::and_:
                 return operator_t::logic_and;
@@ -785,7 +785,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Return vtype of a xil data type.
     constexpr vtype_t to_vtype(xil_type_t dtype)
     {
-        switch(dtype)
+        switch (dtype)
         {
             case xil_type_t::int8:
                 return vtype_t::int8_;

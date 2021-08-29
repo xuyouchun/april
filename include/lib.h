@@ -130,9 +130,9 @@ namespace X_ROOT_NS { namespace lib {
         void __path_combine(stringstream_t & ss, bool first, path_t && path, paths_t && ... paths)
         {
             size_t len = __string_length(path);
-            if(len > 0 || (len == 1 && path[0] != _T('/')))
+            if (len > 0 || (len == 1 && path[0] != _T('/')))
             {
-                if(!first && path[0] == _T('/'))
+                if (!first && path[0] == _T('/'))
                 {
                     ss << __c_str(path) + 1;
                 }
@@ -141,7 +141,7 @@ namespace X_ROOT_NS { namespace lib {
                     ss << __c_str(path);
                 }
 
-                if(sizeof ... (paths) > 0 && __c_str(path)[len - 1] != _T('/'))
+                if (sizeof ... (paths) > 0 && __c_str(path)[len - 1] != _T('/'))
                 {
                     ss << _T('/');
                 }
@@ -164,13 +164,13 @@ namespace X_ROOT_NS { namespace lib {
     template<typename path_t, typename ext_t>
     string_t path_add_extension(path_t && path, ext_t && ext)
     {
-        if(__string_length(ext) == 0)
+        if (__string_length(ext) == 0)
             return path;
 
         stringstream_t ss;
         ss << __c_str(path);
 
-        if(ext[0] != _T('.'))
+        if (ext[0] != _T('.'))
             ss << _T('.');
 
         ss << __c_str(ext);
@@ -215,24 +215,24 @@ namespace X_ROOT_NS { namespace lib {
         {
             typedef each_path_option_t option_t;
 
-            if(!__bf::exists(path))
+            if (!__bf::exists(path))
                 return false;
 
-            for(__bf::directory_iterator it(path), it_end; it != it_end; it++)
+            for (__bf::directory_iterator it(path), it_end; it != it_end; it++)
             {
                 auto p = *it;
-                if(__bf::is_directory(p))
+                if (__bf::is_directory(p))
                 {
-                    if(enum_has_flag(options, option_t::directories) && !callback(p))
+                    if (enum_has_flag(options, option_t::directories) && !callback(p))
                         return false;
 
-                    if(enum_has_flag(options, option_t::recurve)
+                    if (enum_has_flag(options, option_t::recurve)
                                             && !__each(p, callback, filter, options))
                         return false;
                 }
                 else
                 {
-                    if(enum_has_flag(options, option_t::files)
+                    if (enum_has_flag(options, option_t::files)
                         && (!filter || al::regex_is_match(filename(p.path()), *filter))
                         && !callback(p))
                         return false;
@@ -252,9 +252,9 @@ namespace X_ROOT_NS { namespace lib {
             ss << _T('^');
 
             c_t c;
-            while((c = *s++) != _T('\0'))
+            while ((c = *s++) != _T('\0'))
             {
-                switch(c)
+                switch (c)
                 {
                     case _T('\\'): case _T('.'): case _T('['): case _T(']'):
                     case _T(':'):  case _T('('): case _T(')'):
@@ -288,7 +288,7 @@ namespace X_ROOT_NS { namespace lib {
     void each(const path_t & path, callback_t callback, const char_t * filter = nullptr,
               each_path_option_t options = each_path_option_t::default_)
     {
-        if(filter == nullptr)
+        if (filter == nullptr)
         {
             __each(path, callback, nullptr, options);
         }

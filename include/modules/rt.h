@@ -159,7 +159,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             this->__no_use = 0x03;
 
-            if(sizeof(__self_t) > (arch_uint_t)&((__self_t *)nullptr)->__placeholder)
+            if (sizeof(__self_t) > (arch_uint_t)&((__self_t *)nullptr)->__placeholder)
             {
                 *((byte_t *)this + sizeof(__self_t) - 1) = 0xFF;
             }
@@ -445,7 +445,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             __value_t * get(const __key_t & key)
             {
                 auto it = __map.find(key);
-                if(it == __map.end())
+                if (it == __map.end())
                     return nullptr;
 
                 return &it->second;
@@ -457,7 +457,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             __value_t get(__key_t & key, creator_t f)
             {
                 __value_t * value = get(key);
-                if(value != nullptr)
+                if (value != nullptr)
                     return *value;
 
                 __value_t new_value = f();

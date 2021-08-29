@@ -130,7 +130,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         return_st,                  // A return statement, e.g. return 1;
 
-        do_while_st,                // do ... while statement, e.g. do { } while(...);
+        do_while_st,                // do ... while statement, e.g. do { } while (...);
 
         loop_until_st,              // loop ... unit statememt.
 
@@ -854,22 +854,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // Validates name.
             bool __validate_name(const char_t * name, __el_t * el, const char_t * title = _T(""))
             {
-                if(name == nullptr && name[0] == _T('\0'))
+                if (name == nullptr && name[0] == _T('\0'))
                 {
                     __log(el, __c_t::name_empty, title);
                     return false;
                 }
 
                 const char_t c = name[0];
-                if(!al::is_word(c) && c != _T('_'))
+                if (!al::is_word(c) && c != _T('_'))
                 {
                     __log(el, __c_t::name_unexpected_first_char, c, name);
                     return false;
                 }
 
-                for(const char_t * p = name + 1; *p; p++)
+                for (const char_t * p = name + 1; *p; p++)
                 {
-                    if(!al::is_word_or_digit(*p) && *p != _T('_'))
+                    if (!al::is_word_or_digit(*p) && *p != _T('_'))
                     {
                         __log(el, __c_t::name_unexpected_char, *p, name);
                         return false;
@@ -895,10 +895,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             bool __assign_name(name_t & dst, const name_t & src, __el_t * el,
                                     const char_t * title = _T(""), bool check_duplicate = false)
             {
-                if(!__validate_name(src, el, title))
+                if (!__validate_name(src, el, title))
                     return false;
 
-                if(check_duplicate && dst != name_t::null)
+                if (check_duplicate && dst != name_t::null)
                 {
                     __log(el, __c_t::duplicate, _F(_T("name %1%"), title), src);
                     return false;
@@ -913,7 +913,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             bool __assign(dst_t && dst, const src_t & src, __el_t * el,
                                     const char_t * title = _T(""), bool check_duplicate = false)
             {
-                if(check_duplicate && dst != _D(src_t))
+                if (check_duplicate && dst != _D(src_t))
                 {
                     __log(el, __c_t::duplicate, title, src);
                     return false;
@@ -927,7 +927,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             template<typename t, typename _log_code_t, typename ... args_t>
             bool __check_empty(const t & value, __el_t * el, _log_code_t code, args_t && ... args)
             {
-                if(__is_empty_value(value))
+                if (__is_empty_value(value))
                 {
                     __log(el? el : (__el_t *)this, code, std::forward<args_t>(args) ...);
                     return false;
@@ -1019,7 +1019,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void set_child_with_check(__index_t index, __node_t * node,
                                     code_t duplicate_code, args_t && ... args)
         {
-            if(has_child(index))
+            if (has_child(index))
                 this->__log(node, duplicate_code, std::forward<args_t>(args) ...);
             else
                 this->set_child(index, node);
@@ -1031,7 +1031,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             typedef asts_node_t<(element_value_t)__xcvalue_t::asts> __asts_node_t;
 
             __node_t * child = child_at(index);
-            if(child == nullptr)
+            if (child == nullptr)
             {
                 child = __context.compile_context.new_obj<__asts_node_t>(__context);
                 set_child(index, child);
@@ -1064,7 +1064,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void set_child(__index_t index, size_t child_index, __node_t * node)
         {
             multipy_ast_node_t * nodes = __multipy_ast_node_at(index);
-            while(nodes->child_count() <= child_index)
+            while (nodes->child_count() <= child_index)
             {
                 nodes->set_child(child_index, node);
             }
@@ -1087,9 +1087,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void each_child_node(__index_t index, f_t f) const
         {
             __node_t * node = child_at(index);
-            if(node != nullptr)
+            if (node != nullptr)
             {
-                for(size_t index = 0, count = node->child_count(); index < count; index++)
+                for (size_t index = 0, count = node->child_count(); index < count; index++)
                 {
                     ast_node_t * child = node->child_at(index);
                     f(child != nullptr? _M(node_t *, child) : nullptr);
@@ -1150,7 +1150,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         etype_t __to_eobject(__index_t index)
         {
             ast_node_t * child = this->child_at(index);
-            if(child != nullptr)
+            if (child != nullptr)
                 return _M(eobject_ast_t<etype_t> *, child)->to_eobject();
             return nullptr;
         }
@@ -1162,7 +1162,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             typedef eobject_ast_t<etype_t> ast_t;
             ast_t * ast = as<ast_t *>(this->child_at(index));
-            if(ast != nullptr)
+            if (ast != nullptr)
                 return ast->to_eobject();
             return nullptr;
         }
@@ -1173,7 +1173,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         etype_t __to_eobject_with_owner(__index_t index, owner_t owner)
         {
             etype_t eobj = __to_eobject<etype_t>(index);
-            if(eobj != nullptr)
+            if (eobj != nullptr)
                 eobj->set_owner(owner);
 
             return eobj;
@@ -1199,13 +1199,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename etype_t, typename f_t>
         void __do_call_f(f_t f, teobject_ast_base_t<etype_t> * node) const
         {
-            if(node == nullptr)
+            if (node == nullptr)
             {
                 f(nullptr);
                 return;
             }
 
-            switch(node->get_type())
+            switch (node->get_type())
             {
                 case eobject_ast_type_t::eobject:
                     f(((eobject_ast_t<etype_t> *)node)->to_eobject());
@@ -1213,7 +1213,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 case eobject_ast_type_t::eobjects: {
                     auto nodes = (eobjects_ast_t<etype_t> *)node;
-                    for(size_t index = 0, count = nodes->eobject_count(); index < count; index++)
+                    for (size_t index = 0, count = nodes->eobject_count(); index < count; index++)
                     {
                         f(nodes->eobject_at(index));
                     }
@@ -1549,7 +1549,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 #ifdef __TraceTypeNameAscertain
 
                 string_t s_type_name = _str(type_name);
-                if(!al::starts_with(s_type_name.c_str(), _T("System.")))
+                if (!al::starts_with(s_type_name.c_str(), _T("System.")))
                 {
                     _PF(_T("+type %1%: \n      %2% (%3%)"), _str(type_name),
                                                     _str(type), (void *)type);
@@ -1559,7 +1559,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 return type;
             }
-            catch(const logic_error_t<ascertain_type_error_t> & e)
+            catch (const logic_error_t<ascertain_type_error_t> & e)
             {
                 this->__log(e.code, type_name);
             }
@@ -1573,7 +1573,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename _type_name_t>
         void __log(ascertain_type_error_t error_code, _type_name_t * type_name)
         {
-            switch(error_code)
+            switch (error_code)
             {
                 case ascertain_type_error_t::unknown_type:
                     this->__log(this, __c_t::type_undefined, type_name);

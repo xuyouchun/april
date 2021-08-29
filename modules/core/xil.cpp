@@ -900,7 +900,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         int index = 0;
 
-        for(xil_t * xil : pool)
+        for (xil_t * xil : pool)
         {
             #if CORE_TRACE_XIL_WRITE
 

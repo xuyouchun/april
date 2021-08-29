@@ -91,9 +91,9 @@ namespace X_ROOT_NS { namespace algorithm {
             // Returns the max value of specified type.
             __AlwaysInline static unumeric_t __max_value(bool positive)
             {
-                if(_is_signed)
+                if (_is_signed)
                 {
-                    if(positive)
+                    if (positive)
                         return (unumeric_t)max_value<_numeric_t>();
                     else
                         return (unumeric_t)max_value<_numeric_t>() + 1;
@@ -107,11 +107,11 @@ namespace X_ROOT_NS { namespace algorithm {
             // Pushes a char to continue parsing operation.
             __AlwaysInline __e_t push(char_t c)
             {
-                if(!is_digit(c, __radix))
+                if (!is_digit(c, __radix))
                     return __e_t::format_error;
 
                 int n = digit_value(c);
-                if(__numeric > __prelimit || (__numeric == __prelimit && n > __prelimit_mod))
+                if (__numeric > __prelimit || (__numeric == __prelimit && n > __prelimit_mod))
                     return __e_t::overflow;
 
                 __numeric = __numeric * __radix + n;
@@ -148,11 +148,11 @@ namespace X_ROOT_NS { namespace algorithm {
             // Pushes a char to continue parse operation.
             __AlwaysInline __e_t push(char_t c)
             {
-                switch(c)
+                switch (c)
                 {
                     case _T('.'):
                         __point = true;
-                        if(__integer_zero)
+                        if (__integer_zero)
                             __point_zero_count++;
                         return __e_t::success;
 
@@ -165,17 +165,17 @@ namespace X_ROOT_NS { namespace algorithm {
                         return __e_t::success;
                 }
 
-                if(!is_digit(c, 10))
+                if (!is_digit(c, 10))
                     return __e_t::format_error;
 
                 int n = digit_value(c);
 
-                if(!__e)
+                if (!__e)
                 {
-                    if(!__point)
+                    if (!__point)
                     {
                         __numeric = __numeric * 10 + n;
-                        if(n > 0)
+                        if (n > 0)
                             __integer_zero = false;
                     }
                     else
@@ -183,18 +183,18 @@ namespace X_ROOT_NS { namespace algorithm {
                         __numeric = __numeric + n * __point_mod;
                         __point_mod /= 10;
 
-                        if(!__point_zero_end && n == 0 && __integer_zero)
+                        if (!__point_zero_end && n == 0 && __integer_zero)
                             __point_zero_count++;
                         else
                             __point_zero_end = true;
                     }
 
-                    if(std::isinf(__numeric))
+                    if (std::isinf(__numeric))
                         return __e_t::overflow;
                 }
                 else
                 {
-                    if(__pow > __pow_limit)
+                    if (__pow > __pow_limit)
                         return __e_t::overflow;
 
                     __pow = __pow * 10 + n;
@@ -206,24 +206,24 @@ namespace X_ROOT_NS { namespace algorithm {
             // Commits to completed the paring operation.
             __AlwaysInline __e_t commit()
             {
-                if(__pow != 0)
+                if (__pow != 0)
                 {
-                    if(__point_zero_count > 0)
+                    if (__point_zero_count > 0)
                     {
                         __numeric *= std::pow((_numeric_t)10.0, __point_zero_count);
                         __pow -= __point_zero_count;
                     }
 
                     _numeric_t ev = std::pow((_numeric_t)10.0, __pow);
-                    if(std::isinf(ev))
+                    if (std::isinf(ev))
                         return __e_t::overflow;
 
-                    if(__ec == _T('+'))
+                    if (__ec == _T('+'))
                         __numeric *= ev;
                     else
                         __numeric /= ev;
 
-                    if(std::isinf(__numeric))
+                    if (std::isinf(__numeric))
                         return __e_t::overflow;
                 }
 
@@ -263,13 +263,13 @@ namespace X_ROOT_NS { namespace algorithm {
                                                            _numeric_t & numeric)
             {
                 __op_t op(__radix, __positive, numeric);
-                for(; p < p_end; p++)
+                for (; p < p_end; p++)
                 {
-                    if(*p == _T('\''))
+                    if (*p == _T('\''))
                         continue;
 
                     __e_t r = op.push(*p);
-                    if(r != __e_t::success)
+                    if (r != __e_t::success)
                         return r;
                 }
 
@@ -298,7 +298,7 @@ namespace X_ROOT_NS { namespace algorithm {
                 __value = def_value<first_t>();
 
                 each_types<types_t ...>(*this);
-                if(__error_code != __e_t::success)
+                if (__error_code != __e_t::success)
                     throw _E(__error_code);
                 return __value;
             }
@@ -325,7 +325,7 @@ namespace X_ROOT_NS { namespace algorithm {
                 __parser_t<_numeric_t> parser(__radix, __positive);
                 _numeric_t numeric;
 
-                if(parser.continued_parse_supported)
+                if (parser.continued_parse_supported)
                 {
                     numeric = __value.get_value<_numeric_t>();
                 }
@@ -380,7 +380,7 @@ namespace X_ROOT_NS { namespace algorithm {
             const char_t * p_start = __read_prefix();
             const char_t * p_end = __continue_read();
 
-            if(__error == __e_t::success)
+            if (__error == __e_t::success)
             {
                 tvalue_t value = __parse(p_start, p_end);
                 return __revise(value);
@@ -407,7 +407,7 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             const char_t * p_start = __do_read_prefix();
 
-            if(__tp == tp_unknown)
+            if (__tp == tp_unknown)
                 __tp = tp_positive;
 
             return p_start;
@@ -416,9 +416,9 @@ namespace X_ROOT_NS { namespace algorithm {
         // Reads the prefix of numberic. ( -, +, 0, 0x etc. )
         __AlwaysInline const char_t * __do_read_prefix()
         {
-            for(char_t c = *__p; ; c = *(++__p))
+            for (char_t c = *__p; ; c = *(++__p))
             {
-                switch(c)
+                switch (c)
                 {
                     case _T('-'):
                         __set_positive(tp_negative);
@@ -429,7 +429,7 @@ namespace X_ROOT_NS { namespace algorithm {
                         break;
 
                     case _T('0'):
-                        switch(*(__p + 1))
+                        switch (*(__p + 1))
                         {
                             case _T('X'):   case _T('x'):
                                 __set_radix(16);
@@ -468,24 +468,24 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             const char_t * p_end = __do_continue_read();
 
-            if(__radix == 0)
+            if (__radix == 0)
                 __radix = 10;
 
-            if(__ts == ts_unknown)
+            if (__ts == ts_unknown)
             {
-                if(__radix == 16)
+                if (__radix == 16)
                     __ts = ts_unsigned;
                 else
                     __ts = ts_signed;
             }
 
-            if(__tl == tl_unknown)
+            if (__tl == tl_unknown)
                 __tl = tl_default;
 
-            if(__tf == tf_unknown && (__point || __e))
+            if (__tf == tf_unknown && (__point || __e))
                 __tf = tf_double;
 
-            if((__tf == tf_double || __tf == tf_float) && __radix == 8)
+            if ((__tf == tf_double || __tf == tf_float) && __radix == 8)
                 __radix = 10;
 
             return p_end;
@@ -496,25 +496,25 @@ namespace X_ROOT_NS { namespace algorithm {
         {
             const char_t * p_end = nullptr;
 
-            for(char_t c = *__p; ; c = *(++__p))
+            for (char_t c = *__p; ; c = *(++__p))
             {
-                switch(c)
+                switch (c)
                 {
                     case _T('.'):
                         __set_point(__p);
                         break;
 
                     case _T('E'): case _T('e'):
-                        if(__radix == 10)
+                        if (__radix == 10)
                         {
                             __set_e(__p);
-                            if(*++__p != _T('+') && *__p != _T('-'))
+                            if (*++__p != _T('+') && *__p != _T('-'))
                             {
                                 __set_error(__e_t::format_error);
                                 goto label_default;
                             }
 
-                            if(!is_digit(*++__p))
+                            if (!is_digit(*++__p))
                             {
                                 __set_error(__e_t::format_error);
                                 goto label_default;
@@ -527,10 +527,10 @@ namespace X_ROOT_NS { namespace algorithm {
                         break;
 
                     case _T('F'): case _T('f'):
-                        if(__radix == 10 || __radix == 0)
+                        if (__radix == 10 || __radix == 0)
                         {
                             __set_float(tf_float);
-                            if(!p_end)
+                            if (!p_end)
                                 p_end = __p;
                         }
                         else
@@ -541,41 +541,41 @@ namespace X_ROOT_NS { namespace algorithm {
 
                     case _T('L'): case _T('l'):
                         __set_long(tl_long);
-                        if(!p_end)
+                        if (!p_end)
                             p_end = __p;
                         break;
 
                     case _T('U'): case _T('u'):
                         __set_sign(ts_unsigned);
-                        if(!p_end)
+                        if (!p_end)
                             p_end = __p;
                         break;
 
                     case _T('H'): case _T('h'):
                         __set_radix(16);
-                        if(!p_end)
+                        if (!p_end)
                             p_end = __p;
                         break;
 
                     case _T('\''):
-                        if(!al::is_digit(*(__p - 1)))
+                        if (!al::is_digit(*(__p - 1)))
                             __set_error(__e_t::format_error);
                         break;
 
                     default:
                     label_default:
-                        if(!is_word(c))
+                        if (!is_word(c))
                         {
-                            if(!p_end)
+                            if (!p_end)
                                 p_end = __p;
 
-                            if(*(p_end - 1) == _T('\''))
+                            if (*(p_end - 1) == _T('\''))
                                 __set_error(__e_t::format_error);
 
                             return p_end;
                         }
 
-                        if(p_end)
+                        if (p_end)
                             __set_error(__e_t::format_error);
 
                        break;
@@ -586,50 +586,50 @@ namespace X_ROOT_NS { namespace algorithm {
         // Parses with specified char array.
         __AlwaysInline tvalue_t __parse(const char_t * p, const char_t * p_end)
         {
-            if(__tf == tf_double)  // double
+            if (__tf == tf_double)  // double
             {
-                if(__radix != 10)
+                if (__radix != 10)
                     throw _E(__e_t::format_error);
 
-                if(__ts == ts_unsigned)
+                if (__ts == ts_unsigned)
                     throw _E(__e_t::format_error);
 
-                if(__tl == tl_long)  // long double
+                if (__tl == tl_long)  // long double
                     return __do_parse<ldouble_t>(p, p_end);
                 else
                     return __do_parse<double_t, ldouble_t>(p, p_end);
             }
-            else if(__tf == tf_float)  // float
+            else if (__tf == tf_float)  // float
             {
-                if(__radix != 10)
+                if (__radix != 10)
                     throw _E(__e_t::format_error);
 
-                if(__ts == ts_unsigned)
+                if (__ts == ts_unsigned)
                     throw _E(__e_t::format_error);
 
-                if(__tl == tl_long)
+                if (__tl == tl_long)
                     throw _E(__e_t::format_error);
 
                 return __do_parse<float_t>(p, p_end);
             }
             else  // integer
             {
-                if(__tl == tl_long)
+                if (__tl == tl_long)
                 {
-                    if(__ts == ts_unsigned)
+                    if (__ts == ts_unsigned)
                         return __do_parse<uint64_t>(p, p_end);
                     else
                         return __do_parse<int64_t, uint64_t>(p, p_end);
                 }
                 else
                 {
-                    if(__ts == ts_unsigned)
+                    if (__ts == ts_unsigned)
                     {
                         return __do_parse<uint32_t, uint64_t>(p, p_end);
                     }
                     else
                     {
-                        if(__radix == 10)
+                        if (__radix == 10)
                             return __do_parse<int32_t, int64_t, uint64_t>(p, p_end);
                         else
                             return __do_parse<int32_t, uint32_t, int64_t, uint64_t>(p, p_end);
@@ -641,7 +641,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Revises value, return negative value if negative.
         __AlwaysInline tvalue_t __revise(tvalue_t value)
         {
-            if(__tp == tp_negative)
+            if (__tp == tp_negative)
                 value = -value;
 
             return value;
@@ -657,7 +657,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Sets radix: 2, 8, 10, 16.
         __AlwaysInline void __set_radix(int radix)
         {
-            if(__radix > 0)
+            if (__radix > 0)
                 __set_error(__e_t::format_error);
             else
                 __radix = radix;
@@ -666,7 +666,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Sets point position.
         __AlwaysInline void __set_point(const char_t * point)
         {
-            if(__point)
+            if (__point)
                 __set_error(__e_t::format_error);
             else
                 __point = point;
@@ -675,7 +675,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Sets sign.
         __AlwaysInline void __set_sign(__ts_t ts)
         {
-            if(__ts != ts_unknown || __tf != tf_unknown)
+            if (__ts != ts_unknown || __tf != tf_unknown)
                 __set_error(__e_t::format_error);
             else
                 __ts = ts;
@@ -684,7 +684,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Sets positive.
         __AlwaysInline void __set_positive(__tp_t tp)
         {
-            if(__tp != tp_unknown)
+            if (__tp != tp_unknown)
                 __set_error(__e_t::format_error);
             else
                 __tp = tp;
@@ -693,7 +693,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Sets long type.
         __AlwaysInline void __set_long(__tl_t tl)
         {
-            if(__tl != tl_unknown)
+            if (__tl != tl_unknown)
                 __set_error(__e_t::format_error);
             else
                 __tl = tl;
@@ -702,7 +702,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Sets float type.
         __AlwaysInline void __set_float(__tf_t tf)
         {
-            if(__tf != tf_unknown || __ts != ts_unknown)
+            if (__tf != tf_unknown || __ts != ts_unknown)
                 __set_error(__e_t::format_error);
             else
                 __tf = tf;
@@ -711,7 +711,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Sets 'E' / 'e' position.
         __AlwaysInline void __set_e(const char_t * e)
         {
-            if(__e)
+            if (__e)
                 __set_error(__e_t::format_error);
             else
                 __e = e;
@@ -720,7 +720,7 @@ namespace X_ROOT_NS { namespace algorithm {
         // Sets error.
         __AlwaysInline void __set_error(__e_t error)
         {
-            if(__error == __e_t::success)
+            if (__error == __e_t::success)
                 __error = error;
         }
     };
@@ -745,14 +745,14 @@ namespace X_ROOT_NS { namespace algorithm {
         try
         {
             value = __parse_numeric<_char_ptr_t>(p);
-            if(out_value)
+            if (out_value)
                 *out_value = value;
 
             return __e_t::success;
         }
-        catch(logic_error_t<__e_t> & e)
+        catch (logic_error_t<__e_t> & e)
         {
-            if(out_value)
+            if (out_value)
                 *out_value = tvalue_t(value_type_t::__default__);
 
             return e.code;

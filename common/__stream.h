@@ -21,19 +21,19 @@ namespace X_ROOT_NS {
             > t0;
 
             // enum
-            if(std::is_enum<t0>::value)
+            if (std::is_enum<t0>::value)
                 return __value_output_family_t::enum_;
 
             // string_t
-            if(std::is_same<t0, string_t>::value)
+            if (std::is_same<t0, string_t>::value)
                 return __value_output_family_t::string;
 
             // object_t
-            if(std::is_convertible<t0, object_t>())
+            if (std::is_convertible<t0, object_t>())
                 return __value_output_family_t::object;
 
             // string_like: can convert to string_t. ( operator_t string_t defined. )
-            if(std::is_convertible<t0, string_t>())
+            if (std::is_convertible<t0, string_t>())
                 return __value_output_family_t::string_like;
 
             // Otherwise ...
@@ -202,7 +202,7 @@ namespace X_ROOT_NS {
             stringstream_t ss;
             ss << _T("{ ") << format << _T(" }");
 
-            if(e != nullptr)
+            if (e != nullptr)
                 ss << _T(":") << string_convert<char, char_t>(e->what()).c_str();
 
             return _E(error_code, ss.str());
@@ -239,15 +239,15 @@ namespace X_ROOT_NS {
 
             return f.str();
         }
-        catch(const boost::io::format_error & e)
+        catch (const boost::io::format_error & e)
         {
             throw __exception(__ec_t::format_error, format, &e);
         }
-        catch(const std::exception & e)
+        catch (const std::exception & e)
         {
             throw __exception(__ec_t::unexpected, format, &e);
         }
-        catch(...)
+        catch (...)
         {
             throw __exception(__ec_t::unexpected, format);
         }

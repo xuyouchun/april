@@ -449,10 +449,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __compile_as_statement(statement_compile_context_t & ctx);
 
         // Compiles as if statement.
-        void __compile_as_if(statement_compile_context_t & ctx);
+        void __compile_as_if (statement_compile_context_t & ctx);
 
         // Compiles as switch statement.
-        void __compile_as_switch(statement_compile_context_t & ctx, int row_count);
+        void __compile_as_switch (statement_compile_context_t & ctx, int row_count);
 
         // Finds case by constant value.
         __case_iterator_t __find_case(xpool_t & xpool, cvalue_t value,
@@ -593,7 +593,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     template<typename _region_t>
     void compile_with_region(__context_t & ctx, statement_t * statement)
     {
-        if(statement != nullptr)
+        if (statement != nullptr)
         {
             ctx.begin_region<_region_t>();
             compile_statement(ctx, statement);
@@ -649,16 +649,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef statement_exit_type_t       __exit_type_t;
         typedef enum_t<__exit_type_t>       __e_exit_type_t;
 
-        if(statements == nullptr)
+        if (statements == nullptr)
             return statement_exit_type_t::none;
 
         __e_exit_type_t type;
-        for(statement_t * statement : *statements)
+        for (statement_t * statement : *statements)
         {
             __e_exit_type_t et = statement->exit_type(ctx);
             type |= et;
 
-            if(unreached(et))
+            if (unreached(et))
             {
                 type.remove(__exit_type_t::pass);
                 break;

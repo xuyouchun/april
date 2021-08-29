@@ -62,7 +62,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         ast_node_t * ast_node = __build_ast(args);
 
-        if(ast_node != nullptr)
+        if (ast_node != nullptr)
         {
             __reader.append_ast(from_tag, end_tag, ast_node, node);
         }
@@ -77,7 +77,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Builds ast nodes.
     ast_node_t * ast_factory_t::__build_ast(lang_ast_build_args_t & args)
     {
-        if((__node_value_t)args.node_value == __root_node_value)
+        if ((__node_value_t)args.node_value == __root_node_value)
             return __root_ast_builder_t(__ast_context, args).build();
 
         return __build_service->build_ast(__ast_context, args);
@@ -95,7 +95,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static const char_t * __get_node_flag(analyzer_element_t & element)
     {
         const analyze_node_t * node = element.matched_node;
-        if(node == nullptr)
+        if (node == nullptr)
             return _T("");
 
         return node->flag.c_str();
@@ -105,12 +105,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ast_node_t * ast_builder_t::build()
     {
         ast_node_t * node = this->create();
-        if(node == nullptr)
+        if (node == nullptr)
             return nullptr;
 
-        for(analyzer_element_t & element : __args.elements)
+        for (analyzer_element_t & element : __args.elements)
         {
-            switch(element.type)
+            switch (element.type)
             {
                 case analyzer_element_type_t::token: {
                     ast_builder_apply_token_args_t args;

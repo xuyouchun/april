@@ -19,7 +19,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
         libfunc_t get_func(const string_t & name)
         {
             auto it = __func_map.find(name);
-            if(it != __func_map.end())
+            if (it != __func_map.end())
                 return it->second;
 
             return nullptr;

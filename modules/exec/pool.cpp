@@ -11,7 +11,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     rt_string_t * rt_string_pool_t::get(const char_t * s, rt_length_t length)
     {
         auto it = __map.find(__string_key_t(s, length));
-        if(it != __map.end())
+        if (it != __map.end())
             return it->second;
 
         rt_string_t * rt_str = __heap.new_obj(s, length);
