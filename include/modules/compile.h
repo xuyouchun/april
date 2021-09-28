@@ -189,6 +189,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Operator overload method prototype error: Should not be a generic type.
         operator_overload__no_generic,
 
+		// Delegate type error.
+		delegate_type_error,
+
+		// Type error when create instance.
+		create_instance_type_error,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -1589,5 +1595,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 #include <modules/compile/__ast_utils.h>
 #include <modules/compile/__ast.h>
 #include <modules/compile/__helper.h>
+#include <modules/compile/__xil_struct.h>
 
 #endif  // __COMPILE_H__

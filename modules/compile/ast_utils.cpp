@@ -1023,7 +1023,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 if (!__walk_type(name_exp))
                 {
-					_PP(name_exp);
                     ast_log(__cctx, name_exp, __c_t::variable_undefined, name);
                 }
             }
@@ -1330,14 +1329,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (namex_exp == nullptr)
                 return;
 
-            //_PP(function_exp);
             __avoid_walk(namex_exp);
 
             switch (namex_exp->this_family())
             {
-                case expression_family_t::name:
-                    __walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
-                    return;
+                case expression_family_t::name: {
+					name_expression_t * name_exp = (name_expression_t *)namex_exp;
+		            variable_t * variable;
+
+					if (__region != nullptr && (variable = __region->get(name_exp->name)) != nullptr
+						&& variable->this_type() != variable_type_t::method)
+					{
+						function_exp->set_variable(variable);
+					}
+					else
+					{
+						__walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
+					}
+                }   return;
 
                 case expression_family_t::binary: {
                     binary_expression_t * binary_exp = (binary_expression_t *)namex_exp;
@@ -1467,9 +1476,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     fill_type_collection(tc, function_exp->generic_args);
 
                 if (tc.empty())
-                    function_exp->method = method;
+                    function_exp->set_method(method);
                 else
-                    function_exp->method = __xpool(__cctx).new_generic_method(method, tc);
+                    function_exp->set_method(__xpool(__cctx).new_generic_method(method, tc));
             }
 
             if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)
@@ -1681,7 +1690,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    // Defines property variable.
+    // Defines method variable.
     method_variable_t * variable_defination_t::define_method(method_t * method)
 	{
 		_A(method != nullptr);

@@ -46,6 +46,20 @@
 
 // Definations
 
+// Defines optimize options.
+
+#ifdef CONFIG_OPTIMIZE
+    #define X_OPTIMIZE CONFIG_OPTIMIZE
+#else
+    #define X_OPTIMIZE 0
+#endif
+
+#if X_OPTIMIZE == 0
+    #define X_DEBUG     1
+#else
+    #define X_DEBUG     0
+#endif
+
 // Defines an inline function.
 #ifdef __INLINE
     #define X_INLINE        __INLINE
@@ -60,26 +74,15 @@
     #define X_NO_INLINE
 #endif
 
+
 // Defines an function which always inlined.
 
-#ifdef __ALWAYS_INLINE
-    #define X_ALWAYS_INLINE __ALWAYS_INLINE
+#if defined __ALWAYS_INLINE && !X_DEBUG
+    #define X_ALWAYS_INLINE			__ALWAYS_INLINE X_INLINE
+	#define X_ALWAYS_INLINE_METHOD	__ALWAYS_INLINE
 #else
-    #define X_ALWAYS_INLINE X_INLINE
-#endif
-
-// Defines optimize options.
-
-#ifdef CONFIG_OPTIMIZE
-    #define X_OPTIMIZE CONFIG_OPTIMIZE
-#else
-    #define X_OPTIMIZE 0
-#endif
-
-#if X_OPTIMIZE == 0
-    #define X_DEBUG     1
-#else
-    #define X_DEBUG     0
+    #define X_ALWAYS_INLINE			X_INLINE
+	#define X_ALWAYS_INLINE_METHOD	// Empty
 #endif
 
 ////////// ////////// ////////// ////////// //////////

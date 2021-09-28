@@ -449,7 +449,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 	// _xil_type1: the xil type of constant value
 	// _xil_type2: the xil type of stack unit
 
-    #define __Local(type_t, offset)    *(type_t *)((byte_t *)ctx.stack.lp() + offset)
+    #define __LocalAddress(type_t, offset)	((type_t *)((byte_t *)ctx.stack.lp() + offset))
+    #define __Local(type_t, offset)			(*(__LocalAddress(type_t, offset)))
 
     #define __ToPushCmdValue(_stype, _xil_type1, _xil_type2)						\
         __ToCmdValue(push,                                                          \
@@ -530,25 +531,24 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __EndPushCommand()
 
 	#define __LocalPushCommands(d2, v2_t)										\
-																				\
-		__LocalPushCommand(int8,      int8_t,	d2, v2_t)						\
-		__LocalPushCommand(uint8,     uint8_t,	d2, v2_t)						\
-																				\
-		__LocalPushCommand(int16,     int16_t,	d2, v2_t)						\
-		__LocalPushCommand(uint16,    uint16_t,	d2, v2_t)						\
-																				\
-		__LocalPushCommand(int32,     int32_t,	d2, v2_t)						\
-		__LocalPushCommand(uint32,    uint32_t,	d2, v2_t)						\
-																				\
-		__LocalPushCommand(int64,     int64_t,	d2, v2_t)						\
-		__LocalPushCommand(uint64,    uint64_t,	d2, v2_t)						\
-																				\
-		__LocalPushCommand(float_,    float_t,	d2, v2_t)						\
-		__LocalPushCommand(double_,   double_t,	d2, v2_t)						\
-																				\
-		__LocalPushCommand(char_,     char_t,	d2, v2_t)						\
-		__LocalPushCommand(bool_,     bool_t,	d2, v2_t)
-
+                                                                                \
+        __LocalPushCommand(int8,      int8_t,	d2, v2_t)						\
+        __LocalPushCommand(uint8,     uint8_t,	d2, v2_t)						\
+                                                                                \
+        __LocalPushCommand(int16,     int16_t,	d2, v2_t)						\
+        __LocalPushCommand(uint16,    uint16_t,	d2, v2_t)						\
+                                                                                \
+        __LocalPushCommand(int32,     int32_t,	d2, v2_t)						\
+        __LocalPushCommand(uint32,    uint32_t,	d2, v2_t)						\
+                                                                                \
+        __LocalPushCommand(int64,     int64_t,	d2, v2_t)						\
+        __LocalPushCommand(uint64,    uint64_t,	d2, v2_t)						\
+                                                                                \
+        __LocalPushCommand(float_,    float_t,	d2, v2_t)						\
+        __LocalPushCommand(double_,   double_t,	d2, v2_t)						\
+                                                                                \
+        __LocalPushCommand(char_,     char_t,	d2, v2_t)						\
+        __LocalPushCommand(bool_,     bool_t,	d2, v2_t)
 
 	// __LocalPushCommands
 
@@ -585,6 +585,33 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #undef __LocalPushCommand
     #undef __LocalPushCommands
+
+	#define __LocalAddressPushCommand(d1, v1_t)									\
+        __BeginPushCommand(local, d1, v1_t, ptr, rt_ref_t)						\
+            ctx.stack.push(__LocalAddress(__value1_t, __offset));				\
+        __EndPushCommand()
+
+    __LocalAddressPushCommand(int8,     int8_t)
+    __LocalAddressPushCommand(uint8,    uint8_t)
+
+    __LocalAddressPushCommand(int16,    int16_t)
+    __LocalAddressPushCommand(uint16,   uint16_t)
+
+    __LocalAddressPushCommand(int32,    int32_t)
+    __LocalAddressPushCommand(uint32,   uint32_t)
+
+    __LocalAddressPushCommand(int64,    int64_t)
+    __LocalAddressPushCommand(uint64,   uint64_t)
+
+    __LocalAddressPushCommand(float_,   float_t)
+    __LocalAddressPushCommand(double_,  double_t)
+
+    __LocalAddressPushCommand(char_,    char_t)
+    __LocalAddressPushCommand(bool_,    bool_t)
+
+    __LocalAddressPushCommand(object,   rt_ref_t)
+
+	#undef __LocalAddressPushCommand
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -650,23 +677,23 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 	// __ArgumentPushCommands
 
-	__ArgumentPushCommands(int8,      int8_t)
-	__ArgumentPushCommands(uint8,     uint8_t)
+    __ArgumentPushCommands(int8,      int8_t)
+    __ArgumentPushCommands(uint8,     uint8_t)
 
-	__ArgumentPushCommands(int16,     int16_t)
-	__ArgumentPushCommands(uint16,    uint16_t)
+    __ArgumentPushCommands(int16,     int16_t)
+    __ArgumentPushCommands(uint16,    uint16_t)
 
-	__ArgumentPushCommands(int32,     int32_t)
-	__ArgumentPushCommands(uint32,    uint32_t)
+    __ArgumentPushCommands(int32,     int32_t)
+    __ArgumentPushCommands(uint32,    uint32_t)
 
-	__ArgumentPushCommands(int64,     int64_t)
-	__ArgumentPushCommands(uint64,    uint64_t)
+    __ArgumentPushCommands(int64,     int64_t)
+    __ArgumentPushCommands(uint64,    uint64_t)
 
-	__ArgumentPushCommands(float_,    float_t)
-	__ArgumentPushCommands(double_,   double_t)
+    __ArgumentPushCommands(float_,    float_t)
+    __ArgumentPushCommands(double_,   double_t)
 
-	__ArgumentPushCommands(char_,     char_t)
-	__ArgumentPushCommands(bool_,     bool_t)
+    __ArgumentPushCommands(char_,     char_t)
+    __ArgumentPushCommands(bool_,     bool_t)
 
 
     __BeginPushCommand(argument, object, rt_ref_t, object, rt_ref_t)
@@ -679,7 +706,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 	__BeginPushCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
         ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
-	__EndPushCommand()
+    __EndPushCommand()
 
     #undef __ArgumentPushCommand
     #undef __ArgumentPushCommands
@@ -1384,9 +1411,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseLocals(char_)
             __CaseLocals(bool_)
 
+			__CaseLocals(ptr)
+
             __CaseLocal(object, object)
             __CaseLocal(string, string)
             __CaseLocal(ptr,	ptr)
+			__CaseLocal(object, ptr)
 
             #undef __CaseLocal
             #undef __CaseLocals
@@ -1511,25 +1541,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                        xil_type_t::_d1, xil_type_t::_d2                     \
                     >(__array_dimension(ctx, xil.type_ref()));
 
-			#define __CaseArrayElements(_d2)								\
-																			\
-				__CaseArrayElement(int8,		_d2)						\
-				__CaseArrayElement(uint8,		_d2)						\
-																			\
-				__CaseArrayElement(int16,		_d2)						\
-				__CaseArrayElement(uint16,		_d2)						\
-																			\
-				__CaseArrayElement(int32,		_d2)						\
-				__CaseArrayElement(uint32,		_d2)						\
-																			\
-				__CaseArrayElement(int64,		_d2)						\
-				__CaseArrayElement(uint64,		_d2)						\
-																			\
-				__CaseArrayElement(float_,		_d2)						\
-				__CaseArrayElement(double_,		_d2)						\
-																			\
-				__CaseArrayElement(char_,		_d2)						\
-				__CaseArrayElement(bool_,		_d2)
+            #define __CaseArrayElements(_d2)								\
+                                                                            \
+                __CaseArrayElement(int8,		_d2)						\
+                __CaseArrayElement(uint8,		_d2)						\
+                                                                            \
+                __CaseArrayElement(int16,		_d2)						\
+                __CaseArrayElement(uint16,		_d2)						\
+                                                                            \
+                __CaseArrayElement(int32,		_d2)						\
+                __CaseArrayElement(uint32,		_d2)						\
+                                                                            \
+                __CaseArrayElement(int64,		_d2)						\
+                __CaseArrayElement(uint64,		_d2)						\
+                                                                            \
+                __CaseArrayElement(float_,		_d2)						\
+                __CaseArrayElement(double_,		_d2)						\
+                                                                            \
+                __CaseArrayElement(char_,		_d2)						\
+                __CaseArrayElement(bool_,		_d2)
 
             __CaseArrayElements(int8)
             __CaseArrayElements(uint8)
@@ -1549,7 +1579,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseArrayElements(char_)
             __CaseArrayElements(bool_)
 
-
             __CaseArrayElement(object,	object)
             __CaseArrayElement(string,	string)
             __CaseArrayElement(ptr,		ptr)
@@ -1560,7 +1589,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
             default:
-                _PF(_T("stype: %1%, %2% %3%"), xil.stype(), dtype1, dtype2);
+                _PF(_T("push %1% %2% %3%"), xil.stype(), dtype1, dtype2);
                 X_UNEXPECTED();
         }
 
@@ -2242,7 +2271,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             #undef __Case
 
             default:
-				_P(stype, dtype1, dtype2);
+                _PF(_T("pop %1% %2% %3%"), stype, dtype1, dtype2);
                 X_UNEXPECTED();
         }
 

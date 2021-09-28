@@ -8,18 +8,28 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-		MyClass obj = new MyClass();
+        int a = 10, b = 20;
 
-		typedef System.Delegate<int, int, int> Func;
-		Func func = obj.Add;
-
-		int sum = func(1, 2);
-
-		Console.WriteLine(sum);
+		MyStruct obj = new MyStruct(a, b);
     }
+
 };
 
 
+struct MyStruct
+{
+	public MyStruct(int a, int b)
+	{
+		A = a;
+		// B = b;
+	}
+
+	public int A;
+	public int B;
+};
+
+
+/*
 class MyClass
 {
 	public int Add(int a, int b)
@@ -48,6 +58,7 @@ class MyClass
 		return sum;
 	}
 }
+*/
 
 
 /*

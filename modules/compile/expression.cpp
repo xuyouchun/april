@@ -15,6 +15,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __compile_cvalue(__cctx_t & ctx, xil_pool_t & pool, cvalue_t cvalue,
 		xil_type_t dtype = xil_type_t::empty);
 
+    // Returns xil type of the expression.
+    X_ALWAYS_INLINE xil_type_t __xil_type(expression_t * exp)
+    {
+        vtype_t vtype = exp->get_vtype();
+        return to_xil_type(vtype);
+    }
+
+	// Returns xil type of type_name.
+	X_ALWAYS_INLINE xil_type_t __xil_type(type_name_t * type_name)
+	{
+		type_t * type = to_type(type_name);
+		vtype_t vtype = type->this_vtype();
+
+		return to_xil_type(vtype);
+	}
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns host type of a member.
@@ -30,7 +46,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns xpool of expression_compile_context_t;
-    static xpool_t & __xpool(__cctx_t & ctx)
+    X_ALWAYS_INLINE static xpool_t & __xpool(__cctx_t & ctx)
     {
         return ctx.statement_ctx.xpool();
     }
@@ -42,6 +58,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         expression_execute_context_t e_ctx(__xpool(ctx));
         return exp->execute(e_ctx);
+    }
+
+    // Tries compile expression if it's a constant value.
+    // Returns false when compile failed. ( not a constant value. )
+    static bool __try_compile_constant_expression(__cctx_t & ctx, xil_pool_t & pool,
+				   expression_t * expression, xil_type_t dtype = xil_type_t::empty)
+    {
+        cvalue_t cvalue = __execute_expression(ctx, expression);
+
+        if (!is_nan(cvalue))
+        {
+            if (is_effective(expression))
+                __compile_cvalue(ctx, pool, cvalue, dtype);
+
+            return true;
+        }
+
+        return false;
     }
 
     // Returns whether it's effective.
@@ -109,19 +143,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __compile_number(__cctx_t & ctx, xil_pool_t & pool, const tvalue_t & value);
 
     // Returns whether it's static call type.
-    static bool __is_static(xil_call_type_t call_type)
+    X_ALWAYS_INLINE static bool __is_static(xil_call_type_t call_type)
     {
         return call_type == xil_call_type_t::static_ || call_type == xil_call_type_t::internal;
     }
 
     // Returns this method.
-    static method_t * __this_method(__cctx_t & cctx)
+    X_ALWAYS_INLINE static method_t * __this_method(__cctx_t & cctx)
     {
         return cctx.statement_ctx.method;
     }
 
     // Returns xil type.
-    static xil_type_t __to_xil_type(type_t * type)
+    X_ALWAYS_INLINE static xil_type_t __to_xil_type(type_t * type)
     {
         if (type == nullptr)
             return xil_type_t::empty;
@@ -130,275 +164,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
-
-    // Algorighm xil.
-    struct __al_xil_t : xil_extra_t<al_xil_t>
-    {
-        typedef xil_extra_t<al_xil_t> __super_t;
-
-        using __super_t::__super_t;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Bit xil.
-    struct __bit_xil_t : xil_extra_t<bit_xil_t>
-    {
-        typedef xil_extra_t<bit_xil_t> __super_t;
-
-        using __super_t::__super_t;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Logic xil.
-    struct __logic_xil_t : xil_extra_t<logic_xil_t>
-    {
-        typedef xil_extra_t<logic_xil_t> __super_t;
-
-        using __super_t::__super_t;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Compare xil.
-    struct __cmp_xil_t : xil_extra_t<cmp_xil_t>
-    {
-        typedef xil_extra_t<cmp_xil_t> __super_t;
-
-        using __super_t::__super_t;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Call xil.
-    struct __call_xil_t : xil_extra_t<call_xil_t>
-    {
-        typedef xil_extra_t<call_xil_t> __super_t;
-
-        using __super_t::__super_t;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Pop empty xil.
-    struct __pop_empty_xil_t : xil_extra_t<pop_xil_t>
-    {
-        typedef xil_extra_t<pop_xil_t> __super_t;
-
-        __pop_empty_xil_t(ref_t struct_type_ref) : __super_t(struct_type_ref) { }
-
-        __pop_empty_xil_t(xil_type_t xil_type)
-            : __super_t(xil_storage_type_t::empty, xil_type)
-        { }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Pop array element xil.
-    struct __pop_array_element_xil_t : xil_extra_t<pop_xil_t>
-    {
-        typedef xil_extra_t<pop_xil_t> __super_t;
-
-        __pop_array_element_xil_t(xil_type_t dtype, ref_t array_type_ref)
-            : __super_t(xil_storage_type_t::array_element, dtype)
-        {
-            this->set_type_ref(array_type_ref);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // New xil.
-    struct __new_xil_t : xil_extra_t<new_xil_t>
-    {
-        typedef xil_extra_t<new_xil_t> __super_t;
-
-        __new_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::default_)
-        {
-            this->set_type_ref(type_ref);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // New array xil.
-    struct __new_array_xil_t : xil_extra_t<new_xil_t>
-    {
-        typedef xil_extra_t<new_xil_t> __super_t;
-
-        __new_array_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::array)
-        {
-            this->set_type_ref(type_ref);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Begin init array.
-    struct __array_begin_xil_t : xil_extra_t<init_xil_t>
-    {
-        typedef xil_extra_t<init_xil_t> __super_t;
-
-        __array_begin_xil_t(xil_type_t dtype)
-            : __super_t(xil_init_type_t::array_begin, dtype)
-        { }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Init array element.
-    struct __array_element_xil_t : xil_extra_t<init_xil_t>
-    {
-        typedef xil_extra_t<init_xil_t> __super_t;
-
-        __array_element_xil_t(xil_type_t dtype)
-            : __super_t(xil_init_type_t::array_element, dtype)
-        { }
-
-        __array_element_xil_t(ref_t type_ref)
-            : __super_t(xil_init_type_t::array_element, xil_type_t::empty)
-        {
-            this->set_type_ref(type_ref);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // End init array.
-    struct __array_end_xil_t : xil_extra_t<init_xil_t>
-    {
-        typedef xil_extra_t<init_xil_t> __super_t;
-
-        __array_end_xil_t(xil_type_t dtype)
-            : __super_t(xil_init_type_t::array_end, dtype)
-        { }
-    };
-
-    // Returns xil type of the expression.
-    X_INLINE xil_type_t __xil_type(expression_t * exp)
-    {
-        vtype_t vtype = exp->get_vtype();
-        return to_xil_type(vtype);
-    }
-
-	// Returns xil type of type_name.
-	X_INLINE xil_type_t __xil_type(type_name_t * type_name)
-	{
-		type_t * type = to_type(type_name);
-		vtype_t vtype = type->this_vtype();
-
-		return to_xil_type(vtype);
-	}
-
-    // Tries compile expression if it's a constant value.
-    // Returns false when compile failed. ( not a constant value. )
-    static bool __try_compile_constant_expression(__cctx_t & ctx, xil_pool_t & pool,
-				   expression_t * expression, xil_type_t dtype = xil_type_t::empty)
-    {
-        cvalue_t cvalue = __execute_expression(ctx, expression);
-
-        if (!is_nan(cvalue))
-        {
-            if (is_effective(expression))
-                __compile_cvalue(ctx, pool, cvalue, dtype);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Pushes variable xil.
-    struct __push_variable_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_variable_xil_t(xil_storage_type_t storage_type, xil_type_t xtype, msize_t identity)
-            : __super_t(storage_type, xtype)
-        {
-            this->set_identity(identity);
-        }
-    };
-
-    // Pushes this xil. ( for ref object. )
-    struct __push_this_ref_xil_t : __push_variable_xil_t
-    {
-        typedef __push_variable_xil_t __super_t;
-
-        __push_this_ref_xil_t()
-            : __super_t(xil_storage_type_t::argument, xil_type_t::object, 0)
-        { }
-    };
-
-    // Pushes this xil. ( for val object. )
-    struct __push_this_val_xil_t : __push_variable_xil_t
-    {
-        typedef __push_variable_xil_t __super_t;
-
-        __push_this_val_xil_t()
-            : __super_t(xil_storage_type_t::argument, xil_type_t::ptr, 0)
-        { }
-    };
-
-    // Pushes this.
-    static void __push_this(expression_compile_context_t & ctx, xil_pool_t & pool)
-    {
-        method_t * method = __this_method(ctx);
-        _A(method != nullptr);
-
-        type_t * host_type = __get_host_type(method);
-
-        if (is_struct(host_type))
-            pool.append<__push_this_val_xil_t>();
-        else
-            pool.append<__push_this_ref_xil_t>();
-    }
-
-    // Pushes field xil.
-    struct __push_field_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_field_xil_t(ref_t field_ref, xil_type_t dtype)
-            : __super_t(xil_storage_type_t::field, dtype)
-        {
-            this->set_field_ref(field_ref);
-        }
-    };
-
-    // Pushes array element xil.
-    struct __push_array_element_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_array_element_xil_t(xil_type_t dtype, ref_t array_type_ref)
-            : __super_t(xil_storage_type_t::array_element, dtype)
-        {
-            this->set_type_ref(array_type_ref);
-        }
-    };
-
-    // Pushes duplicate xil.
-    struct __push_duplicate_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_duplicate_xil_t() : __super_t(xil_storage_type_t::duplicate) { }
-    };
-
-	// Pushes params address xil.
-	struct __push_params_xil_t : xil_extra_t<push_xil_t>
-	{
-		typedef xil_extra_t<push_xil_t> __super_t;
-
-		__push_params_xil_t() : __super_t(xil_storage_type_t::params) { }
-	};
-
-    ////////// ////////// ////////// ////////// //////////
-    // binary expressions
+    // Binary expressions
 
     // Compiles add expression.
     static void __compile_add(__cctx_t & ctx, xil_pool_t & pool,
@@ -417,7 +183,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             exp1->compile(ctx, pool);
             exp2->compile(ctx, pool);
 
-            pool.append<__al_xil_t>(
+            pool.append<x_al_xil_t>(
                 xil_al_command_t::add, __xil_type(exp1), __xil_type(exp2)
             );
         }
@@ -430,7 +196,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (__execute_expression(ctx, exp1) == cvalue_t(0))  // 0 * x
         {
             exp2->compile(ctx, pool);
-            pool.append<__al_xil_t>(xil_al_command_t::minus, __xil_type(exp1));
+            pool.append<x_al_xil_t>(xil_al_command_t::minus, __xil_type(exp1));
         }
         else if (__execute_expression(ctx, exp2) == cvalue_t(0))  // x * 0
         {
@@ -441,7 +207,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             exp1->compile(ctx, pool);
             exp2->compile(ctx, pool);
 
-            pool.append<__al_xil_t>(
+            pool.append<x_al_xil_t>(
                 xil_al_command_t::sub, __xil_type(exp1), __xil_type(exp2)
             );
         }
@@ -465,7 +231,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             exp1->compile(ctx, pool);
             exp2->compile(ctx, pool);
 
-            pool.append<__al_xil_t>(
+            pool.append<x_al_xil_t>(
                 xil_al_command_t::mul, __xil_type(exp1), __xil_type(exp2)
             );
         }
@@ -485,7 +251,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             exp1->compile(ctx, pool);
             exp2->compile(ctx, pool);
 
-            pool.append<__al_xil_t>(
+            pool.append<x_al_xil_t>(
                 xil_al_command_t::div, __xil_type(exp1), __xil_type(exp2)
             );
         }
@@ -498,7 +264,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__al_xil_t>(
+        pool.append<x_al_xil_t>(
             xil_al_command_t::mod, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -510,7 +276,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__bit_xil_t>(
+        pool.append<x_bit_xil_t>(
             xil_bit_command_t::bit_and, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -522,7 +288,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__bit_xil_t>(
+        pool.append<x_bit_xil_t>(
             xil_bit_command_t::bit_or, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -534,7 +300,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__bit_xil_t>(
+        pool.append<x_bit_xil_t>(
             xil_bit_command_t::bit_xor, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -546,7 +312,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__bit_xil_t>(
+        pool.append<x_bit_xil_t>(
             xil_bit_command_t::left_shift, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -558,7 +324,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__bit_xil_t>(
+        pool.append<x_bit_xil_t>(
             xil_bit_command_t::right_shift, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -591,7 +357,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__logic_xil_t>(xil_logic_command_t::and_);
+        pool.append<x_logic_xil_t>(xil_logic_command_t::and_);
     }
 
     // Compiles logic or expression.
@@ -601,7 +367,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__logic_xil_t>(xil_logic_command_t::or_);
+        pool.append<x_logic_xil_t>(xil_logic_command_t::or_);
     }
 
     // Compiles logic not expression.
@@ -611,7 +377,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__logic_xil_t>(xil_logic_command_t::not_);
+        pool.append<x_logic_xil_t>(xil_logic_command_t::not_);
     }
 
     // Compiles less expression.
@@ -621,7 +387,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__cmp_xil_t>(
+        pool.append<x_cmp_xil_t>(
             xil_cmp_command_t::less, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -633,7 +399,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__cmp_xil_t>(
+        pool.append<x_cmp_xil_t>(
             xil_cmp_command_t::less_equal, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -645,7 +411,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__cmp_xil_t>(
+        pool.append<x_cmp_xil_t>(
             xil_cmp_command_t::greater, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -657,7 +423,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__cmp_xil_t>(
+        pool.append<x_cmp_xil_t>(
             xil_cmp_command_t::greater_equal, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -669,7 +435,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__cmp_xil_t>(
+        pool.append<x_cmp_xil_t>(
             xil_cmp_command_t::equal, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -681,7 +447,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
-        pool.append<__cmp_xil_t>(
+        pool.append<x_cmp_xil_t>(
             xil_cmp_command_t::not_equal, __xil_type(exp1), __xil_type(exp2)
         );
     }
@@ -754,7 +520,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __push_this(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
     {
         if (exp == nullptr)
-            __push_this(ctx, pool);
+            pool.append<x_push_this_ref_xil_t>();
         else
             exp->compile(ctx, pool);
     }
@@ -840,7 +606,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __validate_set_method(ctx, method);
 
                 ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<__call_xil_t>(xil_call_type_t::instance, method_ref);
+                pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
 
             }   break;
 
@@ -864,7 +630,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 );
 
                 ref_t type_ref = __ref_of(ctx, array_type);
-                pool.append<__pop_array_element_xil_t>(
+                pool.append<x_pop_array_element_xil_t>(
                     __to_xil_type(element_type), type_ref
                 );
 
@@ -884,7 +650,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __validate_set_method(ctx, method);
 
                 ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<__call_xil_t>(xil_call_type_t::instance, method_ref);
+                pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
 
             }   break;
 
@@ -1015,7 +781,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             exp->compile(ctx, pool);
             __compile_number(ctx, pool, 1);
 
-            pool.append<__al_xil_t>(
+            pool.append<x_al_xil_t>(
                 __Is(increment)? xil_al_command_t::add : xil_al_command_t::sub,
                 __xil_type(exp), xil_type_t::int32
             );
@@ -1027,7 +793,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             exp->compile(ctx, pool);
             __compile_number(ctx, pool, 1);
 
-            pool.append<__al_xil_t>(
+            pool.append<x_al_xil_t>(
                 __Is(increment)? xil_al_command_t::add : xil_al_command_t::sub,
                 __xil_type(exp), xil_type_t::int32
             );
@@ -1095,9 +861,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 			if (dtype == xil_type_t::empty)
 				dtype = xil_type;
 
-            pool.append<__push_variable_xil_t>(
-                xil_storage_type_t::local, dtype, variable->identity
-            );
+            pool.append<x_push_local_xil_t>(dtype, variable->identity);
         }
     }
 
@@ -1105,23 +869,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_param_variable(__cctx_t & ctx, xil_pool_t & pool,
 									param_variable_t * variable, xil_type_t dtype)
     {
-		param_t * param = variable->param;
+        param_t * param = variable->param;
 
-		if (param->ptype == param_type_t::extends)
-		{
-			pool.append<__push_params_xil_t>();
-		}
-		else
-		{
-			xil_type_t xil_type = __to_xil_type(ctx, variable);
+        if (param->ptype == param_type_t::extends)
+        {
+            pool.append<x_push_params_xil_t>();
+        }
+        else
+        {
+            xil_type_t xil_type = __to_xil_type(ctx, variable);
 
-			msize_t index = variable->param->index;
-			if (!__is_static(call_type_of_method(ctx.statement_ctx.method)))
+            msize_t index = variable->param->index;
+            if (!__is_static(call_type_of_method(ctx.statement_ctx.method)))
 				index++;
 
-			pool.append<__push_variable_xil_t>(
-				xil_storage_type_t::argument, xil_type, index
-			);
+            pool.append<x_push_argument_xil_t>(xil_type, index);
 		}
     }
 
@@ -1139,7 +901,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             throw _ED(__e_t::unknown_field_type, field);
 
         xil_type_t xil_type = (dtype != xil_type_t::empty)? dtype : __to_xil_type(field_type);
-        pool.append<__push_field_xil_t>(field_ref, xil_type);
+        pool.append<x_push_field_xil_t>(field_ref, xil_type);
     }
 
     // Pops return value from stack
@@ -1160,11 +922,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 ref_t type_ref = __ref_of(ctx, ret_type);
                 _A(type_ref != ref_t::null);
-                pool.append<__pop_empty_xil_t>(type_ref);
+                pool.append<x_pop_empty_xil_t>(type_ref);
             }
             else
             {
-                pool.append<__pop_empty_xil_t>(to_xil_type(ret_type->this_vtype()));
+                pool.append<x_pop_empty_xil_t>(to_xil_type(ret_type->this_vtype()));
             }
         }
     }
@@ -1182,7 +944,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __compile_arguments(ctx, pool, arguments, method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<__call_xil_t>(xil_call_type_t::instance, method_ref);
+        pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
 
         __pop_empty_for_method(ctx, pool, method, owner_exp);
     }
@@ -1214,7 +976,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 			method_variable_t * method_var, xil_type_t dtype)
 	{
 		method_t * method = method_var->method;
-		_PP(method);
 
 		if (method == nullptr)
 			throw _ED(__e_t::unknown_method, method_var);
@@ -1224,7 +985,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __push_this_with_check(__cctx_t & ctx, xil_pool_t & pool, expression_t * owner_exp)
     {
         if (owner_exp != nullptr && !__is_member_expression(owner_exp->parent))
-            __push_this(ctx, pool);
+            pool.append<x_push_this_ref_xil_t>();
     }
 
     // Compiles variable.
@@ -1397,7 +1158,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         expression_at(1)->compile(ctx, pool);
 
         ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<__call_xil_t>(xil_call_type_t::static_, method_ref);
+        pool.append<x_call_xil_t>(xil_call_type_t::static_, method_ref);
 
         __pop_empty_for_method(ctx, pool, method, this);
     }
@@ -1410,7 +1171,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         exp->compile(ctx, pool);
 
-        pool.append<__al_xil_t>(xil_al_command_t::positive, __xil_type(exp));
+        pool.append<x_al_xil_t>(xil_al_command_t::positive, __xil_type(exp));
     }
 
     // Compiles minus expression.
@@ -1418,7 +1179,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         exp->compile(ctx, pool);
 
-        pool.append<__al_xil_t>(xil_al_command_t::minus, __xil_type(exp));
+        pool.append<x_al_xil_t>(xil_al_command_t::minus, __xil_type(exp));
     }
 
     // Compiles logic node expression.
@@ -1426,7 +1187,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         exp->compile(ctx, pool);
 
-        pool.append<__logic_xil_t>(xil_logic_command_t::not_);
+        pool.append<x_logic_xil_t>(xil_logic_command_t::not_);
     }
 
     // Compiles bit node expression.
@@ -1434,7 +1195,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         exp->compile(ctx, pool);
 
-        pool.append<__bit_xil_t>(xil_bit_command_t::bit_not, __xil_type(exp));
+        pool.append<x_bit_xil_t>(xil_bit_command_t::bit_not, __xil_type(exp));
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1526,118 +1287,57 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __super_t::execute(ctx);
     }
 
-    // Push constant value xil.
-    template<typename _value_t>
-    struct __push_const_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_const_xil_t(xil_type_t xtype, const tvalue_t & value)
-            : __super_t(xil_storage_type_t::constant, xtype)
-        {
-            this->set_extra(value.get_value<_value_t>());
-        }
-    };
-
-    // Push constant generic value xil.
-    struct __push_generic_const_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_generic_const_xil_t(ref_t type_ref)
-            : __super_t(xil_storage_type_t::constant, xil_type_t::empty)
-        {
-            this->set_type_ref(type_ref);
-        }
-    };
-
-    // Push string xil.
-    struct __push_string_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_string_xil_t(res_t res)
-            : __super_t(xil_storage_type_t::constant, xil_type_t::string)
-        {
-            this->set_extra(res);
-        }
-    };
-
-    // Push null xil.
-    struct __push_null_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_null_xil_t()
-            : __super_t(xil_storage_type_t::constant, xil_type_t::object)
-        {
-            this->set_type_ref(ref_t::null);
-        }
-    };
-
-    // push type xil.
-    struct __push_type_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        __push_type_xil_t(ref_t type_ref)
-            : __super_t(xil_storage_type_t::constant, xil_type_t::object)
-        {
-            this->set_type_ref(type_ref);
-        }
-    };
-
     // Compiles numeric.
     void __compile_number(__cctx_t & ctx, xil_pool_t & pool, const tvalue_t & value)
     {
         switch (value.type)
         {
 		    case value_type_t::int8_:
-                pool.append<__push_const_xil_t<int8_t>>(xil_type_t::int8, value);
+                pool.append<x_push_const_xil_t<int8_t>>(xil_type_t::int8, value);
                 break;
 
             case value_type_t::uint8_:
-                pool.append<__push_const_xil_t<uint8_t>>(xil_type_t::uint8, value);
+                pool.append<x_push_const_xil_t<uint8_t>>(xil_type_t::uint8, value);
                 break;
 
             case value_type_t::int16_:
-                pool.append<__push_const_xil_t<int16_t>>(xil_type_t::int16, value);
+                pool.append<x_push_const_xil_t<int16_t>>(xil_type_t::int16, value);
                 break;
 
             case value_type_t::uint16_:
-                pool.append<__push_const_xil_t<uint16_t>>(xil_type_t::uint16, value);
+                pool.append<x_push_const_xil_t<uint16_t>>(xil_type_t::uint16, value);
                 break;
 
             case value_type_t::int32_:
-                pool.append<__push_const_xil_t<int32_t>>(xil_type_t::int32, value);
+                pool.append<x_push_const_xil_t<int32_t>>(xil_type_t::int32, value);
                 break;
 
             case value_type_t::uint32_:
-                pool.append<__push_const_xil_t<uint32_t>>(xil_type_t::uint32, value);
+                pool.append<x_push_const_xil_t<uint32_t>>(xil_type_t::uint32, value);
                 break;
 
             case value_type_t::int64_:
-                pool.append<__push_const_xil_t<int64_t>>(xil_type_t::int64, value);
+                pool.append<x_push_const_xil_t<int64_t>>(xil_type_t::int64, value);
                 break;
 
             case value_type_t::uint64_:
-                pool.append<__push_const_xil_t<uint64_t>>(xil_type_t::uint64, value);
+                pool.append<x_push_const_xil_t<uint64_t>>(xil_type_t::uint64, value);
                 break;
 
             case value_type_t::float_:
-                pool.append<__push_const_xil_t<float>>(xil_type_t::float_, value);
+                pool.append<x_push_const_xil_t<float>>(xil_type_t::float_, value);
                 break;
 
             case value_type_t::double_:
-                pool.append<__push_const_xil_t<double>>(xil_type_t::double_, value);
+                pool.append<x_push_const_xil_t<double>>(xil_type_t::double_, value);
                 break;
 
             case value_type_t::bool_:
-                pool.append<__push_const_xil_t<bool>>(xil_type_t::bool_, value);
+                pool.append<x_push_const_xil_t<bool>>(xil_type_t::bool_, value);
                 break;
 
             case value_type_t::char_:
-                pool.append<__push_const_xil_t<char_t>>(xil_type_t::char_, value);
+                pool.append<x_push_const_xil_t<char_t>>(xil_type_t::char_, value);
                 break;
 
             default:
@@ -1650,19 +1350,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles string.
     void __compile_string(__cctx_t & ctx, xil_pool_t & pool, const char_t * string)
     {
-        pool.append<__push_string_xil_t>(ctx.statement_ctx.assembly_layout().res_of(string));
+        pool.append<x_push_string_xil_t>(ctx.statement_ctx.assembly_layout().res_of(string));
     }
 
     // Compiles null.
     void __compile_null(__cctx_t & ctx, xil_pool_t & pool)
     {
-        pool.append<__push_null_xil_t>();
+        pool.append<x_push_null_xil_t>();
     }
 
     // Compiles type.
     void __compile_type(__cctx_t & ctx, xil_pool_t & pool, type_t * type)
     {
-        pool.append<__push_type_xil_t>(__ref_of(ctx, type));
+        pool.append<x_push_type_xil_t>(__ref_of(ctx, type));
     }
 
     // Compile constant value.
@@ -1726,14 +1426,34 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles function expression.
     void __sys_t<function_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-        method_base_t * method = this->method;
+		function_expression_type_t ftype = this->get_ftype();
+
+		switch (ftype)
+		{
+			case function_expression_type_t::method:
+				__compile_method(ctx, pool);
+				break;
+
+			case function_expression_type_t::variable:
+				__compile_delegate(ctx, pool);
+				break;
+
+			default:
+				break;
+		}
+    }
+
+	// Compile method calling expression.
+	void __sys_t<function_expression_t>::__compile_method(__cctx_t & ctx, xil_pool_t & pool)
+	{
+        method_base_t * method = this->get_method();
         _A(method != nullptr);
 
         bool effective = is_effective(this);
         xil_call_type_t call_type = call_type_of_method(method);
 
         if (effective && !__is_member_expression(this->parent) && !__is_static(call_type))
-            __push_this(ctx, pool);
+            pool.append<x_push_this_ref_xil_t>();
 
         __compile_arguments(ctx, pool, this->arguments(), method);
 
@@ -1746,13 +1466,35 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // );
 
             if (__left_is_base(this->parent) && call_type == xil_call_type_t::virtual_)
-                pool.append<__call_xil_t>(xil_call_type_t::instance, method_ref);
+                pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
             else
-                pool.append<__call_xil_t>(call_type, method_ref);
+                pool.append<x_call_xil_t>(call_type, method_ref);
 
             __pop_empty_for_method(ctx, pool, method, this);
         }
-    }
+	}
+
+	// Compile delegate calling expression.
+	void __sys_t<function_expression_t>::__compile_delegate(__cctx_t & ctx, xil_pool_t & pool)
+	{
+        variable_t * variable = this->get_variable();
+        _A(variable != nullptr);
+
+		type_t * type = variable->get_type(__xpool(ctx));
+		if (type->this_gtype() != gtype_t::generic)
+            throw _ED(__e_t::delegate_type_error, type);
+
+		generic_type_t * gtype = (generic_type_t *)type;
+		general_type_t * template_ = gtype->template_;
+
+		if (template_ != __xpool(ctx).get_delegate_type())
+			throw _ED(__e_t::delegate_type_error, gtype);
+
+		_PP(type);
+	}
+
+	// Compile delegate calling expression.
+	void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool);
 
     ////////// ////////// ////////// ////////// //////////
     // type_cast_expression_t
@@ -1872,7 +1614,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         ref_t array_type_ref = __ref_of(ctx, array_type);
 
-        pool.append<__push_array_element_xil_t>(
+        pool.append<x_push_array_element_xil_t>(
             __to_xil_type(element_type), array_type_ref
         );
     }
@@ -1935,15 +1677,36 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (type == nullptr)
             throw _ED(__e_t::type_missing);
 
-        ref_t type_ref = __ref_of(ctx, type);
+		ttype_t ttype = type->this_ttype();
+
+		switch (ttype)
+		{
+			case ttype_t::class_:
+				__compile_new_class_object(ctx, pool, type);
+				break;
+
+			case ttype_t::struct_:
+				__compile_new_struct_object(ctx, pool, type);
+				break;
+
+			default:
+				throw _ED(__e_t::create_instance_type_error, type, ttype);
+		}
+    }
+
+	// Creates instance of class type.
+	void __sys_t<new_expression_t>::__compile_new_class_object(__cctx_t & ctx, xil_pool_t & pool,
+																	type_t * type)
+	{
+		ref_t type_ref = __ref_of(ctx, type);
         _A(type_ref != ref_t::null);
 
-        pool.append<__new_xil_t>(type_ref);
+        pool.append<x_new_xil_t>(type_ref);
 
         bool is_parent_effective = is_effective(this->parent);
         if (this->constructor != nullptr && is_parent_effective)
         {
-            pool.append<__push_duplicate_xil_t>();
+            pool.append<x_push_duplicate_xil_t>();
         }
 
         if (this->arguments() != nullptr)
@@ -1958,11 +1721,31 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             xil_call_type_t call_type = __get_constructor_calltype(ctx, type, this->constructor);
             ref_t method_ref = __search_method_ref(ctx, this->constructor);
-            pool.append<__call_xil_t>(call_type, method_ref);
+            pool.append<x_call_xil_t>(call_type, method_ref);
         }
         else if (!is_parent_effective)
         {
-            pool.append<__pop_empty_xil_t>(xil_type_t::object);
+            pool.append<x_pop_empty_xil_t>(xil_type_t::object);
+        }
+	}
+
+	// Creates instance of struct type.
+	void __sys_t<new_expression_t>::__compile_new_struct_object(__cctx_t & ctx, xil_pool_t & pool,
+																	type_t * type)
+    {
+        if (this->arguments() != nullptr)
+        {
+            if (this->constructor == nullptr)
+                throw _ED(__e_t::constructor_missing, type);
+
+			__compile_arguments(ctx, pool, this->arguments(), this->constructor);
+        }
+
+        if (this->constructor != nullptr)
+        {
+            xil_call_type_t call_type = __get_constructor_calltype(ctx, type, this->constructor);
+            ref_t method_ref = __search_method_ref(ctx, this->constructor);
+            pool.append<x_call_xil_t>(call_type, method_ref);
         }
     }
 
@@ -2009,7 +1792,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(type_ref != ref_t::null);
 
         if (this_effective)
-            pool.append<__new_array_xil_t>(type_ref);
+            pool.append<x_new_array_xil_t>(type_ref);
 
         // initializer
         array_initializer_t * initializer = this->initializer();
@@ -2018,7 +1801,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             xil_type_t dtype = __to_xil_type(element_type);
 
             if (this_effective)
-                pool.append<__array_begin_xil_t>(dtype);
+                pool.append<x_array_begin_xil_t>(dtype);
 
             initializer->each_element([&](expression_t * element_exp) -> bool {
 
@@ -2030,13 +1813,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 element_exp->compile(ctx, pool);
 
                 if (this_effective)
-                    pool.append<__array_element_xil_t>(dtype);  // TODO: struct?
+                    pool.append<x_array_element_xil_t>(dtype);  // TODO: struct?
 
                 return true;
             });
 
             if (this_effective)
-                pool.append<__array_end_xil_t>(dtype);
+                pool.append<x_array_end_xil_t>(dtype);
         }
     }
 
@@ -2065,7 +1848,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             case gtype_t::generic_param: {
 
-                pool.append<__push_generic_const_xil_t>(
+                pool.append<x_push_generic_const_xil_t>(
                     __ref_of(ctx, (generic_param_t *)type)
                 );
 
@@ -2128,9 +1911,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __sys_t<this_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
         if (__is_this_effective(this))
-        {
-            __push_this(ctx, pool);
-        }
+            pool.append<x_push_this_ref_xil_t>();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2146,9 +1927,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __sys_t<base_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
         if (__is_this_effective(this))
-        {
-            __push_this(ctx, pool);
-        }
+            pool.append<x_push_this_ref_xil_t>();
     }
 
     ////////// ////////// ////////// ////////// //////////

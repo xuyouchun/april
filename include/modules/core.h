@@ -2273,40 +2273,46 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     bool is_ptr_type(type_t * type);
 
     // Returns whether a type is a general type, ( defined in source code. )
-    X_INLINE bool is_general(type_t * type)
+    X_ALWAYS_INLINE bool is_general(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::general;
     }
 
     // Returns whether a type is a generic type.
-    X_INLINE bool is_generic(type_t * type)
+    X_ALWAYS_INLINE bool is_generic(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::generic;
     }
 
     // Returns whether a type is a generic param.
-    X_INLINE bool is_generic_param(type_t * type)
+    X_ALWAYS_INLINE bool is_generic_param(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::generic_param;
     }
 
     // Returns whether a type is a array type.
-    X_INLINE bool is_array(type_t * type)
+    X_ALWAYS_INLINE bool is_array(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::array;
     }
 
     // Returns whether a type is a param of typedef.
-    X_INLINE bool is_type_def_param(type_t * type)
+    X_ALWAYS_INLINE bool is_type_def_param(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::type_def_param;
     }
 
     // Returns whether a type is a struct type.
-    X_INLINE bool is_struct(type_t * type)
+    X_ALWAYS_INLINE bool is_struct(type_t * type)
     {
         return type != nullptr && type->this_ttype() == ttype_t::struct_;
     }
+
+	X_ALWAYS_INLINE bool is_custom_struct(type_t * type)
+	{
+		return type != nullptr && type->this_ttype() == ttype_t::struct_
+			&& type->this_vtype() == vtype_t::mobject_;
+	}
 
     // Returns size of a type.
     msize_t get_type_size(type_t * type);
@@ -6440,22 +6446,46 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+	X_ENUM(function_expression_type_t)
+
+		method,
+
+		variable,
+
+	X_ENUM_END
+
     // Function expression.
     class function_expression_t : public __arguments_expression_base_t
     {
-        typedef __arguments_expression_base_t __super_t;
+        typedef __arguments_expression_base_t	__super_t;
+		typedef function_expression_type_t		__ftype_t;
+		typedef arch_uint_t						__uint_t;
 
     public:
 
         // Constructor.
         function_expression_t() = default;
         function_expression_t(method_t * method, arguments_t * arguments)
-            : __super_t(arguments), method(method)
+            : __super_t(arguments)
         { }
 
         expression_t    * namex         = nullptr;      // Name
-        method_base_t   * method        = nullptr;      // Method
         generic_args_t  * generic_args  = nullptr;      // Generic arguments.
+
+		// Sets method.
+		void set_method(method_base_t * method) _NE;
+
+		// Gets method.
+		method_base_t * get_method() const _NE;
+
+		// Sets variable.
+		void set_variable(variable_t * variable) _NE;
+
+		// Gets variable.
+		variable_t * get_variable() const _NE;
+
+		// Returns function expression relation object type.
+		__ftype_t get_ftype() const _NE { return (__ftype_t)__relation_data; }
 
         // Returns generic argument count.
         size_t generic_args_count() const
@@ -6486,6 +6516,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Converts to string.
         virtual const string_t to_string() const override;
+
+	private:
+
+		incorp_t<void, __ftype_t> __relation_data;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -

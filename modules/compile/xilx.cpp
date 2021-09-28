@@ -18,110 +18,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return to_xil_type(vtype);
     }
 
+	// Returns xpool of expression_compile_context_t
+	X_ALWAYS_INLINE static xpool_t & __xpool(__xw_context_t & ctx)
+	{
+		return ((statement_compile_context_t &)ctx).xpool();
+	}
+
     ////////// ////////// ////////// ////////// //////////
-
-    // Pop local xil.
-    struct __pop_local_xil_t : xil_extra_t<pop_xil_t>
-    {
-        typedef xil_extra_t<pop_xil_t> __super_t;
-
-        __pop_local_xil_t(xil_type_t xtype, msize_t identity)
-            : __super_t(xil_storage_type_t::local, xtype)
-        {
-            this->set_identity(identity);
-        }
-    };
-
-    // Pick local xil.
-    struct __pick_local_xil_t : xil_extra_t<pick_xil_t>
-    {
-        typedef xil_extra_t<pick_xil_t> __super_t;
-
-        __pick_local_xil_t(xil_type_t xtype, msize_t identity)
-            : __super_t(xil_storage_type_t::local, xtype)
-        {
-            this->set_identity(identity);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Pop argument xil.
-    struct __pop_argument_xil_t : xil_extra_t<pop_xil_t>
-    {
-        typedef xil_extra_t<pop_xil_t> __super_t;
-
-        __pop_argument_xil_t(xil_type_t xtype, msize_t identity)
-            : __super_t(xil_storage_type_t::argument, xtype)
-        {
-            this->set_identity(identity);
-        }
-    };
-
-    // Pick argument xil.
-    struct __pick_argument_xil_t : xil_extra_t<pick_xil_t>
-    {
-        typedef xil_extra_t<pick_xil_t> __super_t;
-
-        __pick_argument_xil_t(xil_type_t xtype, msize_t identity)
-            : __super_t(xil_storage_type_t::argument, xtype)
-        {
-            this->set_identity(identity);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Pop field xil.
-    struct __pop_field_xil_t : xil_extra_t<pop_xil_t>
-    {
-        typedef xil_extra_t<pop_xil_t> __super_t;
-
-        __pop_field_xil_t(xil_type_t xtype, ref_t field_ref)
-            : __super_t(xil_storage_type_t::field, xtype)
-        {
-            this->set_field_ref(field_ref);
-        }
-    };
-
-    // Pick field xil.
-    struct __pick_field_xil_t : xil_extra_t<pick_xil_t>
-    {
-        typedef xil_extra_t<pick_xil_t> __super_t;
-
-        __pick_field_xil_t(xil_type_t xtype, ref_t field_ref)
-            : __super_t(xil_storage_type_t::field, xtype)
-        {
-            this->set_field_ref(field_ref);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Jmp xil.
-    struct __jmp_xil_t : xil_extra_t<jmp_xil_t>
-    {
-        typedef xil_extra_t<jmp_xil_t> __super_t;
-
-        using __super_t::__super_t;
-    };
 
     // Appends jmp xil.
     jmp_xil_t * xil::append_jmp_xil(xil_pool_t & pool, xil_jmp_model_t condition)
     {
-        return pool.append<__jmp_xil_t>(condition);
+        return pool.append<x_jmp_xil_t>(condition);
     }
-
-    // Switch xil.
-    struct __switch_xil_t : xil_extra_t<jmp_xil_t>
-    {
-        typedef xil_extra_t<jmp_xil_t> __super_t;
-
-        __switch_xil_t(int tbl_idx) : __super_t(xil_jmp_model_t::switch_)
-        {
-            this->set_tbl(tbl_idx);
-        }
-    };
 
     // Appends label xil.
     smp_xil_t * xil::append_label_xil(xil_pool_t & pool)
@@ -185,8 +94,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * type = to_type(local->type_name);
         _A(type != nullptr);
 
+		if (is_custom_struct(type))	// custom struct 
+		{
+			// TODO: copy struct.
+			return;
+		}
+
         #define __Append(name, xil_type)                                    \
-            pool.append<__##name##_local_xil_t>(                            \
+            pool.append<x_##name##_local_xil_t>(                            \
                 xil_type, local->identity									\
             )
 
@@ -198,7 +113,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 			        __Append(pop, xil_type);								\
 			} while (false)
             
-
         switch (type->this_gtype())
         {
             case gtype_t::general: {
@@ -246,7 +160,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             index++;
 
         #define __Append(name, xil_type)                                    \
-            pool.append<__##name##_argument_xil_t>(                         \
+            pool.append<x_##name##_argument_xil_t>(                         \
                 xil_type_t::xil_type, index                                 \
             )
 
@@ -327,7 +241,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(type != nullptr);
 
         #define __Append(name, xil_type)                                    \
-            pool.append<__##name##_field_xil_t>(                            \
+            pool.append<x_##name##_field_xil_t>(                            \
                 xil_type_t::xil_type, __search_field_ref(ctx, field)        \
             )
 
@@ -427,9 +341,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Local assign xilx.
     void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
+		// null
         if (expression == nullptr)
         {
             write_assign_xil(ctx, pool, local, xil_type_t::empty);
+            return;
+        }
+
+        type_t * type = expression->get_type(__xpool(ctx));
+        _A(type != nullptr);
+
+        // Custom struct
+        if (is_struct(type) && expression->this_family() == expression_family_t::new_)
+        {
+            // Do not need to assign, only put address of this local variable,
+            //   and then execute constructor on this local variable.
+            // See also: __compile_new_struct_object() in expression.cpp
+
+            new_expression_t * new_exp = (new_expression_t *)expression;
+
+            if (new_exp->constructor != nullptr)
+                pool.append<x_push_local_xil_t>(xil_type_t::ptr, local->identity);
+
+            __compile_expression(ctx, pool, expression);
+
             return;
         }
 
@@ -544,7 +479,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         statement_point_t * point = __region.get_point(point_type);
         _A(point != nullptr);
 
-        __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_model);
+        x_jmp_xil_t * xil = pool.append<x_jmp_xil_t>(jmp_model);
         ((__sctx_t &)ctx).jmp_manager.append_jmp(xil, point->to_position());
     }
 
@@ -553,7 +488,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Writes xils to pool.
     void local_label_jmp_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        __jmp_xil_t * xil = pool.append<__jmp_xil_t>(jmp_model);
+        x_jmp_xil_t * xil = pool.append<x_jmp_xil_t>(jmp_model);
         ((__sctx_t &)ctx).jmp_manager.append_jmp(xil, label);
     }
 
@@ -570,7 +505,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Writes xils to pool.
     void switch_jmp_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        __switch_xil_t * xil = pool.append<__switch_xil_t>(table->index);
+        x_switch_xil_t * xil = pool.append<x_switch_xil_t>(table->index);
         table->jmp_xil = xil;
     }
 

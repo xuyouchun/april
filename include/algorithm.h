@@ -492,7 +492,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     // Assigns value to given variable pointer if it is not nullptr.
     template<typename t>
-    X_INLINE X_ALWAYS_INLINE void assign_value(t * out, const t & value)
+    X_ALWAYS_INLINE void assign_value(t * out, const t & value)
     {
         if (out != nullptr)
             *out = value;
@@ -581,6 +581,24 @@ namespace X_ROOT_NS { namespace algorithm {
 	{
 		return (_incorp_t)(((__incorp_int_t)p & __incorp_mask));
 	}
+
+	template<typename _p_t, typename _v_t>
+	struct incorp_t
+	{
+		incorp_t(_p_t * p, _v_t v) _NE : __data(incorp(p, v)) { }
+		incorp_t() _NE : __data(incorp((_p_t *)nullptr, (_v_t)0)) { }
+
+		template<typename _t>
+		operator _t * () _NE const { return (_t *)incorp_p(__data); }
+
+		operator _p_t * () _NE const { return incorp_p(__data); }
+		operator _v_t   () _NE const { return incorp_v<_v_t>(__data); }
+
+		void set(_p_t * p, _v_t v) _NE { __data = incorp(p, v); }
+
+	private:
+		_p_t * __data;
+	};
 
     ////////// ////////// ////////// ////////// //////////
 

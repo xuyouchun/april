@@ -5492,6 +5492,42 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // function_expression_t
 
+	X_ENUM_INFO(function_expression_type_t)
+
+		X_C(method,		_T("method"))
+
+		X_C(variable,	_T("variable"))
+
+	X_ENUM_INFO_END
+
+	// Sets method.
+	void function_expression_t::set_method(method_base_t * method) _NE
+	{
+		_A(method != nullptr);
+		__relation_data.set(method, __ftype_t::method);
+	}
+
+	// Gets method.
+	method_base_t * function_expression_t::get_method() const _NE
+	{
+		_A(get_ftype() == __ftype_t::method);
+		return (method_base_t *)__relation_data;
+	}
+
+	// Sets variable.
+	void function_expression_t::set_variable(variable_t * variable) _NE
+	{
+		_A(variable != nullptr);
+		__relation_data.set(variable, __ftype_t::variable);
+	}
+
+	// Gets variable.
+	variable_t * function_expression_t::get_variable() const _NE
+	{
+		_A(get_ftype()  == __ftype_t::variable);
+		return (variable_t *)__relation_data;
+	}
+
     // Returns name of function_expression.
     name_t function_expression_t::get_name() const
     {
@@ -5504,16 +5540,33 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns type.
     type_t * function_expression_t::get_type(xpool_t & xpool) const
     {
-        return method->get_type();
+		switch (get_ftype())
+		{
+			case __ftype_t::method:
+				return get_method()->get_type();
+
+			case __ftype_t::variable:
+				return get_variable()->get_type(xpool);
+
+			default:
+				return nullptr;
+		}
     }
 
     // Returns vtype of function_expression.
     vtype_t function_expression_t::get_vtype() const
     {
-        if (method == nullptr)
-            return vtype_t::__unknown__;
+		switch (get_ftype())
+		{
+			case __ftype_t::method:
+				return __get_vtype(get_method()->get_type());
 
-        return __get_vtype(method->get_type());
+			case __ftype_t::variable:
+				return get_variable()->get_vtype();
+
+			default:
+				return vtype_t::__unknown__;
+		}
     }
 
     // Converts a function expression to a string.

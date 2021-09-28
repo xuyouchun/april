@@ -3796,7 +3796,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns element at specified tag.
-    __AlwaysInline analyzer_element_t & analyzer_element_reader_t::element_at(
+    X_ALWAYS_INLINE_METHOD analyzer_element_t & analyzer_element_reader_t::element_at(
                                                 __tag_t * tag, __model_t model)
     {
         __item_t & item = __items[tag->index];
@@ -3807,7 +3807,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns next element at specifed tag.
-    __AlwaysInline analyzer_element_t * analyzer_element_reader_t::next()
+    X_ALWAYS_INLINE_METHOD analyzer_element_t * analyzer_element_reader_t::next()
     {
         while (__index >= __items.size())
         {
@@ -3821,7 +3821,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns next tag of specified tag.
-    __AlwaysInline __tag_t * analyzer_element_reader_t::next(__tag_t * tag, __model_t model)
+    X_ALWAYS_INLINE_METHOD __tag_t * analyzer_element_reader_t::next(__tag_t * tag, __model_t model)
     {
         __item_t & item = __items[tag->index];
 
