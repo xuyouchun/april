@@ -11,6 +11,10 @@ class Project1
         int a = 10, b = 20;
 
 		MyStruct obj = new MyStruct(a, b);
+
+        int c = obj.GetResult();
+
+        Console.WriteLine( c );
     }
 
 };
@@ -21,11 +25,16 @@ struct MyStruct
 	public MyStruct(int a, int b)
 	{
 		A = a;
-		// B = b;
+		B = b;
 	}
 
 	public int A;
 	public int B;
+
+    public int GetResult()
+    {
+        return A + B * 10;
+    }
 };
 
 

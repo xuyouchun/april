@@ -723,19 +723,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 rt_type_t * rt_type;
                 rt_field_base_t * rt_field = ctx.get_field(field_ref, &rt_type);
 
-                _A(rt_field != nullptr);
-                _A(rt_type != nullptr);
-                _A(is_general(rt_type));
+                _A( rt_field != nullptr );
+                _A( rt_type != nullptr );
 
-                rt_general_type_t * general_type = (rt_general_type_t *)rt_type;
+                // _A(is_general(rt_type));
 
-                if (!general_type->is_generic_template())
-                    return rt_type;
+                rt_type_t * rt_field_type = rt_field->get_field_type(ctx);
+                _A( rt_field_type != nullptr );
+                _A( is_general(rt_field_type) );
 
-                rt_type_t * type = ctx.to_generic_type(general_type);
-                _A(type != nullptr);
+                rt_general_type_t * rt_general_field_type = (rt_general_type_t *)rt_field_type;
+                if (!rt_general_field_type->is_generic_template())
+                    return rt_general_field_type;
 
-                return type;
+                return ctx.to_generic_type(rt_general_field_type);
             }
 
 			case mt_member_extra_t::position: {
@@ -2110,25 +2111,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                         xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2		\
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
-			#define __CaseArguments(_d2)										\
-																				\
-				__CaseArgument(int8,	_d2)									\
-				__CaseArgument(uint8,	_d2)									\
-																				\
-				__CaseArgument(int16,	_d2)									\
-				__CaseArgument(uint16,	_d2)									\
-																				\
-				__CaseArgument(int32,	_d2)									\
-				__CaseArgument(uint32,	_d2)									\
-																				\
-				__CaseArgument(int64,	_d2)									\
-				__CaseArgument(uint64,	_d2)									\
-																				\
-				__CaseArgument(float_,	_d2)									\
-				__CaseArgument(double_,	_d2)									\
-																				\
-				__CaseArgument(char_,	_d2)									\
-				__CaseArgument(bool_,	_d2)
+            #define __CaseArguments(_d2)										\
+                                                                                \
+                __CaseArgument(int8,    _d2)                                    \
+				__CaseArgument(uint8,	_d2)                                    \
+                                                                                \
+                __CaseArgument(int16,   _d2)                                    \
+                __CaseArgument(uint16,  _d2)                                    \
+                                                                                \
+                __CaseArgument(int32,   _d2)                                    \
+                __CaseArgument(uint32,  _d2)                                    \
+                                                                                \
+                __CaseArgument(int64,   _d2)                                    \
+                __CaseArgument(uint64,  _d2)                                    \
+                                                                                \
+                __CaseArgument(float_,  _d2)                                    \
+                __CaseArgument(double_, _d2)                                    \
+                                                                                \
+                __CaseArgument(char_,   _d2)                                    \
+                __CaseArgument(bool_,   _d2)
 
 
             __CaseArguments(int8)
@@ -2149,15 +2150,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseArguments(char_)
             __CaseArguments(bool_)
 
-			__CaseArgument(object,	object)
-			__CaseArgument(string,	string)
-			__CaseArgument(ptr,		ptr)
+            __CaseArgument(object,	object)
+            __CaseArgument(string,	string)
+            __CaseArgument(ptr,		ptr)
 
             #undef __CaseArgument
             #undef __CaseArguments
             
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
-			// Pop Field
+            // Pop Field
 
             #define __CaseField(_d1, _d2)                                   \
                 case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):	\
@@ -2165,43 +2166,43 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                         xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2		\
                     >(__field_offset(ctx, xil.field_ref()));
 
-			#define __CaseFields(_d2)										\
-																			\
-				__CaseField(int8,		_d2)								\
-				__CaseField(uint8,		_d2)								\
-																			\
-				__CaseField(int16,		_d2)								\
-				__CaseField(uint16,		_d2)								\
-																			\
-				__CaseField(int32,		_d2)								\
-				__CaseField(uint32,		_d2)								\
-																			\
-				__CaseField(int64,		_d2)								\
-				__CaseField(uint64,		_d2)								\
-																			\
-				__CaseField(float_,		_d2)								\
-				__CaseField(double_,	_d2)								\
-																			\
-				__CaseField(char_,		_d2)								\
-				__CaseField(bool_,		_d2)
+            #define __CaseFields(_d2)                                       \
+                                                                            \
+                __CaseField(int8,       _d2)                                \
+                __CaseField(uint8,      _d2)                                \
+                                                                            \
+                __CaseField(int16,      _d2)                                \
+                __CaseField(uint16,     _d2)                                \
+                                                                            \
+                __CaseField(int32,      _d2)                                \
+                __CaseField(uint32,     _d2)                                \
+                                                                            \
+                __CaseField(int64,      _d2)                                \
+                __CaseField(uint64,     _d2)                                \
+                                                                            \
+                __CaseField(float_,     _d2)                                \
+                __CaseField(double_,    _d2)                                \
+                                                                            \
+                __CaseField(char_,      _d2)                                \
+                __CaseField(bool_,      _d2)
 
-			__CaseFields(int8)
-			__CaseFields(uint8)
+            __CaseFields(int8)
+            __CaseFields(uint8)
 
-			__CaseFields(int16)
-			__CaseFields(uint16)
+            __CaseFields(int16)
+            __CaseFields(uint16)
 
-			__CaseFields(int32)
-			__CaseFields(uint32)
+            __CaseFields(int32)
+            __CaseFields(uint32)
 
-			__CaseFields(int64)
-			__CaseFields(uint64)
+            __CaseFields(int64)
+            __CaseFields(uint64)
 
-			__CaseFields(float_)
-			__CaseFields(double_)
+            __CaseFields(float_)
+            __CaseFields(double_)
 
-			__CaseFields(char_)
-			__CaseFields(bool_)
+            __CaseFields(char_)
+            __CaseFields(bool_)
 
             __CaseField(object,		object)
             __CaseField(string,		string)
@@ -2216,29 +2217,29 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             #define __CaseArrayElement(_d1, _d2)                                    \
                 case __V(xil_storage_type_t::array_element, xil_type_t::_d1, xil_type_t::_d2):  \
                     return __array_element_command_manager.template get_command<    \
-                        xil_type_t::_d1, xil_type_t::_d2							\
+                        xil_type_t::_d1, xil_type_t::_d2                            \
                     >(__array_dimension(ctx, xil.type_ref()));                      \
                     break;
 
-			#define __CaseArrayElements(_d2)										\
-																					\
-				__CaseArrayElement(int8,		_d2)								\
-				__CaseArrayElement(uint8,		_d2)								\
-																					\
-				__CaseArrayElement(int16,		_d2)								\
-				__CaseArrayElement(uint16,		_d2)								\
-																					\
-				__CaseArrayElement(int32,		_d2)								\
-				__CaseArrayElement(uint32,		_d2)								\
-																					\
-				__CaseArrayElement(int64,		_d2)								\
-				__CaseArrayElement(uint64,		_d2)								\
-																					\
-				__CaseArrayElement(float_,		_d2)								\
-				__CaseArrayElement(double_,		_d2)								\
-																					\
-				__CaseArrayElement(char_,		_d2)								\
-				__CaseArrayElement(bool_,		_d2)
+			#define __CaseArrayElements(_d2)                                        \
+                                                                                    \
+                __CaseArrayElement(int8,        _d2)                                \
+                __CaseArrayElement(uint8,       _d2)                                \
+                                                                                    \
+                __CaseArrayElement(int16,       _d2)                                \
+                __CaseArrayElement(uint16,      _d2)                                \
+                                                                                    \
+                __CaseArrayElement(int32,       _d2)                                \
+                __CaseArrayElement(uint32,      _d2)                                \
+                                                                                    \
+                __CaseArrayElement(int64,       _d2)                                \
+                __CaseArrayElement(uint64,      _d2)                                \
+                                                                                    \
+                __CaseArrayElement(float_,      _d2)                                \
+                __CaseArrayElement(double_,     _d2)                                \
+                                                                                    \
+                __CaseArrayElement(char_,       _d2)                                \
+                __CaseArrayElement(bool_,       _d2)
 
 
             __CaseArrayElements(int8)

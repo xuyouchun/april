@@ -231,7 +231,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Writes assign xil for field variable.
     void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, field_variable_t * field_var,
-								xil_type_t dtype, bool pick)
+                                                                xil_type_t dtype, bool pick)
     {
         _A(field_var != nullptr);
         _A(field_var->field != nullptr);
@@ -246,7 +246,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             )
 
         #define __Write(xil_type)                                           \
-                if (pick)                                                    \
+                if (pick)                                                   \
                     __Append(pick, xil_type);                               \
                 else                                                        \
                     __Append(pop, xil_type);
@@ -308,12 +308,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         #undef __Case
         #undef __Write
         #undef __Append
-
     }
 
     // Writes assign xils for variable.
     void __write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, variable_t * var,
-							xil_type_t dtype, bool pick = false)
+                                            xil_type_t dtype, bool pick = false)
     {
         _A(var != nullptr);
 

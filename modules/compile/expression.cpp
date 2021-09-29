@@ -861,7 +861,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 			if (dtype == xil_type_t::empty)
 				dtype = xil_type;
 
-            pool.append<x_push_local_xil_t>(dtype, variable->identity);
+            type_t * type = variable->get_type(__xpool(ctx));
+
+            // TODO: when member point, int, long ... types also should be ptr type.
+            if (is_custom_struct(type))
+                pool.append<x_push_local_xil_t>(xil_type_t::ptr, variable->identity);
+            else
+                pool.append<x_push_local_xil_t>(dtype, variable->identity);
         }
     }
 
