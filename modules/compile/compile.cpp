@@ -102,6 +102,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Constructor missing.
         X_D(constructor_missing,            _T("constructor of type '%1%' missing"))
 
+        // Default constructor missing.
+        X_D(default_constructor_missing,    _T("default constructor of type '%1%' missing"))
+
         // Unexpected constructor prototype: should no return type.
         X_D(unexpected_constructor_prototype__should_no_return_type,
                                             _T("constructor '%1%' should no return type"))

@@ -147,6 +147,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Constructor of method missing.
         constructor_missing,
 
+        // Default constructor missing,
+        default_constructor_missing,
+
         // Unexpected constructor prototype: should no return type.
         unexpected_constructor_prototype__should_no_return_type,
 

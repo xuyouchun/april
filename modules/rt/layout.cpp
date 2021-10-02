@@ -446,7 +446,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     void locals_layout_t::append(local_variable_defination_t & def)
     {
         storage_type_t storage_type;
-		rt_type_t * type = __get_type(def.type);
+        rt_type_t * type = __get_type(def.type);
         msize_t size = __ctx.variable_size_of(type, &storage_type);
 
         if (__items.size() > 0 && def.index <= __items[__items.size() - 1].index)

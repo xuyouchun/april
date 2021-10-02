@@ -8,6 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef statement_compile_context_t __sctx_t;
     typedef xilx_write_context_t        __xw_context_t;
+    typedef compile_error_code_t        __e_t;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -352,10 +353,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Local define xilx.
     void local_define_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        type_t * type = local->get_type(__xpool(ctx));
-        _A(type != nullptr);
+        type_t * type;
 
-        if (is_custom_struct(type))
+        // if has init_expression, will call constructor in local_assign_xilx_t
+        if (init_expression == nullptr
+            && is_custom_struct(type = local->get_type(__xpool(ctx))))
         {
             atypes_t atypes;
             analyze_members_args_t args(member_type_t::method, name_t::null, &atypes);
@@ -369,6 +371,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 ref_t method_ref = __search_method_ref(ctx, constructor);
                 xil_call_type_t call_type = __get_constructor_calltype(type, constructor);
                 pool.append<x_call_xil_t>(call_type, method_ref);
+            }
+            else
+            {
+                throw _ED(__e_t::default_constructor_missing, type);
             }
         }
     }
