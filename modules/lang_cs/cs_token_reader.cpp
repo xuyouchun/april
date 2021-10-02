@@ -28,7 +28,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     #define __Eqk_(keyword, data)                                           \
         do {                                                                \
-            if (__equals_keyword(__p, _S(keyword)))                          \
+            if (__equals_keyword(__p, _S(keyword)))                         \
             {                                                               \
                 const size_t keyword_size = string_length(_S(keyword));     \
                 __p += keyword_size - 1;                                    \
@@ -41,7 +41,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     #define __Eqks(keyword, value, values...)                               \
         do {                                                                \
-            if (__equals_keyword(__p, _S(keyword)))                          \
+            if (__equals_keyword(__p, _S(keyword)))                         \
             {                                                               \
                 const size_t keyword_size = string_length(_S(keyword));     \
                 __p += keyword_size - 1;                                    \
@@ -223,11 +223,11 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 return __Nw(right_brace);
 
             case _T('.'):   // .
-				if (*__p == _T('.') && *(__p + 1) == _T('.'))
-				{
-					__p += 2;
-					return __Nw(three_dots);
-				}
+                if (*__p == _T('.') && *(__p + 1) == _T('.'))
+                {
+                    __p += 2;
+                    return __Nw(three_dots);
+                }
 
                 return __Nw(member_point);
 

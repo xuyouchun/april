@@ -23,13 +23,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
 	// Returns xil type of type_name.
-	X_ALWAYS_INLINE xil_type_t __xil_type(type_name_t * type_name)
-	{
-		type_t * type = to_type(type_name);
-		vtype_t vtype = type->this_vtype();
+    X_ALWAYS_INLINE xil_type_t __xil_type(type_name_t * type_name)
+    {
+        type_t * type = to_type(type_name);
+        vtype_t vtype = type->this_vtype();
 
-		return to_xil_type(vtype);
-	}
+        return to_xil_type(vtype);
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1643,8 +1643,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
     
     // Returns constructor call type.
-    static xil_call_type_t __get_constructor_calltype(__cctx_t & ctx, type_t * host_type,
-                                                                method_t * constructor)
+    xil_call_type_t __get_constructor_calltype(type_t * host_type, method_t * constructor)
     {
         #define __EConstructor(name)                                            \
             throw _ED(__e_t::unexpected_constructor_prototype__##name,          \
@@ -1668,7 +1667,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             default: break;
         }
 
-        if (!is_type_compatible(host_type, constructor->host_type))
+        if (host_type != nullptr && !is_type_compatible(host_type, constructor->host_type))
             throw _ED(__e_t::unexpected_host_type, constructor, host_type);
 
         #undef __EConstructor
@@ -1683,28 +1682,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (type == nullptr)
             throw _ED(__e_t::type_missing);
 
-		ttype_t ttype = type->this_ttype();
+        ttype_t ttype = type->this_ttype();
 
-		switch (ttype)
-		{
-			case ttype_t::class_:
-				__compile_new_class_object(ctx, pool, type);
-				break;
+        switch (ttype)
+        {
+            case ttype_t::class_:
+                __compile_new_class_object(ctx, pool, type);
+                break;
 
-			case ttype_t::struct_:
-				__compile_new_struct_object(ctx, pool, type);
-				break;
+            case ttype_t::struct_:
+                __compile_new_struct_object(ctx, pool, type);
+                break;
 
-			default:
-				throw _ED(__e_t::create_instance_type_error, type, ttype);
-		}
+            default:
+                throw _ED(__e_t::create_instance_type_error, type, ttype);
+        }
     }
 
 	// Creates instance of class type.
 	void __sys_t<new_expression_t>::__compile_new_class_object(__cctx_t & ctx, xil_pool_t & pool,
 																	type_t * type)
-	{
-		ref_t type_ref = __ref_of(ctx, type);
+    {
+        ref_t type_ref = __ref_of(ctx, type);
         _A(type_ref != ref_t::null);
 
         pool.append<x_new_xil_t>(type_ref);
@@ -1720,12 +1719,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (this->constructor == nullptr)
                 throw _ED(__e_t::constructor_missing, type);
 
-			__compile_arguments(ctx, pool, this->arguments(), this->constructor);
+    		__compile_arguments(ctx, pool, this->arguments(), this->constructor);
         }
 
         if (this->constructor != nullptr)
         {
-            xil_call_type_t call_type = __get_constructor_calltype(ctx, type, this->constructor);
+            xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
             ref_t method_ref = __search_method_ref(ctx, this->constructor);
             pool.append<x_call_xil_t>(call_type, method_ref);
         }
@@ -1733,7 +1732,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             pool.append<x_pop_empty_xil_t>(xil_type_t::object);
         }
-	}
+    }
 
 	// Creates instance of struct type.
 	void __sys_t<new_expression_t>::__compile_new_struct_object(__cctx_t & ctx, xil_pool_t & pool,
@@ -1749,7 +1748,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (this->constructor != nullptr)
         {
-            xil_call_type_t call_type = __get_constructor_calltype(ctx, type, this->constructor);
+            xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
             ref_t method_ref = __search_method_ref(ctx, this->constructor);
             pool.append<x_call_xil_t>(call_type, method_ref);
         }

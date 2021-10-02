@@ -2417,6 +2417,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // analyze_member_args_t
+
+    string_t analyze_member_args_t::get_name() const
+    {
+        if (name != name_t::null)
+            return name;
+
+        switch (method_trait)
+        {
+            case method_trait_t::constructor:
+                return _T("constructor");
+
+            case method_trait_t::destructor:
+                return _T("destructor");
+
+            case method_trait_t::static_constructor:
+                return _T("static constructor");
+
+            default:
+                return _T("?");
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // Method analyzer.
 
     typedef typename __general_type_like_base_t::method_list_t   __method_list_t;
     typedef typename __general_type_like_base_t::property_list_t __property_list_t;
@@ -2464,7 +2489,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return nullptr;
 
             if (__matched_methods.size() >= 2)
-                throw _ECF(conflict, _T("method \"%1%\" conflict"), __args.name);
+                throw _ECF(conflict, _T("method \"%1%\" conflict"), __args.get_name());
 
             if (!__matched_methods.empty())
                 return __pick_method(__matched_methods[0]);
@@ -2607,7 +2632,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
-
 
     // Property index analyzer.
     class __property_index_analyzer_t

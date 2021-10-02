@@ -105,6 +105,34 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // local_define_xilx_t
+    class local_define_xilx_t : public xilx_base_t
+    {
+        typedef xilx_base_t __super_t;
+
+    public:
+
+        // Constructor.
+        local_define_xilx_t(__region_t & region, local_variable_t * local) _NE
+            : __super_t(region), local(local)
+        {
+            _A(local != nullptr);
+        }
+
+        // Writes xil to a pool.
+        virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;
+
+        // Converts to a string.
+        virtual const string_t to_string() const override
+        {
+            return _F(_T("local defination: %1%"), local);
+        }
+        
+        // Local variable.
+        local_variable_t * local = nullptr;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // local_assign_xilx_t
 
     // Local assign xilx.
@@ -116,7 +144,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor.
         local_assign_xilx_t(__region_t & region, local_variable_t * local,
-                                expression_t * expression = nullptr)
+                                expression_t * expression) _NE
             : __super_t(region), local(local), expression(expression)
         {
             _A(local != nullptr);
@@ -128,7 +156,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts to a string.
         virtual const string_t to_string() const override
         {
-            return _F(_T("local defination: %1% = %2%"), local, expression);
+            return _F(_T("local assign: %1% = %2%"), local, expression);
         }
 
         // Local variable.

@@ -2142,9 +2142,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 var_item->expression, var_item
             );
 
-			var_item->expression->parent = __new_obj<type_cast_expression_t>(
-				__statement.type_name, var_item->expression
-			);
+            if (var_item->expression != nullptr)
+            {
+			    var_item->expression->parent = __new_obj<type_cast_expression_t>(
+				    __statement.type_name, var_item->expression
+    			);
+            }
         }
     }
 

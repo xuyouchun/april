@@ -2156,6 +2156,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         arg_types_t         out_arg_types;      // Generic types auto determined
 
         bool                exact_match     = false;    // Whether exact match the member.
+
+        // Returns name of member, if name is null, returns name from context
+        // (constructor, destructor, static_constructor ...).
+        string_t get_name() const;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -5706,6 +5710,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Relation statement context.
         statement_compile_context_t & statement_ctx;
 
+        // Relation statement context.
+        operator statement_compile_context_t & () const
+        {
+            return statement_ctx;
+        }
+
         // Returns xpool.
         xpool_t & xpool();
     };
@@ -5816,7 +5826,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Expression with specified expression count.
-    template<size_t exp_count>
+    template<size_t _exp_count>
     class texpression_t : public expression_t
     {
         typedef expression_t __super_t;
@@ -5828,16 +5838,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Constructor.
         template<typename ... exps_t> texpression_t(exps_t ... exps_)
         {
-            static_assert(sizeof ... (exps_) == exp_count, "expression count error");
+            static_assert(sizeof ... (exps_) == _exp_count, "expression count not match");
 
             al::assign(exps, exps_ ...);
-            al::each([this](expression_t * exp) { exp->parent = this; }, exps_ ...);
+            al::each([this](expression_t * exp) { __set_parent(exp); }, exps_ ...);
         }
 
         // Returns expression count.
         virtual size_t expression_count() const override final
         {
-            return exp_count;
+            return _exp_count;
         }
 
         // Returns the expression at specified index.
@@ -5853,7 +5863,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Expression array.
-        expression_t * exps[exp_count];
+        expression_t * exps[_exp_count];
+
+    private:
+
+        void __set_parent(expression_t * exp)
+        {
+            _A(exp != nullptr);
+            exp->parent = this;
+        }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -6145,18 +6163,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Expression with operator.
-    template<size_t exp_count>
-    class op_expression_t : public texpression_t<exp_count>
+    template<size_t _exp_count>
+    class op_expression_t : public texpression_t<_exp_count>
                           , public op_expression_base_t
     {
-        typedef texpression_t<exp_count> __super_t;
+        typedef texpression_t<_exp_count> __super_t;
 
     public:
 
         // Constructor.
         template<typename ... exps_t>
         op_expression_t(const operator_property_t * op_property, exps_t ... exps)
-            : texpression_t<exp_count>(exps ...), op_property(op_property)
+            : texpression_t<_exp_count>(exps ...), op_property(op_property)
         {
             _A(op_property != nullptr);
         }

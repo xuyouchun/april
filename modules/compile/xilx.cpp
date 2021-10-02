@@ -155,6 +155,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * type = to_type(param_var->param->type_name);
         _A(type != nullptr);
 
+		if (is_custom_struct(type))	// custom struct 
+		{
+			// TODO: copy struct.
+			return;
+		}
+
         msize_t index = param_var->param->index;
         if (call_type_of_method(sctx.method) != xil_call_type_t::static_)
             index++;
@@ -239,6 +245,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         field_t * field = field_var->field;
         type_t * type = to_type(field->type_name);
         _A(type != nullptr);
+
+		if (is_custom_struct(type))	// custom struct 
+		{
+			// TODO: copy struct.
+			return;
+		}
 
         #define __Append(name, xil_type)                                    \
             pool.append<x_##name##_field_xil_t>(                            \
@@ -337,6 +349,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Local define xilx.
+    void local_define_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
+    {
+        type_t * type = local->get_type(__xpool(ctx));
+        _A(type != nullptr);
+
+        if (is_custom_struct(type))
+        {
+            atypes_t atypes;
+            analyze_members_args_t args(member_type_t::method, name_t::null, &atypes);
+            args.method_trait = method_trait_t::constructor;
+
+            method_t * constructor = (method_t *)type->get_member(args);
+            if (constructor != nullptr)
+            {
+                pool.append<x_push_local_xil_t>(xil_type_t::ptr, local->identity);
+
+                ref_t method_ref = __search_method_ref(ctx, constructor);
+                xil_call_type_t call_type = __get_constructor_calltype(type, constructor);
+                pool.append<x_call_xil_t>(call_type, method_ref);
+            }
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Local assign xilx.
     void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
@@ -351,7 +389,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(type != nullptr);
 
         // Custom struct
-        if (is_struct(type) && expression->this_family() == expression_family_t::new_)
+        if (is_custom_struct(type) && expression->this_family() == expression_family_t::new_)
         {
             // Do not need to assign, only put address of this local variable,
             //   and then execute constructor on this local variable.

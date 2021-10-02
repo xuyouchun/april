@@ -8,13 +8,14 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        int a = 10, b = 20;
+        // Console.WriteLine("start ...");
+        // long a = 10, b = 20;
 
-		MyStruct obj = new MyStruct(a, b);
+		MyStruct obj;
+		// MyStruct obj = new MyStruct();
+        // obj = new MyStruct(a, b);
 
-        int c = obj.GetResult();
-
-        Console.WriteLine( c );
+        Console.WriteLine( obj.A + obj.B * 2 );
     }
 
 };
@@ -22,6 +23,12 @@ class Project1
 
 struct MyStruct
 {
+    public MyStruct()
+    {
+        A = 1;
+        B = 2;
+    }
+
 	public MyStruct(int a, int b)
 	{
 		A = a;
@@ -37,6 +44,17 @@ struct MyStruct
     }
 };
 
+struct MyStruct2
+{
+    public MyStruct2(int a, int b)
+    {
+        A = a;
+        B = b;
+    }
+
+    public int A;
+    public int B;
+}
 
 /*
 class MyClass
