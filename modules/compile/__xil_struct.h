@@ -193,6 +193,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
+    // Pushes local address xil.
+    struct x_push_local_addr_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_local_addr_xil_t(msize_t identity)
+            : __super_t(xil_storage_type_t::local_addr, xil_type_t::ptr, identity)
+        { }
+    };
+
     // Pushes argument xil.
     struct x_push_argument_xil_t : x_push_variable_xil_t
     {
@@ -203,6 +213,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
+    // Pushes argument address xil.
+    struct x_push_argument_addr_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_argument_addr_xil_t(msize_t identity)
+            : __super_t(xil_storage_type_t::argument_addr, xil_type_t::ptr, identity)
+        { }
+    };
+
     // Pushes field xil.
     struct x_push_field_xil_t : xil_extra_t<push_xil_t>
     {
@@ -210,6 +230,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         x_push_field_xil_t(ref_t field_ref, xil_type_t dtype)
             : __super_t(xil_storage_type_t::field, dtype)
+        {
+            this->set_field_ref(field_ref);
+        }
+    };
+
+    // Pushes field address xil.
+    struct x_push_field_addr_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_field_addr_xil_t(ref_t field_ref)
+            : __super_t(xil_storage_type_t::field_addr, xil_type_t::ptr)
         {
             this->set_field_ref(field_ref);
         }

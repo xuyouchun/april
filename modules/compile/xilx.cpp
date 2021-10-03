@@ -97,7 +97,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
 		if (is_custom_struct(type))	// custom struct 
 		{
-			// TODO: copy struct.
+            
 			return;
 		}
 
@@ -366,7 +366,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             method_t * constructor = (method_t *)type->get_member(args);
             if (constructor != nullptr)
             {
-                pool.append<x_push_local_xil_t>(xil_type_t::ptr, local->identity);
+                pool.append<x_push_local_addr_xil_t>(local->identity);
 
                 ref_t method_ref = __search_method_ref(ctx, constructor);
                 xil_call_type_t call_type = __get_constructor_calltype(type, constructor);
@@ -404,7 +404,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             new_expression_t * new_exp = (new_expression_t *)expression;
 
             if (new_exp->constructor != nullptr)
-                pool.append<x_push_local_xil_t>(xil_type_t::ptr, local->identity);
+                pool.append<x_push_local_addr_xil_t>(local->identity);
 
             __compile_expression(ctx, pool, expression);
 

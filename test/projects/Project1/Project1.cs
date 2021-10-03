@@ -8,14 +8,15 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        // Console.WriteLine("start ...");
-        // long a = 10, b = 20;
+        Console.WriteLine("Start ...");
+        typedef MyStruct Type1;
 
-		MyStruct obj;
-		// MyStruct obj = new MyStruct();
-        // obj = new MyStruct(a, b);
+        int a = 10, b = 200;
+        Type1 obj1 = new Type1(a, b);
+        // Type1 obj2 = obj1;
 
-        Console.WriteLine( obj.A + obj.B * 2 );
+        // Console.WriteLine( obj1.A * 100 + obj1.B * 20 );
+        Console.WriteLine( obj1.GetResult(1) - obj1.GetResult(2) );
     }
 
 };
@@ -38,9 +39,9 @@ struct MyStruct
 	public int A;
 	public int B;
 
-    public int GetResult()
+    public int GetResult(int c)
     {
-        return A + B * 10;
+        return A + B + c;
     }
 };
 

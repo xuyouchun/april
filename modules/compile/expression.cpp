@@ -865,7 +865,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             // TODO: when member point, int, long ... types also should be ptr type.
             if (is_custom_struct(type))
-                pool.append<x_push_local_xil_t>(xil_type_t::ptr, variable->identity);
+                pool.append<x_push_local_addr_xil_t>(variable->identity);
             else
                 pool.append<x_push_local_xil_t>(dtype, variable->identity);
         }

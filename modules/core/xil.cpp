@@ -324,9 +324,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(constant,       _T("constant"))
 
+        X_C(local_addr,      _T("local_addr"))
+
+        X_C(argument_addr,  _T("argument_addr"))
+
+        X_C(field_addr,     _T("field_addr"))
+
         X_C(params,			_T("params"))
 
         X_C(array_element,  _T("array_element"))
+
+        X_C(array_element_addr, _T("array_element_addr"))
 
         X_C(duplicate,      _T("duplicate"))
 

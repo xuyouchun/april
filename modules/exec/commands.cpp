@@ -418,7 +418,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         switch (xil.stype())
         {
-            case xil_storage_type_t::field: {
+            case xil_storage_type_t::field:
+            case xil_storage_type_t::field_addr: {
 
                 rt_field_base_t * rt_field = ctx.get_field(xil.field_ref());
                 _A(rt_field != nullptr);
@@ -432,7 +433,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return __to_dtype(ctx, ctx.get_type(type_ref));
             }
 
-            case xil_storage_type_t::argument: {
+            case xil_storage_type_t::argument:
+            case xil_storage_type_t::argument_addr: {
 
                 int index = xil.get_identity();
                 rt_type_t * type = ctx.params_layout.type_at(index);
@@ -449,8 +451,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 	// _xil_type1: the xil type of constant value
 	// _xil_type2: the xil type of stack unit
 
-    #define __LocalAddress(type_t, offset)	((type_t *)((byte_t *)ctx.stack.lp() + offset))
-    #define __Local(type_t, offset)			(*(__LocalAddress(type_t, offset)))
+    #define __LocalAddress(offset)	    ((void *)((byte_t *)ctx.stack.lp() + offset))
+    #define __Local(type_t, offset)		(*((type_t *)__LocalAddress(offset)))
 
     #define __ToPushCmdValue(_stype, _xil_type1, _xil_type2)						\
         __ToCmdValue(push,                                                          \
@@ -494,6 +496,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #undef __ConstantPushConstantCommand
 
     //-------- ---------- ---------- ---------- ----------
+    // Push commands.
 
     #define __BeginPushCommand(s, d1, v1_t, d2, v2_t)                           \
         template<> class __push_command_t<xil_storage_type_t::s,				\
@@ -524,6 +527,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __offset_t __offset;                                                \
         };
 
+    //-------- ---------- ---------- ---------- ----------
+    // Push local commands.
 
     #define __LocalPushCommand(d1, v1_t, d2, v2_t)                              \
         __BeginPushCommand(local, d1, v1_t, d2, v2_t)                           \
@@ -537,7 +542,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
         __LocalPushCommand(int16,     int16_t,	d2, v2_t)						\
         __LocalPushCommand(uint16,    uint16_t,	d2, v2_t)						\
-                                                                                \
         __LocalPushCommand(int32,     int32_t,	d2, v2_t)						\
         __LocalPushCommand(uint32,    uint32_t,	d2, v2_t)						\
                                                                                 \
@@ -570,7 +574,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 	__LocalPushCommands(char_,     char_t)
 	__LocalPushCommands(bool_,     bool_t)
 
-
     __BeginPushCommand(local, object, rt_ref_t, object, rt_ref_t)
         ctx.stack.push(__Local(rt_ref_t, __offset));
     __EndPushCommand()
@@ -586,34 +589,54 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #undef __LocalPushCommand
     #undef __LocalPushCommands
 
-	#define __LocalAddressPushCommand(d1, v1_t)									\
-        __BeginPushCommand(local, d1, v1_t, ptr, rt_ref_t)						\
-            ctx.stack.push(__LocalAddress(__value1_t, __offset));				\
-        __EndPushCommand()
+    //-------- ---------- ---------- ---------- ----------
+    // Push local address commands.
 
-    __LocalAddressPushCommand(int8,     int8_t)
-    __LocalAddressPushCommand(uint8,    uint8_t)
+    template<xil_storage_type_t _stype> class __push_address_command_t { };
 
-    __LocalAddressPushCommand(int16,    int16_t)
-    __LocalAddressPushCommand(uint16,   uint16_t)
+    #define __BeginPushAddressCommand(_stype)                                   \
+        template<>                                                              \
+        class __push_address_command_t<xil_storage_type_t::_stype>              \
+            : public __command_base_t                                           \
+        {                                                                       \
+        public:                                                                 \
+            __push_address_command_t(__offset_t offset) : __offset(offset) { }  \
+                                                                                \
+            __BeginToString(ctx)                                                \
+                                                                                \
+                return _F(_T("push %1% address [%2%]"), xil_storage_type_t::_stype, \
+                                                    __offset);                  \
+                                                                                \
+            __EndToString()                                                     \
+                                                                                \
+            __BeginExecute(ctx, __ToPushCmdValue(s, xil_type_t::empty, xil_type_t::empty))
 
-    __LocalAddressPushCommand(int32,    int32_t)
-    __LocalAddressPushCommand(uint32,   uint32_t)
+                // Method Body
 
-    __LocalAddressPushCommand(int64,    int64_t)
-    __LocalAddressPushCommand(uint64,   uint64_t)
+    #define __EndPushAddressCommand()                                           \
+            __EndExecute()                                                      \
+                                                                                \
+        private:                                                                \
+            __offset_t __offset;                                                \
+        };
 
-    __LocalAddressPushCommand(float_,   float_t)
-    __LocalAddressPushCommand(double_,  double_t)
+    struct __push_address_command_template_t
+    {
+        template<xil_storage_type_t _stype, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
+        {
+            typedef __push_address_command_t<_stype> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
 
-    __LocalAddressPushCommand(char_,    char_t)
-    __LocalAddressPushCommand(bool_,    bool_t)
 
-    __LocalAddressPushCommand(object,   rt_ref_t)
-
-	#undef __LocalAddressPushCommand
+    __BeginPushAddressCommand(local_addr)
+        ctx.stack.push(__LocalAddress(__offset));
+    __EndPushCommand()
 
     //-------- ---------- ---------- ---------- ----------
+    // Push argument.
 
     #define __Argument(type_t, offset) *(type_t *)((rt_stack_unit_t *)ctx.stack.lp() - (offset))
 
@@ -1205,18 +1228,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 		switch (stype)
 		{
 			case xil_storage_type_t::local:
+            case xil_storage_type_t::local_addr:
 				*out_dtype1 = __xil_type_of(ctx, ctx.locals_layout.type_at(xil.get_identity()));
 				break;
 
 			case xil_storage_type_t::argument:
+            case xil_storage_type_t::argument_addr:
 				*out_dtype1 = __xil_type_of(ctx, ctx.params_layout.type_at(xil.get_identity()));
 				break;
 
 			case xil_storage_type_t::field:
+            case xil_storage_type_t::field_addr:
 				*out_dtype1 = __xil_type_of(ctx, __field_type(ctx, xil.field_ref()));
 				break;
 
 			case xil_storage_type_t::array_element:
+            case xil_storage_type_t::array_element_addr:
 				*out_dtype1 = __xil_type_of(ctx, __array_element_type(ctx, xil.type_ref()));
 				break;
 
@@ -1228,6 +1255,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     static command_t * __new_push_command(__context_t & ctx, const push_xil_t & xil)
     {
+        typedef xil_storage_type_t stype_t;
+
         #define __CommandManagerT(v_t)                                      \
             __command_manager_t<                                            \
                 __push_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t   \
@@ -1259,15 +1288,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         static __command_manager_t<
             __push_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<__offset_t> __local_command_manager;
+        >::with_args_t<__offset_t> __command_manager;
 
         static __command_manager_t<
-            __push_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<msize_t> __argument_command_manager;
-
-        static __command_manager_t<
-            __push_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<msize_t> __field_command_manager;
+            __push_address_command_template_t, xil_storage_type_t
+        >::with_args_t<__offset_t> __push_address_command_manager;
 
         static __command_manager_t<
             __push_array_element_command_template_t, xil_type_t, xil_type_t
@@ -1279,19 +1304,27 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         xil_storage_type_t stype = xil.stype();
 
-		// Duplicate command.
-        if (stype == xil_storage_type_t::duplicate)
-            return &__duplicate_command;
+        switch (stype)
+        {
+            case xil_storage_type_t::duplicate:     // Duplicate command.
+                return &__duplicate_command;
 
-		// Push params argument address command.
-		if (stype == xil_storage_type_t::params)
-		{
-			return __params_address_command_manager.template get_command<__nokey>(
-				ctx.params_layout.extends_offset()
-			);
-		}
+            case xil_storage_type_t::params:        // Push params argument command.
+                return __params_address_command_manager.template get_command<__nokey>(
+                    ctx.params_layout.extends_offset()
+                );
 
-        #define __V(s, d1, d2) (((uint32_t)(s) << 16) | ((uint32_t)(d1) << 12) | ((uint32_t)(d2)) << 8)
+            case xil_storage_type_t::local_addr:    // Push local address command.
+                return __push_address_command_manager.template get_command<stype_t::local_addr>(
+                    ctx.locals_layout.offset_of(xil.get_identity())
+                );
+
+            default: break;
+        }
+
+        #define __V(s, d1, d2) (((uint32_t)(s) << 16)                           \
+            | ((uint32_t)(d1) << 12) | ((uint32_t)(d2)) << 8)
+
         #define __ConstantValue(_xil, _t)                                       \
             (_xil.dtype() == xil_type_t::empty?                                 \
                 default_value_of<_t>() : __read_extra<_t>(_xil))
@@ -1369,7 +1402,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseLocal(_d1, _d2)                                   \
                 case __V(xil_storage_type_t::local, xil_type_t::_d1, xil_type_t::_d2):  \
-                    return __local_command_manager.template get_command<    \
+                    return __command_manager.template get_command<          \
                         xil_storage_type_t::local, xil_type_t::_d1, xil_type_t::_d2     \
                     >(ctx.locals_layout.offset_of(xil.get_identity()));
 
@@ -1412,12 +1445,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseLocals(char_)
             __CaseLocals(bool_)
 
-			__CaseLocals(ptr)
-
             __CaseLocal(object, object)
             __CaseLocal(string, string)
             __CaseLocal(ptr,	ptr)
-			__CaseLocal(object, ptr)
 
             #undef __CaseLocal
             #undef __CaseLocals
@@ -1427,7 +1457,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseArgument(_d1, _d2)                                \
                 case __V(xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2):	\
-                    return __argument_command_manager.template get_command< \
+                    return __command_manager.template get_command<          \
                         xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2    \
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
@@ -1482,7 +1512,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseField(_d1, _d2)                                   \
                 case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):   \
-                    return __field_command_manager.template get_command<    \
+                    return __command_manager.template get_command<          \
                         xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2     \
                     >(__field_offset(ctx, xil.field_ref()));
 
@@ -2011,19 +2041,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         static __command_manager_t<
             __pop_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<msize_t> __variable_command_manager;
-
-        static __command_manager_t<
-            __pop_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<msize_t> __argument_command_manager;
+        >::with_args_t<msize_t> __command_manager;
 
         static __command_manager_t<
             __pop_empty_command_template_t, __nokey_t
         >::with_args_t<msize_t> __empty_command_manager;
-
-        static __command_manager_t<
-            __pop_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<msize_t> __field_command_manager;
 
         static __command_manager_t<
             __pop_array_element_command_template_t, xil_type_t, xil_type_t
@@ -2048,7 +2070,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             #define __Case(_s, _d1, _d2)											\
                 case __V(xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2):	\
-                    return __variable_command_manager.template get_command<			\
+                    return __command_manager.template get_command<			        \
                         xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2	\
                     >(ctx.locals_layout.offset_of(xil.get_identity()));
 
@@ -2107,7 +2129,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseArgument(_d1, _d2)												\
                 case __V(xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2):	\
-                    return __argument_command_manager.template get_command<					\
+                    return __command_manager.template get_command<					        \
                         xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2		\
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
@@ -2162,7 +2184,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseField(_d1, _d2)                                   \
                 case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):	\
-                    return __field_command_manager.template get_command<    \
+                    return __command_manager.template get_command<          \
                         xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2		\
                     >(__field_offset(ctx, xil.field_ref()));
 
@@ -2645,15 +2667,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         static __command_manager_t<
             __pick_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<msize_t> __variable_command_manager;
-
-        static __command_manager_t<
-            __pick_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<msize_t> __argument_command_manager;
-
-        static __command_manager_t<
-            __pick_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
-        >::with_args_t<msize_t> __field_command_manager;
+        >::with_args_t<msize_t> __command_manager;
 
         static __command_manager_t<
             __pick_array_element_command_template_t, xil_type_t, xil_type_t
@@ -2671,7 +2685,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             #define __Case(_s, _d1, _d2)												\
                 case __V(xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2):		\
-                    return __variable_command_manager.template get_command<				\
+                    return __command_manager.template get_command<				        \
                         xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2		\
                     >(ctx.locals_layout.offset_of(xil.get_identity()));
 
@@ -2731,7 +2745,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseArgument(_d1, _d2)												\
                 case __V(xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2):	\
-                    return __argument_command_manager.template get_command<					\
+                    return __command_manager.template get_command<					        \
                         xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2		\
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
@@ -2786,7 +2800,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseField(_d1, _d2)                                   \
                 case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):	\
-                    return __field_command_manager.template get_command<    \
+                    return __command_manager.template get_command<          \
                         xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2		\
                     >(__field_offset(ctx, xil.field_ref()));
 

@@ -262,9 +262,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         constant        = 4,        // Constant
 
-		params			= 13,		// Stack address of dynamic arguments
+        local_addr      = 5,        // Local address
 
-        array_element   = 14,       // Array element
+        argument_addr   = 6,        // Argument address
+
+        field_addr      = 7,        // Field address
+
+        params			= 12,		// Stack address of dynamic arguments
+
+        array_element   = 13,       // Array element
+
+        array_element_addr = 14,    // Array element address
 
         duplicate       = 15,       // Duplicate top unit of the stack.
 
