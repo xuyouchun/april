@@ -144,6 +144,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             _A(buffer != nullptr);
         }
 
+        // Allocate from stack.
+        __AlwaysInline rt_stack_unit_t * alloc(size_t size) _NE
+        {
+            return alloc_units(
+                _alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t)
+            );
+        }
+
+        // Allocate units from stack.
+        __AlwaysInline rt_stack_unit_t * alloc_units(size_t units) _NE
+        {
+            rt_stack_unit_t * top = this->top();
+            __top += units;
+            return top;
+        }
+
         // Pushes a value.
         template<typename t> __AlwaysInline void push(const t & value) _NE
         {

@@ -37,47 +37,47 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return _alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
     }
 
-	template<msize_t size, typename _src_t>
-	X_ALWAYS_INLINE void set_variable_value_t(void * dst, const _src_t * src) _NE
-	{
-		typedef uint_type_t<size> t;
-		*(t *)dst = *(const t *)src;
-	}
+    template<msize_t size, typename _src_t>
+    X_ALWAYS_INLINE void set_variable_value_t(void * dst, const _src_t * src) _NE
+    {
+        typedef uint_type_t<size> t;
+        *(t *)dst = *(const t *)src;
+    }
 
-	template<typename _src_t>
-	X_ALWAYS_INLINE void set_variable_value(void * dst, const _src_t * src, msize_t size) _NE
-	{
-		switch (size)
-		{
-			case 0:
-				break;
+    template<typename _src_t>
+    X_ALWAYS_INLINE void set_variable_value(void * dst, const _src_t * src, msize_t size) _NE
+    {
+        switch (size)
+        {
+            case 0:
+                break;
 
-			case 1:
-				set_variable_value_t<1>(dst, src);
-				break;
+            case 1:
+                set_variable_value_t<1>(dst, src);
+                break;
 
-			case 2:
-				set_variable_value_t<2>(dst, src);
-				break;
+            case 2:
+                set_variable_value_t<2>(dst, src);
+                break;
 
-			case 3:
-			case 4:
-				set_variable_value_t<4>(dst, src);
-				break;
+            case 3:
+            case 4:
+                set_variable_value_t<4>(dst, src);
+                break;
 
-			case 5:
-			case 6:
-			case 7:
-			case 8:
-				set_variable_value_t<8>(dst, src);
-				break;
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+                set_variable_value_t<8>(dst, src);
+                break;
 
-			default:  // > 8
-				set_variable_value_t<8>(dst, src);
-				set_variable_value((byte_t *)dst + 8, (byte_t *)src + 8, size - 8);
-				break;
-		}
-	}
+            default:  // > 8
+                set_variable_value_t<8>(dst, src);
+                set_variable_value((byte_t *)dst + 8, (byte_t *)src + 8, size - 8);
+                break;
+        }
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // generic_context_t

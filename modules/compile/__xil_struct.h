@@ -82,13 +82,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     //-------- ---------- ---------- ---------- ----------
-
-    // New xil.
-    struct x_new_xil_t : xil_extra_t<new_xil_t>
+    // New xil base.
+    struct x_new_xil_base_t : xil_extra_t<new_xil_t>
     {
         typedef xil_extra_t<new_xil_t> __super_t;
 
-        x_new_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::default_)
+        x_new_xil_base_t(xil_new_type_t new_type,  ref_t type_ref)
+            : __super_t(new_type)
         {
             this->set_type_ref(type_ref);
         }
@@ -96,14 +96,45 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // New array xil.
-    struct x_new_array_xil_t : xil_extra_t<new_xil_t>
+    // New xil.
+    struct x_new_xil_t : x_new_xil_base_t
     {
-        typedef xil_extra_t<new_xil_t> __super_t;
+        typedef x_new_xil_base_t __super_t;
 
-        x_new_array_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::array)
+        x_new_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::default_, type_ref) { }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // New array xil.
+    struct x_new_array_xil_t : x_new_xil_base_t
+    {
+        typedef x_new_xil_base_t __super_t;
+
+        x_new_array_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::array, type_ref) { }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // New stack_alloc xil.
+    struct x_stack_alloc_xil_t : x_new_xil_base_t
+    {
+        typedef x_new_xil_base_t __super_t;
+
+        x_stack_alloc_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::stack_alloc, type_ref) { }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // New stack_allocs xil.
+    struct x_stack_allocs_xil_t : x_new_xil_base_t
+    {
+        typedef x_new_xil_base_t __super_t;
+
+        x_stack_allocs_xil_t(ref_t type_ref, uint32_t count)
+            : __super_t(xil_new_type_t::stack_allocs, type_ref)
         {
-            this->set_type_ref(type_ref);
+            this->set_count(count);
         }
     };
 
@@ -401,7 +432,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         typedef xil_extra_t<pick_xil_t> __super_t;
 
-        x_pick_field_xil_t(xil_type_t xtype, ref_t field_ref)
+        x_pick_field_xil_t(xil_type_t xtype, ref_t field_ref) _NE
             : __super_t(xil_storage_type_t::field, xtype)
         {
             this->set_field_ref(field_ref);
@@ -421,9 +452,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         typedef xil_extra_t<jmp_xil_t> __super_t;
 
-        x_switch_xil_t(int tbl_idx) : __super_t(xil_jmp_model_t::switch_)
+        x_switch_xil_t(int tbl_idx) _NE : __super_t(xil_jmp_model_t::switch_)
         {
             this->set_tbl(tbl_idx);
+        }
+    };
+
+    // Object copy xil.
+    struct x_object_copy_xil_t : xil_extra_t<copy_xil_t>
+    {
+        typedef xil_extra_t<copy_xil_t> __super_t;
+
+        x_object_copy_xil_t(ref_t type_ref) _NE : __super_t(xil_copy_type_t::object_copy)
+        {
+            this->set_type_ref(type_ref);
         }
     };
 

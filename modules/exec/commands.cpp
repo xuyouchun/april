@@ -638,7 +638,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
     // Push argument.
 
-    #define __Argument(type_t, offset) *(type_t *)((rt_stack_unit_t *)ctx.stack.lp() - (offset))
+    #define __ArgumentAddress(offset) ((void *)((rt_stack_unit_t *)ctx.stack.lp() - (offset)))
+    #define __Argument(type_t, offset) (*(type_t *)__ArgumentAddress(offset))
 
     #define __BeginArgumentPushCommand(d1, v1_t, d2, v2_t)                      \
         template<> class __push_command_t<xil_storage_type_t::argument,			\
@@ -734,6 +735,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #undef __ArgumentPushCommand
     #undef __ArgumentPushCommands
 
+    __BeginPushAddressCommand(argument_addr)
+        ctx.stack.push(__ArgumentAddress(__offset + __stack_stub_size));
+    __EndPushCommand()
     //-------- ---------- ---------- ---------- ----------
 
 	static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
@@ -1317,6 +1321,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case xil_storage_type_t::local_addr:    // Push local address command.
                 return __push_address_command_manager.template get_command<stype_t::local_addr>(
                     ctx.locals_layout.offset_of(xil.get_identity())
+                );
+
+            case xil_storage_type_t::argument_addr: // Push agrument address command.
+                return __push_address_command_manager.template get_command<stype_t::argument_addr>(
+                    ctx.params_layout.offset_of(xil.get_identity())
                 );
 
             default: break;
@@ -4731,6 +4740,32 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    template<>
+    class __new_command_t<xil_new_type_t::stack_alloc> : public __command_base_t
+    {
+    public:
+        __new_command_t(size_t units) _NE : __units(units) { }
+
+        __BeginExecute(ctx, __ToCmdValue(new_, xil_new_type_t::stack_alloc))
+
+            ctx.stack.push(
+                ctx.stack.alloc_units(__units)
+            );
+
+        __EndExecute()
+
+        __BeginToString(ctx)
+
+            return _F(_T("stack_alloc %1% units"), __units);
+
+        __EndToString()
+
+    private:
+        size_t __units;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     struct __new_command_template_t
     {
         template<xil_new_type_t new_type, typename ... args_t>
@@ -4747,7 +4782,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         static __command_manager_t<
             __new_command_template_t, xil_new_type_t
-        >::with_args_t<rt_type_t *> __command_manager;
+        >::with_args_t<rt_type_t *> __new_command_manager;
+
+        static __command_manager_t<
+            __new_command_template_t, xil_new_type_t
+        >::with_args_t<size_t> __stack_alloc_command_manager;
 
         ref_t type_ref = xil.type_ref();
 
@@ -4759,14 +4798,37 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         switch (xil.new_type())
         {
             case xil_new_type_t::default_:
-                return __command_manager.template get_command<xil_new_type_t::default_>(
+                return __new_command_manager.template get_command<xil_new_type_t::default_>(
                     __Mv(type)
                 );
 
             case xil_new_type_t::array:
-                return __command_manager.template get_command<xil_new_type_t::array>(
+                return __new_command_manager.template get_command<xil_new_type_t::array>(
                     __Mv(type)
                 );
+
+            case xil_new_type_t::stack_alloc: {
+
+                msize_t obj_size = type->get_size(ctx.env);
+                size_t units = _alignf(obj_size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
+
+                return __stack_alloc_command_manager.template
+                    get_command<xil_new_type_t::stack_alloc>(__Mv(units));
+
+            }   break;
+
+            case xil_new_type_t::stack_allocs: {
+
+                msize_t obj_size = type->get_size(ctx.env);
+                uint32_t count = xil.count();
+
+                size_t units = _alignf(obj_size * count, sizeof(rt_stack_unit_t))
+                                                        / sizeof(rt_stack_unit_t);
+
+                return __stack_alloc_command_manager.template
+                    get_command<xil_new_type_t::stack_alloc>(__Mv(units));
+
+            }   break;
 
             default:
                 X_UNEXPECTED();
@@ -4774,6 +4836,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    #define __ToCopyCmdValue(_copy_type, _flag)     \
+        __ToCmdValue(copy, ((uint32_t)xil_copy_type_t::_copy_type << 16) | (uint32_t)_flag)
 
     class __copy_command_base_t : public __command_base_t
     {
@@ -4787,96 +4852,105 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<xil_copy_type_t _copy_type> class __copy_command_t { };
+    template<size_t _size>
+    class __object_copy_command_t : public __copy_command_base_t
+    {
+        typedef __copy_command_base_t           __super_t;
+        typedef __object_copy_command_t<_size>  __self_t;
 
-    //-------- ---------- ---------- ---------- ----------
+    public:
+
+        __BeginExecute(ctx, __ToCopyCmdValue(object_copy, _size))
+            
+            void * dst = ctx.stack.pop<void *>();
+            void * src = ctx.stack.pop<void *>();
+
+            al::quick_copy<_size>(dst, src);
+
+        __EndExecute()
+
+        static __self_t * instance()
+        {
+            static __self_t static_instance;
+            return &static_instance;
+        }
+    };
 
     template<>
-    class __copy_command_t<xil_copy_type_t::stack_copy> : public __copy_command_base_t
+    class __object_copy_command_t<0> : public __copy_command_base_t
     {
         typedef __copy_command_base_t __super_t;
 
     public:
-        __copy_command_t(xil_type_t dtype) : __dtype(dtype) { }
 
-        __BeginExecute(ctx, __ToCmdValue(copy, xil_copy_type_t::stack_copy))
+        __object_copy_command_t(size_t size) _NE : __size(size) { }
+
+        __BeginExecute(ctx, __ToCopyCmdValue(object_copy, 0))
             
         __EndExecute()
 
     private:
-        xil_type_t __dtype;
+        size_t __size;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<>
-    class __copy_command_t<xil_copy_type_t::block_copy> : public __copy_command_base_t
-    {
-        typedef __copy_command_base_t __super_t;
-
-    public:
-        __copy_command_t() { }
-
-        __BeginExecute(ctx, __ToCmdValue(copy, xil_copy_type_t::block_copy))
-            
-        __EndExecute()
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<>
-    class __copy_command_t<xil_copy_type_t::res_copy> : public __copy_command_base_t
-    {
-        typedef __copy_command_base_t __super_t;
-
-    public:
-        __copy_command_t(res_t res) : __res(res) { }
-
-        __BeginExecute(ctx, __ToCmdValue(copy, xil_copy_type_t::res_copy))
-            
-        __EndExecute()
-
-    private:
-        res_t __res;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<xil_copy_type_t _copy_type>
-    struct __copy_command_template_t
+    struct __object_copy_command_template_t
     {
         template<__nokey_t _nokey, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __copy_command_t<_copy_type> this_command_t;
+            typedef __object_copy_command_t<0> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    static command_t * __new_copy_command(__context_t & ctx, const copy_xil_t & xil)
+    static command_t * __get_object_copy_command(size_t size)
     {
         static __command_manager_t<
-            __copy_command_template_t<xil_copy_type_t::stack_copy>, __nokey_t
-        >::with_args_t<xil_type_t> __stack_copy_command_manager;
+            __object_copy_command_template_t, __nokey_t
+        >::with_args_t<size_t> __object_copy_command_manager;
 
-        static __command_manager_t<
-            __copy_command_template_t<xil_copy_type_t::res_copy>, __nokey_t
-        >::with_args_t<res_t> __res_copy_command_manager;
+        switch (size)
+        {
+            #define __Case(_size)                                       \
+                case _size:                                             \
+                    return __object_copy_command_t<_size>::instance();
 
-        static __copy_command_t<xil_copy_type_t::block_copy> __block_copy_command;
+            __Case(1)
+            __Case(2)
+            __Case(4)
+            __Case(8)
+            __Case(12)
+            __Case(16)
+            __Case(20)
+            __Case(24)
+            __Case(28)
+            __Case(32)
 
+            #undef __Case
+        }
+
+        return __object_copy_command_manager.template get_command<__nokey>(
+            __Mv(size)
+        );
+    }
+
+    static command_t * __new_copy_command(__context_t & ctx, const copy_xil_t & xil)
+    {
         switch (xil.copy_type())
         {
-            case xil_copy_type_t::stack_copy:
-                return __stack_copy_command_manager.template get_command<__nokey>(xil.dtype());
+            case xil_copy_type_t::object_copy: {
 
-            case xil_copy_type_t::block_copy:
-                return &__block_copy_command;
+                ref_t type_ref = xil.type_ref();
+                rt_type_t * type = ctx.get_type(type_ref);
+                msize_t size = type->get_size(ctx.env);
 
-            case xil_copy_type_t::res_copy:
-                return __res_copy_command_manager.template get_command<__nokey>(xil.res());
+                return __get_object_copy_command(size);
+
+            }   break;
 
             default:
                 X_UNEXPECTED();

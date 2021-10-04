@@ -286,17 +286,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         array           = 1,            // Creates a new array.
 
+        stack_alloc     = 2,            // Allocate object from stack.
+
+        stack_allocs    = 3,            // Allocate objects from stack.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
 
     __Enum(xil_copy_type_t)
 
-        block_copy      = __default__,  // Copy a block.
-
-        stack_copy      = 1,            // Copy from stack.
-
-        res_copy        = 2,            // Copy from resource.
+        object_copy     = 3,            // Copy object.
 
     __EnumEnd
 
@@ -1390,15 +1390,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         { }
 
         __ref_t __type_ref;
+        byte_t __extra[0];
 
         // Returns type_ref.
-        ref_t type_ref() const { return *(ref_t *)&__type_ref; }
+        ref_t type_ref() const _NE { return *(ref_t *)&__type_ref; }
+
+        // Returns object count, used when xil_new_type_t::stack_allocs
+        uint32_t count() const _NE { return *(uint32_t *)__extra; }
 
         // Sets type_ref.
-        void set_type_ref(ref_t ref) { *(ref_t *)&__type_ref = ref; }
+        void set_type_ref(ref_t ref) _NE { *(ref_t *)&__type_ref = ref; }
+
+        // Sets count.
+        void set_count(uint32_t count) _NE { *(uint32_t *)__extra = count; }
 
         // New type type.
-        xil_new_type_t new_type() const { return (xil_new_type_t)this->hdata(); }
+        xil_new_type_t new_type() const _NE { return (xil_new_type_t)this->hdata(); }
 
         // Converts to a string.
         operator string_t() const;
@@ -1408,11 +1415,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Return size of a new_xil_t.
     constexpr size_t size_of(const new_xil_t & xil)
     {
-        return sizeof(new_xil_t);
+        int size = sizeof(new_xil_t);
+
+        if (xil.new_type() == xil_new_type_t::stack_allocs)
+            size += sizeof(uint32_t);   // the size of __extra.
+
+        return size;
     }
 
     // Defines max size of new_xil_t.
-    __DefineMaxSize(new_xil_t, sizeof(new_xil_t))
+    __DefineMaxSize(new_xil_t, sizeof(new_xil_t) + sizeof(uint32_t));
 
     // Writes new_xil_t to a stream.
     template<typename stream_t>
@@ -1429,27 +1441,33 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     __BeginXil(copy)
 
         // Constructors.
-        copy_xil_t(xil_copy_type_t copy_type, xil_type_t dtype)
+        copy_xil_t(xil_copy_type_t copy_type, xil_type_t dtype = xil_type_t::empty)
             : __super_t(xil_command_t::copy)
             , __copy_type((byte_t)copy_type), __dtype((byte_t)dtype)
         { }
 
         // Returns copy type.
-        xil_copy_type_t copy_type() const { return (xil_copy_type_t)__copy_type; }
+        xil_copy_type_t copy_type() const _NE { return (xil_copy_type_t)__copy_type; }
 
         // Returns data type.
-        xil_type_t dtype() const { return (xil_type_t)__dtype; }
+        xil_type_t dtype() const _NE { return (xil_type_t)__dtype; }
 
         byte_t  __copy_type : 4;
         byte_t  __dtype     : 4;
 
         byte_t __extra[0];
 
-        // Returns res.
-        res_t res() const { return *(res_t *)__extra; }
+        // Returns res. (For block_copy)
+        res_t res() const _NE { return *(res_t *)__extra; }
 
-        // Sets res.
-        void set_res(res_t res) { *(res_t *)__extra = res; }
+        // Sets res.    (For block_copy)
+        void set_res(res_t res) _NE { *(res_t *)__extra = res; }
+
+        // Returns type_ref.    (For object_copy)
+        ref_t type_ref() const _NE { return *(ref_t *)__extra; }
+
+        // Sets type_ref.       (For object_copy)
+        void set_type_ref(ref_t type_ref) _NE { *(ref_t *)__extra = type_ref; }
 
         // Converts to a string.
         operator string_t() const;
@@ -1463,14 +1481,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         switch (xil.copy_type())
         {
-            case xil_copy_type_t::stack_copy:
-                break;
-
-            case xil_copy_type_t::block_copy:
-                break;
-
-            case xil_copy_type_t::res_copy:
-                size += sizeof(res_t);
+            case xil_copy_type_t::object_copy:
+                size += sizeof(ref_t);
                 break;
 
             default:
@@ -1481,7 +1493,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Defines max size of copy_xil_t.
-    __DefineMaxSize(copy_xil_t, sizeof(copy_xil_t) + sizeof(res_t))
+    __DefineMaxSize(copy_xil_t, sizeof(copy_xil_t) + sizeof(ref_t))
 
     // Writes copy_xil_t to a stream.
     template<typename stream_t>

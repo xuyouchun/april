@@ -552,7 +552,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             _A(item->variable != nullptr);
 
-            append_xilx<local_define_xilx_t>(ctx, item->variable, item->expression);
+            append_xilx<local_define_xilx_t>(ctx, item->variable);
 
             if (!item->variable->constant && item->expression != nullptr)
             {

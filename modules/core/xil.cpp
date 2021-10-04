@@ -349,6 +349,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(array,          _T("array"))
 
+        X_C(stack_alloc,    _T("stack_alloc"))
+
+        X_C(stack_allocs,   _T("stack_allocs"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -356,11 +360,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Copy type.
     X_ENUM_INFO(xil_copy_type_t)
 
-        X_C(block_copy,     _T("block_copy"))
-
-        X_C(stack_copy,     _T("stack_copy"))
-
-        X_C(res_copy,       _T("res_copy"))
+        X_C(object_copy,    _T("object_copy"))
 
     X_ENUM_INFO_END
 
@@ -688,10 +688,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch (new_type())
         {
             case xil_new_type_t::array:
-                return _F(_T("new array"));
+                return _T("new array");
  
             case xil_new_type_t::default_:
-                return _F(_T("new"));
+                return _T("new");
+
+            case xil_new_type_t::stack_alloc:
+                return _T("stack_alloc");
+
+            case xil_new_type_t::stack_allocs:
+                return _T("stack_allocs");
 
             default:
                 X_UNEXPECTED();
@@ -705,14 +711,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         switch (copy_type())
         {
-            case xil_copy_type_t::stack_copy:
-                return _T("stack copy");
-
-            case xil_copy_type_t::block_copy:
-                return _T("block copy");
-
-            case xil_copy_type_t::res_copy:
-                return _T("res copy");
+            case xil_copy_type_t::object_copy:
+                return _T("object copy");
 
             default:
                 X_UNEXPECTED();

@@ -113,9 +113,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        local_define_xilx_t(__region_t & region, local_variable_t * local,
-                                     expression_t * init_expression) _NE
-            : __super_t(region), local(local), init_expression(init_expression)
+        local_define_xilx_t(__region_t & region, local_variable_t * local) _NE
+            : __super_t(region), local(local)
         {
             _A(local != nullptr);
         }
@@ -131,9 +130,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         
         // Local variable.
         local_variable_t * local = nullptr;
-
-        // Init expression.
-        expression_t * init_expression = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////

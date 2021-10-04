@@ -457,22 +457,42 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 		method_base_t * method = nullptr)
     {
         if (arguments == nullptr)
-			return;
+            return;
 
-		for (int index = 0, count = arguments->size(); index < count; index++)
-		{
-			argument_t * argument = (*arguments)[index];
-			expression_t * exp = argument->expression;
-			_A(exp != nullptr);
+        for (int index = 0, count = arguments->size(); index < count; index++)
+        {
+            argument_t * argument = (*arguments)[index];
+            expression_t * exp = argument->expression;
+            _A(exp != nullptr);
 
-			vtype_t vtype = vtype_t::__default__;
-			if (method != nullptr)
-				vtype = method->get_param_vtype(index);
+            type_t * atype = method->get_param_type(index);
+            _A(atype != nullptr);
 
-			xil_type_t xil_type = to_xil_type(vtype);
-			if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
-				exp->compile(ctx, pool, xil_type);
-		}
+            if (is_custom_struct(atype))
+            {
+                pool.append<x_stack_alloc_xil_t>(__ref_of(ctx, atype));
+
+                if (exp->this_family() == expression_family_t::new_)
+                {
+                    new_expression_t * new_exp = (new_expression_t *)exp;
+                    new_exp->compile(ctx, pool, xil_type_t::empty);
+                }
+                else
+                {
+                    // TODO: Copy struct.
+                }
+            }
+            else
+            {
+                vtype_t vtype = vtype_t::__default__;
+                if (method != nullptr)
+                    vtype = method->get_param_vtype(index);
+
+                xil_type_t xil_type = to_xil_type(vtype);
+                if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
+                    exp->compile(ctx, pool, xil_type);
+            }
+        }
     }
 
     enum class __assign_to_type_t { default_, pop, pick };
@@ -883,13 +903,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else
         {
-            xil_type_t xil_type = __to_xil_type(ctx, variable);
-
             msize_t index = variable->param->index;
             if (!__is_static(call_type_of_method(ctx.statement_ctx.method)))
 				index++;
 
-            pool.append<x_push_argument_xil_t>(xil_type, index);
+            type_t * type = variable->get_type(__xpool(ctx));
+
+            // TODO: when member point, int, long ... types also should be ptr type.
+            if (is_custom_struct(type))
+                pool.append<x_push_argument_addr_xil_t>(index);
+            else
+                pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
 		}
     }
 

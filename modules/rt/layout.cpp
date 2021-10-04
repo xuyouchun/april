@@ -713,30 +713,30 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Appends a param.
     void params_layout_t::append(ref_t type_ref, param_type_t param_type)
     {
-		if (param_type == param_type_t::extends)
-		{
-			if (__extends_params_offset < 0)
-				__extends_params_offset = __current_offset;
+        if (param_type == param_type_t::extends)
+        {
+            if (__extends_params_offset < 0)
+                __extends_params_offset = __current_offset;
 
-			param_type = param_type_t::__default__;
-		}
+            param_type = param_type_t::__default__;
+        }
 
-		rt_generic_param_t * gp;
-		int index;
+        rt_generic_param_t * gp;
+        int index;
 
         rt_type_t * type = __get_type(type_ref, &gp, &index);
-		append(type, param_type);
+        append(type, param_type);
 
-		// Params generic type.
-		if (gp != nullptr && (generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
-		{
-			for (size_t index1 = index + 1, count = __ctx.gp_manager->size();
-				index1 < count; index1++)
-			{
-				rt_type_t * type1 = __ctx.gp_manager->type_at(index1);
-				append(type1, param_type);
-			}
-		}
+        // Params generic type.
+        if (gp != nullptr && (generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
+        {
+            for (size_t index1 = index + 1, count = __ctx.gp_manager->size();
+                index1 < count; index1++)
+            {
+                rt_type_t * type1 = __ctx.gp_manager->type_at(index1);
+                append(type1, param_type);
+            }
+        }
     }
 
     // Appends a param.

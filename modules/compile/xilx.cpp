@@ -96,10 +96,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(type != nullptr);
 
 		if (is_custom_struct(type))	// custom struct 
-		{
-            
-			return;
-		}
+            X_UNEXPECTED();
 
         #define __Append(name, xil_type)                                    \
             pool.append<x_##name##_local_xil_t>(                            \
@@ -353,30 +350,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Local define xilx.
     void local_define_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        type_t * type;
-
-        // if has init_expression, will call constructor in local_assign_xilx_t
-        if (init_expression == nullptr
-            && is_custom_struct(type = local->get_type(__xpool(ctx))))
-        {
-            atypes_t atypes;
-            analyze_members_args_t args(member_type_t::method, name_t::null, &atypes);
-            args.method_trait = method_trait_t::constructor;
-
-            method_t * constructor = (method_t *)type->get_member(args);
-            if (constructor != nullptr)
-            {
-                pool.append<x_push_local_addr_xil_t>(local->identity);
-
-                ref_t method_ref = __search_method_ref(ctx, constructor);
-                xil_call_type_t call_type = __get_constructor_calltype(type, constructor);
-                pool.append<x_call_xil_t>(call_type, method_ref);
-            }
-            else
-            {
-                throw _ED(__e_t::default_constructor_missing, type);
-            }
-        }
+        // Empty.
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -395,18 +369,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(type != nullptr);
 
         // Custom struct
-        if (is_custom_struct(type) && expression->this_family() == expression_family_t::new_)
+        if (is_custom_struct(type))
         {
-            // Do not need to assign, only put address of this local variable,
-            //   and then execute constructor on this local variable.
-            // See also: __compile_new_struct_object() in expression.cpp
+            if (expression->this_family() == expression_family_t::new_)
+            {
+                // Do not need to assign, only put address of this local variable,
+                //   and then execute constructor on this local variable.
+                // See also: __compile_new_struct_object() in expression.cpp
 
-            new_expression_t * new_exp = (new_expression_t *)expression;
+                new_expression_t * new_exp = (new_expression_t *)expression;
 
-            if (new_exp->constructor != nullptr)
+                if (new_exp->constructor != nullptr)
+                    pool.append<x_push_local_addr_xil_t>(local->identity);
+
+                __compile_expression(ctx, pool, expression);
+            }
+            else  // assign
+            {
+                __compile_expression(ctx, pool, expression);
+
                 pool.append<x_push_local_addr_xil_t>(local->identity);
-
-            __compile_expression(ctx, pool, expression);
+                pool.append<x_object_copy_xil_t>(__ref_of(ctx, type));
+            }
 
             return;
         }

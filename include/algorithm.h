@@ -373,6 +373,86 @@ namespace X_ROOT_NS { namespace algorithm {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // Quick copy.
+
+    namespace
+    {
+        template<size_t _size, bool _large = (_size > sizeof(uint64_t))>
+        struct __quick_copy_t
+        {
+            X_ALWAYS_INLINE static void copy(void * dst, const void * src) _NE
+            {
+                switch (_size)
+                {
+                    case 0:
+                        break;
+
+                    case 1:
+                        *(uint8_t *)dst = *(const uint8_t *)src;
+                        break;
+
+                    case 2:
+                        *(uint16_t *)dst = *(const uint16_t *)src;
+                        break;
+
+                    case 3:
+                        *(uint16_t *)dst = *(const uint16_t *)src;
+                        *(uint8_t *)((uint16_t *)dst + 1) =
+                                        *(const uint8_t *)((const uint16_t *)src + 1);
+                        break;
+
+                    case 4:
+                        *(uint32_t *)dst = *(const uint32_t *)src;
+                        break;
+
+                    case 5:
+                        *(uint32_t *)dst = *(const uint32_t *)src;
+                        *(uint8_t *)((uint32_t *)dst + 1) =
+                                        *(const uint8_t *)((const uint32_t *)src + 1);
+                        break;
+
+                    case 6:
+                        *(uint32_t *)dst = *(const uint32_t *)src;
+                        *(uint16_t *)((uint32_t *)dst + 1) =
+                                        *(const uint16_t *)((const uint32_t *)src + 1);
+                        break;
+
+                    case 7:
+                        *(uint32_t *)dst = *(const uint32_t *)src;
+                        *(uint16_t *)((uint32_t *)dst + 1) =
+                                        *(const uint16_t *)((const uint32_t *)src + 1);
+                        *(uint8_t *)(((uint16_t *)((uint32_t *)dst + 1)) + 1) =
+                            *(const uint8_t *)((const uint16_t *)((const uint32_t *)src + 1) + 1);
+                        break;
+
+                    case 8:
+                        *(uint64_t *)dst = *(const uint64_t *)src;
+                        break;
+                }
+            } 
+        };
+
+        template<size_t _size> // _large is _size > sizeof(uint64_t)
+        struct __quick_copy_t<_size, true>
+        {
+            X_ALWAYS_INLINE static void copy(void * dst, const void * src) _NE
+            {
+                __quick_copy_t<sizeof(uint64_t)>::copy(dst, src);
+
+                __quick_copy_t<_size - sizeof(uint64_t)>::copy(
+                    (uint64_t *)dst + 1, (const uint64_t *)src + 1
+                );
+            }
+        };
+    }
+
+    template<size_t _size>
+    X_ALWAYS_INLINE void quick_copy(void * dst, const void * src) _NE
+    {
+        __quick_copy_t<_size>::copy(dst, src);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
 
     // A multikey structure contains various values that can compare.
     // Be used for key of map that contains various values.
