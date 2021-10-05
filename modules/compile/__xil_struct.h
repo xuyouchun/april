@@ -462,10 +462,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     struct x_object_copy_xil_t : xil_extra_t<copy_xil_t>
     {
         typedef xil_extra_t<copy_xil_t> __super_t;
+        typedef xil_copy_kind_t         __copy_kind_t;
 
-        x_object_copy_xil_t(ref_t type_ref) _NE : __super_t(xil_copy_type_t::object_copy)
+        x_object_copy_xil_t(ref_t type_ref, __copy_kind_t copy_kind = __copy_kind_t::default_) _NE
+            : __super_t(xil_copy_type_t::object_copy)
         {
             this->set_type_ref(type_ref);
+            this->set_copy_kind(copy_kind);
         }
     };
 

@@ -10,23 +10,19 @@ class Project1
     {
         Console.WriteLine("Start ...");
 
-        MyStruct obj1 = new MyStruct(1, 3);
-        MyStruct obj2 = obj1;
-        MyStruct obj3 = obj2;
+        MyStruct obj1 = new MyStruct(10, 20);
+        MyStruct obj2 = new MyStruct(30, 40);
 
-        Console.WriteLine(
-            obj2.A * 100 + obj3.B * 100
-        );
-
-        // __MyMethod( new MyStruct(10, 2), new MyStruct(20, 5) );
+        __MyMethod( obj1, obj2 );
     }
 
-    /*
     private static void __MyMethod(MyStruct obj1, MyStruct obj2)
     {
-        Console.WriteLine(obj1.A + obj2.A);
+        int a1 = obj1.A, b1 = obj1.B;
+        int a2 = obj2.A, b2 = obj2.B;
+
+        Console.WriteLine(a1 + b1 + a2 + b2);
     }
-    */
 };
 
 

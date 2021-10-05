@@ -366,6 +366,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Copy kind.
+    X_ENUM_INFO(xil_copy_kind_t)
+
+        X_C(default_,       _T("default"))
+
+        X_C(reverse,        _T("reverse"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Init type.
     X_ENUM_INFO(xil_init_type_t)
 

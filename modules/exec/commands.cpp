@@ -4852,20 +4852,43 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<size_t _size>
-    class __object_copy_command_t : public __copy_command_base_t
+    template<size_t _size, xil_copy_kind_t _kind = xil_copy_kind_t::default_>
+    struct __memory_copy_operation_t
     {
-        typedef __copy_command_base_t           __super_t;
-        typedef __object_copy_command_t<_size>  __self_t;
-
-    public:
-
-        __BeginExecute(ctx, __ToCopyCmdValue(object_copy, _size))
-            
+        __AlwaysInline static void copy(command_execute_context_t & ctx)
+        {
             void * dst = ctx.stack.pop<void *>();
             void * src = ctx.stack.pop<void *>();
 
             al::quick_copy<_size>(dst, src);
+        }
+    };
+
+    template<size_t _size>
+    struct __memory_copy_operation_t<_size, xil_copy_kind_t::reverse>
+    {
+        __AlwaysInline static void copy(command_execute_context_t & ctx)
+        {
+            void * src = ctx.stack.pop<void *>();
+            void * dst = ctx.stack.pop<void *>();
+
+            al::quick_copy<_size>(dst, src);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<size_t _size, xil_copy_kind_t _kind = xil_copy_kind_t::default_>
+    class __memory_copy_command_t : public __copy_command_base_t
+    {
+        typedef __copy_command_base_t                   __super_t;
+        typedef __memory_copy_command_t<_size, _kind>   __self_t;
+
+    public:
+
+        __BeginExecute(ctx, __ToCopyCmdValue(__default__, _size))
+            
+            __memory_copy_operation_t<_size, _kind>::copy(ctx);
 
         __EndExecute()
 
@@ -4876,66 +4899,101 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
     };
 
-    template<>
-    class __object_copy_command_t<0> : public __copy_command_base_t
+    template<__nokey_t>
+    class __memory_copy_command_ex_t : public __copy_command_base_t
     {
         typedef __copy_command_base_t __super_t;
 
     public:
 
-        __object_copy_command_t(size_t size) _NE : __size(size) { }
+        __memory_copy_command_ex_t(size_t size, xil_copy_kind_t kind) _NE
+            : __size(size), __kind(kind) { }
 
-        __BeginExecute(ctx, __ToCopyCmdValue(object_copy, 0))
+        __BeginExecute(ctx, __ToCopyCmdValue(__default__, 0))
             
+            if (__kind == xil_copy_kind_t::default_)
+            {
+                void * dst = ctx.stack.pop<void *>();
+                void * src = ctx.stack.pop<void *>();
+
+                al::quick_copy(dst, src, __size);
+            }
+            else
+            {
+                void * src = ctx.stack.pop<void *>();
+                void * dst = ctx.stack.pop<void *>();
+
+                al::quick_copy(dst, src, __size);
+            }
+
         __EndExecute()
 
     private:
-        size_t __size;
+        size_t          __size;
+        xil_copy_kind_t __kind;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    struct __object_copy_command_template_t
+    struct __memory_copy_command_template_t
     {
         template<__nokey_t _nokey, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __object_copy_command_t<0> this_command_t;
+            typedef __memory_copy_command_ex_t<_nokey> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    static command_t * __get_object_copy_command(size_t size)
+    static command_t * __get_object_copy_command(size_t size, xil_copy_kind_t kind)
     {
         static __command_manager_t<
-            __object_copy_command_template_t, __nokey_t
-        >::with_args_t<size_t> __object_copy_command_manager;
+            __memory_copy_command_template_t, __nokey_t
+        >::with_args_t<size_t, xil_copy_kind_t> __memory_copy_command_manager;
 
-        switch (size)
+
+        #define __Case(_size, _kind)                                        \
+            case _size:                                                     \
+                return __memory_copy_command_t<_size, _kind>::instance();
+
+        #define __Switch(_size, _kind)                                      \
+            switch (_size)                                                  \
+            {                                                               \
+                __Case(1,   _kind)                                          \
+                __Case(2,   _kind)                                          \
+                __Case(4,   _kind)                                          \
+                __Case(8,   _kind)                                          \
+                __Case(12,  _kind)                                          \
+                __Case(16,  _kind)                                          \
+                __Case(20,  _kind)                                          \
+                __Case(24,  _kind)                                          \
+                __Case(28,  _kind)                                          \
+                __Case(32,  _kind)                                          \
+                                                                            \
+                default:                                                    \
+                    return __memory_copy_command_manager.template get_command<__nokey>( \
+                        __Mv(size), __Mv(kind)                              \
+                    );                                                      \
+            }
+
+        switch (kind)
         {
-            #define __Case(_size)                                       \
-                case _size:                                             \
-                    return __object_copy_command_t<_size>::instance();
+            case xil_copy_kind_t::default_:
+                __Switch(size, xil_copy_kind_t::default_)
+                break;
 
-            __Case(1)
-            __Case(2)
-            __Case(4)
-            __Case(8)
-            __Case(12)
-            __Case(16)
-            __Case(20)
-            __Case(24)
-            __Case(28)
-            __Case(32)
+            case xil_copy_kind_t::reverse:
+                __Switch(size, xil_copy_kind_t::reverse)
+                break;
 
-            #undef __Case
+            default:
+                X_UNEXPECTED();
         }
 
-        return __object_copy_command_manager.template get_command<__nokey>(
-            __Mv(size)
-        );
+        #undef __Case
+        #undef __Switch
     }
 
     static command_t * __new_copy_command(__context_t & ctx, const copy_xil_t & xil)
@@ -4947,8 +5005,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 ref_t type_ref = xil.type_ref();
                 rt_type_t * type = ctx.get_type(type_ref);
                 msize_t size = type->get_size(ctx.env);
+                xil_copy_kind_t kind = xil.copy_kind();
 
-                return __get_object_copy_command(size);
+                return __get_object_copy_command(size, kind);
 
             }   break;
 

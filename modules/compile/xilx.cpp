@@ -387,7 +387,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             else  // assign
             {
                 __compile_expression(ctx, pool, expression);
-
                 pool.append<x_push_local_addr_xil_t>(local->identity);
                 pool.append<x_object_copy_xil_t>(__ref_of(ctx, type));
             }

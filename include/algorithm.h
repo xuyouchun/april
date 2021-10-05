@@ -452,6 +452,8 @@ namespace X_ROOT_NS { namespace algorithm {
         __quick_copy_t<_size>::copy(dst, src);
     }
 
+    void quick_copy(void * dst, const void * src, size_t size) _NE;
+
     ////////// ////////// ////////// ////////// //////////
 
     // A multikey structure contains various values that can compare.

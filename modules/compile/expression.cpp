@@ -470,16 +470,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if (is_custom_struct(atype))
             {
-                pool.append<x_stack_alloc_xil_t>(__ref_of(ctx, atype));
+                ref_t type_ref = __ref_of(ctx, atype);
+                pool.append<x_stack_alloc_xil_t>(type_ref);
 
                 if (exp->this_family() == expression_family_t::new_)
                 {
                     new_expression_t * new_exp = (new_expression_t *)exp;
-                    new_exp->compile(ctx, pool, xil_type_t::empty);
+                    new_exp->compile(ctx, pool);
                 }
                 else
                 {
-                    // TODO: Copy struct.
+                    exp->compile(ctx, pool);
+                    pool.append<x_object_copy_xil_t>(type_ref, xil_copy_kind_t::reverse);
                 }
             }
             else

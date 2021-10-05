@@ -296,7 +296,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     __Enum(xil_copy_type_t)
 
-        object_copy     = 3,            // Copy object.
+        object_copy     = 1,            // Copy object.
+
+    __EnumEnd
+
+    //-------- ---------- ---------- ---------- ----------
+
+    __Enum(xil_copy_kind_t)
+
+        default_        = __default__,  // Default copy kind.
+
+        reverse         = 1,            // Default is dst address at the top, reverse is oppsite.
 
     __EnumEnd
 
@@ -1441,19 +1451,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     __BeginXil(copy)
 
         // Constructors.
-        copy_xil_t(xil_copy_type_t copy_type, xil_type_t dtype = xil_type_t::empty)
-            : __super_t(xil_command_t::copy)
-            , __copy_type((byte_t)copy_type), __dtype((byte_t)dtype)
+        copy_xil_t(xil_copy_type_t copy_type) : __super_t(xil_command_t::copy)
+            , __copy_type((byte_t)copy_type)
         { }
 
         // Returns copy type.
         xil_copy_type_t copy_type() const _NE { return (xil_copy_type_t)__copy_type; }
 
-        // Returns data type.
-        xil_type_t dtype() const _NE { return (xil_type_t)__dtype; }
-
         byte_t  __copy_type : 4;
-        byte_t  __dtype     : 4;
+        byte_t  __data      : 4;
 
         byte_t __extra[0];
 
@@ -1468,6 +1474,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Sets type_ref.       (For object_copy)
         void set_type_ref(ref_t type_ref) _NE { *(ref_t *)__extra = type_ref; }
+
+        // Copy kind.           (For object_copy)
+        xil_copy_kind_t copy_kind() const _NE { return (xil_copy_kind_t)__data; }
+
+        // Set copy kind.       (For object_copy)
+        void set_copy_kind(xil_copy_kind_t kind) _NE { __data = (byte_t)kind; }
 
         // Converts to a string.
         operator string_t() const;
