@@ -19,11 +19,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return to_xil_type(vtype);
     }
 
-	// Returns xpool of expression_compile_context_t
-	X_ALWAYS_INLINE static xpool_t & __xpool(__xw_context_t & ctx)
-	{
-		return ((statement_compile_context_t &)ctx).xpool();
-	}
+    // Returns xpool of expression_compile_context_t
+    X_ALWAYS_INLINE static xpool_t & __xpool(__xw_context_t & ctx)
+    {
+        return ((statement_compile_context_t &)ctx).xpool();
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -90,37 +90,37 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Writes assign xil for local variable.
     void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, local_variable_t * local,
-									  xil_type_t dtype, bool pick)
+                                    xil_type_t dtype, bool pick)
     {
         type_t * type = to_type(local->type_name);
         _A(type != nullptr);
 
-		if (is_custom_struct(type))	// custom struct 
+        if (is_custom_struct(type))     // custom struct 
             X_UNEXPECTED();
 
         #define __Append(name, xil_type)                                    \
             pool.append<x_##name##_local_xil_t>(                            \
-                xil_type, local->identity									\
+                xil_type, local->identity                                   \
             )
 
-        #define __Write(xil_type)											\
-			do {															\
-				if (pick)                                                   \
-	                __Append(pick, xil_type);                               \
-		        else                                                        \
-			        __Append(pop, xil_type);								\
-			} while (false)
+        #define __Write(xil_type)                                           \
+            do {                                                            \
+                if (pick)                                                   \
+                    __Append(pick, xil_type);                               \
+                else                                                        \
+                    __Append(pop, xil_type);                                \
+            } while (false)
             
         switch (type->this_gtype())
         {
             case gtype_t::general: {
 
-				if (dtype == xil_type_t::empty)
-					dtype = to_xil_type(((general_type_t *)type)->vtype);
+                if (dtype == xil_type_t::empty)
+                    dtype = to_xil_type(((general_type_t *)type)->vtype);
 
-				__Write(dtype);
+                __Write(dtype);
 
-			}	break;
+            }   break;
 
             case gtype_t::array:
                 __Write(xil_type_t::object);
@@ -145,7 +145,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Writes assign xil for param variable.
     void xil::write_assign_xil(__sctx_t & sctx, xil_pool_t & pool, param_variable_t * param_var,
-							xil_type_t dtype, bool pick)
+                            xil_type_t dtype, bool pick)
     { 
         _A(param_var != nullptr);
         _A(param_var->param != nullptr);
@@ -153,11 +153,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * type = to_type(param_var->param->type_name);
         _A(type != nullptr);
 
-		if (is_custom_struct(type))	// custom struct 
-		{
-			// TODO: copy struct.
-			return;
-		}
+        if (is_custom_struct(type))     // custom struct 
+            X_UNEXPECTED();
 
         msize_t index = param_var->param->index;
         if (call_type_of_method(sctx.method) != xil_call_type_t::static_)
@@ -169,7 +166,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             )
 
         #define __Write(xil_type)                                           \
-            if (pick)                                                        \
+            if (pick)                                                       \
                 __Append(pick, xil_type);                                   \
             else                                                            \
                 __Append(pop, xil_type);
@@ -244,11 +241,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * type = to_type(field->type_name);
         _A(type != nullptr);
 
-		if (is_custom_struct(type))	// custom struct 
-		{
-			// TODO: copy struct.
-			return;
-		}
+        if (is_custom_struct(type))     // custom struct 
+            X_UNEXPECTED();
 
         #define __Append(name, xil_type)                                    \
             pool.append<x_##name##_field_xil_t>(                            \
@@ -256,10 +250,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             )
 
         #define __Write(xil_type)                                           \
-                if (pick)                                                   \
-                    __Append(pick, xil_type);                               \
-                else                                                        \
-                    __Append(pop, xil_type);
+            if (pick)                                                       \
+                __Append(pick, xil_type);                                   \
+            else                                                            \
+                __Append(pop, xil_type);
 
         #define __Case(type, xil_type)                                      \
             case vtype_t::type:                                             \
@@ -358,7 +352,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Local assign xilx.
     void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-		// null
+        // null
         if (expression == nullptr)
         {
             write_assign_xil(ctx, pool, local, xil_type_t::empty);
@@ -398,13 +392,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             if (is_constant_expression(ctx, expression))
             {
-				if (is_optimize(ctx, compile_optimize_code_t::auto_determine_constant_variables))
-				{
-					local->constant = true;
-					local->expression = expression;
+                if (is_optimize(ctx, compile_optimize_code_t::auto_determine_constant_variables))
+                {
+                    local->constant = true;
+                    local->expression = expression;
 
-					return;
-				}
+                    return;
+                }
             }
 
             /*

@@ -329,7 +329,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     struct __push_command_template_t
     {
         template<xil_storage_type_t stype, xil_type_t dtype1, xil_type_t dtype2,
-														typename ... args_t>
+                                                            typename ... args_t>
         static auto new_command(memory_t * memory, args_t && ... args)
         {
             typedef __push_command_t<stype, dtype1, dtype2> this_command_t;
@@ -448,17 +448,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-	// _xil_type1: the xil type of constant value
-	// _xil_type2: the xil type of stack unit
+    // _xil_type1: the xil type of constant value
+    // _xil_type2: the xil type of stack unit
 
-    #define __LocalAddress(offset)	    ((void *)((byte_t *)ctx.stack.lp() + offset))
-    #define __Local(type_t, offset)		(*((type_t *)__LocalAddress(offset)))
+    #define __LocalAddress(offset)      ((void *)((byte_t *)ctx.stack.lp() + offset))
+    #define __Local(type_t, offset)     (*((type_t *)__LocalAddress(offset)))
 
-    #define __ToPushCmdValue(_stype, _xil_type1, _xil_type2)						\
+    #define __ToPushCmdValue(_stype, _xil_type1, _xil_type2)                        \
         __ToCmdValue(push,                                                          \
-            ((cmd_value_t)xil_storage_type_t::_stype << 16) |						\
-			((cmd_value_t)_xil_type1 << 8) |										\
-			((cmd_value_t)_xil_type2)												\
+            ((cmd_value_t)xil_storage_type_t::_stype << 16) |                       \
+            ((cmd_value_t)_xil_type1 << 8) |                                        \
+            ((cmd_value_t)_xil_type2)                                               \
         )
 
     template<xil_type_t _xil_type1, xil_type_t _xil_type2>
@@ -499,8 +499,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Push commands.
 
     #define __BeginPushCommand(s, d1, v1_t, d2, v2_t)                           \
-        template<> class __push_command_t<xil_storage_type_t::s,				\
-										  xil_type_t::d1, xil_type_t::d2>		\
+        template<> class __push_command_t<xil_storage_type_t::s,                \
+                                            xil_type_t::d1, xil_type_t::d2>     \
             : public __command_base_t                                           \
         {                                                                       \
             typedef v1_t     __value1_t;                                        \
@@ -511,8 +511,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
             __BeginToString(ctx)                                                \
                                                                                 \
-                return _F(_T("push %1% %2% %3% [%4%]"), xil_storage_type_t::s,	\
-					xil_type_t::d1, xil_type_t::d2, __offset);					\
+                return _F(_T("push %1% %2% %3% [%4%]"), xil_storage_type_t::s,  \
+                    xil_type_t::d1, xil_type_t::d2, __offset);                  \
                                                                                 \
             __EndToString()                                                     \
                                                                                 \
@@ -532,47 +532,47 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __LocalPushCommand(d1, v1_t, d2, v2_t)                              \
         __BeginPushCommand(local, d1, v1_t, d2, v2_t)                           \
-            ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __offset)));	\
+            ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __offset))); \
         __EndPushCommand()
 
-	#define __LocalPushCommands(d2, v2_t)										\
+    #define __LocalPushCommands(d2, v2_t)                                       \
                                                                                 \
-        __LocalPushCommand(int8,      int8_t,	d2, v2_t)						\
-        __LocalPushCommand(uint8,     uint8_t,	d2, v2_t)						\
+        __LocalPushCommand(int8,      int8_t,   d2, v2_t)                       \
+        __LocalPushCommand(uint8,     uint8_t,  d2, v2_t)                       \
                                                                                 \
-        __LocalPushCommand(int16,     int16_t,	d2, v2_t)						\
-        __LocalPushCommand(uint16,    uint16_t,	d2, v2_t)						\
-        __LocalPushCommand(int32,     int32_t,	d2, v2_t)						\
-        __LocalPushCommand(uint32,    uint32_t,	d2, v2_t)						\
+        __LocalPushCommand(int16,     int16_t,  d2, v2_t)                       \
+        __LocalPushCommand(uint16,    uint16_t, d2, v2_t)                       \
+        __LocalPushCommand(int32,     int32_t,  d2, v2_t)                       \
+        __LocalPushCommand(uint32,    uint32_t, d2, v2_t)                       \
                                                                                 \
-        __LocalPushCommand(int64,     int64_t,	d2, v2_t)						\
-        __LocalPushCommand(uint64,    uint64_t,	d2, v2_t)						\
+        __LocalPushCommand(int64,     int64_t,  d2, v2_t)                       \
+        __LocalPushCommand(uint64,    uint64_t, d2, v2_t)                       \
                                                                                 \
-        __LocalPushCommand(float_,    float_t,	d2, v2_t)						\
-        __LocalPushCommand(double_,   double_t,	d2, v2_t)						\
+        __LocalPushCommand(float_,    float_t,  d2, v2_t)                       \
+        __LocalPushCommand(double_,   double_t, d2, v2_t)                       \
                                                                                 \
-        __LocalPushCommand(char_,     char_t,	d2, v2_t)						\
-        __LocalPushCommand(bool_,     bool_t,	d2, v2_t)
+        __LocalPushCommand(char_,     char_t,   d2, v2_t)                       \
+        __LocalPushCommand(bool_,     bool_t,   d2, v2_t)
 
-	// __LocalPushCommands
+    // __LocalPushCommands
 
-	__LocalPushCommands(int8,      int8_t)
-	__LocalPushCommands(uint8,     uint8_t)
+    __LocalPushCommands(int8,      int8_t)
+    __LocalPushCommands(uint8,     uint8_t)
 
-	__LocalPushCommands(int16,     int16_t)
-	__LocalPushCommands(uint16,    uint16_t)
+    __LocalPushCommands(int16,     int16_t)
+    __LocalPushCommands(uint16,    uint16_t)
 
-	__LocalPushCommands(int32,     int32_t)
-	__LocalPushCommands(uint32,    uint32_t)
+    __LocalPushCommands(int32,     int32_t)
+    __LocalPushCommands(uint32,    uint32_t)
 
-	__LocalPushCommands(int64,     int64_t)
-	__LocalPushCommands(uint64,    uint64_t)
+    __LocalPushCommands(int64,     int64_t)
+    __LocalPushCommands(uint64,    uint64_t)
 
-	__LocalPushCommands(float_,    float_t)
-	__LocalPushCommands(double_,   double_t)
+    __LocalPushCommands(float_,    float_t)
+    __LocalPushCommands(double_,   double_t)
 
-	__LocalPushCommands(char_,     char_t)
-	__LocalPushCommands(bool_,     bool_t)
+    __LocalPushCommands(char_,     char_t)
+    __LocalPushCommands(bool_,     bool_t)
 
     __BeginPushCommand(local, object, rt_ref_t, object, rt_ref_t)
         ctx.stack.push(__Local(rt_ref_t, __offset));
@@ -642,8 +642,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __Argument(type_t, offset) (*(type_t *)__ArgumentAddress(offset))
 
     #define __BeginArgumentPushCommand(d1, v1_t, d2, v2_t)                      \
-        template<> class __push_command_t<xil_storage_type_t::argument,			\
-										xil_type_t::d1, xil_type_t::d2>			\
+        template<> class __push_command_t<xil_storage_type_t::argument,         \
+                                        xil_type_t::d1, xil_type_t::d2>         \
             : public __command_base_t                                           \
         {                                                                       \
             typedef v1_t     __value1_t;                                        \
@@ -672,18 +672,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __ArgumentPushCommand(d1, v1_t, d2, v2_t)                           \
         __BeginArgumentPushCommand(d1, v1_t, d2, v2_t)                          \
-            ctx.stack.push(static_cast<__value2_t>(								\
-				__Argument(__value1_t, __offset + __stack_stub_size)			\
-			));																	\
+            ctx.stack.push(static_cast<__value2_t>(                             \
+                __Argument(__value1_t, __offset + __stack_stub_size)            \
+            ));                                                                 \
         __EndArgumentPushCommand()
 
     //-------- ---------- ---------- ---------- ----------
 
-	#define __ArgumentPushCommands(d2, v2_t)									\
-																				\
-		__ArgumentPushCommand(int8,      int8_t,		d2,	v2_t)				\
-		__ArgumentPushCommand(uint8,     uint8_t,		d2,	v2_t)				\
-																				\
+    #define __ArgumentPushCommands(d2, v2_t)                                    \
+                                                                                \
+        __ArgumentPushCommand(int8,      int8_t,        d2, v2_t)               \
+        __ArgumentPushCommand(uint8,     uint8_t,       d2, v2_t)               \
+                                                                                \
 		__ArgumentPushCommand(int16,     int16_t,		d2,	v2_t)				\
 		__ArgumentPushCommand(uint16,    uint16_t,		d2, v2_t)				\
 																				\
@@ -728,7 +728,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
     __EndPushCommand()
 
-	__BeginPushCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
+    __BeginPushCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
         ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
     __EndPushCommand()
 
@@ -740,8 +740,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __EndPushCommand()
     //-------- ---------- ---------- ---------- ----------
 
-	static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
-	{
+    static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
+    {
         switch ((mt_member_extra_t)field_ref.extra)
         {
             case mt_member_extra_t::import:
@@ -766,20 +766,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return ctx.to_generic_type(rt_general_field_type);
             }
 
-			case mt_member_extra_t::position: {
+            case mt_member_extra_t::position: {
 
                 rt_type_t * type = ctx.get_host_type_by_field_ref(field_ref);
                 _A(type != nullptr);
-				_A(type->get_kind() == rt_type_kind_t::generic);
+                _A(type->get_kind() == rt_type_kind_t::generic);
 
-				rt_generic_type_t * generic_type = (rt_generic_type_t *)type;
-				_A(generic_type->atypes != nullptr);
+                rt_generic_type_t * generic_type = (rt_generic_type_t *)type;
+                _A(generic_type->atypes != nullptr);
 
-				int index = field_ref.index;
-				_A(index < generic_type->atype_count());
+                int index = field_ref.index;
+                _A(index < generic_type->atype_count());
 
-				return generic_type->atypes[index];
-			}
+                return generic_type->atypes[index];
+            }
 
             case mt_member_extra_t::generic: {
 
@@ -792,8 +792,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             default:
                 X_UNEXPECTED();
         }
-
-	}
+    }
 
     static msize_t __field_offset(__context_t & ctx, ref_t field_ref)
     {
@@ -820,14 +819,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return type->get_field_offset(ctx.env, field_ref);
             }
 
-			case mt_member_extra_t::position: {
+            case mt_member_extra_t::position: {
 
                 rt_type_t * type = ctx.get_host_type_by_field_ref(field_ref);
                 _A(type != nullptr);
 
-				mt_position_field_t * mt = ctx.current->mt_of_position_field(field_ref);
-				return type->get_field_offset(ctx.env, mt->position);
-			}
+                mt_position_field_t * mt = ctx.current->mt_of_position_field(field_ref);
+                return type->get_field_offset(ctx.env, mt->position);
+            }
 
             case mt_member_extra_t::generic: {
 
@@ -847,12 +846,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __Field(type_t, p, offset)      (*__PField(type_t, p, offset))
 
     #define __BeginFieldPushCommand(d1, v1_t, d2, v2_t)                         \
-        template<> class __push_command_t<xil_storage_type_t::field,			\
-							xil_type_t::d1, xil_type_t::d2>						\
+        template<> class __push_command_t<xil_storage_type_t::field,            \
+                            xil_type_t::d1, xil_type_t::d2>                     \
             : public __command_base_t                                           \
         {                                                                       \
-            typedef v1_t     __value1_t;										\
-            typedef v2_t     __value2_t;										\
+            typedef v1_t     __value1_t;                                        \
+            typedef v2_t     __value2_t;                                        \
                                                                                 \
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
@@ -877,31 +876,31 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __FieldPushCommand(d1, v1_t, d2, v2_t)                              \
         __BeginFieldPushCommand(d1, v1_t, d2, v2_t)                             \
-            ctx.stack.push(static_cast<__value2_t>(								\
-				__Field(__value1_t, ctx.stack.pop<rt_ref_t>(), __offset)		\
-			));																	\
+            ctx.stack.push(static_cast<__value2_t>(                             \
+                __Field(__value1_t, ctx.stack.pop<rt_ref_t>(), __offset)        \
+            ));                                                                 \
         __EndFieldPushCommand()
 
 
-	#define __FieldPushCommands(d2, v2_t)										\
-																				\
-		__FieldPushCommand(int8,      int8_t,		d2, v2_t)					\
-		__FieldPushCommand(uint8,     uint8_t,		d2, v2_t)					\
-																				\
-		__FieldPushCommand(int16,     int16_t,		d2, v2_t)					\
-		__FieldPushCommand(uint16,    uint16_t,		d2, v2_t)					\
-																				\
-		__FieldPushCommand(int32,     int32_t,		d2, v2_t)					\
-		__FieldPushCommand(uint32,    uint32_t,		d2, v2_t)					\
-																				\
-		__FieldPushCommand(int64,     int64_t,		d2, v2_t)					\
-		__FieldPushCommand(uint64,    uint64_t,		d2, v2_t)					\
-																				\
-		__FieldPushCommand(float_,    float_t,		d2, v2_t)					\
-		__FieldPushCommand(double_,   double_t,		d2, v2_t)					\
-																				\
-		__FieldPushCommand(char_,     char_t,		d2, v2_t)					\
-		__FieldPushCommand(bool_,     bool_t,		d2, v2_t)
+    #define __FieldPushCommands(d2, v2_t)                                       \
+                                                                                \
+        __FieldPushCommand(int8,      int8_t,       d2, v2_t)                   \
+        __FieldPushCommand(uint8,     uint8_t,      d2, v2_t)                   \
+                                                                                \
+        __FieldPushCommand(int16,     int16_t,      d2, v2_t)                   \
+        __FieldPushCommand(uint16,    uint16_t,     d2, v2_t)                   \
+                                                                                \
+        __FieldPushCommand(int32,     int32_t,      d2, v2_t)                   \
+        __FieldPushCommand(uint32,    uint32_t,     d2, v2_t)                   \
+                                                                                \
+        __FieldPushCommand(int64,     int64_t,      d2, v2_t)                   \
+        __FieldPushCommand(uint64,    uint64_t,     d2, v2_t)                   \
+                                                                                \
+        __FieldPushCommand(float_,    float_t,      d2, v2_t)                   \
+        __FieldPushCommand(double_,   double_t,     d2, v2_t)                   \
+                                                                                \
+        __FieldPushCommand(char_,     char_t,       d2, v2_t)                   \
+        __FieldPushCommand(bool_,     bool_t,       d2, v2_t)
 
 
     __FieldPushCommands(int8,      int8_t)
@@ -1033,19 +1032,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __RtTypeOf(rt_ref)  (mm::get_object_type(rt_ref))
 
-    #define __ToPushArrayElementCmdValue(_xil_type1, _xil_type2, _dimension) (	\
-        __ToCmdValue(push,														\
-			((cmd_value_t)xil_storage_type_t::array_element << 16)				\
-            | (((cmd_value_t)_xil_type1) << 12)									\
-            | (((cmd_value_t)_xil_type2) << 8)									\
-		)	| (cmd_value_t)_dimension											\
-	)
+    #define __ToPushArrayElementCmdValue(_xil_type1, _xil_type2, _dimension) (  \
+        __ToCmdValue(push,                                                      \
+            ((cmd_value_t)xil_storage_type_t::array_element << 16)              \
+            | (((cmd_value_t)_xil_type1) << 12)                                 \
+            | (((cmd_value_t)_xil_type2) << 8)                                  \
+        )   | (cmd_value_t)_dimension                                           \
+    )
 
     template<xil_type_t _xil_type1, xil_type_t _xil_type2, int _dimension>
     class __push_array_element_command_t : public __command_base_t
     {
-		typedef __vnum_t<_xil_type1> __value1_t;
-		typedef __vnum_t<_xil_type2> __value2_t;
+        typedef __vnum_t<_xil_type1> __value1_t;
+        typedef __vnum_t<_xil_type2> __value2_t;
 
     public:
         __BeginToString(ctx)
@@ -1077,8 +1076,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<xil_type_t _xil_type1, xil_type_t _xil_type2>
     class __push_array_element_command_t<_xil_type1, _xil_type2, 0> : public __command_base_t
     {
-		typedef __vnum_t<_xil_type1> __value1_t;
-		typedef __vnum_t<_xil_type2> __value2_t;
+        typedef __vnum_t<_xil_type1> __value1_t;
+        typedef __vnum_t<_xil_type2> __value2_t;
 
     public:
 
@@ -1150,38 +1149,38 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-	static rt_array_type_t * __array_type(__context_t & ctx, ref_t type_ref)
-	{
+    static rt_array_type_t * __array_type(__context_t & ctx, ref_t type_ref)
+    {
         rt_type_t * rt_type = ctx.get_type(type_ref);
         _A(rt_type->get_kind() == rt_type_kind_t::array);
 
         return (rt_array_type_t *)rt_type;
-	}
+    }
 
-	static rt_type_t * __array_element_type(__context_t & ctx, ref_t type_ref)
-	{
-		rt_array_type_t * array_type = __array_type(ctx, type_ref);
+    static rt_type_t * __array_element_type(__context_t & ctx, ref_t type_ref)
+    {
+        rt_array_type_t * array_type = __array_type(ctx, type_ref);
         rt_type_t * element_type = array_type->element_type;
 
-		_A(element_type != nullptr);
+        _A(element_type != nullptr);
 
         return element_type;
-	}
+    }
 
     static dimension_t __array_dimension(__context_t & ctx, ref_t type_ref)
     {
-		return __array_type(ctx, type_ref)->dimension;
+        return __array_type(ctx, type_ref)->dimension;
     }
 
     //-------- ---------- ---------- ---------- ----------
 
-	template<__nokey_t>
+    template<__nokey_t>
     class __push_params_address_command_t : public __command_base_t
     {
     public:
-		__push_params_address_command_t(__offset_t offset)
-			: __offset(offset)
-		{ }
+        __push_params_address_command_t(__offset_t offset)
+            : __offset(offset)
+        { }
 
         __BeginToString(ctx)
 
@@ -1192,13 +1191,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __BeginExecute(ctx, __ToCmdValue(params, ((cmd_value_t)xil_storage_type_t::params << 16)))
 
             ctx.stack.push<rt_stack_unit_t *>(
-				(rt_stack_unit_t *)ctx.stack.lp() - __offset - 1
-			);
+                (rt_stack_unit_t *)ctx.stack.lp() - __offset - 1
+            );
 
         __EndExecute()
 
-	private:
-		__offset_t __offset;
+    private:
+        __offset_t __offset;
     };
 
     struct __push_params_address_template_t
@@ -1213,49 +1212,49 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-	static xil_type_t __xil_type_of(__context_t & ctx, rt_type_t * type)
-	{
-		_A(type != nullptr);
+    static xil_type_t __xil_type_of(__context_t & ctx, rt_type_t * type)
+    {
+        _A(type != nullptr);
 
-		vtype_t vtype = type->get_vtype(ctx.env);
-		return to_xil_type(vtype);
-	}
+        vtype_t vtype = type->get_vtype(ctx.env);
+        return to_xil_type(vtype);
+    }
 
-	template<typename _xil_t>
-	void __analyze_xil_types(__context_t & ctx, const _xil_t & xil,
-					xil_type_t * out_dtype1, xil_type_t * out_dtype2)
-	{
+    template<typename _xil_t>
+    void __analyze_xil_types(__context_t & ctx, const _xil_t & xil,
+                            xil_type_t * out_dtype1, xil_type_t * out_dtype2)
+    {
         xil_storage_type_t stype = xil.stype();
         *out_dtype2 = __fetch_dtype(ctx, xil);
 
-		// Gets xil_type of data source.
-		switch (stype)
-		{
-			case xil_storage_type_t::local:
+        // Gets xil_type of data source.
+        switch (stype)
+        {
+            case xil_storage_type_t::local:
             case xil_storage_type_t::local_addr:
-				*out_dtype1 = __xil_type_of(ctx, ctx.locals_layout.type_at(xil.get_identity()));
-				break;
+                *out_dtype1 = __xil_type_of(ctx, ctx.locals_layout.type_at(xil.get_identity()));
+                break;
 
-			case xil_storage_type_t::argument:
+            case xil_storage_type_t::argument:
             case xil_storage_type_t::argument_addr:
-				*out_dtype1 = __xil_type_of(ctx, ctx.params_layout.type_at(xil.get_identity()));
-				break;
+                *out_dtype1 = __xil_type_of(ctx, ctx.params_layout.type_at(xil.get_identity()));
+                break;
 
-			case xil_storage_type_t::field:
+            case xil_storage_type_t::field:
             case xil_storage_type_t::field_addr:
-				*out_dtype1 = __xil_type_of(ctx, __field_type(ctx, xil.field_ref()));
-				break;
+                *out_dtype1 = __xil_type_of(ctx, __field_type(ctx, xil.field_ref()));
+                break;
 
-			case xil_storage_type_t::array_element:
+            case xil_storage_type_t::array_element:
             case xil_storage_type_t::array_element_addr:
-				*out_dtype1 = __xil_type_of(ctx, __array_element_type(ctx, xil.type_ref()));
-				break;
+                *out_dtype1 = __xil_type_of(ctx, __array_element_type(ctx, xil.type_ref()));
+                break;
 
-			default:
-				*out_dtype1 = *out_dtype2;
-				break;
-		}
-	}
+            default:
+                *out_dtype1 = *out_dtype2;
+                break;
+        }
+    }
 
     static command_t * __new_push_command(__context_t & ctx, const push_xil_t & xil)
     {
@@ -1302,9 +1301,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __push_array_element_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
-		static __command_manager_t<
-			__push_params_address_template_t, __nokey_t
-		>::with_args_t<__offset_t> __params_address_command_manager;
+        static __command_manager_t<
+            __push_params_address_template_t, __nokey_t
+        >::with_args_t<__offset_t> __params_address_command_manager;
 
         xil_storage_type_t stype = xil.stype();
 
@@ -1342,14 +1341,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             (_xil.dtype() == xil_type_t::empty?                                 \
                 default_value_of<const char_t *>() : ctx.to_cstr(__read_extra<res_t>(_xil)))
 
-		xil_type_t dtype1, dtype2;
-		__analyze_xil_types(ctx, xil, &dtype1, &dtype2);
+        xil_type_t dtype1, dtype2;
+        __analyze_xil_types(ctx, xil, &dtype1, &dtype2);
 
         switch (__V(stype, dtype1, dtype2))
         {
             // Constant values.
             #define __CaseConstant(_name, _t1, _d1, _t2, _d2)                   \
-                case __V(xil_storage_type_t::constant, xil_type_t::_d1, xil_type_t::_d2):	\
+                case __V(xil_storage_type_t::constant, xil_type_t::_d1, xil_type_t::_d2):   \
                     return _name##_push_command_manager.template get_command<   \
                         xil_storage_type_t::constant, xil_type_t::_d1, xil_type_t::_d2      \
                     >(__ConstantValue(xil, _t1));
@@ -1364,50 +1363,50 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     xil_storage_type_t::constant, xil_type_t::object, xil_type_t::object
                 >(ctx.get_type(xil.type_ref()));
 
-			#define __CaseConstants(_t2, _d2)									\
-																				\
-				__CaseConstant(int8,    int8_t,     int8,	_t2,	_d2)		\
-				__CaseConstant(uint8,   uint8_t,    uint8,	_t2,	_d2)		\
-																				\
-				__CaseConstant(int16,   int16_t,    int16,	_t2,	_d2)		\
-				__CaseConstant(uint16,  uint16_t,   uint16,	_t2,	_d2)		\
-																				\
-				__CaseConstant(int32,   int32_t,    int32,	_t2,	_d2)		\
-				__CaseConstant(uint32,  uint32_t,   uint32,	_t2,	_d2)		\
-																				\
-				__CaseConstant(int64,   int64_t,    int64,	_t2,	_d2)		\
-				__CaseConstant(uint64,  uint64_t,   uint64,	_t2,	_d2)		\
-																				\
-				__CaseConstant(float,   float_t,    float_,	_t2,	_d2)		\
-				__CaseConstant(double,  double_t,   double_, _t2,	_d2)		\
-																				\
-				__CaseConstant(bool,    bool_t,     bool_,	_t2,	_d2)		\
-				__CaseConstant(char,    char_t,     char_,	_t2,	_d2)
+            #define __CaseConstants(_t2, _d2)                                   \
+                                                                                \
+                __CaseConstant(int8,    int8_t,     int8,   _t2,    _d2)        \
+                __CaseConstant(uint8,   uint8_t,    uint8,  _t2,    _d2)        \
+                                                                                \
+                __CaseConstant(int16,   int16_t,    int16,  _t2,    _d2)        \
+                __CaseConstant(uint16,  uint16_t,   uint16, _t2,    _d2)        \
+                                                                                \
+                __CaseConstant(int32,   int32_t,    int32,  _t2,    _d2)        \
+                __CaseConstant(uint32,  uint32_t,   uint32, _t2,    _d2)        \
+                                                                                \
+                __CaseConstant(int64,   int64_t,    int64,  _t2,    _d2)        \
+                __CaseConstant(uint64,  uint64_t,   uint64, _t2,    _d2)        \
+                                                                                \
+                __CaseConstant(float,   float_t,    float_, _t2,    _d2)        \
+                __CaseConstant(double,  double_t,   double_, _t2,   _d2)        \
+                                                                                \
+                __CaseConstant(bool,    bool_t,     bool_,  _t2,    _d2)        \
+                __CaseConstant(char,    char_t,     char_,  _t2,    _d2)
 
 
-			__CaseConstants(int8_t,		int8)
-			__CaseConstants(uint8_t,	uint8)
+            __CaseConstants(int8_t,     int8)
+            __CaseConstants(uint8_t,    uint8)
 
-			__CaseConstants(int16_t,	int16)
-			__CaseConstants(uint16_t,	uint16)
+            __CaseConstants(int16_t,    int16)
+            __CaseConstants(uint16_t,   uint16)
 
-			__CaseConstants(int32_t,	int32)
-			__CaseConstants(uint32_t,	uint32)
+            __CaseConstants(int32_t,    int32)
+            __CaseConstants(uint32_t,   uint32)
 
-			__CaseConstants(int64_t,	int64)
-			__CaseConstants(uint64_t,	uint64)
+            __CaseConstants(int64_t,    int64)
+            __CaseConstants(uint64_t,   uint64)
 
-			__CaseConstants(float_t,	float_)
-			__CaseConstants(double_t,	double_)
+            __CaseConstants(float_t,    float_)
+            __CaseConstants(double_t,   double_)
 
-			__CaseConstants(bool_t,		bool_)
-			__CaseConstants(char_t,		char_)
+            __CaseConstants(bool_t,     bool_)
+            __CaseConstants(char_t,     char_)
 
             #undef __CaseConstant
             #undef __CaseConstants
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
-			// Push Local
+            // Push Local
 
             #define __CaseLocal(_d1, _d2)                                   \
                 case __V(xil_storage_type_t::local, xil_type_t::_d1, xil_type_t::_d2):  \
@@ -1415,25 +1414,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                         xil_storage_type_t::local, xil_type_t::_d1, xil_type_t::_d2     \
                     >(ctx.locals_layout.offset_of(xil.get_identity()));
 
-			#define __CaseLocals(_d2)										\
-																			\
-				__CaseLocal(int8,		_d2)								\
-				__CaseLocal(uint8,		_d2)								\
-																			\
-				__CaseLocal(int16,		_d2)								\
-				__CaseLocal(uint16,		_d2)								\
-																			\
-				__CaseLocal(int32,		_d2)								\
-				__CaseLocal(uint32,		_d2)								\
-																			\
-				__CaseLocal(int64,		_d2)								\
-				__CaseLocal(uint64,		_d2)								\
-																			\
-				__CaseLocal(float_,		_d2)								\
-				__CaseLocal(double_,	_d2)								\
-																			\
-				__CaseLocal(char_,		_d2)								\
-				__CaseLocal(bool_,		_d2)
+            #define __CaseLocals(_d2)                                       \
+                                                                            \
+                __CaseLocal(int8,       _d2)                                \
+                __CaseLocal(uint8,      _d2)                                \
+                                                                            \
+                __CaseLocal(int16,      _d2)                                \
+                __CaseLocal(uint16,     _d2)                                \
+                                                                            \
+                __CaseLocal(int32,      _d2)                                \
+                __CaseLocal(uint32,     _d2)                                \
+                                                                            \
+                __CaseLocal(int64,      _d2)                                \
+                __CaseLocal(uint64,     _d2)                                \
+                                                                            \
+                __CaseLocal(float_,     _d2)                                \
+                __CaseLocal(double_,    _d2)                                \
+                                                                            \
+                __CaseLocal(char_,      _d2)                                \
+                __CaseLocal(bool_,      _d2)
 
 
             __CaseLocals(int8)
@@ -1456,62 +1455,62 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseLocal(object, object)
             __CaseLocal(string, string)
-            __CaseLocal(ptr,	ptr)
+            __CaseLocal(ptr,    ptr)
 
             #undef __CaseLocal
             #undef __CaseLocals
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
-			// Push Argument
+            // Push Argument
 
             #define __CaseArgument(_d1, _d2)                                \
-                case __V(xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2):	\
+                case __V(xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2):   \
                     return __command_manager.template get_command<          \
-                        xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2    \
+                        xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2      \
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
 
-			#define __CaseArguments(_d2)									\
-																			\
-				__CaseArgument(int8,	_d2)								\
-				__CaseArgument(uint8,	_d2)								\
-																			\
-				__CaseArgument(int16,	_d2)								\
-				__CaseArgument(uint16,	_d2)								\
-																			\
-				__CaseArgument(int32,	_d2)								\
-				__CaseArgument(uint32,	_d2)								\
-																			\
-				__CaseArgument(int64,	_d2)								\
-				__CaseArgument(uint64,	_d2)								\
-																			\
-				__CaseArgument(float_,	_d2)								\
-				__CaseArgument(double_,	_d2)								\
-																			\
-				__CaseArgument(char_,	_d2)								\
-				__CaseArgument(bool_,	_d2)
+            #define __CaseArguments(_d2)                                    \
+                                                                            \
+                __CaseArgument(int8,    _d2)                                \
+                __CaseArgument(uint8,   _d2)                                \
+                                                                            \
+                __CaseArgument(int16,   _d2)                                \
+                __CaseArgument(uint16,	_d2)                                \
+                                                                            \
+                __CaseArgument(int32,   _d2)                                \
+                __CaseArgument(uint32,  _d2)                                \
+                                                                            \
+                __CaseArgument(int64,   _d2)                                \
+                __CaseArgument(uint64,  _d2)                                \
+                                                                            \
+                __CaseArgument(float_,  _d2)                                \
+                __CaseArgument(double_, _d2)                                \
+                                                                            \
+                __CaseArgument(char_,   _d2)                                \
+                __CaseArgument(bool_,   _d2)
 
-			__CaseArguments(int8)
-			__CaseArguments(uint8)
+            __CaseArguments(int8)
+            __CaseArguments(uint8)
 
-			__CaseArguments(int16)
-			__CaseArguments(uint16)
+            __CaseArguments(int16)
+            __CaseArguments(uint16)
 
-			__CaseArguments(int32)
-			__CaseArguments(uint32)
+            __CaseArguments(int32)
+            __CaseArguments(uint32)
 
-			__CaseArguments(int64)
-			__CaseArguments(uint64)
+            __CaseArguments(int64)
+            __CaseArguments(uint64)
 
-			__CaseArguments(float_)
-			__CaseArguments(double_)
+            __CaseArguments(float_)
+            __CaseArguments(double_)
 
-			__CaseArguments(char_)
-			__CaseArguments(bool_)
+            __CaseArguments(char_)
+            __CaseArguments(bool_)
 
-            __CaseArgument(object,	object)
-            __CaseArgument(string,	string)
-            __CaseArgument(ptr,		ptr)
+            __CaseArgument(object,  object)
+            __CaseArgument(string,  string)
+            __CaseArgument(ptr,     ptr)
 
             #undef __CaseArgument
             #undef __CaseArguments
@@ -1525,14 +1524,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                         xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2     \
                     >(__field_offset(ctx, xil.field_ref()));
 
-			#define __CaseFields(_d2)										\
-																			\
-				__CaseField(int8,		_d2)								\
-				__CaseField(uint8,		_d2)								\
-																			\
-				__CaseField(int16,		_d2)								\
-				__CaseField(uint16,		_d2)								\
-																			\
+            #define __CaseFields(_d2)                                       \
+                                                                            \
+                __CaseField(int8,       _d2)                                \
+                __CaseField(uint8,      _d2)                                \
+                                                                            \
+                __CaseField(int16,      _d2)                                \
+                __CaseField(uint16,     _d2)                                \
+                                                                            \
 				__CaseField(int32,		_d2)								\
 				__CaseField(uint32,		_d2)								\
 																			\

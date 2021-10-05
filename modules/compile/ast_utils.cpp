@@ -75,40 +75,40 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return get_expression_type(__xpool(cctx), expression);
     }
 
-	// Pick type from current context, includes.
-	// int a = [exp];		=> exp type is int
-	// func([exp]);			=> exp type is argument type
-	type_t * pick_type_from_current_context(xpool_t & xpool, expression_t * exp)
-	{
-		_A(exp != nullptr);
+    // Pick type from current context, includes.
+    // int a = [exp];       => exp type is int
+    // func([exp]);         => exp type is argument type
+    type_t * pick_type_from_current_context(xpool_t & xpool, expression_t * exp)
+    {
+        _A(exp != nullptr);
 
-		expression_t * parent_exp = exp->parent;
+        expression_t * parent_exp = exp->parent;
 
-		if (parent_exp == nullptr)
-			return nullptr;
+        if (parent_exp == nullptr)
+            return nullptr;
 
-		expression_family_t family = parent_exp->this_family();
-		if (family == expression_family_t::binary)
-		{
-			binary_expression_t * binary_exp = (binary_expression_t *)parent_exp;
-			if (binary_exp->op() == operator_t::assign)
-			{
-				expression_t * exp1 = binary_exp->exp1();
-				return exp1->get_type(xpool);
-				return nullptr;
-			}
+        expression_family_t family = parent_exp->this_family();
+        if (family == expression_family_t::binary)
+        {
+            binary_expression_t * binary_exp = (binary_expression_t *)parent_exp;
+            if (binary_exp->op() == operator_t::assign)
+            {
+                expression_t * exp1 = binary_exp->exp1();
+                return exp1->get_type(xpool);
+                return nullptr;
+            }
 
-			return pick_type_from_current_context(xpool, parent_exp);
-		}
-		else if (family == expression_family_t::type_cast)
-		{
-			type_cast_expression_t * type_cast_exp = (type_cast_expression_t *)parent_exp;
-			_A(type_cast_exp->type_name != nullptr);
-			return type_cast_exp->type_name->type;
-		}
+            return pick_type_from_current_context(xpool, parent_exp);
+        }
+        else if (family == expression_family_t::type_cast)
+        {
+            type_cast_expression_t * type_cast_exp = (type_cast_expression_t *)parent_exp;
+            _A(type_cast_exp->type_name != nullptr);
+            return type_cast_exp->type_name->type;
+        }
 
-		return pick_type_from_current_context(xpool, parent_exp);
-	}
+        return pick_type_from_current_context(xpool, parent_exp);
+    }
 
     // Fills argument types.
     void __fill_atypes(ast_context_t & cctx, atypes_t & atypes, arguments_t * arguments)
@@ -594,12 +594,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (document == nullptr)
                 return __find_ret_t { nullptr, false };
 
-			// From current assembly.
-			__find_ret_t r = __search_type(&__wctx.assembly, nullptr, begin, end);
-			if (r.success)
-				return r;
+            // From current assembly.
+            __find_ret_t r = __search_type(&__wctx.assembly, nullptr, begin, end);
+            if (r.success)
+                return r;
 
-			// From all imports.
+            // From all imports.
             for (import_t * import : document->all_imports())
             {
                 int prefix_count = __import_starts_with(import, begin, end);
@@ -805,8 +805,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (unit->args != nullptr)
             {
                 al::transform(*unit->args, std::back_inserter(types), [this](generic_arg_t * arg) {
-					return typex_t(__transform_generic_arg(arg), arg->atype);
-				});
+                    return typex_t(__transform_generic_arg(arg), arg->atype);
+                });
             }
 
             return __new_generic_type(template_, xtypes, host_type);
@@ -1194,98 +1194,98 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __exp2_walked_t::no;
         }
 
-		void __pick_argument_types_from_context_type(type_t * context_type, atypes_t & atypes,
-			type_t ** out_return_type)
-		{
-			xpool_t & xpool = __xpool(__cctx);
+        void __pick_argument_types_from_context_type(type_t * context_type, atypes_t & atypes,
+            type_t ** out_return_type)
+        {
+            xpool_t & xpool = __xpool(__cctx);
 
-			if (context_type->this_gtype() == gtype_t::generic)
-			{
-				generic_type_t * generic_type = (generic_type_t *)context_type;
-				general_type_t * general_type = generic_type->template_;
+            if (context_type->this_gtype() == gtype_t::generic)
+            {
+                generic_type_t * generic_type = (generic_type_t *)context_type;
+                general_type_t * general_type = generic_type->template_;
 
-				if (general_type == xpool.get_delegate_type()
-					|| general_type == xpool.get_multicast_delegate_type())
-				{
-					auto & args = generic_type->args;
-					_A(args.size() > 0);
+                if (general_type == xpool.get_delegate_type()
+                    || general_type == xpool.get_multicast_delegate_type())
+                {
+                    auto & args = generic_type->args;
+                    _A(args.size() > 0);
 
-					al::assign(out_return_type, args[0]);
-					
-					if (args.size() >= 2)	// The first is return type.
-						al::copy(args, std::back_inserter(atypes), 1);
-				}
-			}
-		}
+                    al::assign(out_return_type, args[0]);
 
-		bool __try_get_member(type_t * type, name_expression_t * name_exp, member_t ** out_member)
-		{
+                    if (args.size() >= 2)   // The first is return type.
+                        al::copy(args, std::back_inserter(atypes), 1);
+                }
+            }
+        }
+
+        bool __try_get_member(type_t * type, name_expression_t * name_exp, member_t ** out_member)
+        {
             name_t name = name_exp->name;
             analyze_member_args_t args(member_type_t::all, name);
 
-			try
-			{
-				*out_member = type->get_member(args);
+            try
+            {
+                *out_member = type->get_member(args);
 
-				if (*out_member == nullptr)
-				{
-					ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
-					return false;
-				}
+                if (*out_member == nullptr)
+                {
+                    ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
+                    return false;
+                }
 
-				return true;
-			}
+                return true;
+            }
             catch (const logic_error_t<common_error_code_t> & e)
-			{
-				if (e.code == common_error_code_t::conflict)
-				{
-					try
-					{
-						type_t * context_type = pick_type_from_current_context(
-							__xpool(__cctx), name_exp
-						);
+            {
+                if (e.code == common_error_code_t::conflict)
+                {
+                    try
+                    {
+                        type_t * context_type = pick_type_from_current_context(
+                            __xpool(__cctx), name_exp
+                        );
 
-						if (context_type == nullptr)
-							return false;
+                        if (context_type == nullptr)
+                            return false;
 
-						atypes_t atypes;
-						type_t * return_type;
+                        atypes_t atypes;
+                        type_t * return_type;
 
-						__pick_argument_types_from_context_type(context_type, atypes, &return_type);
+                        __pick_argument_types_from_context_type(context_type, atypes, &return_type);
 
-						analyze_member_args_t args1(
-							member_type_t::method, name, &atypes, nullptr, return_type
-						);
-						*out_member = type->get_member(args1);
+                        analyze_member_args_t args1(
+                            member_type_t::method, name, &atypes, nullptr, return_type
+                        );
+                        *out_member = type->get_member(args1);
 
-						if (*out_member == nullptr)
-						{
-							ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
-							return false;
-						}
+                        if (*out_member == nullptr)
+                        {
+                            ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
+                            return false;
+                        }
 
-						return true;
-					}
-					catch (const logic_error_t<common_error_code_t> & e)
-					{
-						ast_log(__cctx, name_exp, __c_t::method_conflict, name, type, _T(""));
-						return false;
-					}
-				}
-				else
-				{
-					ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
-					return false;
-				}
-			}
-		}
+                        return true;
+                    }
+                    catch (const logic_error_t<common_error_code_t> & e)
+                    {
+                        ast_log(__cctx, name_exp, __c_t::method_conflict, name, type, _T(""));
+                        return false;
+                    }
+                }
+                else
+                {
+                    ast_log(__cctx, name_exp, __c_t::member_not_found, name, type);
+                    return false;
+                }
+            }
+        }
 
         // Walks field, property, event, type, type_def, method.
         __exp2_walked_t __walk_fieldx(type_t * type, name_expression_t * name_exp)
         {
-			member_t * member;
-			if (!__try_get_member(type, name_exp, &member))
-				return __exp2_walked_t::no;
+            member_t * member;
+            if (!__try_get_member(type, name_exp, &member))
+                return __exp2_walked_t::no;
 
             // _PP(member->this_type());
             switch (member->this_type())
@@ -1302,9 +1302,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     name_exp->set(((event_t *)member)->variable);
                     break;
 
-				case member_type_t::method:
-					name_exp->set(((method_t *)member)->variable);
-					break;
+                case member_type_t::method:
+                    name_exp->set(((method_t *)member)->variable);
+                    break;
 
                 case member_type_t::type:
                     name_exp->set((type_t *)member);
@@ -1315,7 +1315,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     break;
 
                 default:
-					_PP(member->this_type());
+                    _PP(member->this_type());
                     throw _EC(unexpected);
             }
 
@@ -1334,18 +1334,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             switch (namex_exp->this_family())
             {
                 case expression_family_t::name: {
-					name_expression_t * name_exp = (name_expression_t *)namex_exp;
-		            variable_t * variable;
+                    name_expression_t * name_exp = (name_expression_t *)namex_exp;
+                    variable_t * variable;
 
-					if (__region != nullptr && (variable = __region->get(name_exp->name)) != nullptr
-						&& variable->this_type() != variable_type_t::method)
-					{
-						function_exp->set_variable(variable);
-					}
-					else
-					{
-						__walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
-					}
+                    if (__region != nullptr && (variable = __region->get(name_exp->name)) != nullptr
+                                && variable->this_type() != variable_type_t::method)
+                    {
+                        function_exp->set_variable(variable);
+                    }
+                    else
+                    {
+                        __walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
+                    }
                 }   return;
 
                 case expression_family_t::binary: {
@@ -1692,25 +1692,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Defines method variable.
     method_variable_t * variable_defination_t::define_method(method_t * method)
-	{
-		_A(method != nullptr);
+    {
+        _A(method != nullptr);
 
-		if (__region == nullptr)
-		{
-			__log(__c_t::unexpected_method_defination, _str(method));
-			return nullptr;
-		}
+        if (__region == nullptr)
+        {
+            __log(__c_t::unexpected_method_defination, _str(method));
+            return nullptr;
+        }
 
-		try
-		{
-			return __region->define_method(method);
-		}
-		catch (const logic_error_t<ast_error_t> & e)
-		{
-			__deal_error(e, method->name, method);
-			return nullptr;
-		}
-	}
+        try
+        {
+            return __region->define_method(method);
+        }
+        catch (const logic_error_t<ast_error_t> & e)
+        {
+            __deal_error(e, method->name, method);
+            return nullptr;
+        }
+    }
 
     // Deals defination error.
     void variable_defination_t::__deal_error(const logic_error_t<ast_error_t> & e,
