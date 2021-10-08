@@ -230,14 +230,14 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     __ApplyAst(general_type_name, node, args)
-	{
+    {
         switch (node->value())
         {
             case __AstValue(type_name_unit):
                 __This->append_child(__Type::units, node);
                 break;
         }
-	}
+    }
 
     __OnCompleted(general_type_name, args)
     {
@@ -296,9 +296,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 __This->set_name(this->__to_name(token), token);
                 break;
 
-			case __TokenValue(three_dots):
-				__This->set_extends(true);
-				break;
+            case __TokenValue(three_dots):
+                __This->set_extends(true);
+                break;
         }
     }
 
@@ -389,9 +389,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 __This->set_param_type(generic_param_type_t::out, token);
                 break;
 
-			case __TokenValue(three_dots):
+            case __TokenValue(three_dots):
                 __This->set_param_type(generic_param_type_t::params, token);
-				break;
+                break;
         }
     }
 
@@ -478,22 +478,22 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // generic_arg
 
     __ApplyToken(generic_arg, token, args)
-	{
-		switch (token->value)
-		{
-			case __TokenValue(k_ref):
-				__This->set_atype(generic_arg_type_t::ref);
-				break;
+    {
+        switch (token->value)
+        {
+            case __TokenValue(k_ref):
+                __This->set_atype(generic_arg_type_t::ref);
+                break;
 
-			case __TokenValue(k_out):
-				__This->set_atype(generic_arg_type_t::out);
-				break;
+            case __TokenValue(k_out):
+                __This->set_atype(generic_arg_type_t::out);
+                break;
 
-			case __TokenValue(k_params):
-				__This->set_atype(generic_arg_type_t::params);
-				break;
-		}
-	}
+            case __TokenValue(k_params):
+                __This->set_atype(generic_arg_type_t::params);
+                break;
+        }
+    }
 
     __ApplyAst(generic_arg, node, args)
     {
@@ -1956,9 +1956,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 __This->set_param_type(param_type_t::params, token);
                 break;
 
-			case __TokenValue(three_dots):
+            case __TokenValue(three_dots):
                 __This->set_param_type(param_type_t::extends, token);
-				break;
+                break;
         }
     }
 

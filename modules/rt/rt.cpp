@@ -100,22 +100,22 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return decorate.is_override;
     }
 
-	static bool __is_tuple_type(rt_type_t * type)
-	{
-		_A(type != nullptr);
+    static bool __is_tuple_type(rt_type_t * type)
+    {
+        _A(type != nullptr);
 
-		switch (type->get_kind())
-		{
-			case rt_type_kind_t::generic:
-				return __is_tuple_type(((rt_generic_type_t *)type)->template_);
+        switch (type->get_kind())
+        {
+            case rt_type_kind_t::generic:
+                return __is_tuple_type(((rt_generic_type_t *)type)->template_);
 
-			case rt_type_kind_t::general:
-				return  (mtype_t)(*(rt_general_type_t *)type)->mtype == mtype_t::tuple;
+            case rt_type_kind_t::general:
+                return  (mtype_t)(*(rt_general_type_t *)type)->mtype == mtype_t::tuple;
 
-			default:
-				return false;
-		}
-	}
+            default:
+                return false;
+        }
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // rt_string_t
@@ -189,10 +189,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
     // rt_pool_t
 
-	rt_pool_t::rt_pool_t(memory_t * memory) : __memory(memory), __msize_heap(memory)
-	{
-		__tuple_fields_heap = __pool.new_obj<al::heap_t<rt_tuple_field_t[]>>();
-	}
+    rt_pool_t::rt_pool_t(memory_t * memory) : __memory(memory), __msize_heap(memory)
+    {
+        __tuple_fields_heap = __pool.new_obj<al::heap_t<rt_tuple_field_t[]>>();
+    }
 
     // Revise key of generic method.
     generic_method_key_t rt_pool_t::revise_key(const generic_method_key_t & key,
@@ -236,7 +236,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Gets generic type.
     rt_generic_type_t * rt_pool_t::to_generic_type(memory_t * memory,
             rt_general_type_t * template_, rt_type_t * host_type, rt_type_t ** atypes,
-			int atype_count)
+            int atype_count)
     {
         _A(template_ != nullptr);
 
@@ -273,11 +273,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return __msize_heap.acquire(count);
     }
 
-	// Creates a rt_tuple_field_t array.
-	rt_tuple_field_t * rt_pool_t::new_tuple_field_array(size_t count)
-	{
-		return __tuple_fields_heap->acquire(count);
-	}
+    // Creates a rt_tuple_field_t array.
+    rt_tuple_field_t * rt_pool_t::new_tuple_field_array(size_t count)
+    {
+        return __tuple_fields_heap->acquire(count);
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // rt_type_t
@@ -345,7 +345,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     msize_t __rt_general_like_type_t::on_caculate_size(analyzer_env_t & env,
                                                        storage_type_t * out_storage_type)
     {
-		msize_t msize;
+        msize_t msize;
 
         switch (this->get_ttype(env))
         {
@@ -354,19 +354,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             case ttype_t::struct_:
                 msize = __size_of_struct(env, this, out_storage_type);
-				break;
+                break;
 
             case ttype_t::enum_:
                 msize = __size_of_enum(env, this, out_storage_type);
-				break;
+                break;
 
             default:
-				msize = unknown_msize;
+                msize = unknown_msize;
                 break;
         }
 
-		if (msize != unknown_msize)
-			return msize;
+        if (msize != unknown_msize)
+            return msize;
 
         rt_type_t * base_type = get_base_type(env);
 
@@ -394,7 +394,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             case ttype_t::struct_:
             case ttype_t::enum_:
-				return this->get_size(env, out_storage_type);
+                return this->get_size(env, out_storage_type);
 
             default:
                 X_UNEXPECTED();
@@ -458,8 +458,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
                 ss << analyzer.to_sid((*rt_gp)->name).c_str();
 
-				if ((*rt_gp)->param_type == generic_param_type_t::params)
-					ss << _T("...");
+                if ((*rt_gp)->param_type == generic_param_type_t::params)
+                    ss << _T("...");
             }
 
             ss << _T(">");
@@ -538,9 +538,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     // Gets field offset.
     msize_t rt_general_type_t::get_field_offset(analyzer_env_t & env, int position)
-	{
-		X_UNIMPLEMENTED();
-	}
+    {
+        X_UNIMPLEMENTED();
+    }
 
     // Compares to methods.
     static bool __compare_method(assembly_analyzer_t & analyzer, method_prototype_t & prototype,
@@ -645,8 +645,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         this->each_field(env, [&, this](ref_t, rt_field_base_t * field) {
 
-			rt_type_t * field_type = field->get_field_type(analyzer);
-			_A(field_type != nullptr);
+            rt_type_t * field_type = field->get_field_type(analyzer);
+            _A(field_type != nullptr);
 
             return layout.append(field, field_type), true;
         });
@@ -663,28 +663,28 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return mt->generic_params.count;
     }
 
-	// Returns if it's has uncertain types.
-	bool rt_general_type_t::has_uncertain_types(analyzer_env_t & env)
-	{
-		size_t count = this->generic_param_count();
-		if (count == 0)
-			return false;
+    // Returns if it's has uncertain types.
+    bool rt_general_type_t::has_uncertain_types(analyzer_env_t & env)
+    {
+        size_t count = this->generic_param_count();
+        if (count == 0)
+            return false;
 
-		ref_t gp_ref = mt->generic_params[count - 1];
-		rt_generic_param_t * gp = __analyzer(env).get_generic_param(gp_ref);
-		_A(gp != nullptr);
+        ref_t gp_ref = mt->generic_params[count - 1];
+        rt_generic_param_t * gp = __analyzer(env).get_generic_param(gp_ref);
+        _A(gp != nullptr);
 
-		return (*gp)->param_type == generic_param_type_t::params;
-	}
+        return (*gp)->param_type == generic_param_type_t::params;
+    }
 
-	// Returns if it's match the specified param count.
-	bool rt_general_type_t::is_match(assembly_analyzer_t & analyzer, size_t args_count)
-	{
-		if (!this->has_uncertain_types(analyzer.env))
-			return this->generic_param_count() == args_count;
+    // Returns if it's match the specified param count.
+    bool rt_general_type_t::is_match(assembly_analyzer_t & analyzer, size_t args_count)
+    {
+        if (!this->has_uncertain_types(analyzer.env))
+            return this->generic_param_count() == args_count;
 
-		return args_count >= this->generic_param_count() - 1;
-	}
+        return args_count >= this->generic_param_count() - 1;
+    }
 
     // Returns whether it's a generic template.
     bool rt_general_type_t::is_generic_template()
@@ -824,7 +824,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Pre calling static method.
     void rt_generic_type_t::pre_static_call(analyzer_env_t & env)
     {
-		// Do nothing.
+        // Do nothing.
     }
 
     // Builds virtual table.
@@ -836,37 +836,36 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt::__build_vtbl(analyzer, this, vfuncs);
     }
 
-	// It's a tuple type?
-	bool rt_generic_type_t::__is_tuple()
-	{
-		return  (mtype_t)(*template_)->mtype == mtype_t::tuple;
-	}
+    // It's a tuple type?
+    bool rt_generic_type_t::__is_tuple()
+    {
+        return  (mtype_t)(*template_)->mtype == mtype_t::tuple;
+    }
 
-	// Returns tuple fields.
-	rt_tuple_field_t * rt_generic_type_t::__get_tuple_fields(analyzer_env_t & env)
-	{
-		_A(__is_tuple());
+    // Returns tuple fields.
+    rt_tuple_field_t * rt_generic_type_t::__get_tuple_fields(analyzer_env_t & env)
+    {
+        _A(__is_tuple());
 
-		if (__tuple_fields == nullptr)
-		{
-			int atype_count = this->atype_count();
-			__tuple_fields = env.rpool.new_tuple_field_array(atype_count);
+        if (__tuple_fields == nullptr)
+        {
+            int atype_count = this->atype_count();
+            __tuple_fields = env.rpool.new_tuple_field_array(atype_count);
 
-			for  (int k = 0, count = atype_count; k < count; k++)
-			{
-				rt_type_t * field_type = atypes[k];
-				rt_tuple_field_t & field = __tuple_fields[k];
+            for  (int k = 0, count = atype_count; k < count; k++)
+            {
+                rt_type_t * field_type = atypes[k];
+                rt_tuple_field_t & field = __tuple_fields[k];
 
-				new ((void *)&field) rt_tuple_field_t();
+                new ((void *)&field) rt_tuple_field_t();
 
-				field.position = k;
-				field.type = field_type;
-			}
-		
-		}
+                field.position = k;
+                field.type = field_type;
+            }
+        }
 
-		return __tuple_fields;
-	}
+        return __tuple_fields;
+    }
 
     // Gets ttype.
     ttype_t rt_generic_type_t::get_ttype(analyzer_env_t & env)
@@ -879,7 +878,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Gets data type.
     vtype_t rt_generic_type_t::get_vtype(analyzer_env_t & env)
     {
-		ttype_t ttype = get_ttype(env);
+        ttype_t ttype = get_ttype(env);
 
         if (is_ref_type(get_ttype(env)) || ttype == ttype_t::struct_)
             return vtype_t::mobject_;
@@ -965,22 +964,22 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return 0;
     }
 
-	// Ensure field offset initialzed.
-	void rt_generic_type_t::__ensure_field_offset_initialized(analyzer_env_t & env)
-	{
-		if (__field_offsets == nullptr)
-			this->get_size(env);
+    // Ensure field offset initialzed.
+    void rt_generic_type_t::__ensure_field_offset_initialized(analyzer_env_t & env)
+    {
+        if (__field_offsets == nullptr)
+            this->get_size(env);
 
-		_A(__field_offsets != nullptr);
-	}
+        _A(__field_offsets != nullptr);
+    }
 
     // Gets field offset.
     msize_t rt_generic_type_t::get_field_offset(analyzer_env_t & env, ref_t ref)
     {
-		__ensure_field_offset_initialized(env);
+        __ensure_field_offset_initialized(env);
 
         _A(template_ != nullptr);
-		_A(!__is_tuple());
+        _A(!__is_tuple());
 
         int position = ref - (*template_)->fields;
         return __field_offsets[position];
@@ -988,34 +987,34 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     // Gets field offset.
     msize_t rt_generic_type_t::get_field_offset(analyzer_env_t & env, int position)
-	{
-		__ensure_field_offset_initialized(env);
+    {
+        __ensure_field_offset_initialized(env);
 
-		_A(__is_tuple());
-		_A(position < atype_count());
+        _A(__is_tuple());
+        _A(position < atype_count());
 
-		return __field_offsets[position];
-	}
+        return __field_offsets[position];
+    }
 
     // Enums all fields.
     void rt_generic_type_t::each_field(analyzer_env_t & env, each_field_t f)
     {
         _A(template_ != nullptr);
 
-		if (__is_tuple())
-		{
-			rt_tuple_field_t * fields = __get_tuple_fields(env);
-			for  (int k = 0, count = atype_count(); k < count; k++)
-			{
-				f(ref_t::null, fields + k);
-			}
-		}
-		else
-		{
-			template_->each_field(env, [&f, this](ref_t ref, rt_field_base_t * rt_field) {
-				return f(ref, rt_field);
-			});
-		}
+        if (__is_tuple())
+        {
+            rt_tuple_field_t * fields = __get_tuple_fields(env);
+            for  (int k = 0, count = atype_count(); k < count; k++)
+            {
+                f(ref_t::null, fields + k);
+            }
+        }
+        else
+        {
+            template_->each_field(env, [&f, this](ref_t ref, rt_field_base_t * rt_field) {
+                return f(ref, rt_field);
+            });
+        }
     }
 
     // Searches method.
@@ -1025,11 +1024,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return ref_t::null;
     }
 
-	// Enumerates all extend types.
-	void rt_generic_type_t::each_extend_types(analyzer_env_t & env, rt_sid_t name, each_type_t f)
-	{
-		_PP(_T("EACH"));
-	}
+    // Enumerates all extend types.
+    void rt_generic_type_t::each_extend_types(analyzer_env_t & env, rt_sid_t name, each_type_t f)
+    {
+        _PP(_T("EACH"));
+    }
 
     // Gets assembly.
     rt_assembly_t * rt_generic_type_t::get_assembly()
@@ -1080,7 +1079,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         if ((mt_type_extra_t)type.extra == mt_type_extra_t::generic_param)
         {
-			_A(this_ != nullptr);
+            _A(this_ != nullptr);
 
             rt_generic_param_t * gp = analyzer.get_generic_param(type);
             _A(gp != nullptr);
@@ -1134,16 +1133,16 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         _A(__field_offsets == nullptr);
         _A(template_ != nullptr);
 
-		size_t field_count;
-		if (__is_tuple())
-		{
-			field_count = atype_count();
-		}
-		else
-		{
-			ref_t field_refs = (*template_)->fields;
-			field_count = field_refs.count;
-		}
+        size_t field_count;
+        if (__is_tuple())
+        {
+            field_count = atype_count();
+        }
+        else
+        {
+            ref_t field_refs = (*template_)->fields;
+            field_count = field_refs.count;
+        }
 
         if (field_count == 0)
         {
@@ -1162,7 +1161,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         this->each_field(env, [&, this](ref_t, rt_field_base_t * field) {
 
-			rt_type_t * field_type = field->get_field_type(analyzer, this);
+            rt_type_t * field_type = field->get_field_type(analyzer, this);
             _A(field_type != nullptr);
 
             return layout.append(__wrap_generic_field(p++), field_type), true;
@@ -1370,17 +1369,17 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-	rt_type_t * rt_field_t::get_field_type(assembly_analyzer_t & analyzer,
-			rt_generic_type_t * owner)
-	{
-		ref_t type_ref = (*this)->type;
-		_A((mt_type_extra_t)type_ref.extra != mt_type_extra_t::generic_param);
+    rt_type_t * rt_field_t::get_field_type(assembly_analyzer_t & analyzer,
+                                                rt_generic_type_t * owner)
+    {
+        ref_t type_ref = (*this)->type;
+        _A((mt_type_extra_t)type_ref.extra != mt_type_extra_t::generic_param);
 
-		rt_type_t * field_type = __fetch_type(analyzer, owner, type_ref);
-		_A(field_type != nullptr);
+        rt_type_t * field_type = __fetch_type(analyzer, owner, type_ref);
+        _A(field_type != nullptr);
 
-		return field_type;
-	}
+        return field_type;
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1537,14 +1536,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return __t_array_type;
     }
 
-	// Returns tuple type.
-	rt_general_type_t * analyzer_env_t::get_tuple_type()
-	{
-		if (__t_tuple_type == nullptr)
-			__t_tuple_type = get_core_type(_T(""), _T("Tuple"), 1);
+    // Returns tuple type.
+    rt_general_type_t * analyzer_env_t::get_tuple_type()
+    {
+        if (__t_tuple_type == nullptr)
+            __t_tuple_type = get_core_type(_T(""), _T("Tuple"), 1);
 
-		return __t_tuple_type;
-	}
+        return __t_tuple_type;
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // assembly_analyzer_t
@@ -1610,12 +1609,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 return this->get_type(mt->host);
             }
 
-			case mt_member_extra_t::position: {
-				mt_position_field_t * mt = current->mt_of_position_field(field_ref);
-				_A(!mt->host.empty());
+            case mt_member_extra_t::position: {
+                mt_position_field_t * mt = current->mt_of_position_field(field_ref);
+                _A(!mt->host.empty());
 
-				return this->get_type(mt->host);
-			}
+                return this->get_type(mt->host);
+            }
 
             default:
                 X_UNEXPECTED();
@@ -1734,7 +1733,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 size_t atype_count = mt->args.count;
                 rt_type_t * atypes[atype_count];
 
-				_A(template_->is_match(*this, atype_count));
+                _A(template_->is_match(*this, atype_count));
 
                 rt_type_t ** ptype = (rt_type_t **)atypes;
                 for (ref_t ga_ref : mt->args)
@@ -1970,11 +1969,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         {
             rt_field = rt_assembly->get_field(field_ref);
         }
-		else if (__is_tuple_type(rt_type))
-		{
-			rt_field = nullptr;
-			_A(_T("---- AAAAAAAAAAAA ----"));
-		}
+        else if (__is_tuple_type(rt_type))
+        {
+            rt_field = nullptr;
+        }
         else
         {
             mt_field_ref_t * mt = rt_field_ref->mt;
@@ -1982,7 +1980,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
             rt_field = nullptr;
             rt_type->each_field(env, [&, this](ref_t field_ref, rt_field_base_t * field_base) {
-				rt_field_t * field = (rt_field_t *)field_base;
+                rt_field_t * field = (rt_field_t *)field_base;
                 res_t name = (*field)->name;
                 bool r = (field_name == rt_assembly->to_sid(name));
                 return r? rt_field = rt_assembly->get_field(field_ref), false : true;
@@ -2005,30 +2003,30 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return current->get_generic_param(ref);
     }
 
-	// Each extends types.
-	void assembly_analyzer_t::each_extend_params(ref_t param_ref, each_extern_params_func_t f)
-	{
-		rt_param_t * rt_param = current->get_param(param_ref);
-		_A((*rt_param)->param_type == param_type_t::extends);
+    // Each extends types.
+    void assembly_analyzer_t::each_extend_params(ref_t param_ref, each_extern_params_func_t f)
+    {
+        rt_param_t * rt_param = current->get_param(param_ref);
+        _A((*rt_param)->param_type == param_type_t::extends);
 
-		ref_t type_ref = (*rt_param)->type;
-		rt_generic_param_t * gp = get_generic_param(type_ref);
-		_A(gp != nullptr);
+        ref_t type_ref = (*rt_param)->type;
+        rt_generic_param_t * gp = get_generic_param(type_ref);
+        _A(gp != nullptr);
 
-		rt_sid_t name = to_sid((*gp)->name);
+        rt_sid_t name = to_sid((*gp)->name);
 
-		int index, count;
-		if (gp_manager->types_of(name, &index, &count))
-		{
-			for  (; index < count; index++)
-			{
-				rt_type_t * type = gp_manager->type_at(index);
+        int index, count;
+        if (gp_manager->types_of(name, &index, &count))
+        {
+            for (; index < count; index++)
+            {
+                rt_type_t * type = gp_manager->type_at(index);
 
-				if (!f(type))
-					break;
-			}
-		}
-	}
+                if (!f(type))
+                    break;
+            }
+        }
+    }
 
     // Joins method name.
     string_t assembly_analyzer_t::__join_method_name(rt_assembly_t * assembly,
@@ -2221,7 +2219,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     // Converts to assembly_analyzer_t.
     assembly_analyzer_t to_analyzer(analyzer_env_t & env, rt_type_t * rt_type,
-									const generic_param_manager_t * gp_manager)
+                                    const generic_param_manager_t * gp_manager)
     {
         _A(rt_type != nullptr);
 

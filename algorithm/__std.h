@@ -362,34 +362,34 @@ namespace X_ROOT_NS { namespace algorithm {
     ////////// ////////// ////////// ////////// //////////
 
     // Append inserter
-	template <typename container_t>
-	class append_iterator_t : public std::iterator<std::output_iterator_tag,
-												void, void, void, void>
-	{
-	protected:
-		container_t * __container;
+    template <typename container_t>
+    class append_iterator_t : public std::iterator<std::output_iterator_tag,
+                                                        void, void, void, void>
+    {
+    protected:
+        container_t * __container;
 
-	public:
-		typedef container_t container_type;
+    public:
+        typedef container_t container_type;
 
-		explicit append_iterator_t(container_t & x) : __container(std::addressof(x)) {}
+        explicit append_iterator_t(container_t & x) : __container(std::addressof(x)) {}
 
-		append_iterator_t & operator = (const typename container_type::value_type & value)
-		{
-			__container->append(value);
+        append_iterator_t & operator = (const typename container_type::value_type & value)
+        {
+            __container->append(value);
             return *this;
-		}
+        }
 
-		append_iterator_t & operator = (typename container_type::value_type && value)
-		{
+        append_iterator_t & operator = (typename container_type::value_type && value)
+        {
             __container->append(std::move(value));
             return *this;
         }
 
-		append_iterator_t & operator*()     { return *this; }
-		append_iterator_t & operator++()    { return *this; }
-		append_iterator_t   operator++(int) { return *this; }
-	};
+        append_iterator_t & operator*()     { return *this; }
+        append_iterator_t & operator++()    { return *this; }
+        append_iterator_t   operator++(int) { return *this; }
+    };
 
     template <typename container_t>
     inline append_iterator_t<container_t> append_inserter(container_t & container)

@@ -145,7 +145,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         typedef object_t __super_t;
         typedef generic_param_manager_t __self_t;
-		typedef std::tuple<rt_type_t *, int> __type_item_t;
+        typedef std::tuple<rt_type_t *, int> __type_item_t;
 
     public:
         // Constructor.
@@ -161,11 +161,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Append a generic param type with name.
         void append(rt_sid_t name, rt_type_t * atype);
 
-		// Append generic param types with name.
-		void append(rt_sid_t name, int index, int count);
+        // Append generic param types with name.
+        void append(rt_sid_t name, int index, int count);
 
-		// Append a generic param types has params attribute.
-		void append(rt_type_t * atype);
+        // Append a generic param types has params attribute.
+        void append(rt_type_t * atype);
 
         // Returns type at index.
         rt_type_t * type_at(int index) const;
@@ -173,8 +173,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns type of specified name.
         rt_type_t * type_at(rt_sid_t sid, int * out_index = nullptr) const;
 
-		// Returns types position of specified name, for generic params.
-		bool types_of(rt_sid_t sid, int * out_index, int * out_count) const;
+        // Returns types position of specified name, for generic params.
+        bool types_of(rt_sid_t sid, int * out_index, int * out_count) const;
 
         // Returns whether it is empty.
         bool empty() const { return __atypes.empty(); }
@@ -187,7 +187,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     private:
         al::svector_t<rt_type_t *, 10> __atypes;
-		al::small_map_t<rt_sid_t, std::tuple<int, int>> __named_atypes;
+        al::small_map_t<rt_sid_t, std::tuple<int, int>> __named_atypes;
         std::map<rt_sid_t, __type_item_t> __type_map;
     };
 
@@ -208,7 +208,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets runtime type of typeref.
         rt_type_t * __get_type(ref_t type_ref,
-			rt_generic_param_t ** out_generic_param = nullptr, int * out_index = nullptr);
+            rt_generic_param_t ** out_generic_param = nullptr, int * out_index = nullptr);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -234,8 +234,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns offset of local variable index.
         msize_t offset_of(int index);
 
-		// Returns type of local variable index.
-		rt_type_t * type_at(int index);
+        // Returns type of local variable index.
+        rt_type_t * type_at(int index);
 
         // Returns unit size of variables.
         msize_t unit_size() { return __local_unit_size; }
@@ -250,9 +250,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         {
             // Constructor.
             __item_t(msize_t index, msize_t identity, msize_t size,
-				storage_type_t storage_type, rt_type_t * type)
+                                storage_type_t storage_type, rt_type_t * type)
                 : index(index), identity(identity), size(size)
-				, storage_type(storage_type), type(type)
+                , storage_type(storage_type), type(type)
             { }
 
             msize_t index;                  // Index.
@@ -260,7 +260,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             msize_t size;                   // Size.
 
             storage_type_t storage_type;    // Storage type.
-			rt_type_t *	   type;			// Xil type.
+            rt_type_t *     type;           // Xil type.
             bool region_flag = false;       // Region flag.
 
             msize_t offset;                 // Offset
@@ -375,8 +375,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns offset of param index.
         msize_t offset_of(int index);
 
-		// Returns offset of the first extends param.
-		msize_t extends_offset();
+        // Returns offset of the first extends param.
+        msize_t extends_offset();
 
         // Returns param type of param index.
         rt_type_t * type_at(int index);
@@ -401,7 +401,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         __items_t __items;
 
         msize_t __current_offset = 0;
-		msize_t __extends_params_offset = -1;
+        msize_t __extends_params_offset = -1;
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -781,11 +781,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->__assign_name(__type_def_param.name, name, el, _T("typedef param"));
     }
 
-	// Sets if it's a extends type.
-	void type_def_param_ast_node_t::set_extends(bool extends)
-	{
-		__type_def_param.extends = extends;
-	}
+    // Sets if it's a extends type.
+    void type_def_param_ast_node_t::set_extends(bool extends)
+    {
+        __type_def_param.extends = extends;
+    }
 
     // Commits this node.
     void type_def_param_ast_node_t::on_commit()
@@ -1784,11 +1784,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // generic_arg
 
-	// Set param type, ref, out, params ...
-	void generic_arg_ast_node_t::set_atype(generic_arg_type_t type)
-	{
-		__arg.atype = type;
-	}
+    // Set param type, ref, out, params ...
+    void generic_arg_ast_node_t::set_atype(generic_arg_type_t type)
+    {
+        __arg.atype = type;
+    }
 
     // Commits this node.
     void generic_arg_ast_node_t::on_commit()
@@ -2144,9 +2144,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if (var_item->expression != nullptr)
             {
-			    var_item->expression->parent = __new_obj<type_cast_expression_t>(
-				    __statement.type_name, var_item->expression
-    			);
+                var_item->expression->parent = __new_obj<type_cast_expression_t>(
+                    __statement.type_name, var_item->expression
+                );
             }
         }
     }
@@ -3128,11 +3128,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 context.pop();
 
-				if (__method.trait == method_trait_t::normal)
-				{
-					variable_defination_t vd(this->__context, context, &__method);
-					vd.define_method(&__method);
-				}
+                if (__method.trait == method_trait_t::normal)
+                {
+                    variable_defination_t vd(this->__context, context, &__method);
+                    vd.define_method(&__method);
+                }
 
                 break;
 
@@ -3204,22 +3204,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 vd.define_param(param);
             }
 
-			switch (__method.trait)
-			{
-				case method_trait_t::static_constructor:
-					this->__log(this, __c_t::static_constructor_method_should_no_params,
-														_str(__method.name));
-					break;
+            switch (__method.trait)
+            {
+                case method_trait_t::static_constructor:
+                    this->__log(this, __c_t::static_constructor_method_should_no_params,
+                                                        _str(__method.name));
+                    break;
 
-				case method_trait_t::destructor:
-					this->__log(this, __c_t::destructor_method_should_no_params,
-														_str(__method.name));
-					break;
+                case method_trait_t::destructor:
+                    this->__log(this, __c_t::destructor_method_should_no_params,
+                                                        _str(__method.name));
+                    break;
 
-				default:
-					break;
-			}
-		}
+                default:
+                    break;
+            }
+        }
     }
 
     // Walks the analysis step.

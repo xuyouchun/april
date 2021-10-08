@@ -95,10 +95,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         _A(type != nullptr);
 
-		__generic_argument_count_t params_count = type->params_count();
-		if (params_count > 0
-			&& (*type->params)[params_count - 1]->param_type == generic_param_type_t::params)
-			params_count = UNCERTERN_PARAM_COUNT;
+        __generic_argument_count_t params_count = type->params_count();
+        if (params_count > 0
+            && (*type->params)[params_count - 1]->param_type == generic_param_type_t::params)
+            params_count = UNCERTERN_PARAM_COUNT;
 
         __general_type_key_t key(__ns_to_sid(type), (sid_t)type->name,
             params_count, type->host_type
@@ -132,17 +132,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __general_type_key_t(ns, name, template_param_count, host_type)
         );
 
-		if (t != nullptr)
-			return t;
+        if (t != nullptr)
+            return t;
 
-		t = __get_type(__general_types,
-			__general_type_key_t(ns, name, UNCERTERN_PARAM_COUNT, host_type)
-		);
+        t = __get_type(__general_types,
+            __general_type_key_t(ns, name, UNCERTERN_PARAM_COUNT, host_type)
+        );
 
-		if (t != nullptr && t->params_count() - 1 <= template_param_count)
-			return t;
+        if (t != nullptr && t->params_count() - 1 <= template_param_count)
+            return t;
 
-		return nullptr;
+        return nullptr;
     }
 
     // Gets typedef by namespace, name, etc.

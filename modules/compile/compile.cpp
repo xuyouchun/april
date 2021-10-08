@@ -154,11 +154,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_D(operator_overload__no_generic,
                 _T("Operator overload method '%1%' prototype error: should not be a generic type"))
 
-		X_D(delegate_type_error,
-				_T("Delegate type error, should be System.Deletate<...>, but not %1%"))
+        X_D(delegate_type_error,
+                _T("Delegate type error, should be System.Deletate<...>, but not %1%"))
 
-		X_D(create_instance_type_error,
-				_T("Cannot create instance of type '%1%', because it's a '%2%' type"))
+        X_D(create_instance_type_error,
+                _T("Cannot create instance of type '%1%', because it's a '%2%' type"))
 
     X_ENUM_INFO_END
 

@@ -13,13 +13,13 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         __keyword_begin,
 
         // keywords: a...
-		k_abstract,	    k_as,       k_add,
+        k_abstract,     k_as,       k_add,
         
         // keywords: b...
-        k_base,         k_bool,	    k_break,    k_byte,
+        k_base,         k_bool,     k_break,    k_byte,
         
         // keywords: c...
-        k_case, 		k_catch, 	k_char, 	k_checked,  k_class,
+        k_case,         k_catch,    k_char,     k_checked,  k_class,
         k_const,        k_continue,
         
         // keywords: d...
@@ -36,8 +36,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         k_goto,         k_get,      k_global,
 
         // keywords: i...
-		k_if,           k_implicit, k_in,       k_int,      k_interface,
-		k_internal,     k_is,       k_import,
+        k_if,           k_implicit, k_in,       k_int,      k_interface,
+        k_internal,     k_is,       k_import,
         
         // keywords: l...
         k_lock,         k_long,
@@ -52,7 +52,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         k_params,       k_private,  k_protected, k_public,
 
         // keywords: r...
-		k_readonly,     k_ref,      k_return,   k_remove,
+        k_readonly,     k_ref,      k_return,   k_remove,
         
         // keywords: s...
         k_sbyte,        k_sealed,   k_short,    k_sizeof,   k_stackalloc,
@@ -115,7 +115,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         name,           cvalue,     comment,
         semicolon,      base_mark,              // ; :
         dollar,         ampersand,              // $ @
-		three_dots,								// ...
+        three_dots,                             // ...
 
     X_ENUM_END
 

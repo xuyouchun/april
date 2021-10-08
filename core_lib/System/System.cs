@@ -30,71 +30,71 @@ public class Object
 [__internal__]
 public sealed class Type
 {
-	public String Name
-	{
-		get { return Internal.Reflection_GetTypeName(this); }
-	}
+    public String Name
+    {
+        get { return Internal.Reflection_GetTypeName(this); }
+    }
 
-	public Array<Field> GetFields()
-	{
-		return new Array<Field>(10);
-	}
+    public Array<Field> GetFields()
+    {
+        return new Array<Field>(10);
+    }
 
-	public Field GetField(String name)
-	{
-		return null;
-	}
+    public Field GetField(String name)
+    {
+        return null;
+    }
 
-	public Array<Method> GetMethods()
-	{
-		return new Array<Method>(10);
-	}
+    public Array<Method> GetMethods()
+    {
+        return new Array<Method>(10);
+    }
 
-	public Array<Method> GetMethods(String name)
-	{
-		return new Array<Method>(10);
-	}
+    public Array<Method> GetMethods(String name)
+    {
+        return new Array<Method>(10);
+    }
 
-	public Method GetMethod(String name, Array<Type> parameterTypes)
-	{
-		return null;
-	}
+    public Method GetMethod(String name, Array<Type> parameterTypes)
+    {
+        return null;
+    }
 
-	public Array<Property> GetProperties()
-	{
-		return new Array<Property>(10);
-	}
+    public Array<Property> GetProperties()
+    {
+        return new Array<Property>(10);
+    }
 
-	public Property GetProperty(String name)
-	{
-		return null;
-	}
+    public Property GetProperty(String name)
+    {
+        return null;
+    }
 
-	public Array<Event> GetEvents()
-	{
-		return new Array<Event>(10);
-	}
+    public Array<Event> GetEvents()
+    {
+        return new Array<Event>(10);
+    }
 
-	public Event GetEvent(String name)
-	{
-		return null;
-	}
+    public Event GetEvent(String name)
+    {
+        return null;
+    }
 
-	public Array<GenericParameter> GetGenericParameters()
-	{
-		return new Array<GenericParameter>(10);
-	}
+    public Array<GenericParameter> GetGenericParameters()
+    {
+        return new Array<GenericParameter>(10);
+    }
 
-	public Assembly Assembly
-	{
-		get { return null; }
-	}
+    public Assembly Assembly
+    {
+        get { return null; }
+    }
 
-	// Converts to string.
-	public String ToString()
-	{
-		return "Type";
-	}
+    // Converts to string.
+    public String ToString()
+    {
+        return "Type";
+    }
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -113,7 +113,6 @@ public class Array : Object
     {
         return Internal.Array_GetLengthOfDimension(this, dimension);
     }
-
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -121,10 +120,10 @@ public class Array : Object
 [__internal__]
 public class Array<T> : Array
 {
-	public Array(Int32 length)
-	{
-		
-	}
+    public Array(Int32 length)
+    {
+
+    }
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -132,11 +131,11 @@ public class Array<T> : Array
 [__internal__]
 public interface ITuple<TItems ...>
 {
-	Int32 Count { get; }
+    Int32 Count { get; }
 
-	Object Get(Int32 index);
+    Object Get(Int32 index);
 
-	T Get<T>(Int32 index);
+    T Get<T>(Int32 index);
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -144,12 +143,12 @@ public interface ITuple<TItems ...>
 [__internal__]
 public class Tuple<TItems ...> : ITuple<TItems ...>
 {
-	public Tuple(TItems ... items)
-	{
-		Internal.Tuple_SetRange(this, items);
-	}
+    public Tuple(TItems ... items)
+    {
+        Internal.Tuple_SetRange(this, items);
+    }
 
-	public Int32 Count { get { return Internal.Tuple_GetCount(this); } }
+    public Int32 Count { get { return Internal.Tuple_GetCount(this); } }
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -157,7 +156,7 @@ public class Tuple<TItems ...> : ITuple<TItems ...>
 [__internal__]
 public class Enum
 {
-	
+
 };
 
 ////////// ////////// ////////// ////////// //////////
@@ -170,22 +169,22 @@ public struct Delegate<TReturn, TArgs ...>
     public Delegate(Object instance, Method method)
     {
         __instance = instance;
-		__method = method;
+        __method = method;
     }
 
-	private readonly Object __instance;
+    private readonly Object __instance;
 
-	public Object Instance
-	{
-		get { return __instance; }
-	}
+    public Object Instance
+    {
+        get { return __instance; }
+    }
 
-	private readonly Method __method;
+    private readonly Method __method;
 
-	public Method Method
-	{
-		get { return __method; }
-	}
+    public Method Method
+    {
+        get { return __method; }
+    }
 
     public TReturn Invoke(TArgs ... args)
     {
@@ -197,12 +196,12 @@ public struct Delegate<TReturn, TArgs ...>
 [__internal__]
 public sealed class MulticastDelegate<TReturn, TArgs ...>
 {
-	private readonly Array<Delegate<TReturn, TArgs ...> > __delegates;
+    private readonly Array<Delegate<TReturn, TArgs ...> > __delegates;
 
-	public TReturn Invoke(TArgs ... args)
-	{
-		return default(TReturn);
-	}
+    public TReturn Invoke(TArgs ... args)
+    {
+        return default(TReturn);
+    }
 };
 
 ////////// ////////// ////////// ////////// //////////

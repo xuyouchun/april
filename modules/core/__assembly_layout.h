@@ -166,8 +166,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Generic field.
         generic_field       =   22,
 
-		// Tuple field.
-		position_field		=	23,
+        // Tuple field.
+        position_field      =   23,
 
         // Generic method.
         generic_method      =   24,
@@ -263,7 +263,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     template<__tidx_t _tidx, typename _entity_t, int _extra>
-	const __tidx_t mt_base_t<_tidx, _entity_t, _extra>::tidx;
+    const __tidx_t mt_base_t<_tidx, _entity_t, _extra>::tidx;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -774,7 +774,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     __DefineMt(generic_argument, type_t *)
 
         ref_t       type;           // Argument type.
-		uint8_t		atype;			// Generic argument type.
+        uint8_t     atype;          // Generic argument type.
 
     __EndDefineMt(generic_argument)
 
@@ -893,7 +893,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             uint8_t     __tv_type;
         };
 
-		uint8_t			mtype;				// mtype
+        uint8_t         mtype;              // mtype
         ref_t           generic_params;     // Generic params
         ref_t           super_types;        // Super types
         ref_t           methods;            // Methods
@@ -940,7 +940,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         generic,                            // Generic method.
 
-		position,							// Position.
+        position,                           // Position.
 
     X_ENUM_END
 
@@ -1124,7 +1124,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     __DefineMt(position_field, position_field_t *, (int)mt_member_extra_t::position)
 
         ref_t           host;               // Host type.
-        uint16_t        position;			// Field template.
+        uint16_t        position;           // Field template.
 
     __EndDefineMt(position_field)
 

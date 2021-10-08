@@ -29,7 +29,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         virtual type_t * get_type(xpool_t & xpool) const override;
 
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                        xil_type_t dtype) override;
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
 
         expression_t * condition() const { return exps[0]; }
@@ -52,7 +52,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         using __super_t::__super_t;
 
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                        xil_type_t dtype) override;
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
     };
 

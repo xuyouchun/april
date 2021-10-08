@@ -9,7 +9,7 @@
 [__internal__]
 public class Attribute
 {
-	// Empty.
+    // Empty.
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -17,7 +17,7 @@ public class Attribute
 [__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
 public class AttributeUsageAttribute : Attribute
 {
-	// Empty.
+    // Empty.
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -26,13 +26,13 @@ public class AttributeUsageAttribute : Attribute
 [AttributeUsage]
 class __955825bf_d13a_4d1c_90d5_478e62ceaab6__ : Attribute
 {
-	// Empty.
+    // Empty.
 };
 
 [__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
 class __internal__ : Attribute
 {
-	// Empty.
+    // Empty.
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -58,7 +58,7 @@ public class InlineAttribute : Attribute
 [__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
 public class EntryPointAttribute : Attribute
 {
-	// Empty.
+    // Empty.
 };
 
 

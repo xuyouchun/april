@@ -44,8 +44,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Base class of token enumerator.
-	class token_enumerator_base_t : public token_enumerator_t, public object_t
-	{
+    class token_enumerator_base_t : public token_enumerator_t, public object_t
+    {
     public:
 
         // Constructor.
@@ -178,7 +178,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         al::heap_t<token_error_t>       __token_errors;
         al::heap_t<token_data_t>        __token_datas;
         al::heap_t<token_value_t[]>     __token_values;
-	};
+    };
 
     ////////// ////////// ////////// ////////// //////////
 

@@ -298,13 +298,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_duplicate_xil_t() : __super_t(xil_storage_type_t::duplicate) { }
     };
 
-	// Pushes params address xil.
-	struct x_push_params_xil_t : xil_extra_t<push_xil_t>
-	{
-		typedef xil_extra_t<push_xil_t> __super_t;
+    // Pushes params address xil.
+    struct x_push_params_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
 
-		x_push_params_xil_t() : __super_t(xil_storage_type_t::params) { }
-	};
+        x_push_params_xil_t() : __super_t(xil_storage_type_t::params) { }
+    };
 
     // Push constant value xil.
     template<typename _value_t>

@@ -157,29 +157,29 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(empty,          _T("empty"))
 
-		X_C(int8,           _T("int8"))
+        X_C(int8,           _T("int8"))
 
-		X_C(uint8,          _T("uint8"))
+        X_C(uint8,          _T("uint8"))
 
-		X_C(int16,          _T("int16"))
+        X_C(int16,          _T("int16"))
 
-		X_C(uint16,         _T("uint16"))
+        X_C(uint16,         _T("uint16"))
 
-		X_C(int32,          _T("int32"))
+        X_C(int32,          _T("int32"))
 
-		X_C(uint32,         _T("uint32"))
+        X_C(uint32,         _T("uint32"))
 
-		X_C(int64,          _T("int64"))
+        X_C(int64,          _T("int64"))
 
-		X_C(uint64,         _T("uint64"))
+        X_C(uint64,         _T("uint64"))
 
-		X_C(float_,         _T("float"))
+        X_C(float_,         _T("float"))
 
-		X_C(double_,        _T("double"))
+        X_C(double_,        _T("double"))
 
-		X_C(bool_,          _T("bool"))
+        X_C(bool_,          _T("bool"))
 
-		X_C(char_,          _T("char"))
+        X_C(char_,          _T("char"))
 
         X_C(string,         _T("string"))
 
@@ -330,7 +330,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(field_addr,     _T("field_addr"))
 
-        X_C(params,			_T("params"))
+        X_C(params,         _T("params"))
 
         X_C(array_element,  _T("array_element"))
 

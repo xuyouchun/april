@@ -148,7 +148,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_C(event_ref,          _T("event_ref"))
 
         X_C(generic_field,      _T("generic_field"))
-		X_C(position_field,		_T("position_field"))
+        X_C(position_field,     _T("position_field"))
         X_C(generic_method,     _T("generic_method"))
         X_C(generic_property,   _T("generic_property"))
         X_C(generic_event,      _T("generic_event"))
@@ -465,7 +465,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Metadata: General type
     __DefineEntityIOFunctions
         __M(name), __M(attributes), __M(decorate), __M(namespace_), __M(__tv_type),
-		__M(mtype), __M(generic_params), __M(super_types), __M(methods), __M(properties),
+        __M(mtype), __M(generic_params), __M(super_types), __M(methods), __M(properties),
         __M(fields), __M(events), __M(nest_types), __V(1),
     __EndDefineEntityIOFunctions
 

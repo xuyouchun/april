@@ -260,16 +260,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-	// Impl for System.Enum.
-	class __enum_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
-	{
+    // Impl for System.Enum.
+    class __enum_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
         typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
-	public:
-		using __super_t::__super_t;
+    public:
+        using __super_t::__super_t;
 
-		static const char_t type_name[];
-	};
+        static const char_t type_name[];
+    };
 
     const char_t __enum_type_impl_t::type_name[] = __CoreTypeName(CoreType_Enum);
 
@@ -305,64 +305,64 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-	// Impl for System.ITuple<...>
-	class __t_ituple_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
-	{
+    // Impl for System.ITuple<...>
+    class __t_ituple_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
         typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
-	public:
-		using __super_t::__super_t;
+    public:
+        using __super_t::__super_t;
 
-		static const char_t type_name[];
-	};
+        static const char_t type_name[];
+    };
 
-	const char_t __t_ituple_type_impl_t::type_name[] = __CoreTypeName(CoreType_ITuple);
+    const char_t __t_ituple_type_impl_t::type_name[] = __CoreTypeName(CoreType_ITuple);
 
     //-------- ---------- ---------- ---------- ----------
 
-	// Impl for System.Tuple<...>
-	class __t_tuple_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
-	{
+    // Impl for System.Tuple<...>
+    class __t_tuple_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
         typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
-	public:
-		using __super_t::__super_t;
+    public:
+        using __super_t::__super_t;
 
-		static const char_t type_name[];
-	};
+        static const char_t type_name[];
+    };
 
-	const char_t __t_tuple_type_impl_t::type_name[] = __CoreTypeName(CoreType_Tuple);
-
-    //-------- ---------- ---------- ---------- ----------
-
-	// Impl for System.Delegate
-	class __t_delegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
-	{
-		typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
-
-	public:
-		using __super_t::__super_t;
-
-		static const char_t type_name[];
-	};
-
-	const char_t __t_delegate_type_impl_t::type_name[] = __CoreTypeName(CoreType_Delegate);
+    const char_t __t_tuple_type_impl_t::type_name[] = __CoreTypeName(CoreType_Tuple);
 
     //-------- ---------- ---------- ---------- ----------
 
-	// Impl for System.MulticastDelegate
-	class __t_multicast_delegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
-	{
-		typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+    // Impl for System.Delegate
+    class __t_delegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
-	public:
-		using __super_t::__super_t;
+    public:
+        using __super_t::__super_t;
 
-		static const char_t type_name[];
-	};
+        static const char_t type_name[];
+    };
 
-	const char_t __t_multicast_delegate_type_impl_t::type_name[]
-												= __CoreTypeName(CoreType_MulticastDelegate);
+    const char_t __t_delegate_type_impl_t::type_name[] = __CoreTypeName(CoreType_Delegate);
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Impl for System.MulticastDelegate
+    class __t_multicast_delegate_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __t_multicast_delegate_type_impl_t::type_name[]
+                                        = __CoreTypeName(CoreType_MulticastDelegate);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -634,13 +634,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __impls.append<__exception_type_impl_t>();
             __impls.append<__null_reference_exception_type_impl_t>();
             __impls.append<__attribute_type_impl_t>();
-			__impls.append<__enum_type_impl_t>();
+            __impls.append<__enum_type_impl_t>();
             __impls.append<__array_type_impl_t>();
             __impls.append<__t_array_type_impl_t>();
-			__impls.append<__t_ituple_type_impl_t>();
-			__impls.append<__t_tuple_type_impl_t>();
-			__impls.append<__t_delegate_type_impl_t>();
-			__impls.append<__t_multicast_delegate_type_impl_t>();
+            __impls.append<__t_ituple_type_impl_t>();
+            __impls.append<__t_tuple_type_impl_t>();
+            __impls.append<__t_delegate_type_impl_t>();
+            __impls.append<__t_multicast_delegate_type_impl_t>();
 
             // Core data types.
             __impls.append<__void_type_impl_t>();

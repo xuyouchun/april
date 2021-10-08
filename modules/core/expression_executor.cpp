@@ -622,18 +622,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Executes a binary expression.
     cvalue_t type_cast_expression_t::execute(expression_execute_context_t & ctx)
-	{
-		expression_t * exp = this->expression();
-		if (exp == nullptr)
-			return cvalue_t::nan;
+    {
+        expression_t * exp = this->expression();
+        if (exp == nullptr)
+            return cvalue_t::nan;
 
-		cvalue_t v = exp->execute(ctx);
-		if (v.is_nan() || type_name == nullptr)
-			return v;
+        cvalue_t v = exp->execute(ctx);
+        if (v.is_nan() || type_name == nullptr)
+            return v;
 
-		vtype_t vtype = this->get_vtype();
-		return v.change_type(vtype);
-	}
+        vtype_t vtype = this->get_vtype();
+        return v.change_type(vtype);
+    }
 
     ////////// ////////// ////////// ////////// //////////
 

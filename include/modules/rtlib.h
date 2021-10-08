@@ -8,7 +8,7 @@
 
 namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
-	using namespace rt;
+    using namespace rt;
 
     struct rtlib_context_t;
 
@@ -78,9 +78,9 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     {
         // Constructor.
         rtlib_context_t(assembly_analyzer_t & analyzer, rt_stack_unit_t * argument) _NE
-			: analyzer(analyzer), argument(argument) { }
+                : analyzer(analyzer), argument(argument) { }
 
-		assembly_analyzer_t & analyzer;
+        assembly_analyzer_t & analyzer;
         rt_stack_unit_t     * argument;
         int                   ret_code        = 0;
         string_t              ret_message;
@@ -135,14 +135,14 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     __DefineFunc(array_get_length);
     __DefineFunc(array_get_length_of_dimension);
 
-	// Tuple functions.
-	__DefineFunc(tuple_set_range);
-	__DefineFunc(tuple_get);
-	__DefineFunc(tuple_get_count);
+    // Tuple functions.
+    __DefineFunc(tuple_set_range);
+    __DefineFunc(tuple_get);
+    __DefineFunc(tuple_get_count);
 
-	// Reflection functions.
-	__DefineFunc(reflection_get_type);
-	__DefineFunc(reflection_get_type_name);
+    // Reflection functions.
+    __DefineFunc(reflection_get_type);
+    __DefineFunc(reflection_get_type_name);
 
     ////////// ////////// ////////// ////////// //////////
 

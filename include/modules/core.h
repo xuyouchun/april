@@ -8,7 +8,7 @@
 
 namespace X_ROOT_NS { namespace modules { namespace core {
 
-	#define UNCERTERN_PARAM_COUNT	-1
+    #define UNCERTERN_PARAM_COUNT   -1
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -45,11 +45,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define CoreType_Attribute    _T("Attribute")
     #define CoreType_Array        _T("Array")
     #define CoreType_TArray       _T("Array<>")
-	#define CoreType_ITuple		  _T("ITuple<...>")
-	#define CoreType_Tuple		  _T("Tuple<...>")
-	#define CoreType_Delegate	  _T("Delegate<,...>")
-	#define CoreType_MulticastDelegate _T("MulticastDelegate<,...>")
-	#define CoreType_Enum		  _T("Enum")
+    #define CoreType_ITuple       _T("ITuple<...>")
+    #define CoreType_Tuple        _T("Tuple<...>")
+    #define CoreType_Delegate     _T("Delegate<,...>")
+    #define CoreType_MulticastDelegate _T("MulticastDelegate<,...>")
+    #define CoreType_Enum         _T("Enum")
     #define CoreType_Int8         _T("Int8")
     #define CoreType_UInt8        _T("UInt8")
     #define CoreType_Int16        _T("Int16")
@@ -1046,13 +1046,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         etype_t & operator[](size_t index) { return eobjects[index]; }
 
         // Returns the eobject at specified index.
-		etype_t & at(size_t index) { return eobjects[index]; }
+        etype_t & at(size_t index) { return eobjects[index]; }
 
         // Returns the eobject at specified index.
         const etype_t & operator[](size_t index) const { return eobjects[index]; }
 
         // Returns the eobject at specified index.
-		const etype_t & at(size_t index) const { return eobjects[index]; }
+        const etype_t & at(size_t index) const { return eobjects[index]; }
 
         // Converts to string.
         operator string_t() const
@@ -1573,7 +1573,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bool is_nan() const _NE  { return value_type == cvalue_type_t::nan; }
         bool is_null() const _NE { return value_type == cvalue_type_t::null; }
 
-		cvalue_t change_type(vtype_t vtype) const _NE;
+        cvalue_t change_type(vtype_t vtype) const _NE;
 
         X_TO_STRING
     };
@@ -1721,7 +1721,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     class argument_t;
     class method_t;
-	class type_impl_t;
+    class type_impl_t;
     typedef indexed_eobjects_t<argument_t *> arguments_t;
 
     // Attribute eobject.
@@ -1745,8 +1745,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_TO_STRING
 
-	private:
-		type_impl_t * __get_impl();
+    private:
+        type_impl_t * __get_impl();
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1801,7 +1801,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         params,     // e.g. params int[] values
 
-		extends,	// e.g. TArgs ... args
+        extends,    // e.g. TArgs ... args
 
     X_ENUM_END
 
@@ -1940,12 +1940,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-	// Mobject type.
-	X_ENUM(mtype_t)
+    // Mobject type.
+    X_ENUM(mtype_t)
 
-		tuple,			// Tuple
+        tuple,          // Tuple
 
-	X_ENUM_END
+    X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -2025,8 +2025,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Implemenation for a generic method.
         impl,
 
-		// Specified member by position, from index 0.
-		position,
+        // Specified member by position, from index 0.
+        position,
 
     X_ENUM_END
 
@@ -2086,13 +2086,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     typedef __named_base_t<member_t> __named_member_t;
 
     //-------- ---------- ---------- ---------- ----------
-	struct typex_t;
+    struct typex_t;
 
     // Argument type structure with a type and it's argument type.
     struct atype_t
     {
         atype_t() = default;
-		atype_t(typex_t typex) _NE;
+        atype_t(typex_t typex) _NE;
         atype_t(type_t * type, param_type_t atype = param_type_t::__default__) _NE
             : type(type), atype(atype) { }
 
@@ -2142,14 +2142,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Constructor.
         analyze_member_args_t(member_type_t member_type, name_t name,
                 atypes_t * atypes = nullptr, generic_args_t * generic_args = nullptr,
-				type_t * return_type = nullptr)
+                type_t * return_type = nullptr)
             : member_type(member_type), name(name), atypes(atypes), generic_args(generic_args)
-			, return_type(return_type)
+            , return_type(return_type)
         { }
 
         member_type_t       member_type;        // Member type.
         name_t              name;               // Member name.
-		type_t *			return_type;		// Return type.
+        type_t *            return_type;        // Return type.
         atypes_t *          atypes;             // Argument types.
         generic_args_t *    generic_args;       // Generic arguments.
         method_trait_t      method_trait    = method_trait_t::__default__;  // Method trait.
@@ -2194,7 +2194,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual gtype_t this_gtype() const = 0;
         virtual ttype_t this_ttype() const = 0;
         virtual vtype_t this_vtype() const = 0;
-		virtual mtype_t this_mtype() const = 0;
+        virtual mtype_t this_mtype() const = 0;
 
         // Returns members descripted by args.
         virtual member_t * get_member(analyze_member_args_t & args) = 0;
@@ -2312,11 +2312,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return type != nullptr && type->this_ttype() == ttype_t::struct_;
     }
 
-	X_ALWAYS_INLINE bool is_custom_struct(type_t * type)
-	{
-		return type != nullptr && type->this_ttype() == ttype_t::struct_
-			&& type->this_vtype() == vtype_t::mobject_;
-	}
+    X_ALWAYS_INLINE bool is_custom_struct(type_t * type)
+    {
+        return type != nullptr && type->this_ttype() == ttype_t::struct_
+                    && type->this_vtype() == vtype_t::mobject_;
+    }
 
     // Returns size of a type.
     msize_t get_type_size(type_t * type);
@@ -2395,7 +2395,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef generic_param_t * itype_t;
 
         // Generic param type.
-        generic_param_type_t param_type	= generic_param_type_t::__default__;
+        generic_param_type_t param_type = generic_param_type_t::__default__;
 
         // Returns gtype, ttype, vtype.
         virtual gtype_t this_gtype() const override final { return gtype_t::generic_param; }
@@ -2435,15 +2435,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-	X_ENUM(generic_arg_type_t)
+    X_ENUM(generic_arg_type_t)
 
-		ref		= (int)param_type_t::ref,		// ref int
+        ref     = (int)param_type_t::ref,       // ref int
 
-		out		= (int)param_type_t::out,		// out int
+        out     = (int)param_type_t::out,       // out int
 
-		params	= (int)param_type_t::params,	// params int[]
+        params  = (int)param_type_t::params,    // params int[]
 
-	X_ENUM_END
+    X_ENUM_END
 
     // Generic argument of eobject.
     class generic_arg_t : public with_index_t, public eobject_t
@@ -2456,8 +2456,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Type of the generic argument.
         type_name_t * type_name = nullptr;
 
-		// Argument type.
-		generic_arg_type_t atype = generic_arg_type_t::__default__;
+        // Argument type.
+        generic_arg_type_t atype = generic_arg_type_t::__default__;
 
         // Returns type of the generic argument.
         type_t * get_type() const { return type_name? type_name->type : nullptr; }
@@ -2994,11 +2994,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the type of this type.
         virtual type_t * get_type() const = 0;
 
-		// Returns param type of specified index.
-		virtual type_t * get_param_type(int index) const = 0;
+        // Returns param type of specified index.
+        virtual type_t * get_param_type(int index) const = 0;
 
-		// Returns param vtype of specified index.
-		vtype_t get_param_vtype(int index) const;
+        // Returns param vtype of specified index.
+        vtype_t get_param_vtype(int index) const;
 
         // Returns Decorates.
         virtual decorate_t * get_decorate() const = 0;
@@ -3009,7 +3009,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-	class method_variable_t;
+    class method_variable_t;
 
     // General method.
     class method_t : public method_base_t, public __named_member_t
@@ -3024,7 +3024,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_params_t *  generic_params  = nullptr;      // Generic parameters.
         params_t *          params          = nullptr;      // Params.
         method_body_t *     body            = nullptr;      // Method body.
-		method_variable_t * variable		= nullptr;		// Relation variable.
+        method_variable_t * variable        = nullptr;      // Relation variable.
 
         // Method trait.
         method_trait_t      trait           = method_trait_t::__default__;
@@ -3059,8 +3059,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns return type of the method.
         virtual type_t * get_type() const override { return to_type(type_name); }
 
-		// Returns param type of specified index.
-		virtual type_t * get_param_type(int index) const override;
+        // Returns param type of specified index.
+        virtual type_t * get_param_type(int index) const override;
 
         // Returns param count.
         size_t param_count() const
@@ -3071,7 +3071,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the param at the specified index.
         param_t * param_at(size_t index) const
         {
-			_A(index < param_count());
+            _A(index < param_count());
             return (*params)[index];
         }
 
@@ -3126,8 +3126,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // The raw general template method.
         method_t * raw = nullptr;
 
-		// Returns param type of specified index.
-		virtual type_t * get_param_type(int index) const override;
+        // Returns param type of specified index.
+        virtual type_t * get_param_type(int index) const override;
 
         // Returns this family.
         virtual member_family_t this_family() const override
@@ -3139,32 +3139,32 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
     // typex_t
 
-	struct typex_t : compare_operators_t<typex_t, void *>
-	{
-		typedef generic_arg_type_t __gatype_t;
+    struct typex_t : compare_operators_t<typex_t, void *>
+    {
+        typedef generic_arg_type_t __gatype_t;
 
-		typex_t() _NE : __v(nullptr) { }
-		typex_t(type_t * type) _NE : __v(type) { }
-		typex_t(type_t * type, __gatype_t atype) _NE : __v(al::incorp(type, atype)) { }
+        typex_t() _NE : __v(nullptr) { }
+        typex_t(type_t * type) _NE : __v(type) { }
+        typex_t(type_t * type, __gatype_t atype) _NE : __v(al::incorp(type, atype)) { }
 
-		type_t *  type() const _NE     { return incorp_p((type_t *)__v);  }
-		__gatype_t atype() const _NE   { return incorp_v<__gatype_t>(__v); }
-		param_type_t ptype() const _NE { return (param_type_t)atype(); }
+        type_t *  type() const _NE     { return incorp_p((type_t *)__v);  }
+        __gatype_t atype() const _NE   { return incorp_v<__gatype_t>(__v); }
+        param_type_t ptype() const _NE { return (param_type_t)atype(); }
 
-		operator type_t * () const _NE     { return type(); }
-		operator __gatype_t () const _NE   { return atype(); }
-		operator param_type_t () const _NE { return ptype(); }
-		operator void *   () const _NE     { return __v; }
+        operator type_t * () const _NE     { return type(); }
+        operator __gatype_t () const _NE   { return atype(); }
+        operator param_type_t () const _NE { return ptype(); }
+        operator void *   () const _NE     { return __v; }
 
         // Converts to string.
-		operator string_t() const;
+        operator string_t() const;
 
-	private:
-		void * __v;
-	};
+    private:
+        void * __v;
+    };
 
-	// Type collection.
-	typedef __vector_t<typex_t> type_collection_t;
+    // Type collection.
+    typedef __vector_t<typex_t> type_collection_t;
 
     // Converts generic arguments to a type collection.
     type_collection_t to_type_collection(generic_args_t * args);
@@ -3213,8 +3213,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __template()->get_type();
         }
 
-		// Returns param type of specified index.
-		virtual type_t * get_param_type(int index) const override;
+        // Returns param type of specified index.
+        virtual type_t * get_param_type(int index) const override;
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() const override
@@ -3450,21 +3450,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-	// Position field.
-	class position_field_t : public field_t
-	{
-		typedef field_t __super_t;
+    // Position field.
+    class position_field_t : public field_t
+    {
+        typedef field_t __super_t;
 
-	public:
-		using __super_t::__super_t;
+    public:
+        using __super_t::__super_t;
 
-		int position = 0;
+        int position = 0;
 
-		virtual member_family_t this_family() const override
-		{
-			return member_family_t::position;
-		}
-	};
+        virtual member_family_t this_family() const override
+        {
+            return member_family_t::position;
+        }
+    };
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -3478,7 +3478,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         typedef type_def_param_t * itype_t;
 
-		bool	extends = false;
+        bool    extends = false;
 
         // Returns gtype, ttype, vtype.
         virtual gtype_t this_gtype() const override final { return gtype_t::type_def_param; }
@@ -3801,7 +3801,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         vtype_t vtype = vtype_t::mobject_;          // vtype.
         ttype_t ttype = ttype_t::class_;            // ttype.
-		mtype_t mtype = mtype_t::__default__;		// mtype.
+        mtype_t mtype = mtype_t::__default__;       // mtype.
 
         // Appends a member.
         void append_member(member_t * member);
@@ -3830,17 +3830,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns param count.
         size_t params_count() const { return params? params->size() : 0; }
 
-		// Returns param at specified position.
-		generic_param_t * param_at(size_t index) const;
+        // Returns param at specified position.
+        generic_param_t * param_at(size_t index) const;
 
-		// Returns if specified param count match this type.
-		bool is_match(size_t params_count) const;
+        // Returns if specified param count match this type.
+        bool is_match(size_t params_count) const;
 
         // Returns whether it is has generic params.
         bool is_generic() const { return params_count() > 0; }
 
-		// Returns if it has uncertain count params.
-		bool uncertain_params() const;
+        // Returns if it has uncertain count params.
+        bool uncertain_params() const;
 
         // Commits it.
         virtual void commit(eobject_commit_context_t & ctx) override;
@@ -3902,9 +3902,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         virtual mtype_t this_mtype() const override final _NE
-		{
-			return template_? template_->this_mtype() : mtype_t::__unknown__;
-		}
+        {
+            return template_? template_->this_mtype() : mtype_t::__unknown__;
+        }
 
         // Gets the name of the method.
         virtual name_t get_name() const override
@@ -3981,8 +3981,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Transform type_name to its implemenation with type arguments.
         type_name_t * __transform_member(__ctx_t & ctx, type_name_t * type_name);
 
-		// Transform tuple type.
-		void __transform_tuple_type(xpool_t & xpool); 
+        // Transform tuple type.
+        void __transform_tuple_type(xpool_t & xpool); 
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4299,8 +4299,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Type collection.
         type_collection_cache_t type_collection;
 
-		// Creates a new name_t object of specified string.
-		name_t to_name(const char_t * s) { return name_t(spool.to_sid(s)); }
+        // Creates a new name_t object of specified string.
+        name_t to_name(const char_t * s) { return name_t(spool.to_sid(s)); }
 
         // Creates a new generic type.
         generic_type_t * new_generic_type(general_type_t * template_,
@@ -4340,8 +4340,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns System.Object type.
         type_name_t * get_object_type_name();
 
-		// Returns System.Void type.
-		general_type_t * get_void_type();
+        // Returns System.Void type.
+        general_type_t * get_void_type();
 
         // Returns System.Array<> type.
         general_type_t * get_tarray_type();
@@ -4355,20 +4355,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns System.Type type.
         general_type_t * get_type_type();
 
-		// Returns System.Ptr type.
-		general_type_t * get_ptr_type();
+        // Returns System.Ptr type.
+        general_type_t * get_ptr_type();
 
-		// Returns System.Delegate type.
-		general_type_t * get_delegate_type();
+        // Returns System.Delegate type.
+        general_type_t * get_delegate_type();
 
-		// Returns System.MulticastDelegate type.
-		general_type_t * get_multicast_delegate_type();
+        // Returns System.MulticastDelegate type.
+        general_type_t * get_multicast_delegate_type();
 
         // Returns System.Exception type.
         general_type_t * get_exception_type();
 
-		// Returns System.Tuple<...> type.
-		general_type_t * get_tuple_type();
+        // Returns System.Tuple<...> type.
+        general_type_t * get_tuple_type();
 
         // Returns System.Diagnostics.TraceAttribute type.
         general_type_t * get_trace_attribute_type();
@@ -4392,18 +4392,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns specified type with cache.
         general_type_t * __get_specified_type(const char_t * name, general_type_t * & __cache);
 
-        general_type_t * __object_type		= nullptr;
-		general_type_t * __void_type		= nullptr;
-        general_type_t * __tarray_type		= nullptr;
-        general_type_t * __array_type		= nullptr;
-        general_type_t * __string_type		= nullptr;
-        general_type_t * __type_type		= nullptr;
-		general_type_t * __ptr_type			= nullptr;
-		general_type_t * __delegate_type	= nullptr;
-		general_type_t * __multicast_delegate_type = nullptr;
+        general_type_t * __object_type      = nullptr;
+        general_type_t * __void_type        = nullptr;
+        general_type_t * __tarray_type      = nullptr;
+        general_type_t * __array_type       = nullptr;
+        general_type_t * __string_type      = nullptr;
+        general_type_t * __type_type        = nullptr;
+        general_type_t * __ptr_type         = nullptr;
+        general_type_t * __delegate_type    = nullptr;
+        general_type_t * __multicast_delegate_type = nullptr;
 
-        general_type_t * __exception_type	= nullptr;
-        general_type_t * __tuple_type		= nullptr;
+        general_type_t * __exception_type   = nullptr;
+        general_type_t * __tuple_type       = nullptr;
         general_type_t * __trace_attribute_type = nullptr;
 
         type_name_t __object_type_name;
@@ -4428,21 +4428,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_(variable_type_t, 2)
 
-        local			=	1 << 0,				// Local valiable in method.
+        local           =   1 << 0,             // Local valiable in method.
 
-        param			=	1 << 1,				// Param variable of method.
+        param           =   1 << 1,             // Param variable of method.
 
-        field			=	1 << 2,				// Field variable of type.
+        field           =   1 << 2,             // Field variable of type.
 
-        property		=	1 << 3,				// Property variable of type.
+        property        =   1 << 3,             // Property variable of type.
 
-        event			=	1 << 4,				// Event variable of type.
+        event           =   1 << 4,             // Event variable of type.
 
-		method			=	1 << 5,				// Method variable of type.
+        method          =   1 << 5,             // Method variable of type.
 
-        array_index		=	1 << 6,				// Array index variable.
+        array_index     =   1 << 6,             // Array index variable.
 
-        property_index	=	1 << 7,				// Property index.
+        property_index  =   1 << 7,             // Property index.
 
     X_ENUM_END
 
@@ -4460,8 +4460,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns this variable's type.
         virtual variable_type_t this_type() = 0;
 
-		// Returns if it's allowd duplicate in a region, like methods.
-		virtual bool allow_duplicate() = 0;
+        // Returns if it's allowd duplicate in a region, like methods.
+        virtual bool allow_duplicate() = 0;
 
         // Returns whether this will call a method.
         virtual bool is_calling() = 0;
@@ -4494,8 +4494,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             // Returns this variable's type.
             virtual variable_type_t this_type() _NE override { return _type; }
 
-			// Returns if it's allowd duplicate in a region, like methods.
-			virtual bool allow_duplicate() _NE override { return _allow_duplicate; }
+            // Returns if it's allowd duplicate in a region, like methods.
+            virtual bool allow_duplicate() _NE override { return _allow_duplicate; }
 
             // Returns whether this will call a method.
             virtual bool is_calling() _NE override { return false; }
@@ -4507,7 +4507,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
 
             static const variable_type_t type = _type;
-			static const bool allow_duplicate_ = _allow_duplicate;
+            static const bool allow_duplicate_ = _allow_duplicate;
         };
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4562,8 +4562,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns this variable's type.
         virtual type_t * get_type(xpool_t & xpool) override { return to_type(type_name); }
 
-		// Returns vtype.
-		virtual vtype_t get_vtype() override;
+        // Returns vtype.
+        virtual vtype_t get_vtype() override;
 
         // Returns name of this variable.
         virtual name_t get_name() const override { return name; }
@@ -4594,8 +4594,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns type of the param.
         virtual type_t * get_type(xpool_t & xpool) override;
 
-		// Returns vtype.
-		virtual vtype_t get_vtype() override;
+        // Returns vtype.
+        virtual vtype_t get_vtype() override;
 
         // Returns name of the param.
         virtual name_t get_name() const override
@@ -4629,8 +4629,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return to_type(field->type_name);
         }
 
-		// Returns vtype.
-		virtual vtype_t get_vtype() override;
+        // Returns vtype.
+        virtual vtype_t get_vtype() override;
 
         // Retuns name of the field.
         virtual name_t get_name() const override
@@ -4664,8 +4664,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return to_type(property->type_name);
         }
 
-		// Returns vtype.
-		virtual vtype_t get_vtype() override;
+        // Returns vtype.
+        virtual vtype_t get_vtype() override;
 
         // Returns name of the property.
         virtual name_t get_name() const override
@@ -4706,8 +4706,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return to_type(property->type_name);
         }
 
-		// Returns vtype.
-		virtual vtype_t get_vtype() override;
+        // Returns vtype.
+        virtual vtype_t get_vtype() override;
 
         // Returns name of the property.
         virtual name_t get_name() const override
@@ -4741,8 +4741,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns type of the element in the array.
         virtual type_t * get_type(xpool_t & xpool) override;
 
-		// Returns vtype.
-		virtual vtype_t get_vtype() override;
+        // Returns vtype.
+        virtual vtype_t get_vtype() override;
 
         // Returns name of the array index.
         virtual name_t get_name() const override;
@@ -4773,8 +4773,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return to_type(event->type_name);
         }
 
-		// Returns vtype.
-		virtual vtype_t get_vtype() override;
+        // Returns vtype.
+        virtual vtype_t get_vtype() override;
 
         // Returns name of the event.
         virtual name_t get_name() const override
@@ -4788,33 +4788,32 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-	// Method variable.
-	class method_variable_t : public __variable_base_t<variable_type_t::method, true>
-	{
-	public:
+    // Method variable.
+    class method_variable_t : public __variable_base_t<variable_type_t::method, true>
+    {
+    public:
 
-		// Constructor.
-		method_variable_t(method_t * method) : method(method)
-		{
-			_A(method != nullptr);
-		}
+        // Constructor.
+        method_variable_t(method_t * method) : method(method)
+        {
+            _A(method != nullptr);
+        }
 
-		// Relation method.
-		method_t * method = nullptr;
+        // Relation method.
+        method_t * method = nullptr;
 
-		// Returns type of the method.
-		virtual type_t * get_type(xpool_t & xpool) override;
+        // Returns type of the method.
+        virtual type_t * get_type(xpool_t & xpool) override;
 
-		// Returns vtype.
-		virtual vtype_t get_vtype() override;
+        // Returns vtype.
+        virtual vtype_t get_vtype() override;
 
-		// Returns name of the method.
-		virtual name_t get_name() const override;
+        // Returns name of the method.
+        virtual name_t get_name() const override;
 
-		// Converters to string.
-		X_TO_STRING
-
-	};
+        // Converters to string.
+        X_TO_STRING
+    };
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -4862,8 +4861,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Defines an event.
         event_variable_t * define_event(event_t * event);
 
-		// Defines a method.
-		method_variable_t * define_method(method_t * method);
+        // Defines a method.
+        method_variable_t * define_method(method_t * method);
 
         // Gets the variable of the name.
         variable_t * get(const name_t & name);
@@ -5304,7 +5303,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Ast node.
     class ast_node_t : public eobject_t, public code_element_t
-	{
+    {
     public:
 
         // Returns Ast value.
@@ -5782,7 +5781,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype = xil_type_t::empty)
+                                    xil_type_t dtype = xil_type_t::empty)
         {
             throw _unimplemented_error(this, _T("compile"));
         }
@@ -5833,7 +5832,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     public:
 
-		using __super_t::__super_t;
+        using __super_t::__super_t;
 
         // Constructor.
         template<typename ... exps_t> texpression_t(exps_t ... exps_)
@@ -6064,10 +6063,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
         using __super_t::__super_t;
 
-		// Constructor.
-		type_cast_expression_t(type_name_t * type_name, expression_t * expression) _NE
-			: __super_t(expression), type_name(type_name)
-		{ }
+        // Constructor.
+        type_cast_expression_t(type_name_t * type_name, expression_t * expression) _NE
+                : __super_t(expression), type_name(type_name)
+        { }
 
         // Type name.
         type_name_t  * type_name = nullptr;
@@ -6075,8 +6074,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Expression.
         expression_t * expression() const _NE { return exps[0]; }
 
-		// Set expression.
-		void set_expression(expression_t * expression);
+        // Set expression.
+        void set_expression(expression_t * expression);
 
         // Returns this family.
         virtual expression_family_t this_family() const override _NE
@@ -6464,20 +6463,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-	X_ENUM(function_expression_type_t)
+    X_ENUM(function_expression_type_t)
 
-		method,
+        method,
 
-		variable,
+        variable,
 
-	X_ENUM_END
+    X_ENUM_END
 
     // Function expression.
     class function_expression_t : public __arguments_expression_base_t
     {
-        typedef __arguments_expression_base_t	__super_t;
-		typedef function_expression_type_t		__ftype_t;
-		typedef arch_uint_t						__uint_t;
+        typedef __arguments_expression_base_t   __super_t;
+        typedef function_expression_type_t      __ftype_t;
+        typedef arch_uint_t                     __uint_t;
 
     public:
 
@@ -6490,20 +6489,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         expression_t    * namex         = nullptr;      // Name
         generic_args_t  * generic_args  = nullptr;      // Generic arguments.
 
-		// Sets method.
-		void set_method(method_base_t * method) _NE;
+        // Sets method.
+        void set_method(method_base_t * method) _NE;
 
-		// Gets method.
-		method_base_t * get_method() const _NE;
+        // Gets method.
+        method_base_t * get_method() const _NE;
 
-		// Sets variable.
-		void set_variable(variable_t * variable) _NE;
+        // Sets variable.
+        void set_variable(variable_t * variable) _NE;
 
-		// Gets variable.
-		variable_t * get_variable() const _NE;
+        // Gets variable.
+        variable_t * get_variable() const _NE;
 
-		// Returns function expression relation object type.
-		__ftype_t get_ftype() const _NE { return (__ftype_t)__relation_data; }
+        // Returns function expression relation object type.
+        __ftype_t get_ftype() const _NE { return (__ftype_t)__relation_data; }
 
         // Returns generic argument count.
         size_t generic_args_count() const
@@ -6535,9 +6534,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Converts to string.
         virtual const string_t to_string() const override;
 
-	private:
+    private:
 
-		incorp_t<void, __ftype_t> __relation_data;
+        incorp_t<void, __ftype_t> __relation_data;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -7132,8 +7131,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Converts to statement context.
         operator statement_compile_context_t & () const { return sc_context; }
 
-		// Converts to method context.
-		operator method_compile_context_t & () const;
+        // Converts to method context.
+        operator method_compile_context_t & () const;
 
         // Standalone regions.
         std::queue<statement_region_t *> regions;

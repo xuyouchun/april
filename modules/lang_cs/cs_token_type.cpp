@@ -16,7 +16,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         __K(base)        __K(bool)     __K(break)     __K(byte)
 
         // keywords: c...
-        __K(case) 	     __K(catch)    __K(char) 	  __K(checked)
+        __K(case)        __K(catch)    __K(char)     __K(checked)
         __K(class)       __K(const)    __K(continue)
         
         // keywords: d...
@@ -33,8 +33,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         __K(goto)       __K(get)       __K(global)
 
         // keywords: i...
-		__K(if)          __K(implicit) __K(in)        __K(int)      __K(interface)
-		__K(internal)    __K(is)    __K(import)
+        __K(if)          __K(implicit) __K(in)        __K(int)      __K(interface)
+        __K(internal)    __K(is)    __K(import)
         
         // keywords: l...
         __K(lock)        __K(long)
@@ -49,7 +49,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         __K(params)      __K(private) __K(protected)  __K(public)
 
         // keywords: r...
-		__K(readonly)    __K(ref)     __K(return)   __K(remove)
+        __K(readonly)    __K(ref)     __K(return)   __K(remove)
         
         // keywords: s...
         __K(sbyte)       __K(sealed)  __K(short)   __K(sizeof)  __K(stackalloc)
@@ -113,7 +113,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         __C(semicolon, _T(";"))     __C(comma, _T(","))             // ; ,
         __C(dollar, _T("$"))        __C(ampersand, _T("@"))         // $ @
         __C(base_mark, _T(":"))     __C(double_colon, _T("::"))     // : ::
-		__C(three_dots, _T("..."))									// ...
+        __C(three_dots, _T("..."))                                  // ...
 
     X_ENUM_INFO_END
 

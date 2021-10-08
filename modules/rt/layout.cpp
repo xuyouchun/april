@@ -19,19 +19,19 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         __atypes.push_back(atype);
     }
 
-	// Append a generic params types.
-	void generic_param_manager_t::append(rt_type_t * atype)
-	{
-		_A(atype != nullptr);
+    // Append a generic params types.
+    void generic_param_manager_t::append(rt_type_t * atype)
+    {
+        _A(atype != nullptr);
 
-		__atypes.push_back(atype);
-	}
+        __atypes.push_back(atype);
+    }
 
-	// Append generic param types with name.
-	void generic_param_manager_t::append(rt_sid_t name, int index, int count)
-	{
-		__named_atypes[name] = std::make_tuple(index, count);
-	}
+    // Append generic param types with name.
+    void generic_param_manager_t::append(rt_sid_t name, int index, int count)
+    {
+        __named_atypes[name] = std::make_tuple(index, count);
+    }
 
     // Returns type at index.
     rt_type_t * generic_param_manager_t::type_at(int index) const
@@ -49,29 +49,29 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         if (it == __type_map.end())
             return nullptr;
 
-		if (out_index != nullptr)
-			*out_index = std::get<int>(it->second);
+        if (out_index != nullptr)
+            *out_index = std::get<int>(it->second);
 
         return std::get<rt_type_t *>(it->second);
     }
 
-	// Returns types position of specified name, for generic params.
-	bool generic_param_manager_t::types_of(rt_sid_t sid, int * out_index, int * out_count) const
-	{
-		auto it = __named_atypes.find(sid);
-		if (it == __named_atypes.end())
-			return false;
+    // Returns types position of specified name, for generic params.
+    bool generic_param_manager_t::types_of(rt_sid_t sid, int * out_index, int * out_count) const
+    {
+        auto it = __named_atypes.find(sid);
+        if (it == __named_atypes.end())
+            return false;
 
-		std::tuple<int, int> & r = it->value;
+        std::tuple<int, int> & r = it->value;
 
-		if (out_index != nullptr)
-			*out_index = std::get<0>(r);
+        if (out_index != nullptr)
+            *out_index = std::get<0>(r);
 
-		if (out_count != nullptr)
-			*out_count = std::get<1>(r);
+        if (out_count != nullptr)
+            *out_count = std::get<1>(r);
 
-		return true;
-	}
+        return true;
+    }
 
     // Returns the empty manager.
     const generic_param_manager_t * generic_param_manager_t::empty_instance()
@@ -244,33 +244,33 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         _A(generic_params.count <= type_count);
 
-		rt_type_t ** types_end = types + type_count;
+        rt_type_t ** types_end = types + type_count;
 
-		if ((param_type_t)generic_params.extra == param_type_t::extends)
-		{
-			rt_generic_param_t * gp = __analyzer.get_generic_param(generic_params);
-			rt_sid_t name = __analyzer.to_sid((*gp)->name);
+        if ((param_type_t)generic_params.extra == param_type_t::extends)
+        {
+            rt_generic_param_t * gp = __analyzer.get_generic_param(generic_params);
+            rt_sid_t name = __analyzer.to_sid((*gp)->name);
 
-			__gp_mgr.append(name, __gp_mgr.size(), type_count);
-		}
-		else
-		{
-			for (ref_t gp_ref : generic_params)
-			{
-				rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
-				rt_sid_t name = __analyzer.to_sid((*gp)->name);
+            __gp_mgr.append(name, __gp_mgr.size(), type_count);
+        }
+        else
+        {
+            for (ref_t gp_ref : generic_params)
+            {
+                rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
+                rt_sid_t name = __analyzer.to_sid((*gp)->name);
 
-				__gp_mgr.append(name, *types++);
-			}
-		}
+                __gp_mgr.append(name, *types++);
+            }
+        }
 
-		while (types < types_end)
-		{
-			// _PP((*types)->get_name(__analyzer.env));
-			__gp_mgr.append(*types++);
-		}
+        while (types < types_end)
+        {
+            // _PP((*types)->get_name(__analyzer.env));
+            __gp_mgr.append(*types++);
+        }
 
-		// _PP(__gp_mgr.size());
+        // _PP(__gp_mgr.size());
     }
 
     // Appends generic params
@@ -389,7 +389,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     // Gets runtime type of typeref.
     rt_type_t * __variables_layout_t::__get_type(ref_t type_ref,
-			rt_generic_param_t ** out_generic_param, int * out_index)
+            rt_generic_param_t ** out_generic_param, int * out_index)
     {
         switch ((mt_type_extra_t)type_ref.extra)
         {
@@ -397,7 +397,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
                 rt_generic_param_t * gp = __ctx.get_generic_param(type_ref);
                 _A(gp != nullptr);
-				al::assign_value(out_generic_param, gp);
+                al::assign_value(out_generic_param, gp);
 
                 rt_sid_t name = __ctx.to_sid((*gp)->name);
                 return __ctx.gp_manager->type_at(name, out_index);
@@ -405,7 +405,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             }   break;
 
             default:
-				al::assign_value(out_generic_param, (rt_generic_param_t *)nullptr);
+                al::assign_value(out_generic_param, (rt_generic_param_t *)nullptr);
                 return __ctx.get_type(type_ref);
         }
     }
@@ -681,14 +681,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return __items[index].offset;
     }
 
-	// Returns type of local variable index.
-	rt_type_t * locals_layout_t::type_at(int index)
-	{
+    // Returns type of local variable index.
+    rt_type_t * locals_layout_t::type_at(int index)
+    {
         if (index >= __items.size())
             throw _ED(__e_t::local_index_out_of_range);
 
         return __items[index].type;
-	}
+    }
 
     // Converts to string.
     locals_layout_t::operator string_t() const
@@ -761,24 +761,24 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     msize_t params_layout_t::offset_of(int index)
     {
         if (index >= __items.size())
-		{
-			if (index == __items.size())
-				return 0;
+        {
+            if (index == __items.size())
+                return 0;
 
-			throw _ED(__e_t::argument_index_out_of_range);
-		}
+            throw _ED(__e_t::argument_index_out_of_range);
+        }
 
         return __current_offset - __items[index].offset;
     }
 
-	// Returns offset of the first extends param.
-	msize_t params_layout_t::extends_offset()
-	{
-		if (__extends_params_offset < 0)
-			return 0;
+    // Returns offset of the first extends param.
+    msize_t params_layout_t::extends_offset()
+    {
+        if (__extends_params_offset < 0)
+            return 0;
 
-		return __current_offset - __extends_params_offset;
-	}
+        return __current_offset - __extends_params_offset;
+    }
 
     // Returns param type of index.
     rt_type_t * params_layout_t::type_at(int index)

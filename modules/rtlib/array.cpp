@@ -69,70 +69,70 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
-	// Tuple_SetRange
-	struct __tuple_set_range_args_t : __tuple_args_t
-	{
-		rptr_t		arguments;
-	};
+    // Tuple_SetRange
+    struct __tuple_set_range_args_t : __tuple_args_t
+    {
+        rptr_t      arguments;
+    };
 
-	void tuple_set_range(rtlib_context_t & ctx)
-	{
-		typedef __tuple_set_range_args_t args_t;
-		args_t * args = ctx.args<args_t>();
-		rt_ref_t tuple = *args->tuple;
+    void tuple_set_range(rtlib_context_t & ctx)
+    {
+        typedef __tuple_set_range_args_t args_t;
+        args_t * args = ctx.args<args_t>();
+        rt_ref_t tuple = *args->tuple;
 
-		rt_type_t * rt_type = mm::get_object_type(*args->tuple);
-		_A(rt_type != nullptr);
-		_A(rt_type->get_kind() == rt_type_kind_t::generic);
-		
-		rt_generic_type_t * rt_generic_type = (rt_generic_type_t *)rt_type;
+        rt_type_t * rt_type = mm::get_object_type(*args->tuple);
+        _A(rt_type != nullptr);
+        _A(rt_type->get_kind() == rt_type_kind_t::generic);
 
-		int position = 0;
-		byte_t * ptr = (byte_t *)tuple;
-		rt_stack_unit_t * argument = (rt_stack_unit_t *)*args->arguments;
+        rt_generic_type_t * rt_generic_type = (rt_generic_type_t *)rt_type;
 
-		// Each all tuple fields.
-		rt_type->each_field(ctx.analyzer.env, [&](ref_t ref, rt_field_base_t * field) {
+        int position = 0;
+        byte_t * ptr = (byte_t *)tuple;
+        rt_stack_unit_t * argument = (rt_stack_unit_t *)*args->arguments;
 
-			rt_type_t * field_type = field->get_field_type(ctx.analyzer);
-			msize_t offset = rt_type->get_field_offset(ctx.analyzer.env, position);
-			msize_t size = field_type->get_variable_size(ctx.analyzer.env);
+        // Each all tuple fields.
+        rt_type->each_field(ctx.analyzer.env, [&](ref_t ref, rt_field_base_t * field) {
 
-			set_variable_value(ptr + offset, argument, size);
-			argument += unit_size_of(size);
+            rt_type_t * field_type = field->get_field_type(ctx.analyzer);
+            msize_t offset = rt_type->get_field_offset(ctx.analyzer.env, position);
+            msize_t size = field_type->get_variable_size(ctx.analyzer.env);
 
-			position++;
-			return true;
-		});
-	}
+            set_variable_value(ptr + offset, argument, size);
+            argument += unit_size_of(size);
 
-    ////////// ////////// ////////// ////////// //////////
-
-	// Tuple_Get
-	struct __tuple_get_args_t : __tuple_args_t
-	{
-		rint32_t	index;
-	};
-
-	void tuple_get(rtlib_context_t & ctx)
-	{
-		typedef __tuple_get_args_t args_t;
-		args_t * args = ctx.args<args_t>();
-	}
+            position++;
+            return true;
+        });
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
-	// Tuple_GetCount
-	struct __tuple_get_count_args_t : __tuple_args_t
-	{
-		// empty.
-	};
+    // Tuple_Get
+    struct __tuple_get_args_t : __tuple_args_t
+    {
+        rint32_t    index;
+    };
 
-	void tuple_get_count(rtlib_context_t & ctx)
-	{
-		typedef __tuple_get_count_args_t args_t;
-		args_t * args = ctx.args<args_t>();
-	}
+    void tuple_get(rtlib_context_t & ctx)
+    {
+        typedef __tuple_get_args_t args_t;
+        args_t * args = ctx.args<args_t>();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Tuple_GetCount
+    struct __tuple_get_count_args_t : __tuple_args_t
+    {
+        // empty.
+    };
+
+    void tuple_get_count(rtlib_context_t & ctx)
+    {
+        typedef __tuple_get_count_args_t args_t;
+        args_t * args = ctx.args<args_t>();
+    }
 
     ////////// ////////// ////////// ////////// //////////
 

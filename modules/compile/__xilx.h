@@ -106,6 +106,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
     // local_define_xilx_t
+
     class local_define_xilx_t : public xilx_base_t
     {
         typedef xilx_base_t __super_t;
@@ -522,33 +523,33 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         // Writes assign xil for local variable.
         void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool,
-					local_variable_t * local, xil_type_t dtype, bool pick = false);
+                    local_variable_t * local, xil_type_t dtype, bool pick = false);
 
         // Writes assign xil for local variable.
         X_INLINE void write_assign_xil(__cctx_t & ctx, xil_pool_t & pool,
-					local_variable_t * local, xil_type_t dtype, bool pick)
+                    local_variable_t * local, xil_type_t dtype, bool pick)
         {
             write_assign_xil(ctx.statement_ctx, pool, local, dtype, pick);
         }
 
         // Writes assign xil for param variable.
         void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool,
-					param_variable_t * param_var, xil_type_t dtype, bool pick = false);
+                    param_variable_t * param_var, xil_type_t dtype, bool pick = false);
 
         // Writes assign xil for param variable.
         X_INLINE void write_assign_xil(__cctx_t & ctx, xil_pool_t & pool,
-					param_variable_t * param_var, xil_type_t dtype, bool pick = false)
+                    param_variable_t * param_var, xil_type_t dtype, bool pick = false)
         {
             write_assign_xil(ctx.statement_ctx, pool, param_var, dtype, pick);
         }
 
         // Writes assign xil for field variable.
         void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool,
-					field_variable_t * field_var, xil_type_t dtype, bool pick = false);
+                    field_variable_t * field_var, xil_type_t dtype, bool pick = false);
 
         // Writes assign xilx for field variable.
         X_INLINE void write_assign_xil(__cctx_t & ctx, xil_pool_t & pool,
-					field_variable_t * field_var, xil_type_t dtype, bool pick = false)
+                field_variable_t * field_var, xil_type_t dtype, bool pick = false)
         {
             write_assign_xil(ctx.statement_ctx, pool, field_var, dtype, pick);
         }

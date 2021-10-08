@@ -192,11 +192,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Operator overload method prototype error: Should not be a generic type.
         operator_overload__no_generic,
 
-		// Delegate type error.
-		delegate_type_error,
+        // Delegate type error.
+        delegate_type_error,
 
-		// Type error when create instance.
-		create_instance_type_error,
+        // Type error when create instance.
+        create_instance_type_error,
 
     X_ENUM_END
 
@@ -211,8 +211,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts switch to if statement when case lables is too little.
         convert_switch_to_if_statement,
 
-		// Auto determine constant variables.
-		auto_determine_constant_variables,
+        // Auto determine constant variables.
+        auto_determine_constant_variables,
 
     X_ENUM_END
 

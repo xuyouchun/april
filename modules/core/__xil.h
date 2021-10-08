@@ -150,29 +150,29 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         empty           = 0,
 
-		int8            = 1,
+        int8            = 1,
 
-		uint8           = 2,
+        uint8           = 2,
 
-		int16           = 3,
+        int16           = 3,
 
-		uint16          = 4,
+        uint16          = 4,
 
-		int32           = 5,
+        int32           = 5,
 
-		uint32          = 6,
+        uint32          = 6,
 
-		int64           = 7,
+        int64           = 7,
 
-		uint64          = 8,
+        uint64          = 8,
 
-		float_          = 9,
+        float_          = 9,
 
-		double_         = 10,
+        double_         = 10,
 
-		bool_           = 11,
+        bool_           = 11,
 
-		char_           = 12,
+        char_           = 12,
 
         string          = 13,
 
@@ -268,7 +268,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         field_addr      = 7,        // Field address
 
-        params			= 12,		// Stack address of dynamic arguments
+        params          = 12,       // Stack address of dynamic arguments
 
         array_element   = 13,       // Array element
 
@@ -371,17 +371,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return ref_t(index + offset, 1, extra);
         }
 
-		// Returns ref_t of specified position.
-		ref_t at(size_t index) const
-		{
-			return ref_t(index, 1, extra);
-		}
+        // Returns ref_t of specified position.
+        ref_t at(size_t index) const
+        {
+            return ref_t(index, 1, extra);
+        }
 
         // Returns difference of two refs.
         int operator - (ref_t f) const { return index - f.index; }
 
-		// Returns a new ref with specified offset.
-		ref_t operator + (int offset) const { return ref_t(index + offset, 1, extra); }
+        // Returns a new ref with specified offset.
+        ref_t operator + (int offset) const { return ref_t(index + offset, 1, extra); }
 
         // Moves to next ref_t.
         ref_t & operator ++ () { index++; return *this; }
@@ -646,7 +646,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_type_t::int32:
             case xil_type_t::uint32:
             case xil_type_t::float_:
-		    case xil_type_t::char_:
+            case xil_type_t::char_:
                 return 4;
 
             case xil_type_t::int64:
@@ -766,7 +766,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::duplicate:
-			case xil_storage_type_t::params:
+            case xil_storage_type_t::params:
                 size -= 1;      // __dtype, identity no use
                 break;
 

@@ -44,7 +44,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+            xil_type_t dtype) override;
 
     private:
 
@@ -63,7 +63,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+            xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -77,7 +77,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+            xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -91,7 +91,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+            xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -105,15 +105,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+            xil_type_t dtype) override;
 
-	private:
+    private:
 
-		// Compile method calling expression.
-		void __compile_method(expression_compile_context_t & ctx, xil_pool_t & pool);
+        // Compile method calling expression.
+        void __compile_method(expression_compile_context_t & ctx, xil_pool_t & pool);
 
-		// Compile delegate calling expression.
-		void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool);
+        // Compile delegate calling expression.
+        void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool);
 
     __EndSystemExpressionT
 
@@ -127,7 +127,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                        xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -141,7 +141,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                        xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -155,15 +155,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                        xil_type_t dtype) override;
 
         // Compile array index.
         void __compile_array_index(expression_compile_context_t & ctx, xil_pool_t & pool,
-				array_index_variable_t * variable, expression_t * namex, xil_type_t dtype);
+                array_index_variable_t * variable, expression_t * namex, xil_type_t dtype);
 
         // Compile property index.
         void __compile_property_index(expression_compile_context_t & ctx, xil_pool_t & pool,
-				property_index_variable_t * variable, expression_t * namex, xil_type_t dtype);
+                property_index_variable_t * variable, expression_t * namex, xil_type_t dtype);
 
     __EndSystemExpressionT
 
@@ -177,17 +177,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                    xil_type_t dtype) override;
 
-	private:
+    private:
 
-		// Creates instance of class type.
-		void __compile_new_class_object(expression_compile_context_t & ctx, xil_pool_t & pool,
-			type_t * type);
+        // Creates instance of class type.
+        void __compile_new_class_object(expression_compile_context_t & ctx, xil_pool_t & pool,
+                                                    type_t * type);
 
-		// Creates instance of struct type.
-		void __compile_new_struct_object(expression_compile_context_t & ctx, xil_pool_t & pool,
-			type_t * type);
+        // Creates instance of struct type.
+        void __compile_new_struct_object(expression_compile_context_t & ctx, xil_pool_t & pool,
+                                                    type_t * type);
 
     __EndSystemExpressionT
 
@@ -201,7 +201,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                    xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -215,7 +215,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                    xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -229,7 +229,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                    xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -243,7 +243,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                    xil_type_t dtype) override;
 
     __EndSystemExpressionT
 
@@ -257,7 +257,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-			xil_type_t dtype) override;
+                                                    xil_type_t dtype) override;
 
     __EndSystemExpressionT
 

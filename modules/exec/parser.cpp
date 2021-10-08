@@ -171,21 +171,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         assembly->each_params((*method)->params, [&](int index, mt_param_t & mt_param) {
 
-			// _PP(assembly->to_sid(mt_param.name));
-			if (mt_param.param_type == param_type_t::extends)
-			{
-				ref_t ref = (*method)->params.at(index);
-				analyzer.each_extend_params(ref, [&](rt_type_t * type) {
-					// _PP(type->get_name(analyzer.env));
-					return params_layout.append(type, param_type_t::extends), true;
-				});
-			}
-			else
-			{
-				params_layout.append(mt_param.type, mt_param.param_type);
-			}
+            // _PP(assembly->to_sid(mt_param.name));
+            if (mt_param.param_type == param_type_t::extends)
+            {
+                ref_t ref = (*method)->params.at(index);
+                analyzer.each_extend_params(ref, [&](rt_type_t * type) {
+                    // _PP(type->get_name(analyzer.env));
+                    return params_layout.append(type, param_type_t::extends), true;
+                });
+            }
+            else
+            {
+                params_layout.append(mt_param.type, mt_param.param_type);
+            }
 
-			return true;
+            return true;
         });
 
         params_layout.commit();

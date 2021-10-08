@@ -13,7 +13,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     void __compile_cvalue(__cctx_t & ctx, xil_pool_t & pool, cvalue_t cvalue,
-		xil_type_t dtype = xil_type_t::empty);
+        xil_type_t dtype = xil_type_t::empty);
 
     // Returns xil type of the expression.
     X_ALWAYS_INLINE xil_type_t __xil_type(expression_t * exp)
@@ -22,7 +22,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return to_xil_type(vtype);
     }
 
-	// Returns xil type of type_name.
+    // Returns xil type of type_name.
     X_ALWAYS_INLINE xil_type_t __xil_type(type_name_t * type_name)
     {
         type_t * type = to_type(type_name);
@@ -63,7 +63,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Tries compile expression if it's a constant value.
     // Returns false when compile failed. ( not a constant value. )
     static bool __try_compile_constant_expression(__cctx_t & ctx, xil_pool_t & pool,
-				   expression_t * expression, xil_type_t dtype = xil_type_t::empty)
+                    expression_t * expression, xil_type_t dtype = xil_type_t::empty)
     {
         cvalue_t cvalue = __execute_expression(ctx, expression);
 
@@ -136,7 +136,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Varidates set method.
     static void __validate_set_method(expression_compile_context_t & ctx, method_t * method)
     {
-		// TODO
+        // TODO
     }
 
     // Compiles number.
@@ -454,7 +454,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compile arguments.
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
-		method_base_t * method = nullptr)
+        method_base_t * method = nullptr)
     {
         if (arguments == nullptr)
             return;
@@ -576,8 +576,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     throw _ED(__e_t::unknown_property, var);
 
                 __compile_arguments(ctx, pool,
-					((property_index_variable_t *)var)->arguments, property->set_method
-				);
+                    ((property_index_variable_t *)var)->arguments, property->set_method
+                );
             }   break;
 
             default:
@@ -589,12 +589,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles variable.
     static void __compile_variable(__cctx_t & ctx, xil_pool_t & pool, variable_t * variable,
-								xil_type_t dtype, expression_t * owner_exp = nullptr);
+                                xil_type_t dtype, expression_t * owner_exp = nullptr);
 
     // Compiles assign to expression.
     static void __compile_assign_to(__cctx_t & ctx, xil_pool_t & pool, __compile_assign_t & ca,
         __assign_to_type_t assign_type = __assign_to_type_t::default_,
-		xil_type_t dtype = xil_type_t::empty)
+        xil_type_t dtype = xil_type_t::empty)
     {
         expression_t * exp = ca.exp;
         bool pick = (assign_type == __assign_to_type_t::default_)?
@@ -864,7 +864,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles local variable.
     static void __compile_local_variable(__cctx_t & ctx, xil_pool_t & pool,
-								local_variable_t * variable, xil_type_t dtype)
+                                    local_variable_t * variable, xil_type_t dtype)
     {
         //_PF(_T("-------- variable: %1%, %2%, %3%"), variable,
         //                variable->read_count, variable->write_count);
@@ -880,8 +880,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else
         {
-			if (dtype == xil_type_t::empty)
-				dtype = xil_type;
+            if (dtype == xil_type_t::empty)
+                dtype = xil_type;
 
             type_t * type = variable->get_type(__xpool(ctx));
 
@@ -895,7 +895,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles param variable.
     static void __compile_param_variable(__cctx_t & ctx, xil_pool_t & pool,
-									param_variable_t * variable, xil_type_t dtype)
+                                    param_variable_t * variable, xil_type_t dtype)
     {
         param_t * param = variable->param;
 
@@ -907,7 +907,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             msize_t index = variable->param->index;
             if (!__is_static(call_type_of_method(ctx.statement_ctx.method)))
-				index++;
+                index++;
 
             type_t * type = variable->get_type(__xpool(ctx));
 
@@ -916,12 +916,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 pool.append<x_push_argument_addr_xil_t>(index);
             else
                 pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
-		}
+        }
     }
 
     // Compiles field variable.
     static void __compile_field_variable(__cctx_t & ctx, xil_pool_t & pool,
-										field_variable_t * field_var, xil_type_t dtype)
+                                    field_variable_t * field_var, xil_type_t dtype)
     {
         field_t * field = field_var->field;
         if (field == nullptr)
@@ -929,11 +929,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         ref_t field_ref = __search_field_ref(ctx, field);
         type_t * field_type = to_type(field->type_name);
+
         if (field_type == nullptr)
             throw _ED(__e_t::unknown_field_type, field);
 
-        xil_type_t xil_type = (dtype != xil_type_t::empty)? dtype : __to_xil_type(field_type);
-        pool.append<x_push_field_xil_t>(field_ref, xil_type);
+        // TODO: when member point, int, long ... types also should be ptr type.
+        if (is_custom_struct(field_type))
+        {
+            _PP(field_var);
+            pool.append<x_push_field_addr_xil_t>(field_ref);
+        }
+        else
+        {
+            xil_type_t xil_type = (dtype != xil_type_t::empty)? dtype : __to_xil_type(field_type);
+            pool.append<x_push_field_xil_t>(field_ref, xil_type);
+        }
     }
 
     // Pops return value from stack
@@ -965,7 +975,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compile property variable.
     static void __compile_property_variable(__cctx_t & ctx, xil_pool_t & pool,
-		property_t * property, arguments_t * arguments, xil_type_t dtype, expression_t * owner_exp)
+        property_t * property, arguments_t * arguments, xil_type_t dtype, expression_t * owner_exp)
     {
         method_t * method = property->get_method;
         if (method == nullptr)
@@ -983,7 +993,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compile property variable.
     static void __compile_property_variable(__cctx_t & ctx, xil_pool_t & pool,
-			property_variable_t * property_var, xil_type_t dtype, expression_t * owner_exp)
+            property_variable_t * property_var, xil_type_t dtype, expression_t * owner_exp)
     {
         property_t * property = property_var->property;
         if (property == nullptr)
@@ -994,7 +1004,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles property index variable.
     static void __compile_property_index_variable(__cctx_t & ctx, xil_pool_t & pool,
-			property_index_variable_t * property_var, xil_type_t dtype, expression_t * owner_exp)
+            property_index_variable_t * property_var, xil_type_t dtype, expression_t * owner_exp)
     {
         property_t * property = property_var->property;
         if (property == nullptr)
@@ -1003,15 +1013,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __compile_property_variable(ctx, pool, property, property_var->arguments, dtype, owner_exp);
     }
 
-	// Compiles method variable.
-	static void __compile_method_variable(__cctx_t & ctx, xil_pool_t & pool,
-			method_variable_t * method_var, xil_type_t dtype)
-	{
-		method_t * method = method_var->method;
+    // Compiles method variable.
+    static void __compile_method_variable(__cctx_t & ctx, xil_pool_t & pool,
+            method_variable_t * method_var, xil_type_t dtype)
+    {
+        method_t * method = method_var->method;
 
-		if (method == nullptr)
-			throw _ED(__e_t::unknown_method, method_var);
-	}
+        if (method == nullptr)
+            throw _ED(__e_t::unknown_method, method_var);
+    }
 
     // Pushes this with check.
     static void __push_this_with_check(__cctx_t & ctx, xil_pool_t & pool, expression_t * owner_exp)
@@ -1044,13 +1054,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             case variable_type_t::property:
                 __push_this_with_check(ctx, pool, owner_exp);
                 __compile_property_variable(ctx, pool, (property_variable_t *)variable,
-																	dtype, owner_exp);
+                                                                        dtype, owner_exp);
                 break;
 
-			case variable_type_t::method:
-				__push_this_with_check(ctx, pool, owner_exp);
-				__compile_method_variable(ctx, pool, (method_variable_t *)variable, dtype);
-				break;
+            case variable_type_t::method:
+                __push_this_with_check(ctx, pool, owner_exp);
+                __compile_method_variable(ctx, pool, (method_variable_t *)variable, dtype);
+                break;
 
             default:
                 X_UNEXPECTED();
@@ -1067,7 +1077,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles binary expression.
     void __sys_t<binary_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
-		xil_type_t dtype)
+        xil_type_t dtype)
     {
         if (__try_compile_constant_expression(ctx, pool, this))
             return;
@@ -1324,7 +1334,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         switch (value.type)
         {
-		    case value_type_t::int8_:
+            case value_type_t::int8_:
                 pool.append<x_push_const_xil_t<int8_t>>(xil_type_t::int8, value);
                 break;
 
@@ -1374,7 +1384,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             default:
             case value_type_t::ldouble_:
-				_PP(value.type);
+                _PP(value.type);
                 throw _EC(unexpected);
         }
     }
@@ -1407,8 +1417,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
 
             case cvalue_type_t::number:
-				if (dtype != xil_type_t::empty)
-					cvalue = cvalue.change_type(to_vtype(dtype));
+                if (dtype != xil_type_t::empty)
+                    cvalue = cvalue.change_type(to_vtype(dtype));
                 __compile_number(ctx, pool, cvalue.number);
                 break;
 
@@ -1458,26 +1468,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles function expression.
     void __sys_t<function_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-		function_expression_type_t ftype = this->get_ftype();
+        function_expression_type_t ftype = this->get_ftype();
 
-		switch (ftype)
-		{
-			case function_expression_type_t::method:
-				__compile_method(ctx, pool);
-				break;
+        switch (ftype)
+        {
+            case function_expression_type_t::method:
+                __compile_method(ctx, pool);
+                break;
 
-			case function_expression_type_t::variable:
-				__compile_delegate(ctx, pool);
-				break;
+            case function_expression_type_t::variable:
+                __compile_delegate(ctx, pool);
+                break;
 
-			default:
-				break;
-		}
+            default:
+                break;
+        }
     }
 
-	// Compile method calling expression.
-	void __sys_t<function_expression_t>::__compile_method(__cctx_t & ctx, xil_pool_t & pool)
-	{
+    // Compile method calling expression.
+    void __sys_t<function_expression_t>::__compile_method(__cctx_t & ctx, xil_pool_t & pool)
+    {
         method_base_t * method = this->get_method();
         _A(method != nullptr);
 
@@ -1504,29 +1514,29 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             __pop_empty_for_method(ctx, pool, method, this);
         }
-	}
+    }
 
-	// Compile delegate calling expression.
-	void __sys_t<function_expression_t>::__compile_delegate(__cctx_t & ctx, xil_pool_t & pool)
-	{
+    // Compile delegate calling expression.
+    void __sys_t<function_expression_t>::__compile_delegate(__cctx_t & ctx, xil_pool_t & pool)
+    {
         variable_t * variable = this->get_variable();
         _A(variable != nullptr);
 
-		type_t * type = variable->get_type(__xpool(ctx));
-		if (type->this_gtype() != gtype_t::generic)
+        type_t * type = variable->get_type(__xpool(ctx));
+        if (type->this_gtype() != gtype_t::generic)
             throw _ED(__e_t::delegate_type_error, type);
 
-		generic_type_t * gtype = (generic_type_t *)type;
-		general_type_t * template_ = gtype->template_;
+        generic_type_t * gtype = (generic_type_t *)type;
+        general_type_t * template_ = gtype->template_;
 
-		if (template_ != __xpool(ctx).get_delegate_type())
-			throw _ED(__e_t::delegate_type_error, gtype);
+        if (template_ != __xpool(ctx).get_delegate_type())
+            throw _ED(__e_t::delegate_type_error, gtype);
 
-		_PP(type);
-	}
+        _PP(type);
+    }
 
-	// Compile delegate calling expression.
-	void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool);
+    // Compile delegate calling expression.
+    void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool);
 
     ////////// ////////// ////////// ////////// //////////
     // type_cast_expression_t
@@ -1539,40 +1549,40 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     
     // Compiles type cast expression.
     void __sys_t<type_cast_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
-		xil_type_t dtype)
+                                                                    xil_type_t dtype)
     {
-		expression_t * exp = this->expression();
-		_A(exp != nullptr);
+        expression_t * exp = this->expression();
+        _A(exp != nullptr);
 
-		/*
-		variable_t * var;
+        /*
+        variable_t * var;
 
-		if (dtype1 == xil_type_t::ptr
-			&& exp->this_family() == expression_family_t::name
-			&& (var = ((name_expression_t *)exp)->get_variable()) != nullptr)
-		{
-			switch (var->this_type())
-			{
-				case variable_type_t::param: {
+        if (dtype1 == xil_type_t::ptr
+            && exp->this_family() == expression_family_t::name
+            && (var = ((name_expression_t *)exp)->get_variable()) != nullptr)
+        {
+            switch (var->this_type())
+            {
+                case variable_type_t::param: {
 
-					param_variable_t * param_var = (param_variable_t *)var;
-					int param_index = param_var->param->index;
+                    param_variable_t * param_var = (param_variable_t *)var;
+                    int param_index = param_var->param->index;
 
-					method_t * method = ctx.statement_ctx.method;
-					if (!method->get_decorate()->is_static)
-						param_index++;
+                    method_t * method = ctx.statement_ctx.method;
+                    if (!method->get_decorate()->is_static)
+                        param_index++;
 
-					_PP(param_index);
+                    _PP(param_index);
 
-				}	break;
+                }   break;
 
-				default:
-					X_UNEXPECTED();
-			}
-		}
-		*/
+                default:
+                    X_UNEXPECTED();
+            }
+        }
+        */
 
-		exp->compile(ctx, pool, __xil_type(type_name));
+        exp->compile(ctx, pool, __xil_type(type_name));
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1586,9 +1596,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     
     // Compiles type name expression.
     void __sys_t<type_name_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
-		xil_type_t dtype)
+                                                                        xil_type_t dtype)
     {
-		// Type name.
+        // Type name.
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1614,12 +1624,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 case variable_type_t::array_index:
                     __compile_array_index(ctx, pool, (array_index_variable_t *)variable,
-																		namex, dtype);
+                                                                            namex, dtype);
                     break;
 
                 case variable_type_t::property_index:
                     __compile_property_index(ctx, pool, (property_index_variable_t *)variable,
-																		namex, dtype);
+                                                                            namex, dtype);
                     break;
 
                 default:
@@ -1634,10 +1644,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles array index expression.
     void __sys_t<index_expression_t>::__compile_array_index(__cctx_t & ctx, xil_pool_t & pool,
-				array_index_variable_t * variable, expression_t * namex, xil_type_t dtype)
+                array_index_variable_t * variable, expression_t * namex, xil_type_t dtype)
     {
         __compile_arguments(ctx, pool, this->arguments());
-		namex->compile(ctx, pool);
+        namex->compile(ctx, pool);
 
         type_t * element_type = __array_element_type_of(ctx, this);
         type_t * array_type = __xpool(ctx).new_array_type(
@@ -1653,9 +1663,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles property index expression.
     void __sys_t<index_expression_t>::__compile_property_index(__cctx_t & ctx, xil_pool_t & pool,
-					property_index_variable_t * variable, expression_t * namex, xil_type_t dtype)
+                property_index_variable_t * variable, expression_t * namex, xil_type_t dtype)
     {
-		namex->compile(ctx, pool);
+        namex->compile(ctx, pool);
         __compile_property_index_variable(ctx, pool, variable, dtype, this);
     }
 
@@ -1725,9 +1735,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-	// Creates instance of class type.
-	void __sys_t<new_expression_t>::__compile_new_class_object(__cctx_t & ctx, xil_pool_t & pool,
-																	type_t * type)
+    // Creates instance of class type.
+    void __sys_t<new_expression_t>::__compile_new_class_object(__cctx_t & ctx, xil_pool_t & pool,
+                                                                        type_t * type)
     {
         ref_t type_ref = __ref_of(ctx, type);
         _A(type_ref != ref_t::null);
@@ -1745,7 +1755,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (this->constructor == nullptr)
                 throw _ED(__e_t::constructor_missing, type);
 
-    		__compile_arguments(ctx, pool, this->arguments(), this->constructor);
+            __compile_arguments(ctx, pool, this->arguments(), this->constructor);
         }
 
         if (this->constructor != nullptr)
@@ -1760,16 +1770,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-	// Creates instance of struct type.
-	void __sys_t<new_expression_t>::__compile_new_struct_object(__cctx_t & ctx, xil_pool_t & pool,
-																	type_t * type)
+    // Creates instance of struct type.
+    void __sys_t<new_expression_t>::__compile_new_struct_object(__cctx_t & ctx, xil_pool_t & pool,
+                                                                        type_t * type)
     {
         if (this->arguments() != nullptr)
         {
             if (this->constructor == nullptr)
                 throw _ED(__e_t::constructor_missing, type);
 
-			__compile_arguments(ctx, pool, this->arguments(), this->constructor);
+            __compile_arguments(ctx, pool, this->arguments(), this->constructor);
         }
 
         if (this->constructor != nullptr)
@@ -1791,7 +1801,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Returns new array expression.
     void __sys_t<new_array_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
-		xil_type_t dtype)
+                                                                    xil_type_t dtype)
     {
         type_t * element_type = this->get_element_type();
         if (element_type == nullptr)
@@ -1865,7 +1875,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     
     // Compiles default value expression.
     void __sys_t<default_value_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
-		xil_type_t dtype)
+                                                                        xil_type_t dtype)
     {
         type_t * type = to_type(this->type_name);
 
@@ -1926,7 +1936,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles typeof expression.
     void __sys_t<type_of_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-		// TODO
+        // TODO
     }
 
     ////////// ////////// ////////// ////////// //////////

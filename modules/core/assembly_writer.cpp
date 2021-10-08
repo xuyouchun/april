@@ -169,7 +169,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             mt->ttype           = (uint8_t)type->ttype;
             mt->vtype           = (uint8_t)type->vtype;
-			mt->mtype			= (uint8_t)type->mtype;
+            mt->mtype           = (uint8_t)type->mtype;
         }
 
         // Assigns type_ref metadata.
@@ -278,7 +278,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __assign_mt(mt_generic_argument_t * mt, typex_t typex)
         {
             mt->type  = __W->__commit_type((type_t *)typex);
-			mt->atype = (uint8_t)(generic_arg_type_t)typex;
+            mt->atype = (uint8_t)(generic_arg_type_t)typex;
         }
 
         // Assigns type def param metadata.
@@ -578,8 +578,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     __AssignMtCase(super_type)
 
                     default: ;
-						_PP(it.tidx);
-						__Unexpected();
+                        _PP(it.tidx);
+                        __Unexpected();
 
                     #undef __AssignMtCaseEx
                     #undef __AssignMtCase
@@ -1084,8 +1084,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if (field->this_family() == member_family_t::impl)
                 return __commit_generic_field((impl_field_t *)field);
 
-			if (field->this_family() == member_family_t::position)
-				return __commit_position_field((position_field_t *)field);
+            if (field->this_family() == member_family_t::position)
+                return __commit_position_field((position_field_t *)field);
 
             auto & mgr = __mt_manager<__tidx_t::field>();
             __SearchRet(mgr, field);
@@ -1387,8 +1387,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 case __tidx_t::generic_field:
                     return __commit_generic_field((impl_field_t *)entity);
 
-				case __tidx_t::position_field:
-					return __commit_position_field((position_field_t *)entity);
+                case __tidx_t::position_field:
+                    return __commit_position_field((position_field_t *)entity);
 
                 default:
                     X_UNEXPECTED();
@@ -1432,19 +1432,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits field ref.
         ref_t __commit_field_ref(field_t * field)
         {
-			member_family_t family = field->this_family();
+            member_family_t family = field->this_family();
 
-			if (family == member_family_t::position)
-				throw _EC(unexpected);
+            if (family == member_family_t::position)
+                throw _EC(unexpected);
 
-			auto & mgr = __mt_manager<__tidx_t::field_ref>();
-			__SearchRet(mgr, field);
+            auto & mgr = __mt_manager<__tidx_t::field_ref>();
+            __SearchRet(mgr, field);
 
-			mt_field_ref_t * field_ref;
-			ref_t ref = mgr.append(field, &field_ref);
-			__enque_assign(__tidx_t::field_ref, field_ref, field);
+            mt_field_ref_t * field_ref;
+            ref_t ref = mgr.append(field, &field_ref);
+            __enque_assign(__tidx_t::field_ref, field_ref, field);
 
-			return ref;
+            return ref;
         }
 
         // Compiles methods.

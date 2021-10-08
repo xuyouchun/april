@@ -10,8 +10,13 @@ class Project1
     {
         Console.WriteLine("Start ...");
 
-        MyClass obj = new MyClass();
-        obj.Field1 = new MyStruct(1, 2);
+        MyStruct obj1 = new MyStruct(10, 20);
+        __MyMethod(obj1);
+    }
+
+    private static void __MyMethod(MyStruct obj1)
+    {
+        obj1 = new MyStruct(30, 40);
     }
 };
 
@@ -36,5 +41,6 @@ class MyClass
     }
 
     MyStruct Field1;
+    int      Field2;
 };
 

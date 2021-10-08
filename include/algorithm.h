@@ -640,47 +640,47 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-	namespace
-	{
-		typedef arch_uint_t __incorp_int_t;
-		const __incorp_int_t __incorp_mask = 0x7;
-	}
+    namespace
+    {
+        typedef arch_uint_t __incorp_int_t;
+        const __incorp_int_t __incorp_mask = 0x7;
+    }
 
-	template<typename _incorp_t, typename _t>
-	X_INLINE _t * incorp(_t * p, _incorp_t v) _NE
-	{
-		return (_t *)((__incorp_int_t)p | (__incorp_int_t)v);
-	}
+    template<typename _incorp_t, typename _t>
+    X_INLINE _t * incorp(_t * p, _incorp_t v) _NE
+    {
+        return (_t *)((__incorp_int_t)p | (__incorp_int_t)v);
+    }
 
-	template<typename _t>
-	X_INLINE _t * incorp_p(_t * p) _NE
-	{
-		return (_t *)((__incorp_int_t)p & ~__incorp_mask);
-	}
+    template<typename _t>
+    X_INLINE _t * incorp_p(_t * p) _NE
+    {
+        return (_t *)((__incorp_int_t)p & ~__incorp_mask);
+    }
 
-	template<typename _incorp_t>
-	X_INLINE _incorp_t incorp_v(void * p) _NE
-	{
-		return (_incorp_t)(((__incorp_int_t)p & __incorp_mask));
-	}
+    template<typename _incorp_t>
+    X_INLINE _incorp_t incorp_v(void * p) _NE
+    {
+        return (_incorp_t)(((__incorp_int_t)p & __incorp_mask));
+    }
 
-	template<typename _p_t, typename _v_t>
-	struct incorp_t
-	{
-		incorp_t(_p_t * p, _v_t v) _NE : __data(incorp(p, v)) { }
-		incorp_t() _NE : __data(incorp((_p_t *)nullptr, (_v_t)0)) { }
+    template<typename _p_t, typename _v_t>
+    struct incorp_t
+    {
+        incorp_t(_p_t * p, _v_t v) _NE : __data(incorp(p, v)) { }
+        incorp_t() _NE : __data(incorp((_p_t *)nullptr, (_v_t)0)) { }
 
-		template<typename _t>
-		operator _t * () _NE const { return (_t *)incorp_p(__data); }
+        template<typename _t>
+        operator _t * () _NE const { return (_t *)incorp_p(__data); }
 
-		operator _p_t * () _NE const { return incorp_p(__data); }
-		operator _v_t   () _NE const { return incorp_v<_v_t>(__data); }
+        operator _p_t * () _NE const { return incorp_p(__data); }
+        operator _v_t   () _NE const { return incorp_v<_v_t>(__data); }
 
-		void set(_p_t * p, _v_t v) _NE { __data = incorp(p, v); }
+        void set(_p_t * p, _v_t v) _NE { __data = incorp(p, v); }
 
-	private:
-		_p_t * __data;
-	};
+    private:
+        _p_t * __data;
+    };
 
     ////////// ////////// ////////// ////////// //////////
 

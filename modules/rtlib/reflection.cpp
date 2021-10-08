@@ -15,42 +15,41 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
-	// Get object type.
+    // Get object type.
 
-	struct __reflection_get_type_args_t : __reflection_args_t
-	{
-		// Empty.
-	};
+    struct __reflection_get_type_args_t : __reflection_args_t
+    {
+        // Empty.
+    };
 
-	void reflection_get_type(rtlib_context_t & ctx)
-	{
+    void reflection_get_type(rtlib_context_t & ctx)
+    {
         __reflection_get_type_args_t * args = ctx.args<__reflection_get_type_args_t>();
 
-		void * obj = args->get_object();
-		rt_type_t * type = mm::get_object_type(obj);
+        void * obj = args->get_object();
+        rt_type_t * type = mm::get_object_type(obj);
 
-		ctx.return_(type);
-	}
+    ctx.return_(type);
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
-	// Get type name.
+    // Get type name.
 
-	struct __reflection_get_type_name_args_t : __reflection_args_t
-	{
-		// Empty.
-	};
+    struct __reflection_get_type_name_args_t : __reflection_args_t
+    {
+        // Empty.
+    };
 
-	void reflection_get_type_name(rtlib_context_t & ctx)
-	{
-		__reflection_get_type_name_args_t * args = ctx.args<__reflection_get_type_name_args_t>();
+    void reflection_get_type_name(rtlib_context_t & ctx)
+    {
+        __reflection_get_type_name_args_t * args = ctx.args<__reflection_get_type_name_args_t>();
 
-		rt_type_t * type = (rt_type_t *)args->get_object();
-		rt_sid_t name = type->get_name(ctx.analyzer.env);
-		_PP(name);
+        rt_type_t * type = (rt_type_t *)args->get_object();
+        rt_sid_t name = type->get_name(ctx.analyzer.env);
 
-		ctx.return_(new rt_string_t(_T("AAAA"), 4));
-	}
+        ctx.return_(new rt_string_t(_T("AAAA"), 4));
+    }
 
 
     ////////// ////////// ////////// ////////// //////////

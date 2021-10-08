@@ -511,9 +511,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets position field metadata.
         virtual rt_mt_t<__tidx_t::position_field> * mt_of_position_field(ref_t ref) override
-		{
-			return &__metadata_at<__tidx_t::position_field>(ref);
-		}
+        {
+            return &__metadata_at<__tidx_t::position_field>(ref);
+        }
 
         /*
         // Gets generic type of ref.

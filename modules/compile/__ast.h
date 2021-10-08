@@ -504,8 +504,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected property defination.
         unexpected_property_defination,
 
-		// Unexpected method defination.
-		unexpected_method_defination,
+        // Unexpected method defination.
+        unexpected_method_defination,
 
         // A constant variable require a value to be provided.
         constant_variable_initialize_missing,
@@ -1614,8 +1614,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Set global type.
         void set_global_type(global_type_t global_type);
 
-		// Set if it's a extends type.
-		void set_extends(bool extends);
+        // Set if it's a extends type.
+        void set_extends(bool extends);
 
         // On commits it.
         virtual void on_commit() override;
@@ -1764,8 +1764,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Sets name.
         void set_name(name_t name, __el_t * el);
 
-		// Sets if it's a extends type.
-		void set_extends(bool extends);
+        // Sets if it's a extends type.
+        void set_extends(bool extends);
 
         // Commits this node.
         virtual void on_commit() override;
@@ -2226,8 +2226,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
         using __generic_arg_ast_node_t::__generic_arg_ast_node_t;
 
-		// Set param type, ref, out, params ...
-		void set_atype(generic_arg_type_t atype);
+        // Set param type, ref, out, params ...
+        void set_atype(generic_arg_type_t atype);
 
         // Commits this node.
         virtual void on_commit() override;

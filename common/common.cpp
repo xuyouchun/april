@@ -112,7 +112,7 @@ namespace X_ROOT_NS {
 
         X_C(convert_error,      _T("convert error"))
 
-		X_C(not_found,		    _T("not found"))
+        X_C(not_found,          _T("not found"))
 
         X_C(unexpected,         _T("unexpected"))
 
@@ -330,4 +330,4 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
-}	 // namespace X_ROOT_NS
+}    // namespace X_ROOT_NS

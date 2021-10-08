@@ -78,11 +78,11 @@
 // Defines an function which always inlined.
 
 #if defined __ALWAYS_INLINE && !X_DEBUG
-    #define X_ALWAYS_INLINE			__ALWAYS_INLINE X_INLINE
-	#define X_ALWAYS_INLINE_METHOD	__ALWAYS_INLINE
+    #define X_ALWAYS_INLINE         __ALWAYS_INLINE X_INLINE
+    #define X_ALWAYS_INLINE_METHOD  __ALWAYS_INLINE
 #else
-    #define X_ALWAYS_INLINE			X_INLINE
-	#define X_ALWAYS_INLINE_METHOD	// Empty
+    #define X_ALWAYS_INLINE         X_INLINE
+    #define X_ALWAYS_INLINE_METHOD  // Empty
 #endif
 
 ////////// ////////// ////////// ////////// //////////
@@ -134,7 +134,7 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _D(type)            X_DEFAULT(type)
 
 // Assert a expression is an specified type, throw expression if fault to convert.
-#define _M(type_t, value)	X_MUST(type_t, value)
+#define _M(type_t, value)   X_MUST(type_t, value)
 
 // C++ keyword: noexpect
 #if X_DEBUG
@@ -374,36 +374,36 @@ namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
 
-	// Enum Types
-	X_ENUM(value_type_t)
+    // Enum Types
+    X_ENUM(value_type_t)
 
-		int8_,
+        int8_,
 
-		uint8_,
+        uint8_,
 
-		int16_,
+        int16_,
 
-		uint16_,
+        uint16_,
 
-		int32_,
+        int32_,
 
-		uint32_,
+        uint32_,
 
-		int64_,
+        int64_,
 
-		uint64_,
+        uint64_,
 
-		float_,
+        float_,
 
-		double_,
+        double_,
 
         ldouble_,
 
-		bool_,
+        bool_,
 
-		char_,
+        char_,
 
-	X_ENUM_END
+    X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -864,8 +864,8 @@ namespace X_ROOT_NS {
     template<typename t> struct remove_pointer_const<const t *> { typedef t * type; };
     template<typename t> using remove_pointer_const_t = typename remove_pointer_const<t>::type;
 
-	// Remove reference & const.
-	template<typename t> using remove_rc_t = std::remove_const_t<std::remove_reference_t<t>>;
+    // Remove reference & const.
+    template<typename t> using remove_rc_t = std::remove_const_t<std::remove_reference_t<t>>;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -964,10 +964,10 @@ namespace X_ROOT_NS {
         return range_t<itor_t>(collection.crbegin(), collection.crend());
     }
 
-	////////// ////////// ////////// ////////// //////////
+    ////////// ////////// ////////// ////////// //////////
     // Variable template args
 
-	namespace
+    namespace
     {
         template<size_t type_count, typename callback_t, typename t, typename ... types_t>
         struct __each_types_t
@@ -992,11 +992,11 @@ namespace X_ROOT_NS {
     }
 
     // Enumerates the type list.
-	template<typename ... types_t, typename callback_t>
-	void each_types(callback_t & callback)
-	{
-		__each_types_t<sizeof...(types_t), callback_t, types_t ...>::func(callback);
-	}
+    template<typename ... types_t, typename callback_t>
+    void each_types(callback_t & callback)
+    {
+        __each_types_t<sizeof...(types_t), callback_t, types_t ...>::func(callback);
+    }
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1018,7 +1018,7 @@ namespace X_ROOT_NS {
 
     #define X_TYPEAT(args_t, index) typeat<index, args_t ...>
 
-	////////// ////////// ////////// ////////// //////////
+    ////////// ////////// ////////// ////////// //////////
 
 }  // namespace X_ROOT_NS
 
@@ -1223,11 +1223,11 @@ namespace X_ROOT_NS {
 
         argument_error,
 
-		format_error,
+        format_error,
 
-		convert_error,
+        convert_error,
 
-		not_found,
+        not_found,
 
         unexpected,
 
@@ -1310,16 +1310,16 @@ namespace X_ROOT_NS {
     }
 
     // Assert a value must be a specified type.
-    #define X_MUST(type_t, value)             						    \
-		(([](auto v) -> type_t {                  				        \
-            if (v == nullptr)                                            \
+    #define X_MUST(type_t, value)                                       \
+        (([](auto v) -> type_t {                                        \
+            if (v == nullptr)                                           \
                 return (type_t)nullptr;                                 \
-			type_t v2 = dynamic_cast<type_t>(v);    				    \
-			if (v2 == nullptr)                       				    \
-            	throw _ECF(convert_error, _T("cannot convert from %1% to %2%"),  \
-                        type_str<decltype(v)>(), type_str<type_t>());	\
-			return v2;                              				    \
-		})(value))
+            type_t v2 = dynamic_cast<type_t>(v);                        \
+            if (v2 == nullptr)                                          \
+                throw _ECF(convert_error, _T("cannot convert from %1% to %2%"),  \
+                        type_str<decltype(v)>(), type_str<type_t>());   \
+            return v2;                                                  \
+        })(value))
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1546,7 +1546,7 @@ namespace X_ROOT_NS {
         typedef std::remove_reference_t<std::remove_const_t<t>> _t;
 
     public:
-		typedef t value_t;
+        typedef t value_t;
 
         box_t(_t && value) _NE : value(value) { }
         box_t(const t & value) _NE : value(value) { }
@@ -1555,41 +1555,41 @@ namespace X_ROOT_NS {
     };
 
     // Creates an box wrapper for the specified value.
-	template<typename t>
-	X_INLINE auto _box(t && value) _NE
-	{
+    template<typename t>
+    X_INLINE auto _box(t && value) _NE
+    {
         return new box_t<std::remove_reference_t<t>>(std::forward<t>(value));
-	}
+    }
 
     // Gets the value of the specified boxed object.
-	template<typename t>
-	X_INLINE t & _unbox(object_t *& obj)
-	{
-		_A(obj != nullptr);
+    template<typename t>
+    X_INLINE t & _unbox(object_t *& obj)
+    {
+        _A(obj != nullptr);
 
         typedef std::remove_reference_t<t> _t;
-		box_t<_t> * p = dynamic_cast<box_t<_t> *>(obj);
-		if (p != nullptr)
-			return p->value;
+        box_t<_t> * p = dynamic_cast<box_t<_t> *>(obj);
+        if (p != nullptr)
+            return p->value;
 
-		throw _E(common_error_code_t::convert_error);
-	}
+        throw _E(common_error_code_t::convert_error);
+    }
 
     // Gets the value of the specified boxed object.
-	template<typename t>
-	X_INLINE t & _unbox(box_t<t> * obj) _NE
-	{
-		_A(obj != nullptr);
+    template<typename t>
+    X_INLINE t & _unbox(box_t<t> * obj) _NE
+    {
+        _A(obj != nullptr);
 
         return obj->value;
-	}
+    }
 
     // Gets the value of the specified boxed object.
-	template<>
-	X_INLINE object_t *& _unbox<object_t *>(object_t *& obj)
-	{
+    template<>
+    X_INLINE object_t *& _unbox<object_t *>(object_t *& obj)
+    {
         return obj;
-	}
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1612,7 +1612,7 @@ namespace X_ROOT_NS {
         // Removes a key/value pair metadata.
         void remove(const key_t & key)
         {
-			auto it = __data.find(key);
+            auto it = __data.find(key);
             if (it != __data.end())
                 __data.erase(it);
         }
@@ -1624,7 +1624,7 @@ namespace X_ROOT_NS {
             if (try_get(key, &value))
                 return *value;
 
-			throw _E(common_error_code_t::not_found);
+            throw _E(common_error_code_t::not_found);
         }
 
         // Tries to get value for the specified key.
@@ -1632,11 +1632,11 @@ namespace X_ROOT_NS {
         // Returns false if not found.
         bool try_get(const key_t & key, value_t ** out_value=nullptr)
         {
-			auto it = __data.find(key);
-			if (it != __data.end())
+            auto it = __data.find(key);
+            if (it != __data.end())
             {
                 if (out_value)
-            	    *out_value = &it->second;
+                    *out_value = &it->second;
                 return true;
             }
 
@@ -1670,15 +1670,15 @@ namespace X_ROOT_NS {
         }
 
         // Adds a key/value pair metadata.
-		template<typename t>
+        template<typename t>
         t & add(key_t && key, t && value)
         {
             typedef remove_rc_t<t> _t;
             typedef typename decltype(__data)::value_type pair_t;
 
             auto pair = pair_t(std::forward<key_t>(key), __value_wrapper_t {
-				_box(std::forward<t>(value)), true
-			});
+                _box(std::forward<t>(value)), true
+            });
 
             auto ret = __data.insert(pair);
             bool success = ret.second;
@@ -1694,20 +1694,20 @@ namespace X_ROOT_NS {
         // Removes a key/value pair metadata.
         void remove(const key_t & key)
         {
-			auto it = __data.find(key);
-			if (it != __data.end())
+            auto it = __data.find(key);
+            if (it != __data.end())
                 __erase(it);
         }
 
         // Gets the value for the specified key.
-		template<typename t>
+        template<typename t>
         t & get(const key_t & key)
         {
             t * value;
             if (try_get(key, &value))
                 return *value;
 
-			throw _E(common_error_code_t::not_found);
+            throw _E(common_error_code_t::not_found);
         }
 
         // Gets the value for the specified key.
@@ -1764,11 +1764,11 @@ namespace X_ROOT_NS {
 
     private:
 
-		struct __value_wrapper_t
-		{
-			object_t * value;
-			bool 	   boxed;
-		};
+        struct __value_wrapper_t
+        {
+            object_t *  value;
+            bool        boxed;
+        };
 
         std::map<const key_t, __value_wrapper_t> __data; 
         typedef typename decltype(__data)::iterator itor_t;
