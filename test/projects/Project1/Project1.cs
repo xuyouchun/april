@@ -16,7 +16,11 @@ class Project1
 
     private static void __MyMethod(MyStruct obj1)
     {
-        obj1 = new MyStruct(30, 40);
+        Console.WriteLine("__MyMethod");
+        MyStruct obj2 = new MyStruct(50, 60);
+        obj1 = obj2;
+
+        Console.WriteLine(obj2.A + obj2.B);
     }
 };
 

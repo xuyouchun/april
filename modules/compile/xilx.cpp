@@ -365,25 +365,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Custom struct
         if (is_custom_struct(type))
         {
-            if (expression->this_family() == expression_family_t::new_)
-            {
-                // Do not need to assign, only put address of this local variable,
-                //   and then execute constructor on this local variable.
-                // See also: __compile_new_struct_object() in expression.cpp
-
-                new_expression_t * new_exp = (new_expression_t *)expression;
-
-                if (new_exp->constructor != nullptr)
-                    pool.append<x_push_local_addr_xil_t>(local->identity);
-
-                __compile_expression(ctx, pool, expression);
-            }
-            else  // assign
-            {
-                __compile_expression(ctx, pool, expression);
-                pool.append<x_push_local_addr_xil_t>(local->identity);
-                pool.append<x_object_copy_xil_t>(__ref_of(ctx, type));
-            }
+            expression_compile_context_t cctx(ctx);
+            __pre_custom_struct_assign(cctx, pool, local, expression);
 
             return;
         }

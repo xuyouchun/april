@@ -78,6 +78,57 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
+    // Pre append custom struct.
+    void __pre_custom_struct_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
+        variable_t * variable, expression_t * expression)
+    { 
+        type_t * type = expression->get_type(__xpool(ctx));
+        _A( is_custom_struct(type) );
+
+        if (expression->this_family() == expression_family_t::new_)
+        {
+            // Do not need to assign, only put address of this local variable,
+            //   and then execute constructor on this local variable.
+            // See also: __compile_new_struct_object() in expression.cpp
+
+            new_expression_t * new_exp = (new_expression_t *)expression;
+
+            if (new_exp->constructor != nullptr)
+                __push_variable_address(ctx, pool, variable);
+
+            expression->compile(ctx, pool);
+        }
+        else  // assign
+        {
+            expression->compile(ctx, pool);
+            __push_variable_address(ctx, pool, variable);
+            pool.append<x_object_copy_xil_t>(__ref_of(ctx, type));
+        }
+    }
+
+    // Push address of variable.
+    void __push_variable_address(expression_compile_context_t & ctx, xil_pool_t & pool,
+        variable_t * variable)
+    {
+        switch (variable->this_type())
+        {
+            case variable_type_t::local:
+                pool.append<x_push_local_addr_xil_t>(
+                    ((local_variable_t *)variable)->identity
+                );
+                break;
+
+            case variable_type_t::param:
+                pool.append<x_push_argument_addr_xil_t>(
+                    ((param_variable_t *)variable)->param->index
+                );
+                break;
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
     // Returns whether it's effective.
     // Xils will not generated if the expression is not effective.
     X_ALWAYS_INLINE bool is_effective(expression_t * exp)
@@ -536,6 +587,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         expression_t * this_;
         variable_t   * var;
         expression_t * exp;
+        bool           custom_struct;
     };
 
     // Push this expression.
@@ -561,6 +613,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         variable_t * var = __pick_var(r_exp);
+        bool custom_struct = is_custom_struct(var->get_type(__xpool(ctx)));
+
         switch (var->this_type())
         {
             case variable_type_t::property:
@@ -584,7 +638,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
         }
 
-        return __compile_assign_t { this_exp, var, exp };
+        return __compile_assign_t { this_exp, var, exp, custom_struct };
     }
 
     // Compiles variable.
@@ -593,7 +647,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles assign to expression.
     static void __compile_assign_to(__cctx_t & ctx, xil_pool_t & pool, __compile_assign_t & ca,
-        __assign_to_type_t assign_type = __assign_to_type_t::default_,
+        expression_t * exp2, __assign_to_type_t assign_type = __assign_to_type_t::default_,
         xil_type_t dtype = xil_type_t::empty)
     {
         expression_t * exp = ca.exp;
@@ -604,11 +658,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         switch (var->this_type())
         {
             case variable_type_t::local:
-                xil::write_assign_xil(ctx, pool, (local_variable_t *)var, dtype, pick);
+                if (!ca.custom_struct)
+                    xil::write_assign_xil(ctx, pool, (local_variable_t *)var, dtype, pick);
+                else
+                    __pre_custom_struct_assign(ctx, pool, var, exp2);
                 break;
 
             case variable_type_t::param:
-                xil::write_assign_xil(ctx, pool, (param_variable_t *)var, dtype, pick);
+                if (!ca.custom_struct)
+                    xil::write_assign_xil(ctx, pool, (param_variable_t *)var, dtype, pick);
+                else
+                    __pre_custom_struct_assign(ctx, pool, var, exp2);
                 break;
 
             case variable_type_t::field:
@@ -686,8 +746,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                 expression_t * exp1, expression_t * exp2)
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
-        exp2->compile(ctx, pool);
-        __compile_assign_to(ctx, pool, ca);
+
+        if (!ca.custom_struct)
+            exp2->compile(ctx, pool);
+
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles add assign expression.
@@ -696,7 +759,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_add(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles sub assign expression.
@@ -705,7 +768,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_sub(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles mul assign expression.
@@ -714,7 +777,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_mul(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles div assign expression.
@@ -723,7 +786,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_div(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles mod assign expression.
@@ -732,7 +795,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_mod(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles bit and assign expression.
@@ -741,7 +804,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_bit_and(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles bit or assign expression.
@@ -750,7 +813,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_bit_or(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles bit xor assign expression.
@@ -759,7 +822,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_bit_xor(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles left shift assign expression.
@@ -768,7 +831,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_left_shift(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Compiles right shift assign expression.
@@ -777,7 +840,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_right_shift(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca);
+        __compile_assign_to(ctx, pool, ca, exp2);
     }
 
     // Increment type.
@@ -808,7 +871,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __xil_type(exp), xil_type_t::int32
             );
 
-            __compile_assign_to(ctx, pool, ca, __assign_to_type_t::pop);
+            __compile_assign_to(ctx, pool, ca, nullptr, __assign_to_type_t::pop);
         }
         else
         {
@@ -820,7 +883,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __xil_type(exp), xil_type_t::int32
             );
 
-            __compile_assign_to(ctx, pool, ca);
+            __compile_assign_to(ctx, pool, ca, nullptr);
         }
 
         #undef __Is
