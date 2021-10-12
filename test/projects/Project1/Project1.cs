@@ -8,19 +8,15 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        Console.WriteLine("Start ...");
+        int a = 1, b = 2;
+        long c = a + b;
 
-        MyStruct obj1 = new MyStruct(10, 20);
-        __MyMethod(obj1);
+        Console.WriteLine(c);
     }
 
     private static void __MyMethod(MyStruct obj1)
     {
-        Console.WriteLine("__MyMethod");
-        MyStruct obj2 = new MyStruct(50, 60);
-        obj1 = obj2;
 
-        Console.WriteLine(obj2.A + obj2.B);
     }
 };
 

@@ -52,7 +52,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     using namespace rt;
     using namespace rtlib;
 
-    __AlwaysInline void __execute_command(command_execute_context_t & ctx, command_t * command);
+    void __execute_command(command_execute_context_t & ctx, command_t * command);
+    const string_t __to_command_string(command_execute_context_t & ctx, command_t * command);
 
     ////////// ////////// ////////// ////////// //////////
     // command_creating_context_t
@@ -174,7 +175,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _PF(_T("CURRENT: %1% [%2%] %3%"),
             ctx.current_method(), __current_command_index(ctx) - 1,
-            (*(ctx.current - 1))->to_string(ctx)
+            __to_command_string(ctx, *(ctx.current - 1)).c_str()
         );
     }
 
@@ -275,7 +276,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __empty_command_t : public __command_base_t
     {
     public:
-        __BeginExecute(ctx, __ToCmdValue(empty, 0))
+        __BeginExecute(ctx, __ToCmdValue(empty, 1))
 
             // Do nothing
 
@@ -305,7 +306,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             #endif  // EXEC_QUICK_EXECUTE
         }
 
-        __BeginExecute(ctx, 0)
+        __BeginExecute(ctx, __ToCmdValue(empty, 2))
 
             throw _E(exec_env_code_t::end);
 
@@ -313,7 +314,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginToString(ctx)
 
-            return _T("end");
+            return _T("[end]");
         
         __EndToString()
     };
@@ -481,7 +482,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginToString(ctx)
 
-            return _F(_T("push constant %1% %2% %3%"), _xil_type1, _xil_type2, __value);
+            if (_xil_type1 == _xil_type2)
+                return _F(_T("push constant %1% %2%"), _xil_type1, __value);
+
+            return _F(_T("push constant %1%=>%2% %3%"), _xil_type1, _xil_type2, __value);
 
         __EndToString()
 
@@ -511,7 +515,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
             __BeginToString(ctx)                                                \
                                                                                 \
-                return _F(_T("push %1% %2% %3% [%4%]"), xil_storage_type_t::s,  \
+                if (xil_type_t::d1 == xil_type_t::d2)                           \
+                    return _F(_T("push %1% %2% [%3%]"), xil_storage_type_t::s,  \
+                        xil_type_t::d1, __offset);                              \
+                                                                                \
+                return _F(_T("push %1% %2%=>%3% [%4%]"), xil_storage_type_t::s, \
                     xil_type_t::d1, xil_type_t::d2, __offset);                  \
                                                                                 \
             __EndToString()                                                     \
@@ -609,7 +617,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
             __EndToString()                                                     \
                                                                                 \
-            __BeginExecute(ctx, __ToPushCmdValue(s, xil_type_t::empty, xil_type_t::empty))
+            __BeginExecute(ctx, __ToPushCmdValue(_stype, xil_type_t::empty, xil_type_t::empty))
 
                 // Method Body
 
@@ -942,7 +950,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __duplicate_command_t : public __command_base_t
     {
     public:
-        __BeginExecute(ctx, __ToPushCmdValue(duplicate, 0))
+        __BeginExecute(ctx, __ToPushCmdValue(duplicate, 0, 0))
 
             ctx.stack.push<rt_stack_unit_t>(
                 ctx.stack.pick<rt_stack_unit_t>()
@@ -1188,7 +1196,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndToString()
 
-        __BeginExecute(ctx, __ToCmdValue(params, ((cmd_value_t)xil_storage_type_t::params << 16)))
+        __BeginExecute(ctx, __ToCmdValue(push, ((cmd_value_t)xil_storage_type_t::params << 16)))
 
             ctx.stack.push<rt_stack_unit_t *>(
                 (rt_stack_unit_t *)ctx.stack.lp() - __offset - 1
@@ -1519,7 +1527,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // Push Field
 
             #define __CaseField(_d1, _d2)                                   \
-                case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):   \
+                case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):  \
                     return __command_manager.template get_command<          \
                         xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2     \
                     >(__field_offset(ctx, xil.field_ref()));
@@ -1666,8 +1674,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
             __BeginToString(ctx)                                                \
                                                                                 \
-                return _F(_T("pop %1% %2% %3% [%4%]"), xil_storage_type_t::_s,  \
-                            xil_type_t::_d1, xil_type_t::_d2, __offset);        \
+                if (xil_type_t::_d1 == xil_type_t::_d2)                         \
+                    return _F(_T("pop %1% %2% [%3%]"), xil_storage_type_t::_s,  \
+                        xil_type_t::_d1, __offset);                             \
+                                                                                \
+                return _F(_T("pop %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s, \
+                            xil_type_t::_d2, xil_type_t::_d1, __offset);        \
                                                                                 \
             __EndToString()                                                     \
                                                                                 \
@@ -1884,7 +1896,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     #define __ToPopArrayElementCmdValue(_xil_type1, _xil_type2, _dimension) (   \
-        __ToCmdValue(push,                                                      \
+        __ToCmdValue(pop,                                                       \
             ((cmd_value_t)xil_storage_type_t::array_element << 16)              \
             | (((cmd_value_t)_xil_type1) << 12)                                 \
             | (((cmd_value_t)_xil_type2) << 8)                                  \
@@ -1941,7 +1953,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndToString()
 
-        __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type, 0))
+        __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type1, _xil_type2, 0))
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
@@ -2007,7 +2019,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
         __pop_empty_command_t(msize_t unit_size) : __unit_size(unit_size) { }
 
-        __BeginExecute(ctx, __ToPopCmdValue(empty, 0))
+        __BeginExecute(ctx, __ToPopCmdValue(empty, 0, 0))
 
             ctx.stack.pop(__unit_size);
 
@@ -2338,7 +2350,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
             __BeginToString(ctx)                                                \
                                                                                 \
-                return _F(_T("pick %1% %2%"), xil_storage_type_t::_s, __offset); \
+                if (xil_type_t::_d1 == xil_type_t::_d2)                         \
+                    return _F(_T("pick %1% %2% [%3%]"), xil_storage_type_t::_s, \
+                        xil_type_t::_d1, __offset);                             \
+                                                                                \
+                return _F(_T("pick %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s,\
+                            xil_type_t::_d2, xil_type_t::_d1, __offset);        \
                                                                                 \
             __EndToString()                                                     \
                                                                                 \
@@ -2553,7 +2570,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     #define __ToPickArrayElementCmdValue(_xil_type1, _xil_type2, _dimension) (  \
-        __ToCmdValue(push,                                                      \
+        __ToCmdValue(pick,                                                      \
             ((cmd_value_t)xil_storage_type_t::array_element << 16)              \
             | (((cmd_value_t)_xil_type1) << 12)                                 \
             | (((cmd_value_t)_xil_type2) << 8)                                  \
@@ -2610,7 +2627,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndToString()
 
-        __BeginExecute(ctx, __ToPickArrayElementCmdValue(_xil_type, 0))
+        __BeginExecute(ctx, __ToPickArrayElementCmdValue(_xil_type1, _xil_type2, 0))
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
@@ -4306,7 +4323,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __rethrow_command_t : public __command_base_t
     {
     public:
-        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::rethrow_))
+        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::rethrow))
 
             // Do nothing.
 
@@ -4328,7 +4345,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
 
         // Execute.
-        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::end_block))
+        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::end_finally))
 
             _A(ctx.block_queue.current_executing() != nullptr);
 
@@ -4885,17 +4902,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     public:
 
-        __BeginExecute(ctx, __ToCopyCmdValue(__default__, _size))
+        __BeginExecute(ctx, __ToCopyCmdValue(__default__, (((uint32_t)_kind << 8) | _size)))
             
             __memory_copy_operation_t<_size, _kind>::copy(ctx);
 
         __EndExecute()
-
-        static __self_t * instance()
-        {
-            static __self_t static_instance;
-            return &static_instance;
-        }
     };
 
     template<__nokey_t>
@@ -4908,7 +4919,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __memory_copy_command_ex_t(size_t size, xil_copy_kind_t kind) _NE
             : __size(size), __kind(kind) { }
 
-        __BeginExecute(ctx, __ToCopyCmdValue(__default__, 0))
+        __BeginExecute(ctx, __ToCopyCmdValue(__default__, 0xFFFF))
             
             if (__kind == xil_copy_kind_t::default_)
             {
@@ -4932,9 +4943,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         xil_copy_kind_t __kind;
     };
 
-    //-------- ---------- ---------- ---------- ----------
-
     struct __memory_copy_command_template_t
+    {
+        template<size_t _size, xil_copy_kind_t _kind, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
+        {
+            typedef __memory_copy_command_t<_size, _kind> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
+
+    struct __memory_copy_command_ex_template_t
     {
         template<__nokey_t _nokey, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
@@ -4949,13 +4968,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     static command_t * __get_object_copy_command(size_t size, xil_copy_kind_t kind)
     {
         static __command_manager_t<
-            __memory_copy_command_template_t, __nokey_t
-        >::with_args_t<size_t, xil_copy_kind_t> __memory_copy_command_manager;
+            __memory_copy_command_template_t, size_t, xil_copy_kind_t
+        >::with_args_t<> __memory_copy_command_manager;
+
+        static __command_manager_t<
+            __memory_copy_command_ex_template_t, __nokey_t
+        >::with_args_t<size_t, xil_copy_kind_t> __memory_copy_command_ex_manager;
 
 
         #define __Case(_size, _kind)                                        \
             case _size:                                                     \
-                return __memory_copy_command_t<_size, _kind>::instance();
+                return __memory_copy_command_manager.template get_command<_size, _kind>( \
+                );                                                          \
 
         #define __Switch(_size, _kind)                                      \
             switch (_size)                                                  \
@@ -4972,7 +4996,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 __Case(32,  _kind)                                          \
                                                                             \
                 default:                                                    \
-                    return __memory_copy_command_manager.template get_command<__nokey>( \
+                    return __memory_copy_command_ex_manager.template get_command<__nokey>( \
                         __Mv(size), __Mv(kind)                              \
                     );                                                      \
             }
@@ -5032,7 +5056,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<xil_init_type_t _init_type, msize_t _size> class __init_command_t { };
 
     #define __ToInitCmdValue(_init_type, _size)         \
-        __ToCmdValue(init, ((cmd_value_t)xil_init_type_t::_init_type << 24) | (cmd_value_t)_size)
+        __ToCmdValue(init, ((cmd_value_t)xil_init_type_t::_init_type << 16) | (cmd_value_t)_size)
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -5254,138 +5278,476 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    #if EXEC_TRACE
+
+    #define __BeginExecuteCommand()                                                     \
+        void * top0 = ctx.stack.top();
+
+    #define __EndExecuteCommand()                                                       \
+        void * top1 = ctx.stack.top();                                                  \
+        int    diff = (int)((byte_t *)top1 - (byte_t *)top0);                           \
+        _PF(_T("-> %|1$-50|[%2%] %3%%4%"), __to_command_string(ctx, command), top1,     \
+                diff >= 0? _T("+") : _T(""), diff                                       \
+        );
+
+    #else   // EXEC_TRACE
+
+    #define __BeginExecuteCommand()
+    #define __EndExecuteCommand()
+
+    #endif
+
+        
     #if !EXEC_QUICK_EXECUTE
 
-    __AlwaysInline void __execute_command(command_execute_context_t & ctx, command_t * command)
+    __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
+                                                 command_t * command)
     {
-        #if EXEC_TRACE
-
-        void * top0 = ctx.stack.top();
-        // _PF(_T("-> %|1$-30|[%2%]"), command->to_string(ctx), top);
-
-        #endif  // EXEC_TRACE
+        __BeginExecuteCommand()
 
         command->execute(ctx);
 
-        #if EXEC_TRACE
+        __EndExecuteCommand()
+    }
 
-        void * top1 = ctx.stack.top();
-        int    diff = (int)((byte_t *)top1 - (byte_t *)top0);
-        _PF(_T("-> %|1$-50|[%2%] %3%%4%"), command->to_string(ctx), top1,
-                diff >= 0? _T("+") : _T(""), diff
-        );
+    const string_t __to_command_string(command_execute_context_t & ctx, command_t * command)
+    {
+        return command->to_string(ctx);
+    }
 
-        #endif  // EXEC_TRACE
+    #else   // EXEC_QUICK_EXECUTE
+
+    //-------- ---------- ---------- ---------- ----------
+    // __SwitchCommands
+
+    // Push/Pop/Pick commands.
+    #define __SwitchCommands_CaseSt(_name, _stype, _dtype1, _dtype2)                    \
+        __Case( __##_name##_command_t<xil_storage_type_t::_stype,                       \
+                            xil_type_t::_dtype1, xil_type_t::_dtype2> )
+
+    #define __SwitchCommands_CaseSts_(_name, _stype, _dtype1)                           \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, int8)                           \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, uint8)                          \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, int16)                          \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, uint16)                         \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, int32)                          \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, uint32)                         \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, int64)                          \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, uint64)                         \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, float_)                         \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, double_)                        \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, char_)                          \
+        __SwitchCommands_CaseSt(_name, _stype, _dtype1, bool_)
+
+    #define __SwitchCommands_CaseSts(_name, _stype)                                     \
+        __SwitchCommands_CaseSts_(_name, _stype, int8)                                  \
+        __SwitchCommands_CaseSts_(_name, _stype, uint8)                                 \
+        __SwitchCommands_CaseSts_(_name, _stype, int16)                                 \
+        __SwitchCommands_CaseSts_(_name, _stype, uint16)                                \
+        __SwitchCommands_CaseSts_(_name, _stype, int32)                                 \
+        __SwitchCommands_CaseSts_(_name, _stype, uint32)                                \
+        __SwitchCommands_CaseSts_(_name, _stype, int64)                                 \
+        __SwitchCommands_CaseSts_(_name, _stype, uint64)                                \
+        __SwitchCommands_CaseSts_(_name, _stype, float_)                                \
+        __SwitchCommands_CaseSts_(_name, _stype, double_)                               \
+        __SwitchCommands_CaseSts_(_name, _stype, char_)                                 \
+        __SwitchCommands_CaseSts_(_name, _stype, bool_)                                 \
+        __SwitchCommands_CaseSt(_name, _stype, object, object)                          \
+        __SwitchCommands_CaseSt(_name, _stype, string, string)                          \
+        __SwitchCommands_CaseSt(_name, _stype, ptr, ptr)
+
+    #define __SwitchCommands_CaseArray(_name, _dtype1, _dtype2, _dimension)             \
+        __Case( __##_name##_array_element_command_t<xil_type_t::_dtype1,                \
+                                                    xil_type_t::_dtype2, _dimension> )
+
+    #define __SwitchCommands_CaseArrays_(_name, _dtype1, _dimension)                    \
+        __SwitchCommands_CaseArray(_name, _dtype1, int8,    _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, uint8,   _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, int16,   _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, uint16,  _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, int32,   _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, uint32,  _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, int64,   _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, uint64,  _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, float_,  _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, double_, _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, char_,   _dimension)                 \
+        __SwitchCommands_CaseArray(_name, _dtype1, bool_,   _dimension)
+
+    // Push/Pick/Pop Array commands.
+    #define __SwitchCommands_CaseArrays(_name, _dimension)                              \
+        __SwitchCommands_CaseArrays_(_name, int8,    _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, uint8,   _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, int16,   _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, uint16,  _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, int32,   _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, uint32,  _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, int64,   _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, uint64,  _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, float_,  _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, double_, _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, char_,   _dimension)                        \
+        __SwitchCommands_CaseArrays_(_name, bool_,   _dimension)                        \
+        __SwitchCommands_CaseArray(_name, object, object, _dimension)                   \
+        __SwitchCommands_CaseArray(_name, string, string, _dimension)                   \
+        __SwitchCommands_CaseArray(_name, ptr, ptr, _dimension)
+
+    // Push Constants.
+
+    #define __SwitchCommands_CaseConstant(_dtype1, _dtype2)                             \
+        __Case( __push_command_t<xil_storage_type_t::constant,                          \
+                    xil_type_t::_dtype1, xil_type_t::_dtype2> )
+        
+    #define __SwitchCommands_CaseConstants_(_dtype1)                                    \
+        __SwitchCommands_CaseConstant(_dtype1, int8)                                    \
+        __SwitchCommands_CaseConstant(_dtype1, uint8)                                   \
+        __SwitchCommands_CaseConstant(_dtype1, int16)                                   \
+        __SwitchCommands_CaseConstant(_dtype1, uint16)                                  \
+        __SwitchCommands_CaseConstant(_dtype1, int32)                                   \
+        __SwitchCommands_CaseConstant(_dtype1, uint32)                                  \
+        __SwitchCommands_CaseConstant(_dtype1, int64)                                   \
+        __SwitchCommands_CaseConstant(_dtype1, uint64)                                  \
+        __SwitchCommands_CaseConstant(_dtype1, float_)                                  \
+        __SwitchCommands_CaseConstant(_dtype1, double_)                                 \
+        __SwitchCommands_CaseConstant(_dtype1, char_)                                   \
+        __SwitchCommands_CaseConstant(_dtype1, bool_)
+
+    #define __SwitchCommands_CaseConstants()                                            \
+        __SwitchCommands_CaseConstants_(int8)                                           \
+        __SwitchCommands_CaseConstants_(uint8)                                          \
+        __SwitchCommands_CaseConstants_(int16)                                          \
+        __SwitchCommands_CaseConstants_(uint16)                                         \
+        __SwitchCommands_CaseConstants_(int32)                                          \
+        __SwitchCommands_CaseConstants_(uint32)                                         \
+        __SwitchCommands_CaseConstants_(int64)                                          \
+        __SwitchCommands_CaseConstants_(uint64)                                         \
+        __SwitchCommands_CaseConstants_(float_)                                         \
+        __SwitchCommands_CaseConstants_(double_)                                        \
+        __SwitchCommands_CaseConstants_(char_)                                          \
+        __SwitchCommands_CaseConstants_(bool_)                                          \
+        __SwitchCommands_CaseConstant(object, object)                                   \
+        __SwitchCommands_CaseConstant(string, string)                                   \
+        __SwitchCommands_CaseConstant(ptr, ptr)
+
+    #define __SwitchCommands_CaseAddress(_stype)                                        \
+        __Case( __push_address_command_t<xil_storage_type_t::_stype> )
+
+    // binary, unitary commands
+    #define __SwitchCommands_CaseBinary(_cmd, _dtype1, _dtype2)                         \
+        __Case( __binary_command_t<decltype(_cmd), _cmd, xil_type_t::_dtype1, xil_type_t::_dtype2> )
+
+    #define __SwitchCommands_CaseUnitary(_cmd, _dtype1)                                 \
+        __Case( __unitary_command_t<decltype(_cmd), _cmd, xil_type_t::_dtype1> )
+
+    #define __SwitchCommands_CaseBinary_1(_cmd, _dtype1, _dtype2)                       \
+        __SwitchCommands_CaseBinary(_cmd, _dtype1, _dtype2)
+
+    #define __SwitchCommands_CaseBinary_2(_cmd, _dtype1, _dtype2)                       \
+        __SwitchCommands_CaseBinary(_cmd, _dtype1, _dtype2)                             \
+        __SwitchCommands_CaseBinary(_cmd, _dtype2, _dtype1)
+
+    #define __SwitchCommands_CaseBinaries(_cmd)                                         \
+            __SwitchCommands_CaseBinary_1(_cmd, int8,   int8)                           \
+            __SwitchCommands_CaseBinary_2(_cmd, int8,   uint8)                          \
+                                                                                        \
+            __SwitchCommands_CaseBinary_1(_cmd, uint8,  uint8)                          \
+                                                                                        \
+            __SwitchCommands_CaseBinary_2(_cmd, int16,  int8)                           \
+            __SwitchCommands_CaseBinary_2(_cmd, int16,  uint8)                          \
+            __SwitchCommands_CaseBinary_1(_cmd, int16,  int16)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, int16,  uint16)                         \
+                                                                                        \
+            __SwitchCommands_CaseBinary_2(_cmd, uint16, int8)                           \
+            __SwitchCommands_CaseBinary_2(_cmd, uint16, uint8)                          \
+            __SwitchCommands_CaseBinary_1(_cmd, uint16, uint16)                         \
+                                                                                        \
+            __SwitchCommands_CaseBinary_2(_cmd, int32,  int8)                           \
+            __SwitchCommands_CaseBinary_2(_cmd, int32,  uint8)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, int32,  int16)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, int32,  uint16)                         \
+            __SwitchCommands_CaseBinary_1(_cmd, int32,  int32)                          \
+                                                                                        \
+            __SwitchCommands_CaseBinary_2(_cmd, uint32, int8)                           \
+            __SwitchCommands_CaseBinary_2(_cmd, uint32, uint8)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, uint32, int16)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, uint32, uint16)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, uint32, int32)                          \
+            __SwitchCommands_CaseBinary_1(_cmd, uint32, uint32)                         \
+                                                                                        \
+            __SwitchCommands_CaseBinary_2(_cmd, int64,  int8)                           \
+            __SwitchCommands_CaseBinary_2(_cmd, int64,  uint8)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, int64,  int16)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, int64,  uint16)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, int64,  int32)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, int64,  uint32)                         \
+            __SwitchCommands_CaseBinary_1(_cmd, int64,  int64)                          \
+                                                                                        \
+            __SwitchCommands_CaseBinary_2(_cmd, uint64,  int8)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, uint64,  uint8)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, uint64,  int16)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, uint64,  uint16)                        \
+            __SwitchCommands_CaseBinary_2(_cmd, uint64,  int32)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, uint64,  uint32)                        \
+            __SwitchCommands_CaseBinary_2(_cmd, uint64,  int64)                         \
+            __SwitchCommands_CaseBinary_1(_cmd, uint64,  uint64)
+
+        #define __SwitchCommands_CaseFloatBinaries(_cmd)                                \
+            __SwitchCommands_CaseBinary_2(_cmd, float_,  int8)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, float_,  uint8)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, float_,  int16)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, float_,  uint16)                        \
+            __SwitchCommands_CaseBinary_2(_cmd, float_,  int32)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, float_,  uint32)                        \
+            __SwitchCommands_CaseBinary_2(_cmd, float_,  int64)                         \
+            __SwitchCommands_CaseBinary_1(_cmd, float_,  uint64)                        \
+            __SwitchCommands_CaseBinary_1(_cmd, float_,  float_)                        \
+                                                                                        \
+            __SwitchCommands_CaseBinary_2(_cmd, double_,  int8)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, double_,  uint8)                        \
+            __SwitchCommands_CaseBinary_2(_cmd, double_,  int16)                        \
+            __SwitchCommands_CaseBinary_2(_cmd, double_,  uint16)                       \
+            __SwitchCommands_CaseBinary_2(_cmd, double_,  int32)                        \
+            __SwitchCommands_CaseBinary_2(_cmd, double_,  uint32)                       \
+            __SwitchCommands_CaseBinary_2(_cmd, double_,  int64)                        \
+            __SwitchCommands_CaseBinary_1(_cmd, double_,  uint64)                       \
+            __SwitchCommands_CaseBinary_2(_cmd, double_,  float_)                       \
+            __SwitchCommands_CaseBinary_1(_cmd, double_,  double_)
+
+        #define __SwitchCommands_CaseUnitaries(_cmd)                                    \
+            __SwitchCommands_CaseUnitary(_cmd, int8)                                    \
+            __SwitchCommands_CaseUnitary(_cmd, uint8)                                   \
+            __SwitchCommands_CaseUnitary(_cmd, int16)                                   \
+            __SwitchCommands_CaseUnitary(_cmd, uint16)                                  \
+            __SwitchCommands_CaseUnitary(_cmd, int32)                                   \
+            __SwitchCommands_CaseUnitary(_cmd, uint32)                                  \
+            __SwitchCommands_CaseUnitary(_cmd, int64)                                   \
+            __SwitchCommands_CaseUnitary(_cmd, uint64)
+
+        #define __SwitchCommands_CaseFloatUnitaries(_cmd)                               \
+            __SwitchCommands_CaseUnitary(_cmd, float_)                                  \
+            __SwitchCommands_CaseUnitary(_cmd, double_)
+
+        #define __SwitchCommands_CaseRet(_ret_size)                                     \
+            __Case( __ret_command_t<_ret_size> )
+
+        #define __SwitchCommands_CaseCopy(_size, _kind)                                 \
+            __Case( __memory_copy_command_t<_size, xil_copy_kind_t::_kind> )
+
+        #define __SwitchCommands_CaseCopies(_kind)                                      \
+            __SwitchCommands_CaseCopy(1,  _kind)                                        \
+            __SwitchCommands_CaseCopy(2,  _kind)                                        \
+            __SwitchCommands_CaseCopy(4,  _kind)                                        \
+            __SwitchCommands_CaseCopy(8,  _kind)                                        \
+            __SwitchCommands_CaseCopy(12, _kind)                                        \
+            __SwitchCommands_CaseCopy(16, _kind)                                        \
+            __SwitchCommands_CaseCopy(20, _kind)                                        \
+            __SwitchCommands_CaseCopy(24, _kind)                                        \
+            __SwitchCommands_CaseCopy(28, _kind)                                        \
+            __SwitchCommands_CaseCopy(32, _kind)
+
+    #define __SwitchCommands(_cmd_value)                                                \
+        switch (_cmd_value)                                                             \
+        {                                                                               \
+            /* empty */                                                                 \
+            __Case( __empty_command_t )                                                 \
+                                                                                        \
+            /* push */                                                                  \
+            __SwitchCommands_CaseConstants()                                            \
+            __SwitchCommands_CaseSts(push, local)                                       \
+            __SwitchCommands_CaseSts(push, argument)                                    \
+            __SwitchCommands_CaseSts(push, field)                                       \
+            __SwitchCommands_CaseArrays(push, 0)                                        \
+            __SwitchCommands_CaseArrays(push, 1)                                        \
+            __SwitchCommands_CaseArrays(push, 2)                                        \
+            __SwitchCommands_CaseArrays(push, 3)                                        \
+            __SwitchCommands_CaseArrays(push, 4)                                        \
+            __SwitchCommands_CaseArrays(push, 5)                                        \
+            __SwitchCommands_CaseArrays(push, 6)                                        \
+            __SwitchCommands_CaseArrays(push, 7)                                        \
+            __SwitchCommands_CaseArrays(push, 8)                                        \
+            __SwitchCommands_CaseAddress(local_addr)                                    \
+            __SwitchCommands_CaseAddress(argument_addr)                                 \
+            __Case( __duplicate_command_t )                                             \
+                                                                                        \
+            /* pop */                                                                   \
+            __SwitchCommands_CaseSts(pop, local)                                        \
+            __SwitchCommands_CaseSts(pop, argument)                                     \
+            __SwitchCommands_CaseSts(pop, field)                                        \
+            __SwitchCommands_CaseArrays(pop, 0)                                         \
+            __SwitchCommands_CaseArrays(pop, 1)                                         \
+            __SwitchCommands_CaseArrays(pop, 2)                                         \
+            __SwitchCommands_CaseArrays(pop, 3)                                         \
+            __SwitchCommands_CaseArrays(pop, 4)                                         \
+            __SwitchCommands_CaseArrays(pop, 5)                                         \
+            __SwitchCommands_CaseArrays(pop, 6)                                         \
+            __SwitchCommands_CaseArrays(pop, 7)                                         \
+            __SwitchCommands_CaseArrays(pop, 8)                                         \
+            __Case( __pop_empty_command_t<__nokey> )                                    \
+                                                                                        \
+             /* pick */                                                                 \
+            __SwitchCommands_CaseSts(pick, local)                                       \
+            __SwitchCommands_CaseSts(pick, argument)                                    \
+            __SwitchCommands_CaseSts(pick, field)                                       \
+            __SwitchCommands_CaseArrays(pick, 0)                                        \
+            __SwitchCommands_CaseArrays(pick, 1)                                        \
+            __SwitchCommands_CaseArrays(pick, 2)                                        \
+            __SwitchCommands_CaseArrays(pick, 3)                                        \
+            __SwitchCommands_CaseArrays(pick, 4)                                        \
+            __SwitchCommands_CaseArrays(pick, 5)                                        \
+            __SwitchCommands_CaseArrays(pick, 6)                                        \
+            __SwitchCommands_CaseArrays(pick, 7)                                        \
+            __SwitchCommands_CaseArrays(pick, 8)                                        \
+                                                                                        \
+            /* call */                                                                  \
+            __Case( __internal_call_command_t<__nokey> )                                \
+            __Case( __static_call_command_t<rt_generic_method_t> )                      \
+            __Case( __static_call_command_t<rt_method_t> )                              \
+            __Case( __instance_call_command_t<rt_generic_method_t> )                    \
+            __Case( __instance_call_command_t<rt_method_t> )                            \
+            __Case( __virtual_call_command_t<__nokey> )                                 \
+                                                                                        \
+            /* al */                                                                    \
+            __SwitchCommands_CaseBinaries(xil_al_command_t::add)                        \
+            __SwitchCommands_CaseFloatBinaries(xil_al_command_t::add)                   \
+            __SwitchCommands_CaseBinaries(xil_al_command_t::sub)                        \
+            __SwitchCommands_CaseFloatBinaries(xil_al_command_t::sub)                   \
+            __SwitchCommands_CaseBinaries(xil_al_command_t::mul)                        \
+            __SwitchCommands_CaseFloatBinaries(xil_al_command_t::mul)                   \
+            __SwitchCommands_CaseBinaries(xil_al_command_t::div)                        \
+            __SwitchCommands_CaseFloatBinaries(xil_al_command_t::div)                   \
+            __SwitchCommands_CaseBinaries(xil_al_command_t::mod)                        \
+            __SwitchCommands_CaseUnitaries(xil_al_command_t::minus)                     \
+            __SwitchCommands_CaseFloatUnitaries(xil_al_command_t::minus)                \
+            __SwitchCommands_CaseUnitaries(xil_al_command_t::positive)                  \
+            __SwitchCommands_CaseFloatUnitaries(xil_al_command_t::positive)             \
+                                                                                        \
+            /* bit */                                                                   \
+            __SwitchCommands_CaseBinaries(xil_bit_command_t::bit_and)                   \
+            __SwitchCommands_CaseBinaries(xil_bit_command_t::bit_or)                    \
+            __SwitchCommands_CaseBinaries(xil_bit_command_t::bit_xor)                   \
+            __SwitchCommands_CaseBinaries(xil_bit_command_t::left_shift)                \
+            __SwitchCommands_CaseBinaries(xil_bit_command_t::right_shift)               \
+            __SwitchCommands_CaseUnitaries(xil_bit_command_t::bit_not)                  \
+                                                                                        \
+            /* logic */                                                                 \
+            __SwitchCommands_CaseBinary(xil_logic_command_t::and_, bool_, bool_)        \
+            __SwitchCommands_CaseBinary(xil_logic_command_t::or_, bool_, bool_)         \
+            __SwitchCommands_CaseUnitary(xil_logic_command_t::or_, bool_)               \
+                                                                                        \
+            /* cmp */                                                                   \
+            __SwitchCommands_CaseBinaries(xil_cmp_command_t::greater)                   \
+            __SwitchCommands_CaseBinaries(xil_cmp_command_t::greater_equal)             \
+            __SwitchCommands_CaseBinaries(xil_cmp_command_t::less)                      \
+            __SwitchCommands_CaseBinaries(xil_cmp_command_t::less_equal)                \
+            __SwitchCommands_CaseBinaries(xil_cmp_command_t::equal)                     \
+            __SwitchCommands_CaseBinaries(xil_cmp_command_t::not_equal)                 \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, bool_, bool_)         \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, bool_, bool_)     \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, char_, char_)         \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, char_, char_)     \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, object, object)       \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, object, object)   \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, ptr, ptr)             \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, ptr, ptr)         \
+                                                                                        \
+            /* ret */                                                                   \
+            __SwitchCommands_CaseRet(0)                                                 \
+            __SwitchCommands_CaseRet(1)                                                 \
+            __SwitchCommands_CaseRet(2)                                                 \
+            __SwitchCommands_CaseRet(3)                                                 \
+            __SwitchCommands_CaseRet(4)                                                 \
+            __SwitchCommands_CaseRet(5)                                                 \
+            __SwitchCommands_CaseRet(6)                                                 \
+            __SwitchCommands_CaseRet(7)                                                 \
+            __SwitchCommands_CaseRet(8)                                                 \
+            __SwitchCommands_CaseRet(__large_ret_unit_size)                             \
+                                                                                        \
+            /* label */                                                                 \
+            __Case( __label_command_t )                                                 \
+                                                                                        \
+            /* throw */                                                                 \
+            __Case( __throw_command_t )                                                 \
+            __Case( __rethrow_command_t )                                               \
+            __Case( __end_finally_command_t )                                           \
+                                                                                        \
+            /* jmp */                                                                   \
+            __Case( __jmp_command_t<xil_jmp_model_t::none> )                            \
+            __Case( __jmp_command_t<xil_jmp_model_t::true_> )                           \
+            __Case( __jmp_command_t<xil_jmp_model_t::false_> )                          \
+            __Case( __leave_ret_command_t )                                             \
+            __Case( __switch_jmp_command_t )                                            \
+                                                                                        \
+            /* new */                                                                   \
+            __Case( __new_command_t<xil_new_type_t::default_> )                         \
+            __Case( __new_command_t<xil_new_type_t::array> )                            \
+            __Case( __new_command_t<xil_new_type_t::stack_alloc> )                      \
+                                                                                        \
+            /* copy */                                                                  \
+            __SwitchCommands_CaseCopies(default_)                                       \
+            __SwitchCommands_CaseCopies(reverse)                                        \
+            __Case( __memory_copy_command_ex_t<__nokey> )                               \
+                                                                                        \
+            /* end */                                                                   \
+            __Case( __execute_end_command_t )                                           \
+                                                                                        \
+        default:                                                                        \
+            __Default(_cmd_value)                                                       \
+        }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
+                                                 command_t * command)
+    {
+        __BeginExecuteCommand()
+
+        #define __Case(_t, _ts...)                                                      \
+            case _t, ##_ts::cmd_value:                                                  \
+                ((_t, ##_ts *)command)->execute(ctx);                                   \
+                break;
+
+        #define __Default(_cmd_value)                                                   \
+            throw _EC(unexpected, _F(_T("unexpected command %1%"), __Cmd(_cmd_value)));
+
+        __SwitchCommands(command->cmd_value)
+
+        #undef __Case
+        #undef __Default
+
+        __EndExecuteCommand()
+    }
+
+    const string_t __to_command_string(command_execute_context_t & ctx, command_t * command)
+    {
+        #define __Case(_t, _ts...)                                                      \
+            case _t, ##_ts::cmd_value:                                                  \
+                return ((_t, ##_ts *)command)->to_string(ctx);
+
+        #define __Default(_cmd_value)                                                   \
+            return _F(_T("[%1%]"), _cmd_value);
+
+        __SwitchCommands(command->cmd_value)
+
+        #undef __Default
+        #undef __Case
     }
 
     #endif  // EXEC_QUICK_EXECUTE
+
+    void __execute_command(command_execute_context_t & ctx, command_t * command)
+    {
+        __inline_execute_command(ctx, command);
+    }
 
     void __execute_commands(command_execute_context_t & ctx)
     {
         command_t ** & commands = ctx.current;
 
-    #if EXEC_QUICK_EXECUTE
-
-        #define __Next()                                                                \
-              goto __begin__;
-
-        #if EXEC_TRACE
-
-            #define __TraceExecute(_t, _ts...)                                          \
-                /*_P(_T("[execute]"), ((_t, ##_ts *)command)->to_string(ctx));*/
-
-            #define __TracePostExecute(_t, _ts...)                                      \
-                _P(_T("-> %1%\t\t%2%"), ((_t, ##_ts *)command)->to_string(ctx), ctx.stack.top());
-
-        #else   // EXEC_TRACE
-
-            #define __TraceExecute(_t, _ts...)
-
-        #endif
-
-        #define __Case(_t, _ts...)                                                      \
-            case _t, ##_ts::cmd_value:                                                  \
-                __TraceExecute(_t, ##_ts)                                               \
-                ((_t, ##_ts *)command)->execute(ctx);                                   \
-                __TracePostExecute_t, ##_ts()                                           \
-                __Next();
-
     __begin__:
 
-        command_t * command = *commands++;
-
-        switch (command->cmd_value)
-        {
-            // push
-            __Case( __push_command_t<xil_storage_type_t::constant, xil_type_t::int32> )
-            __Case( __push_command_t<xil_storage_type_t::constant, xil_type_t::string> )
-            __Case( __push_command_t<xil_storage_type_t::local, xil_type_t::int32> )
-            __Case( __push_command_t<xil_storage_type_t::argument, xil_type_t::int32> )
-
-            // pop
-            __Case( __pop_command_t<xil_storage_type_t::local, xil_type_t::int32> )
-
-            // al
-            __Case( __binary_command_t<
-                xil_al_command_t, xil_al_command_t::add, xil_type_t::int32, xil_type_t::int32
-            > )
-
-            __Case( __binary_command_t<
-                xil_cmp_command_t, xil_cmp_command_t::less, xil_type_t::int32, xil_type_t::int32
-            > )
-
-            // Jmp
-            __Case( __jmp_command_t<xil_jmp_model_t::none> )
-            __Case( __jmp_command_t<xil_jmp_model_t::true_> )
-            __Case( __jmp_command_t<xil_jmp_model_t::false_> )
-            __Case( __switch_jmp_command_t )
-
-
-            // Call
-            __Case( __internal_call_command_t<__nokey> )
-            __Case( __static_call_command_t<rt_method_t> )
-            __Case( __instance_call_command_t<rt_method_t> )
-            __Case( __virtual_call_command_t<__nokey> )
-
-            // Return
-            __Case( __ret_command_t<0> )
-            __Case( __ret_command_t<1> )
-            __Case( __ret_command_t<2> )
-            __Case( __ret_command_t<3> )
-            __Case( __ret_command_t<4> )
-            __Case( __ret_command_t<5> )
-            __Case( __ret_command_t<6> )
-            __Case( __ret_command_t<7> )
-            __Case( __ret_command_t<8> )
-
-            // End
-            __Case( __execute_end_command_t )
-
-            default:
-                //_P(_T("unexpected command: "), command->to_string(ctx));
-                throw _EC(unexpected, _F(_T("unexpected command %1%"), __Cmd(command->cmd_value)));
-        }
-
-        #undef __Case
-        #undef __Next
-
-    #else       // EXEC_QUICK_EXECUTE
-
-    __begin__:
-
-        #define __ExecuteCommand() __execute_command(ctx, *commands++)
-        #define __ExecuteCommands()                                                     \
-            __ExecuteCommand(); __ExecuteCommand(); __ExecuteCommand(); __ExecuteCommand();
-
-        __ExecuteCommands();
-        __ExecuteCommands();
-        __ExecuteCommands();
-        __ExecuteCommands();
+        __inline_execute_command(ctx, *commands++);
 
         goto __begin__;
-
-    #endif      // EXEC_QUICK_EXECUTE
-
     }
 
     typedef logic_error_t<exec_env_code_t> __exec_env_error_t;

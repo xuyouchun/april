@@ -671,10 +671,10 @@ namespace X_ROOT_NS { namespace algorithm {
         incorp_t() _NE : __data(incorp((_p_t *)nullptr, (_v_t)0)) { }
 
         template<typename _t>
-        operator _t * () _NE const { return (_t *)incorp_p(__data); }
+        operator _t * () const _NE { return (_t *)incorp_p(__data); }
 
-        operator _p_t * () _NE const { return incorp_p(__data); }
-        operator _v_t   () _NE const { return incorp_v<_v_t>(__data); }
+        operator _p_t * () const _NE { return incorp_p(__data); }
+        operator _v_t   () const _NE { return incorp_v<_v_t>(__data); }
 
         void set(_p_t * p, _v_t v) _NE { __data = incorp(p, v); }
 

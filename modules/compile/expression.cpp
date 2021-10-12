@@ -131,7 +131,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Returns whether it's effective.
     // Xils will not generated if the expression is not effective.
-    X_ALWAYS_INLINE bool is_effective(expression_t * exp)
+    bool is_effective(expression_t * exp)
     {
         if (exp == nullptr)
             return false;

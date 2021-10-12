@@ -3190,7 +3190,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         { }
 
         // Returns the family.
-        virtual member_family_t this_family() const override _NE
+        virtual member_family_t this_family() const _NE override
         {
             return member_family_t::generic;
         }
@@ -3887,21 +3887,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_collection_t args;
 
         // Returns gtype.
-        virtual gtype_t this_gtype() const override final _NE { return gtype_t::generic; }
+        virtual gtype_t this_gtype() const _NE override final { return gtype_t::generic; }
 
         // Returns ttype.
-        virtual ttype_t this_ttype() const override final _NE
+        virtual ttype_t this_ttype() const _NE override final
         {
             return template_? template_->this_ttype() : ttype_t::__unknown__;
         }
 
         // Returns vtype.
-        virtual vtype_t this_vtype() const override final _NE
+        virtual vtype_t this_vtype() const _NE override final
         {
             return template_? template_->this_vtype() : vtype_t::__unknown__;
         }
 
-        virtual mtype_t this_mtype() const override final _NE
+        virtual mtype_t this_mtype() const _NE override final
         {
             return template_? template_->this_mtype() : mtype_t::__unknown__;
         }
@@ -4501,7 +4501,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             virtual bool is_calling() _NE override { return false; }
 
             // Execute the variable.
-            virtual cvalue_t execute(expression_execute_context_t & ctx) override _NE
+            virtual cvalue_t execute(expression_execute_context_t & ctx) override
             {
                 return cvalue_t::nan;
             }
@@ -4532,7 +4532,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
 
             // Returns whether this will call a method.
-            virtual bool is_calling() override { return true; }
+            virtual bool is_calling() _NE override { return true; }
         };
     }
 
@@ -4674,7 +4674,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Returns whether this will call a method.
-        virtual bool is_calling() override { return true; }
+        virtual bool is_calling() _NE override { return true; }
 
         // Converts to a string.
         X_TO_STRING
@@ -6078,7 +6078,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void set_expression(expression_t * expression);
 
         // Returns this family.
-        virtual expression_family_t this_family() const override _NE
+        virtual expression_family_t this_family() const _NE override
         {
             return expression_family_t::type_cast;
         }
