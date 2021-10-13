@@ -455,6 +455,83 @@ namespace X_ROOT_NS { namespace algorithm {
     void quick_copy(void * dst, const void * src, size_t size) _NE;
 
     ////////// ////////// ////////// ////////// //////////
+    // Quick zero.
+
+    namespace
+    {
+        template<size_t _size, bool _large = (_size > sizeof(uint64_t))>
+        struct __quick_zero_t
+        {
+            X_ALWAYS_INLINE static void zero(void * p) _NE
+            {
+                switch (_size)
+                {
+                    case 0:
+                        break;
+
+                    case 1:
+                        *(uint8_t *)p = 0;
+                        break;
+
+                    case 2:
+                        *(uint16_t *)p = 0;
+                        break;
+
+                    case 3:
+                        *(uint16_t *)p = 0;
+                        *(uint8_t *)((uint16_t *)p + 1) = 0;
+                        break;
+
+                    case 4:
+                        *(uint32_t *)p = 0;
+                        break;
+
+                    case 5:
+                        *(uint32_t *)p = 0;
+                        *(uint8_t *)((uint32_t *)p + 1) = 0;
+                        break;
+
+                    case 6:
+                        *(uint32_t *)p = 0;
+                        *(uint16_t *)((uint32_t *)p + 1) = 0;
+                        break;
+
+                    case 7:
+                        *(uint32_t *)p = 0;
+                        *(uint16_t *)((uint32_t *)p + 1) = 0;
+                        *(uint8_t *)(((uint16_t *)((uint32_t *)p + 1)) + 1) = 0;
+                        break;
+
+                    case 8:
+                        *(uint64_t *)p = 0;
+                        break;
+                }
+            } 
+        };
+
+        template<size_t _size> // _large is _size > sizeof(uint64_t)
+        struct __quick_zero_t<_size, true>
+        {
+            X_ALWAYS_INLINE static void zero(void * p) _NE
+            {
+                __quick_zero_t<sizeof(uint64_t)>::zero(p);
+
+                __quick_zero_t<_size - sizeof(uint64_t)>::zero(
+                    (uint64_t *)p + 1
+                );
+            }
+        };
+    }
+
+    template<size_t _size>
+    X_ALWAYS_INLINE void quick_zero(void * p) _NE
+    {
+        __quick_zero_t<_size>::zero(p);
+    }
+
+    void quick_zero(void * p, size_t size) _NE;
+
+    ////////// ////////// ////////// ////////// //////////
 
     // A multikey structure contains various values that can compare.
     // Be used for key of map that contains various values.

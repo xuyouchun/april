@@ -308,6 +308,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         reverse         = 1,            // Default is dst address at the top, reverse is oppsite.
 
+        zero            = 2,            // Set object memory to zero.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------

@@ -1845,11 +1845,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __compile_arguments(ctx, pool, this->arguments(), this->constructor);
         }
 
-        if (this->constructor != nullptr)
+        // custom constructor.
+        if (this->constructor != nullptr && this->constructor->param_count() > 0)
         {
             xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
             ref_t method_ref = __search_method_ref(ctx, this->constructor);
             pool.append<x_call_xil_t>(call_type, method_ref);
+        }
+        else    // default constructor.
+        {
+            ref_t type_ref = __ref_of(ctx, type);
+            pool.append<x_object_copy_xil_t>(type_ref, xil_copy_kind_t::zero);
         }
     }
 

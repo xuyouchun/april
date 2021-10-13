@@ -376,6 +376,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_D(constructor_method_not_found,
                                 _T("constructor method %1%(%2%) not found"))
 
+        X_D(do_not_need_default_constructor,
+                        _T("custom struct type %1% should not define a default constructor"))
+
         // Partial specialization not supported.
         X_D(partial_specialization_not_supported,
                                 _T("partial specialization of generic type not supported"))
@@ -1635,14 +1638,31 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __super_t::on_walk(context, step, tag);
 
-        bool has_constructor = al::any_of(__type.methods, [](method_t * m) {
-            return m->trait == method_trait_t::constructor;
-        });
-
-        if (!has_constructor && al::in(type->this_gtype(), gtype_t::general, gtype_t::generic))
+        if (al::in(type->this_ttype(), ttype_t::class_, ttype_t::struct_))
         {
-            method_t * method = __append_default_constructor();
-            this->__delay(context, walk_step_t::analysis, method);
+            auto it = al::find_if(__type.methods, [](method_t * m) {
+                return m->trait == method_trait_t::constructor;
+            });
+
+            if (it == std::end(__type.methods))  // no constructor
+            {
+                method_t * method = __append_default_constructor();
+                this->__delay(context, walk_step_t::analysis, method);
+            }
+            else
+            {
+                // struct type do not need a default constructor.
+                method_t * constructor = *it;
+                if (type->this_ttype() == ttype_t::struct_ && constructor->param_count() == 0)
+                {
+                    this->__log(this, __c_t::do_not_need_default_constructor, type);
+                }
+                else
+                {
+                    method_t * method = __append_default_constructor();
+                    this->__delay(context, walk_step_t::analysis, method);
+                }
+            }
         }
     }
 

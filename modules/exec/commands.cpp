@@ -95,6 +95,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     typedef rt_stack_unit_t __unit_t;
     const msize_t __stack_stub_size = unit_size_of(sizeof(__calling_stub_t));
 
+    static al::xheap_t __command_heap;
+
     template<typename _cmd_t, typename ... _args_t>
     _cmd_t * __new_command(memory_t * memory, _args_t && ... args)
     {
@@ -108,6 +110,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         return cmd;
     }
+
+    #define __ReturnInstance(_class_name)                                               \
+        do {                                                                            \
+            static _class_name * command = __new_command<_class_name>(&__command_heap); \
+            return command;                                                             \
+        } while (false)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -133,8 +141,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     using __vnum_t = typename __vnum_traits_t<_xil_type>::num_t;
 
     ////////// ////////// ////////// ////////// //////////
-
-    static al::xheap_t __command_heap;
 
     template<typename t, typename _xil_t> t __read_extra(const _xil_t & xil)
     {
@@ -276,6 +282,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __empty_command_t : public __command_base_t
     {
     public:
+
         __BeginExecute(ctx, __ToCmdValue(empty, 1))
 
             // Do nothing
@@ -289,22 +296,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __EndToString()
     };
 
-    __empty_command_t __empty_command;
-
     ////////// ////////// ////////// ////////// //////////
     // Class __execute_end_command_t
 
     class __execute_end_command_t : public __command_base_t
     {
     public:
-        __execute_end_command_t()
-        {
-            #if EXEC_QUICK_EXECUTE
-
-            __command_base_t::cmd_value = cmd_value;
-
-            #endif  // EXEC_QUICK_EXECUTE
-        }
 
         __BeginExecute(ctx, __ToCmdValue(empty, 2))
 
@@ -318,8 +315,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         
         __EndToString()
     };
-
-    __execute_end_command_t __execute_end_command;
 
     ////////// ////////// ////////// ////////// //////////
     // Class __push_command_t
@@ -963,8 +958,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return _T("duplicate");
 
         __EndToString()
-
-    } __duplicate_command;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1318,7 +1312,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         switch (stype)
         {
             case xil_storage_type_t::duplicate:     // Duplicate command.
-                return &__duplicate_command;
+                __ReturnInstance(__duplicate_command_t);
 
             case xil_storage_type_t::params:        // Push params argument command.
                 return __params_address_command_manager.template get_command<__nokey>(
@@ -1675,10 +1669,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __BeginToString(ctx)                                                \
                                                                                 \
                 if (xil_type_t::_d1 == xil_type_t::_d2)                         \
-                    return _F(_T("pop %1% %2% [%3%]"), xil_storage_type_t::_s,  \
+                    return _F(_T("pop  %1% %2% [%3%]"), xil_storage_type_t::_s,  \
                         xil_type_t::_d1, __offset);                             \
                                                                                 \
-                return _F(_T("pop %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s, \
+                return _F(_T("pop  %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s, \
                             xil_type_t::_d2, xil_type_t::_d1, __offset);        \
                                                                                 \
             __EndToString()                                                     \
@@ -2975,9 +2969,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __internal_call_command_t : public __command_base_t
     {
     public:
-        __internal_call_command_t(__libfunc_t func, int param_unit_size, int ret_unit_size)
+        __internal_call_command_t(__libfunc_t func, int param_unit_size, int ret_unit_size
+    #if EXEC_TRACE
+            , rt_sid_t method_name
+    #endif  // EXEC_TRACE
+        )
             : __func(func), __param_unit_size(param_unit_size)
             , __pop_unit_size(param_unit_size - ret_unit_size)
+
+    #if EXEC_TRACE
+            , __method_name(method_name)
+    #endif
         {
             _A(func != nullptr);
         }
@@ -2995,13 +2997,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginToString(ctx)
 
-            return _F(_T("call internal %1%"), (void *)__func);
+            return _F(_T("call internal %1%"),
+
+    #if EXEC_TRACE
+                __method_name
+    #else
+                (void *)__func
+    #endif
+
+            );
 
         __EndToString()
 
     private:
+
         int __param_unit_size, __pop_unit_size;
         __libfunc_t __func;
+
+    #if EXEC_TRACE
+        rt_sid_t __method_name;    
+    #endif
     };
 
     struct __internal_call_command_template_t
@@ -3017,6 +3032,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             this_command_t * cmd = __new_command<this_command_t>(
                 memory, libfunc, param_unit_size, ret_unit_size
+    #if EXEC_TRACE
+                , rt_method->get_name()
+    #endif
             );
 
             return cmd;
@@ -3442,7 +3460,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginToString(ctx)
 
-            return _F(_T("%1% %2% %3%"), _str(cmd), dtype1, dtype2);
+            return _F(_T("%|1$-4| %2% %3%"), _str(cmd), dtype1, dtype2);
 
         __EndToString()
     };
@@ -4090,7 +4108,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndToString()
 
-    } __label_command;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -4244,7 +4262,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     }
 
     // Process finally blocks.
-    __AlwaysInline void __process_finally(command_execute_context_t & ctx, command_t ** next_command)
+    __AlwaysInline void __process_finally(command_execute_context_t & ctx,
+                                                            command_t ** next_command)
     {
         ctx.block_queue.begin_group(ctx.stack.lp());
 
@@ -4314,8 +4333,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return _T("throw");
 
         __EndToString()
-
-    } __throw_command;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -4334,8 +4352,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return _T("rethrow");
 
         __EndToString()
-
-    } __rethrow_command;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -4399,8 +4416,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return _T("end finally");
 
         __EndToString()
-
-    } __end_finally_command;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -4412,19 +4428,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return new_ret_command(ctx);
 
             case xil_smp_t::empty:
-                return &__empty_command;
+                __ReturnInstance(__empty_command_t);
 
             case xil_smp_t::label:
-                return &__label_command;
+                __ReturnInstance(__label_command_t);
 
             case xil_smp_t::throw_:
-                return &__throw_command;
+                __ReturnInstance(__throw_command_t);
 
             case xil_smp_t::rethrow:
-                return &__rethrow_command;
+                __ReturnInstance(__rethrow_command_t);
 
             case xil_smp_t::end_finally:
-                return &__end_finally_command;
+                __ReturnInstance(__end_finally_command_t);
 
             default:
                 X_UNEXPECTED();
@@ -4892,6 +4908,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
     };
 
+    template<size_t _size>
+    struct __memory_copy_operation_t<_size, xil_copy_kind_t::zero>
+    {
+        __AlwaysInline static void copy(command_execute_context_t & ctx)
+        {
+            void * p = ctx.stack.pop<void *>();
+
+            al::quick_zero<_size>(p);
+        }
+    };
+
     //-------- ---------- ---------- ---------- ----------
 
     template<size_t _size, xil_copy_kind_t _kind = xil_copy_kind_t::default_>
@@ -4928,13 +4955,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                 al::quick_copy(dst, src, __size);
             }
-            else
+            else if(__kind == xil_copy_kind_t::reverse)
             {
                 void * src = ctx.stack.pop<void *>();
                 void * dst = ctx.stack.pop<void *>();
 
                 al::quick_copy(dst, src, __size);
             }
+            else if(__kind == xil_copy_kind_t::zero)
+            {
+                void * p = ctx.stack.pop<void *>();
+                al::quick_zero(p, __size);
+            }
+
 
         __EndExecute()
 
@@ -5009,6 +5042,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_copy_kind_t::reverse:
                 __Switch(size, xil_copy_kind_t::reverse)
+                break;
+
+            case xil_copy_kind_t::zero:
+                __Switch(size, xil_copy_kind_t::zero);
                 break;
 
             default:
@@ -5223,7 +5260,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         switch (xil->command())
         {
             case xil_command_t::empty:
-                return &__empty_command;
+                __ReturnInstance(__empty_command_t);
 
             case xil_command_t::push:
                 return __new_push_command(ctx, *(const push_xil_t *)xil);
@@ -5273,7 +5310,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     command_t * new_end_command()
     {
-        return &__execute_end_command;
+        __ReturnInstance(__execute_end_command_t);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -5685,6 +5722,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             /* copy */                                                                  \
             __SwitchCommands_CaseCopies(default_)                                       \
             __SwitchCommands_CaseCopies(reverse)                                        \
+            __SwitchCommands_CaseCopies(zero)                                           \
             __Case( __memory_copy_command_ex_t<__nokey> )                               \
                                                                                         \
             /* end */                                                                   \

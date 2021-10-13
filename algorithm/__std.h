@@ -214,7 +214,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename container_t, typename pred_t>
     auto find_if (const container_t & container, pred_t pred)
     {
-        return std::find_if (std::begin(container), std::end(container), pred);
+        return std::find_if(std::begin(container), std::end(container), pred);
     }
 
     // Returns true if any pred returns true for any element in the container.

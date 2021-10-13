@@ -373,6 +373,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(reverse,        _T("reverse"))
 
+        X_C(zero,           _T("zero"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

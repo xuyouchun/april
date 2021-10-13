@@ -612,6 +612,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Constructor method not found.
         constructor_method_not_found,
 
+        // Do not need a default constructor.
+        do_not_need_default_constructor,
+
         // Partial specialization not supported.
         partial_specialization_not_supported,
 
