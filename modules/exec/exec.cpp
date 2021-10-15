@@ -55,6 +55,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
+
+    // The action after finally block executed.
+    X_ENUM_INFO(block_node_finally_action_t)
+    
+        // No action.
+        X_C(default_,   _T("default_"))
+
+        // Jump to next command.
+        X_C(jmp_to_next_command,    _T("jmp_to_next_command"))
+
+        // Executes following command.
+        X_C(execute_following_command,  _T("execute_following_command"))
+
+    X_ENUM_INFO_END
+
+    ////////// ////////// ////////// ////////// //////////
     // exec_method_t
 
     // Returns method name.

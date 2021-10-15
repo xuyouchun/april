@@ -176,6 +176,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         return __command_index(ctx, ctx.current);
     }
 
+    #if EXEC_TRACE
+
     // Prints current command.
     void __print_current(command_execute_context_t & ctx)
     {
@@ -186,6 +188,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     }
 
     #define __PrintCurrent()    __print_current(ctx)
+
+    #else
+
+    #define __PrintCurrent()
+
+    #endif  // EXEC_TRACE
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -4226,7 +4234,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                     if (__is_base_type(ctx.env, exception_type, block->relation_type))
                     {
-                        ctx.block_queue.enque_catch (block, node);
+                        ctx.block_queue.enque_catch(block, node);
                         ctx.pop_exception();
 
                         return false;
@@ -4449,6 +4457,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    #define __ToJmpCmdValue_(_model, _flag)                                             \
+        __ToCmdValue(jmp, ((cmd_value_t)_model << 8) | (cmd_value_t)_flag)
+
+    #define __ToJmpCmdValue(_model) __ToJmpCmdValue_(_model, 0)
+
     template<xil_jmp_model_t _model> struct __jmp_model_t { };
 
     template<> struct __jmp_model_t<xil_jmp_model_t::none>
@@ -4506,7 +4519,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
         __jmp_command_t(xil_jmp_step_t step) : __step(step) { }
 
-        __BeginExecute(ctx, __ToCmdValue(jmp, model))
+        __BeginExecute(ctx, __ToJmpCmdValue(model))
 
             if (__jmp_model_t()(ctx))
             {
@@ -4537,7 +4550,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __jmp_command_t(xil_jmp_step_t step) : __step(step) { }
 
         // Execute
-        __BeginExecute(ctx, __ToCmdValue(jmp, xil_jmp_model_t::leave))
+        __BeginExecute(ctx, __ToJmpCmdValue(xil_jmp_model_t::leave))
 
             __process_finally(ctx, ctx.current + __step);
 
@@ -4583,7 +4596,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Execute
-        __BeginExecute(ctx, __ToCmdValue(jmp, xil_jmp_model_t::leave))
+        __BeginExecute(ctx, __ToJmpCmdValue_(xil_jmp_model_t::leave, 1))
 
             __process_finally_for_return(ctx, __following_command);
 
@@ -4619,7 +4632,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     public:
         __switch_jmp_command_t(exec_switch_table_t * table) : __table(table) { }
 
-        __BeginExecute(ctx, __ToCmdValue(jmp, xil_jmp_model_t::switch_))
+        __BeginExecute(ctx, __ToJmpCmdValue(xil_jmp_model_t::switch_))
 
             int32_t value = ctx.stack.pop<int32_t>();
 
@@ -5317,8 +5330,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #if EXEC_TRACE
 
+    #if EXEC_TRACE >= 2
+
+    #define __BeginExecuteCommand()                                                     \
+        void * top0 = ctx.stack.top();                                                  \
+        _PF(_T("   %|1$-50|[%2%]"), __to_command_string(ctx, command), top0);
+
+    #else   // EXEC_TRACE >= 2
+
     #define __BeginExecuteCommand()                                                     \
         void * top0 = ctx.stack.top();
+
+    #endif  // EXEC_TRACE >= 2
 
     #define __EndExecuteCommand()                                                       \
         void * top1 = ctx.stack.top();                                                  \
@@ -5347,10 +5370,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __EndExecuteCommand()
     }
 
+    #if EXEC_TRACE
+
     const string_t __to_command_string(command_execute_context_t & ctx, command_t * command)
     {
         return command->to_string(ctx);
     }
+
+    #endif  // EXEC_TRACE
 
     #else   // EXEC_QUICK_EXECUTE
 
@@ -5711,6 +5738,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __Case( __jmp_command_t<xil_jmp_model_t::none> )                            \
             __Case( __jmp_command_t<xil_jmp_model_t::true_> )                           \
             __Case( __jmp_command_t<xil_jmp_model_t::false_> )                          \
+            __Case( __jmp_command_t<xil_jmp_model_t::leave> )                           \
             __Case( __leave_ret_command_t )                                             \
             __Case( __switch_jmp_command_t )                                            \
                                                                                         \
@@ -5755,6 +5783,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __EndExecuteCommand()
     }
 
+    #if EXEC_TRACE
     const string_t __to_command_string(command_execute_context_t & ctx, command_t * command)
     {
         #define __Case(_t, _ts...)                                                      \
@@ -5770,25 +5799,34 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         #undef __Case
     }
 
+    #endif  // EXEC_TRACE
+
     #endif  // EXEC_QUICK_EXECUTE
+
+    typedef logic_error_t<exec_env_code_t> __exec_env_error_t;
+
+    __exec_env_error_t __execute_commands(command_execute_context_t & ctx,
+                                          command_t ** & commands)
+    {
+        try
+        {
+    __begin__:
+            __inline_execute_command(ctx, *commands++);
+            goto __begin__;
+        }
+        catch (__exec_env_error_t & e)
+        {
+            return e;
+        }
+    }
 
     void __execute_command(command_execute_context_t & ctx, command_t * command)
     {
-        __inline_execute_command(ctx, command);
+        command_t * commands[] = { command, new_end_command() };
+        command_t ** commands1 = commands;
+
+        __execute_commands(ctx, commands1);
     }
-
-    void __execute_commands(command_execute_context_t & ctx)
-    {
-        command_t ** & commands = ctx.current;
-
-    __begin__:
-
-        __inline_execute_command(ctx, *commands++);
-
-        goto __begin__;
-    }
-
-    typedef logic_error_t<exec_env_code_t> __exec_env_error_t;
 
     // Process the exception at the end of executing.
     void __process_application_exception(command_execute_context_t & ctx, __exec_env_error_t & e)
@@ -5823,14 +5861,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         ctx.push_calling(commands);
 
-        try
-        {
-            __execute_commands(ctx);
-        }
-        catch (__exec_env_error_t & e)
-        {
-            __process_application_exception(ctx, e);
-        }
+        __exec_env_error_t e = __execute_commands(ctx, ctx.current);
+        __process_application_exception(ctx, e);
 
         ctx.pop_calling();
 
