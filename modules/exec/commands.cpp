@@ -3897,17 +3897,49 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 __C2(cmd, uint64,  int64)                                                   \
                 __C1(cmd, uint64,  uint64)
 
+            #define __CaseFloatBinaries(cmd)                                                \
+                __C2(cmd, float_,  int8)                                                    \
+                __C2(cmd, float_,  uint8)                                                   \
+                __C2(cmd, float_,  int16)                                                   \
+                __C2(cmd, float_,  uint16)                                                  \
+                __C2(cmd, float_,  int32)                                                   \
+                __C2(cmd, float_,  uint32)                                                  \
+                __C2(cmd, float_,  int64)                                                   \
+                __C1(cmd, float_,  uint64)                                                  \
+                __C1(cmd, float_,  float_)                                                  \
+                                                                                            \
+                __C2(cmd, double_,  int8)                                                   \
+                __C2(cmd, double_,  uint8)                                                  \
+                __C2(cmd, double_,  int16)                                                  \
+                __C2(cmd, double_,  uint16)                                                 \
+                __C2(cmd, double_,  int32)                                                  \
+                __C2(cmd, double_,  uint32)                                                 \
+                __C2(cmd, double_,  int64)                                                  \
+                __C1(cmd, double_,  uint64)                                                 \
+                __C2(cmd, double_,  float_)                                                 \
+                __C1(cmd, double_,  double_)
+
             __CaseBinaries(greater)
+            __CaseFloatBinaries(greater);
             __CaseBinaries(greater_equal)
+            __CaseFloatBinaries(greater_equal);
             __CaseBinaries(less)
+            __CaseFloatBinaries(less);
             __CaseBinaries(less_equal)
+            __CaseFloatBinaries(less_equal);
             __CaseBinaries(equal)
+            __CaseFloatBinaries(equal);
             __CaseBinaries(not_equal)
+            __CaseFloatBinaries(not_equal);
 
             __C1(equal, bool_, bool_)
             __C1(not_equal, bool_, bool_)
             __C1(equal, char_, char_)
             __C1(not_equal, char_, char_)
+            __C1(greater, char_, char_)
+            __C1(greater_equal, char_, char_)
+            __C1(less, char_, char_)
+            __C1(less_equal, char_, char_)
 
             __C1(equal, object, object)
             __C1(not_equal, object, object)
@@ -5700,15 +5732,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                         \
             /* cmp */                                                                   \
             __SwitchCommands_CaseBinaries(xil_cmp_command_t::greater)                   \
+            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::greater)              \
             __SwitchCommands_CaseBinaries(xil_cmp_command_t::greater_equal)             \
+            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::greater_equal)        \
             __SwitchCommands_CaseBinaries(xil_cmp_command_t::less)                      \
+            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::less)                 \
             __SwitchCommands_CaseBinaries(xil_cmp_command_t::less_equal)                \
+            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::less_equal)           \
             __SwitchCommands_CaseBinaries(xil_cmp_command_t::equal)                     \
+            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::equal)                \
             __SwitchCommands_CaseBinaries(xil_cmp_command_t::not_equal)                 \
+            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::not_equal)            \
             __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, bool_, bool_)         \
             __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, bool_, bool_)     \
             __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, char_, char_)         \
             __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, char_, char_)     \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::greater, char_, char_)       \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::greater_equal, char_, char_) \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::less, char_, char_)          \
+            __SwitchCommands_CaseBinary(xil_cmp_command_t::less_equal, char_, char_)    \
             __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, object, object)       \
             __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, object, object)   \
             __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, ptr, ptr)             \

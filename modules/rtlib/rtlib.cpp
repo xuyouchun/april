@@ -65,18 +65,41 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
             __append_libfunc(_T("Console_WriteDoubleLine"),     console_write_double_line);
 
             // Array functions.
-            __append_libfunc(_T("Array_GetRank"), array_get_rank);
-            __append_libfunc(_T("Array_GetLength"), array_get_length);
+            __append_libfunc(_T("Array_GetRank"),           array_get_rank);
+            __append_libfunc(_T("Array_GetLength"),         array_get_length);
             __append_libfunc(_T("Array_GetLengthOfDimension"), array_get_length_of_dimension);
 
             // Tuple functions.
-            __append_libfunc(_T("Tuple_SetRange"), tuple_set_range);
-            __append_libfunc(_T("Tuple_Get"), tuple_get);
-            __append_libfunc(_T("Tuple_GetCount"), tuple_get_count);
+            __append_libfunc(_T("Tuple_SetRange"),          tuple_set_range);
+            __append_libfunc(_T("Tuple_Get"),               tuple_get);
+            __append_libfunc(_T("Tuple_GetCount"),          tuple_get_count);
 
             // Reflection functions.
-            __append_libfunc(_T("Reflection_GetType"), reflection_get_type);
-            __append_libfunc(_T("Reflection_GetTypeName"), reflection_get_type_name);
+            __append_libfunc(_T("Reflection_GetType"),      reflection_get_type);
+            __append_libfunc(_T("Reflection_GetTypeName"),  reflection_get_type_name);
+
+            // Math functions.
+            __append_libfunc(_T("Math_Sqrt"),               math_sqrt);
+            __append_libfunc(_T("Math_Pow"),                math_pow);
+
+            __append_libfunc(_T("Math_Sin"),                math_sin);
+            __append_libfunc(_T("Math_Cos"),                math_cos);
+            __append_libfunc(_T("Math_Tan"),                math_tan);
+
+            __append_libfunc(_T("Math_Sinh"),               math_sinh);
+            __append_libfunc(_T("Math_Cosh"),               math_cosh);
+            __append_libfunc(_T("Math_Tanh"),               math_tanh);
+
+            __append_libfunc(_T("Math_Asin"),               math_asin);
+            __append_libfunc(_T("Math_Acos"),               math_acos);
+            __append_libfunc(_T("Math_Atan"),               math_atan);
+
+            __append_libfunc(_T("Math_Asinh"),              math_asinh);
+            __append_libfunc(_T("Math_Acosh"),              math_acosh);
+            __append_libfunc(_T("Math_Atanh"),              math_atanh);
+
+            __append_libfunc(_T("Math_Log"),                math_log);
+            __append_libfunc(_T("Math_Log10"),              math_log10);
         }
     };
 

@@ -144,6 +144,29 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
     __DefineFunc(reflection_get_type);
     __DefineFunc(reflection_get_type_name);
 
+    // Math functions.
+    __DefineFunc(math_sqrt);
+    __DefineFunc(math_pow);
+
+    __DefineFunc(math_sin);
+    __DefineFunc(math_cos);
+    __DefineFunc(math_tan);
+
+    __DefineFunc(math_sinh);
+    __DefineFunc(math_cosh);
+    __DefineFunc(math_tanh);
+
+    __DefineFunc(math_asin);
+    __DefineFunc(math_acos);
+    __DefineFunc(math_atan);
+
+    __DefineFunc(math_asinh);
+    __DefineFunc(math_acosh);
+    __DefineFunc(math_atanh);
+
+    __DefineFunc(math_log);
+    __DefineFunc(math_log10);
+
     ////////// ////////// ////////// ////////// //////////
 
 } } }

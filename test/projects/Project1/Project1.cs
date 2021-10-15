@@ -8,15 +8,9 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        int a = 1, b = 2;
-        long c = a + b;
+        double c = Math.Log(100) + Math.Sin(15);
 
         Console.WriteLine(c);
-    }
-
-    private static void __MyMethod(MyStruct obj1)
-    {
-
     }
 };
 
@@ -40,7 +34,7 @@ class MyClass
 
     }
 
-    MyStruct Field1;
-    int      Field2;
+    public MyStruct Field1;
+    public int      Field2;
 };
 

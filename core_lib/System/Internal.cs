@@ -121,6 +121,57 @@ internal static class Internal
 
     [__internal__]
     public static extern String Reflection_GetTypeName(Object obj);
+
+
+    // Math
+
+    [__internal__]
+    public static extern Double Math_Sqrt(Double val);
+
+    [__internal__]
+    public static extern Double Math_Pow(Double x, Double y);
+
+    [__internal__]
+    public static extern Double Math_Sin(Double val);
+
+    [__internal__]
+    public static extern Double Math_Cos(Double val);
+
+    [__internal__]
+    public static extern Double Math_Tan(Double val);
+
+    [__internal__]
+    public static extern Double Math_Sinh(Double val);
+
+    [__internal__]
+    public static extern Double Math_Cosh(Double val);
+
+    [__internal__]
+    public static extern Double Math_Tanh(Double val);
+
+    [__internal__]
+    public static extern Double Math_Asin(Double val);
+
+    [__internal__]
+    public static extern Double Math_Acos(Double val);
+
+    [__internal__]
+    public static extern Double Math_Atan(Double val);
+
+    [__internal__]
+    public static extern Double Math_Asinh(Double val);
+
+    [__internal__]
+    public static extern Double Math_Acosh(Double val);
+
+    [__internal__]
+    public static extern Double Math_Atanh(Double val);
+
+    [__internal__]
+    public static extern Double Math_Log(Double val);
+
+    [__internal__]
+    public static extern Double Math_Log10(Double val);
 }
 
 
