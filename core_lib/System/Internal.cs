@@ -63,7 +63,7 @@ internal static class Internal
     public static extern Void Console_WriteInt32(Int32 value);
 
     [__internal__]
-    public static extern Void Console_WriteUInt32(Int32 value);
+    public static extern Void Console_WriteUInt32(UInt32 value);
 
     [__internal__]
     public static extern Void Console_WriteInt64(Int64 value);
@@ -99,7 +99,7 @@ internal static class Internal
     public static extern Void Console_WriteInt32Line(Int32 value);
 
     [__internal__]
-    public static extern Void Console_WriteUInt32Line(Int32 value);
+    public static extern Void Console_WriteUInt32Line(UInt32 value);
 
     [__internal__]
     public static extern Void Console_WriteInt64Line(Int64 value);

@@ -1911,7 +1911,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Converts value_type (defines in common module) to vtype.
-    vtype_t to_vtype(value_type_t value_type)
+    vtype_t to_vtype(value_type_t value_type) _NE
     {
         if ((int)value_type >= 0 && (int)value_type <= (int)value_type_t::__end__)
             return (vtype_t)value_type;
@@ -1921,40 +1921,62 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Returns whether a vtype can convert to another type
     // E.g. int can convert to long.
-    bool is_vtype_compatible(vtype_t from, vtype_t to)
+    bool is_vtype_compatible(vtype_t from, vtype_t to) _NE
     {
         if (from == to)
             return true;
 
-        return is_numberic_type(from) && is_numberic_type(to);
+        if (!is_numberic_vtype(from) || !is_numberic_vtype(to))
+            return false;
+
+        if ((int)to < (int)from)
+            return false;
+
+        if (is_float_vtype(from))
+            return is_float_vtype(to);
+
+        return is_signed_vtype(from) == is_signed_vtype(to);
     }
 
     // Returns whether the vtype is between v1 and v2.
-    static bool __between(vtype_t v, vtype_t v1, vtype_t v2)
+    X_ALWAYS_INLINE static constexpr bool __between(vtype_t v, vtype_t v1, vtype_t v2) _NE
     {
         return (int)v >= (int)v1 && (int)v <= (int)v2;
     }
 
     // Returns whether a vtype is a integer type.
-    bool is_integer_vtype(vtype_t vtype)
+    bool is_integer_vtype(vtype_t vtype) _NE
     {
         return __between(vtype, vtype_t::int8_, vtype_t::uint64_);
     }
 
     // Returns whether a vtype is a float type.
-    bool is_float_vtype(vtype_t vtype)
+    bool is_float_vtype(vtype_t vtype) _NE
     {
         return __between(vtype, vtype_t::float_, vtype_t::double_);
     }
 
     // Returns whether a vtype is a numberic.
-    bool is_numberic_type(vtype_t vtype)
+    bool is_numberic_vtype(vtype_t vtype) _NE
     {
         return __between(vtype, vtype_t::int8_, vtype_t::double_);
     }
 
+    // Returns whether a vtype is signed.
+    bool is_signed_vtype(vtype_t vtype) _NE
+    {
+        return is_float_vtype(vtype) ||
+            (is_integer_vtype(vtype) && (int)vtype % 2 == (int)vtype_t::int8_ % 2);
+    }
+
+    // Returns whether a vtype is unsigned.
+    bool is_unsigned_vtype(vtype_t vtype) _NE
+    {
+        return is_integer_vtype(vtype) && (int)vtype % 2 == (int)vtype_t::uint8_ % 2;
+    }
+
     // Returns default value of a vtype.
-    cvalue_t default_value_of(vtype_t vtype)
+    cvalue_t default_value_of(vtype_t vtype) _NE
     {
         switch (vtype)
         {
@@ -2280,10 +2302,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return nullptr;
 
         vtype_t vtype1 = type1->this_vtype(), vtype2 = type2->this_vtype();
-        if (is_numberic_type(vtype1) && is_numberic_type(vtype2))
-        {
+        if (is_numberic_vtype(vtype1) && is_numberic_vtype(vtype2))
             return (int)vtype1 > (int)vtype2? type1 : type2;
-        }
 
         if (type1->has_super_type(type2))
             return type2;
@@ -6039,7 +6059,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns vtype of the unitary expression.
     type_t * unitary_expression_t::get_type(xpool_t & xpool) const
     {
-        return __super_t::get_type(xpool);
+        type_t * type = __super_t::get_type(xpool);
+        if (type != nullptr)
+            return type;
+
+        vtype_t vtype = get_vtype();
+        return xpool.get_internal_type(vtype);
     }
 
     // Converts unitary expression to a string.

@@ -26,7 +26,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     #define __C(type)                                                      \
         case (int)__VT(type):                                              \
-            *out_value = unitary_operator_t<op, __VT(type)>()((type##_t)v);   \
+            *out_value = unitary_operator_t<_op, __VT(type)>()((type##_t)v);    \
             return true;
 
     enum class __operate_region_t
@@ -47,8 +47,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     template<
-        operator_t op,
-        __operate_region_t flag, __operate_region_t region
+        operator_t _op,
+        __operate_region_t _flag, __operate_region_t _region
     >
     struct __unitary_execute_super_t;
 
@@ -56,20 +56,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Unitary expression executor
     template<
-         operator_t op,
-        __operate_region_t region = __operate_region_t::all,
+         operator_t _op,
+        __operate_region_t _region = __operate_region_t::all,
 
         typename __super_default_t =
-            __unitary_execute_super_t<op, __operate_region_t::default_, region>,
+            __unitary_execute_super_t<_op, __operate_region_t::default_, _region>,
 
         typename __super_float_t =
-            __unitary_execute_super_t<op, __operate_region_t::float_, region>,
+            __unitary_execute_super_t<_op, __operate_region_t::float_, _region>,
 
         typename __super_bool_t = 
-            __unitary_execute_super_t<op, __operate_region_t::bool_, region>,
+            __unitary_execute_super_t<_op, __operate_region_t::bool_, _region>,
 
         typename __super_char_t =
-            __unitary_execute_super_t<op, __operate_region_t::char_, region>
+            __unitary_execute_super_t<_op, __operate_region_t::char_, _region>
     >
     struct __unitary_execute_t : __super_default_t, __super_float_t, __super_bool_t
                                , __super_char_t
@@ -87,21 +87,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Base class of unitary executor.
     template<
-         operator_t op,
-        __operate_region_t flag, __operate_region_t region
+         operator_t _op,
+        __operate_region_t _flag, __operate_region_t _region
     >
     struct __unitary_execute_super_t :
         __unitary_execute_t<
-            op,
-            enum_has_flag(region, flag)? flag : __operate_region_t::none
+            _op,
+            enum_has_flag(_region, _flag)? _flag : __operate_region_t::none
         >
     { };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Unitary executor ( For none operate region ).
-    template<operator_t op>
-    struct __unitary_execute_t<op, __operate_region_t::none>
+    template<operator_t _op>
+    struct __unitary_execute_t<_op, __operate_region_t::none>
     {
         static bool try_execute(tvalue_t v, tvalue_t * out_value)
         {
@@ -112,8 +112,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Unitary executor ( For default operate region ).
-    template<operator_t op>
-    struct __unitary_execute_t<op, __operate_region_t::default_>
+    template<operator_t _op>
+    struct __unitary_execute_t<_op, __operate_region_t::default_>
     {
         static bool try_execute(tvalue_t v, tvalue_t * out_value)
         {
@@ -137,8 +137,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Unitary executor ( For float types operate region .)
-    template<operator_t op>
-    struct __unitary_execute_t<op, __operate_region_t::float_>
+    template<operator_t _op>
+    struct __unitary_execute_t<_op, __operate_region_t::float_>
     {
         static bool try_execute(tvalue_t v, tvalue_t * out_value)
         {
@@ -156,8 +156,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Unitary executor ( For bool type operate region .)
-    template<operator_t op>
-    struct __unitary_execute_t<op, __operate_region_t::bool_>
+    template<operator_t _op>
+    struct __unitary_execute_t<_op, __operate_region_t::bool_>
     {
         static bool try_execute(tvalue_t v, tvalue_t * out_value)
         {
@@ -174,8 +174,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Unitary Executor ( For char type operate region. )
-    template<operator_t op>
-    struct __unitary_execute_t<op, __operate_region_t::char_>
+    template<operator_t _op>
+    struct __unitary_execute_t<_op, __operate_region_t::char_>
     {
         static bool try_execute(tvalue_t v, tvalue_t * out_value)
         {
@@ -188,16 +188,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #undef __C
 
     // Executes unitary expression.
-    template<operator_t op, __operate_region_t region = __operate_region_t::all>
+    template<operator_t _op, __operate_region_t _region = __operate_region_t::all>
     cvalue_t __unitary_execute(cvalue_t cv)
     {
-        typedef __unitary_execute_t<op, region> executor_t;
+        typedef __unitary_execute_t<_op, _region> executor_t;
 
         tvalue_t v;
         if (executor_t::try_execute(cv.number, &v))
             return cvalue_t(v);
 
-        throw _ED(__e_t::invalid_unitary_operator, op, cv.number.type);
+        throw _ED(__e_t::invalid_unitary_operator, _op, cv.number.type);
     }
 
     // Executes unitary expression.
@@ -266,7 +266,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define __C1(type1, type2)                                                  \
         case ((int)__VT(type1) << 8) | (int)__VT(type2):                        \
             *out_value = tvalue_t(                                              \
-                binary_operator_t<op, __VT(type1), __VT(type2)>()(              \
+                binary_operator_t<_op, __VT(type1), __VT(type2)>()(             \
                     (type1##_t)v1, (type2##_t)v2)                               \
             );                                                                  \
             return true;
@@ -281,7 +281,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Base class of binary executor.
     template<
-        operator_t op, __operate_region_t flag, __operate_region_t region
+        operator_t _op, __operate_region_t _flag, __operate_region_t _region
     >
     struct __binary_execute_super_t;
 
@@ -289,20 +289,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Binary executor.
     template<
-        operator_t op,
-        __operate_region_t region = __operate_region_t::all,
+        operator_t _op,
+        __operate_region_t _region = __operate_region_t::all,
 
         typename __super_default_t =
-            __binary_execute_super_t<op, __operate_region_t::default_, region>,
+            __binary_execute_super_t<_op, __operate_region_t::default_, _region>,
 
         typename __super_float_t =
-            __binary_execute_super_t<op, __operate_region_t::float_, region>,
+            __binary_execute_super_t<_op, __operate_region_t::float_, _region>,
 
         typename __super_bool_t = 
-            __binary_execute_super_t<op, __operate_region_t::bool_, region>,
+            __binary_execute_super_t<_op, __operate_region_t::bool_, _region>,
 
         typename __super_char_t = 
-            __binary_execute_super_t<op, __operate_region_t::char_, region>
+            __binary_execute_super_t<_op, __operate_region_t::char_, _region>
     >
     struct __binary_execute_t : __super_default_t, __super_float_t, __super_bool_t
                               , __super_char_t
@@ -318,18 +318,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    template<operator_t op, __operate_region_t flag, __operate_region_t region>
+    template<operator_t _op, __operate_region_t _flag, __operate_region_t _region>
     struct __binary_execute_super_t :
         __binary_execute_t<
-            op, enum_has_flag(region, flag)? flag : __operate_region_t::none
+            _op, enum_has_flag(_region, _flag)? _flag : __operate_region_t::none
         >
     { };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Binary expression executor. ( For none region. )
-    template<operator_t op>
-    struct __binary_execute_t<op, __operate_region_t::none>
+    template<operator_t _op>
+    struct __binary_execute_t<_op, __operate_region_t::none>
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
@@ -340,8 +340,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Binary expression executor. ( For float region. )
-    template<operator_t op>
-    struct __binary_execute_t<op, __operate_region_t::float_>
+    template<operator_t _op>
+    struct __binary_execute_t<_op, __operate_region_t::float_>
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
@@ -377,12 +377,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Binary expression executor. ( For float char. )
-    template<operator_t op>
-    struct __binary_execute_t<op, __operate_region_t::char_>
+    template<operator_t _op>
+    struct __binary_execute_t<_op, __operate_region_t::char_>
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
-            switch (op)
+            switch (_op)
             {
                 case operator_t::sub:
                 case operator_t::equal:
@@ -425,8 +425,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Binary expression executor. ( For default region. )
-    template<operator_t op>
-    struct __binary_execute_t<op, __operate_region_t::default_>
+    template<operator_t _op>
+    struct __binary_execute_t<_op, __operate_region_t::default_>
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
@@ -485,8 +485,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Binary expression executor. ( For bool region. )
-    template<operator_t op>
-    struct __binary_execute_t<op, __operate_region_t::bool_>
+    template<operator_t _op>
+    struct __binary_execute_t<_op, __operate_region_t::bool_>
     {
         static bool try_execute(tvalue_t v1, tvalue_t v2, tvalue_t * out_value)
         {
@@ -503,16 +503,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #undef __C
 
     // Executes a binary expression.
-    template<operator_t op, __operate_region_t region=__operate_region_t::all>
+    template<operator_t _op, __operate_region_t _region=__operate_region_t::all>
     cvalue_t __binary_execute(cvalue_t cv1, cvalue_t cv2)
     {
-        typedef __binary_execute_t<op, region> executor_t;
+        typedef __binary_execute_t<_op, _region> executor_t;
 
         tvalue_t value;
         if (executor_t::try_execute(cv1.number, cv2.number, &value))
             return cvalue_t(value);
 
-        throw _ED(__e_t::invalid_binary_operator, op, cv1.number.type, cv2.number.type);
+        throw _ED(__e_t::invalid_binary_operator, _op, cv1.number.type, cv2.number.type);
     }
 
     // Executes a binary expression.

@@ -1878,32 +1878,38 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     typedef eobject_ast_t<params_t *> params_ast_t;
 
     // Converts value_type (defines in common module) to vtype.
-    vtype_t to_vtype(value_type_t value_type);
+    vtype_t to_vtype(value_type_t value_type) _NE;
 
     // Returns whether a vtype can convert to another type
     // E.g. int can convert to long.
-    bool is_vtype_compatible(vtype_t from, vtype_t to);
+    bool is_vtype_compatible(vtype_t from, vtype_t to) _NE;
 
     // Returns whether a vtype is a integer type.
-    bool is_integer_vtype(vtype_t vtype);
+    bool is_integer_vtype(vtype_t vtype) _NE;
 
     // Returns whether a vtype is a float type.
-    bool is_float_vtype(vtype_t vtype);
+    bool is_float_vtype(vtype_t vtype) _NE;
 
     // Returns whether a vtype is a numberic.
-    bool is_numberic_type(vtype_t vtype);
+    bool is_numberic_vtype(vtype_t vtype) _NE;
 
     // Returns default value of a vtype.
-    cvalue_t default_value_of(vtype_t vtype);
+    cvalue_t default_value_of(vtype_t vtype) _NE;
+
+    // Returns whether a vtype is signed.
+    bool is_signed_vtype(vtype_t vtype) _NE;
+
+    // Returns whether a vtype is unsigned.
+    bool is_unsigned_vtype(vtype_t vtype) _NE;
 
     // Returns default value of a type.
-    template<typename _t> _t default_value_of()
+    template<typename _t> _t default_value_of() _NE
     {
         return (_t)0;
     }
 
     // Returns size of a vtype.
-    constexpr msize_t get_vtype_size(vtype_t vtype)
+    constexpr msize_t get_vtype_size(vtype_t vtype) _NE
     {
         switch (vtype)
         {

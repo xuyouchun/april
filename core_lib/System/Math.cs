@@ -58,7 +58,125 @@ public static class Math
         return val1 > val2? val1 : val2;
     }
 
+    ////////// ////////// ////////// ////////// //////////
+    // Min
+
+    public static Int8 Min(Int8 val1, Int8 val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static Int16 Min(Int16 val1, Int16 val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static Int32 Min(Int32 val1, Int32 val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static Int64 Min(Int64 val1, Int64 val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static UInt8 Min(UInt8 val1, UInt8 val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static UInt16 Min(UInt16 val1, UInt16 val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static UInt32 Min(UInt32 val1, UInt32 val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static UInt64 Min(UInt64 val1, UInt64 val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static Single Min(Single val1, Single val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
+
+    public static Double Min(Double val1, Double val2)
+    {
+        return val1 < val2? val1 : val2;
+    }
     
+    ////////// ////////// ////////// ////////// //////////
+    // Abs
+
+    public static Int8 Abs(Int8 val)
+    {
+        return val < 0? (Int8)(-val) : val;
+    }
+
+    public static Int16 Abs(Int16 val)
+    {
+        return val < 0? (Int16)(-val) : val;
+    }
+
+    public static Int32 Abs(Int32 val)
+    {
+        return val < 0? -val : val;
+    }
+
+    public static Int64 Abs(Int64 val)
+    {
+        return val < 0? -val : val;
+    }
+
+    public static Single Abs(Single val)
+    {
+        return val < 0? -val : val;
+    }
+
+    public static Double Abs(Double val)
+    {
+        return val < 0? -val : val;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // Sign
+
+    public static Int32 Sign(Int8 val)
+    {
+        return val > 0? 1 : val < 0? -1 : 0;
+    }
+
+    public static Int32 Sign(Int16 val)
+    {
+        return val > 0? 1 : val < 0? -1 : 0;
+    }
+
+    public static Int32 Sign(Int32 val)
+    {
+        return val > 0? 1 : val < 0? -1 : 0;
+    }
+
+    public static Int32 Sign(Int64 val)
+    {
+        return val > 0? 1 : val < 0? -1 : 0;
+    }
+
+    public static Int32 Sign(Single val)
+    {
+        return val > 0? 1 : val < 0? -1 : 0;
+    }
+
+    public static Int32 Sign(Double val)
+    {
+        return val > 0? 1 : val < 0? -1 : 0;
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // Others.
 
