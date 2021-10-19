@@ -178,7 +178,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        return_xilx_t(__region_t & region) : __super_t(region) { }
+        return_xilx_t(__region_t & region, expression_t * expression)
+            : __super_t(region)
+            , expression(expression) { }
+
+        // Return expression.
+        expression_t * expression;
 
         // Writes xilx to a pool.
         virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;

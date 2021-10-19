@@ -50,7 +50,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bit             = 10,
 
         // Creates a object or a array.
-        new_            = 11,
+        new_            = 12,
 
         // Extern flag.
         external        = 15,
@@ -185,6 +185,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts a vtype to xil_type.
     xil_type_t to_xil_type(vtype_t vtype) _NE;
 
+    // Converts a type_t * to xil_type
+    xil_type_t to_xil_type(type_t * type);
+
     //-------- ---------- ---------- ---------- ----------
 
     // Method calling type.
@@ -268,13 +271,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         field_addr      = 7,        // Field address
 
-        params          = 12,       // Stack address of dynamic arguments
+        params          = 11,       // Stack address of dynamic arguments
 
-        array_element   = 13,       // Array element
+        array_element   = 12,       // Array element
 
-        array_element_addr = 14,    // Array element address
+        array_element_addr = 13,    // Array element address
 
-        duplicate       = 15,       // Duplicate top unit of the stack.
+        duplicate       = 14,       // Duplicate top unit of the stack.
+
+        convert         = 15,       // Convert top unit of the stack.
 
     __EnumEnd
 
@@ -684,7 +689,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     __BeginXil(push)
 
         // Constructor.
-        push_xil_t(xil_storage_type_t stype, xil_type_t dtype = xil_type_t::empty)
+        push_xil_t(xil_storage_type_t stype, xil_type_t dtype = xil_type_t::empty) _NE
             : __super_t(xil_command_t::push, stype), __dtype((byte_t)dtype) { }
 
         byte_t __dtype          : 4;        // xil_type_t
@@ -693,19 +698,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         byte_t __extra[0];
 
         // Returns storage type.
-        xil_storage_type_t stype() const { return (xil_storage_type_t)hdata(); }
+        xil_storage_type_t stype() const _NE { return (xil_storage_type_t)hdata(); }
 
         // Returns data type.
-        xil_type_t dtype() const { return (xil_type_t)__dtype; }
+        xil_type_t dtype() const _NE { return (xil_type_t)__dtype; }
 
         // Returns identity for local / param variables.
-        uint16_t get_identity() const
+        uint16_t get_identity() const _NE
         {
             return identity < 15? identity : get_extra<uint16_t>();
         }
 
         // Sets identity for local / param variables.
-        void set_identity(uint16_t identity)
+        void set_identity(uint16_t identity) _NE
         {
             if (identity < 15)
             {
@@ -719,19 +724,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Returns field ref.
-        ref_t field_ref() const { return *(ref_t *)__extra; }
+        ref_t field_ref() const _NE { return *(ref_t *)__extra; }
 
         // Sets field ref.
-        void set_field_ref(ref_t ref) { *(ref_t *)__extra = ref; }
+        void set_field_ref(ref_t ref) _NE { *(ref_t *)__extra = ref; }
 
         // Returns type ref.
-        ref_t type_ref() const { return *(ref_t *)__extra; }
+        ref_t type_ref() const _NE { return *(ref_t *)__extra; }
 
         // Sets type ref.
-        void set_type_ref(ref_t type_ref) { *(ref_t *)__extra = type_ref; }
+        void set_type_ref(ref_t type_ref) _NE { *(ref_t *)__extra = type_ref; }
+
+        // Returns the second type. used for push convert.
+        xil_type_t dtype2() const _NE { return (xil_type_t)*(byte_t *)__extra; }
+
+        // Sets the second type. used for push convert.
+        void set_dtype2(xil_type_t dtype2) _NE { *(byte_t *)__extra = (byte_t)dtype2; }
 
         // Returns extra data.
-        template<typename t> const t & get_extra() const
+        template<typename t> const t & get_extra() const _NE
         {
             return *(t *)__extra;
         }
@@ -750,18 +761,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch (xil.stype())
         {
             case xil_storage_type_t::local:
+            case xil_storage_type_t::local_addr:
             case xil_storage_type_t::argument:
+            case xil_storage_type_t::argument_addr:
                 if (xil.identity == 15)
                     size += sizeof(uint16_t);
                 break;
 
             case xil_storage_type_t::field:
+            case xil_storage_type_t::field_addr:
             case xil_storage_type_t::array_element:
+            case xil_storage_type_t::array_element_addr:
                 size += sizeof(__ref_t);
                 break;
 
             case xil_storage_type_t::constant:
-                if (xil.dtype() == xil_type_t::empty)    // generic
+                if (xil.dtype() == xil_type_t::empty)   // generic
                     size += sizeof(__ref_t);            // generic type ref
                 else
                     size += size_of(xil.dtype());
@@ -769,7 +784,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             case xil_storage_type_t::duplicate:
             case xil_storage_type_t::params:
-                size -= 1;      // __dtype, identity no use
+                size -= 1;                              // __dtype, identity no use
+                break;
+
+            case xil_storage_type_t::convert:
+                size += 1;
                 break;
 
             default:

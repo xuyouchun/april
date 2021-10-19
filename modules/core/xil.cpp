@@ -244,6 +244,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Converts type_t * to xil_type.
+    xil_type_t to_xil_type(type_t * type)
+    {
+        if (type == nullptr)
+            return xil_type_t::empty;
+
+        return to_xil_type(type->this_vtype());
+    }
 
     //-------- ---------- ---------- ---------- ----------
 

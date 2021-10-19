@@ -148,6 +148,45 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Try to append a push convert xil.
+    bool __try_append_convert_xil(xil_pool_t & pool, xil_type_t from_dtype, xil_type_t to_dtype)
+    {
+        if (from_dtype != xil_type_t::empty && to_dtype != xil_type_t::empty
+            && from_dtype != to_dtype)
+        {
+            pool.append<x_push_convert_xil_t>(from_dtype, to_dtype);
+            return true;
+        }
+
+        return false;
+    }
+
+    // Try to append a push convert xil.
+    bool __try_append_convert_xil(xil_pool_t & pool, vtype_t from_vtype, xil_type_t to_dtype)
+    {
+        if (from_vtype != vtype_t::void_ && from_vtype != vtype_t::__default__
+            && from_vtype != vtype_t::__unknown__)
+        {
+            xil_type_t from_dtype = to_xil_type(from_vtype);
+            return __try_append_convert_xil(pool, from_dtype, to_dtype);
+        }
+
+        return false;
+    }
+
+    // Try to append a push convert xil.
+    bool __try_append_convert_xil(xil_pool_t & pool, type_t * from_type, xil_type_t to_dtype)
+    {
+        vtype_t from_vtype;
+
+        if (from_type != nullptr && (from_vtype = from_type->this_vtype()) != vtype_t::void_)
+        {
+            return __try_append_convert_xil(pool, from_vtype, to_dtype);
+        }
+
+        return false;
+    }
+
     // Returns whether it is a member expression.
     X_ALWAYS_INLINE static bool __is_member_expression(expression_t * exp)
     {
@@ -999,7 +1038,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // TODO: when member point, int, long ... types also should be ptr type.
         if (is_custom_struct(field_type))
         {
-            _PP(field_var);
             pool.append<x_push_field_addr_xil_t>(field_ref);
         }
         else
@@ -1140,7 +1178,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles binary expression.
     void __sys_t<binary_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
-        xil_type_t dtype)
+                                                               xil_type_t dtype)
     {
         if (__try_compile_constant_expression(ctx, pool, this))
             return;
@@ -1214,6 +1252,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             #undef __Case
+
+            __try_append_convert_xil(pool, this->get_vtype(), dtype);
         }
     }
 
@@ -1349,6 +1389,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             #undef __Case
+
+            __try_append_convert_xil(pool, this->get_vtype(), dtype);
         }
     }
 
@@ -1536,11 +1578,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         switch (ftype)
         {
             case function_expression_type_t::method:
-                __compile_method(ctx, pool);
+                __compile_method(ctx, pool, dtype);
                 break;
 
             case function_expression_type_t::variable:
-                __compile_delegate(ctx, pool);
+                __compile_delegate(ctx, pool, dtype);
                 break;
 
             default:
@@ -1549,7 +1591,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Compile method calling expression.
-    void __sys_t<function_expression_t>::__compile_method(__cctx_t & ctx, xil_pool_t & pool)
+    void __sys_t<function_expression_t>::__compile_method(__cctx_t & ctx, xil_pool_t & pool,
+                                                          xil_type_t dtype)
     {
         method_base_t * method = this->get_method();
         _A(method != nullptr);
@@ -1575,12 +1618,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             else
                 pool.append<x_call_xil_t>(call_type, method_ref);
 
-            __pop_empty_for_method(ctx, pool, method, this);
+            if (dtype != xil_type_t::empty)
+                __try_append_convert_xil(pool, method->get_type(), dtype);
+            else
+                __pop_empty_for_method(ctx, pool, method, this);
         }
     }
 
     // Compile delegate calling expression.
-    void __sys_t<function_expression_t>::__compile_delegate(__cctx_t & ctx, xil_pool_t & pool)
+    void __sys_t<function_expression_t>::__compile_delegate(__cctx_t & ctx, xil_pool_t & pool,
+                                                            xil_type_t dtype)
     {
         variable_t * variable = this->get_variable();
         _A(variable != nullptr);

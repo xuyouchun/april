@@ -749,6 +749,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __BeginPushAddressCommand(argument_addr)
         ctx.stack.push(__ArgumentAddress(__offset + __stack_stub_size));
     __EndPushCommand()
+
     //-------- ---------- ---------- ---------- ----------
 
     static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
@@ -967,6 +968,104 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndToString()
     };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Push convert commands..
+
+    #define __BeginPushConvertCommand(d1, v1_t, d2, v2_t)                       \
+        template<> class __push_command_t<xil_storage_type_t::convert,          \
+                                          xil_type_t::d1, xil_type_t::d2>       \
+            : public __command_base_t                                           \
+        {                                                                       \
+            typedef v1_t     __value1_t;                                        \
+            typedef v2_t     __value2_t;                                        \
+                                                                                \
+        public:                                                                 \
+            __BeginToString(ctx)                                                \
+                                                                                \
+                return _F(_T("push convert %1%=>%2%"), xil_type_t::d1, xil_type_t::d2);    \
+                                                                                \
+            __EndToString()                                                     \
+                                                                                \
+            __BeginExecute(ctx, __ToPushCmdValue(convert, xil_type_t::d1, xil_type_t::d2))
+
+                // Method Body
+
+    #define __EndPushConvertCommand()                                           \
+            __EndExecute()                                                      \
+        };
+
+
+    #define __ConvertPushCommand(d1, v1_t, d2, v2_t)                            \
+        __BeginPushConvertCommand(d1, v1_t, d2, v2_t)                           \
+            if (!std::is_same<__value1_t, __value2_t>::value)                   \
+            {                                                                   \
+                ctx.stack.push(static_cast<__value2_t>(                         \
+                    ctx.stack.pop<__value1_t>()                                 \
+                ));                                                             \
+            }                                                                   \
+        __EndPushConvertCommand()
+
+    #define __ConvertPushCommands(d2, v2_t)                                     \
+                                                                                \
+        __ConvertPushCommand(int8,      int8_t,   d2, v2_t)                     \
+        __ConvertPushCommand(uint8,     uint8_t,  d2, v2_t)                     \
+                                                                                \
+        __ConvertPushCommand(int16,     int16_t,  d2, v2_t)                     \
+        __ConvertPushCommand(uint16,    uint16_t, d2, v2_t)                     \
+        __ConvertPushCommand(int32,     int32_t,  d2, v2_t)                     \
+        __ConvertPushCommand(uint32,    uint32_t, d2, v2_t)                     \
+                                                                                \
+        __ConvertPushCommand(int64,     int64_t,  d2, v2_t)                     \
+        __ConvertPushCommand(uint64,    uint64_t, d2, v2_t)                     \
+                                                                                \
+        __ConvertPushCommand(float_,    float_t,  d2, v2_t)                     \
+        __ConvertPushCommand(double_,   double_t, d2, v2_t)                     \
+                                                                                \
+        __ConvertPushCommand(char_,     char_t,   d2, v2_t)                     \
+        __ConvertPushCommand(bool_,     bool_t,   d2, v2_t)
+
+    // __ConvertPushCommands
+
+    __ConvertPushCommands(int8,      int8_t)
+    __ConvertPushCommands(uint8,     uint8_t)
+
+    __ConvertPushCommands(int16,     int16_t)
+    __ConvertPushCommands(uint16,    uint16_t)
+
+    __ConvertPushCommands(int32,     int32_t)
+    __ConvertPushCommands(uint32,    uint32_t)
+
+    __ConvertPushCommands(int64,     int64_t)
+    __ConvertPushCommands(uint64,    uint64_t)
+
+    __ConvertPushCommands(float_,    float_t)
+    __ConvertPushCommands(double_,   double_t)
+
+    __ConvertPushCommands(char_,     char_t)
+    __ConvertPushCommands(bool_,     bool_t)
+
+    __BeginPushConvertCommand(object, rt_ref_t, object, rt_ref_t)
+    __EndPushConvertCommand()
+
+    __BeginPushConvertCommand(string, rt_ref_t, string, rt_ref_t)
+    __EndPushConvertCommand()
+
+    __BeginPushConvertCommand(ptr, rt_ref_t, ptr, rt_ref_t)
+    __EndPushConvertCommand()
+
+    struct __push_convert_command_template_t
+    {
+        template<xil_type_t dtype1, xil_type_t dtype2, typename ... args_t>
+        static auto new_command(memory_t * memory, args_t && ... args)
+        {
+            typedef __push_command_t<xil_storage_type_t::convert, dtype1, dtype2> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+        }
+    };
+
+    #undef __ConvertPushCommand
+    #undef __ConvertPushCommands
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1315,7 +1414,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __push_params_address_template_t, __nokey_t
         >::with_args_t<__offset_t> __params_address_command_manager;
 
+        static __command_manager_t<
+            __push_convert_command_template_t, xil_type_t, xil_type_t
+        >::with_args_t<> __convert_command_manager;
+
         xil_storage_type_t stype = xil.stype();
+        xil_type_t dtype1, dtype2;
 
         switch (stype)
         {
@@ -1337,7 +1441,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     ctx.params_layout.offset_of(xil.get_identity())
                 );
 
-            default: break;
+            case xil_storage_type_t::convert:
+                dtype1 = xil.dtype();
+                dtype2 = xil.dtype2();
+                break;
+
+            default:
+                __analyze_xil_types(ctx, xil, &dtype1, &dtype2);
+                break;
         }
 
         #define __V(s, d1, d2) (((uint32_t)(s) << 16)                           \
@@ -1351,8 +1462,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             (_xil.dtype() == xil_type_t::empty?                                 \
                 default_value_of<const char_t *>() : ctx.to_cstr(__read_extra<res_t>(_xil)))
 
-        xil_type_t dtype1, dtype2;
-        __analyze_xil_types(ctx, xil, &dtype1, &dtype2);
 
         switch (__V(stype, dtype1, dtype2))
         {
@@ -1634,6 +1743,58 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #undef __CaseArrayElement
             #undef __CaseArrayElements
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Push Convert
+
+            #define __CaseConvert(_d1, _d2)                                 \
+                case __V(xil_storage_type_t::convert, xil_type_t::_d1, xil_type_t::_d2):  \
+                    return __convert_command_manager.template get_command<  \
+                        xil_type_t::_d1, xil_type_t::_d2                    \
+                    >();
+
+            #define __CaseConverts(_d2)                                     \
+                                                                            \
+                __CaseConvert(int8,       _d2)                              \
+                __CaseConvert(uint8,      _d2)                              \
+                                                                            \
+                __CaseConvert(int16,      _d2)                              \
+                __CaseConvert(uint16,     _d2)                              \
+                                                                            \
+                __CaseConvert(int32,      _d2)                              \
+                __CaseConvert(uint32,     _d2)                              \
+                                                                            \
+                __CaseConvert(int64,      _d2)                              \
+                __CaseConvert(uint64,     _d2)                              \
+                                                                            \
+                __CaseConvert(float_,     _d2)                              \
+                __CaseConvert(double_,    _d2)                              \
+                                                                            \
+                __CaseConvert(char_,      _d2)                              \
+                __CaseConvert(bool_,      _d2)
+
+
+            __CaseConverts(int8)
+            __CaseConverts(uint8)
+
+            __CaseConverts(int16)
+            __CaseConverts(uint16)
+
+            __CaseConverts(int32)
+            __CaseConverts(uint32)
+
+            __CaseConverts(int64)
+            __CaseConverts(uint64)
+
+            __CaseConverts(float_)
+            __CaseConverts(double_)
+
+            __CaseConverts(char_)
+            __CaseConverts(bool_)
+
+            __CaseConvert(object, object)
+            __CaseConvert(string, string)
+            __CaseConvert(ptr,    ptr)
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -5652,6 +5813,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __SwitchCommands_CaseSts(push, local)                                       \
             __SwitchCommands_CaseSts(push, argument)                                    \
             __SwitchCommands_CaseSts(push, field)                                       \
+            __SwitchCommands_CaseSts(push, convert)                                     \
             __SwitchCommands_CaseArrays(push, 0)                                        \
             __SwitchCommands_CaseArrays(push, 1)                                        \
             __SwitchCommands_CaseArrays(push, 2)                                        \

@@ -662,14 +662,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this statement.
     void return_statement_t::compile(statement_compile_context_t & ctx) 
     {
-        if (expression != nullptr)
-            append_expression(ctx, expression, true);
-
         // Insert leave command before return in protected regions.
         if (__need_leave(ctx))
             xilx::append_xilx<leave_ret_xilx_t>(ctx);
 
-        append_xilx<return_xilx_t>(ctx);
+        if (expression != nullptr)
+        {
+            __walk_variables(expression);
+            set_assign_parent(expression);
+        }
+
+        append_xilx<return_xilx_t>(ctx, expression);
     }
 
     // Returns exit type.

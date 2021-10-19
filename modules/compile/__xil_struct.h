@@ -298,6 +298,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_duplicate_xil_t() : __super_t(xil_storage_type_t::duplicate) { }
     };
 
+    // Pushes convert xil.
+    struct x_push_convert_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_convert_xil_t(xil_type_t dtype1, xil_type_t dtype2)
+            : __super_t(xil_storage_type_t::convert, dtype1)
+        {
+            this->set_dtype2(dtype2);
+        }
+    };
+
     // Pushes params address xil.
     struct x_push_params_xil_t : xil_extra_t<push_xil_t>
     {

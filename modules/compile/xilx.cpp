@@ -79,10 +79,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles xilx.
     static void __compile_expression(__xw_context_t & ctx, xil_pool_t & pool,
-                                     expression_t * expression)
+                         expression_t * expression, xil_type_t dtype = xil_type_t::empty)
     {
         expression_compile_context_t exp_ctx(ctx);
-        expression->compile(exp_ctx, pool);
+        expression->compile(exp_ctx, pool, dtype);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -403,6 +403,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Writes ret xil.
     void return_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
+        if (expression != nullptr)
+        {
+            statement_compile_context_t & sctx = (statement_compile_context_t &)ctx;
+
+            type_t * type = sctx.method->get_type();
+            xil_type_t dtype = to_xil_type(type);
+
+            __compile_expression(ctx, pool, expression, dtype);
+        }
+
         xil::append_ret(pool);
     }
 
