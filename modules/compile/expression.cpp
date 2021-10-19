@@ -1180,7 +1180,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __sys_t<binary_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                                xil_type_t dtype)
     {
-        if (__try_compile_constant_expression(ctx, pool, this))
+        if (__try_compile_constant_expression(ctx, pool, this, dtype))
             return;
 
         expression_t * exp1 = expression_at(0), * exp2 = expression_at(1);
@@ -1355,7 +1355,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles unitary expression.
     void __sys_t<unitary_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-        if (__try_compile_constant_expression(ctx, pool, this))
+        if (__try_compile_constant_expression(ctx, pool, this, dtype))
             return;
 
         expression_t * exp = expression_at(0);
