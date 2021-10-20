@@ -5551,28 +5551,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #endif
 
         
-    #if !EXEC_QUICK_EXECUTE
-
-    __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
-                                                 command_t * command)
-    {
-        __BeginExecuteCommand()
-
-        command->execute(ctx);
-
-        __EndExecuteCommand()
-    }
-
-    #if EXEC_TRACE
-
-    const string_t __to_command_string(command_execute_context_t & ctx, command_t * command)
-    {
-        return command->to_string(ctx);
-    }
-
-    #endif  // EXEC_TRACE
-
-    #else   // EXEC_QUICK_EXECUTE
+    #if EXEC_QUICK_EXECUTE   // EXEC_QUICK_EXECUTE
 
     //-------- ---------- ---------- ---------- ----------
     // __SwitchCommands
@@ -6004,6 +5983,28 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     }
 
     #endif  // EXEC_TRACE
+
+    #else   // EXEC_QUICK_EXECUTE
+
+    __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
+                                                 command_t * command)
+    {
+        __BeginExecuteCommand()
+
+        command->execute(ctx);
+
+        __EndExecuteCommand()
+    }
+
+    #if EXEC_TRACE
+
+    const string_t __to_command_string(command_execute_context_t & ctx, command_t * command)
+    {
+        return command->to_string(ctx);
+    }
+
+    #endif  // EXEC_TRACE
+
 
     #endif  // EXEC_QUICK_EXECUTE
 

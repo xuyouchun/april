@@ -37,7 +37,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
         // Appends lib functions.
         void __append_libfuncs()
         {
-            // System fynctions
+            // System functions
             __append_libfunc(_T("Console_WriteString"),     console_write_string);
             __append_libfunc(_T("Console_WriteChar"),       console_write_char);
             __append_libfunc(_T("Console_WriteInt8"),       console_write_int8);
