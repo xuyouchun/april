@@ -1,3 +1,4 @@
+#include <exec.h>
 #include "commands.h"
 #include <rtlib.h>
 #include <mm.h>
@@ -9,32 +10,54 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __AlwaysInline  X_ALWAYS_INLINE
     #define __Mv(x)         std::move(x)
 
-    #if EXEC_QUICK_EXECUTE
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
 
-    #define __BeginExecute(_ctx, _cmd_value)                                    \
-                                                                                \
-        static const cmd_value_t cmd_value = (cmd_value_t)_cmd_value;           \
-                                                                                \
-        __AlwaysInline void execute(command_execute_context_t & _ctx)           \
+    #define __This  (static_cast<__self_t *>(command))
+    static std::set<command_t *> __ret_commands;
+
+    #define __BeginExecute(_ctx, _cmd_value)                                            \
+                                                                                        \
+        static void execute(command_t * command, command_execute_context_t & _ctx)      \
         {
 
-    #define __BeginToString(_ctx)                                               \
-        __AlwaysInline const string_t to_string(command_execute_context_t & _ctx)   \
+    #define __BeginToString(_ctx)                                                       \
+        static const string_t to_string(command_t * command, command_execute_context_t & _ctx)  \
         {
 
-    #else   // EXEC_QUICK_EXECUTE
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE   // EXEC_EXECUTE_MODEL == xxx
 
-    #define __BeginExecute(_ctx, _cmd_value)                                    \
-                                                                                \
-        virtual void execute(command_execute_context_t & ctx) override          \
+    #define __This  this
+
+    #define __BeginExecute(_ctx, _cmd_value)                                            \
+                                                                                        \
+        static const cmd_value_t cmd_value = (cmd_value_t)_cmd_value;                   \
+                                                                                        \
+        __AlwaysInline void execute(command_execute_context_t & _ctx)                   \
         {
 
-    #define __BeginToString(_ctx)                                               \
-                                                                                \
+    #define __BeginToString(_ctx)                                                       \
+        __AlwaysInline const string_t to_string(command_execute_context_t & _ctx)       \
+        {
+
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD // EXEC_EXECUTE_MODEL == xxx
+
+    #define __This  this
+
+    #define __BeginExecute(_ctx, _cmd_value)                                            \
+                                                                                        \
+        virtual void execute(command_execute_context_t & ctx) override                  \
+        {
+
+    #define __BeginToString(_ctx)                                                       \
+                                                                                        \
         virtual const string_t to_string(command_execute_context_t & _ctx) const override    \
         {
 
-    #endif  // EXEC_QUICK_EXECUTE
+    #else
+        
+        #error unknown EXEC_EXECUTE_MODEL
+
+    #endif  // EXEC_EXECUTE_MODEL == xxx
 
     #define __EndExecute()                                                      \
         }
@@ -102,9 +125,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _cmd_t * cmd = memory_t::new_obj<_cmd_t>(memory, std::forward<_args_t>(args) ...);
 
-        #if EXEC_QUICK_EXECUTE
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
         
+        ((command_t *)cmd)->execute_method = (command_execute_method_t)_cmd_t::execute;
+
+        #if EXEC_TRACE
+        ((command_t *)cmd)->to_string_method = (command_to_string_method_t)_cmd_t::to_string;
+        #endif  // EXEC_TRACE
+
+        #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE   // EXEC_EXECUTE_MODEL == xxx
+
         ((command_t *)cmd)->cmd_value = _cmd_t::cmd_value;
+
+        #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD // EXEC_EXECUTE_MODEL == xxx
+
+        // Do nothing
 
         #endif
 
@@ -277,11 +312,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __command_base_t : public command_t
     {
     public:
+
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
 
             return _T("[command]");
 
         __EndToString()
+
+        #endif      // EXEC_TRACE
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -289,6 +329,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     class __empty_command_t : public __command_base_t
     {
+        typedef __empty_command_t   __self_t;
+
     public:
 
         __BeginExecute(ctx, __ToCmdValue(empty, 1))
@@ -297,11 +339,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("[empty]");
-
         __EndToString()
+
+        #endif      // EXEC_TRACE
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -309,6 +353,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     class __execute_end_command_t : public __command_base_t
     {
+        typedef __execute_end_command_t __self_t;
+
     public:
 
         __BeginExecute(ctx, __ToCmdValue(empty, 2))
@@ -317,11 +363,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
 
             return _T("[end]");
         
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -469,6 +519,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __push_command_t<xil_storage_type_t::constant, _xil_type1, _xil_type2>
         : public __command_base_t
     {
+        typedef __push_command_t            __self_t;
         typedef __command_base_t            __super_t;
         typedef __const_vnum_t<_xil_type1>  __value1_t;
         typedef __const_vnum_t<_xil_type2>  __value2_t;
@@ -478,19 +529,23 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx, __ToPushCmdValue(constant, _xil_type1, _xil_type2))
 
-            ctx.stack.push(static_cast<__value2_t>(__value));
+            ctx.stack.push(static_cast<__value2_t>(__This->__value));
 
         __EndExecute()
 
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
 
             if (_xil_type1 == _xil_type2)
-                return _F(_T("push constant %1% %2%"), _xil_type1, __value);
+                return _F(_T("push constant %1% %2%"), _xil_type1, __This->__value);
 
-            return _F(_T("push constant %1%=>%2% %3%"), _xil_type1, _xil_type2, __value);
+            return _F(_T("push constant %1%=>%2% %3%"), _xil_type1, _xil_type2, __This->__value);
 
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         __value1_t __value;
@@ -505,27 +560,41 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
     // Push commands.
 
+    #if EXEC_TRACE
+
+    #define __PushCommand_ToString(s, d1, d2)                                   \
+                                                                                \
+        __BeginToString(ctx)                                                    \
+                                                                                \
+            if (xil_type_t::d1 == xil_type_t::d2)                               \
+                return _F(_T("push %1% %2% [%3%]"), xil_storage_type_t::s,      \
+                    xil_type_t::d1, __This->__offset);                          \
+                                                                                \
+            return _F(_T("push %1% %2%=>%3% [%4%]"), xil_storage_type_t::s,     \
+                xil_type_t::d1, xil_type_t::d2, __This->__offset);              \
+                                                                                \
+        __EndToString()
+
+    #else
+
+        #define __PushCommand_ToString(s, d1, d2)
+
+    #endif
+
+
     #define __BeginPushCommand(s, d1, v1_t, d2, v2_t)                           \
         template<> class __push_command_t<xil_storage_type_t::s,                \
                                             xil_type_t::d1, xil_type_t::d2>     \
             : public __command_base_t                                           \
         {                                                                       \
-            typedef v1_t     __value1_t;                                        \
-            typedef v2_t     __value2_t;                                        \
+            typedef __push_command_t __self_t;                                  \
+            typedef v1_t             __value1_t;                                \
+            typedef v2_t             __value2_t;                                \
                                                                                 \
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            __BeginToString(ctx)                                                \
-                                                                                \
-                if (xil_type_t::d1 == xil_type_t::d2)                           \
-                    return _F(_T("push %1% %2% [%3%]"), xil_storage_type_t::s,  \
-                        xil_type_t::d1, __offset);                              \
-                                                                                \
-                return _F(_T("push %1% %2%=>%3% [%4%]"), xil_storage_type_t::s, \
-                    xil_type_t::d1, xil_type_t::d2, __offset);                  \
-                                                                                \
-            __EndToString()                                                     \
+            __PushCommand_ToString(s, d1, d2)                                   \
                                                                                 \
             __BeginExecute(ctx, __ToPushCmdValue(s, xil_type_t::d1, xil_type_t::d2))
 
@@ -543,7 +612,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __LocalPushCommand(d1, v1_t, d2, v2_t)                              \
         __BeginPushCommand(local, d1, v1_t, d2, v2_t)                           \
-            ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __offset))); \
+            ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __This->__offset))); \
         __EndPushCommand()
 
     #define __LocalPushCommands(d2, v2_t)                                       \
@@ -586,15 +655,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __LocalPushCommands(bool_,     bool_t)
 
     __BeginPushCommand(local, object, rt_ref_t, object, rt_ref_t)
-        ctx.stack.push(__Local(rt_ref_t, __offset));
+        ctx.stack.push(__Local(rt_ref_t, __This->__offset));
     __EndPushCommand()
 
     __BeginPushCommand(local, string, rt_ref_t, string, rt_ref_t)
-        ctx.stack.push(__Local(rt_ref_t, __offset));
+        ctx.stack.push(__Local(rt_ref_t, __This->__offset));
     __EndPushCommand()
 
     __BeginPushCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
-        ctx.stack.push(__Local(rt_ref_t, __offset));
+        ctx.stack.push(__Local(rt_ref_t, __This->__offset));
     __EndPushCommand()
 
     #undef __LocalPushCommand
@@ -605,20 +674,34 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     template<xil_storage_type_t _stype> class __push_address_command_t { };
 
+    #if EXEC_TRACE
+
+    #define __PushAddressCommand_ToString(_stype)                               \
+                                                                                \
+        __BeginToString(ctx)                                                    \
+                                                                                \
+            return _F(_T("push %1% address [%2%]"), xil_storage_type_t::_stype, \
+                                                __This->__offset);              \
+                                                                                \
+        __EndToString()                                                         \
+   
+    #else
+
+        #define __PushAddressCommand_ToString(_stype)
+
+    #endif // EXEC_TRACE
+
     #define __BeginPushAddressCommand(_stype)                                   \
         template<>                                                              \
         class __push_address_command_t<xil_storage_type_t::_stype>              \
             : public __command_base_t                                           \
         {                                                                       \
+            typedef __push_address_command_t  __self_t;                         \
+                                                                                \
         public:                                                                 \
             __push_address_command_t(__offset_t offset) : __offset(offset) { }  \
                                                                                 \
-            __BeginToString(ctx)                                                \
-                                                                                \
-                return _F(_T("push %1% address [%2%]"), xil_storage_type_t::_stype, \
-                                                    __offset);                  \
-                                                                                \
-            __EndToString()                                                     \
+            __PushAddressCommand_ToString(_stype)                               \
                                                                                 \
             __BeginExecute(ctx, __ToPushCmdValue(_stype, xil_type_t::empty, xil_type_t::empty))
 
@@ -643,7 +726,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 
     __BeginPushAddressCommand(local_addr)
-        ctx.stack.push(__LocalAddress(__offset));
+        ctx.stack.push(__LocalAddress(__This->__offset));
     __EndPushCommand()
 
     //-------- ---------- ---------- ---------- ----------
@@ -652,22 +735,33 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __ArgumentAddress(offset) ((void *)((rt_stack_unit_t *)ctx.stack.lp() - (offset)))
     #define __Argument(type_t, offset) (*(type_t *)__ArgumentAddress(offset))
 
+    #if EXEC_TRACE
+
+    #define __ArgumentPushCommand_ToString()                                    \
+                                                                                \
+        __BeginToString(ctx)                                                    \
+            return _F(_T("push argument %1%"), __This->__offset);               \
+        __EndToString()
+
+    #else
+
+    #define __ArgumentPushCommand_ToString()
+
+    #endif  // EXEC_TRACE
+
     #define __BeginArgumentPushCommand(d1, v1_t, d2, v2_t)                      \
         template<> class __push_command_t<xil_storage_type_t::argument,         \
                                         xil_type_t::d1, xil_type_t::d2>         \
             : public __command_base_t                                           \
         {                                                                       \
-            typedef v1_t     __value1_t;                                        \
-            typedef v2_t     __value2_t;                                        \
+            typedef __push_command_t __self_t;                                  \
+            typedef v1_t            __value1_t;                                 \
+            typedef v2_t            __value2_t;                                 \
                                                                                 \
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            __BeginToString(ctx)                                                \
-                                                                                \
-                return _F(_T("push argument %1%"), __offset);                   \
-                                                                                \
-            __EndToString()                                                     \
+            __ArgumentPushCommand_ToString()                                    \
                                                                                 \
             __BeginExecute(ctx, __ToPushCmdValue(argument, xil_type_t::d1, xil_type_t::d2))
 
@@ -684,7 +778,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __ArgumentPushCommand(d1, v1_t, d2, v2_t)                           \
         __BeginArgumentPushCommand(d1, v1_t, d2, v2_t)                          \
             ctx.stack.push(static_cast<__value2_t>(                             \
-                __Argument(__value1_t, __offset + __stack_stub_size)            \
+                __Argument(__value1_t, __This->__offset + __stack_stub_size) \
             ));                                                                 \
         __EndArgumentPushCommand()
 
@@ -732,22 +826,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 
     __BeginPushCommand(argument, object, rt_ref_t, object, rt_ref_t)
-        ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
+        ctx.stack.push(__Argument(rt_ref_t, __This->__offset + __stack_stub_size));
     __EndPushCommand()
 
     __BeginPushCommand(argument, string, rt_ref_t, string, rt_ref_t)
-        ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
+        ctx.stack.push(__Argument(rt_ref_t, __This->__offset + __stack_stub_size));
     __EndPushCommand()
 
     __BeginPushCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
-        ctx.stack.push(__Argument(rt_ref_t, __offset + __stack_stub_size));
+        ctx.stack.push(__Argument(rt_ref_t, __This->__offset + __stack_stub_size));
     __EndPushCommand()
 
     #undef __ArgumentPushCommand
     #undef __ArgumentPushCommands
 
     __BeginPushAddressCommand(argument_addr)
-        ctx.stack.push(__ArgumentAddress(__offset + __stack_stub_size));
+        ctx.stack.push(__ArgumentAddress(__This->__offset + __stack_stub_size));
     __EndPushCommand()
 
     //-------- ---------- ---------- ---------- ----------
@@ -857,22 +951,33 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __PField(type_t, p, offset)     ((type_t *)((byte_t *)p + offset))
     #define __Field(type_t, p, offset)      (*__PField(type_t, p, offset))
 
+    #if EXEC_TRACE
+
+    #define __FieldPushCommand_ToString()                                       \
+                                                                                \
+        __BeginToString(ctx)                                                    \
+            return _F(_T("push field %1%"), __This->__offset);                  \
+        __EndToString()
+
+    #else
+
+    #define __FieldPushCommand_ToString()
+
+    #endif  // EXEC_TRACE
+
     #define __BeginFieldPushCommand(d1, v1_t, d2, v2_t)                         \
         template<> class __push_command_t<xil_storage_type_t::field,            \
                             xil_type_t::d1, xil_type_t::d2>                     \
             : public __command_base_t                                           \
         {                                                                       \
-            typedef v1_t     __value1_t;                                        \
-            typedef v2_t     __value2_t;                                        \
+            typedef __push_command_t    __self_t;                               \
+            typedef v1_t                __value1_t;                             \
+            typedef v2_t                __value2_t;                             \
                                                                                 \
         public:                                                                 \
             __push_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            __BeginToString(ctx)                                                \
-                                                                                \
-                return _F(_T("push field %1%"), __offset);                      \
-                                                                                \
-            __EndToString()                                                     \
+            __FieldPushCommand_ToString()                                       \
                                                                                 \
             __BeginExecute(ctx, __ToPushCmdValue(field, xil_type_t::d1, xil_type_t::d2))
 
@@ -889,7 +994,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __FieldPushCommand(d1, v1_t, d2, v2_t)                              \
         __BeginFieldPushCommand(d1, v1_t, d2, v2_t)                             \
             ctx.stack.push(static_cast<__value2_t>(                             \
-                __Field(__value1_t, ctx.stack.pop<rt_ref_t>(), __offset)        \
+                __Field(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset)\
             ));                                                                 \
         __EndFieldPushCommand()
 
@@ -935,15 +1040,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 
     __BeginPushCommand(field, object, rt_ref_t, object, rt_ref_t)
-        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset));
+        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset));
     __EndPushCommand()
 
     __BeginPushCommand(field, string, rt_ref_t, string, rt_ref_t)
-        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset));
+        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset));
     __EndPushCommand()
 
     __BeginPushCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
-        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset));
+        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset));
     __EndPushCommand()
 
     #undef __FieldPushCommand
@@ -953,6 +1058,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     class __duplicate_command_t : public __command_base_t
     {
+        typedef __duplicate_command_t   __self_t;
+
     public:
         __BeginExecute(ctx, __ToPushCmdValue(duplicate, 0, 0))
 
@@ -962,30 +1069,41 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("duplicate");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     //-------- ---------- ---------- ---------- ----------
     // Push convert commands..
+
+    #if EXEC_TRACE
+
+    #define __PushConvertCommand_ToString(d1, d2)                               \
+        __BeginToString(ctx)                                                    \
+            return _F(_T("push convert %1%=>%2%"), xil_type_t::d1, xil_type_t::d2);    \
+        __EndToString()
+    #else
+
+    #define __PushConvertCommand_ToString(d1, d2)
+
+    #endif  // EXEC_TRACE
 
     #define __BeginPushConvertCommand(d1, v1_t, d2, v2_t)                       \
         template<> class __push_command_t<xil_storage_type_t::convert,          \
                                           xil_type_t::d1, xil_type_t::d2>       \
             : public __command_base_t                                           \
         {                                                                       \
-            typedef v1_t     __value1_t;                                        \
-            typedef v2_t     __value2_t;                                        \
+            typedef __push_command_t    __self_t;                               \
+            typedef v1_t                __value1_t;                             \
+            typedef v2_t                __value2_t;                             \
                                                                                 \
         public:                                                                 \
-            __BeginToString(ctx)                                                \
-                                                                                \
-                return _F(_T("push convert %1%=>%2%"), xil_type_t::d1, xil_type_t::d2);    \
-                                                                                \
-            __EndToString()                                                     \
+            __PushConvertCommand_ToString(d1, d2)                               \
                                                                                 \
             __BeginExecute(ctx, __ToPushCmdValue(convert, xil_type_t::d1, xil_type_t::d2))
 
@@ -1152,15 +1270,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<xil_type_t _xil_type1, xil_type_t _xil_type2, int _dimension>
     class __push_array_element_command_t : public __command_base_t
     {
-        typedef __vnum_t<_xil_type1> __value1_t;
-        typedef __vnum_t<_xil_type2> __value2_t;
+        typedef __push_array_element_command_t  __self_t;
+        typedef __vnum_t<_xil_type1>            __value1_t;
+        typedef __vnum_t<_xil_type2>            __value2_t;
 
     public:
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("push array element"));
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx, __ToPushArrayElementCmdValue(_xil_type1, _xil_type2, _dimension))
 
@@ -1185,18 +1306,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<xil_type_t _xil_type1, xil_type_t _xil_type2>
     class __push_array_element_command_t<_xil_type1, _xil_type2, 0> : public __command_base_t
     {
-        typedef __vnum_t<_xil_type1> __value1_t;
-        typedef __vnum_t<_xil_type2> __value2_t;
+        typedef __vnum_t<_xil_type1>            __value1_t;
+        typedef __vnum_t<_xil_type2>            __value2_t;
+        typedef __push_array_element_command_t  __self_t;
 
     public:
 
         __push_array_element_command_t(dimension_t dimension) : __dimension(dimension) { }
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("push array element"));
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx, __ToPushArrayElementCmdValue(_xil_type1, _xil_type2, 0))
 
@@ -1204,7 +1328,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             array_length_t index = ctx.stack.pop<array_length_t>();
             array_length_t * lengths = mm::get_array_lengths(array_ref);
 
-            index += __array_index(ctx.stack, __dimension - 1, lengths);
+            index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
 
             ctx.stack.push<__value2_t>(static_cast<__value2_t>(
                 mm::get_array_element<__value1_t>(array_ref, index)
@@ -1286,21 +1410,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<__nokey_t>
     class __push_params_address_command_t : public __command_base_t
     {
+        typedef __push_params_address_command_t __self_t;
+
     public:
         __push_params_address_command_t(__offset_t offset)
             : __offset(offset)
         { }
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("push params argument address"));
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx, __ToCmdValue(push, ((cmd_value_t)xil_storage_type_t::params << 16)))
 
             ctx.stack.push<rt_stack_unit_t *>(
-                (rt_stack_unit_t *)ctx.stack.lp() - __offset - 1
+                (rt_stack_unit_t *)ctx.stack.lp() - __This->__offset - 1
             );
 
         __EndExecute()
@@ -1823,28 +1951,40 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    #if EXEC_TRACE
+
+    #define __PopCommand_ToString(_s, _d1, _d2)                                 \
+        __BeginToString(ctx)                                                    \
+                                                                                \
+            if (xil_type_t::_d1 == xil_type_t::_d2)                             \
+                return _F(_T("pop  %1% %2% [%3%]"), xil_storage_type_t::_s,     \
+                    xil_type_t::_d1, __This->__offset);                         \
+                                                                                \
+            return _F(_T("pop  %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s,    \
+                        xil_type_t::_d2, xil_type_t::_d1, __This->__offset);    \
+        __EndToString()
+
+    #else
+        
+    #define __PopCommand_ToString(_s, _d1, _d2)
+
+    #endif  // EXEC_TRACE
+
+
     #define __BeginPopCommand(_s, _d1, _v1_t, _d2, _v2_t)                       \
                                                                                 \
         template<> class __pop_command_t<xil_storage_type_t::_s,                \
                     xil_type_t::_d1, xil_type_t::_d2>                           \
             : public __command_base_t                                           \
         {                                                                       \
-            typedef _v1_t     __value1_t;                                       \
-            typedef _v2_t     __value2_t;                                       \
+            typedef __pop_command_t __self_t;                                   \
+            typedef _v1_t           __value1_t;                                 \
+            typedef _v2_t           __value2_t;                                 \
                                                                                 \
         public:                                                                 \
             __pop_command_t(__offset_t offset) : __offset(offset) { }           \
                                                                                 \
-            __BeginToString(ctx)                                                \
-                                                                                \
-                if (xil_type_t::_d1 == xil_type_t::_d2)                         \
-                    return _F(_T("pop  %1% %2% [%3%]"), xil_storage_type_t::_s,  \
-                        xil_type_t::_d1, __offset);                             \
-                                                                                \
-                return _F(_T("pop  %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s, \
-                            xil_type_t::_d2, xil_type_t::_d1, __offset);        \
-                                                                                \
-            __EndToString()                                                     \
+            __PopCommand_ToString(_s, _d1, _d2)                                 \
                                                                                 \
             __BeginExecute(ctx, __ToPopCmdValue(_s, xil_type_t::_d1, xil_type_t::_d2))
 
@@ -1862,7 +2002,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
         __BeginPopCommand(local, _d1, _v1_t, _d2, _v2_t)                        \
                                                                                 \
-            __Local(__value1_t, __offset) = static_cast<__value1_t>(            \
+            __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(    \
                 ctx.stack.pop<__value2_t>()                                     \
             );                                                                  \
                                                                                 \
@@ -1909,22 +2049,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
 
     __BeginPopCommand(local, object, rt_ref_t, object, rt_ref_t)
-        __Local(rt_ref_t, __offset) = ctx.stack.pop<rt_ref_t>();
+        __Local(rt_ref_t, __This->__offset) = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
     __BeginPopCommand(local, string, rt_ref_t, string, rt_ref_t)
-        __Local(rt_ref_t, __offset) = ctx.stack.pop<rt_ref_t>();
+        __Local(rt_ref_t, __This->__offset) = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
     __BeginPopCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
-        __Local(rt_ref_t, __offset) = ctx.stack.pop<rt_ref_t>();
+        __Local(rt_ref_t, __This->__offset) = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
     //-------- ---------- ---------- ---------- ----------
 
     #define __ArgumentPopCommand(_d1, _v1_t, _d2, _v2_t)                        \
         __BeginPopCommand(argument, _d1, _v1_t, _d2, _v2_t)                     \
-            __Argument(__value1_t, __offset + __stack_stub_size) =              \
+            __Argument(__value1_t, __This->__offset + __stack_stub_size) =      \
                 static_cast<__value1_t>(ctx.stack.pop<__value2_t>());           \
         __EndPopCommand()
 
@@ -1967,15 +2107,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __ArgumentPopCommands(bool_,        bool)
 
     __BeginPopCommand(argument, object, rt_ref_t, object, rt_ref_t)
-        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pop<rt_ref_t>();
+        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
+                                                = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
     __BeginPopCommand(argument, string, rt_ref_t, string, rt_ref_t)
-        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pop<rt_ref_t>();
+        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
+                                                = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
     __BeginPopCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
-        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pop<rt_ref_t>();
+        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
+                                                = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand();
 
     //-------- ---------- ---------- ---------- ----------
@@ -1984,7 +2127,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
         __BeginPopCommand(field, _d1, _v1_t, _d2, _v2_t)                        \
                                                                                 \
-            __value1_t * field = __PField(__value1_t, ctx.stack.pop<rt_ref_t>(), __offset); \
+            __value1_t * field = __PField(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset); \
             *field = static_cast<__value1_t>(ctx.stack.pop<__value2_t>());      \
                                                                                 \
         __EndPopCommand()
@@ -2029,17 +2172,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __FieldPopCommands(bool_,       bool)
 
     __BeginPopCommand(field, object, rt_ref_t, object, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
         *field = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand()
 
     __BeginPopCommand(field, string, rt_ref_t, string, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
         *field = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand()
 
     __BeginPopCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
         *field = ctx.stack.pop<rt_ref_t>();
     __EndPopCommand()
 
@@ -2074,11 +2217,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         typedef __vnum_t<_xil_type2> __value2_t;
 
     public:
+
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("pop array element"));
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type1, _xil_type2, _dimension))
 
@@ -2103,18 +2249,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<xil_type_t _xil_type1, xil_type_t _xil_type2>
     class __pop_array_element_command_t<_xil_type1, _xil_type2, 0> : public __command_base_t
     {
-        typedef __vnum_t<_xil_type1> __value1_t;
-        typedef __vnum_t<_xil_type2> __value2_t;
+        typedef __pop_array_element_command_t   __self_t;
+        typedef __vnum_t<_xil_type1>            __value1_t;
+        typedef __vnum_t<_xil_type2>            __value2_t;
 
     public:
 
         __pop_array_element_command_t(dimension_t dimension) : __dimension(dimension) { }
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("pop array element"));
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type1, _xil_type2, 0))
 
@@ -2122,7 +2271,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             array_length_t index = ctx.stack.pop<array_length_t>();
             array_length_t * lengths = mm::get_array_lengths(array_ref);
 
-            index += __array_index(ctx.stack, __dimension - 1, lengths);
+            index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
 
             mm::set_array_element<__value1_t>(
                 array_ref, index, static_cast<__value1_t>(ctx.stack.pop<__value2_t>())
@@ -2179,12 +2328,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<__nokey_t>
     class __pop_empty_command_t : public __command_base_t
     {
+        typedef __pop_empty_command_t   __self_t;
     public:
         __pop_empty_command_t(msize_t unit_size) : __unit_size(unit_size) { }
 
         __BeginExecute(ctx, __ToPopCmdValue(empty, 0, 0))
 
-            ctx.stack.pop(__unit_size);
+            ctx.stack.pop(__This->__unit_size);
 
         __EndExecute()
 
@@ -2499,28 +2649,41 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    #if EXEC_TRACE
+
+    #define __PickCommand_ToString(_s, _d1, _d2)                                \
+                                                                                \
+        __BeginToString(ctx)                                                    \
+                                                                                \
+            if (xil_type_t::_d1 == xil_type_t::_d2)                             \
+                return _F(_T("pick %1% %2% [%3%]"), xil_storage_type_t::_s,     \
+                    xil_type_t::_d1, __This->__offset);                         \
+                                                                                \
+            return _F(_T("pick %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s,    \
+                        xil_type_t::_d2, xil_type_t::_d1, __This->__offset);    \
+                                                                                \
+        __EndToString()                                                         \
+
+    #else
+
+    #define __PickCommand_ToString(_s, _d1, _d2)
+
+    #endif  // EXEC_TRACE
+
     #define __BeginPickCommand(_s, _d1, _v1_t, _d2, _v2_t)                      \
                                                                                 \
         template<> class __pick_command_t<xil_storage_type_t::_s,               \
                                 xil_type_t::_d1, xil_type_t::_d2>               \
             : public __command_base_t                                           \
         {                                                                       \
-            typedef _v1_t     __value1_t;                                       \
-            typedef _v2_t     __value2_t;                                       \
+            typedef __pick_command_t    __self_t;                               \
+            typedef _v1_t               __value1_t;                             \
+            typedef _v2_t               __value2_t;                             \
                                                                                 \
         public:                                                                 \
             __pick_command_t(__offset_t offset) : __offset(offset) { }          \
                                                                                 \
-            __BeginToString(ctx)                                                \
-                                                                                \
-                if (xil_type_t::_d1 == xil_type_t::_d2)                         \
-                    return _F(_T("pick %1% %2% [%3%]"), xil_storage_type_t::_s, \
-                        xil_type_t::_d1, __offset);                             \
-                                                                                \
-                return _F(_T("pick %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s,\
-                            xil_type_t::_d2, xil_type_t::_d1, __offset);        \
-                                                                                \
-            __EndToString()                                                     \
+            __PickCommand_ToString(_s, _d1, _d2)                                \
                                                                                 \
             __BeginExecute(ctx, __ToPickCmdValue(_s, xil_type_t::_d1, xil_type_t::_d2))
 
@@ -2538,7 +2701,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
         __BeginPickCommand(local, _d1, _v2_t, _d2, _v2_t)                       \
                                                                                 \
-            __Local(__value1_t, __offset) = static_cast<__value1_t>(            \
+            __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(    \
                     ctx.stack.pick<__value2_t>()                                \
             );                                                                  \
                                                                                 \
@@ -2583,22 +2746,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __LocalPickCommands(bool_,      bool)
 
     __BeginPickCommand(local, object, rt_ref_t, object, rt_ref_t)
-        __Local(rt_ref_t, __offset) = ctx.stack.pick<rt_ref_t>();
+        __Local(rt_ref_t, __This->__offset) = ctx.stack.pick<rt_ref_t>();
     __EndPopCommand();
 
     __BeginPickCommand(local, string, rt_ref_t, string, rt_ref_t)
-        __Local(rt_ref_t, __offset) = ctx.stack.pick<rt_ref_t>();
+        __Local(rt_ref_t, __This->__offset) = ctx.stack.pick<rt_ref_t>();
     __EndPopCommand();
 
     __BeginPickCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
-        __Local(rt_ref_t, __offset) = ctx.stack.pick<rt_ref_t>();
+        __Local(rt_ref_t, __This->__offset) = ctx.stack.pick<rt_ref_t>();
     __EndPopCommand();
 
     //-------- ---------- ---------- ---------- ----------
 
     #define __ArgumentPickCommand(_d1, _v1_t, _d2, _v2_t)                       \
         __BeginPickCommand(argument, _d1, _v1_t, _d2, _v2_t)                    \
-            __Argument(__value1_t, __offset + __stack_stub_size) =              \
+            __Argument(__value1_t, __This->__offset + __stack_stub_size) =      \
                 static_cast<__value1_t>(ctx.stack.pick<__value2_t>());          \
         __EndPickCommand()
 
@@ -2641,15 +2804,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __ArgumentPickCommands(bool_,       bool)
 
     __BeginPickCommand(argument, object, rt_ref_t, object, rt_ref_t)
-        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pick<rt_ref_t>();
+        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
+                                        = ctx.stack.pick<rt_ref_t>();
     __EndPopCommand();
 
     __BeginPickCommand(argument, string, rt_ref_t, string, rt_ref_t)
-        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pick<rt_ref_t>();
+        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
+                                        = ctx.stack.pick<rt_ref_t>();
     __EndPopCommand();
 
     __BeginPickCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
-        __Argument(rt_ref_t, __offset + __stack_stub_size) = ctx.stack.pick<rt_ref_t>();
+        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
+                                        = ctx.stack.pick<rt_ref_t>();
     __EndPopCommand();
 
     //-------- ---------- ---------- ---------- ----------
@@ -2658,7 +2824,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                 \
         __BeginPickCommand(field, _d1, _v1_t, _d2, _v2_t)                       \
                                                                                 \
-            __value1_t * field = __PField(__value1_t, ctx.stack.pop<rt_ref_t>(), __offset); \
+            __value1_t * field = __PField(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset); \
             *field = static_cast<__value1_t>(ctx.stack.pick<__value2_t>());     \
                                                                                 \
         __EndPickCommand()
@@ -2703,17 +2869,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __FieldPickCommands(bool_,      bool)
 
     __BeginPickCommand(field, object, rt_ref_t, object, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
         *field = ctx.stack.pick<rt_ref_t>();
     __EndPickCommand()
 
     __BeginPickCommand(field, string, rt_ref_t, string, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
         *field = ctx.stack.pick<rt_ref_t>();
     __EndPickCommand()
 
     __BeginPickCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __offset);
+        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
         *field = ctx.stack.pick<rt_ref_t>();
     __EndPickCommand()
 
@@ -2744,15 +2910,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<xil_type_t _xil_type1, xil_type_t _xil_type2, int _dimension>
     class __pick_array_element_command_t : public __command_base_t
     {
-        typedef __vnum_t<_xil_type1> __value1_t;
-        typedef __vnum_t<_xil_type2> __value2_t;
+        typedef __pick_array_element_command_t  __self_t;
+        typedef __vnum_t<_xil_type1>            __value1_t;
+        typedef __vnum_t<_xil_type2>            __value2_t;
 
     public:
+
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("pick array element"));
-
         __EndToString()
+
+        #endif      // EXEC_TRACE
 
         __BeginExecute(ctx, __ToPickArrayElementCmdValue(_xil_type1, _xil_type2, _dimension))
 
@@ -2777,18 +2947,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<xil_type_t _xil_type1, xil_type_t _xil_type2>
     class __pick_array_element_command_t<_xil_type1, _xil_type2, 0> : public __command_base_t
     {
-        typedef __vnum_t<_xil_type1> __value1_t;
-        typedef __vnum_t<_xil_type2> __value2_t;
+        typedef __pick_array_element_command_t  __self_t;
+        typedef __vnum_t<_xil_type1>            __value1_t;
+        typedef __vnum_t<_xil_type2>            __value2_t;
 
     public:
 
         __pick_array_element_command_t(dimension_t dimension) : __dimension(dimension) { }
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("pick array element"));
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx, __ToPickArrayElementCmdValue(_xil_type1, _xil_type2, 0))
 
@@ -2796,7 +2969,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             array_length_t index = ctx.stack.pop<array_length_t>();
             array_length_t * lengths = mm::get_array_lengths(array_ref);
 
-            index += __array_index(ctx.stack, __dimension - 1, lengths);
+            index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
 
             mm::set_array_element<__value1_t>(
                 array_ref, index, static_cast<__value1_t>(ctx.stack.pick<__value2_t>())
@@ -3137,6 +3310,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<__nokey_t>
     class __internal_call_command_t : public __command_base_t
     {
+        typedef __internal_call_command_t   __self_t;
     public:
         __internal_call_command_t(__libfunc_t func, int param_unit_size, int ret_unit_size
     #if EXEC_TRACE
@@ -3146,9 +3320,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             : __func(func), __param_unit_size(param_unit_size)
             , __pop_unit_size(param_unit_size - ret_unit_size)
 
-    #if EXEC_TRACE
+        #if EXEC_TRACE
             , __method_name(method_name)
-    #endif
+        #endif
         {
             _A(func != nullptr);
         }
@@ -3156,36 +3330,31 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __BeginExecute(ctx, __ToCallCmdValue(internal))
 
             rtlib_context_t context(
-                (assembly_analyzer_t &)ctx, ctx.stack.top() - __param_unit_size
+                (assembly_analyzer_t &)ctx, ctx.stack.top() - __This->__param_unit_size
             );
-            __func(context);
 
-            ctx.stack.pop(__pop_unit_size);
+            __This->__func(context);
+
+            ctx.stack.pop(__This->__pop_unit_size);
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("call internal %1%"),
-
-    #if EXEC_TRACE
-                __method_name
-    #else
-                (void *)__func
-    #endif
-
-            );
-
+            return _F(_T("call internal %1%"), __This->__method_name);
         __EndToString()
+
+        #endif
 
     private:
 
         int __param_unit_size, __pop_unit_size;
         __libfunc_t __func;
 
-    #if EXEC_TRACE
+        #if EXEC_TRACE
         rt_sid_t __method_name;    
-    #endif
+        #endif
     };
 
     struct __internal_call_command_template_t
@@ -3252,14 +3421,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<typename _rt_method_t>
     class __call_command_base_t : public __command_base_t
     {
+        typedef __call_command_base_t   __self_t;
+
     public:
         __call_command_base_t(_rt_method_t * rt_method) : __rt_method(rt_method) { }
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("call %1%"), this->__get_name(ctx));
-
+            return _F(_T("call %1%"), __This->__get_name(ctx));
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     protected:
         __AlwaysInline exec_method_t * __get_method(command_execute_context_t & ctx)
@@ -3293,6 +3466,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<typename _rt_method_t>
     class __static_call_command_t : public __call_command_base_t<_rt_method_t>
     {
+        typedef __static_call_command_t             __self_t;
         typedef __call_command_base_t<_rt_method_t> __super_t;
 
     public:
@@ -3300,19 +3474,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx, __ToCallCmdValue_(static_, _rt_method_t))
 
-            __pre_static_call(ctx, this->get_type());
+            __pre_static_call(ctx, __This->get_type());
 
-            exec_method_t * method = this->__get_method(ctx);
+            exec_method_t * method = __This->__get_method(ctx);
             ctx.push_calling(method);
             ctx.stack.increase_top(method->stack_unit_size);
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("call static %1%"), this->__get_name(ctx));
-
+            return _F(_T("call static %1%"), __This->__get_name(ctx));
         __EndToString()
+
+        #endif      // EXEC_TRACE
+
     };
 
     template<typename _rt_method_t>
@@ -3375,6 +3552,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<typename _rt_method_t>
     class __instance_call_command_t : public __call_command_base_t<_rt_method_t>
     {
+        typedef __instance_call_command_t           __self_t;
         typedef __call_command_base_t<_rt_method_t> __super_t;
 
     public:
@@ -3382,17 +3560,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx, __ToCallCmdValue_(instance, _rt_method_t))
 
-            exec_method_t * method = this->__get_method(ctx);
+            exec_method_t * method = __This->__get_method(ctx);
             ctx.push_calling(method);
             ctx.stack.increase_top(method->stack_unit_size);
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("call instance %1%"), this->__get_name(ctx));
-
+            return _F(_T("call instance %1%"), __This->__get_name(ctx));
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     template<typename _rt_method_t>
@@ -3465,10 +3645,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<__nokey_t>
     class __virtual_call_command_t : public __command_base_t
     {
-        typedef __command_base_t __super_t;
+        typedef __virtual_call_command_t    __self_t;
+        typedef __command_base_t            __super_t;
 
     public:
-        __virtual_call_command_t(int offset) :__offset(offset) { }
+        __virtual_call_command_t(int offset) : __offset(offset) { }
 
         __BeginExecute(ctx, __ToCallCmdValue(virtual_))
 
@@ -3476,7 +3657,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             rt_type_t * rt_type = __RtTypeOf(rt_ref);
 
             rt_vtable_t * vtbl = get_vtable(rt_type);
-            rt_vfunction_t func = vtbl->functions[__offset];
+            rt_vfunction_t func = vtbl->functions[__This->__offset];
 
             if (!func.is_method())
             {
@@ -3495,11 +3676,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("call virtual %1%"), __offset);
-
+            return _F(_T("call virtual %1%"), __This->__offset);
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
         int __offset;
     };
@@ -3605,6 +3788,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<typename _command_t, _command_t cmd, xil_type_t dtype1, xil_type_t dtype2>
     class __binary_command_t : public __command_base_t
     {
+        typedef __binary_command_t  __self_t;
+
     public:
         __BeginExecute(ctx, __ToBinaryAlCmdValue(cmd, dtype1, dtype2))
 
@@ -3627,11 +3812,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("%|1$-4| %2% %3%"), _str(cmd), dtype1, dtype2);
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -3657,6 +3844,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<typename _command_t, _command_t cmd, xil_type_t dtype1>
     class __unitary_command_t : public __command_base_t
     {
+        typedef __unitary_command_t     __self_t;
+
     public:
         __BeginExecute(ctx, __ToUnitaryAlCmdValue(cmd, dtype1))
 
@@ -3670,11 +3859,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             );
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _F(_T("%1% %2%"), _str(cmd), dtype1);
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4156,28 +4347,36 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<msize_t _ret_size>
     class __ret_command_t : public __ret_command_base_t
     {
+        typedef __ret_command_t     __self_t;
+
     public:
         __ret_command_t(msize_t local_unit_size, msize_t param_unit_size)
             : __total_unit_size(param_unit_size + __stack_stub_size + local_unit_size)
             , __param_unit_ret_size(param_unit_size - _ret_size)
             , __total_unit_ret_size(__total_unit_size - _ret_size)
-        { }
+        {
+            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+                __ret_commands.insert(this);
+            #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+        }
 
         __BeginExecute(ctx, __ToRetCmdValue(_ret_size))
 
             // param, stub, local, ret
             // _P(_T("ret: "), __total_unit_size, __param_unit_ret_size, _ret_size);
-            rt_stack_unit_t * p = ctx.stack.pop(__total_unit_size);
-            ctx.pop_calling((const __calling_stub_t *)(p + __param_unit_ret_size));
-            copy_array<_ret_size>(p + __total_unit_ret_size, p - _ret_size);
+            rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
+            ctx.pop_calling((const __calling_stub_t *)(p + __This->__param_unit_ret_size));
+            copy_array<_ret_size>(p + __This->__total_unit_ret_size, p - _ret_size);
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("ret");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         int __total_unit_size;      // param_unit_size + __stack_stub_size + local_unit_size
@@ -4192,34 +4391,44 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<>
     class __ret_command_t<__large_ret_unit_size> : public __ret_command_base_t
     {
+        typedef __ret_command_t     __self_t;
+
     public:
         __ret_command_t(msize_t local_unit_size, msize_t param_unit_size, msize_t ret_unit_size)
             : __total_unit_size(param_unit_size + __stack_stub_size + local_unit_size)
             , __param_unit_ret_size(param_unit_size - ret_unit_size)
             , __total_unit_ret_size(__total_unit_size - ret_unit_size)
             , __ret_unit_size(ret_unit_size)
-        { }
+        {
+            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+                __ret_commands.insert(this);
+            #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+        }
 
         __BeginExecute(ctx, __ToRetCmdValue(256))
 
             // param, stub, local, ret
-            rt_stack_unit_t * p = ctx.stack.pop(__total_unit_size);
-            ctx.pop_calling((const __calling_stub_t *)(p + __param_unit_ret_size));
+            rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
+            ctx.pop_calling((const __calling_stub_t *)(p + __This->__param_unit_ret_size));
 
             // TODO: optimize
-            for (rt_stack_unit_t * dst = p - __ret_unit_size, * dst_end = dst + __ret_unit_size,
-                * src = p + __total_unit_ret_size; dst < dst_end;)
+            for (rt_stack_unit_t * dst = p - __This->__ret_unit_size,
+                    * dst_end = dst + __This->__ret_unit_size,
+                    * src = p + __This->__total_unit_ret_size;
+                dst < dst_end;)
             {
                 *dst++ = *src++;
             }
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("ret");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         msize_t __total_unit_size;      // param_unit_size + __stack_stub_size + local_unit_size
@@ -4279,16 +4488,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _A(command != nullptr);
 
-    #if EXEC_QUICK_EXECUTE
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+
+        return __ret_commands.find(command) == __ret_commands.end();
+
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE   // EXEC_EXECUTE_MODEL == xxx
 
         return __IsRetCmdValue(command->cmd_value);
 
-    #else
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD // EXEC_EXECUTE_MODEL == xxx
 
         return is<__ret_command_base_t *>(command);
 
-    #endif
-
+    #endif  // EXEC_EXECUTE_MODEL == xxx
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -4296,6 +4508,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Label command.
     class __label_command_t : public __command_base_t
     {
+        typedef __label_command_t   __self_t;
+
     public:
         __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::label))
 
@@ -4303,12 +4517,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("label");
-
         __EndToString()
 
+        #endif  // EXEC_TRACE
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4518,6 +4733,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Throw command.
     class __throw_command_t : public __command_base_t
     {
+        typedef __throw_command_t   __self_t;
+
     public:
         __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::throw_))
 
@@ -4529,11 +4746,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("throw");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4541,6 +4760,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Rethrow command.
     class __rethrow_command_t : public __command_base_t
     {
+        typedef __rethrow_command_t     __self_t;
+
     public:
         __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::rethrow))
 
@@ -4548,11 +4769,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("rethrow");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4560,6 +4783,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // End finally command.
     class __end_finally_command_t : public __command_base_t
     {
+        typedef __end_finally_command_t     __self_t;
+
     public:
 
         // Execute.
@@ -4611,12 +4836,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
-        // To string.
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("end finally");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4707,6 +4933,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<xil_jmp_model_t model>
     class __jmp_command_t : public __command_base_t
     {
+        typedef __jmp_command_t     __self_t;
         typedef __jmp_model_t<model> __jmp_model_t;
 
     public:
@@ -4716,16 +4943,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             if (__jmp_model_t()(ctx))
             {
-                ctx.current += __step;
+                ctx.current += __This->__step;
             }
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("%1% %2%"), __jmp_model_t(), __step);
-
+            return _F(_T("%1% %2%"), __jmp_model_t(), __This->__step);
         __EndToString()
+        
+        #endif  // EXEC_TRACE
 
     private:
         xil_jmp_step_t __step;
@@ -4745,16 +4974,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Execute
         __BeginExecute(ctx, __ToJmpCmdValue(xil_jmp_model_t::leave))
 
-            __process_finally(ctx, ctx.current + __step);
+            __process_finally(ctx, ctx.current + __This->__step);
 
         __EndExecute()
 
-        // To string
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("leave %1%"), __step + 1);
-
+            return _F(_T("leave %1%"), __This->__step + 1);
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         xil_jmp_step_t __step;
@@ -4791,16 +5021,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Execute
         __BeginExecute(ctx, __ToJmpCmdValue_(xil_jmp_model_t::leave, 1))
 
-            __process_finally_for_return(ctx, __following_command);
+            __process_finally_for_return(ctx, __This->__following_command);
 
         __EndExecute()
 
         // To string
+
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("leave.ret");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         command_t * __following_command;
@@ -4822,6 +5055,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     class __switch_jmp_command_t : public __command_base_t
     {
+        typedef __switch_jmp_command_t      __self_t;
+
     public:
         __switch_jmp_command_t(exec_switch_table_t * table) : __table(table) { }
 
@@ -4829,23 +5064,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             int32_t value = ctx.stack.pop<int32_t>();
 
-            exec_switch_row_t * rows = (exec_switch_row_t *)__table->rows;
-            exec_switch_row_t * rows_end = rows + __table->row_count;
+            exec_switch_row_t * rows = (exec_switch_row_t *)__This->__table->rows;
+            exec_switch_row_t * rows_end = rows + __This->__table->row_count;
 
             exec_switch_row_t * row = __binary_search(rows, rows_end, value);
 
             if (row != nullptr)
                 ctx.current += row->step - 1;
             else
-                ctx.current += __table->default_step - 1;
+                ctx.current += __This->__table->default_step - 1;
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("switch");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         exec_switch_table_t * __table;
@@ -4921,21 +5158,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<>
     class __new_command_t<xil_new_type_t::default_> : public __command_base_t
     {
+        typedef __new_command_t     __self_t;
+
     public:
         __new_command_t(rt_type_t * type) : __type(type) { }
 
         __BeginExecute(ctx, __ToCmdValue(new_, xil_new_type_t::default_))
 
-            __pre_new(ctx, __type);
-            ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__type));
+            __pre_new(ctx, __This->__type);
+            ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__This->__type));
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("new %1%"), __type->get_name(ctx.env));
-
+            return _F(_T("new %1%"), __This->__type->get_name(ctx.env));
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         rt_type_t * __type;
@@ -4946,13 +5187,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<>
     class __new_command_t<xil_new_type_t::array> : public __command_base_t
     {
+        typedef __new_command_t     __self_t;
+
     public:
         __new_command_t(rt_type_t * type) : __type(_M(rt_array_type_t *, type)) { }
 
         __BeginExecute(ctx, __ToCmdValue(new_, xil_new_type_t::array))
 
-            __pre_new(ctx, __type);
-            dimension_t dimension = __type->dimension;
+            __pre_new(ctx, __This->__type);
+            dimension_t dimension = __This->__type->dimension;
 
             array_length_t lengths[dimension];
             for (int * len = lengths + dimension - 1; len >= lengths; len--)
@@ -4961,16 +5204,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
 
             ctx.stack.push(
-                ctx.heap->new_array(__type, lengths)
+                ctx.heap->new_array(__This->__type, lengths)
             );
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("new array %1%"), __type->get_name(ctx.env));
-
+            return _F(_T("new array %1%"), __This->__type->get_name(ctx.env));
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         rt_array_type_t * __type;
@@ -4981,22 +5226,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<>
     class __new_command_t<xil_new_type_t::stack_alloc> : public __command_base_t
     {
+        typedef __new_command_t     __self_t;
+
     public:
         __new_command_t(size_t units) _NE : __units(units) { }
 
         __BeginExecute(ctx, __ToCmdValue(new_, xil_new_type_t::stack_alloc))
 
             ctx.stack.push(
-                ctx.stack.alloc_units(__units)
+                ctx.stack.alloc_units(__This->__units)
             );
 
         __EndExecute()
 
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
-            return _F(_T("stack_alloc %1% units"), __units);
-
+            return _F(_T("stack_alloc %1% units"), __This->__units);
         __EndToString()
+
+        #endif  // EXEC_TRACE
 
     private:
         size_t __units;
@@ -5081,11 +5330,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __copy_command_base_t : public __command_base_t
     {
     public:
+
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("copy");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
+
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -5145,7 +5398,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<__nokey_t>
     class __memory_copy_command_ex_t : public __copy_command_base_t
     {
-        typedef __copy_command_base_t __super_t;
+        typedef __memory_copy_command_ex_t  __self_t;
+        typedef __copy_command_base_t       __super_t;
 
     public:
 
@@ -5154,24 +5408,24 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx, __ToCopyCmdValue(__default__, 0xFFFF))
             
-            if (__kind == xil_copy_kind_t::default_)
+            if (__This->__kind == xil_copy_kind_t::default_)
             {
                 void * dst = ctx.stack.pop<void *>();
                 void * src = ctx.stack.pop<void *>();
 
-                al::quick_copy(dst, src, __size);
+                al::quick_copy(dst, src, __This->__size);
             }
-            else if(__kind == xil_copy_kind_t::reverse)
+            else if(__This->__kind == xil_copy_kind_t::reverse)
             {
                 void * src = ctx.stack.pop<void *>();
                 void * dst = ctx.stack.pop<void *>();
 
-                al::quick_copy(dst, src, __size);
+                al::quick_copy(dst, src, __This->__size);
             }
-            else if(__kind == xil_copy_kind_t::zero)
+            else if(__This->__kind == xil_copy_kind_t::zero)
             {
                 void * p = ctx.stack.pop<void *>();
-                al::quick_zero(p, __size);
+                al::quick_zero(p, __This->__size);
             }
 
 
@@ -5287,11 +5541,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __init_command_base_t : public __command_base_t
     {
     public:
+
+        #if EXEC_TRACE
+
         __BeginToString(ctx)
-
             return _T("init");
-
         __EndToString()
+
+        #endif  // EXEC_TRACE
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -5307,7 +5564,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __init_command_t<xil_init_type_t::array_begin, 0>
         : public __init_command_base_t
     {
-        typedef __init_command_base_t __super_t;
+        typedef __init_command_t        __self_t;
+        typedef __init_command_base_t   __super_t;
 
     public:
         using __super_t::__super_t;
@@ -5327,7 +5585,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __init_command_t<xil_init_type_t::array_element, _size>
         : public __init_command_base_t
     {
-        typedef __init_command_base_t __super_t;
+        typedef __init_command_t        __self_t;
+        typedef __init_command_base_t   __super_t;
 
     public:
         using __super_t::__super_t;
@@ -5347,7 +5606,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         : public __init_command_base_t
 
     {
-        typedef __init_command_base_t __super_t;
+        typedef __init_command_t        __self_t;
+        typedef __init_command_base_t   __super_t;
 
     public:
         __init_command_t(msize_t size) : __size(size) { }
@@ -5369,7 +5629,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     class __init_command_t<xil_init_type_t::array_end, 0>
         : public __init_command_base_t
     {
-        typedef __init_command_base_t __super_t;
+        typedef __init_command_t        __self_t;
+        typedef __init_command_base_t   __super_t;
 
     public:
         using __super_t::__super_t;
@@ -5551,7 +5812,28 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #endif
 
         
-    #if EXEC_QUICK_EXECUTE   // EXEC_QUICK_EXECUTE
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+
+    __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
+                                                 command_t * command)
+    {
+        __BeginExecuteCommand()
+
+        command->execute_method(command, ctx);
+
+        __EndExecuteCommand()
+    }
+
+    #if EXEC_TRACE
+
+    const string_t __to_command_string(command_execute_context_t & ctx, command_t * command)
+    {
+        return command->to_string_method(command, ctx);
+    }
+
+    #endif  // EXEC_QUICK_EXECUTE
+
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE   // EXEC_EXECUTE_MODEL == xxx
 
     //-------- ---------- ---------- ---------- ----------
     // __SwitchCommands
@@ -5984,7 +6266,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #endif  // EXEC_TRACE
 
-    #else   // EXEC_QUICK_EXECUTE
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD // EXEC_EXECUTE_MODEL == xxx
 
     __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
                                                  command_t * command)
@@ -6005,8 +6287,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #endif  // EXEC_TRACE
 
-
-    #endif  // EXEC_QUICK_EXECUTE
+    #endif  // EXEC_EXECUTE_MODEL == xxx
 
     typedef logic_error_t<exec_env_code_t> __exec_env_error_t;
 

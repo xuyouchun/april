@@ -17,8 +17,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __AlwaysInline X_ALWAYS_INLINE
 
-    #define EXEC_QUICK_EXECUTE          1
-    #define EXEC_TRACE                  0  // 0:none, 1:trace, 2:trace details
+    #define EXEC_EXECUTE_MODEL_VIRTUAL_METHOD   0
+    #define EXEC_EXECUTE_MODEL_MAUNAL_METHOD    1
+    #define EXEC_EXECUTE_MODEL_INLINE           2
+
+    #define EXEC_TRACE          0  // 0:none, 1:trace, 2:trace details
+    #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_MANUAL_METHOD
 
     const size_t __default_stack_size = 1024 * 1024;
 
@@ -990,6 +994,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     typedef uint32_t cmd_value_t;
 
+    typedef void (*command_execute_method_t)
+        (command_t * command, command_execute_context_t & ctx);
+
+    typedef const string_t (*command_to_string_method_t)
+        (command_t * command, command_execute_context_t & ctx);
+
     // Command.
     class command_t
     {
@@ -998,17 +1008,29 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     public:
 
-        #if EXEC_QUICK_EXECUTE
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
 
-        cmd_value_t cmd_value = 0;
+        command_execute_method_t   execute_method;
 
-        #else   // EXEC_QUICK_EXECUTE
+        #if EXEC_TRACE
+        command_to_string_method_t to_string_method;
+        #endif  // EXEC_TRACE
+
+        #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE
+
+        cmd_value_t cmd_value;
+
+        #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD
 
         // Executes this command.
         virtual void execute(command_execute_context_t & ctx) = 0;
 
         // Returns this string.
         virtual const string_t to_string(command_execute_context_t & ctx) const = 0;
+
+        #else
+
+        #error unknown EXEC_EXECUTE_MODEL
 
         #endif  // EXEC_TRACE
     };
