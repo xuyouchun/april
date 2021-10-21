@@ -61,6 +61,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Returns whether it's a ret command.
     bool is_ret_command(command_t * command);
 
+    // Converts command to string.
+    const string_t to_command_string(command_t * command);
+
+    // Executes a set of commands.
     void execute_commands(command_execute_context_t & ctx, command_t ** commands);
 
     ////////// ////////// ////////// ////////// //////////

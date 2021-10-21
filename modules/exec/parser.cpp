@@ -143,7 +143,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         assembly_analyzer_t analyzer = to_analyzer(env, host_type, gp_manager);
 
+        #if EXEC_TRACE
         // _PF(_T("parse_commands: %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
+        _PF(_T("\n==== %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
+        #endif  // EXEC_TRACE
 
         rt_assembly_t * assembly = host_type->get_assembly();
 
@@ -211,6 +214,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             command_t * command = new_command(creating_ctx, xil);
             _A(command != nullptr);
             commands.push_back(command);
+
+            #if EXEC_TRACE
+
+            _PF(_T("  %1%"), to_command_string(command));
+
+            #endif  // EXEC_TRACE
         });
 
         // Copies to a array.
@@ -264,8 +273,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     * p_block_end = p_block + block_manager->count;
                     p_block < p_block_end; p_block++)
             {
-                for (exec_method_block_t * p_block1 = p_block + 1; p_block1 < p_block_end;
-                                                                            p_block1++)
+                for (exec_method_block_t * p_block1 = p_block + 1;
+                        p_block1 < p_block_end; p_block1++)
                 {
                     if (p_block1->include(p_block))
                     {
@@ -281,6 +290,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         );
 
         exec_method->block_manager = block_manager;
+
+        #if EXEC_TRACE
+        _PF(_T("==== End of %1%.%2%\n"), host_type->get_name(env), analyzer.get_name(method));
+        #endif
+
         return exec_method;
     }
 
