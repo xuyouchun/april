@@ -170,6 +170,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             typedef rt_ref_t num_t;
         };
+
+        template<> struct __vnum_traits_t<xil_type_t::ptr>
+        {
+            typedef rt_ref_t num_t;
+        };
     }
 
     template<xil_type_t _xil_type>
@@ -508,166 +513,86 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __LocalAddress(offset)      ((void *)((byte_t *)ctx.stack.lp() + offset))
     #define __Local(type_t, offset)     (*((type_t *)__LocalAddress(offset)))
 
-    #define __ToPushCmdValue(_stype, _xil_type1, _xil_type2)                            \
-        __ToCmdValue(push,                                                              \
-            ((cmd_value_t)xil_storage_type_t::_stype << 16) |                           \
-            ((cmd_value_t)_xil_type1 << 8) |                                            \
-            ((cmd_value_t)_xil_type2)                                                   \
-        )
-
-    template<xil_type_t _xil_type1, xil_type_t _xil_type2>
-    class __push_command_t<xil_storage_type_t::constant, _xil_type1, _xil_type2>
-        : public __command_base_t
-    {
-        typedef __push_command_t            __self_t;
-        typedef __command_base_t            __super_t;
-        typedef __const_vnum_t<_xil_type1>  __value1_t;
-        typedef __const_vnum_t<_xil_type2>  __value2_t;
-
-    public:
-        __push_command_t(__value1_t value) : __value(value) { }
-
-        __BeginExecute(ctx, __ToPushCmdValue(constant, _xil_type1, _xil_type2))
-
-            ctx.stack.push(static_cast<__value2_t>(__This->__value));
-
-        __EndExecute()
-
-
-        #if EXEC_TRACE
-
-        __BeginToString()
-
-            if (_xil_type1 == _xil_type2)
-                return _F(_T("push constant %1% %2%"), _xil_type1, __This->__value);
-
-            return _F(_T("push constant %1%=>%2% %3%"), _xil_type1, _xil_type2, __This->__value);
-
-        __EndToString()
-
-        #endif  // EXEC_TRACE
-
-    private:
-        __value1_t __value;
-    };
-
-    // define other types ...
-
-    #undef __BeginConstantPushCommand
-    #undef __EndConstantPushCommand
-    #undef __ConstantPushConstantCommand
-
-    //-------- ---------- ---------- ---------- ----------
-    // Push commands.
-
     #if EXEC_TRACE
 
-    #define __PushCommand_ToString(s, d1, d2)                                           \
+    #define __PushCommand_ToString(_st, _xt1, _xt2, _v)                                 \
                                                                                         \
         __BeginToString()                                                               \
                                                                                         \
-            if (xil_type_t::d1 == xil_type_t::d2)                                       \
-                return _F(_T("push %1% %2% [%3%]"), xil_storage_type_t::s,              \
-                    xil_type_t::d1, __This->__offset);                                  \
+            if (xil_type_t::_xt1 == xil_type_t::_xt2)                                   \
+                return _F(_T("push %1% %2% [%3%]"), xil_storage_type_t::_st,            \
+                    xil_type_t::_xt1, __This->_v);                                      \
                                                                                         \
-            return _F(_T("push %1% %2%=>%3% [%4%]"), xil_storage_type_t::s,             \
-                xil_type_t::d1, xil_type_t::d2, __This->__offset);                      \
+            return _F(_T("push %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
+                xil_type_t::_xt1, xil_type_t::_xt2, __This->_v);                        \
                                                                                         \
         __EndToString()
 
     #else
 
-        #define __PushCommand_ToString(s, d1, d2)
+        #define __PushCommand_ToString(_st, _xt1, _xt2, _v)
 
     #endif
 
+    #define __ToPushCmdValue(_st, _xt1, _xt2)                                           \
+        __ToCmdValue(push,                                                              \
+            ((cmd_value_t)xil_storage_type_t::_st << 16) |                              \
+            ((cmd_value_t)_xt1 << 8) |                                                  \
+            ((cmd_value_t)_xt2)                                                         \
+        )
 
-    #define __BeginPushCommand(s, d1, v1_t, d2, v2_t)                                   \
-        template<> class __push_command_t<xil_storage_type_t::s,                        \
-                                            xil_type_t::d1, xil_type_t::d2>             \
-            : public __command_base_t                                                   \
-        {                                                                               \
-            typedef __push_command_t __self_t;                                          \
-            typedef v1_t             __value1_t;                                        \
-            typedef v2_t             __value2_t;                                        \
-                                                                                        \
-        public:                                                                         \
-            __push_command_t(__offset_t offset) : __offset(offset) { }                  \
-                                                                                        \
-            __PushCommand_ToString(s, d1, d2)                                           \
-                                                                                        \
-            __BeginExecute(ctx, __ToPushCmdValue(s, xil_type_t::d1, xil_type_t::d2))
+    //-------- ---------- ---------- ---------- ----------
+    // Push constants
 
-                // Method Body
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<xil_storage_type_t::constant, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __push_command_t        __self_t;
+        typedef __command_base_t        __super_t;
+        typedef __const_vnum_t<_xt1>    __value1_t;
+        typedef __const_vnum_t<_xt2>    __value2_t;
 
-    #define __EndPushCommand()                                                          \
-            __EndExecute()                                                              \
-                                                                                        \
-        private:                                                                        \
-            __offset_t __offset;                                                        \
-        };
+    public:
+        __push_command_t(__value1_t value) : __value(value) { }
+
+        __BeginExecute(ctx, __ToPushCmdValue(constant, _xt1, _xt2))
+
+            ctx.stack.push(static_cast<__value2_t>(__This->__value));
+
+        __EndExecute()
+
+        __PushCommand_ToString(constant, _xt1, _xt2, __value)
+
+    private:
+        __value1_t __value;
+    };
 
     //-------- ---------- ---------- ---------- ----------
     // Push local commands.
 
-    #define __LocalPushCommand(d1, v1_t, d2, v2_t)                                      \
-        __BeginPushCommand(local, d1, v1_t, d2, v2_t)                                   \
-            ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __This->__offset))); \
-        __EndPushCommand()
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<xil_storage_type_t::local, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __push_command_t    __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
 
-    #define __LocalPushCommands(d2, v2_t)                                               \
-                                                                                        \
-        __LocalPushCommand(int8,      int8_t,   d2, v2_t)                               \
-        __LocalPushCommand(uint8,     uint8_t,  d2, v2_t)                               \
-                                                                                        \
-        __LocalPushCommand(int16,     int16_t,  d2, v2_t)                               \
-        __LocalPushCommand(uint16,    uint16_t, d2, v2_t)                               \
-        __LocalPushCommand(int32,     int32_t,  d2, v2_t)                               \
-        __LocalPushCommand(uint32,    uint32_t, d2, v2_t)                               \
-                                                                                        \
-        __LocalPushCommand(int64,     int64_t,  d2, v2_t)                               \
-        __LocalPushCommand(uint64,    uint64_t, d2, v2_t)                               \
-                                                                                        \
-        __LocalPushCommand(float_,    float_t,  d2, v2_t)                               \
-        __LocalPushCommand(double_,   double_t, d2, v2_t)                               \
-                                                                                        \
-        __LocalPushCommand(char_,     char_t,   d2, v2_t)                               \
-        __LocalPushCommand(bool_,     bool_t,   d2, v2_t)
+    public:
+        __push_command_t(__offset_t offset) : __offset(offset) { }
 
-    // __LocalPushCommands
+        __PushCommand_ToString(local, _xt1, _xt2, __offset)
 
-    __LocalPushCommands(int8,      int8_t)
-    __LocalPushCommands(uint8,     uint8_t)
+        __BeginExecute(ctx, __ToPushCmdValue(local, _xt1, _xt2))
 
-    __LocalPushCommands(int16,     int16_t)
-    __LocalPushCommands(uint16,    uint16_t)
+            ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __This->__offset)));
 
-    __LocalPushCommands(int32,     int32_t)
-    __LocalPushCommands(uint32,    uint32_t)
+        __EndExecute()
 
-    __LocalPushCommands(int64,     int64_t)
-    __LocalPushCommands(uint64,    uint64_t)
-
-    __LocalPushCommands(float_,    float_t)
-    __LocalPushCommands(double_,   double_t)
-
-    __LocalPushCommands(char_,     char_t)
-    __LocalPushCommands(bool_,     bool_t)
-
-    __BeginPushCommand(local, object, rt_ref_t, object, rt_ref_t)
-        ctx.stack.push(__Local(rt_ref_t, __This->__offset));
-    __EndPushCommand()
-
-    __BeginPushCommand(local, string, rt_ref_t, string, rt_ref_t)
-        ctx.stack.push(__Local(rt_ref_t, __This->__offset));
-    __EndPushCommand()
-
-    __BeginPushCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
-        ctx.stack.push(__Local(rt_ref_t, __This->__offset));
-    __EndPushCommand()
-
-    #undef __LocalPushCommand
-    #undef __LocalPushCommands
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
     // Push local address commands.
@@ -676,175 +601,109 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #if EXEC_TRACE
 
-    #define __PushAddressCommand_ToString(_stype)                                       \
+    #define __PushAddressCommand_ToString(_st, _v)                                      \
                                                                                         \
         __BeginToString()                                                               \
                                                                                         \
-            return _F(_T("push %1% address [%2%]"), xil_storage_type_t::_stype,         \
-                                                __This->__offset);                      \
+            return _F(_T("push %1% address [%2%]"), xil_storage_type_t::_st,            \
+                                                __This->_v);                            \
                                                                                         \
         __EndToString()                                                                 \
    
     #else
 
-        #define __PushAddressCommand_ToString(_stype)
+        #define __PushAddressCommand_ToString(_st, _v)
 
     #endif // EXEC_TRACE
 
-    #define __BeginPushAddressCommand(_stype)                                           \
-        template<>                                                                      \
-        class __push_address_command_t<xil_storage_type_t::_stype>                      \
-            : public __command_base_t                                                   \
-        {                                                                               \
-            typedef __push_address_command_t  __self_t;                                 \
-                                                                                        \
-        public:                                                                         \
-            __push_address_command_t(__offset_t offset) : __offset(offset) { }          \
-                                                                                        \
-            __PushAddressCommand_ToString(_stype)                                       \
-                                                                                        \
-            __BeginExecute(ctx, __ToPushCmdValue(_stype, xil_type_t::empty, xil_type_t::empty))
+    template<>
+    class __push_address_command_t<xil_storage_type_t::local_addr>
+        : public __command_base_t
+    {
+        typedef __push_address_command_t    __self_t;
 
-                // Method Body
+    public:
+        __push_address_command_t(__offset_t offset) : __offset(offset) { }
 
-    #define __EndPushAddressCommand()                                                   \
-            __EndExecute()                                                              \
-                                                                                        \
-        private:                                                                        \
-            __offset_t __offset;                                                        \
-        };
+        __PushAddressCommand_ToString(local_addr, __offset)
+
+        __BeginExecute(ctx, __ToPushCmdValue(local_addr, 0, 0))
+
+            ctx.stack.push(__LocalAddress(__This->__offset));
+
+        __EndExecute()
+
+    private:
+        __offset_t __offset;
+    };
 
     struct __push_address_command_template_t
     {
-        template<xil_storage_type_t _stype, typename ... _args_t>
+        template<xil_storage_type_t _st, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __push_address_command_t<_stype> this_command_t;
+            typedef __push_address_command_t<_st> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
-
-    __BeginPushAddressCommand(local_addr)
-        ctx.stack.push(__LocalAddress(__This->__offset));
-    __EndPushCommand()
-
     //-------- ---------- ---------- ---------- ----------
-    // Push argument.
+    // Push argument commands.
 
     #define __ArgumentAddress(offset) ((void *)((rt_stack_unit_t *)ctx.stack.lp() - (offset)))
     #define __Argument(type_t, offset) (*(type_t *)__ArgumentAddress(offset))
 
-    #if EXEC_TRACE
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<xil_storage_type_t::argument, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __push_command_t    __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
 
-    #define __ArgumentPushCommand_ToString()                                            \
-                                                                                        \
-        __BeginToString()                                                               \
-            return _F(_T("push argument %1%"), __This->__offset);                       \
-        __EndToString()
+    public:
+        __push_command_t(__offset_t offset) : __offset(offset) { }
 
-    #else
+        __PushCommand_ToString(argument, _xt1, _xt2, __offset)
 
-    #define __ArgumentPushCommand_ToString()
+        __BeginExecute(ctx, __ToPushCmdValue(argument, _xt1, _xt2))
 
-    #endif  // EXEC_TRACE
+            ctx.stack.push(static_cast<__value2_t>(
+                __Argument(__value1_t, __This->__offset + __stack_stub_size)
+            ));
 
-    #define __BeginArgumentPushCommand(d1, v1_t, d2, v2_t)                              \
-        template<> class __push_command_t<xil_storage_type_t::argument,                 \
-                                        xil_type_t::d1, xil_type_t::d2>                 \
-            : public __command_base_t                                                   \
-        {                                                                               \
-            typedef __push_command_t __self_t;                                          \
-            typedef v1_t            __value1_t;                                         \
-            typedef v2_t            __value2_t;                                         \
-                                                                                        \
-        public:                                                                         \
-            __push_command_t(__offset_t offset) : __offset(offset) { }                  \
-                                                                                        \
-            __ArgumentPushCommand_ToString()                                            \
-                                                                                        \
-            __BeginExecute(ctx, __ToPushCmdValue(argument, xil_type_t::d1, xil_type_t::d2))
+        __EndExecute()
 
-                // Method Body
-
-    #define __EndArgumentPushCommand()                                                  \
-            __EndExecute()                                                              \
-                                                                                        \
-        private:                                                                        \
-            __offset_t __offset;                                                        \
-        };
-
-
-    #define __ArgumentPushCommand(d1, v1_t, d2, v2_t)                                   \
-        __BeginArgumentPushCommand(d1, v1_t, d2, v2_t)                                  \
-            ctx.stack.push(static_cast<__value2_t>(                                     \
-                __Argument(__value1_t, __This->__offset + __stack_stub_size)            \
-            ));                                                                         \
-        __EndArgumentPushCommand()
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
+    // Push argument address commands.
 
-    #define __ArgumentPushCommands(d2, v2_t)                                            \
-                                                                                        \
-        __ArgumentPushCommand(int8,      int8_t,        d2, v2_t)                       \
-        __ArgumentPushCommand(uint8,     uint8_t,       d2, v2_t)                       \
-                                                                                        \
-        __ArgumentPushCommand(int16,    int16_t,        d2, v2_t)                       \
-        __ArgumentPushCommand(uint16,    uint16_t,      d2, v2_t)                       \
-                                                                                        \
-        __ArgumentPushCommand(int32,     int32_t,       d2, v2_t)                       \
-        __ArgumentPushCommand(uint32,    uint32_t,      d2, v2_t)                       \
-                                                                                        \
-        __ArgumentPushCommand(int64,     int64_t,       d2, v2_t)                       \
-        __ArgumentPushCommand(uint64,    uint64_t,      d2, v2_t)                       \
-                                                                                        \
-        __ArgumentPushCommand(float_,    float_t,       d2, v2_t)                       \
-        __ArgumentPushCommand(double_,   double_t,      d2, v2_t)                       \
-                                                                                        \
-        __ArgumentPushCommand(char_,     char_t,        d2, v2_t)                       \
-        __ArgumentPushCommand(bool_,     bool_t,        d2, v2_t)
+    template<>
+    class __push_address_command_t<xil_storage_type_t::argument_addr>
+        : public __command_base_t
+    {
+        typedef __push_address_command_t    __self_t;
 
-    // __ArgumentPushCommands
+    public:
+        __push_address_command_t(__offset_t offset) : __offset(offset) { }
 
-    __ArgumentPushCommands(int8,      int8_t)
-    __ArgumentPushCommands(uint8,     uint8_t)
+        __PushAddressCommand_ToString(argument_addr, __offset)
 
-    __ArgumentPushCommands(int16,     int16_t)
-    __ArgumentPushCommands(uint16,    uint16_t)
+        __BeginExecute(ctx, __ToPushCmdValue(argument_addr, 0, 0))
 
-    __ArgumentPushCommands(int32,     int32_t)
-    __ArgumentPushCommands(uint32,    uint32_t)
+            ctx.stack.push(__ArgumentAddress(__This->__offset + __stack_stub_size));
 
-    __ArgumentPushCommands(int64,     int64_t)
-    __ArgumentPushCommands(uint64,    uint64_t)
+        __EndExecute()
 
-    __ArgumentPushCommands(float_,    float_t)
-    __ArgumentPushCommands(double_,   double_t)
-
-    __ArgumentPushCommands(char_,     char_t)
-    __ArgumentPushCommands(bool_,     bool_t)
-
-
-    __BeginPushCommand(argument, object, rt_ref_t, object, rt_ref_t)
-        ctx.stack.push(__Argument(rt_ref_t, __This->__offset + __stack_stub_size));
-    __EndPushCommand()
-
-    __BeginPushCommand(argument, string, rt_ref_t, string, rt_ref_t)
-        ctx.stack.push(__Argument(rt_ref_t, __This->__offset + __stack_stub_size));
-    __EndPushCommand()
-
-    __BeginPushCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
-        ctx.stack.push(__Argument(rt_ref_t, __This->__offset + __stack_stub_size));
-    __EndPushCommand()
-
-    #undef __ArgumentPushCommand
-    #undef __ArgumentPushCommands
-
-    __BeginPushAddressCommand(argument_addr)
-        ctx.stack.push(__ArgumentAddress(__This->__offset + __stack_stub_size));
-    __EndPushCommand()
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
+    // Push field commands.
 
     static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
     {
@@ -948,111 +807,60 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
     }
 
-    #define __PField(type_t, p, offset)     ((type_t *)((byte_t *)p + offset))
-    #define __Field(type_t, p, offset)      (*__PField(type_t, p, offset))
+    #define __FieldAddress(p, offset)       ((void *)((byte_t *)p + offset))
+    #define __Field(type_t, p, offset)      (*(type_t *)__FieldAddress(p, offset))
 
-    #if EXEC_TRACE
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<xil_storage_type_t::field, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __push_command_t        __self_t;
+        typedef __command_base_t        __super_t;
+        typedef __const_vnum_t<_xt1>    __value1_t;
+        typedef __const_vnum_t<_xt2>    __value2_t;
 
-    #define __FieldPushCommand_ToString()                                               \
-                                                                                        \
-        __BeginToString()                                                               \
-            return _F(_T("push field %1%"), __This->__offset);                          \
-        __EndToString()
+    public:
+        __push_command_t(__offset_t offset) : __offset(offset) { }
 
-    #else
+        __BeginExecute(ctx, __ToPushCmdValue(field, _xt1, _xt2))
 
-    #define __FieldPushCommand_ToString()
+            ctx.stack.push(static_cast<__value2_t>(
+                __Field(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset)
+            ));
 
-    #endif  // EXEC_TRACE
+        __EndExecute()
 
-    #define __BeginFieldPushCommand(d1, v1_t, d2, v2_t)                                 \
-        template<> class __push_command_t<xil_storage_type_t::field,                    \
-                            xil_type_t::d1, xil_type_t::d2>                             \
-            : public __command_base_t                                                   \
-        {                                                                               \
-            typedef __push_command_t    __self_t;                                       \
-            typedef v1_t                __value1_t;                                     \
-            typedef v2_t                __value2_t;                                     \
-                                                                                        \
-        public:                                                                         \
-            __push_command_t(__offset_t offset) : __offset(offset) { }                  \
-                                                                                        \
-            __FieldPushCommand_ToString()                                               \
-                                                                                        \
-            __BeginExecute(ctx, __ToPushCmdValue(field, xil_type_t::d1, xil_type_t::d2))
+        __PushCommand_ToString(field, _xt1, _xt2, __offset)
 
-                // Method Body
+    private:
+        __offset_t __offset;
+    };
 
-    #define __EndFieldPushCommand()                                                     \
-            __EndExecute()                                                              \
-                                                                                        \
-        private:                                                                        \
-            __offset_t __offset;                                                        \
-        };
+    //-------- ---------- ---------- ---------- ----------
+    // Push field address commands.
 
+    template<>
+    class __push_address_command_t<xil_storage_type_t::field_addr>
+        : public __command_base_t
+    {
+        typedef __push_address_command_t    __self_t;
 
-    #define __FieldPushCommand(d1, v1_t, d2, v2_t)                                      \
-        __BeginFieldPushCommand(d1, v1_t, d2, v2_t)                                     \
-            ctx.stack.push(static_cast<__value2_t>(                                     \
-                __Field(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset)        \
-            ));                                                                         \
-        __EndFieldPushCommand()
+    public:
+        __push_address_command_t(__offset_t offset) : __offset(offset) { }
 
+        __PushAddressCommand_ToString(field_addr, __offset)
 
-    #define __FieldPushCommands(d2, v2_t)                                               \
-                                                                                        \
-        __FieldPushCommand(int8,      int8_t,       d2, v2_t)                           \
-        __FieldPushCommand(uint8,     uint8_t,      d2, v2_t)                           \
-                                                                                        \
-        __FieldPushCommand(int16,     int16_t,      d2, v2_t)                           \
-        __FieldPushCommand(uint16,    uint16_t,     d2, v2_t)                           \
-                                                                                        \
-        __FieldPushCommand(int32,     int32_t,      d2, v2_t)                           \
-        __FieldPushCommand(uint32,    uint32_t,     d2, v2_t)                           \
-                                                                                        \
-        __FieldPushCommand(int64,     int64_t,      d2, v2_t)                           \
-        __FieldPushCommand(uint64,    uint64_t,     d2, v2_t)                           \
-                                                                                        \
-        __FieldPushCommand(float_,    float_t,      d2, v2_t)                           \
-        __FieldPushCommand(double_,   double_t,     d2, v2_t)                           \
-                                                                                        \
-        __FieldPushCommand(char_,     char_t,       d2, v2_t)                           \
-        __FieldPushCommand(bool_,     bool_t,       d2, v2_t)
+        __BeginExecute(ctx, __ToPushCmdValue(field_addr, 0, 0))
 
+            ctx.stack.push(
+                __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset)
+            );
 
-    __FieldPushCommands(int8,      int8_t)
-    __FieldPushCommands(uint8,     uint8_t)
+        __EndExecute()
 
-    __FieldPushCommands(int16,     int16_t)
-    __FieldPushCommands(uint16,    uint16_t)
-
-    __FieldPushCommands(int32,     int32_t)
-    __FieldPushCommands(uint32,    uint32_t)
-
-    __FieldPushCommands(int64,     int64_t)
-    __FieldPushCommands(uint64,    uint64_t)
-
-    __FieldPushCommands(float_,    float_t)
-    __FieldPushCommands(double_,   double_t)
-
-    __FieldPushCommands(char_,     char_t)
-    __FieldPushCommands(bool_,     bool_t)
-
-
-    __BeginPushCommand(field, object, rt_ref_t, object, rt_ref_t)
-        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset));
-    __EndPushCommand()
-
-    __BeginPushCommand(field, string, rt_ref_t, string, rt_ref_t)
-        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset));
-    __EndPushCommand()
-
-    __BeginPushCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
-        ctx.stack.push(__Field(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset));
-    __EndPushCommand()
-
-    #undef __FieldPushCommand
-    #undef __FieldPushCommands
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1081,109 +889,45 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
     // Push convert commands..
 
-    #if EXEC_TRACE
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<xil_storage_type_t::convert, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __push_command_t    __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
 
-    #define __PushConvertCommand_ToString(d1, d2)                                       \
-        __BeginToString()                                                               \
-            return _F(_T("push convert %1%=>%2%"), xil_type_t::d1, xil_type_t::d2);     \
+    public:
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("push convert %1%=>%2%"), _xt1, _xt2);
         __EndToString()
-    #else
 
-    #define __PushConvertCommand_ToString(d1, d2)
+        #endif  // EXEC_TRACE
 
-    #endif  // EXEC_TRACE
+        __BeginExecute(ctx, __ToPushCmdValue(convert, _xt1, _xt2))
 
-    #define __BeginPushConvertCommand(d1, v1_t, d2, v2_t)                               \
-        template<> class __push_command_t<xil_storage_type_t::convert,                  \
-                                          xil_type_t::d1, xil_type_t::d2>               \
-            : public __command_base_t                                                   \
-        {                                                                               \
-            typedef __push_command_t    __self_t;                                       \
-            typedef v1_t                __value1_t;                                     \
-            typedef v2_t                __value2_t;                                     \
-                                                                                        \
-        public:                                                                         \
-            __PushConvertCommand_ToString(d1, d2)                                       \
-                                                                                        \
-            __BeginExecute(ctx, __ToPushCmdValue(convert, xil_type_t::d1, xil_type_t::d2))
+            if (!std::is_same<__value1_t, __value2_t>::value)
+            {
+                ctx.stack.push(static_cast<__value2_t>(
+                    ctx.stack.pop<__value1_t>()
+                ));
+            }
 
-                // Method Body
-
-    #define __EndPushConvertCommand()                                                   \
-            __EndExecute()                                                              \
-        };
-
-
-    #define __ConvertPushCommand(d1, v1_t, d2, v2_t)                                    \
-        __BeginPushConvertCommand(d1, v1_t, d2, v2_t)                                   \
-            if (!std::is_same<__value1_t, __value2_t>::value)                           \
-            {                                                                           \
-                ctx.stack.push(static_cast<__value2_t>(                                 \
-                    ctx.stack.pop<__value1_t>()                                         \
-                ));                                                                     \
-            }                                                                           \
-        __EndPushConvertCommand()
-
-    #define __ConvertPushCommands(d2, v2_t)                                             \
-                                                                                        \
-        __ConvertPushCommand(int8,      int8_t,   d2, v2_t)                             \
-        __ConvertPushCommand(uint8,     uint8_t,  d2, v2_t)                             \
-                                                                                        \
-        __ConvertPushCommand(int16,     int16_t,  d2, v2_t)                             \
-        __ConvertPushCommand(uint16,    uint16_t, d2, v2_t)                             \
-        __ConvertPushCommand(int32,     int32_t,  d2, v2_t)                             \
-        __ConvertPushCommand(uint32,    uint32_t, d2, v2_t)                             \
-                                                                                        \
-        __ConvertPushCommand(int64,     int64_t,  d2, v2_t)                             \
-        __ConvertPushCommand(uint64,    uint64_t, d2, v2_t)                             \
-                                                                                        \
-        __ConvertPushCommand(float_,    float_t,  d2, v2_t)                             \
-        __ConvertPushCommand(double_,   double_t, d2, v2_t)                             \
-                                                                                        \
-        __ConvertPushCommand(char_,     char_t,   d2, v2_t)                             \
-        __ConvertPushCommand(bool_,     bool_t,   d2, v2_t)
-
-    // __ConvertPushCommands
-
-    __ConvertPushCommands(int8,      int8_t)
-    __ConvertPushCommands(uint8,     uint8_t)
-
-    __ConvertPushCommands(int16,     int16_t)
-    __ConvertPushCommands(uint16,    uint16_t)
-
-    __ConvertPushCommands(int32,     int32_t)
-    __ConvertPushCommands(uint32,    uint32_t)
-
-    __ConvertPushCommands(int64,     int64_t)
-    __ConvertPushCommands(uint64,    uint64_t)
-
-    __ConvertPushCommands(float_,    float_t)
-    __ConvertPushCommands(double_,   double_t)
-
-    __ConvertPushCommands(char_,     char_t)
-    __ConvertPushCommands(bool_,     bool_t)
-
-    __BeginPushConvertCommand(object, rt_ref_t, object, rt_ref_t)
-    __EndPushConvertCommand()
-
-    __BeginPushConvertCommand(string, rt_ref_t, string, rt_ref_t)
-    __EndPushConvertCommand()
-
-    __BeginPushConvertCommand(ptr, rt_ref_t, ptr, rt_ref_t)
-    __EndPushConvertCommand()
+        __EndExecute()
+    };
 
     struct __push_convert_command_template_t
     {
-        template<xil_type_t dtype1, xil_type_t dtype2, typename ... args_t>
+        template<xil_type_t _xt1, xil_type_t _xt2, typename ... args_t>
         static auto new_command(memory_t * memory, args_t && ... args)
         {
-            typedef __push_command_t<xil_storage_type_t::convert, dtype1, dtype2> this_command_t;
+            typedef __push_command_t<xil_storage_type_t::convert, _xt1, _xt2> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
         }
     };
-
-    #undef __ConvertPushCommand
-    #undef __ConvertPushCommands
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1344,12 +1088,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __push_array_element_command_template_t
     {
-        template<xil_type_t _dtype1, xil_type_t _dtype2, typename ... _args_t>
+        template<xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
         static auto new_command(memory_t * memory, int dimension, _args_t && ... args)
             -> command_t *
         {
             #define __NewCommand(_dimension)                                            \
-                __new_command<__push_array_element_command_t<_dtype1, _dtype2, _dimension>>(  \
+                __new_command<__push_array_element_command_t<_xt1, _xt2, _dimension>>(  \
                     memory, std::forward<_args_t>(args) ...                             \
                 )
 
@@ -1369,7 +1113,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 __Case(8)
 
                 default:
-                    return __new_command<__push_array_element_command_t<_dtype1, _dtype2, 0>>(
+                    return __new_command<__push_array_element_command_t<_xt1, _xt2, 0>>(
                         memory, dimension, std::forward<_args_t>(args) ...
                     );
 
@@ -1407,7 +1151,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<__nokey_t>
     class __push_params_address_command_t : public __command_base_t
     {
         typedef __push_params_address_command_t __self_t;
@@ -1442,7 +1185,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         template<__nokey_t nokey, typename ... args_t>
         static auto new_command(memory_t * memory, args_t && ... args)
         {
-            typedef __push_params_address_command_t<nokey> this_command_t;
+            typedef __push_params_address_command_t this_command_t;
             return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
         }
     };
@@ -1946,245 +1689,110 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             ((cmd_value_t)_xil_type2)                                                   \
         )
 
-    template<xil_storage_type_t, xil_type_t _d1, xil_type_t _d2>
+    template<xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
     class __pop_command_t { };
 
     //-------- ---------- ---------- ---------- ----------
 
     #if EXEC_TRACE
 
-    #define __PopCommand_ToString(_s, _d1, _d2)                                         \
+    #define __PopCommand_ToString(_st, _xt1, _xt2, _v)                                  \
         __BeginToString()                                                               \
                                                                                         \
-            if (xil_type_t::_d1 == xil_type_t::_d2)                                     \
-                return _F(_T("pop  %1% %2% [%3%]"), xil_storage_type_t::_s,             \
-                    xil_type_t::_d1, __This->__offset);                                 \
+            if (xil_type_t::_xt1 == xil_type_t::_xt2)                                   \
+                return _F(_T("pop  %1% %2% [%3%]"), xil_storage_type_t::_st,            \
+                    xil_type_t::_xt1, _v);                                              \
                                                                                         \
-            return _F(_T("pop  %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s,            \
-                        xil_type_t::_d2, xil_type_t::_d1, __This->__offset);            \
+            return _F(_T("pop  %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
+                        xil_type_t::_xt2, xil_type_t::_xt1, _v);                        \
         __EndToString()
 
     #else
         
-    #define __PopCommand_ToString(_s, _d1, _d2)
+    #define __PopCommand_ToString(_st, _xt1, _xt2, _v)
 
     #endif  // EXEC_TRACE
 
+    //-------- ---------- ---------- ---------- ----------
+    // Pop local commands
 
-    #define __BeginPopCommand(_s, _d1, _v1_t, _d2, _v2_t)                               \
-                                                                                        \
-        template<> class __pop_command_t<xil_storage_type_t::_s,                        \
-                    xil_type_t::_d1, xil_type_t::_d2>                                   \
-            : public __command_base_t                                                   \
-        {                                                                               \
-            typedef __pop_command_t __self_t;                                           \
-            typedef _v1_t           __value1_t;                                         \
-            typedef _v2_t           __value2_t;                                         \
-                                                                                        \
-        public:                                                                         \
-            __pop_command_t(__offset_t offset) : __offset(offset) { }                   \
-                                                                                        \
-            __PopCommand_ToString(_s, _d1, _d2)                                         \
-                                                                                        \
-            __BeginExecute(ctx, __ToPopCmdValue(_s, xil_type_t::_d1, xil_type_t::_d2))
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __pop_command_t<xil_storage_type_t::local, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __pop_command_t     __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
 
+    public:
+        __pop_command_t(__offset_t offset) : __offset(offset) { }
 
-    #define __EndPopCommand()                                                           \
-            __EndExecute()                                                              \
-                                                                                        \
-        private:                                                                        \
-            __offset_t __offset;                                                        \
-        };
+        __PopCommand_ToString(local, _xt1, _xt2, __This->__offset)
+
+        __BeginExecute(ctx, __ToPopCmdValue(local, _xt1, _xt2))
+
+            __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(
+                ctx.stack.pop<__value2_t>()
+            );
+
+        __EndExecute()
+
+    private:
+        __offset_t __offset;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Pop argument commands
+
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __pop_command_t<xil_storage_type_t::argument, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __pop_command_t     __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
+
+    public:
+        __pop_command_t(__offset_t offset) : __offset(offset) { }
+
+        __PopCommand_ToString(argument, _xt1, _xt2, __This->__offset)
+
+        __BeginExecute(ctx, __ToPopCmdValue(argument, _xt1, _xt2))
+
+            __Argument(__value1_t, __This->__offset + __stack_stub_size) =
+                static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
+
+        __EndExecute()
+
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
-    #define __LocalPopCommand(_d1, _v1_t, _d2, _v2_t)                                   \
-                                                                                        \
-        __BeginPopCommand(local, _d1, _v1_t, _d2, _v2_t)                                \
-                                                                                        \
-            __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(            \
-                ctx.stack.pop<__value2_t>()                                             \
-            );                                                                          \
-                                                                                        \
-        __EndPopCommand()
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __pop_command_t<xil_storage_type_t::field, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __pop_command_t     __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
 
-    #define __LocalPopCommands(_d2, _v2_t)                                              \
-                                                                                        \
-        __LocalPopCommand(int8,     int8_t,     _d2,    _v2_t)                          \
-        __LocalPopCommand(uint8,    uint8_t,    _d2,    _v2_t)                          \
-                                                                                        \
-        __LocalPopCommand(int16,    int16_t,    _d2,    _v2_t)                          \
-        __LocalPopCommand(uint16,   uint16_t,   _d2,    _v2_t)                          \
-                                                                                        \
-        __LocalPopCommand(int32,    int32_t,    _d2,    _v2_t)                          \
-        __LocalPopCommand(uint32,   uint32_t,   _d2,    _v2_t)                          \
-                                                                                        \
-        __LocalPopCommand(int64,    int64_t,    _d2,    _v2_t)                          \
-        __LocalPopCommand(uint64,   uint64_t,   _d2,    _v2_t)                          \
-                                                                                        \
-        __LocalPopCommand(float_,   float,      _d2,    _v2_t)                          \
-        __LocalPopCommand(double_,  double,     _d2,    _v2_t)                          \
-                                                                                        \
-        __LocalPopCommand(char_,    char_t,     _d2,    _v2_t)                          \
-        __LocalPopCommand(bool_,    bool_t,     _d2,    _v2_t)
+    public:
+        __pop_command_t(__offset_t offset) : __offset(offset) { }
 
+        __PopCommand_ToString(field, _xt1, _xt2, __This->__offset)
 
-    __LocalPopCommands(int8,        int8_t)
-    __LocalPopCommands(uint8,       uint8_t)
+        __BeginExecute(ctx, __ToPopCmdValue(field, _xt1, _xt2))
 
-    __LocalPopCommands(int16,       int16_t)
-    __LocalPopCommands(uint16,      uint16_t)
+            void * field = __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset);
+            *(__value1_t *)field = static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
 
-    __LocalPopCommands(int32,       int32_t)
-    __LocalPopCommands(uint32,      uint32_t)
+        __EndExecute()
 
-    __LocalPopCommands(int64,       int64_t)
-    __LocalPopCommands(uint64,      uint64_t)
-
-    __LocalPopCommands(float_,      float)
-    __LocalPopCommands(double_,     double)
-
-    __LocalPopCommands(char_,       char)
-    __LocalPopCommands(bool_,       bool)
-
-
-    __BeginPopCommand(local, object, rt_ref_t, object, rt_ref_t)
-        __Local(rt_ref_t, __This->__offset) = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand();
-
-    __BeginPopCommand(local, string, rt_ref_t, string, rt_ref_t)
-        __Local(rt_ref_t, __This->__offset) = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand();
-
-    __BeginPopCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
-        __Local(rt_ref_t, __This->__offset) = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand();
-
-    //-------- ---------- ---------- ---------- ----------
-
-    #define __ArgumentPopCommand(_d1, _v1_t, _d2, _v2_t)                                \
-        __BeginPopCommand(argument, _d1, _v1_t, _d2, _v2_t)                             \
-            __Argument(__value1_t, __This->__offset + __stack_stub_size) =              \
-                static_cast<__value1_t>(ctx.stack.pop<__value2_t>());                   \
-        __EndPopCommand()
-
-    #define __ArgumentPopCommands(_d2, _v2_t)                                           \
-                                                                                        \
-        __ArgumentPopCommand(int8,      int8_t,     _d2,    _v2_t)                      \
-        __ArgumentPopCommand(uint8,     uint8_t,    _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPopCommand(int16,     int16_t,    _d2,    _v2_t)                      \
-        __ArgumentPopCommand(uint16,    uint16_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPopCommand(int32,     int32_t,    _d2,    _v2_t)                      \
-        __ArgumentPopCommand(uint32,    uint32_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPopCommand(int64,     int64_t,    _d2,    _v2_t)                      \
-        __ArgumentPopCommand(uint64,    uint64_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPopCommand(float_,    float,      _d2,    _v2_t)                      \
-        __ArgumentPopCommand(double_,   double,     _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPopCommand(char_,     char_t,     _d2,    _v2_t)                      \
-        __ArgumentPopCommand(bool_,     bool,       _d2,    _v2_t)
-
-    __ArgumentPopCommands(int8,         int8_t)
-    __ArgumentPopCommands(uint8,        uint8_t)
-
-    __ArgumentPopCommands(int16,        int16_t)
-    __ArgumentPopCommands(uint16,       uint16_t)
-
-    __ArgumentPopCommands(int32,        int32_t)
-    __ArgumentPopCommands(uint32,       uint32_t)
-
-    __ArgumentPopCommands(int64,        int64_t)
-    __ArgumentPopCommands(uint64,       uint64_t)
-
-    __ArgumentPopCommands(float_,       float)
-    __ArgumentPopCommands(double_,      double)
-
-    __ArgumentPopCommands(char_,        char_t)
-    __ArgumentPopCommands(bool_,        bool)
-
-    __BeginPopCommand(argument, object, rt_ref_t, object, rt_ref_t)
-        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
-                                                = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand();
-
-    __BeginPopCommand(argument, string, rt_ref_t, string, rt_ref_t)
-        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
-                                                = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand();
-
-    __BeginPopCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
-        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
-                                                = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand();
-
-    //-------- ---------- ---------- ---------- ----------
-
-    #define __FieldPopCommand(_d1, _v1_t, _d2, _v2_t)                                   \
-                                                                                        \
-        __BeginPopCommand(field, _d1, _v1_t, _d2, _v2_t)                                \
-                                                                                        \
-            __value1_t * field = __PField(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset); \
-            *field = static_cast<__value1_t>(ctx.stack.pop<__value2_t>());              \
-                                                                                        \
-        __EndPopCommand()
-
-    #define __FieldPopCommands(_d2, _v2_t)                                              \
-                                                                                        \
-        __FieldPopCommand(int8,         int8_t,     _d2,    _v2_t)                      \
-        __FieldPopCommand(uint8,        uint8_t,    _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPopCommand(int16,        int16_t,    _d2,    _v2_t)                      \
-        __FieldPopCommand(uint16,       uint16_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPopCommand(int32,        int32_t,    _d2,    _v2_t)                      \
-        __FieldPopCommand(uint32,       uint32_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPopCommand(int64,        int64_t,    _d2,    _v2_t)                      \
-        __FieldPopCommand(uint64,       uint64_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPopCommand(float_,       float,      _d2,    _v2_t)                      \
-        __FieldPopCommand(double_,      double,     _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPopCommand(char_,        char_t,     _d2,    _v2_t)                      \
-        __FieldPopCommand(bool_,        bool,       _d2,    _v2_t)
-
-
-    __FieldPopCommands(int8,        int8_t)
-    __FieldPopCommands(uint8,       uint8_t)
-
-    __FieldPopCommands(int16,       int16_t)
-    __FieldPopCommands(uint16,      uint16_t)
-
-    __FieldPopCommands(int32,       int32_t)
-    __FieldPopCommands(uint32,      uint32_t)
-
-    __FieldPopCommands(int64,       int64_t)
-    __FieldPopCommands(uint64,      uint64_t)
-
-    __FieldPopCommands(float_,      float)
-    __FieldPopCommands(double_,     double)
-
-    __FieldPopCommands(char_,       char_t)
-    __FieldPopCommands(bool_,       bool)
-
-    __BeginPopCommand(field, object, rt_ref_t, object, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
-        *field = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand()
-
-    __BeginPopCommand(field, string, rt_ref_t, string, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
-        *field = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand()
-
-    __BeginPopCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
-        *field = ctx.stack.pop<rt_ref_t>();
-    __EndPopCommand()
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -2208,7 +1816,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             | (((cmd_value_t)_xil_type2) << 8)                                          \
         )   | (cmd_value_t)_dimension                                                   \
     )
-
 
     template<xil_type_t _xil_type1, xil_type_t _xil_type2, int _dimension>
     class __pop_array_element_command_t : public __command_base_t
@@ -2644,244 +2251,113 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             ((cmd_value_t)_xil_type2)                                                   \
         )
 
-    template<xil_storage_type_t, xil_type_t, xil_type_t>
+    template<xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
     class __pick_command_t { };
 
     //-------- ---------- ---------- ---------- ----------
 
     #if EXEC_TRACE
 
-    #define __PickCommand_ToString(_s, _d1, _d2)                                        \
+    #define __PickCommand_ToString(_st, _xt1, _xt2, _v)                                 \
                                                                                         \
         __BeginToString()                                                               \
                                                                                         \
-            if (xil_type_t::_d1 == xil_type_t::_d2)                                     \
-                return _F(_T("pick %1% %2% [%3%]"), xil_storage_type_t::_s,             \
-                    xil_type_t::_d1, __This->__offset);                                 \
+            if (xil_type_t::_xt1 == xil_type_t::_xt2)                                   \
+                return _F(_T("pick %1% %2% [%3%]"), xil_storage_type_t::_st,            \
+                    xil_type_t::_xt1, _v);                                              \
                                                                                         \
-            return _F(_T("pick %1% %2%=>%3% [%4%]"), xil_storage_type_t::_s,            \
-                        xil_type_t::_d2, xil_type_t::_d1, __This->__offset);            \
+            return _F(_T("pick %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
+                        xil_type_t::_xt2, xil_type_t::_xt1, _v);                        \
                                                                                         \
         __EndToString()                                                                 \
 
     #else
 
-    #define __PickCommand_ToString(_s, _d1, _d2)
+    #define __PickCommand_ToString(_st, _xt1, _xt2, _v)
 
     #endif  // EXEC_TRACE
 
-    #define __BeginPickCommand(_s, _d1, _v1_t, _d2, _v2_t)                              \
-                                                                                        \
-        template<> class __pick_command_t<xil_storage_type_t::_s,                       \
-                                xil_type_t::_d1, xil_type_t::_d2>                       \
-            : public __command_base_t                                                   \
-        {                                                                               \
-            typedef __pick_command_t    __self_t;                                       \
-            typedef _v1_t               __value1_t;                                     \
-            typedef _v2_t               __value2_t;                                     \
-                                                                                        \
-        public:                                                                         \
-            __pick_command_t(__offset_t offset) : __offset(offset) { }                  \
-                                                                                        \
-            __PickCommand_ToString(_s, _d1, _d2)                                        \
-                                                                                        \
-            __BeginExecute(ctx, __ToPickCmdValue(_s, xil_type_t::_d1, xil_type_t::_d2))
+    //-------- ---------- ---------- ---------- ----------
+    // Pick local commands
 
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __pick_command_t<xil_storage_type_t::local, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __pick_command_t        __self_t;
+        typedef __vnum_t<_xt1>          __value1_t;
+        typedef __vnum_t<_xt2>          __value2_t;
 
-        #define __EndPickCommand()                                                      \
-            __EndExecute()                                                              \
-                                                                                        \
-        private:                                                                        \
-            __offset_t __offset;                                                        \
-        };
+    public:
+        __pick_command_t(__offset_t offset) : __offset(offset) { }
+
+        __PickCommand_ToString(local, _xt1, _xt2, __This->__offset)
+
+        __BeginExecute(ctx, __ToPickCmdValue(local, _xt1, _xt2))
+
+            __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(
+                ctx.stack.pick<__value2_t>()
+            );
+
+        __EndExecute()
+
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
+    // Pick argument commands
 
-    #define __LocalPickCommand(_d1, _v1_t, _d2, _v2_t)                                  \
-                                                                                        \
-        __BeginPickCommand(local, _d1, _v2_t, _d2, _v2_t)                               \
-                                                                                        \
-            __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(            \
-                    ctx.stack.pick<__value2_t>()                                        \
-            );                                                                          \
-                                                                                        \
-        __EndPickCommand()
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __pick_command_t<xil_storage_type_t::argument, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __pick_command_t        __self_t;
+        typedef __vnum_t<_xt1>          __value1_t;
+        typedef __vnum_t<_xt2>          __value2_t;
 
-    #define __LocalPickCommands(_d2, _v2_t)                                             \
-                                                                                        \
-        __LocalPickCommand(int8,        int8_t,     _d2,    _v2_t)                      \
-        __LocalPickCommand(uint8,       uint8_t,    _d2,    _v2_t)                      \
-                                                                                        \
-        __LocalPickCommand(int16,       int16_t,    _d2,    _v2_t)                      \
-        __LocalPickCommand(uint16,      uint16_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __LocalPickCommand(int32,       int32_t,    _d2,    _v2_t)                      \
-        __LocalPickCommand(uint32,      uint32_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __LocalPickCommand(int64,       int64_t,    _d2,    _v2_t)                      \
-        __LocalPickCommand(uint64,      uint64_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __LocalPickCommand(float_,      float,      _d2,    _v2_t)                      \
-        __LocalPickCommand(double_,     double,     _d2,    _v2_t)                      \
-                                                                                        \
-        __LocalPickCommand(char_,       char_t,     _d2,    _v2_t)                      \
-        __LocalPickCommand(bool_,       bool,       _d2,    _v2_t)
+    public:
+        __pick_command_t(__offset_t offset) : __offset(offset) { }
 
-    __LocalPickCommands(int8,       int8_t)
-    __LocalPickCommands(uint8,      uint8_t)
+        __PickCommand_ToString(argument, _xt1, _xt2, __This->__offset)
 
-    __LocalPickCommands(int16,      int16_t)
-    __LocalPickCommands(uint16,     uint16_t)
+        __BeginExecute(ctx, __ToPickCmdValue(argument, _xt1, _xt2))
 
-    __LocalPickCommands(int32,      int32_t)
-    __LocalPickCommands(uint32,     uint32_t)
+            __Argument(__value1_t, __This->__offset + __stack_stub_size) =
+                static_cast<__value1_t>(ctx.stack.pick<__value2_t>());
 
-    __LocalPickCommands(int64,      int64_t)
-    __LocalPickCommands(uint64,     uint64_t)
+        __EndExecute()
 
-    __LocalPickCommands(float_,     float)
-    __LocalPickCommands(double_,    double)
-
-    __LocalPickCommands(char_,      char_t)
-    __LocalPickCommands(bool_,      bool)
-
-    __BeginPickCommand(local, object, rt_ref_t, object, rt_ref_t)
-        __Local(rt_ref_t, __This->__offset) = ctx.stack.pick<rt_ref_t>();
-    __EndPopCommand();
-
-    __BeginPickCommand(local, string, rt_ref_t, string, rt_ref_t)
-        __Local(rt_ref_t, __This->__offset) = ctx.stack.pick<rt_ref_t>();
-    __EndPopCommand();
-
-    __BeginPickCommand(local, ptr, rt_ref_t, ptr, rt_ref_t)
-        __Local(rt_ref_t, __This->__offset) = ctx.stack.pick<rt_ref_t>();
-    __EndPopCommand();
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
+    // Pick field commands
 
-    #define __ArgumentPickCommand(_d1, _v1_t, _d2, _v2_t)                               \
-        __BeginPickCommand(argument, _d1, _v1_t, _d2, _v2_t)                            \
-            __Argument(__value1_t, __This->__offset + __stack_stub_size) =              \
-                static_cast<__value1_t>(ctx.stack.pick<__value2_t>());                  \
-        __EndPickCommand()
+    template<xil_type_t _xt1, xil_type_t _xt2>
+    class __pick_command_t<xil_storage_type_t::field, _xt1, _xt2>
+        : public __command_base_t
+    {
+        typedef __pick_command_t        __self_t;
+        typedef __vnum_t<_xt1>          __value1_t;
+        typedef __vnum_t<_xt2>          __value2_t;
 
-    #define __ArgumentPickCommands(_d2, _v2_t)                                          \
-                                                                                        \
-        __ArgumentPickCommand(int8,     int8_t,     _d2,    _v2_t)                      \
-        __ArgumentPickCommand(uint8,    uint8_t,    _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPickCommand(int16,    int16_t,   _d2,     _v2_t)                      \
-        __ArgumentPickCommand(uint16,   uint16_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPickCommand(int32,     int32_t,   _d2,    _v2_t)                      \
-        __ArgumentPickCommand(uint32,    uint32_t,  _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPickCommand(int64,     int64_t,   _d2,    _v2_t)                      \
-        __ArgumentPickCommand(uint64,    uint64_t,  _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPickCommand(float_,    float,     _d2,    _v2_t)                      \
-        __ArgumentPickCommand(double_,   double,    _d2,    _v2_t)                      \
-                                                                                        \
-        __ArgumentPickCommand(char_,     char_t,    _d2,    _v2_t)                      \
-        __ArgumentPickCommand(bool_,     bool,      _d2,    _v2_t)
+    public:
+        __pick_command_t(__offset_t offset) : __offset(offset) { }
 
-    __ArgumentPickCommands(int8,        int8_t)
-    __ArgumentPickCommands(uint8,       uint8_t)
+        __PickCommand_ToString(field, _xt1, _xt2, __This->__offset)
 
-    __ArgumentPickCommands(int16,       int16_t)
-    __ArgumentPickCommands(uint16,      uint16_t)
+        __BeginExecute(ctx, __ToPickCmdValue(field, _xt1, _xt2))
 
-    __ArgumentPickCommands(int32,       int32_t)
-    __ArgumentPickCommands(uint32,      uint32_t)
+            void * field = __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset);
+            *(__value1_t *)field = static_cast<__value1_t>(ctx.stack.pick<__value2_t>());
 
-    __ArgumentPickCommands(int64,       int64_t)
-    __ArgumentPickCommands(uint64,      uint64_t)
+        __EndExecute()
 
-    __ArgumentPickCommands(float_,      float)
-    __ArgumentPickCommands(double_,     double)
-
-    __ArgumentPickCommands(char_,       char_t)
-    __ArgumentPickCommands(bool_,       bool)
-
-    __BeginPickCommand(argument, object, rt_ref_t, object, rt_ref_t)
-        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
-                                        = ctx.stack.pick<rt_ref_t>();
-    __EndPopCommand();
-
-    __BeginPickCommand(argument, string, rt_ref_t, string, rt_ref_t)
-        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
-                                        = ctx.stack.pick<rt_ref_t>();
-    __EndPopCommand();
-
-    __BeginPickCommand(argument, ptr, rt_ref_t, ptr, rt_ref_t)
-        __Argument(rt_ref_t, __This->__offset + __stack_stub_size)
-                                        = ctx.stack.pick<rt_ref_t>();
-    __EndPopCommand();
-
-    //-------- ---------- ---------- ---------- ----------
-
-    #define __FieldPickCommand(_d1, _v1_t, _d2, _v2_t)                                  \
-                                                                                        \
-        __BeginPickCommand(field, _d1, _v1_t, _d2, _v2_t)                               \
-                                                                                        \
-            __value1_t * field = __PField(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset); \
-            *field = static_cast<__value1_t>(ctx.stack.pick<__value2_t>());             \
-                                                                                        \
-        __EndPickCommand()
-
-    #define __FieldPickCommands(_d2, _v2_t)                                             \
-                                                                                        \
-        __FieldPickCommand(int8,        int8_t,     _d2,    _v2_t)                      \
-        __FieldPickCommand(uint8,       uint8_t,    _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPickCommand(int16,       int16_t,    _d2,    _v2_t)                      \
-        __FieldPickCommand(uint16,      uint16_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPickCommand(int32,       int32_t,    _d2,    _v2_t)                      \
-        __FieldPickCommand(uint32,      uint32_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPickCommand(int64,       int64_t,    _d2,    _v2_t)                      \
-        __FieldPickCommand(uint64,      uint64_t,   _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPickCommand(float_,      float,      _d2,    _v2_t)                      \
-        __FieldPickCommand(double_,     double,     _d2,    _v2_t)                      \
-                                                                                        \
-        __FieldPickCommand(char_,       char_t,     _d2,    _v2_t)                      \
-        __FieldPickCommand(bool_,       bool,       _d2,    _v2_t)
-
-
-    __FieldPickCommands(int8,       int8_t)
-    __FieldPickCommands(uint8,      uint8_t)
-
-    __FieldPickCommands(int16,      int16_t)
-    __FieldPickCommands(uint16,     uint16_t)
-
-    __FieldPickCommands(int32,      int32_t)
-    __FieldPickCommands(uint32,     uint32_t)
-
-    __FieldPickCommands(int64,      int64_t)
-    __FieldPickCommands(uint64,     uint64_t)
-
-    __FieldPickCommands(float_,     float)
-    __FieldPickCommands(double_,    double)
-
-    __FieldPickCommands(char_,      char_t)
-    __FieldPickCommands(bool_,      bool)
-
-    __BeginPickCommand(field, object, rt_ref_t, object, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
-        *field = ctx.stack.pick<rt_ref_t>();
-    __EndPickCommand()
-
-    __BeginPickCommand(field, string, rt_ref_t, string, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
-        *field = ctx.stack.pick<rt_ref_t>();
-    __EndPickCommand()
-
-    __BeginPickCommand(field, ptr, rt_ref_t, ptr, rt_ref_t)
-        rt_ref_t * field = __PField(rt_ref_t, ctx.stack.pop<rt_ref_t>(), __This->__offset);
-        *field = ctx.stack.pick<rt_ref_t>();
-    __EndPickCommand()
+    private:
+        __offset_t __offset;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
