@@ -2358,7 +2358,10 @@ namespace X_ROOT_NS {
     {
         // Defines operations of convertion a object to string.
 
-        enum class __object_type_t { unknown, string, object, string_like, enum_ };
+        enum class __object_type_t {
+            unknown, string, object, string_like, enum_, pointer, numeric,
+            char_array,
+        };
 
         // Determines the object types.
         template<typename t>
@@ -2384,6 +2387,18 @@ namespace X_ROOT_NS {
             if (std::is_convertible<_t, string_t>())
                 return __object_type_t::string_like;
 
+            // Char array
+            if (std::is_same<t, wchar_t *>::value || std::is_same<t, const wchar_t *>::value)
+                return __object_type_t::char_array;
+
+            // Pointer.
+            if (std::is_pointer<t>::value)
+                return __object_type_t::pointer;
+
+            // Arithmetic
+            if (std::is_arithmetic<_t>::value)
+                return __object_type_t::numeric;
+
             // Unknown
             return __object_type_t::unknown;
         }
@@ -2398,7 +2413,7 @@ namespace X_ROOT_NS {
             static const string_t to_str(const _obj_t & obj)
             {
                 //static_assert(false, "cannot convert to string");
-                return _T("");
+                return _T("?");
             }
         };
 
@@ -2509,6 +2524,43 @@ namespace X_ROOT_NS {
                 return obj->to_string();
             }
         };
+
+        // Convert a pointer to string.
+        template<typename _obj_t>
+        struct __to_str_t<_obj_t *, __object_type_t::pointer>
+        {
+            static const string_t to_str(const _obj_t * obj)
+            {
+                stringstream_t ss;
+                ss << (void *)obj;
+
+                return ss.str();
+            }
+        };
+
+        // Convert a numeric to string..
+        template<typename _obj_t>
+        struct __to_str_t<_obj_t, __object_type_t::numeric>
+        {
+            static const string_t to_str(const _obj_t & obj)
+            {
+                return std::to_wstring(obj);
+            }
+        };
+
+        // Convert a char array to string..
+        template<typename _obj_t>
+        struct __to_str_t<_obj_t, __object_type_t::char_array>
+        {
+            static const string_t to_str(const char_t * p)
+            {
+                if (p == nullptr)
+                    return __null_str;
+
+                return string_t(p);
+            }
+        };
+
     }
 
     // Converts an object to string.
@@ -2516,6 +2568,44 @@ namespace X_ROOT_NS {
     X_INLINE const string_t _str(const _obj_t & obj)
     {
         return __to_str_t<_obj_t, __to_object_type<_obj_t>()>::to_str(obj);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    namespace
+    {
+        template<size_t _n, typename ... _args_t>
+        struct __tuple_to_string_t
+        {
+            static void append_string(const std::tuple<_args_t ...> & tuple, stringstream_t & ss)
+            {
+                if (_n != sizeof ... (_args_t))
+                    ss << _T(", ");
+
+                auto v = std::get<sizeof ... (_args_t) - _n>(tuple);
+                ss << _str(v).c_str();
+
+                __tuple_to_string_t<_n - 1, _args_t ...>::append_string(tuple, ss);
+            }
+        };
+
+        template<typename ... _args_t>
+        struct __tuple_to_string_t<0, _args_t ...>
+        {
+            static void append_string(const std::tuple<_args_t ...> & tuple, stringstream_t & ss)
+            {
+                // Do nothing.
+            }
+        };
+    }
+
+    template<typename ... _args_t>
+    string_t _str(const std::tuple<_args_t ...> & tuple)
+    {
+        stringstream_t ss;
+        __tuple_to_string_t<sizeof ... (_args_t), _args_t ...>::append_string(tuple, ss);
+
+        return ss.str();
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -17,12 +17,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __AlwaysInline X_ALWAYS_INLINE
 
-    #define EXEC_EXECUTE_MODEL_VIRTUAL_METHOD   0
-    #define EXEC_EXECUTE_MODEL_MAUNAL_METHOD    1
-    #define EXEC_EXECUTE_MODEL_INLINE           2
+    #define EXEC_EXECUTE_MODEL_VIRTUAL  1
+    #define EXEC_EXECUTE_MODEL_MAUNAL   2
+    #define EXEC_EXECUTE_MODEL_INLINE   3
 
     #define EXEC_TRACE          0  // 0:none, 1:trace, 2:trace details, 3:trace more details
-    #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_MANUAL_METHOD
+    #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_INLINE
 
     const size_t __default_stack_size = 1024 * 1024;
 
@@ -992,7 +992,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    typedef uint32_t cmd_value_t;
+    typedef uint16_t command_value_t;
 
     typedef void (*command_execute_method_t)
         (command_t * command, command_execute_context_t & ctx);
@@ -1007,8 +1007,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     public:
 
-        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
 
+        #pragma message("Execute model: MANUAL METHOD")
         command_execute_method_t   execute_method;
 
         #if EXEC_TRACE
@@ -1017,21 +1018,27 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE
 
-        cmd_value_t cmd_value;
+        #pragma message("Execute model: INLINE")
+        command_t(command_value_t cmd_value) _NE : cmd_value(cmd_value) { }
 
-        #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD
+        const command_value_t cmd_value;
 
+        #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+        #pragma message("Execute model: VIRTUAL METHOD")
         // Executes this command.
         virtual void execute(command_execute_context_t & ctx) = 0;
 
+        #if EXEC_TRACE
         // Returns this string.
-        virtual const string_t to_string()= 0;
+        virtual const string_t to_string() = 0;
+        #endif // EXEC_TRACE
 
         #else
 
         #error unknown EXEC_EXECUTE_MODEL
 
-        #endif  // EXEC_TRACE
+        #endif  // EXEC_EXECUTE_MODEL = xxx
     };
 
     ////////// ////////// ////////// ////////// //////////

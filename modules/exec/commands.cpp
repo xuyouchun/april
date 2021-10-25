@@ -8,14 +8,13 @@
 namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __AlwaysInline  X_ALWAYS_INLINE
-    #define __Mv(x)         std::move(x)
 
-    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
 
     #define __This  (static_cast<__self_t *>(command))
     static std::set<command_t *> __ret_commands;
 
-    #define __BeginExecute(_ctx, _cmd_value)                                            \
+    #define __BeginExecute(_ctx)                                                        \
                                                                                         \
         static void execute(command_t * command, command_execute_context_t & _ctx)      \
         {
@@ -27,23 +26,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE   // EXEC_EXECUTE_MODEL == xxx
 
     #define __This  this
+    #define __NoThrow
 
-    #define __BeginExecute(_ctx, _cmd_value)                                            \
+    #define __BeginExecute(_ctx)                                                        \
                                                                                         \
-        static const cmd_value_t cmd_value = (cmd_value_t)_cmd_value;                   \
-                                                                                        \
-        __AlwaysInline void execute(command_execute_context_t & _ctx)                   \
+        __AlwaysInline void execute(command_execute_context_t & _ctx) _NE               \
         {
 
     #define __BeginToString()                                                           \
         __AlwaysInline const string_t to_string()                                       \
         {
 
-    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD // EXEC_EXECUTE_MODEL == xxx
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL // EXEC_EXECUTE_MODEL == xxx
 
     #define __This  this
 
-    #define __BeginExecute(_ctx, _cmd_value)                                            \
+    #define __BeginExecute(_ctx)                                                        \
                                                                                         \
         virtual void execute(command_execute_context_t & ctx) override                  \
         {
@@ -65,10 +63,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __EndToString()                                                             \
         }
 
-    #define __ToCmdValue(_cmd, value)                                                   \
-        ( ((cmd_value_t)(xil_command_t::_cmd) << 24) | (cmd_value_t)(value) )
-
-    #define __Cmd(value)    ((value) >> 24)
+    #define __DefineCmdValue_(_name)    constexpr command_value_t _name = __COUNTER__;
+    #define __Cmd(_cmd, _n)             __cmd_##_cmd##_##_n
+    #define __DefineCmdValue(_cmd, _n)  __DefineCmdValue_(__Cmd(_cmd, _n));
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -112,9 +109,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    typedef unsigned long long __nokey_t;
-    const __nokey_t __nokey = (__nokey_t)0;
-
     typedef rt_stack_unit_t __unit_t;
     const msize_t __stack_stub_size = unit_size_of(sizeof(__calling_stub_t));
 
@@ -125,21 +119,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         _cmd_t * cmd = memory_t::new_obj<_cmd_t>(memory, std::forward<_args_t>(args) ...);
 
-        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
         
         ((command_t *)cmd)->execute_method = (command_execute_method_t)_cmd_t::execute;
 
         #if EXEC_TRACE
         ((command_t *)cmd)->to_string_method = (command_to_string_method_t)_cmd_t::to_string;
         #endif  // EXEC_TRACE
-
-        #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE   // EXEC_EXECUTE_MODEL == xxx
-
-        ((command_t *)cmd)->cmd_value = _cmd_t::cmd_value;
-
-        #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD // EXEC_EXECUTE_MODEL == xxx
-
-        // Do nothing
 
         #endif
 
@@ -237,73 +223,34 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    namespace
-    {
-        template<bool _first_is_nokey, typename ... _args_t>
-        struct __command_key_impl_t : std::tuple<_args_t ...>
-        {
-            typedef std::tuple<_args_t ...> __super_t;
-
-            template<typename ... _targs_t>
-            __command_key_impl_t(_targs_t && ... args)
-                : __super_t(std::forward<_args_t>(args) ...)
-            { }
-        };
-
-        template<typename ... _args_t>
-        struct __command_key_impl_t<true, _args_t ...> : std::tuple<_args_t ...>
-        {
-            typedef std::tuple<_args_t ...> __super_t;
-
-            template<typename ... _targs_t>
-            __command_key_impl_t(__nokey_t, _targs_t && ... args)
-                : __super_t(std::forward<_args_t>(args) ...)
-            { }
-        };
-    }
-
-    template<typename ... _args_t>
-    using __command_key_t = __command_key_impl_t<
-        std::is_same<typeat<0, _args_t ...>, __nokey_t>::value,
-        _args_t ...
-    >;
-
-    //-------- ---------- ---------- ---------- ----------
 
     template<typename _command_template_t, typename ... _template_keys_t>
     class __command_manager_t : public object_t
     {
     public:
-        template<typename ... args_t> class with_args_t
+        template<typename ... _args_t> class with_args_t
         {
-            typedef __command_key_t<_template_keys_t ..., args_t ...> __key_t;
+            typedef std::tuple<command_value_t, _args_t ...> __key_t;
 
         public:
             with_args_t(memory_t * memory) : __memory(memory) { }
             with_args_t() : with_args_t(&__command_heap) { }
 
-            template<_template_keys_t ... keys, typename ... others_t>
-            command_t * get_command(args_t && ... args, others_t && ... others)
+            template<command_value_t _cv, _template_keys_t ... keys, typename ... _others_t>
+            command_t * get_command(_args_t ... args, _others_t && ... others)
             {
-                __key_t key(keys ..., args ...);
+                __key_t key(_cv, args ...);
+
                 auto it = __map.find(key);
                 if (it != __map.end())
                     return it->second;
 
-                command_t * command = _command_template_t::template new_command<keys ...>(
-                    __memory, std::forward<args_t>(args) ..., std::forward<others_t>(others) ...
+                command_t * command = _command_template_t::template new_command<_cv, keys ...>(
+                    __memory, std::forward<_args_t>(args) ..., std::forward<_others_t>(others) ...
                 );
 
                 __map[key] = command;
                 return command;
-            }
-
-            template<typename ... _others_t>
-            command_t * get_command(_others_t && ... others)
-            {
-                return get_command<__nokey_t, _others_t ...>(
-                    std::forward<_others_t>(others) ...
-                );
             }
 
         private:
@@ -314,9 +261,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    template<command_value_t _cv>
     class __command_base_t : public command_t
     {
+        typedef command_t __super_t;
+
     public:
+
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE
+
+        __command_base_t() _NE : __super_t(_cv) { }
+
+        static constexpr command_value_t cmd_value = _cv;
+
+        #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE
 
         #if EXEC_TRACE
 
@@ -332,13 +290,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // Class __empty_command_t
 
-    class __empty_command_t : public __command_base_t
+    #define __EmptyCmd          __Cmd(empty, none)
+    __DefineCmdValue_(__EmptyCmd)
+
+    class __empty_command_t : public __command_base_t<__EmptyCmd>
     {
         typedef __empty_command_t   __self_t;
 
     public:
 
-        __BeginExecute(ctx, __ToCmdValue(empty, 1))
+        __BeginExecute(ctx)
 
             // Do nothing
 
@@ -356,15 +317,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // Class __execute_end_command_t
 
-    class __execute_end_command_t : public __command_base_t
+    #define __EndCmd            __Cmd(empty, end)
+    __DefineCmdValue_(__EndCmd)
+
+    class __execute_end_command_t : public __command_base_t<__EndCmd>
     {
         typedef __execute_end_command_t __self_t;
 
     public:
 
-        __BeginExecute(ctx, __ToCmdValue(empty, 2))
+        __BeginExecute(ctx)
+
+            #ifndef __NoThrow
 
             throw _E(exec_env_code_t::end);
+
+            #endif  // __NoThrow
 
         __EndExecute()
 
@@ -380,19 +348,113 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     };
 
     ////////// ////////// ////////// ////////// //////////
+
+    #define __EachXilTypePair(_xt1)                                                     \
+        __CaseXilTypePair( _xt1, int8 )                                                 \
+        __CaseXilTypePair( _xt1, uint8 )                                                \
+        __CaseXilTypePair( _xt1, int16 )                                                \
+        __CaseXilTypePair( _xt1, uint16 )                                               \
+        __CaseXilTypePair( _xt1, int32 )                                                \
+        __CaseXilTypePair( _xt1, uint32 )                                               \
+        __CaseXilTypePair( _xt1, int64 )                                                \
+        __CaseXilTypePair( _xt1, uint64 )                                               \
+        __CaseXilTypePair( _xt1, float_ )                                               \
+        __CaseXilTypePair( _xt1, double_ )                                              \
+        __CaseXilTypePair( _xt1, char_ )                                                \
+        __CaseXilTypePair( _xt1, bool_ )
+
+    #define __EachXilTypePairs()                                                        \
+        __EachXilTypePair( int8 )                                                       \
+        __EachXilTypePair( uint8 )                                                      \
+        __EachXilTypePair( int16 )                                                      \
+        __EachXilTypePair( uint16 )                                                     \
+        __EachXilTypePair( int32 )                                                      \
+        __EachXilTypePair( uint32 )                                                     \
+        __EachXilTypePair( int64 )                                                      \
+        __EachXilTypePair( uint64 )                                                     \
+        __EachXilTypePair( float_ )                                                     \
+        __EachXilTypePair( double_ )                                                    \
+        __EachXilTypePair( char_ )                                                      \
+        __EachXilTypePair( bool_ )                                                      \
+                                                                                        \
+        __CaseXilTypePair( object, object )                                             \
+        __CaseXilTypePair( string, string )                                             \
+        __CaseXilTypePair( ptr, ptr )
+
+
+    #define __EachDimensionXilTypePair_(_xt1, _dimension)                               \
+        __CaseDimensionXilTypePair( _xt1, int8,    _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, uint8,   _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, int16,   _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, uint16,  _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, int32,   _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, uint32,  _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, int64,   _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, uint64,  _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, float_,  _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, double_, _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, char_,   _dimension )                         \
+        __CaseDimensionXilTypePair( _xt1, bool_,   _dimension )
+
+    #define __EachDimensionXilTypePairs_(_dimension)                                    \
+        __EachDimensionXilTypePair_( int8,   _dimension)                                \
+        __EachDimensionXilTypePair_( uint8,  _dimension)                                \
+        __EachDimensionXilTypePair_( int16,  _dimension)                                \
+        __EachDimensionXilTypePair_( uint16, _dimension)                                \
+        __EachDimensionXilTypePair_( int32,  _dimension)                                \
+        __EachDimensionXilTypePair_( uint32, _dimension)                                \
+        __EachDimensionXilTypePair_( int64,  _dimension)                                \
+        __EachDimensionXilTypePair_( uint64, _dimension )                               \
+        __EachDimensionXilTypePair_( float_, _dimension )                               \
+        __EachDimensionXilTypePair_( double_,_dimension )                               \
+        __EachDimensionXilTypePair_( char_,  _dimension )                               \
+        __EachDimensionXilTypePair_( bool_,  _dimension )                               \
+                                                                                        \
+        __CaseDimensionXilTypePair( object, object, _dimension )                        \
+        __CaseDimensionXilTypePair( string, string, _dimension )                        \
+        __CaseDimensionXilTypePair( ptr, ptr, _dimension )
+
+    #define __EachDimensionXilTypePairs()                                               \
+        __EachDimensionXilTypePairs_(0)                                                 \
+        __EachDimensionXilTypePairs_(1)                                                 \
+        __EachDimensionXilTypePairs_(2)                                                 \
+        __EachDimensionXilTypePairs_(3)                                                 \
+        __EachDimensionXilTypePairs_(4)                                                 \
+        __EachDimensionXilTypePairs_(5)                                                 \
+        __EachDimensionXilTypePairs_(6)                                                 \
+        __EachDimensionXilTypePairs_(7)                                                 \
+        __EachDimensionXilTypePairs_(8)
+    
+
+    #define __StCmd(_cmd, _st, _xt1, _xt2)      __Cmd(_cmd, _st##_##_xt1##_##_xt2)
+    #define __DefineStCmdValue(_cmd, _st, _xt1, _xt2)                                   \
+                                    __DefineCmdValue_(__StCmd(_cmd, _st, _xt1, _xt2))
+
+    #define __StAddrCmd(_cmd, _st)              __Cmd(_cmd, _st)
+    #define __DefineStAddrCmdValue(_cmd, _st)   __DefineCmdValue_(__StAddrCmd(_cmd, _st))
+
+    #define __StArrayCmd(_cmd, _xt1, _xt2, _deminision)                                 \
+                                    __Cmd(_cmd, array_element_##_xt1##_##_xt2##_##_deminision)
+
+    #define __DefineStArrayCmdValue(_cmd, _xt1, _xt2, _deminision)                      \
+                    __DefineCmdValue_(__StArrayCmd(_cmd, _xt1, _xt2, _deminision))
+
+
+    ////////// ////////// ////////// ////////// //////////
     // Class __push_command_t
 
-    template<xil_storage_type_t, xil_type_t, xil_type_t>
+    template<command_value_t _cv, xil_storage_type_t, xil_type_t, xil_type_t>
     class __push_command_t { };
 
     struct __push_command_template_t
     {
-        template<xil_storage_type_t stype, xil_type_t dtype1, xil_type_t dtype2,
-                                                            typename ... args_t>
-        static auto new_command(memory_t * memory, args_t && ... args)
+        template<command_value_t _cv,
+            xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t
+        >
+        static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __push_command_t<stype, dtype1, dtype2> this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+            typedef __push_command_t<_cv, _st, _xt1, _xt2> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
@@ -519,12 +581,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                         \
         __BeginToString()                                                               \
                                                                                         \
-            if (xil_type_t::_xt1 == xil_type_t::_xt2)                                   \
+            if (_xt1 == _xt2)                                                           \
                 return _F(_T("push %1% %2% [%3%]"), xil_storage_type_t::_st,            \
-                    xil_type_t::_xt1, __This->_v);                                      \
+                    _xt1, __This->_v);                                                  \
                                                                                         \
             return _F(_T("push %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
-                xil_type_t::_xt1, xil_type_t::_xt2, __This->_v);                        \
+                _xt1, _xt2, __This->_v);                                                \
                                                                                         \
         __EndToString()
 
@@ -534,29 +596,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #endif
 
-    #define __ToPushCmdValue(_st, _xt1, _xt2)                                           \
-        __ToCmdValue(push,                                                              \
-            ((cmd_value_t)xil_storage_type_t::_st << 16) |                              \
-            ((cmd_value_t)_xt1 << 8) |                                                  \
-            ((cmd_value_t)_xt2)                                                         \
-        )
-
     //-------- ---------- ---------- ---------- ----------
     // Push constants
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<xil_storage_type_t::constant, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<_cv, xil_storage_type_t::constant, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __push_command_t        __self_t;
-        typedef __command_base_t        __super_t;
+        typedef __command_base_t<_cv>   __super_t;
         typedef __const_vnum_t<_xt1>    __value1_t;
         typedef __const_vnum_t<_xt2>    __value2_t;
 
     public:
         __push_command_t(__value1_t value) : __value(value) { }
 
-        __BeginExecute(ctx, __ToPushCmdValue(constant, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             ctx.stack.push(static_cast<__value2_t>(__This->__value));
 
@@ -568,12 +623,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __value1_t __value;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, constant, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
     // Push local commands.
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<xil_storage_type_t::local, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<_cv, xil_storage_type_t::local, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __push_command_t    __self_t;
         typedef __vnum_t<_xt1>      __value1_t;
@@ -584,7 +643,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PushCommand_ToString(local, _xt1, _xt2, __offset)
 
-        __BeginExecute(ctx, __ToPushCmdValue(local, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __This->__offset)));
 
@@ -593,6 +652,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     private:
         __offset_t __offset;
     };
+
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, local, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
 
     //-------- ---------- ---------- ---------- ----------
     // Push local address commands.
@@ -616,9 +679,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #endif // EXEC_TRACE
 
+    __DefineStAddrCmdValue(push, local_addr)
+
     template<>
     class __push_address_command_t<xil_storage_type_t::local_addr>
-        : public __command_base_t
+        : public __command_base_t<__StAddrCmd(push, local_addr)>
     {
         typedef __push_address_command_t    __self_t;
 
@@ -627,7 +692,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PushAddressCommand_ToString(local_addr, __offset)
 
-        __BeginExecute(ctx, __ToPushCmdValue(local_addr, 0, 0))
+        __BeginExecute(ctx)
 
             ctx.stack.push(__LocalAddress(__This->__offset));
 
@@ -639,7 +704,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __push_address_command_template_t
     {
-        template<xil_storage_type_t _st, typename ... _args_t>
+        template<command_value_t _cv, xil_storage_type_t _st, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
             typedef __push_address_command_t<_st> this_command_t;
@@ -653,9 +718,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __ArgumentAddress(offset) ((void *)((rt_stack_unit_t *)ctx.stack.lp() - (offset)))
     #define __Argument(type_t, offset) (*(type_t *)__ArgumentAddress(offset))
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<xil_storage_type_t::argument, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<_cv, xil_storage_type_t::argument, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __push_command_t    __self_t;
         typedef __vnum_t<_xt1>      __value1_t;
@@ -666,7 +731,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PushCommand_ToString(argument, _xt1, _xt2, __offset)
 
-        __BeginExecute(ctx, __ToPushCmdValue(argument, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             ctx.stack.push(static_cast<__value2_t>(
                 __Argument(__value1_t, __This->__offset + __stack_stub_size)
@@ -678,12 +743,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __offset_t __offset;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, argument, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
     // Push argument address commands.
 
+    __DefineStAddrCmdValue(push, argument_addr)
+
     template<>
     class __push_address_command_t<xil_storage_type_t::argument_addr>
-        : public __command_base_t
+        : public __command_base_t<__StAddrCmd(push, argument_addr)>
     {
         typedef __push_address_command_t    __self_t;
 
@@ -692,7 +763,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PushAddressCommand_ToString(argument_addr, __offset)
 
-        __BeginExecute(ctx, __ToPushCmdValue(argument_addr, 0, 0))
+        __BeginExecute(ctx)
 
             ctx.stack.push(__ArgumentAddress(__This->__offset + __stack_stub_size));
 
@@ -810,19 +881,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __FieldAddress(p, offset)       ((void *)((byte_t *)p + offset))
     #define __Field(type_t, p, offset)      (*(type_t *)__FieldAddress(p, offset))
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<xil_storage_type_t::field, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<_cv, xil_storage_type_t::field, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __push_command_t        __self_t;
-        typedef __command_base_t        __super_t;
+        typedef __command_base_t<_cv>   __super_t;
         typedef __const_vnum_t<_xt1>    __value1_t;
         typedef __const_vnum_t<_xt2>    __value2_t;
 
     public:
         __push_command_t(__offset_t offset) : __offset(offset) { }
 
-        __BeginExecute(ctx, __ToPushCmdValue(field, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             ctx.stack.push(static_cast<__value2_t>(
                 __Field(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset)
@@ -836,12 +907,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __offset_t __offset;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, field, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
     // Push field address commands.
 
+    __DefineStAddrCmdValue(push, field_addr)
+
     template<>
     class __push_address_command_t<xil_storage_type_t::field_addr>
-        : public __command_base_t
+        : public __command_base_t<__StAddrCmd(push, field_addr)>
     {
         typedef __push_address_command_t    __self_t;
 
@@ -850,7 +927,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PushAddressCommand_ToString(field_addr, __offset)
 
-        __BeginExecute(ctx, __ToPushCmdValue(field_addr, 0, 0))
+        __BeginExecute(ctx)
 
             ctx.stack.push(
                 __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset)
@@ -864,12 +941,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    class __duplicate_command_t : public __command_base_t
+    #define __PushDuplicateCmd  __Cmd(push, duplicate)
+    __DefineCmdValue_(__PushDuplicateCmd)
+
+    class __duplicate_command_t : public __command_base_t<__PushDuplicateCmd>
     {
         typedef __duplicate_command_t   __self_t;
 
     public:
-        __BeginExecute(ctx, __ToPushCmdValue(duplicate, 0, 0))
+        __BeginExecute(ctx)
 
             ctx.stack.push<rt_stack_unit_t>(
                 ctx.stack.pick<rt_stack_unit_t>()
@@ -889,9 +969,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
     // Push convert commands..
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<xil_storage_type_t::convert, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<_cv, xil_storage_type_t::convert, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __push_command_t    __self_t;
         typedef __vnum_t<_xt1>      __value1_t;
@@ -907,7 +987,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #endif  // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToPushCmdValue(convert, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             if (!std::is_same<__value1_t, __value2_t>::value)
             {
@@ -919,13 +999,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __EndExecute()
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, convert, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     struct __push_convert_command_template_t
     {
-        template<xil_type_t _xt1, xil_type_t _xt2, typename ... args_t>
-        static auto new_command(memory_t * memory, args_t && ... args)
+        template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __push_command_t<xil_storage_type_t::convert, _xt1, _xt2> this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+            typedef __push_command_t<_cv, xil_storage_type_t::convert, _xt1, _xt2> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
@@ -1003,16 +1087,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __RtTypeOf(rt_ref)  (mm::get_object_type(rt_ref))
 
-    #define __ToPushArrayElementCmdValue(_xil_type1, _xil_type2, _dimension) (          \
-        __ToCmdValue(push,                                                              \
-            ((cmd_value_t)xil_storage_type_t::array_element << 16)                      \
-            | (((cmd_value_t)_xil_type1) << 12)                                         \
-            | (((cmd_value_t)_xil_type2) << 8)                                          \
-        )   | (cmd_value_t)_dimension                                                   \
-    )
-
-    template<xil_type_t _xil_type1, xil_type_t _xil_type2, int _dimension>
-    class __push_array_element_command_t : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xil_type1, xil_type_t _xil_type2,
+            dimension_t _dimension>
+    class __push_array_element_command_t : public __command_base_t<_cv>
     {
         typedef __push_array_element_command_t  __self_t;
         typedef __vnum_t<_xil_type1>            __value1_t;
@@ -1027,7 +1104,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #endif  // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToPushArrayElementCmdValue(_xil_type1, _xil_type2, _dimension))
+        __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
@@ -1047,11 +1124,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<xil_type_t _xil_type1, xil_type_t _xil_type2>
-    class __push_array_element_command_t<_xil_type1, _xil_type2, 0> : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_array_element_command_t<_cv, _xt1, _xt2, 0>
+        : public __command_base_t<_cv>
     {
-        typedef __vnum_t<_xil_type1>            __value1_t;
-        typedef __vnum_t<_xil_type2>            __value2_t;
+        typedef __vnum_t<_xt1>                  __value1_t;
+        typedef __vnum_t<_xt2>                  __value2_t;
         typedef __push_array_element_command_t  __self_t;
 
     public:
@@ -1066,7 +1144,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #endif  // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToPushArrayElementCmdValue(_xil_type1, _xil_type2, 0))
+        __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
@@ -1084,43 +1162,50 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         dimension_t __dimension;
     };
 
+    #define __CaseDimensionXilTypePair( _xt1, _xt2, _dimension )                        \
+        __DefineStArrayCmdValue(push,_xt1, _xt2, _dimension)
+
+    __EachDimensionXilTypePairs()
+
+    #undef __CaseDimensionXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
 
     struct __push_array_element_command_template_t
     {
-        template<xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
-        static auto new_command(memory_t * memory, int dimension, _args_t && ... args)
-            -> command_t *
+        template<dimension_t _dimension> struct __new_t
         {
-            #define __NewCommand(_dimension)                                            \
-                __new_command<__push_array_element_command_t<_xt1, _xt2, _dimension>>(  \
-                    memory, std::forward<_args_t>(args) ...                             \
-                )
-
-            switch (dimension)
+            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
+            static command_t * new_(memory_t * memory, dimension_t dimension,
+                _args_t && ... args)
             {
-                #define __Case(_dimension)                                              \
-                    case _dimension:                                                    \
-                        return __NewCommand(_dimension);
-
-                __Case(1)
-                __Case(2)
-                __Case(3)
-                __Case(4)
-                __Case(5)
-                __Case(6)
-                __Case(7)
-                __Case(8)
-
-                default:
-                    return __new_command<__push_array_element_command_t<_xt1, _xt2, 0>>(
-                        memory, dimension, std::forward<_args_t>(args) ...
-                    );
-
-                #undef __Case
+                return __new_command<__push_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
+                    memory, std::forward<_args_t>(args) ...
+                );
             }
+        };
 
-            #undef __NewCommand
+        template<> struct __new_t<0>
+        {
+            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
+            static command_t * new_(memory_t * memory, dimension_t dimension,
+                _args_t && ... args)
+            {
+                return __new_command<__push_array_element_command_t<_cv, _xt1, _xt2, 0>>(
+                    memory, dimension, std::forward<_args_t>(args) ...
+                );
+            }
+        };
+
+        template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2,
+            dimension_t _dimension, typename ... _args_t
+        >
+        static command_t * new_command(memory_t * memory, dimension_t dimension,
+            _args_t && ... args)
+        {
+            return __new_t<_dimension>::template new_<_cv, _xt1, _xt2>(
+                memory, dimension, std::forward<_args_t>(args) ...
+            );
         }
     };
 
@@ -1151,7 +1236,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    class __push_params_address_command_t : public __command_base_t
+    #define __PushParamsAddrCmd  __Cmd(push, params_addr)
+    __DefineCmdValue_(__PushParamsAddrCmd)
+
+    class __push_params_address_command_t : public __command_base_t<__PushParamsAddrCmd>
     {
         typedef __push_params_address_command_t __self_t;
 
@@ -1168,7 +1256,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #endif  // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToCmdValue(push, ((cmd_value_t)xil_storage_type_t::params << 16)))
+        __BeginExecute(ctx)
 
             ctx.stack.push<rt_stack_unit_t *>(
                 (rt_stack_unit_t *)ctx.stack.lp() - __This->__offset - 1
@@ -1182,11 +1270,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __push_params_address_template_t
     {
-        template<__nokey_t nokey, typename ... args_t>
-        static auto new_command(memory_t * memory, args_t && ... args)
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
         {
             typedef __push_params_address_command_t this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
@@ -1240,13 +1328,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         typedef xil_storage_type_t stype_t;
 
-        #define __CommandManagerT(v_t)                                                  \
+        #define __CommandManagerT(_v_t)                                                 \
             __command_manager_t<                                                        \
                 __push_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t   \
-            >::with_args_t<v_t>
+            >::with_args_t<_v_t>
 
-        #define __DefineConstantCommandManagerT(name)                                   \
-            static __CommandManagerT(name##_t)  name##_push_command_manager;
+        #define __DefineConstantCommandManagerT(_name)                                   \
+            static __CommandManagerT(_name##_t)  _name##_push_command_manager;
 
         __DefineConstantCommandManagerT(int8)
         __DefineConstantCommandManagerT(uint8)
@@ -1278,11 +1366,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<__offset_t> __push_address_command_manager;
 
         static __command_manager_t<
-            __push_array_element_command_template_t, xil_type_t, xil_type_t
+            __push_array_element_command_template_t, xil_type_t, xil_type_t, dimension_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
         static __command_manager_t<
-            __push_params_address_template_t, __nokey_t
+            __push_params_address_template_t
         >::with_args_t<__offset_t> __params_address_command_manager;
 
         static __command_manager_t<
@@ -1290,7 +1378,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<> __convert_command_manager;
 
         xil_storage_type_t stype = xil.stype();
-        xil_type_t dtype1, dtype2;
+        xil_type_t xt1, xt2;
 
         switch (stype)
         {
@@ -1298,99 +1386,93 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 __ReturnInstance(__duplicate_command_t);
 
             case xil_storage_type_t::params:        // Push params argument command.
-                return __params_address_command_manager.template get_command<__nokey>(
+                return __params_address_command_manager.template get_command<__PushParamsAddrCmd>(
                     ctx.params_layout.extends_offset()
                 );
 
             case xil_storage_type_t::local_addr:    // Push local address command.
-                return __push_address_command_manager.template get_command<stype_t::local_addr>(
+                return __push_address_command_manager.template get_command<
+                    __StAddrCmd(push, local_addr), stype_t::local_addr>(
                     ctx.locals_layout.offset_of(xil.get_identity())
                 );
 
             case xil_storage_type_t::argument_addr: // Push agrument address command.
-                return __push_address_command_manager.template get_command<stype_t::argument_addr>(
+                return __push_address_command_manager.template get_command<
+                    __StAddrCmd(push, argument_addr), stype_t::argument_addr>(
                     ctx.params_layout.offset_of(xil.get_identity())
                 );
 
             case xil_storage_type_t::convert:
-                dtype1 = xil.dtype();
-                dtype2 = xil.dtype2();
+                xt1 = xil.dtype();
+                xt2 = xil.dtype2();
                 break;
 
             default:
-                __analyze_xil_types(ctx, xil, &dtype1, &dtype2);
+                __analyze_xil_types(ctx, xil, &xt1, &xt2);
                 break;
         }
 
         #define __V(s, d1, d2) (((uint32_t)(s) << 16)                                   \
             | ((uint32_t)(d1) << 12) | ((uint32_t)(d2)) << 8)
 
-        #define __ConstantValue(_xil, _t)                                               \
-            (_xil.dtype() == xil_type_t::empty?                                         \
-                default_value_of<_t>() : __read_extra<_t>(_xil))
+        #define __ConstantValue(_xil, _xt)                                              \
+            (_xil.dtype() == xil_type_t::empty? default_value_of<__const_vnum_t<_xt>>() \
+                : __read_extra<__const_vnum_t<_xt>>(_xil))
 
         #define __ConstantStringValue(_xil)                                             \
             (_xil.dtype() == xil_type_t::empty?                                         \
                 default_value_of<const char_t *>() : ctx.to_cstr(__read_extra<res_t>(_xil)))
 
 
-        switch (__V(stype, dtype1, dtype2))
+        switch (__V(stype, xt1, xt2))
         {
             // Constant values.
-            #define __CaseConstant(_name, _t1, _d1, _t2, _d2)                           \
-                case __V(xil_storage_type_t::constant, xil_type_t::_d1, xil_type_t::_d2):\
+            #define __CaseConstant(_name, _xt1, _xt2)                                   \
+                case __V(xil_storage_type_t::constant, xil_type_t::_xt1, xil_type_t::_xt2): \
                     return _name##_push_command_manager.template get_command<           \
-                        xil_storage_type_t::constant, xil_type_t::_d1, xil_type_t::_d2  \
-                    >(__ConstantValue(xil, _t1));
+                        __StCmd(push, constant, _xt1, _xt2),                            \
+                        xil_storage_type_t::constant, xil_type_t::_xt1, xil_type_t::_xt2 \
+                    >(__ConstantValue(xil, xil_type_t::_xt1));
 
             case __V(xil_storage_type_t::constant, xil_type_t::string, xil_type_t::string):
                 return __string_push_command_manager.template get_command<
+                    __StCmd(push, constant, string, string),
                     xil_storage_type_t::constant, xil_type_t::string, xil_type_t::string
                 >(__ConstantStringValue(xil));
 
             case __V(xil_storage_type_t::constant, xil_type_t::object, xil_type_t::object):
                 return __object_push_command_manager.template get_command<
+                    __StCmd(push, constant, object, object),
                     xil_storage_type_t::constant, xil_type_t::object, xil_type_t::object
                 >(ctx.get_type(xil.type_ref()));
 
-            #define __CaseConstants(_t2, _d2)                                           \
-                                                                                        \
-                __CaseConstant(int8,    int8_t,     int8,   _t2,    _d2)                \
-                __CaseConstant(uint8,   uint8_t,    uint8,  _t2,    _d2)                \
-                                                                                        \
-                __CaseConstant(int16,   int16_t,    int16,  _t2,    _d2)                \
-                __CaseConstant(uint16,  uint16_t,   uint16, _t2,    _d2)                \
-                                                                                        \
-                __CaseConstant(int32,   int32_t,    int32,  _t2,    _d2)                \
-                __CaseConstant(uint32,  uint32_t,   uint32, _t2,    _d2)                \
-                                                                                        \
-                __CaseConstant(int64,   int64_t,    int64,  _t2,    _d2)                \
-                __CaseConstant(uint64,  uint64_t,   uint64, _t2,    _d2)                \
-                                                                                        \
-                __CaseConstant(float,   float_t,    float_, _t2,    _d2)                \
-                __CaseConstant(double,  double_t,   double_, _t2,   _d2)                \
-                                                                                        \
-                __CaseConstant(bool,    bool_t,     bool_,  _t2,    _d2)                \
-                __CaseConstant(char,    char_t,     char_,  _t2,    _d2)
+            #define __CaseConstants(_xt2)                                               \
+                __CaseConstant(int8,    int8,    _xt2)                                  \
+                __CaseConstant(uint8,   uint8,   _xt2)                                  \
+                __CaseConstant(int16,   int16,   _xt2)                                  \
+                __CaseConstant(uint16,  uint16,  _xt2)                                  \
+                __CaseConstant(int32,   int32,   _xt2)                                  \
+                __CaseConstant(uint32,  uint32,  _xt2)                                  \
+                __CaseConstant(int64,   int64,   _xt2)                                  \
+                __CaseConstant(uint64,  uint64,  _xt2)                                  \
+                __CaseConstant(float,   float_,  _xt2)                                  \
+                __CaseConstant(double,  double_, _xt2)                                  \
+                __CaseConstant(bool,    bool_,   _xt2)                                  \
+                __CaseConstant(char,    char_,   _xt2)
 
 
-            __CaseConstants(int8_t,     int8)
-            __CaseConstants(uint8_t,    uint8)
-
-            __CaseConstants(int16_t,    int16)
-            __CaseConstants(uint16_t,   uint16)
-
-            __CaseConstants(int32_t,    int32)
-            __CaseConstants(uint32_t,   uint32)
-
-            __CaseConstants(int64_t,    int64)
-            __CaseConstants(uint64_t,   uint64)
-
-            __CaseConstants(float_t,    float_)
-            __CaseConstants(double_t,   double_)
-
-            __CaseConstants(bool_t,     bool_)
-            __CaseConstants(char_t,     char_)
+            __CaseConstants(int8)
+            __CaseConstants(uint8)
+            __CaseConstants(int16)
+            __CaseConstants(uint16)
+            __CaseConstants(int32)
+            __CaseConstants(uint32)
+            __CaseConstants(int64)
+            __CaseConstants(uint64)
+            __CaseConstants(float_)
+            __CaseConstants(double_)
+            __CaseConstants(bool_)
+            __CaseConstants(char_)
 
             #undef __CaseConstant
             #undef __CaseConstants
@@ -1398,51 +1480,40 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Push Local
 
-            #define __CaseLocal(_d1, _d2)                                               \
-                case __V(xil_storage_type_t::local, xil_type_t::_d1, xil_type_t::_d2):  \
+            #define __CaseLocal(_xt1, _xt2)                                             \
+                case __V(xil_storage_type_t::local, xil_type_t::_xt1, xil_type_t::_xt2): \
                     return __command_manager.template get_command<                      \
-                        xil_storage_type_t::local, xil_type_t::_d1, xil_type_t::_d2     \
+                        __StCmd(push, local, _xt1, _xt2),                               \
+                        xil_storage_type_t::local, xil_type_t::_xt1, xil_type_t::_xt2   \
                     >(ctx.locals_layout.offset_of(xil.get_identity()));
 
-            #define __CaseLocals(_d2)                                                   \
-                                                                                        \
-                __CaseLocal(int8,       _d2)                                            \
-                __CaseLocal(uint8,      _d2)                                            \
-                                                                                        \
-                __CaseLocal(int16,      _d2)                                            \
-                __CaseLocal(uint16,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(int32,      _d2)                                            \
-                __CaseLocal(uint32,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(int64,      _d2)                                            \
-                __CaseLocal(uint64,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(float_,     _d2)                                            \
-                __CaseLocal(double_,    _d2)                                            \
-                                                                                        \
-                __CaseLocal(char_,      _d2)                                            \
-                __CaseLocal(bool_,      _d2)
+            #define __CaseLocals(_xt2)                                                  \
+                __CaseLocal(int8,       _xt2)                                           \
+                __CaseLocal(uint8,      _xt2)                                           \
+                __CaseLocal(int16,      _xt2)                                           \
+                __CaseLocal(uint16,     _xt2)                                           \
+                __CaseLocal(int32,      _xt2)                                           \
+                __CaseLocal(uint32,     _xt2)                                           \
+                __CaseLocal(int64,      _xt2)                                           \
+                __CaseLocal(uint64,     _xt2)                                           \
+                __CaseLocal(float_,     _xt2)                                           \
+                __CaseLocal(double_,    _xt2)                                           \
+                __CaseLocal(char_,      _xt2)                                           \
+                __CaseLocal(bool_,      _xt2)
 
 
             __CaseLocals(int8)
             __CaseLocals(uint8)
-
             __CaseLocals(int16)
             __CaseLocals(uint16)
-
             __CaseLocals(int32)
             __CaseLocals(uint32)
-
             __CaseLocals(int64)
             __CaseLocals(uint64)
-
             __CaseLocals(float_)
             __CaseLocals(double_)
-
             __CaseLocals(char_)
             __CaseLocals(bool_)
-
             __CaseLocal(object, object)
             __CaseLocal(string, string)
             __CaseLocal(ptr,    ptr)
@@ -1453,51 +1524,40 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Push Argument
 
-            #define __CaseArgument(_d1, _d2)                                            \
-                case __V(xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2):\
+            #define __CaseArgument(_xt1, _xt2)                                          \
+                case __V(xil_storage_type_t::argument, xil_type_t::_xt1, xil_type_t::_xt2): \
                     return __command_manager.template get_command<                      \
-                        xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2  \
+                        __StCmd(push, argument, _xt1, _xt2),                            \
+                        xil_storage_type_t::argument, xil_type_t::_xt1, xil_type_t::_xt2    \
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
 
-            #define __CaseArguments(_d2)                                                \
-                                                                                        \
-                __CaseArgument(int8,    _d2)                                            \
-                __CaseArgument(uint8,   _d2)                                            \
-                                                                                        \
-                __CaseArgument(int16,   _d2)                                            \
-                __CaseArgument(uint16,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(int32,   _d2)                                            \
-                __CaseArgument(uint32,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(int64,   _d2)                                            \
-                __CaseArgument(uint64,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(float_,  _d2)                                            \
-                __CaseArgument(double_, _d2)                                            \
-                                                                                        \
-                __CaseArgument(char_,   _d2)                                            \
-                __CaseArgument(bool_,   _d2)
+            #define __CaseArguments(_xt2)                                               \
+                __CaseArgument(int8,    _xt2)                                           \
+                __CaseArgument(uint8,   _xt2)                                           \
+                __CaseArgument(int16,   _xt2)                                           \
+                __CaseArgument(uint16,  _xt2)                                           \
+                __CaseArgument(int32,   _xt2)                                           \
+                __CaseArgument(uint32,  _xt2)                                           \
+                __CaseArgument(int64,   _xt2)                                           \
+                __CaseArgument(uint64,  _xt2)                                           \
+                __CaseArgument(float_,  _xt2)                                           \
+                __CaseArgument(double_, _xt2)                                           \
+                __CaseArgument(char_,   _xt2)                                           \
+                __CaseArgument(bool_,   _xt2)
 
             __CaseArguments(int8)
             __CaseArguments(uint8)
-
             __CaseArguments(int16)
             __CaseArguments(uint16)
-
             __CaseArguments(int32)
             __CaseArguments(uint32)
-
             __CaseArguments(int64)
             __CaseArguments(uint64)
-
             __CaseArguments(float_)
             __CaseArguments(double_)
-
             __CaseArguments(char_)
             __CaseArguments(bool_)
-
             __CaseArgument(object,  object)
             __CaseArgument(string,  string)
             __CaseArgument(ptr,     ptr)
@@ -1508,51 +1568,40 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Push Field
 
-            #define __CaseField(_d1, _d2)                                               \
-                case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):  \
+            #define __CaseField(_xt1, _xt2)                                             \
+                case __V(xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2):    \
                     return __command_manager.template get_command<                      \
-                        xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2     \
+                        __StCmd(push, field, _xt1, _xt2),                               \
+                        xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2   \
                     >(__field_offset(ctx, xil.field_ref()));
 
-            #define __CaseFields(_d2)                                                   \
-                                                                                        \
-                __CaseField(int8,       _d2)                                            \
-                __CaseField(uint8,      _d2)                                            \
-                                                                                        \
-                __CaseField(int16,      _d2)                                            \
-                __CaseField(uint16,     _d2)                                            \
-                                                                                        \
-                __CaseField(int32,      _d2)                                            \
-                __CaseField(uint32,     _d2)                                            \
-                                                                                        \
-                __CaseField(int64,      _d2)                                            \
-                __CaseField(uint64,     _d2)                                            \
-                                                                                        \
-                __CaseField(float_,     _d2)                                            \
-                __CaseField(double_,    _d2)                                            \
-                                                                                        \
-                __CaseField(char_,      _d2)                                            \
-                __CaseField(bool_,      _d2)
+            #define __CaseFields(_xt2)                                                  \
+                __CaseField(int8,       _xt2)                                           \
+                __CaseField(uint8,      _xt2)                                           \
+                __CaseField(int16,      _xt2)                                           \
+                __CaseField(uint16,     _xt2)                                           \
+                __CaseField(int32,      _xt2)                                           \
+                __CaseField(uint32,     _xt2)                                           \
+                __CaseField(int64,      _xt2)                                           \
+                __CaseField(uint64,     _xt2)                                           \
+                __CaseField(float_,     _xt2)                                           \
+                __CaseField(double_,    _xt2)                                           \
+                __CaseField(char_,      _xt2)                                           \
+                __CaseField(bool_,      _xt2)
 
 
             __CaseFields(int8)
             __CaseFields(uint8)
-
             __CaseFields(int16)
             __CaseFields(uint16)
-
             __CaseFields(int32)
             __CaseFields(uint32)
-
             __CaseFields(int64)
             __CaseFields(uint64)
-
             __CaseFields(float_)
             __CaseFields(double_)
-
             __CaseFields(char_)
             __CaseFields(bool_)
-
 
             __CaseField(object,     object)
             __CaseField(string,     string)
@@ -1564,105 +1613,100 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Push array element
 
-            #define __CaseArrayElement(_d1, _d2)                                        \
-                case __V(xil_storage_type_t::array_element, xil_type_t::_d1, xil_type_t::_d2):  \
+            #define __CaseArrayElement_Dimension(_xt1, _xt2, _dimension, dimension)     \
+                case _dimension:                                                        \
                     return __array_element_command_manager.template get_command<        \
-                       xil_type_t::_d1, xil_type_t::_d2                                 \
-                    >(__array_dimension(ctx, xil.type_ref()));
+                        __StArrayCmd(push, _xt1, _xt2, _dimension),                     \
+                        xil_type_t::_xt1, xil_type_t::_xt2, _dimension                  \
+                    >(dimension);
 
-            #define __CaseArrayElements(_d2)                                            \
-                                                                                        \
-                __CaseArrayElement(int8,        _d2)                                    \
-                __CaseArrayElement(uint8,       _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int16,       _d2)                                    \
-                __CaseArrayElement(uint16,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int32,       _d2)                                    \
-                __CaseArrayElement(uint32,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int64,       _d2)                                    \
-                __CaseArrayElement(uint64,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(float_,      _d2)                                    \
-                __CaseArrayElement(double_,     _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(char_,       _d2)                                    \
-                __CaseArrayElement(bool_,       _d2)
+            #define __CaseArrayElement(_xt1, _xt2)                                      \
+                case __V(xil_storage_type_t::array_element, xil_type_t::_xt1, xil_type_t::_xt2): { \
+                    dimension_t dimension = __array_dimension(ctx, xil.type_ref());     \
+                    switch (dimension <= 8? dimension : 0)                              \
+                    {                                                                   \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 0, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 1, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 2, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 3, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 4, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 5, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 6, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 7, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 8, dimension)          \
+                    }                                                                   \
+                }   break;
+
+            #define __CaseArrayElements(_xt2)                                           \
+                __CaseArrayElement(int8,    _xt2)                                       \
+                __CaseArrayElement(uint8,   _xt2)                                       \
+                __CaseArrayElement(int16,   _xt2)                                       \
+                __CaseArrayElement(uint16,  _xt2)                                       \
+                __CaseArrayElement(int32,   _xt2)                                       \
+                __CaseArrayElement(uint32,  _xt2)                                       \
+                __CaseArrayElement(int64,   _xt2)                                       \
+                __CaseArrayElement(uint64,  _xt2)                                       \
+                __CaseArrayElement(float_,  _xt2)                                       \
+                __CaseArrayElement(double_, _xt2)                                       \
+                __CaseArrayElement(char_,   _xt2)                                       \
+                __CaseArrayElement(bool_,   _xt2)
 
             __CaseArrayElements(int8)
             __CaseArrayElements(uint8)
-
             __CaseArrayElements(int16)
             __CaseArrayElements(uint16)
-
             __CaseArrayElements(int32)
             __CaseArrayElements(uint32)
-
             __CaseArrayElements(int64)
             __CaseArrayElements(uint64)
-
             __CaseArrayElements(float_)
             __CaseArrayElements(double_)
-
             __CaseArrayElements(char_)
             __CaseArrayElements(bool_)
-
             __CaseArrayElement(object,  object)
             __CaseArrayElement(string,  string)
             __CaseArrayElement(ptr,     ptr)
 
             #undef __CaseArrayElement
             #undef __CaseArrayElements
+            #undef __CaseArrayElement_Dimension
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Push Convert
 
-            #define __CaseConvert(_d1, _d2)                                             \
-                case __V(xil_storage_type_t::convert, xil_type_t::_d1, xil_type_t::_d2):\
+            #define __CaseConvert(_xt1, _xt2)                                           \
+                case __V(xil_storage_type_t::convert, xil_type_t::_xt1, xil_type_t::_xt2):  \
                     return __convert_command_manager.template get_command<              \
-                        xil_type_t::_d1, xil_type_t::_d2                                \
+                        __StCmd(push, convert, _xt1, _xt2),                             \
+                        xil_type_t::_xt1, xil_type_t::_xt2                              \
                     >();
 
-            #define __CaseConverts(_d2)                                                 \
-                                                                                        \
-                __CaseConvert(int8,       _d2)                                          \
-                __CaseConvert(uint8,      _d2)                                          \
-                                                                                        \
-                __CaseConvert(int16,      _d2)                                          \
-                __CaseConvert(uint16,     _d2)                                          \
-                                                                                        \
-                __CaseConvert(int32,      _d2)                                          \
-                __CaseConvert(uint32,     _d2)                                          \
-                                                                                        \
-                __CaseConvert(int64,      _d2)                                          \
-                __CaseConvert(uint64,     _d2)                                          \
-                                                                                        \
-                __CaseConvert(float_,     _d2)                                          \
-                __CaseConvert(double_,    _d2)                                          \
-                                                                                        \
-                __CaseConvert(char_,      _d2)                                          \
-                __CaseConvert(bool_,      _d2)
-
+            #define __CaseConverts(_xt2)                                                \
+                __CaseConvert(int8,       _xt2)                                         \
+                __CaseConvert(uint8,      _xt2)                                         \
+                __CaseConvert(int16,      _xt2)                                         \
+                __CaseConvert(uint16,     _xt2)                                         \
+                __CaseConvert(int32,      _xt2)                                         \
+                __CaseConvert(uint32,     _xt2)                                         \
+                __CaseConvert(int64,      _xt2)                                         \
+                __CaseConvert(uint64,     _xt2)                                         \
+                __CaseConvert(float_,     _xt2)                                         \
+                __CaseConvert(double_,    _xt2)                                         \
+                __CaseConvert(char_,      _xt2)                                         \
+                __CaseConvert(bool_,      _xt2)
 
             __CaseConverts(int8)
             __CaseConverts(uint8)
-
             __CaseConverts(int16)
             __CaseConverts(uint16)
-
             __CaseConverts(int32)
             __CaseConverts(uint32)
-
             __CaseConverts(int64)
             __CaseConverts(uint64)
-
             __CaseConverts(float_)
             __CaseConverts(double_)
-
             __CaseConverts(char_)
             __CaseConverts(bool_)
-
             __CaseConvert(object, object)
             __CaseConvert(string, string)
             __CaseConvert(ptr,    ptr)
@@ -1670,9 +1714,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
             default:
-                _PF(_T("push %1% %2% %3%"), xil.stype(), dtype1, dtype2);
+                _PF(_T("push %1% %2% %3%"), xil.stype(), xt1, xt2);
                 X_UNEXPECTED();
         }
+
+        X_UNEXPECTED();
 
         #undef __V
         #undef __ConstantStringValue
@@ -1682,14 +1728,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // Class __pop_command_t
 
-    #define __ToPopCmdValue(_stype, _xil_type1, _xil_type2)                             \
-        __ToCmdValue(pop,                                                               \
-            ((cmd_value_t)xil_storage_type_t::_stype << 16) |                           \
-            ((cmd_value_t)_xil_type1 << 8) |                                            \
-            ((cmd_value_t)_xil_type2)                                                   \
-        )
-
-    template<xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
+    template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
     class __pop_command_t { };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1699,12 +1738,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __PopCommand_ToString(_st, _xt1, _xt2, _v)                                  \
         __BeginToString()                                                               \
                                                                                         \
-            if (xil_type_t::_xt1 == xil_type_t::_xt2)                                   \
-                return _F(_T("pop  %1% %2% [%3%]"), xil_storage_type_t::_st,            \
-                    xil_type_t::_xt1, _v);                                              \
+            if (_xt1 == _xt2)                                                           \
+                return _F(_T("pop  %1% %2% [%3%]"), xil_storage_type_t::_st, _xt1, _v); \
                                                                                         \
             return _F(_T("pop  %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
-                        xil_type_t::_xt2, xil_type_t::_xt1, _v);                        \
+                        _xt2, _xt1, _v);                                                \
         __EndToString()
 
     #else
@@ -1716,9 +1754,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
     // Pop local commands
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_command_t<xil_storage_type_t::local, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pop_command_t<_cv, xil_storage_type_t::local, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __pop_command_t     __self_t;
         typedef __vnum_t<_xt1>      __value1_t;
@@ -1729,7 +1767,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PopCommand_ToString(local, _xt1, _xt2, __This->__offset)
 
-        __BeginExecute(ctx, __ToPopCmdValue(local, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(
                 ctx.stack.pop<__value2_t>()
@@ -1741,12 +1779,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __offset_t __offset;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, local, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
     // Pop argument commands
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_command_t<xil_storage_type_t::argument, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pop_command_t<_cv, xil_storage_type_t::argument, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __pop_command_t     __self_t;
         typedef __vnum_t<_xt1>      __value1_t;
@@ -1757,7 +1799,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PopCommand_ToString(argument, _xt1, _xt2, __This->__offset)
 
-        __BeginExecute(ctx, __ToPopCmdValue(argument, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             __Argument(__value1_t, __This->__offset + __stack_stub_size) =
                 static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
@@ -1768,11 +1810,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __offset_t __offset;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, argument, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_command_t<xil_storage_type_t::field, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pop_command_t<_cv, xil_storage_type_t::field, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __pop_command_t     __self_t;
         typedef __vnum_t<_xt1>      __value1_t;
@@ -1783,7 +1829,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PopCommand_ToString(field, _xt1, _xt2, __This->__offset)
 
-        __BeginExecute(ctx, __ToPopCmdValue(field, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             void * field = __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset);
             *(__value1_t *)field = static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
@@ -1794,34 +1840,30 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __offset_t __offset;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, field, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
 
     struct __pop_command_template_t
     {
-        template<xil_storage_type_t _stype, xil_type_t _dtype1, xil_type_t _dtype2,
+        template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2,
                                                             typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __pop_command_t<_stype, _dtype1, _dtype2> this_command_t;
+            typedef __pop_command_t<_cv, _st, _xt1, _xt2> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    #define __ToPopArrayElementCmdValue(_xil_type1, _xil_type2, _dimension) (           \
-        __ToCmdValue(pop,                                                               \
-            ((cmd_value_t)xil_storage_type_t::array_element << 16)                      \
-            | (((cmd_value_t)_xil_type1) << 12)                                         \
-            | (((cmd_value_t)_xil_type2) << 8)                                          \
-        )   | (cmd_value_t)_dimension                                                   \
-    )
-
-    template<xil_type_t _xil_type1, xil_type_t _xil_type2, int _dimension>
-    class __pop_array_element_command_t : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, int _dimension>
+    class __pop_array_element_command_t : public __command_base_t<_cv>
     {
-        typedef __vnum_t<_xil_type1> __value1_t;
-        typedef __vnum_t<_xil_type2> __value2_t;
+        typedef __vnum_t<_xt1> __value1_t;
+        typedef __vnum_t<_xt2> __value2_t;
 
     public:
 
@@ -1833,7 +1875,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #endif  // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type1, _xil_type2, _dimension))
+        __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
@@ -1853,12 +1895,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<xil_type_t _xil_type1, xil_type_t _xil_type2>
-    class __pop_array_element_command_t<_xil_type1, _xil_type2, 0> : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pop_array_element_command_t<_cv, _xt1, _xt2, 0> : public __command_base_t<_cv>
     {
         typedef __pop_array_element_command_t   __self_t;
-        typedef __vnum_t<_xil_type1>            __value1_t;
-        typedef __vnum_t<_xil_type2>            __value2_t;
+        typedef __vnum_t<_xt1>                  __value1_t;
+        typedef __vnum_t<_xt2>                  __value2_t;
 
     public:
 
@@ -1872,7 +1914,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #endif  // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToPopArrayElementCmdValue(_xil_type1, _xil_type2, 0))
+        __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
@@ -1890,56 +1932,67 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         dimension_t __dimension;
     };
 
+    #define __CaseDimensionXilTypePair( _xt1, _xt2, _deminision )                       \
+        __DefineStArrayCmdValue(pop, _xt1, _xt2, _deminision)
+
+    __EachDimensionXilTypePairs()
+
+    #undef __CaseDimensionXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
 
     struct __pop_array_element_command_template_t
     {
-        template<xil_type_t _dtype1, xil_type_t _dtype2, typename ... _args_t>
-        static auto new_command(memory_t * memory, int dimension, _args_t && ... args)
-            -> command_t *
+        template<dimension_t _dimension> struct __new_t
         {
-            #define __NewCommand(_dimension)                                            \
-                __new_command<__pop_array_element_command_t<_dtype1, _dtype2, _dimension>>(   \
-                    memory, std::forward<_args_t>(args) ...                             \
-                )
-
-            switch (dimension)
+            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
+            static command_t * new_(memory_t * memory, dimension_t dimension,
+                _args_t && ... args)
             {
-                #define __Case(_dimension)                                              \
-                    case _dimension:                                                    \
-                        return __NewCommand(_dimension);
-
-                __Case(1)
-                __Case(2)
-                __Case(3)
-                __Case(4)
-                __Case(5)
-                __Case(6)
-                __Case(7)
-                __Case(8)
-
-                default:
-                    return __new_command<__pop_array_element_command_t<_dtype1, _dtype2, 0>>(
-                        memory, dimension, std::forward<_args_t>(args) ...
-                    );
-
-                #undef __Case
+                return __new_command<__pop_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
+                    memory, std::forward<_args_t>(args) ...
+                );
             }
+        };
 
-            #undef __NewCommand
+        template<> struct __new_t<0>
+        {
+            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
+            static command_t * new_(memory_t * memory, dimension_t dimension,
+                _args_t && ... args)
+            {
+                return __new_command<__pop_array_element_command_t<_cv, _xt1, _xt2, 0>>(
+                    memory, dimension, std::forward<_args_t>(args) ...
+                );
+            }
+        };
+
+        template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2,
+            dimension_t _dimension, typename ... _args_t
+        >
+        static command_t * new_command(memory_t * memory, dimension_t dimension,
+            _args_t && ... args)
+        {
+            return __new_t<_dimension>::template new_<_cv, _xt1, _xt2>(
+                memory, dimension, std::forward<_args_t>(args) ...
+            );
         }
     };
 
+
     //-------- ---------- ---------- ---------- ----------
 
-    template<__nokey_t>
-    class __pop_empty_command_t : public __command_base_t
+    #define __PopEmptyCmd   __Cmd(pop, empty)
+    __DefineCmdValue_(__PopEmptyCmd)
+
+    class __pop_empty_command_t : public __command_base_t<__PopEmptyCmd>
     {
         typedef __pop_empty_command_t   __self_t;
+
     public:
         __pop_empty_command_t(msize_t unit_size) : __unit_size(unit_size) { }
 
-        __BeginExecute(ctx, __ToPopCmdValue(empty, 0, 0))
+        __BeginExecute(ctx)
 
             ctx.stack.pop(__This->__unit_size);
 
@@ -1951,10 +2004,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __pop_empty_command_template_t
     {
-        template<__nokey_t nokey, typename ... args_t>
+        template<command_value_t _cv, typename ... args_t>
         static auto new_command(memory_t * memory, args_t && ... args)
         {
-            typedef __pop_empty_command_t<nokey> this_command_t;
+            typedef __pop_empty_command_t this_command_t;
             return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
         }
     };
@@ -1984,16 +2037,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<msize_t> __command_manager;
 
         static __command_manager_t<
-            __pop_empty_command_template_t, __nokey_t
+            __pop_empty_command_template_t
         >::with_args_t<msize_t> __empty_command_manager;
 
         static __command_manager_t<
-            __pop_array_element_command_template_t, xil_type_t, xil_type_t
+            __pop_array_element_command_template_t, xil_type_t, xil_type_t, dimension_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
         if (xil.stype() == xil_storage_type_t::empty)
         {
-            return __empty_command_manager.template get_command<__nokey>(
+            return __empty_command_manager.template get_command<__PopEmptyCmd>(
                 __unit_size_of_pop_empty(ctx, xil)
             );
         }
@@ -2008,55 +2061,42 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         switch (__V(stype, dtype1, dtype2))
         {
-            #define __Case(_s, _d1, _d2)                                                \
-                case __V(xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2):     \
-                    return __command_manager.template get_command<                      \
-                        xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2        \
-                    >(ctx.locals_layout.offset_of(xil.get_identity()));
-
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pop Local
 
-            #define __CaseLocal(_d1, _d2)  __Case(local, _d1, _d2)
+            #define __CaseLocal(_xt1, _xt2)                                             \
+                case __V(xil_storage_type_t::local, xil_type_t::_xt1, xil_type_t::_xt2):\
+                    return __command_manager.template get_command<                      \
+                        __StCmd(pop, local, _xt1, _xt2),                                \
+                        xil_storage_type_t::local, xil_type_t::_xt1, xil_type_t::_xt2   \
+                    >(ctx.locals_layout.offset_of(xil.get_identity()));
 
-            #define __CaseLocals(_d2)                                                   \
-                                                                                        \
-                __CaseLocal(int8,       _d2)                                            \
-                __CaseLocal(uint8,      _d2)                                            \
-                                                                                        \
-                __CaseLocal(int16,      _d2)                                            \
-                __CaseLocal(uint16,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(int32,      _d2)                                            \
-                __CaseLocal(uint32,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(int64,      _d2)                                            \
-                __CaseLocal(uint64,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(float_,     _d2)                                            \
-                __CaseLocal(double_,    _d2)                                            \
-                                                                                        \
-                __CaseLocal(char_,      _d2)                                            \
-                __CaseLocal(bool_,      _d2)
+            #define __CaseLocals(_xt2)                                                  \
+                __CaseLocal(int8,       _xt2)                                           \
+                __CaseLocal(uint8,      _xt2)                                           \
+                __CaseLocal(int16,      _xt2)                                           \
+                __CaseLocal(uint16,     _xt2)                                           \
+                __CaseLocal(int32,      _xt2)                                           \
+                __CaseLocal(uint32,     _xt2)                                           \
+                __CaseLocal(int64,      _xt2)                                           \
+                __CaseLocal(uint64,     _xt2)                                           \
+                __CaseLocal(float_,     _xt2)                                           \
+                __CaseLocal(double_,    _xt2)                                           \
+                __CaseLocal(char_,      _xt2)                                           \
+                __CaseLocal(bool_,      _xt2)
 
             __CaseLocals(int8)
             __CaseLocals(uint8)
-
             __CaseLocals(int16)
             __CaseLocals(uint16)
-
             __CaseLocals(int32)
             __CaseLocals(uint32)
-
             __CaseLocals(int64)
             __CaseLocals(uint64)
-
             __CaseLocals(float_)
             __CaseLocals(double_)
-
             __CaseLocals(char_)
             __CaseLocals(bool_)
-
             __CaseLocal(object, object)
             __CaseLocal(string, string)
             __CaseLocal(ptr,    ptr)
@@ -2067,51 +2107,39 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pop Argument
 
-            #define __CaseArgument(_d1, _d2)                                            \
-                case __V(xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2):\
+            #define __CaseArgument(_xt1, _xt2)                                          \
+                case __V(xil_storage_type_t::argument, xil_type_t::_xt1, xil_type_t::_xt2): \
                     return __command_manager.template get_command<                      \
-                        xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2  \
+                        __StCmd(pop, argument, _xt1, _xt2),                             \
+                        xil_storage_type_t::argument, xil_type_t::_xt1, xil_type_t::_xt2\
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
-            #define __CaseArguments(_d2)                                                \
-                                                                                        \
-                __CaseArgument(int8,    _d2)                                            \
-                __CaseArgument(uint8,   _d2)                                            \
-                                                                                        \
-                __CaseArgument(int16,   _d2)                                            \
-                __CaseArgument(uint16,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(int32,   _d2)                                            \
-                __CaseArgument(uint32,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(int64,   _d2)                                            \
-                __CaseArgument(uint64,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(float_,  _d2)                                            \
-                __CaseArgument(double_, _d2)                                            \
-                                                                                        \
-                __CaseArgument(char_,   _d2)                                            \
-                __CaseArgument(bool_,   _d2)
-
+            #define __CaseArguments(_xt2)                                               \
+                __CaseArgument(int8,    _xt2)                                           \
+                __CaseArgument(uint8,   _xt2)                                           \
+                __CaseArgument(int16,   _xt2)                                           \
+                __CaseArgument(uint16,  _xt2)                                           \
+                __CaseArgument(int32,   _xt2)                                           \
+                __CaseArgument(uint32,  _xt2)                                           \
+                __CaseArgument(int64,   _xt2)                                           \
+                __CaseArgument(uint64,  _xt2)                                           \
+                __CaseArgument(float_,  _xt2)                                           \
+                __CaseArgument(double_, _xt2)                                           \
+                __CaseArgument(char_,   _xt2)                                           \
+                __CaseArgument(bool_,   _xt2)
 
             __CaseArguments(int8)
             __CaseArguments(uint8)
-
             __CaseArguments(int16)
             __CaseArguments(uint16)
-
             __CaseArguments(int32)
             __CaseArguments(uint32)
-
             __CaseArguments(int64)
             __CaseArguments(uint64)
-
             __CaseArguments(float_)
             __CaseArguments(double_)
-
             __CaseArguments(char_)
             __CaseArguments(bool_)
-
             __CaseArgument(object,  object)
             __CaseArgument(string,  string)
             __CaseArgument(ptr,     ptr)
@@ -2122,50 +2150,39 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pop Field
 
-            #define __CaseField(_d1, _d2)                                               \
-                case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):  \
+            #define __CaseField(_xt1, _xt2)                                             \
+                case __V(xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2):    \
                     return __command_manager.template get_command<                      \
-                        xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2     \
+                        __StCmd(pop, field, _xt1, _xt2),                                \
+                        xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2   \
                     >(__field_offset(ctx, xil.field_ref()));
 
-            #define __CaseFields(_d2)                                                   \
-                                                                                        \
-                __CaseField(int8,       _d2)                                            \
-                __CaseField(uint8,      _d2)                                            \
-                                                                                        \
-                __CaseField(int16,      _d2)                                            \
-                __CaseField(uint16,     _d2)                                            \
-                                                                                        \
-                __CaseField(int32,      _d2)                                            \
-                __CaseField(uint32,     _d2)                                            \
-                                                                                        \
-                __CaseField(int64,      _d2)                                            \
-                __CaseField(uint64,     _d2)                                            \
-                                                                                        \
-                __CaseField(float_,     _d2)                                            \
-                __CaseField(double_,    _d2)                                            \
-                                                                                        \
-                __CaseField(char_,      _d2)                                            \
-                __CaseField(bool_,      _d2)
+            #define __CaseFields(_xt2)                                                  \
+                __CaseField(int8,       _xt2)                                           \
+                __CaseField(uint8,      _xt2)                                           \
+                __CaseField(int16,      _xt2)                                           \
+                __CaseField(uint16,     _xt2)                                           \
+                __CaseField(int32,      _xt2)                                           \
+                __CaseField(uint32,     _xt2)                                           \
+                __CaseField(int64,      _xt2)                                           \
+                __CaseField(uint64,     _xt2)                                           \
+                __CaseField(float_,     _xt2)                                           \
+                __CaseField(double_,    _xt2)                                           \
+                __CaseField(char_,      _xt2)                                           \
+                __CaseField(bool_,      _xt2)
 
             __CaseFields(int8)
             __CaseFields(uint8)
-
             __CaseFields(int16)
             __CaseFields(uint16)
-
             __CaseFields(int32)
             __CaseFields(uint32)
-
             __CaseFields(int64)
             __CaseFields(uint64)
-
             __CaseFields(float_)
             __CaseFields(double_)
-
             __CaseFields(char_)
             __CaseFields(bool_)
-
             __CaseField(object, object)
             __CaseField(string, string)
             __CaseField(ptr,    ptr)
@@ -2176,67 +2193,72 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pop array element
 
-            #define __CaseArrayElement(_d1, _d2)                                        \
-                case __V(xil_storage_type_t::array_element, xil_type_t::_d1, xil_type_t::_d2):  \
+            #define __CaseArrayElement_Dimension(_xt1, _xt2, _dimension, dimension)     \
+                case _dimension:                                                        \
                     return __array_element_command_manager.template get_command<        \
-                        xil_type_t::_d1, xil_type_t::_d2                                \
-                    >(__array_dimension(ctx, xil.type_ref()));                          \
-                    break;
+                        __StArrayCmd(pop, _xt1, _xt2, _dimension),                      \
+                        xil_type_t::_xt1, xil_type_t::_xt2, _dimension                  \
+                    >(dimension);
 
-            #define __CaseArrayElements(_d2)                                            \
-                                                                                        \
-                __CaseArrayElement(int8,        _d2)                                    \
-                __CaseArrayElement(uint8,       _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int16,       _d2)                                    \
-                __CaseArrayElement(uint16,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int32,       _d2)                                    \
-                __CaseArrayElement(uint32,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int64,       _d2)                                    \
-                __CaseArrayElement(uint64,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(float_,      _d2)                                    \
-                __CaseArrayElement(double_,     _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(char_,       _d2)                                    \
-                __CaseArrayElement(bool_,       _d2)
+            #define __CaseArrayElement(_xt1, _xt2)                                      \
+                case __V(xil_storage_type_t::array_element, xil_type_t::_xt1, xil_type_t::_xt2): { \
+                    dimension_t dimension = __array_dimension(ctx, xil.type_ref());     \
+                    switch (dimension <= 8? dimension : 0)                              \
+                    {                                                                   \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 0, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 1, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 2, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 3, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 4, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 5, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 6, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 7, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 8, dimension)          \
+                    }                                                                   \
+                }   break;
 
+            #define __CaseArrayElements(_xt2)                                           \
+                __CaseArrayElement(int8,    _xt2)                                       \
+                __CaseArrayElement(uint8,   _xt2)                                       \
+                __CaseArrayElement(int16,   _xt2)                                       \
+                __CaseArrayElement(uint16,  _xt2)                                       \
+                __CaseArrayElement(int32,   _xt2)                                       \
+                __CaseArrayElement(uint32,  _xt2)                                       \
+                __CaseArrayElement(int64,   _xt2)                                       \
+                __CaseArrayElement(uint64,  _xt2)                                       \
+                __CaseArrayElement(float_,  _xt2)                                       \
+                __CaseArrayElement(double_, _xt2)                                       \
+                __CaseArrayElement(char_,   _xt2)                                       \
+                __CaseArrayElement(bool_,   _xt2)
 
             __CaseArrayElements(int8)
             __CaseArrayElements(uint8)
-
             __CaseArrayElements(int16)
             __CaseArrayElements(uint16)
-
             __CaseArrayElements(int32)
             __CaseArrayElements(uint32)
-
             __CaseArrayElements(int64)
             __CaseArrayElements(uint64)
-
             __CaseArrayElements(float_)
             __CaseArrayElements(double_)
-
             __CaseArrayElements(char_)
             __CaseArrayElements(bool_)
-
             __CaseArrayElement(object,  object)
             __CaseArrayElement(string,  string)
             __CaseArrayElement(ptr,     ptr)
 
             #undef __CaseArrayElement
             #undef __CaseArrayElements
+            #undef __CaseArrayElement_Dimension
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-            #undef __Case
 
             default:
                 _PF(_T("pop %1% %2% %3%"), stype, dtype1, dtype2);
                 X_UNEXPECTED();
         }
+
+        X_UNEXPECTED();
 
         #undef __V
     }
@@ -2244,14 +2266,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // Class __pick_command_t
 
-    #define __ToPickCmdValue(_stype, _xil_type1, _xil_type2)                            \
-        __ToCmdValue(pick,                                                              \
-            ((cmd_value_t)xil_storage_type_t::_stype << 16) |                           \
-            ((cmd_value_t)_xil_type1 << 8) |                                            \
-            ((cmd_value_t)_xil_type2)                                                   \
-        )
-
-    template<xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
+    template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
     class __pick_command_t { };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2262,12 +2277,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                                                                                         \
         __BeginToString()                                                               \
                                                                                         \
-            if (xil_type_t::_xt1 == xil_type_t::_xt2)                                   \
-                return _F(_T("pick %1% %2% [%3%]"), xil_storage_type_t::_st,            \
-                    xil_type_t::_xt1, _v);                                              \
+            if (_xt1 == _xt2)                                                           \
+                return _F(_T("pick %1% %2% [%3%]"), xil_storage_type_t::_st,_xt1, _v);  \
                                                                                         \
             return _F(_T("pick %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
-                        xil_type_t::_xt2, xil_type_t::_xt1, _v);                        \
+                        _xt2, _xt1, _v);                                                \
                                                                                         \
         __EndToString()                                                                 \
 
@@ -2280,9 +2294,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
     // Pick local commands
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __pick_command_t<xil_storage_type_t::local, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pick_command_t<_cv, xil_storage_type_t::local, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __pick_command_t        __self_t;
         typedef __vnum_t<_xt1>          __value1_t;
@@ -2293,7 +2307,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PickCommand_ToString(local, _xt1, _xt2, __This->__offset)
 
-        __BeginExecute(ctx, __ToPickCmdValue(local, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(
                 ctx.stack.pick<__value2_t>()
@@ -2305,12 +2319,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __offset_t __offset;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pick, local, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
     // Pick argument commands
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __pick_command_t<xil_storage_type_t::argument, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pick_command_t<_cv, xil_storage_type_t::argument, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __pick_command_t        __self_t;
         typedef __vnum_t<_xt1>          __value1_t;
@@ -2321,7 +2339,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PickCommand_ToString(argument, _xt1, _xt2, __This->__offset)
 
-        __BeginExecute(ctx, __ToPickCmdValue(argument, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             __Argument(__value1_t, __This->__offset + __stack_stub_size) =
                 static_cast<__value1_t>(ctx.stack.pick<__value2_t>());
@@ -2332,12 +2350,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __offset_t __offset;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pick, argument, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
     // Pick field commands
 
-    template<xil_type_t _xt1, xil_type_t _xt2>
-    class __pick_command_t<xil_storage_type_t::field, _xt1, _xt2>
-        : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pick_command_t<_cv, xil_storage_type_t::field, _xt1, _xt2>
+        : public __command_base_t<_cv>
     {
         typedef __pick_command_t        __self_t;
         typedef __vnum_t<_xt1>          __value1_t;
@@ -2348,7 +2370,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __PickCommand_ToString(field, _xt1, _xt2, __This->__offset)
 
-        __BeginExecute(ctx, __ToPickCmdValue(field, _xt1, _xt2))
+        __BeginExecute(ctx)
 
             void * field = __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset);
             *(__value1_t *)field = static_cast<__value1_t>(ctx.stack.pick<__value2_t>());
@@ -2359,36 +2381,31 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __offset_t __offset;
     };
 
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pick, field, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
 
     struct __pick_command_template_t
     {
-        template<xil_storage_type_t _stype, xil_type_t _dtype1, xil_type_t _dtype2,
-                                                                typename ... _args_t>
+        template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2,
+                                                            typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __pick_command_t<_stype, _dtype1, _dtype2> this_command_t;
+            typedef __pick_command_t<_cv, _st, _xt1, _xt2> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    #define __ToPickArrayElementCmdValue(_xil_type1, _xil_type2, _dimension) (          \
-        __ToCmdValue(pick,                                                              \
-            ((cmd_value_t)xil_storage_type_t::array_element << 16)                      \
-            | (((cmd_value_t)_xil_type1) << 12)                                         \
-            | (((cmd_value_t)_xil_type2) << 8)                                          \
-        )   | (cmd_value_t)_dimension                                                   \
-    )
-
-
-    template<xil_type_t _xil_type1, xil_type_t _xil_type2, int _dimension>
-    class __pick_array_element_command_t : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, int _dimension>
+    class __pick_array_element_command_t : public __command_base_t<_cv>
     {
         typedef __pick_array_element_command_t  __self_t;
-        typedef __vnum_t<_xil_type1>            __value1_t;
-        typedef __vnum_t<_xil_type2>            __value2_t;
+        typedef __vnum_t<_xt1>                  __value1_t;
+        typedef __vnum_t<_xt2>                  __value2_t;
 
     public:
 
@@ -2400,7 +2417,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #endif      // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToPickArrayElementCmdValue(_xil_type1, _xil_type2, _dimension))
+        __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
@@ -2420,12 +2437,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<xil_type_t _xil_type1, xil_type_t _xil_type2>
-    class __pick_array_element_command_t<_xil_type1, _xil_type2, 0> : public __command_base_t
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pick_array_element_command_t<_cv, _xt1, _xt2, 0> : public __command_base_t<_cv>
     {
         typedef __pick_array_element_command_t  __self_t;
-        typedef __vnum_t<_xil_type1>            __value1_t;
-        typedef __vnum_t<_xil_type2>            __value2_t;
+        typedef __vnum_t<_xt1>                  __value1_t;
+        typedef __vnum_t<_xt2>                  __value2_t;
 
     public:
 
@@ -2439,7 +2456,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #endif  // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToPickArrayElementCmdValue(_xil_type1, _xil_type2, 0))
+        __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
@@ -2457,45 +2474,53 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         dimension_t __dimension;
     };
 
+    #define __CaseDimensionXilTypePair( _xt1, _xt2, _deminision )                       \
+        __DefineStArrayCmdValue(pick, _xt1, _xt2, _deminision)
+
+    __EachDimensionXilTypePairs()
+
+    #undef __CaseDimensionXilTypePair
+
     //-------- ---------- ---------- ---------- ----------
 
     struct __pick_array_element_command_template_t
     {
-        template<xil_type_t _dtype1, xil_type_t _dtype2, typename ... _args_t>
-        static auto new_command(memory_t * memory, int dimension, _args_t && ... args)
-            -> command_t *
+        template<dimension_t _dimension> struct __new_t
         {
-            #define __NewCommand(_dimension)                                            \
-                __new_command<__pick_array_element_command_t<_dtype1, _dtype2, _dimension>>(   \
-                    memory, std::forward<_args_t>(args) ...                             \
-                )
-
-            switch (dimension)
+            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
+            static command_t * new_(memory_t * memory, dimension_t dimension,
+                _args_t && ... args)
             {
-                #define __Case(_dimension)                                              \
-                    case _dimension:                                                    \
-                        return __NewCommand(_dimension);
-
-                __Case(1)
-                __Case(2)
-                __Case(3)
-                __Case(4)
-                __Case(5)
-                __Case(6)
-                __Case(7)
-                __Case(8)
-
-                default:
-                    return __new_command<__pick_array_element_command_t<_dtype1, _dtype2, 0>>(
-                        memory, dimension, std::forward<_args_t>(args) ...
-                    );
-
-                #undef __Case
+                return __new_command<__pick_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
+                    memory, std::forward<_args_t>(args) ...
+                );
             }
+        };
 
-            #undef __NewCommand
+        template<> struct __new_t<0>
+        {
+            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
+            static command_t * new_(memory_t * memory, dimension_t dimension,
+                _args_t && ... args)
+            {
+                return __new_command<__pick_array_element_command_t<_cv, _xt1, _xt2, 0>>(
+                    memory, dimension, std::forward<_args_t>(args) ...
+                );
+            }
+        };
+
+        template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2,
+            dimension_t _dimension, typename ... _args_t
+        >
+        static command_t * new_command(memory_t * memory, dimension_t dimension,
+            _args_t && ... args)
+        {
+            return __new_t<_dimension>::template new_<_cv, _xt1, _xt2>(
+                memory, dimension, std::forward<_args_t>(args) ...
+            );
         }
     };
+
 
 
     //-------- ---------- ---------- ---------- ----------
@@ -2507,7 +2532,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<msize_t> __command_manager;
 
         static __command_manager_t<
-            __pick_array_element_command_template_t, xil_type_t, xil_type_t
+            __pick_array_element_command_template_t, xil_type_t, xil_type_t, dimension_t
         >::with_args_t<dimension_t> __array_element_command_manager;
 
         #define __V(_s, _d1, _d2)                                                       \
@@ -2520,56 +2545,43 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         switch (__V(stype, dtype1, dtype2))
         {
-            #define __Case(_s, _d1, _d2)                                                \
-                case __V(xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2):     \
-                    return __command_manager.template get_command<                      \
-                        xil_storage_type_t::_s, xil_type_t::_d1, xil_type_t::_d2        \
-                    >(ctx.locals_layout.offset_of(xil.get_identity()));
-
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pick Local
 
-            #define __CaseLocal(_d1, _d2)  __Case(local, _d1, _d2)
+            #define __CaseLocal(_xt1, _xt2)                                             \
+                case __V(xil_storage_type_t::local, xil_type_t::_xt1, xil_type_t::_xt2):    \
+                    return __command_manager.template get_command<                      \
+                        __StCmd(pick, local, _xt1, _xt2),                               \
+                        xil_storage_type_t::local, xil_type_t::_xt1, xil_type_t::_xt2   \
+                    >(ctx.locals_layout.offset_of(xil.get_identity()));
 
-            #define __CaseLocals(_d2)                                                   \
-                                                                                        \
-                __CaseLocal(int8,       _d2)                                            \
-                __CaseLocal(uint8,      _d2)                                            \
-                                                                                        \
-                __CaseLocal(int16,      _d2)                                            \
-                __CaseLocal(uint16,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(int32,      _d2)                                            \
-                __CaseLocal(uint32,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(int64,      _d2)                                            \
-                __CaseLocal(uint64,     _d2)                                            \
-                                                                                        \
-                __CaseLocal(float_,     _d2)                                            \
-                __CaseLocal(double_,    _d2)                                            \
-                                                                                        \
-                __CaseLocal(char_,      _d2)                                            \
-                __CaseLocal(bool_,      _d2)
+            #define __CaseLocals(_xt2)                                                  \
+                __CaseLocal(int8,       _xt2)                                           \
+                __CaseLocal(uint8,      _xt2)                                           \
+                __CaseLocal(int16,      _xt2)                                           \
+                __CaseLocal(uint16,     _xt2)                                           \
+                __CaseLocal(int32,      _xt2)                                           \
+                __CaseLocal(uint32,     _xt2)                                           \
+                __CaseLocal(int64,      _xt2)                                           \
+                __CaseLocal(uint64,     _xt2)                                           \
+                __CaseLocal(float_,     _xt2)                                           \
+                __CaseLocal(double_,    _xt2)                                           \
+                __CaseLocal(char_,      _xt2)                                           \
+                __CaseLocal(bool_,      _xt2)
 
 
             __CaseLocals(int8)
             __CaseLocals(uint8)
-
             __CaseLocals(int16)
             __CaseLocals(uint16)
-
             __CaseLocals(int32)
             __CaseLocals(uint32)
-
             __CaseLocals(int64)
             __CaseLocals(uint64)
-
             __CaseLocals(float_)
             __CaseLocals(double_)
-
             __CaseLocals(char_)
             __CaseLocals(bool_)
-
             __CaseLocal(object, object)
             __CaseLocal(string, string)
             __CaseLocal(ptr,    ptr)
@@ -2580,51 +2592,39 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pick Argument
 
-            #define __CaseArgument(_d1, _d2)                                            \
-                case __V(xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2):   \
+            #define __CaseArgument(_xt1, _xt2)                                          \
+                case __V(xil_storage_type_t::argument, xil_type_t::_xt1, xil_type_t::_xt2): \
                     return __command_manager.template get_command<                      \
-                        xil_storage_type_t::argument, xil_type_t::_d1, xil_type_t::_d2  \
+                        __StCmd(pick, argument, _xt1, _xt2),                            \
+                        xil_storage_type_t::argument, xil_type_t::_xt1, xil_type_t::_xt2    \
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
-            #define __CaseArguments(_d2)                                                \
-                                                                                        \
-                __CaseArgument(int8,    _d2)                                            \
-                __CaseArgument(uint8,   _d2)                                            \
-                                                                                        \
-                __CaseArgument(int16,   _d2)                                            \
-                __CaseArgument(uint16,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(int32,   _d2)                                            \
-                __CaseArgument(uint32,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(int64,   _d2)                                            \
-                __CaseArgument(uint64,  _d2)                                            \
-                                                                                        \
-                __CaseArgument(float_,  _d2)                                            \
-                __CaseArgument(double_, _d2)                                            \
-                                                                                        \
-                __CaseArgument(char_,   _d2)                                            \
-                __CaseArgument(bool_,   _d2)
-
+            #define __CaseArguments(_xt2)                                               \
+                __CaseArgument(int8,    _xt2)                                           \
+                __CaseArgument(uint8,   _xt2)                                           \
+                __CaseArgument(int16,   _xt2)                                           \
+                __CaseArgument(uint16,  _xt2)                                           \
+                __CaseArgument(int32,   _xt2)                                           \
+                __CaseArgument(uint32,  _xt2)                                           \
+                __CaseArgument(int64,   _xt2)                                           \
+                __CaseArgument(uint64,  _xt2)                                           \
+                __CaseArgument(float_,  _xt2)                                           \
+                __CaseArgument(double_, _xt2)                                           \
+                __CaseArgument(char_,   _xt2)                                           \
+                __CaseArgument(bool_,   _xt2)
 
             __CaseArguments(int8)
             __CaseArguments(uint8)
-
             __CaseArguments(int16)
             __CaseArguments(uint16)
-
             __CaseArguments(int32)
             __CaseArguments(uint32)
-
             __CaseArguments(int64)
             __CaseArguments(uint64)
-
             __CaseArguments(float_)
             __CaseArguments(double_)
-
             __CaseArguments(char_)
             __CaseArguments(bool_)
-
             __CaseArgument(object,  object)
             __CaseArgument(string,  string)
             __CaseArgument(ptr,     ptr)
@@ -2635,50 +2635,39 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pick Field
 
-            #define __CaseField(_d1, _d2)                                               \
-                case __V(xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2):  \
+            #define __CaseField(_xt1, _xt2)                                             \
+                case __V(xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2):    \
                     return __command_manager.template get_command<                      \
-                        xil_storage_type_t::field, xil_type_t::_d1, xil_type_t::_d2     \
+                        __StCmd(pick, field, _xt1, _xt2),                               \
+                        xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2   \
                     >(__field_offset(ctx, xil.field_ref()));
 
-            #define __CaseFields(_d2)                                                   \
-                                                                                        \
-                __CaseField(int8,       _d2)                                            \
-                __CaseField(uint8,      _d2)                                            \
-                                                                                        \
-                __CaseField(int16,      _d2)                                            \
-                __CaseField(uint16,     _d2)                                            \
-                                                                                        \
-                __CaseField(int32,      _d2)                                            \
-                __CaseField(uint32,     _d2)                                            \
-                                                                                        \
-                __CaseField(int64,      _d2)                                            \
-                __CaseField(uint64,     _d2)                                            \
-                                                                                        \
-                __CaseField(float_,     _d2)                                            \
-                __CaseField(double_,    _d2)                                            \
-                                                                                        \
-                __CaseField(char_,      _d2)                                            \
-                __CaseField(bool_,      _d2)
+            #define __CaseFields(_xt2)                                                  \
+                __CaseField(int8,       _xt2)                                           \
+                __CaseField(uint8,      _xt2)                                           \
+                __CaseField(int16,      _xt2)                                           \
+                __CaseField(uint16,     _xt2)                                           \
+                __CaseField(int32,      _xt2)                                           \
+                __CaseField(uint32,     _xt2)                                           \
+                __CaseField(int64,      _xt2)                                           \
+                __CaseField(uint64,     _xt2)                                           \
+                __CaseField(float_,     _xt2)                                           \
+                __CaseField(double_,    _xt2)                                           \
+                __CaseField(char_,      _xt2)                                           \
+                __CaseField(bool_,      _xt2)
 
             __CaseFields(int8)
             __CaseFields(uint8)
-
             __CaseFields(int16)
             __CaseFields(uint16)
-
             __CaseFields(int32)
             __CaseFields(uint32)
-
             __CaseFields(int64)
             __CaseFields(uint64)
-
             __CaseFields(float_)
             __CaseFields(double_)
-
             __CaseFields(char_)
             __CaseFields(bool_)
-
             __CaseField(object, object)
             __CaseField(string, string)
             __CaseField(ptr,    ptr)
@@ -2689,66 +2678,71 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pick array element
 
-            #define __CaseArrayElement(_d1, _d2)                                        \
-                case __V(xil_storage_type_t::array_element, xil_type_t::_d1, xil_type_t::_d2):  \
+            #define __CaseArrayElement_Dimension(_xt1, _xt2, _dimension, dimension)     \
+                case _dimension:                                                        \
                     return __array_element_command_manager.template get_command<        \
-                        xil_type_t::_d1, xil_type_t::_d2                                \
-                    >(__array_dimension(ctx, xil.type_ref()));                          \
-                    break;
+                        __StArrayCmd(pick, _xt1, _xt2, _dimension),                     \
+                        xil_type_t::_xt1, xil_type_t::_xt2, _dimension                  \
+                    >(dimension);
 
-            #define __CaseArrayElements(_d2)                                            \
-                                                                                        \
-                __CaseArrayElement(int8,        _d2)                                    \
-                __CaseArrayElement(uint8,       _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int16,       _d2)                                    \
-                __CaseArrayElement(uint16,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int32,       _d2)                                    \
-                __CaseArrayElement(uint32,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(int64,       _d2)                                    \
-                __CaseArrayElement(uint64,      _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(float_,      _d2)                                    \
-                __CaseArrayElement(double_,     _d2)                                    \
-                                                                                        \
-                __CaseArrayElement(char_,       _d2)                                    \
-                __CaseArrayElement(bool_,       _d2)
+            #define __CaseArrayElement(_xt1, _xt2)                                      \
+                case __V(xil_storage_type_t::array_element, xil_type_t::_xt1, xil_type_t::_xt2): { \
+                    dimension_t dimension = __array_dimension(ctx, xil.type_ref());     \
+                    switch (dimension <= 8? dimension : 0)                              \
+                    {                                                                   \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 0, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 1, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 2, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 3, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 4, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 5, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 6, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 7, dimension)          \
+                        __CaseArrayElement_Dimension(_xt1, _xt2, 8, dimension)          \
+                    }                                                                   \
+                }   break;
 
+            #define __CaseArrayElements(_xt2)                                           \
+                __CaseArrayElement(int8,    _xt2)                                       \
+                __CaseArrayElement(uint8,   _xt2)                                       \
+                __CaseArrayElement(int16,   _xt2)                                       \
+                __CaseArrayElement(uint16,  _xt2)                                       \
+                __CaseArrayElement(int32,   _xt2)                                       \
+                __CaseArrayElement(uint32,  _xt2)                                       \
+                __CaseArrayElement(int64,   _xt2)                                       \
+                __CaseArrayElement(uint64,  _xt2)                                       \
+                __CaseArrayElement(float_,  _xt2)                                       \
+                __CaseArrayElement(double_, _xt2)                                       \
+                __CaseArrayElement(char_,   _xt2)                                       \
+                __CaseArrayElement(bool_,   _xt2)
 
             __CaseArrayElements(int8)
             __CaseArrayElements(uint8)
-
             __CaseArrayElements(int16)
             __CaseArrayElements(uint16)
-
             __CaseArrayElements(int32)
             __CaseArrayElements(uint32)
-
             __CaseArrayElements(int64)
             __CaseArrayElements(uint64)
-
             __CaseArrayElements(float_)
             __CaseArrayElements(double_)
-
             __CaseArrayElements(char_)
             __CaseArrayElements(bool_)
-
             __CaseArrayElement(object,  object)
             __CaseArrayElement(string,  string)
             __CaseArrayElement(ptr,     ptr)
 
             #undef __CaseArrayElement
             #undef __CaseArrayElements
+            #undef __CaseArrayElement_Dimension
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-            #undef __Case
 
             default:
                 X_UNEXPECTED();
         }
+
+        X_UNEXPECTED();
 
         #undef __V
     }
@@ -2772,19 +2766,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
     // Class __call_command_t
 
-    #define __ToCallCmdValue_(_call_type, _method_t)                                    \
-        __ToCmdValue(call,                                                              \
-            ((cmd_value_t)xil_call_type_t::_call_type << 8) |                           \
-            (cmd_value_t)rt_tidx<_method_t>()                                           \
-        )
+    #define __CallCmd_(_call_type, _method_type)    __Cmd(call, _call_type##_##_method_type)
+    #define __CallCmd(_call_type)                   __Cmd(call, _call_type)
 
-    #define __ToCallCmdValue(_call_type)                                                \
-        __ToCmdValue(call, xil_call_type_t::_call_type)
+    __DefineCmdValue_(__CallCmd(virtual_))
+
+    __DefineCmdValue_(__CallCmd_(instance, general))
+    __DefineCmdValue_(__CallCmd_(instance, generic))
+
+    __DefineCmdValue_(__CallCmd(internal))
+
+    __DefineCmdValue_(__CallCmd_(static_,  general))
+    __DefineCmdValue_(__CallCmd_(static_,  generic))
 
     typedef rtlib::libfunc_t __libfunc_t;
 
-    template<__nokey_t>
-    class __internal_call_command_t : public __command_base_t
+    class __internal_call_command_t : public __command_base_t<__CallCmd(internal)>
     {
         typedef __internal_call_command_t   __self_t;
     public:
@@ -2803,7 +2800,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             _A(func != nullptr);
         }
 
-        __BeginExecute(ctx, __ToCallCmdValue(internal))
+        __BeginExecute(ctx)
 
             rtlib_context_t context(
                 (assembly_analyzer_t &)ctx, ctx.stack.top() - __This->__param_unit_size
@@ -2835,11 +2832,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __internal_call_command_template_t
     {
-        template<__nokey_t nokey, typename ... args_t>
+        template<command_value_t _cv, typename ... _args_t>
         static auto new_command(memory_t * memory, __libfunc_t libfunc,
                         __context_t & ctx, rt_method_t * rt_method)
         {
-            typedef __internal_call_command_t<nokey> this_command_t;
+            typedef __internal_call_command_t this_command_t;
 
             int param_unit_size, ret_unit_size;
             __get_method_unit_size(ctx, rt_method, &param_unit_size, &ret_unit_size);
@@ -2873,7 +2870,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     static command_t * __new_internal_call_command(__context_t & ctx, const call_xil_t & xil)
     {
         static __command_manager_t<
-            __internal_call_command_template_t, __nokey_t
+            __internal_call_command_template_t
         >::with_args_t<__libfunc_t> __internal_call_command_manager;
 
         ref_t method_ref = (ref_t)xil.method;
@@ -2885,17 +2882,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         if (libfunc == nullptr)
             throw _ED(exec_error_code_t::internal_function_not_found, method_name);
 
-        command_t * cmd = __internal_call_command_manager.template get_command<__nokey>(
-            __Mv(libfunc), ctx, rt_method
-        );
+        command_t * cmd = __internal_call_command_manager.template
+            get_command<__CallCmd(internal)>(libfunc, ctx, rt_method);
 
         return cmd;
     }
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<typename _rt_method_t>
-    class __call_command_base_t : public __command_base_t
+    template<command_value_t _cv, typename _rt_method_t>
+    class __call_command_base_t : public __command_base_t<_cv>
     {
         typedef __call_command_base_t   __self_t;
 
@@ -2943,16 +2939,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<typename _rt_method_t>
-    class __static_call_command_t : public __call_command_base_t<_rt_method_t>
+    template<command_value_t _cv, typename _rt_method_t>
+    class __static_call_command_t : public __call_command_base_t<_cv, _rt_method_t>
     {
-        typedef __static_call_command_t             __self_t;
-        typedef __call_command_base_t<_rt_method_t> __super_t;
+        typedef __static_call_command_t                     __self_t;
+        typedef __call_command_base_t<_cv, _rt_method_t>    __super_t;
 
     public:
         using __super_t::__super_t;
 
-        __BeginExecute(ctx, __ToCallCmdValue_(static_, _rt_method_t))
+        __BeginExecute(ctx)
 
             __pre_static_call(ctx, __This->get_type());
 
@@ -2974,14 +2970,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<typename _rt_method_t>
     struct __static_call_command_template_t
     {
-        template<__nokey_t, typename ... args_t>
+        template<command_value_t _cv, typename ... args_t>
         static auto new_command(memory_t * memory, _rt_method_t * rt_method, __context_t & ctx)
         {
-            typedef __static_call_command_t<_rt_method_t> this_command_t;
+            typedef __static_call_command_t<_cv, _rt_method_t> this_command_t;
             return __new_command<this_command_t>(memory, rt_method
-
             #if EXEC_TRACE
-            , rt_method->get_name()
+                , rt_method->get_name()
             #endif
             );
         }
@@ -2994,14 +2989,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case mt_member_extra_t::generic: {
 
                 static __command_manager_t<
-                    __static_call_command_template_t<rt_generic_method_t>, __nokey_t
+                    __static_call_command_template_t<rt_generic_method_t>
                 >::with_args_t<rt_generic_method_t *> __static_generic_call_command_manager;
 
                 rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
 
-                return __static_generic_call_command_manager.template get_command<__nokey>(
-                    __Mv(rt_generic_method), ctx
-                );
+                return __static_generic_call_command_manager.template
+                    get_command<__CallCmd_(static_, generic)>(rt_generic_method, ctx);
 
             }   break;
 
@@ -3009,13 +3003,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case mt_member_extra_t::internal: {
 
                 static __command_manager_t<
-                    __static_call_command_template_t<rt_method_t>, __nokey_t
+                    __static_call_command_template_t<rt_method_t>
                 >::with_args_t<rt_method_t *> __static_call_command_manager;
 
                 rt_method_t * rt_method = ctx.get_method(method_ref);
-                return __static_call_command_manager.template get_command<__nokey>(
-                    __Mv(rt_method), ctx
-                );
+                return __static_call_command_manager.template
+                    get_command<__CallCmd_(static_, general)>(rt_method, ctx);
 
             }   break;
 
@@ -3033,16 +3026,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<typename _rt_method_t>
-    class __instance_call_command_t : public __call_command_base_t<_rt_method_t>
+    template<command_value_t _cv, typename _rt_method_t>
+    class __instance_call_command_t : public __call_command_base_t<_cv, _rt_method_t>
     {
-        typedef __instance_call_command_t           __self_t;
-        typedef __call_command_base_t<_rt_method_t> __super_t;
+        typedef __instance_call_command_t                   __self_t;
+        typedef __call_command_base_t<_cv, _rt_method_t>    __super_t;
 
     public:
         using __super_t::__super_t;
 
-        __BeginExecute(ctx, __ToCallCmdValue_(instance, _rt_method_t))
+        __BeginExecute(ctx)
 
             exec_method_t * method = __This->__get_method(ctx);
             ctx.push_calling(method);
@@ -3062,10 +3055,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     template<typename _rt_method_t>
     struct __instance_call_command_template_t
     {
-        template<__nokey_t nokey, typename ... args_t>
+        template<command_value_t _cv, typename ... args_t>
         static auto new_command(memory_t * memory, _rt_method_t * rt_method, __context_t & ctx)
         {
-            typedef __instance_call_command_t<_rt_method_t> this_command_t;
+            typedef __instance_call_command_t<_cv, _rt_method_t> this_command_t;
             return __new_command<this_command_t>(memory, rt_method
 
             #if EXEC_TRACE
@@ -3085,14 +3078,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case mt_member_extra_t::generic: {
 
                 static __command_manager_t<
-                    __instance_call_command_template_t<rt_generic_method_t>, __nokey_t
+                    __instance_call_command_template_t<rt_generic_method_t>
                 >::with_args_t<rt_generic_method_t *> __instance_generic_call_command_manager;
 
                 rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
 
-                return __instance_generic_call_command_manager.template get_command<__nokey>(
-                    __Mv(rt_generic_method), ctx
-                );
+                return __instance_generic_call_command_manager.template
+                    get_command<__CallCmd_(instance, generic)>(rt_generic_method, ctx);
 
             }   break;
 
@@ -3100,14 +3092,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case mt_member_extra_t::internal: {
 
                 static __command_manager_t<
-                    __instance_call_command_template_t<rt_method_t>, __nokey_t
+                    __instance_call_command_template_t<rt_method_t>
                 >::with_args_t<rt_method_t *> __instance_call_command_manager;
 
                 rt_method_t * rt_method = ctx.get_method(method_ref);
 
-                return __instance_call_command_manager.template get_command<__nokey>(
-                    __Mv(rt_method), ctx
-                );
+                return __instance_call_command_manager.template
+                    get_command<__CallCmd_(instance, general)>(rt_method, ctx);
 
             }   break;
 
@@ -3132,16 +3123,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<__nokey_t>
-    class __virtual_call_command_t : public __command_base_t
+    class __virtual_call_command_t : public __command_base_t<__CallCmd(virtual_)>
     {
-        typedef __virtual_call_command_t    __self_t;
-        typedef __command_base_t            __super_t;
+        typedef __virtual_call_command_t                __self_t;
+        typedef __command_base_t<__CallCmd(virtual_)>   __super_t;
 
     public:
         __virtual_call_command_t(int offset) : __offset(offset) { }
 
-        __BeginExecute(ctx, __ToCallCmdValue(virtual_))
+        __BeginExecute(ctx)
 
             rt_ref_t rt_ref = __Argument(rt_ref_t, 0);
             rt_type_t * rt_type = __RtTypeOf(rt_ref);
@@ -3179,10 +3169,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __virtual_call_command_template_t
     {
-        template<__nokey_t nokey, typename ... args_t>
+        template<command_value_t _cv, typename ... args_t>
         static auto new_command(memory_t * memory, int offset, __context_t & ctx)
         {
-            typedef __virtual_call_command_t<nokey> this_command_t;
+            static_assert(_cv == __CallCmd(virtual_), "invaid command value");
+
+            typedef __virtual_call_command_t this_command_t;
             return __new_command<this_command_t>(memory, offset);
         }
     };
@@ -3195,15 +3187,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         _A((mt_member_extra_t)method_ref.extra == mt_member_extra_t::internal);
 
         static __command_manager_t<
-            __virtual_call_command_template_t, __nokey_t
+            __virtual_call_command_template_t
         >::with_args_t<int> __virtual_call_command_manager;
 
         rt_method_t * rt_method = ctx.get_method(method_ref);
         int offset = ctx.get_virtual_method_offset(ctx, method_ref);
 
-        return __virtual_call_command_manager.template get_command<__nokey>(
-            __Mv(offset), ctx
-        );
+        return __virtual_call_command_manager.template
+            get_command<__CallCmd(virtual_)>(offset, ctx);
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -3262,29 +3253,111 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
     };
 
-    #define __ToBinaryAlCmdValue(cmd, dtype1, dtype2)                                   \
-        __ToCmdValue(al,                                                                \
-            ((cmd_value_t)to_xil_command<decltype(cmd)>() << 16) |                      \
-            ((cmd_value_t)cmd << 8) |                                                   \
-            ((cmd_value_t)dtype1 << 4) | (cmd_value_t)dtype2                            \
-        )
+    #define __BinaryCmd(_cmd, _op, _xt1, _xt2)  __Cmd(_cmd, _op##_##_xt1##_##_xt2)
+    #define __UnitaryCmd(_cmd, _op, _xt)        __Cmd(_cmd, _op##_##_xt)
 
-    #define __ToUnitaryAlCmdValue(cmd, dtype)                                           \
-        __ToCmdValue(al,                                                                \
-            ((cmd_value_t)to_xil_command<decltype(cmd)>() << 16) |                      \
-            ((cmd_value_t)cmd << 8) | (cmd_value_t)dtype1                               \
-        )
+    // Binary operators defination.
+    #define __CaseBinary1(_op, _xt1, _xt2)   __CaseBinary(_op, _xt1, _xt2)
 
-    template<typename _command_t, _command_t cmd, xil_type_t dtype1, xil_type_t dtype2>
-    class __binary_command_t : public __command_base_t
+    #define __CaseBinary2(_op, _xt1, _xt2)                                              \
+        __CaseBinary1(_op, _xt1, _xt2)                                                  \
+        __CaseBinary1(_op, _xt2, _xt1)
+
+    #define __CaseBinaries(_op)                                                         \
+        __CaseBinary1(_op, int8,   int8)                                                \
+        __CaseBinary2(_op, int8,   uint8)                                               \
+                                                                                        \
+        __CaseBinary1(_op, uint8,  uint8)                                               \
+                                                                                        \
+        __CaseBinary2(_op, int16,  int8)                                                \
+        __CaseBinary2(_op, int16,  uint8)                                               \
+        __CaseBinary1(_op, int16,  int16)                                               \
+        __CaseBinary2(_op, int16,  uint16)                                              \
+                                                                                        \
+        __CaseBinary2(_op, uint16, int8)                                                \
+        __CaseBinary2(_op, uint16, uint8)                                               \
+        __CaseBinary1(_op, uint16, uint16)                                              \
+                                                                                        \
+        __CaseBinary2(_op, int32,  int8)                                                \
+        __CaseBinary2(_op, int32,  uint8)                                               \
+        __CaseBinary2(_op, int32,  int16)                                               \
+        __CaseBinary2(_op, int32,  uint16)                                              \
+        __CaseBinary1(_op, int32,  int32)                                               \
+                                                                                        \
+        __CaseBinary2(_op, uint32, int8)                                                \
+        __CaseBinary2(_op, uint32, uint8)                                               \
+        __CaseBinary2(_op, uint32, int16)                                               \
+        __CaseBinary2(_op, uint32, uint16)                                              \
+        __CaseBinary2(_op, uint32, int32)                                               \
+        __CaseBinary1(_op, uint32, uint32)                                              \
+                                                                                        \
+        __CaseBinary2(_op, int64,  int8)                                                \
+        __CaseBinary2(_op, int64,  uint8)                                               \
+        __CaseBinary2(_op, int64,  int16)                                               \
+        __CaseBinary2(_op, int64,  uint16)                                              \
+        __CaseBinary2(_op, int64,  int32)                                               \
+        __CaseBinary2(_op, int64,  uint32)                                              \
+        __CaseBinary1(_op, int64,  int64)                                               \
+                                                                                        \
+        __CaseBinary2(_op, uint64,  int8)                                               \
+        __CaseBinary2(_op, uint64,  uint8)                                              \
+        __CaseBinary2(_op, uint64,  int16)                                              \
+        __CaseBinary2(_op, uint64,  uint16)                                             \
+        __CaseBinary2(_op, uint64,  int32)                                              \
+        __CaseBinary2(_op, uint64,  uint32)                                             \
+        __CaseBinary2(_op, uint64,  int64)                                              \
+        __CaseBinary1(_op, uint64,  uint64)
+
+    #define __CaseFloatBinaries(_op)                                                    \
+        __CaseBinary2(_op, float_,  int8)                                               \
+        __CaseBinary2(_op, float_,  uint8)                                              \
+        __CaseBinary2(_op, float_,  int16)                                              \
+        __CaseBinary2(_op, float_,  uint16)                                             \
+        __CaseBinary2(_op, float_,  int32)                                              \
+        __CaseBinary2(_op, float_,  uint32)                                             \
+        __CaseBinary2(_op, float_,  int64)                                              \
+        __CaseBinary1(_op, float_,  uint64)                                             \
+        __CaseBinary1(_op, float_,  float_)                                             \
+                                                                                        \
+        __CaseBinary2(_op, double_,  int8)                                              \
+        __CaseBinary2(_op, double_,  uint8)                                             \
+        __CaseBinary2(_op, double_,  int16)                                             \
+        __CaseBinary2(_op, double_,  uint16)                                            \
+        __CaseBinary2(_op, double_,  int32)                                             \
+        __CaseBinary2(_op, double_,  uint32)                                            \
+        __CaseBinary2(_op, double_,  int64)                                             \
+        __CaseBinary1(_op, double_,  uint64)                                            \
+        __CaseBinary2(_op, double_,  float_)                                            \
+        __CaseBinary1(_op, double_,  double_)
+
+        // Unitary operators defination.
+        #define __C(_op, _xt)    __CaseUnitary(_op, _xt)
+
+        #define __CaseUnitaries(_op)                                                    \
+            __CaseUnitary(_op, int8)                                                    \
+            __CaseUnitary(_op, uint8)                                                   \
+            __CaseUnitary(_op, int16)                                                   \
+            __CaseUnitary(_op, uint16)                                                  \
+            __CaseUnitary(_op, int32)                                                   \
+            __CaseUnitary(_op, uint32)                                                  \
+            __CaseUnitary(_op, int64)                                                   \
+            __CaseUnitary(_op, uint64)
+
+        #define __CaseFloatUnitaries(_op)                                               \
+            __CaseUnitary(_op, float_)                                                  \
+            __CaseUnitary(_op, double_)
+
+
+    template<command_value_t _cv, typename _op_t, _op_t _op, xil_type_t _xt1, xil_type_t _xt2>
+    class __binary_command_t : public __command_base_t<_cv>
     {
         typedef __binary_command_t  __self_t;
 
     public:
-        __BeginExecute(ctx, __ToBinaryAlCmdValue(cmd, dtype1, dtype2))
+        __BeginExecute(ctx)
 
-            const vtype_t vtype1 = to_vtype(dtype1);
-            const vtype_t vtype2 = to_vtype(dtype2);
+            const vtype_t vtype1 = to_vtype(_xt1);
+            const vtype_t vtype2 = to_vtype(_xt2);
 
             typedef vnum_t<vtype1> t1;
             typedef vnum_t<vtype2> t2;
@@ -3295,7 +3368,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             rt_stack_unit_t * top = ctx.stack.pop<unit_size1 + unit_size2>();
 
             ctx.stack.push(
-                binary_operator_t<to_operator(cmd), vtype1, vtype2>()(
+                binary_operator_t<to_operator(_op), vtype1, vtype2>()(
                     *(t1 *)top, *(t2 *)(top + unit_size1)
                 )
             );
@@ -3305,75 +3378,160 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         #if EXEC_TRACE
 
         __BeginToString()
-            return _F(_T("%|1$-4| %2% %3%"), _str(cmd), dtype1, dtype2);
+            return _F(_T("%|1$-4| %2% %3%"), _str(_op), _xt1, _xt2);
         __EndToString()
 
         #endif  // EXEC_TRACE
     };
 
+    #define __CaseBinary(_op, _xt1, _xt2)   __DefineCmdValue_(__BinaryCmd(al, _op, _xt1, _xt2))
+
+    __CaseBinaries(add)
+    __CaseFloatBinaries(add)
+
+    __CaseBinaries(sub)
+    __CaseFloatBinaries(sub)
+
+    __CaseBinaries(mul)
+    __CaseFloatBinaries(mul)
+
+    __CaseBinaries(div)
+    __CaseFloatBinaries(div)
+
+    __CaseBinaries(mod)
+
+    #undef __CaseBinary
+
+    #define __CaseBinary(_op, _xt1, _xt2)   __DefineCmdValue_(__BinaryCmd(bit, _op, _xt1, _xt2))
+
+    __CaseBinaries(bit_and)
+    __CaseBinaries(bit_or)
+    __CaseBinaries(bit_xor)
+    __CaseBinaries(left_shift)
+    __CaseBinaries(right_shift)
+
+    #undef __CaseBinary
+
+    __DefineCmdValue_(__BinaryCmd(logic, and_, bool_, bool_))
+    __DefineCmdValue_(__BinaryCmd(logic, or_, bool_, bool_))
+    __DefineCmdValue_(__UnitaryCmd(logic, not_, bool_))
+
+    #define __CaseBinary(_op, _xt1, _xt2)   __DefineCmdValue_(__BinaryCmd(cmp, _op, _xt1, _xt2))
+
+    __CaseBinaries(greater)
+    __CaseFloatBinaries(greater)
+    __CaseBinaries(greater_equal)
+    __CaseFloatBinaries(greater_equal)
+    __CaseBinaries(less)
+    __CaseFloatBinaries(less)
+    __CaseBinaries(less_equal)
+    __CaseFloatBinaries(less_equal)
+    __CaseBinaries(equal)
+    __CaseFloatBinaries(equal)
+    __CaseBinaries(not_equal)
+    __CaseFloatBinaries(not_equal);
+
+    __CaseBinary(equal, bool_, bool_)
+    __CaseBinary(not_equal, bool_, bool_)
+    __CaseBinary(equal, char_, char_)
+    __CaseBinary(not_equal, char_, char_)
+    __CaseBinary(greater, char_, char_)
+    __CaseBinary(greater_equal, char_, char_)
+    __CaseBinary(less, char_, char_)
+    __CaseBinary(less_equal, char_, char_)
+
+    __CaseBinary(equal, object, object)
+    __CaseBinary(not_equal, object, object)
+
+    __CaseBinary(equal, ptr, ptr)
+    __CaseBinary(not_equal, ptr, ptr)
+
+    #undef __CaseBinary
+
+
     //-------- ---------- ---------- ---------- ----------
 
-    template<typename _command_t>
+    template<typename _op_t>
     struct __binary_command_template_t
     {
-        template<_command_t cmd, xil_type_t dtype1, xil_type_t dtype2, typename ... args_t>
-        static auto new_command(memory_t * memory, args_t && ... args)
+        template<command_value_t _cv, _op_t _op,
+            xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __binary_command_t<_command_t, cmd, dtype1, dtype2> this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+            typedef __binary_command_t<_cv, _op_t, _op, _xt1, _xt2> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
-    template<typename _command_t>
+    template<typename _op_t>
     using __binary_command_manager_t = typename __command_manager_t<
-        __binary_command_template_t<_command_t>, _command_t, xil_type_t, xil_type_t
+        __binary_command_template_t<_op_t>, _op_t, xil_type_t, xil_type_t
     >::template with_args_t<>;
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<typename _command_t, _command_t cmd, xil_type_t dtype1>
-    class __unitary_command_t : public __command_base_t
+    template<command_value_t _cv, typename _op_t, _op_t _op, xil_type_t _xt>
+    class __unitary_command_t : public __command_base_t<_cv>
     {
         typedef __unitary_command_t     __self_t;
 
     public:
-        __BeginExecute(ctx, __ToUnitaryAlCmdValue(cmd, dtype1))
+        __BeginExecute(ctx)
 
-            const vtype_t vtype1 = to_vtype(dtype1);
+            const vtype_t vtype = to_vtype(_xt);
 
-            typedef vnum_t<vtype1> t1;
-            t1 v1 = ctx.stack.pop<t1>();
+            typedef vnum_t<vtype> t;
+            t v = ctx.stack.pop<t>();
 
             ctx.stack.push(
-                unitary_operator_t<to_operator(cmd), vtype1>()(v1)
+                unitary_operator_t<to_operator(_op), vtype>()(v)
             );
+
         __EndExecute()
 
         #if EXEC_TRACE
 
         __BeginToString()
-            return _F(_T("%1% %2%"), _str(cmd), dtype1);
+            return _F(_T("%1% %2%"), _str(_op), _xt);
         __EndToString()
 
         #endif  // EXEC_TRACE
     };
 
+
+    #define __CaseUnitary(_op, _xt)     __DefineCmdValue_(__UnitaryCmd(al, _op, _xt))
+
+    __CaseUnitaries(minus)
+    __CaseFloatUnitaries(minus)
+
+    __CaseUnitaries(positive)
+    __CaseFloatUnitaries(positive)
+
+    #undef __CaseUnitary
+
+
+    #define __CaseUnitary(_op, _xt)     __DefineCmdValue_(__UnitaryCmd(bit, _op, _xt))
+
+    __CaseUnitaries(bit_not)
+
+    #undef __CaseUnitary
+
     //-------- ---------- ---------- ---------- ----------
 
-    template<typename _command_t>
+    template<typename _op_t>
     struct __unitary_command_template_t
     {
-        template<_command_t cmd, xil_type_t dtype1, typename ... args_t>
+        template<command_value_t _cv, _op_t _op, xil_type_t _xt, typename ... args_t>
         static auto new_command(memory_t * memory, args_t && ... args)
         {
-            typedef __unitary_command_t<_command_t, cmd, dtype1> this_command_t;
+            typedef __unitary_command_t<_cv, _op_t, _op, _xt> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
         }
     };
 
-    template<typename _command_t>
+    template<typename _op_t>
     using __unitary_command_manager_t = typename __command_manager_t<
-        __unitary_command_template_t<_command_t>, _command_t, xil_type_t
+        __unitary_command_template_t<_op_t>, _op_t, xil_type_t
     >::template with_args_t<>;
 
     //-------- ---------- ---------- ---------- ----------
@@ -3383,88 +3541,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         static __binary_command_manager_t<xil_al_command_t> __binary_command_manager;
         static __unitary_command_manager_t<xil_al_command_t> __unitary_command_manager;
 
-        #define __V(cmd, dtype1, dtype2) \
-            (((uint32_t)(cmd) << 16) | ((uint32_t)(dtype1) << 8) | (uint32_t)(dtype2))
+        #define __V(_op, _xt1, _xt2)                                                    \
+            (((uint32_t)(_op) << 16) | ((uint32_t)(_xt1) << 8) | (uint32_t)(_xt2))
 
         switch (__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
         {
-            #define __CaseBinary(cmd, dtype1, dtype2)                                   \
-                case __V(xil_al_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2):\
+            #define __CaseBinary(_op, _xt1, _xt2)                                       \
+                case __V(xil_al_command_t::_op, xil_type_t::_xt1, xil_type_t::_xt2):    \
                     return __binary_command_manager.template get_command<               \
-                        xil_al_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2   \
+                        __BinaryCmd(al, _op, _xt1, _xt2),                               \
+                        xil_al_command_t::_op, xil_type_t::_xt1, xil_type_t::_xt2       \
                     >();
-
-            #define __C1(cmd, dtype1, dtype2)    __CaseBinary(cmd, dtype1, dtype2)
-            #define __C2(cmd, dtype1, dtype2)                                           \
-                __C1(cmd, dtype1, dtype2)                                               \
-                __C1(cmd, dtype2, dtype1)
-
-            #define __CaseBinaries(cmd)                                                 \
-                __C1(cmd, int8,   int8)                                                 \
-                __C2(cmd, int8,   uint8)                                                \
-                                                                                        \
-                __C1(cmd, uint8,  uint8)                                                \
-                                                                                        \
-                __C2(cmd, int16,  int8)                                                 \
-                __C2(cmd, int16,  uint8)                                                \
-                __C1(cmd, int16,  int16)                                                \
-                __C2(cmd, int16,  uint16)                                               \
-                                                                                        \
-                __C2(cmd, uint16, int8)                                                 \
-                __C2(cmd, uint16, uint8)                                                \
-                __C1(cmd, uint16, uint16)                                               \
-                                                                                        \
-                __C2(cmd, int32,  int8)                                                 \
-                __C2(cmd, int32,  uint8)                                                \
-                __C2(cmd, int32,  int16)                                                \
-                __C2(cmd, int32,  uint16)                                               \
-                __C1(cmd, int32,  int32)                                                \
-                                                                                        \
-                __C2(cmd, uint32, int8)                                                 \
-                __C2(cmd, uint32, uint8)                                                \
-                __C2(cmd, uint32, int16)                                                \
-                __C2(cmd, uint32, uint16)                                               \
-                __C2(cmd, uint32, int32)                                                \
-                __C1(cmd, uint32, uint32)                                               \
-                                                                                        \
-                __C2(cmd, int64,  int8)                                                 \
-                __C2(cmd, int64,  uint8)                                                \
-                __C2(cmd, int64,  int16)                                                \
-                __C2(cmd, int64,  uint16)                                               \
-                __C2(cmd, int64,  int32)                                                \
-                __C2(cmd, int64,  uint32)                                               \
-                __C1(cmd, int64,  int64)                                                \
-                                                                                        \
-                __C2(cmd, uint64,  int8)                                                \
-                __C2(cmd, uint64,  uint8)                                               \
-                __C2(cmd, uint64,  int16)                                               \
-                __C2(cmd, uint64,  uint16)                                              \
-                __C2(cmd, uint64,  int32)                                               \
-                __C2(cmd, uint64,  uint32)                                              \
-                __C2(cmd, uint64,  int64)                                               \
-                __C1(cmd, uint64,  uint64)
-
-            #define __CaseFloatBinaries(cmd)                                            \
-                __C2(cmd, float_,  int8)                                                \
-                __C2(cmd, float_,  uint8)                                               \
-                __C2(cmd, float_,  int16)                                               \
-                __C2(cmd, float_,  uint16)                                              \
-                __C2(cmd, float_,  int32)                                               \
-                __C2(cmd, float_,  uint32)                                              \
-                __C2(cmd, float_,  int64)                                               \
-                __C1(cmd, float_,  uint64)                                              \
-                __C1(cmd, float_,  float_)                                              \
-                                                                                        \
-                __C2(cmd, double_,  int8)                                               \
-                __C2(cmd, double_,  uint8)                                              \
-                __C2(cmd, double_,  int16)                                              \
-                __C2(cmd, double_,  uint16)                                             \
-                __C2(cmd, double_,  int32)                                              \
-                __C2(cmd, double_,  uint32)                                             \
-                __C2(cmd, double_,  int64)                                              \
-                __C1(cmd, double_,  uint64)                                             \
-                __C2(cmd, double_,  float_)                                             \
-                __C1(cmd, double_,  double_)
 
             __CaseBinaries(add)
             __CaseFloatBinaries(add)
@@ -3480,35 +3567,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseBinaries(mod)
 
-            #undef __C1
-            #undef __C2
-            #undef __CaseBinaries
-            #undef __CaseFloatBinaries
             #undef __CaseBinary
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-            #define __CaseUnitary(cmd, dtype)                                           \
-                case __V(xil_al_command_t::cmd, xil_type_t::dtype, xil_type_t::__default__):  \
+            #define __CaseUnitary(_op, _xt)                                             \
+                case __V(xil_al_command_t::_op, xil_type_t::_xt, xil_type_t::__default__):  \
                     return __unitary_command_manager.template get_command<              \
-                        xil_al_command_t::cmd, xil_type_t::dtype                        \
+                        __UnitaryCmd(al, _op, _xt),                                     \
+                        xil_al_command_t::_op, xil_type_t::_xt                          \
                     >();
-
-            #define __C(cmd, dtype)    __CaseUnitary(cmd, dtype)
-
-            #define __CaseUnitaries(cmd)                                                \
-                __C(cmd, int8)                                                          \
-                __C(cmd, uint8)                                                         \
-                __C(cmd, int16)                                                         \
-                __C(cmd, uint16)                                                        \
-                __C(cmd, int32)                                                         \
-                __C(cmd, uint32)                                                        \
-                __C(cmd, int64)                                                         \
-                __C(cmd, uint64)
-
-            #define __CaseFloatUnitaries(cmd)                                           \
-                __C(cmd, float_)                                                        \
-                __C(cmd, double_)
 
             __CaseUnitaries(minus)
             __CaseFloatUnitaries(minus)
@@ -3517,17 +3585,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseFloatUnitaries(positive)
 
             #undef __CaseUnitary
-            #undef __C
-            #undef __CaseUnitaries
-            #undef __CaseFloatUnitaries
 
             default:
                 _P(xil.cmd(), xil.dtype1(), xil.dtype2());
                 X_UNEXPECTED();
-
         }
 
         return nullptr;
+        X_UNEXPECTED();
+
+        #undef __V
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3537,66 +3604,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         static __binary_command_manager_t<xil_bit_command_t> __binary_command_manager;
         static __unitary_command_manager_t<xil_bit_command_t> __unitary_command_manager;
 
-        #define __V(cmd, dtype1, dtype2) \
-            (((uint32_t)(cmd) << 16) | ((uint32_t)(dtype1) << 8) | (uint32_t)(dtype2))
+        #define __V(_op, _xt1, _xt2)                                                    \
+            (((uint32_t)(_op) << 16) | ((uint32_t)(_xt1) << 8) | (uint32_t)(_xt2))
 
         switch (__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
         {
-            #define __CaseBinary(cmd, dtype1, dtype2)                                   \
-                case __V(xil_bit_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2):   \
+            #define __CaseBinary(_op, _xt1, _xt2)                                       \
+                case __V(xil_bit_command_t::_op, xil_type_t::_xt1, xil_type_t::_xt2):   \
                     return __binary_command_manager.template get_command<               \
-                        xil_bit_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2  \
+                        __BinaryCmd(bit, _op, _xt1, _xt2),                              \
+                        xil_bit_command_t::_op, xil_type_t::_xt1, xil_type_t::_xt2      \
                     >();
-
-            #define __C1(cmd, dtype1, dtype2)    __CaseBinary(cmd, dtype1, dtype2)
-            #define __C2(cmd, dtype1, dtype2)                                           \
-                __C1(cmd, dtype1, dtype2)                                               \
-                __C1(cmd, dtype2, dtype1)
-
-            #define __CaseBinaries(cmd)                                                 \
-                __C1(cmd, int8,   int8)                                                 \
-                __C2(cmd, int8,   uint8)                                                \
-                                                                                        \
-                __C1(cmd, uint8,  uint8)                                                \
-                                                                                        \
-                __C2(cmd, int16,  int8)                                                 \
-                __C2(cmd, int16,  uint8)                                                \
-                __C1(cmd, int16,  int16)                                                \
-                __C2(cmd, int16,  uint16)                                               \
-                                                                                        \
-                __C2(cmd, uint16, int8)                                                 \
-                __C2(cmd, uint16, uint8)                                                \
-                __C1(cmd, uint16, uint16)                                               \
-                                                                                        \
-                __C2(cmd, int32,  int8)                                                 \
-                __C2(cmd, int32,  uint8)                                                \
-                __C2(cmd, int32,  int16)                                                \
-                __C2(cmd, int32,  uint16)                                               \
-                __C1(cmd, int32,  int32)                                                \
-                                                                                        \
-                __C2(cmd, uint32, int8)                                                 \
-                __C2(cmd, uint32, uint8)                                                \
-                __C2(cmd, uint32, int16)                                                \
-                __C2(cmd, uint32, uint16)                                               \
-                __C2(cmd, uint32, int32)                                                \
-                __C1(cmd, uint32, uint32)                                               \
-                                                                                        \
-                __C2(cmd, int64,  int8)                                                 \
-                __C2(cmd, int64,  uint8)                                                \
-                __C2(cmd, int64,  int16)                                                \
-                __C2(cmd, int64,  uint16)                                               \
-                __C2(cmd, int64,  int32)                                                \
-                __C2(cmd, int64,  uint32)                                               \
-                __C1(cmd, int64,  int64)                                                \
-                                                                                        \
-                __C2(cmd, uint64,  int8)                                                \
-                __C2(cmd, uint64,  uint8)                                               \
-                __C2(cmd, uint64,  int16)                                               \
-                __C2(cmd, uint64,  uint16)                                              \
-                __C2(cmd, uint64,  int32)                                               \
-                __C2(cmd, uint64,  uint32)                                              \
-                __C2(cmd, uint64,  int64)                                               \
-                __C1(cmd, uint64,  uint64)
 
             __CaseBinaries(bit_and)
             __CaseBinaries(bit_or)
@@ -3604,41 +3622,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseBinaries(left_shift)
             __CaseBinaries(right_shift)
 
-            #undef __C1
-            #undef __C2
-            #undef __CaseBinaries
-            #undef __CaseFloatBinaries
             #undef __CaseBinary
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-            #define __CaseUnitary(cmd, dtype)                                           \
-                case __V(xil_bit_command_t::cmd, xil_type_t::dtype, xil_type_t::__default__):  \
+            #define __CaseUnitary(_op, _xt)                                             \
+                case __V(xil_bit_command_t::_op, xil_type_t::_xt, xil_type_t::__default__):  \
                     return __unitary_command_manager.template get_command<              \
-                        xil_bit_command_t::cmd, xil_type_t::dtype                       \
+                        __UnitaryCmd(bit, _op, _xt),                                    \
+                        xil_bit_command_t::_op, xil_type_t::_xt                         \
                     >();
-
-            #define __C(cmd, dtype)    __CaseUnitary(cmd, dtype)
-
-            #define __CaseUnitaries(cmd)                                                \
-                __C(cmd, int8)                                                          \
-                __C(cmd, uint8)                                                         \
-                __C(cmd, int16)                                                         \
-                __C(cmd, uint16)                                                        \
-                __C(cmd, int32)                                                         \
-                __C(cmd, uint32)                                                        \
-                __C(cmd, int64)                                                         \
-                __C(cmd, uint64)
 
             __CaseUnitaries(bit_not)
 
             #undef __CaseUnitary
-            #undef __C
-            #undef __CaseUnitaries
 
             default:
                 X_UNEXPECTED();
         }
+
+        #undef __V
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3652,16 +3655,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             case xil_logic_command_t::and_:
                 return __binary_command_manager.template get_command<
+                    __BinaryCmd(logic, and_, bool_, bool_),
                     xil_logic_command_t::and_, xil_type_t::bool_, xil_type_t::bool_
                 >();
 
             case xil_logic_command_t::or_:
                 return __binary_command_manager.template get_command<
+                    __BinaryCmd(logic, or_, bool_, bool_),
                     xil_logic_command_t::or_, xil_type_t::bool_, xil_type_t::bool_
                 >();
 
             case xil_logic_command_t::not_:
                 return __unitary_command_manager.template get_command<
+                    __UnitaryCmd(logic, not_, bool_),
                     xil_logic_command_t::not_, xil_type_t::bool_
                 >();
 
@@ -3669,7 +3675,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 X_UNEXPECTED();
         }
 
-        return nullptr;
+        X_UNEXPECTED();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3678,88 +3684,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         static __binary_command_manager_t<xil_cmp_command_t> __command_manager;
 
-        #define __V(cmd, dtype1, dtype2) \
-            (((uint32_t)(cmd) << 16) | ((uint32_t)(dtype1) << 8) | (uint32_t)(dtype2))
+        #define __V(_op, _xt1, _xt2)                                                    \
+            (((uint32_t)(_op) << 16) | ((uint32_t)(_xt1) << 8) | (uint32_t)(_xt2))
 
         switch (__V(xil.cmd(), xil.dtype1(), xil.dtype2()))
         {
-            #define __CaseBinary(cmd, dtype1, dtype2)                                   \
-                case __V(xil_cmp_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2):\
+            #define __CaseBinary(_op, _xt1, _xt2)                                       \
+                case __V(xil_cmp_command_t::_op, xil_type_t::_xt1, xil_type_t::_xt2):   \
                     return __command_manager.template get_command<                      \
-                        xil_cmp_command_t::cmd, xil_type_t::dtype1, xil_type_t::dtype2  \
+                        __BinaryCmd(cmp, _op, _xt1, _xt2),                              \
+                        xil_cmp_command_t::_op, xil_type_t::_xt1, xil_type_t::_xt2      \
                     >();
-
-            #define __C1(cmd, dtype1, dtype2)    __CaseBinary(cmd, dtype1, dtype2)
-            #define __C2(cmd, dtype1, dtype2)                                           \
-                __C1(cmd, dtype1, dtype2)                                               \
-                __C1(cmd, dtype2, dtype1)
-
-            #define __CaseBinaries(cmd)                                                 \
-                __C1(cmd, int8,   int8)                                                 \
-                __C2(cmd, int8,   uint8)                                                \
-                                                                                        \
-                __C1(cmd, uint8,  uint8)                                                \
-                                                                                        \
-                __C2(cmd, int16,  int8)                                                 \
-                __C2(cmd, int16,  uint8)                                                \
-                __C1(cmd, int16,  int16)                                                \
-                __C2(cmd, int16,  uint16)                                               \
-                                                                                        \
-                __C2(cmd, uint16, int8)                                                 \
-                __C2(cmd, uint16, uint8)                                                \
-                __C1(cmd, uint16, uint16)                                               \
-                                                                                        \
-                __C2(cmd, int32,  int8)                                                 \
-                __C2(cmd, int32,  uint8)                                                \
-                __C2(cmd, int32,  int16)                                                \
-                __C2(cmd, int32,  uint16)                                               \
-                __C1(cmd, int32,  int32)                                                \
-                                                                                        \
-                __C2(cmd, uint32, int8)                                                 \
-                __C2(cmd, uint32, uint8)                                                \
-                __C2(cmd, uint32, int16)                                                \
-                __C2(cmd, uint32, uint16)                                               \
-                __C2(cmd, uint32, int32)                                                \
-                __C1(cmd, uint32, uint32)                                               \
-                                                                                        \
-                __C2(cmd, int64,  int8)                                                 \
-                __C2(cmd, int64,  uint8)                                                \
-                __C2(cmd, int64,  int16)                                                \
-                __C2(cmd, int64,  uint16)                                               \
-                __C2(cmd, int64,  int32)                                                \
-                __C2(cmd, int64,  uint32)                                               \
-                __C1(cmd, int64,  int64)                                                \
-                                                                                        \
-                __C2(cmd, uint64,  int8)                                                \
-                __C2(cmd, uint64,  uint8)                                               \
-                __C2(cmd, uint64,  int16)                                               \
-                __C2(cmd, uint64,  uint16)                                              \
-                __C2(cmd, uint64,  int32)                                               \
-                __C2(cmd, uint64,  uint32)                                              \
-                __C2(cmd, uint64,  int64)                                               \
-                __C1(cmd, uint64,  uint64)
-
-            #define __CaseFloatBinaries(cmd)                                            \
-                __C2(cmd, float_,  int8)                                                \
-                __C2(cmd, float_,  uint8)                                               \
-                __C2(cmd, float_,  int16)                                               \
-                __C2(cmd, float_,  uint16)                                              \
-                __C2(cmd, float_,  int32)                                               \
-                __C2(cmd, float_,  uint32)                                              \
-                __C2(cmd, float_,  int64)                                               \
-                __C1(cmd, float_,  uint64)                                              \
-                __C1(cmd, float_,  float_)                                              \
-                                                                                        \
-                __C2(cmd, double_,  int8)                                               \
-                __C2(cmd, double_,  uint8)                                              \
-                __C2(cmd, double_,  int16)                                              \
-                __C2(cmd, double_,  uint16)                                             \
-                __C2(cmd, double_,  int32)                                              \
-                __C2(cmd, double_,  uint32)                                             \
-                __C2(cmd, double_,  int64)                                              \
-                __C1(cmd, double_,  uint64)                                             \
-                __C2(cmd, double_,  float_)                                             \
-                __C1(cmd, double_,  double_)
 
             __CaseBinaries(greater)
             __CaseFloatBinaries(greater);
@@ -3774,38 +3709,36 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseBinaries(not_equal)
             __CaseFloatBinaries(not_equal);
 
-            __C1(equal, bool_, bool_)
-            __C1(not_equal, bool_, bool_)
-            __C1(equal, char_, char_)
-            __C1(not_equal, char_, char_)
-            __C1(greater, char_, char_)
-            __C1(greater_equal, char_, char_)
-            __C1(less, char_, char_)
-            __C1(less_equal, char_, char_)
+            __CaseBinary(equal, bool_, bool_)
+            __CaseBinary(not_equal, bool_, bool_)
+            __CaseBinary(equal, char_, char_)
+            __CaseBinary(not_equal, char_, char_)
+            __CaseBinary(greater, char_, char_)
+            __CaseBinary(greater_equal, char_, char_)
+            __CaseBinary(less, char_, char_)
+            __CaseBinary(less_equal, char_, char_)
 
-            __C1(equal, object, object)
-            __C1(not_equal, object, object)
+            __CaseBinary(equal, object, object)
+            __CaseBinary(not_equal, object, object)
 
-            __C1(equal, ptr, ptr)
-            __C1(not_equal, ptr, ptr)
+            __CaseBinary(equal, ptr, ptr)
+            __CaseBinary(not_equal, ptr, ptr)
 
-            #undef __C1
-            #undef __C2
-            #undef __CaseBinaries
-            #undef __CaseFloatBinaries
             #undef __CaseBinary
 
             default:
                 _P(xil.dtype1(), xil.dtype2());
                 X_UNEXPECTED();
         }
+
+        #undef __V
     }
 
     namespace
     {
         template<typename t, size_t size> struct __copy_array_t
         {
-            static void copy_array(const t * src, t * dst)
+            __AlwaysInline static void copy_array(const t * src, t * dst)
             {
                 *dst = *src;
                 __copy_array_t<t, size - 1>::copy_array(src + 1, dst + 1);
@@ -3814,7 +3747,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         template<typename t> struct __copy_array_t<t, 0>
         {
-            static void copy_array(const t * src, t * dst) { }
+            __AlwaysInline static void copy_array(const t * src, t * dst) { }
         };
     }
 
@@ -3825,17 +3758,30 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    #define __ToRetCmdValue(_ret_size)                                                  \
-        __ToCmdValue(smp, ((cmd_value_t)xil_smp_t::ret << 8) | _ret_size)
+    #define __RetCmd(_ret_size)     __Cmd(smp, ret_##_ret_size)
+    #define __LargeRetUnitSize      255
+    #define __LargeRetCmd           __RetCmd(255)
 
-    #define __IsRetCmdValue(v)                                                          \
-        ( (xil_command_t)__Cmd(v) == xil_command_t::smp &&                              \
-        (xil_smp_t)((v & 0x0000FF00) >> 8) == xil_smp_t::ret )
+    __DefineCmdValue_(__RetCmd(0))
+    __DefineCmdValue_(__RetCmd(1))
+    __DefineCmdValue_(__RetCmd(2))
+    __DefineCmdValue_(__RetCmd(3))
+    __DefineCmdValue_(__RetCmd(4))
+    __DefineCmdValue_(__RetCmd(5))
+    __DefineCmdValue_(__RetCmd(6))
+    __DefineCmdValue_(__RetCmd(7))
+    __DefineCmdValue_(__RetCmd(8))
+    __DefineCmdValue_(__LargeRetCmd)
 
-    class __ret_command_base_t : public __command_base_t { };
+    #define __IsRetCmdValue(_cv)    ((_cv) >= __RetCmd(0) && (_cv) <= __LargeRetCmd)
 
-    template<msize_t _ret_size>
-    class __ret_command_t : public __ret_command_base_t
+    template<command_value_t _cv>
+    class __ret_command_base_t : public __command_base_t<_cv> { };
+    class __ret_command_identity_t { };
+
+    template<command_value_t _cv, msize_t _ret_size>
+    class __ret_command_t : public __ret_command_base_t<_cv>,
+                            public __ret_command_identity_t
     {
         typedef __ret_command_t     __self_t;
 
@@ -3845,17 +3791,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             , __param_unit_ret_size(param_unit_size - _ret_size)
             , __total_unit_ret_size(__total_unit_size - _ret_size)
         {
-            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+
+            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
             __ret_commands.insert(this);
-            #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+            #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
         }
 
-        __BeginExecute(ctx, __ToRetCmdValue(_ret_size))
+        __BeginExecute(ctx)
 
             // param, stub, local, ret
-            // _P(_T("ret: "), __total_unit_size, __param_unit_ret_size, _ret_size);
             rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
             ctx.pop_calling((const __calling_stub_t *)(p + __This->__param_unit_ret_size));
+
             copy_array<_ret_size>(p + __This->__total_unit_ret_size, p - _ret_size);
 
         __EndExecute()
@@ -3876,10 +3823,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    const msize_t __large_ret_unit_size = max_value<msize_t>();
-
     template<>
-    class __ret_command_t<__large_ret_unit_size> : public __ret_command_base_t
+    class __ret_command_t<__LargeRetCmd, __LargeRetUnitSize>
+        : public __ret_command_base_t<__LargeRetCmd>
+        , public __ret_command_identity_t
     {
         typedef __ret_command_t     __self_t;
 
@@ -3890,12 +3837,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             , __total_unit_ret_size(__total_unit_size - ret_unit_size)
             , __ret_unit_size(ret_unit_size)
         {
-            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
             __ret_commands.insert(this);
-            #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+            #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
         }
 
-        __BeginExecute(ctx, __ToRetCmdValue(256))
+        __BeginExecute(ctx)
 
             // param, stub, local, ret
             rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
@@ -3929,16 +3876,44 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Return command factory.
     struct __ret_command_template_t
     {
-        template<msize_t msize, typename ... args_t>
-        static auto new_command(memory_t * memory, args_t && ... args)
+        template<msize_t _ret_size> struct __new_t
         {
-            typedef __ret_command_t<msize> this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+            template<command_value_t _cv>
+            static command_t * new_(memory_t * memory,
+                            msize_t local_size, msize_t param_size, msize_t ret_size)
+            {
+                return __new_command<__ret_command_t<_cv, _ret_size>>(
+                    memory, local_size, param_size
+                );
+            }
+        };
+
+        template<> struct __new_t<__LargeRetUnitSize>
+        {
+            template<command_value_t _cv>
+            static command_t * new_(memory_t * memory,
+                            msize_t local_size, msize_t param_size, msize_t ret_size)
+            {
+                return __new_command<__ret_command_t<__LargeRetCmd, __LargeRetUnitSize>>(
+                    memory, local_size, param_size, ret_size
+                );
+            }
+        };
+
+        template<command_value_t _cv, msize_t _ret_size>
+        static auto new_command(memory_t * memory,
+                            msize_t local_size, msize_t param_size, msize_t ret_size)
+        {
+            return __new_t<_ret_size>::template new_<_cv>(
+                memory, local_size, param_size, ret_size
+            );
         }
     };
 
+    // Creates a return command.
     command_t * new_ret_command(__context_t & ctx)
     {
         static __command_manager_t<
@@ -3946,14 +3921,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<msize_t, msize_t> __ret_command_manager;
 
         msize_t ret_unit_size = ctx.ret_unit_size();
+        msize_t local_unit_size = ctx.locals_layout.unit_size();
+        msize_t param_unit_size = ctx.params_layout.unit_size();
 
         switch (ret_unit_size)
         {
-            #define __CaseRet(size)                                                     \
-                case size:                                                              \
-                    return __ret_command_manager.template get_command<size>(            \
-                        ctx.locals_layout.unit_size(), ctx.params_layout.unit_size()    \
-                    );
+            #define __CaseRet(_size)                                                    \
+                case _size:                                                             \
+                    return __ret_command_manager.template                               \
+                        get_command<__RetCmd(_size), _size>(                            \
+                            local_unit_size, param_unit_size, ret_unit_size             \
+                        );
 
             __CaseRet(0)
             __CaseRet(1)
@@ -3965,30 +3943,34 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __CaseRet(7)
             __CaseRet(8)
 
-            #undef __CaseRet
-
             default:
-                return __ret_command_manager.template get_command<__large_ret_unit_size>(
-                    ctx.locals_layout.unit_size(), ctx.params_layout.unit_size(), ret_unit_size
+                return __ret_command_manager.template get_command<__LargeRetCmd, __LargeRetUnitSize>(
+                    local_unit_size, param_unit_size, ret_unit_size
                 );
+
+
+            #undef __CaseRet
         }
+
+        X_UNEXPECTED();
     }
 
+    // Returns if it's a return command.
     bool is_ret_command(command_t * command)
     {
         _A(command != nullptr);
 
-    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
 
-        return __ret_commands.find(command) == __ret_commands.end();
+        return __ret_commands.find(command) != __ret_commands.end();
 
     #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE   // EXEC_EXECUTE_MODEL == xxx
 
         return __IsRetCmdValue(command->cmd_value);
 
-    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD // EXEC_EXECUTE_MODEL == xxx
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL // EXEC_EXECUTE_MODEL == xxx
 
-        return is<__ret_command_base_t *>(command);
+        return is<__ret_command_identity_t *>(command);
 
     #endif  // EXEC_EXECUTE_MODEL == xxx
     }
@@ -3996,12 +3978,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     // Label command.
-    class __label_command_t : public __command_base_t
+
+    #define __LabelCmd      __Cmd(smp, label)
+    __DefineCmdValue_(__LabelCmd)
+
+    class __label_command_t : public __command_base_t<__LabelCmd>
     {
         typedef __label_command_t   __self_t;
 
     public:
-        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::label))
+        __BeginExecute(ctx)
 
             // Do nothing
 
@@ -4018,6 +4004,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Returns if a type is a base type of another type.
     bool __is_base_type(analyzer_env_t & env, rt_type_t * type, rt_type_t * base_type)
     {
         while (type != base_type)
@@ -4039,9 +4026,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         exec_method_t * method = ctx.current_method();
         _A(method != nullptr);
-
-        // _PP(ctx.current_method());
-        // _PP(__command_index(ctx, ctx.current - 1));
 
         method->find_block<_type>(ctx.current - 1, f);
     }
@@ -4221,12 +4205,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     }
 
     // Throw command.
-    class __throw_command_t : public __command_base_t
+
+    #define __ThrowCmd      __Cmd(smp, throw_)
+    __DefineCmdValue_(__ThrowCmd)
+
+    class __throw_command_t : public __command_base_t<__ThrowCmd>
     {
         typedef __throw_command_t   __self_t;
 
     public:
-        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::throw_))
+        __BeginExecute(ctx)
 
             rt_ref_t exception = ctx.stack.pop<rt_ref_t>();
             ctx.restore_stack();
@@ -4248,12 +4236,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     // Rethrow command.
-    class __rethrow_command_t : public __command_base_t
+
+    #define __RethrowCmd    __Cmd(smp, rethrow)
+    __DefineCmdValue_(__RethrowCmd)
+
+    class __rethrow_command_t : public __command_base_t<__RethrowCmd>
     {
         typedef __rethrow_command_t     __self_t;
 
     public:
-        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::rethrow))
+        __BeginExecute(ctx)
 
             // Do nothing.
 
@@ -4271,14 +4263,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     // End finally command.
-    class __end_finally_command_t : public __command_base_t
+
+    #define __EndFinallyCmd     __Cmd(smp, end_finally)
+    __DefineCmdValue_(__EndFinallyCmd)
+
+    class __end_finally_command_t : public __command_base_t<__EndFinallyCmd>
     {
         typedef __end_finally_command_t     __self_t;
 
     public:
 
         // Execute.
-        __BeginExecute(ctx, __ToCmdValue(smp, xil_smp_t::end_finally))
+        __BeginExecute(ctx)
 
             _A(ctx.block_queue.current_executing() != nullptr);
 
@@ -4319,10 +4315,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     return;
 
                 default:
-                    X_UNEXPECTED();
+                    #ifndef __NoThrow
+                    X_UNEXPECTED()
+                    #endif
+                    ;
             }
 
+            #ifndef __NoThrow
             X_UNEXPECTED();
+            #endif
 
         __EndExecute()
 
@@ -4366,10 +4367,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    #define __ToJmpCmdValue_(_model, _flag)                                             \
-        __ToCmdValue(jmp, ((cmd_value_t)_model << 8) | (cmd_value_t)_flag)
+    #define __JmpCmd(_model)     __Cmd(jmp, _model)
 
-    #define __ToJmpCmdValue(_model) __ToJmpCmdValue_(_model, 0)
+    __DefineCmdValue_(__JmpCmd(none))
+    __DefineCmdValue_(__JmpCmd(true_))
+    __DefineCmdValue_(__JmpCmd(false_))
+    __DefineCmdValue_(__JmpCmd(switch_))
+    __DefineCmdValue_(__JmpCmd(leave))
+    __DefineCmdValue_(__JmpCmd(leave_ret))
 
     template<xil_jmp_model_t _model> struct __jmp_model_t { };
 
@@ -4420,16 +4425,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<xil_jmp_model_t model>
-    class __jmp_command_t : public __command_base_t
+    template<command_value_t _cv, xil_jmp_model_t _model>
+    class __jmp_command_t : public __command_base_t<_cv>
     {
-        typedef __jmp_command_t     __self_t;
-        typedef __jmp_model_t<model> __jmp_model_t;
+        typedef __jmp_command_t         __self_t;
+        typedef __jmp_model_t<_model>   __jmp_model_t;
 
     public:
         __jmp_command_t(xil_jmp_step_t step) : __step(step) { }
 
-        __BeginExecute(ctx, __ToJmpCmdValue(model))
+        __BeginExecute(ctx)
 
             if (__jmp_model_t()(ctx))
             {
@@ -4453,16 +4458,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     // Leave and jmp.
-    template<>
-    class __jmp_command_t<xil_jmp_model_t::leave> : public __command_base_t
+    template<command_value_t _cv>
+    class __jmp_command_t<_cv, xil_jmp_model_t::leave> : public __command_base_t<_cv>
     {
-        typedef __jmp_command_t<xil_jmp_model_t::leave> __self_t;
+        typedef __jmp_command_t __self_t;
 
     public:
         __jmp_command_t(xil_jmp_step_t step) : __step(step) { }
 
         // Execute
-        __BeginExecute(ctx, __ToJmpCmdValue(xil_jmp_model_t::leave))
+        __BeginExecute(ctx)
 
             __process_finally(ctx, ctx.current + __This->__step);
 
@@ -4484,18 +4489,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __jmp_command_template_t
     {
-        template<xil_jmp_model_t model, typename ... args_t>
-        static auto new_command(memory_t * memory, args_t && ... args)
+        template<command_value_t _cv, xil_jmp_model_t _model, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __jmp_command_t<model> this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<args_t>(args) ...);
+            typedef __jmp_command_t<_cv, _model> this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
     // Leave and return.
-    class __leave_ret_command_t : public __command_base_t
+    class __leave_ret_command_t : public __command_base_t<__JmpCmd(leave_ret)>
     {
         typedef __leave_ret_command_t __self_t;
 
@@ -4509,7 +4514,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
 
         // Execute
-        __BeginExecute(ctx, __ToJmpCmdValue_(xil_jmp_model_t::leave, 1))
+        __BeginExecute(ctx)
 
             __process_finally_for_return(ctx, __This->__following_command);
 
@@ -4533,24 +4538,26 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __leave_ret_command_template_t
     {
-        template<__nokey_t, typename ... args_t>
-        static auto new_command(memory_t * memory, command_t * command, args_t && ... args)
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, command_t * command, _args_t && ... args)
         {
+            static_assert(_cv == __JmpCmd(leave), "invalid command value");
+
             typedef __leave_ret_command_t this_command_t;
-            return __new_command<this_command_t>(memory, command, std::forward<args_t>(args) ...);
+            return __new_command<this_command_t>(memory, command, std::forward<_args_t>(args) ...);
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    class __switch_jmp_command_t : public __command_base_t
+    class __switch_jmp_command_t : public __command_base_t<__JmpCmd(switch_)>
     {
         typedef __switch_jmp_command_t      __self_t;
 
     public:
         __switch_jmp_command_t(exec_switch_table_t * table) : __table(table) { }
 
-        __BeginExecute(ctx, __ToJmpCmdValue(xil_jmp_model_t::switch_))
+        __BeginExecute(ctx)
 
             int32_t value = ctx.stack.pop<int32_t>();
 
@@ -4601,7 +4608,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<int> __jmp_command_manager;
 
         static __command_manager_t<
-            __leave_ret_command_template_t, __nokey_t
+            __leave_ret_command_template_t
         >::with_args_t<command_t *> __leave_ret_command_manager;
 
         typedef xil_jmp_model_t model_t;
@@ -4610,9 +4617,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             #define __Case(_model)                                                      \
                 case xil_jmp_model_t::_model:                                           \
-                    return __jmp_command_manager.template get_command<model_t::_model>( \
-                        xil.step() - 1                                                  \
-                    );
+                    return __jmp_command_manager.template get_command<                  \
+                        __JmpCmd(_model), model_t::_model>(xil.step() - 1);
 
             __Case(none)
             __Case(true_)
@@ -4628,25 +4634,32 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case xil_jmp_model_t::leave:
                 if (xil.step() == 0)
                 {
-                    return __leave_ret_command_manager.template get_command<__nokey>(
+                    return __leave_ret_command_manager.template get_command<__JmpCmd(leave)>(
                         new_ret_command(ctx)
                     );
                 }
 
-                return __jmp_command_manager.template get_command<model_t::leave>(
-                    xil.step() - 1
-                );
-                
+                return __jmp_command_manager.template
+                    get_command<__JmpCmd(leave), model_t::leave>(xil.step() - 1);
 
             default:
                 X_UNEXPECTED();
         }
     }
 
+    //-------- ---------- ---------- ---------- ----------
+    // New commands.
+
+    #define __NewCmd(_new_type)     __Cmd(new_, _new_type)
+    __DefineCmdValue_(__NewCmd(default_))
+    __DefineCmdValue_(__NewCmd(array))
+    __DefineCmdValue_(__NewCmd(stack_alloc))
+
     template<xil_new_type_t _new_type> class __new_command_t { };
 
     template<>
-    class __new_command_t<xil_new_type_t::default_> : public __command_base_t
+    class __new_command_t<xil_new_type_t::default_>
+        : public __command_base_t<__NewCmd(default_)>
     {
         typedef __new_command_t     __self_t;
 
@@ -4657,7 +4670,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __new_command_t(rt_type_t * type) : __type(type) { }
         #endif  // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToCmdValue(new_, xil_new_type_t::default_))
+        __BeginExecute(ctx)
 
             __pre_new(ctx, __This->__type);
             ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__This->__type));
@@ -4683,7 +4696,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     template<>
-    class __new_command_t<xil_new_type_t::array> : public __command_base_t
+    class __new_command_t<xil_new_type_t::array>
+        : public __command_base_t<__NewCmd(array)>
     {
         typedef __new_command_t     __self_t;
 
@@ -4695,7 +4709,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __new_command_t(rt_type_t * type) : __type(_M(rt_array_type_t *, type)) { }
         #endif // EXEC_TRACE
 
-        __BeginExecute(ctx, __ToCmdValue(new_, xil_new_type_t::array))
+        __BeginExecute(ctx)
 
             __pre_new(ctx, __This->__type);
             dimension_t dimension = __This->__type->dimension;
@@ -4731,14 +4745,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     template<>
-    class __new_command_t<xil_new_type_t::stack_alloc> : public __command_base_t
+    class __new_command_t<xil_new_type_t::stack_alloc>
+        : public __command_base_t<__NewCmd(stack_alloc)>
     {
         typedef __new_command_t     __self_t;
 
     public:
         __new_command_t(size_t units) _NE : __units(units) { }
 
-        __BeginExecute(ctx, __ToCmdValue(new_, xil_new_type_t::stack_alloc))
+        __BeginExecute(ctx)
 
             ctx.stack.push(
                 ctx.stack.alloc_units(__This->__units)
@@ -4762,7 +4777,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __new_command_template_t
     {
-        template<xil_new_type_t _new_type, typename ... _args_t>
+        template<command_value_t _cv, xil_new_type_t _new_type, typename ... _args_t>
         static auto new_command(memory_t * memory, rt_type_t * type,
                                 __context_t & ctx, _args_t && ... args)
         {
@@ -4779,7 +4794,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __new_stack_alloc_command_template_t
     {
-        template<__nokey_t, typename ... _args_t>
+        template<command_value_t _cv, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
             typedef __new_command_t<xil_new_type_t::stack_alloc> this_command_t;
@@ -4796,7 +4811,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<rt_type_t *> __new_command_manager;
 
         static __command_manager_t<
-            __new_stack_alloc_command_template_t, __nokey_t
+            __new_stack_alloc_command_template_t
         >::with_args_t<size_t> __stack_alloc_command_manager;
 
         ref_t type_ref = xil.type_ref();
@@ -4809,20 +4824,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         switch (xil.new_type())
         {
             case xil_new_type_t::default_:
-                return __new_command_manager.template get_command<xil_new_type_t::default_>(
-                    __Mv(type), ctx
-                );
+                return __new_command_manager.template
+                    get_command<__NewCmd(default_), xil_new_type_t::default_>(type, ctx);
 
             case xil_new_type_t::array:
-                return __new_command_manager.template get_command<xil_new_type_t::array>(
-                    __Mv(type), ctx
-                );
+                return __new_command_manager.template
+                    get_command<__NewCmd(array), xil_new_type_t::array>(type, ctx);
 
             case xil_new_type_t::stack_alloc: {
 
                 msize_t obj_size = type->get_size(ctx.env);
                 size_t units = _alignf(obj_size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
-                return __stack_alloc_command_manager.template get_command<__nokey>(__Mv(units));
+                return __stack_alloc_command_manager.template
+                    get_command<__NewCmd(stack_alloc)>(units);
 
             }   break;
 
@@ -4834,7 +4848,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 size_t units = _alignf(obj_size * count, sizeof(rt_stack_unit_t))
                                                         / sizeof(rt_stack_unit_t);
 
-                return __stack_alloc_command_manager.template get_command<__nokey>(__Mv(units));
+                return __stack_alloc_command_manager.template
+                    get_command<__NewCmd(stack_alloc)>(units);
 
             }   break;
 
@@ -4845,10 +4860,29 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    #define __ToCopyCmdValue(_copy_type, _flag)                                         \
-        __ToCmdValue(copy, ((uint32_t)xil_copy_type_t::_copy_type << 16) | (uint32_t)_flag)
+    #define __CopyCmd(_kind, _size)    __Cmd(copy, _kind##_##_size)
 
-    class __copy_command_base_t : public __command_base_t
+    #define __DefineCopyCmdValues(_kind)                                                \
+        __DefineCmdValue_(__CopyCmd(_kind, 1))                                          \
+        __DefineCmdValue_(__CopyCmd(_kind, 2))                                          \
+        __DefineCmdValue_(__CopyCmd(_kind, 4))                                          \
+        __DefineCmdValue_(__CopyCmd(_kind, 8))                                          \
+        __DefineCmdValue_(__CopyCmd(_kind, 12))                                         \
+        __DefineCmdValue_(__CopyCmd(_kind, 16))                                         \
+        __DefineCmdValue_(__CopyCmd(_kind, 20))                                         \
+        __DefineCmdValue_(__CopyCmd(_kind, 24))                                         \
+        __DefineCmdValue_(__CopyCmd(_kind, 28))                                         \
+        __DefineCmdValue_(__CopyCmd(_kind, 32))
+
+    __DefineCopyCmdValues(default_)
+    __DefineCopyCmdValues(reverse)
+    __DefineCopyCmdValues(zero)
+
+    #define __CopyCmdEx                 __Cmd(copy, 0)
+    __DefineCmdValue_(__CopyCmdEx)
+
+    template<command_value_t _cv>
+    class __copy_command_base_t : public __command_base_t<_cv>
     {
     public:
 
@@ -4901,23 +4935,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<size_t _size, xil_copy_kind_t _kind = xil_copy_kind_t::default_>
-    class __memory_copy_command_t : public __copy_command_base_t
+    template<command_value_t _cv, size_t _size, xil_copy_kind_t _kind = xil_copy_kind_t::default_>
+    class __memory_copy_command_t : public __copy_command_base_t<_cv>
     {
-        typedef __copy_command_base_t                   __super_t;
-        typedef __memory_copy_command_t<_size, _kind>   __self_t;
+        typedef __memory_copy_command_t     __self_t;
+        typedef __copy_command_base_t<_cv>  __super_t;
 
     public:
 
-        __BeginExecute(ctx, __ToCopyCmdValue(__default__, (((uint32_t)_kind << 8) | _size)))
+        __BeginExecute(ctx)
             
             __memory_copy_operation_t<_size, _kind>::copy(ctx);
 
         __EndExecute()
     };
 
-    template<__nokey_t>
-    class __memory_copy_command_ex_t : public __copy_command_base_t
+    class __memory_copy_command_ex_t : public __copy_command_base_t<__CopyCmdEx>
     {
         typedef __memory_copy_command_ex_t  __self_t;
         typedef __copy_command_base_t       __super_t;
@@ -4927,7 +4960,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __memory_copy_command_ex_t(size_t size, xil_copy_kind_t kind) _NE
             : __size(size), __kind(kind) { }
 
-        __BeginExecute(ctx, __ToCopyCmdValue(__default__, 0xFFFF))
+        __BeginExecute(ctx)
             
             if (__This->__kind == xil_copy_kind_t::default_)
             {
@@ -4959,20 +4992,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __memory_copy_command_template_t
     {
-        template<size_t _size, xil_copy_kind_t _kind, typename ... _args_t>
+        template<command_value_t _cv, size_t _size, xil_copy_kind_t _kind, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __memory_copy_command_t<_size, _kind> this_command_t;
+            typedef __memory_copy_command_t<_cv, _size, _kind> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
     struct __memory_copy_command_ex_template_t
     {
-        template<__nokey_t _nokey, typename ... _args_t>
+        template<command_value_t _cv, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __memory_copy_command_ex_t<_nokey> this_command_t;
+            static_assert(_cv == __CopyCmdEx, "invalid command value");
+
+            typedef __memory_copy_command_ex_t this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
@@ -4986,14 +5021,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<> __memory_copy_command_manager;
 
         static __command_manager_t<
-            __memory_copy_command_ex_template_t, __nokey_t
+            __memory_copy_command_ex_template_t
         >::with_args_t<size_t, xil_copy_kind_t> __memory_copy_command_ex_manager;
 
 
         #define __Case(_size, _kind)                                                    \
             case _size:                                                                 \
-                return __memory_copy_command_manager.template get_command<_size, _kind>(\
-                );                                                                      \
+                return __memory_copy_command_manager.template                           \
+                    get_command<__CopyCmd(_kind, _size), _size, xil_copy_kind_t::_kind>();
 
         #define __Switch(_size, _kind)                                                  \
             switch (_size)                                                              \
@@ -5010,23 +5045,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 __Case(32,  _kind)                                                      \
                                                                                         \
                 default:                                                                \
-                    return __memory_copy_command_ex_manager.template get_command<__nokey>( \
-                        __Mv(size), __Mv(kind)                                          \
-                    );                                                                  \
+                    return __memory_copy_command_ex_manager.template                    \
+                        get_command<__CopyCmdEx>(size, kind);                           \
             }
 
         switch (kind)
         {
             case xil_copy_kind_t::default_:
-                __Switch(size, xil_copy_kind_t::default_)
+                __Switch(size, default_)
                 break;
 
             case xil_copy_kind_t::reverse:
-                __Switch(size, xil_copy_kind_t::reverse)
+                __Switch(size, reverse)
                 break;
 
             case xil_copy_kind_t::zero:
-                __Switch(size, xil_copy_kind_t::zero);
+                __Switch(size, zero);
                 break;
 
             default:
@@ -5059,7 +5093,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    class __init_command_base_t : public __command_base_t
+    template<command_value_t _cv>
+    class __init_command_base_t : public __command_base_t<_cv>
     {
     public:
 
@@ -5074,24 +5109,34 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<xil_init_type_t _init_type, msize_t _size> class __init_command_t { };
+    template<command_value_t _cv, xil_init_type_t _init_type, msize_t _size>
+    class __init_command_t { };
 
-    #define __ToInitCmdValue(_init_type, _size)                                         \
-        __ToCmdValue(init, ((cmd_value_t)xil_init_type_t::_init_type << 16) | (cmd_value_t)_size)
+    #define __InitCmd(_init_type, _size)        __Cmd(init, _init_type##_##_size)
+
+    __DefineCmdValue_(__InitCmd(array_begin, 0))
+
+    __DefineCmdValue_(__InitCmd(array_element, 0))
+    __DefineCmdValue_(__InitCmd(array_element, 1))
+    __DefineCmdValue_(__InitCmd(array_element, 2))
+    __DefineCmdValue_(__InitCmd(array_element, 4))
+    __DefineCmdValue_(__InitCmd(array_element, 8))
+
+    __DefineCmdValue_(__InitCmd(array_end, 0))
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<>
-    class __init_command_t<xil_init_type_t::array_begin, 0>
-        : public __init_command_base_t
+    template<command_value_t _cv>
+    class __init_command_t<_cv, xil_init_type_t::array_begin, 0>
+        : public __init_command_base_t<_cv>
     {
-        typedef __init_command_t        __self_t;
-        typedef __init_command_base_t   __super_t;
+        typedef __init_command_t            __self_t;
+        typedef __init_command_base_t<_cv>   __super_t;
 
     public:
         using __super_t::__super_t;
 
-        __BeginExecute(ctx, __ToInitCmdValue(array_begin, 0))
+        __BeginExecute(ctx)
             
             ctx.stack.push<void *>(
                 (void *)ctx.stack.pick<rt_ref_t>()
@@ -5102,17 +5147,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<msize_t _size>
-    class __init_command_t<xil_init_type_t::array_element, _size>
-        : public __init_command_base_t
+    template<command_value_t _cv, msize_t _size>
+    class __init_command_t<_cv, xil_init_type_t::array_element, _size>
+        : public __init_command_base_t<_cv>
     {
-        typedef __init_command_t        __self_t;
-        typedef __init_command_base_t   __super_t;
+        typedef __init_command_t            __self_t;
+        typedef __init_command_base_t<_cv>  __super_t;
 
     public:
         using __super_t::__super_t;
 
-        __BeginExecute(ctx, __ToInitCmdValue(array_element, _size))
+        __BeginExecute(ctx)
 
             typedef uint_type_t<_size> t;
             *ctx.stack.pick_reference<t *>()++ = ctx.stack.pop<t>();
@@ -5122,18 +5167,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<>
-    class __init_command_t<xil_init_type_t::array_element, 0>
-        : public __init_command_base_t
+    template<command_value_t _cv>
+    class __init_command_t<_cv, xil_init_type_t::array_element, 0>
+        : public __init_command_base_t<_cv>
 
     {
-        typedef __init_command_t        __self_t;
-        typedef __init_command_base_t   __super_t;
+        typedef __init_command_t            __self_t;
+        typedef __init_command_base_t<_cv>  __super_t;
 
     public:
         __init_command_t(msize_t size) : __size(size) { }
 
-        __BeginExecute(ctx, __ToInitCmdValue(array_element, 0))
+        __BeginExecute(ctx)
             
             // TODO: implement it.
             X_UNEXPECTED();
@@ -5146,17 +5191,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<>
-    class __init_command_t<xil_init_type_t::array_end, 0>
-        : public __init_command_base_t
+    template<command_value_t _cv>
+    class __init_command_t<_cv, xil_init_type_t::array_end, 0>
+        : public __init_command_base_t<_cv>
     {
-        typedef __init_command_t        __self_t;
-        typedef __init_command_base_t   __super_t;
+        typedef __init_command_t            __self_t;
+        typedef __init_command_base_t<_cv>  __super_t;
 
     public:
         using __super_t::__super_t;
 
-        __BeginExecute(ctx, __ToInitCmdValue(array_end, 0))
+        __BeginExecute(ctx)
 
             ctx.stack.pop<void *>();
 
@@ -5167,10 +5212,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     struct __init_command_template_t
     {
-        template<xil_init_type_t _init_type, msize_t _size, typename ... _args_t>
+        template<command_value_t _cv, xil_init_type_t _init_type, msize_t _size,
+                                                        typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __init_command_t<_init_type, _size> this_command_t;
+            typedef __init_command_t<_cv, _init_type, _size> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
@@ -5202,7 +5248,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             case xil_init_type_t::array_begin:
                 return __stack_init_command_manager.template
-                    get_command<xil_init_type_t::array_begin, 0>();
+                    get_command<__InitCmd(array_begin, 0), xil_init_type_t::array_begin, 0>();
 
             case xil_init_type_t::array_element: {
                 msize_t size = __size_of_array_element(ctx, xil);
@@ -5210,8 +5256,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 {
                     #define __Case(_size)                                               \
                         case _size:                                                     \
-                            return __stack_init_command_manager.template                \
-                                get_command<xil_init_type_t::array_element, _size>();   \
+                            return __stack_init_command_manager.template get_command<   \
+                                __InitCmd(array_element, _size),                        \
+                                xil_init_type_t::array_element, _size>();
 
                     __Case(1)
                     __Case(2)
@@ -5219,8 +5266,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     __Case(8)
 
                     default:
-                        return __stack_init_command_manager.template
-                            get_command<xil_init_type_t::array_element, 0>(size);
+                        return __stack_init_command_manager.template get_command<
+                            __InitCmd(array_element, 0),
+                            xil_init_type_t::array_element, 0>(size);
                    
                     #undef __Case
                 }
@@ -5228,17 +5276,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }   break;
 
             case xil_init_type_t::array_end:
-                return __stack_init_command_manager.template
-                    get_command<xil_init_type_t::array_end, 0>();
+                return __stack_init_command_manager.template get_command<
+                    __InitCmd(array_end, 0),
+                    xil_init_type_t::array_end, 0>();
 
             default:
                 X_UNEXPECTED();
         }
     }
-
-    ////////// ////////// ////////// ////////// //////////
-
-    #undef __Local
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -5333,17 +5378,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #endif  // EXEC_TRACE >= 2
 
         
-    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL_METHOD
-
-    __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
-                                                 command_t * command)
-    {
-        __BeginExecuteCommand()
-
-        command->execute_method(command, ctx);
-
-        __EndExecuteCommand()
-    }
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
 
     #if EXEC_TRACE
 
@@ -5360,96 +5395,98 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // __SwitchCommands
 
     // Push/Pop/Pick commands.
-    #define __SwitchCommands_CaseSt(_name, _stype, _dtype1, _dtype2)                    \
-        __Case( __##_name##_command_t<xil_storage_type_t::_stype,                       \
-                            xil_type_t::_dtype1, xil_type_t::_dtype2> )
+    #define __SwitchCommands_CaseSt(_cmd, _st, _xt1, _xt2)                              \
+        __Case( __##_cmd##_command_t<__StCmd(_cmd, _st, _xt1, _xt2),                    \
+            xil_storage_type_t::_st, xil_type_t::_xt1, xil_type_t::_xt2> )
 
-    #define __SwitchCommands_CaseSts_(_name, _stype, _dtype1)                           \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, int8)                           \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, uint8)                          \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, int16)                          \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, uint16)                         \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, int32)                          \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, uint32)                         \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, int64)                          \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, uint64)                         \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, float_)                         \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, double_)                        \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, char_)                          \
-        __SwitchCommands_CaseSt(_name, _stype, _dtype1, bool_)
+    #define __SwitchCommands_CaseSts_(_cmd, _st, _xt1)                                  \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, int8)                                  \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, uint8)                                 \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, int16)                                 \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, uint16)                                \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, int32)                                 \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, uint32)                                \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, int64)                                 \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, uint64)                                \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, float_)                                \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, double_)                               \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, char_)                                 \
+        __SwitchCommands_CaseSt(_cmd, _st, _xt1, bool_)
 
-    #define __SwitchCommands_CaseSts(_name, _stype)                                     \
-        __SwitchCommands_CaseSts_(_name, _stype, int8)                                  \
-        __SwitchCommands_CaseSts_(_name, _stype, uint8)                                 \
-        __SwitchCommands_CaseSts_(_name, _stype, int16)                                 \
-        __SwitchCommands_CaseSts_(_name, _stype, uint16)                                \
-        __SwitchCommands_CaseSts_(_name, _stype, int32)                                 \
-        __SwitchCommands_CaseSts_(_name, _stype, uint32)                                \
-        __SwitchCommands_CaseSts_(_name, _stype, int64)                                 \
-        __SwitchCommands_CaseSts_(_name, _stype, uint64)                                \
-        __SwitchCommands_CaseSts_(_name, _stype, float_)                                \
-        __SwitchCommands_CaseSts_(_name, _stype, double_)                               \
-        __SwitchCommands_CaseSts_(_name, _stype, char_)                                 \
-        __SwitchCommands_CaseSts_(_name, _stype, bool_)                                 \
-        __SwitchCommands_CaseSt(_name, _stype, object, object)                          \
-        __SwitchCommands_CaseSt(_name, _stype, string, string)                          \
-        __SwitchCommands_CaseSt(_name, _stype, ptr, ptr)
+    #define __SwitchCommands_CaseSts(_cmd, _st)                                         \
+        __SwitchCommands_CaseSts_(_cmd, _st, int8)                                      \
+        __SwitchCommands_CaseSts_(_cmd, _st, uint8)                                     \
+        __SwitchCommands_CaseSts_(_cmd, _st, int16)                                     \
+        __SwitchCommands_CaseSts_(_cmd, _st, uint16)                                    \
+        __SwitchCommands_CaseSts_(_cmd, _st, int32)                                     \
+        __SwitchCommands_CaseSts_(_cmd, _st, uint32)                                    \
+        __SwitchCommands_CaseSts_(_cmd, _st, int64)                                     \
+        __SwitchCommands_CaseSts_(_cmd, _st, uint64)                                    \
+        __SwitchCommands_CaseSts_(_cmd, _st, float_)                                    \
+        __SwitchCommands_CaseSts_(_cmd, _st, double_)                                   \
+        __SwitchCommands_CaseSts_(_cmd, _st, char_)                                     \
+        __SwitchCommands_CaseSts_(_cmd, _st, bool_)                                     \
+        __SwitchCommands_CaseSt(_cmd, _st, object, object)                              \
+        __SwitchCommands_CaseSt(_cmd, _st, string, string)                              \
+        __SwitchCommands_CaseSt(_cmd, _st, ptr, ptr)
 
-    #define __SwitchCommands_CaseArray(_name, _dtype1, _dtype2, _dimension)             \
-        __Case( __##_name##_array_element_command_t<xil_type_t::_dtype1,                \
-                                                    xil_type_t::_dtype2, _dimension> )
+    #define __SwitchCommands_CaseArray(_cmd, _xt1, _xt2, _dimension)                    \
+        __Case( __##_cmd##_array_element_command_t<                                     \
+            __StArrayCmd(_cmd, _xt1, _xt2, _dimension),                                 \
+            xil_type_t::_xt1, xil_type_t::_xt2, _dimension> )
 
-    #define __SwitchCommands_CaseArrays_(_name, _dtype1, _dimension)                    \
-        __SwitchCommands_CaseArray(_name, _dtype1, int8,    _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, uint8,   _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, int16,   _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, uint16,  _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, int32,   _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, uint32,  _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, int64,   _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, uint64,  _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, float_,  _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, double_, _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, char_,   _dimension)                 \
-        __SwitchCommands_CaseArray(_name, _dtype1, bool_,   _dimension)
+    #define __SwitchCommands_CaseArrays_(_cmd, _xt1, _dimension)                        \
+        __SwitchCommands_CaseArray(_cmd, _xt1, int8,    _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, uint8,   _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, int16,   _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, uint16,  _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, int32,   _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, uint32,  _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, int64,   _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, uint64,  _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, float_,  _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, double_, _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, char_,   _dimension)                     \
+        __SwitchCommands_CaseArray(_cmd, _xt1, bool_,   _dimension)
 
     // Push/Pick/Pop Array commands.
-    #define __SwitchCommands_CaseArrays(_name, _dimension)                              \
-        __SwitchCommands_CaseArrays_(_name, int8,    _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, uint8,   _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, int16,   _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, uint16,  _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, int32,   _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, uint32,  _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, int64,   _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, uint64,  _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, float_,  _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, double_, _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, char_,   _dimension)                        \
-        __SwitchCommands_CaseArrays_(_name, bool_,   _dimension)                        \
-        __SwitchCommands_CaseArray(_name, object, object, _dimension)                   \
-        __SwitchCommands_CaseArray(_name, string, string, _dimension)                   \
-        __SwitchCommands_CaseArray(_name, ptr, ptr, _dimension)
+    #define __SwitchCommands_CaseArrays(_cmd, _dimension)                               \
+        __SwitchCommands_CaseArrays_(_cmd, int8,    _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, uint8,   _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, int16,   _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, uint16,  _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, int32,   _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, uint32,  _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, int64,   _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, uint64,  _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, float_,  _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, double_, _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, char_,   _dimension)                         \
+        __SwitchCommands_CaseArrays_(_cmd, bool_,   _dimension)                         \
+        __SwitchCommands_CaseArray(_cmd, object, object, _dimension)                    \
+        __SwitchCommands_CaseArray(_cmd, string, string, _dimension)                    \
+        __SwitchCommands_CaseArray(_cmd, ptr, ptr, _dimension)
 
     // Push Constants.
 
-    #define __SwitchCommands_CaseConstant(_dtype1, _dtype2)                             \
-        __Case( __push_command_t<xil_storage_type_t::constant,                          \
-                    xil_type_t::_dtype1, xil_type_t::_dtype2> )
+    #define __SwitchCommands_CaseConstant(_xt1, _xt2)                                   \
+        __Case( __push_command_t<                                                       \
+                __StCmd(push, constant, _xt1, _xt2),                                    \
+                xil_storage_type_t::constant, xil_type_t::_xt1, xil_type_t::_xt2> )
         
-    #define __SwitchCommands_CaseConstants_(_dtype1)                                    \
-        __SwitchCommands_CaseConstant(_dtype1, int8)                                    \
-        __SwitchCommands_CaseConstant(_dtype1, uint8)                                   \
-        __SwitchCommands_CaseConstant(_dtype1, int16)                                   \
-        __SwitchCommands_CaseConstant(_dtype1, uint16)                                  \
-        __SwitchCommands_CaseConstant(_dtype1, int32)                                   \
-        __SwitchCommands_CaseConstant(_dtype1, uint32)                                  \
-        __SwitchCommands_CaseConstant(_dtype1, int64)                                   \
-        __SwitchCommands_CaseConstant(_dtype1, uint64)                                  \
-        __SwitchCommands_CaseConstant(_dtype1, float_)                                  \
-        __SwitchCommands_CaseConstant(_dtype1, double_)                                 \
-        __SwitchCommands_CaseConstant(_dtype1, char_)                                   \
-        __SwitchCommands_CaseConstant(_dtype1, bool_)
+    #define __SwitchCommands_CaseConstants_(_xt1)                                       \
+        __SwitchCommands_CaseConstant(_xt1, int8)                                       \
+        __SwitchCommands_CaseConstant(_xt1, uint8)                                      \
+        __SwitchCommands_CaseConstant(_xt1, int16)                                      \
+        __SwitchCommands_CaseConstant(_xt1, uint16)                                     \
+        __SwitchCommands_CaseConstant(_xt1, int32)                                      \
+        __SwitchCommands_CaseConstant(_xt1, uint32)                                     \
+        __SwitchCommands_CaseConstant(_xt1, int64)                                      \
+        __SwitchCommands_CaseConstant(_xt1, uint64)                                     \
+        __SwitchCommands_CaseConstant(_xt1, float_)                                     \
+        __SwitchCommands_CaseConstant(_xt1, double_)                                    \
+        __SwitchCommands_CaseConstant(_xt1, char_)                                      \
+        __SwitchCommands_CaseConstant(_xt1, bool_)
 
     #define __SwitchCommands_CaseConstants()                                            \
         __SwitchCommands_CaseConstants_(int8)                                           \
@@ -5468,109 +5505,119 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __SwitchCommands_CaseConstant(string, string)                                   \
         __SwitchCommands_CaseConstant(ptr, ptr)
 
-    #define __SwitchCommands_CaseAddress(_stype)                                        \
-        __Case( __push_address_command_t<xil_storage_type_t::_stype> )
+    #define __SwitchCommands_CaseAddress(_st)                                           \
+        __Case( __push_address_command_t<xil_storage_type_t::_st> )
 
     // binary, unitary commands
-    #define __SwitchCommands_CaseBinary(_cmd, _dtype1, _dtype2)                         \
-        __Case( __binary_command_t<decltype(_cmd), _cmd, xil_type_t::_dtype1, xil_type_t::_dtype2> )
+    #define __SwitchCommands_CaseBinary(_cmd, _op, _xt1, _xt2)                          \
+        __Case( __binary_command_t<                                                     \
+            __BinaryCmd(_cmd, _op, _xt1, _xt2),                                         \
+            decltype(xil_##_cmd##_command_t::_op), xil_##_cmd##_command_t::_op,         \
+            xil_type_t::_xt1, xil_type_t::_xt2                                          \
+        > )
 
-    #define __SwitchCommands_CaseUnitary(_cmd, _dtype1)                                 \
-        __Case( __unitary_command_t<decltype(_cmd), _cmd, xil_type_t::_dtype1> )
+    #define __SwitchCommands_CaseUnitary(_cmd, _op, _xt)                                \
+        __Case( __unitary_command_t<                                                    \
+            __UnitaryCmd(_cmd, _op, _xt),                                               \
+            decltype(xil_##_cmd##_command_t::_op), xil_##_cmd##_command_t::_op,         \
+            xil_type_t::_xt                                                             \
+        > )
 
-    #define __SwitchCommands_CaseBinary_1(_cmd, _dtype1, _dtype2)                       \
-        __SwitchCommands_CaseBinary(_cmd, _dtype1, _dtype2)
+    #define __SwitchCommands_CaseBinary_1(_cmd, _op, _xt1, _xt2)                        \
+        __SwitchCommands_CaseBinary(_cmd, _op, _xt1, _xt2)
 
-    #define __SwitchCommands_CaseBinary_2(_cmd, _dtype1, _dtype2)                       \
-        __SwitchCommands_CaseBinary(_cmd, _dtype1, _dtype2)                             \
-        __SwitchCommands_CaseBinary(_cmd, _dtype2, _dtype1)
+    #define __SwitchCommands_CaseBinary_2(_cmd, _op, _xt1, _xt2)                        \
+        __SwitchCommands_CaseBinary(_cmd, _op, _xt1, _xt2)                              \
+        __SwitchCommands_CaseBinary(_cmd, _op, _xt2, _xt1)
 
-    #define __SwitchCommands_CaseBinaries(_cmd)                                         \
-            __SwitchCommands_CaseBinary_1(_cmd, int8,   int8)                           \
-            __SwitchCommands_CaseBinary_2(_cmd, int8,   uint8)                          \
+    #define __SwitchCommands_CaseBinaries(_cmd, _op)                                    \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, int8,   int8)                      \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int8,   uint8)                     \
                                                                                         \
-            __SwitchCommands_CaseBinary_1(_cmd, uint8,  uint8)                          \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, uint8,  uint8)                     \
                                                                                         \
-            __SwitchCommands_CaseBinary_2(_cmd, int16,  int8)                           \
-            __SwitchCommands_CaseBinary_2(_cmd, int16,  uint8)                          \
-            __SwitchCommands_CaseBinary_1(_cmd, int16,  int16)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, int16,  uint16)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int16,  int8)                      \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int16,  uint8)                     \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, int16,  int16)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int16,  uint16)                    \
                                                                                         \
-            __SwitchCommands_CaseBinary_2(_cmd, uint16, int8)                           \
-            __SwitchCommands_CaseBinary_2(_cmd, uint16, uint8)                          \
-            __SwitchCommands_CaseBinary_1(_cmd, uint16, uint16)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint16, int8)                      \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint16, uint8)                     \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, uint16, uint16)                    \
                                                                                         \
-            __SwitchCommands_CaseBinary_2(_cmd, int32,  int8)                           \
-            __SwitchCommands_CaseBinary_2(_cmd, int32,  uint8)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, int32,  int16)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, int32,  uint16)                         \
-            __SwitchCommands_CaseBinary_1(_cmd, int32,  int32)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int32,  int8)                      \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int32,  uint8)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int32,  int16)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int32,  uint16)                    \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, int32,  int32)                     \
                                                                                         \
-            __SwitchCommands_CaseBinary_2(_cmd, uint32, int8)                           \
-            __SwitchCommands_CaseBinary_2(_cmd, uint32, uint8)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, uint32, int16)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, uint32, uint16)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, uint32, int32)                          \
-            __SwitchCommands_CaseBinary_1(_cmd, uint32, uint32)                         \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint32, int8)                      \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint32, uint8)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint32, int16)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint32, uint16)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint32, int32)                     \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, uint32, uint32)                    \
                                                                                         \
-            __SwitchCommands_CaseBinary_2(_cmd, int64,  int8)                           \
-            __SwitchCommands_CaseBinary_2(_cmd, int64,  uint8)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, int64,  int16)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, int64,  uint16)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, int64,  int32)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, int64,  uint32)                         \
-            __SwitchCommands_CaseBinary_1(_cmd, int64,  int64)                          \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int64,  int8)                      \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int64,  uint8)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int64,  int16)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int64,  uint16)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int64,  int32)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, int64,  uint32)                    \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, int64,  int64)                     \
                                                                                         \
-            __SwitchCommands_CaseBinary_2(_cmd, uint64,  int8)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, uint64,  uint8)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, uint64,  int16)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, uint64,  uint16)                        \
-            __SwitchCommands_CaseBinary_2(_cmd, uint64,  int32)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, uint64,  uint32)                        \
-            __SwitchCommands_CaseBinary_2(_cmd, uint64,  int64)                         \
-            __SwitchCommands_CaseBinary_1(_cmd, uint64,  uint64)
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint64,  int8)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint64,  uint8)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint64,  int16)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint64,  uint16)                   \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint64,  int32)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint64,  uint32)                   \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, uint64,  int64)                    \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, uint64,  uint64)
 
-        #define __SwitchCommands_CaseFloatBinaries(_cmd)                                \
-            __SwitchCommands_CaseBinary_2(_cmd, float_,  int8)                          \
-            __SwitchCommands_CaseBinary_2(_cmd, float_,  uint8)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, float_,  int16)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, float_,  uint16)                        \
-            __SwitchCommands_CaseBinary_2(_cmd, float_,  int32)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, float_,  uint32)                        \
-            __SwitchCommands_CaseBinary_2(_cmd, float_,  int64)                         \
-            __SwitchCommands_CaseBinary_1(_cmd, float_,  uint64)                        \
-            __SwitchCommands_CaseBinary_1(_cmd, float_,  float_)                        \
+        #define __SwitchCommands_CaseFloatBinaries(_cmd, _op)                           \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, float_,  int8)                     \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, float_,  uint8)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, float_,  int16)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, float_,  uint16)                   \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, float_,  int32)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, float_,  uint32)                   \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, float_,  int64)                    \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, float_,  uint64)                   \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, float_,  float_)                   \
                                                                                         \
-            __SwitchCommands_CaseBinary_2(_cmd, double_,  int8)                         \
-            __SwitchCommands_CaseBinary_2(_cmd, double_,  uint8)                        \
-            __SwitchCommands_CaseBinary_2(_cmd, double_,  int16)                        \
-            __SwitchCommands_CaseBinary_2(_cmd, double_,  uint16)                       \
-            __SwitchCommands_CaseBinary_2(_cmd, double_,  int32)                        \
-            __SwitchCommands_CaseBinary_2(_cmd, double_,  uint32)                       \
-            __SwitchCommands_CaseBinary_2(_cmd, double_,  int64)                        \
-            __SwitchCommands_CaseBinary_1(_cmd, double_,  uint64)                       \
-            __SwitchCommands_CaseBinary_2(_cmd, double_,  float_)                       \
-            __SwitchCommands_CaseBinary_1(_cmd, double_,  double_)
+            __SwitchCommands_CaseBinary_2(_cmd, _op, double_,  int8)                    \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, double_,  uint8)                   \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, double_,  int16)                   \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, double_,  uint16)                  \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, double_,  int32)                   \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, double_,  uint32)                  \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, double_,  int64)                   \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, double_,  uint64)                  \
+            __SwitchCommands_CaseBinary_2(_cmd, _op, double_,  float_)                  \
+            __SwitchCommands_CaseBinary_1(_cmd, _op, double_,  double_)
 
-        #define __SwitchCommands_CaseUnitaries(_cmd)                                    \
-            __SwitchCommands_CaseUnitary(_cmd, int8)                                    \
-            __SwitchCommands_CaseUnitary(_cmd, uint8)                                   \
-            __SwitchCommands_CaseUnitary(_cmd, int16)                                   \
-            __SwitchCommands_CaseUnitary(_cmd, uint16)                                  \
-            __SwitchCommands_CaseUnitary(_cmd, int32)                                   \
-            __SwitchCommands_CaseUnitary(_cmd, uint32)                                  \
-            __SwitchCommands_CaseUnitary(_cmd, int64)                                   \
-            __SwitchCommands_CaseUnitary(_cmd, uint64)
+        #define __SwitchCommands_CaseUnitaries(_cmd, _op)                               \
+            __SwitchCommands_CaseUnitary(_cmd, _op, int8)                               \
+            __SwitchCommands_CaseUnitary(_cmd, _op, uint8)                              \
+            __SwitchCommands_CaseUnitary(_cmd, _op, int16)                              \
+            __SwitchCommands_CaseUnitary(_cmd, _op, uint16)                             \
+            __SwitchCommands_CaseUnitary(_cmd, _op, int32)                              \
+            __SwitchCommands_CaseUnitary(_cmd, _op, uint32)                             \
+            __SwitchCommands_CaseUnitary(_cmd, _op, int64)                              \
+            __SwitchCommands_CaseUnitary(_cmd, _op, uint64)
 
-        #define __SwitchCommands_CaseFloatUnitaries(_cmd)                               \
-            __SwitchCommands_CaseUnitary(_cmd, float_)                                  \
-            __SwitchCommands_CaseUnitary(_cmd, double_)
+        #define __SwitchCommands_CaseFloatUnitaries(_cmd, _op)                          \
+            __SwitchCommands_CaseUnitary(_cmd, _op, float_)                             \
+            __SwitchCommands_CaseUnitary(_cmd, _op, double_)
 
         #define __SwitchCommands_CaseRet(_ret_size)                                     \
-            __Case( __ret_command_t<_ret_size> )
+            __Case( __ret_command_t<__RetCmd(_ret_size), _ret_size> )
 
         #define __SwitchCommands_CaseCopy(_size, _kind)                                 \
-            __Case( __memory_copy_command_t<_size, xil_copy_kind_t::_kind> )
+            __Case( __memory_copy_command_t<                                            \
+                __CopyCmd(_kind, _size),_size, xil_copy_kind_t::_kind                   \
+            > )
 
         #define __SwitchCommands_CaseCopies(_kind)                                      \
             __SwitchCommands_CaseCopy(1,  _kind)                                        \
@@ -5584,7 +5631,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __SwitchCommands_CaseCopy(28, _kind)                                        \
             __SwitchCommands_CaseCopy(32, _kind)
 
-    #define __SwitchCommands(_cmd_value)                                                \
+        #define __SwitchCommands_CaseJmp(_model)                                        \
+            __Case( __jmp_command_t<__JmpCmd(_model), xil_jmp_model_t::_model> )
+
+
+    #define __BeginSwitchCommands(_cmd_value)                                           \
         switch (_cmd_value)                                                             \
         {                                                                               \
             /* empty */                                                                 \
@@ -5622,7 +5673,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __SwitchCommands_CaseArrays(pop, 6)                                         \
             __SwitchCommands_CaseArrays(pop, 7)                                         \
             __SwitchCommands_CaseArrays(pop, 8)                                         \
-            __Case( __pop_empty_command_t<__nokey> )                                    \
+            __Case( __pop_empty_command_t )                                             \
                                                                                         \
              /* pick */                                                                 \
             __SwitchCommands_CaseSts(pick, local)                                       \
@@ -5639,66 +5690,66 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __SwitchCommands_CaseArrays(pick, 8)                                        \
                                                                                         \
             /* call */                                                                  \
-            __Case( __internal_call_command_t<__nokey> )                                \
-            __Case( __static_call_command_t<rt_generic_method_t> )                      \
-            __Case( __static_call_command_t<rt_method_t> )                              \
-            __Case( __instance_call_command_t<rt_generic_method_t> )                    \
-            __Case( __instance_call_command_t<rt_method_t> )                            \
-            __Case( __virtual_call_command_t<__nokey> )                                 \
+            __Case( __internal_call_command_t )                                         \
+            __Case( __static_call_command_t<__CallCmd_(static_, generic), rt_generic_method_t> ) \
+            __Case( __static_call_command_t<__CallCmd_(static_, general), rt_method_t> ) \
+            __Case( __instance_call_command_t<__CallCmd_(instance, generic), rt_generic_method_t> ) \
+            __Case( __instance_call_command_t<__CallCmd_(instance, general), rt_method_t> ) \
+            __Case( __virtual_call_command_t )                                          \
                                                                                         \
             /* al */                                                                    \
-            __SwitchCommands_CaseBinaries(xil_al_command_t::add)                        \
-            __SwitchCommands_CaseFloatBinaries(xil_al_command_t::add)                   \
-            __SwitchCommands_CaseBinaries(xil_al_command_t::sub)                        \
-            __SwitchCommands_CaseFloatBinaries(xil_al_command_t::sub)                   \
-            __SwitchCommands_CaseBinaries(xil_al_command_t::mul)                        \
-            __SwitchCommands_CaseFloatBinaries(xil_al_command_t::mul)                   \
-            __SwitchCommands_CaseBinaries(xil_al_command_t::div)                        \
-            __SwitchCommands_CaseFloatBinaries(xil_al_command_t::div)                   \
-            __SwitchCommands_CaseBinaries(xil_al_command_t::mod)                        \
-            __SwitchCommands_CaseUnitaries(xil_al_command_t::minus)                     \
-            __SwitchCommands_CaseFloatUnitaries(xil_al_command_t::minus)                \
-            __SwitchCommands_CaseUnitaries(xil_al_command_t::positive)                  \
-            __SwitchCommands_CaseFloatUnitaries(xil_al_command_t::positive)             \
+            __SwitchCommands_CaseBinaries(al, add)                                      \
+            __SwitchCommands_CaseFloatBinaries(al, add)                                 \
+            __SwitchCommands_CaseBinaries(al, sub)                                      \
+            __SwitchCommands_CaseFloatBinaries(al, sub)                                 \
+            __SwitchCommands_CaseBinaries(al, mul)                                      \
+            __SwitchCommands_CaseFloatBinaries(al, mul)                                 \
+            __SwitchCommands_CaseBinaries(al, div)                                      \
+            __SwitchCommands_CaseFloatBinaries(al, div)                                 \
+            __SwitchCommands_CaseBinaries(al, mod)                                      \
+            __SwitchCommands_CaseUnitaries(al, minus)                                   \
+            __SwitchCommands_CaseFloatUnitaries(al, minus)                              \
+            __SwitchCommands_CaseUnitaries(al, positive)                                \
+            __SwitchCommands_CaseFloatUnitaries(al, positive)                           \
                                                                                         \
             /* bit */                                                                   \
-            __SwitchCommands_CaseBinaries(xil_bit_command_t::bit_and)                   \
-            __SwitchCommands_CaseBinaries(xil_bit_command_t::bit_or)                    \
-            __SwitchCommands_CaseBinaries(xil_bit_command_t::bit_xor)                   \
-            __SwitchCommands_CaseBinaries(xil_bit_command_t::left_shift)                \
-            __SwitchCommands_CaseBinaries(xil_bit_command_t::right_shift)               \
-            __SwitchCommands_CaseUnitaries(xil_bit_command_t::bit_not)                  \
+            __SwitchCommands_CaseBinaries(bit, bit_and)                                 \
+            __SwitchCommands_CaseBinaries(bit, bit_or)                                  \
+            __SwitchCommands_CaseBinaries(bit, bit_xor)                                 \
+            __SwitchCommands_CaseBinaries(bit, left_shift)                              \
+            __SwitchCommands_CaseBinaries(bit, right_shift)                             \
+            __SwitchCommands_CaseUnitaries(bit, bit_not)                                \
                                                                                         \
             /* logic */                                                                 \
-            __SwitchCommands_CaseBinary(xil_logic_command_t::and_, bool_, bool_)        \
-            __SwitchCommands_CaseBinary(xil_logic_command_t::or_, bool_, bool_)         \
-            __SwitchCommands_CaseUnitary(xil_logic_command_t::or_, bool_)               \
+            __SwitchCommands_CaseBinary(logic, and_, bool_, bool_)                      \
+            __SwitchCommands_CaseBinary(logic, or_, bool_, bool_)                       \
+            __SwitchCommands_CaseUnitary(logic, not_, bool_)                            \
                                                                                         \
             /* cmp */                                                                   \
-            __SwitchCommands_CaseBinaries(xil_cmp_command_t::greater)                   \
-            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::greater)              \
-            __SwitchCommands_CaseBinaries(xil_cmp_command_t::greater_equal)             \
-            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::greater_equal)        \
-            __SwitchCommands_CaseBinaries(xil_cmp_command_t::less)                      \
-            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::less)                 \
-            __SwitchCommands_CaseBinaries(xil_cmp_command_t::less_equal)                \
-            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::less_equal)           \
-            __SwitchCommands_CaseBinaries(xil_cmp_command_t::equal)                     \
-            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::equal)                \
-            __SwitchCommands_CaseBinaries(xil_cmp_command_t::not_equal)                 \
-            __SwitchCommands_CaseFloatBinaries(xil_cmp_command_t::not_equal)            \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, bool_, bool_)         \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, bool_, bool_)     \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, char_, char_)         \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, char_, char_)     \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::greater, char_, char_)       \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::greater_equal, char_, char_) \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::less, char_, char_)          \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::less_equal, char_, char_)    \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, object, object)       \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, object, object)   \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::equal, ptr, ptr)             \
-            __SwitchCommands_CaseBinary(xil_cmp_command_t::not_equal, ptr, ptr)         \
+            __SwitchCommands_CaseBinaries(cmp, greater)                                 \
+            __SwitchCommands_CaseFloatBinaries(cmp, greater)                            \
+            __SwitchCommands_CaseBinaries(cmp, greater_equal)                           \
+            __SwitchCommands_CaseFloatBinaries(cmp, greater_equal)                      \
+            __SwitchCommands_CaseBinaries(cmp, less)                                    \
+            __SwitchCommands_CaseFloatBinaries(cmp, less)                               \
+            __SwitchCommands_CaseBinaries(cmp, less_equal)                              \
+            __SwitchCommands_CaseFloatBinaries(cmp, less_equal)                         \
+            __SwitchCommands_CaseBinaries(cmp, equal)                                   \
+            __SwitchCommands_CaseFloatBinaries(cmp, equal)                              \
+            __SwitchCommands_CaseBinaries(cmp, not_equal)                               \
+            __SwitchCommands_CaseFloatBinaries(cmp, not_equal)                          \
+            __SwitchCommands_CaseBinary(cmp, equal, bool_, bool_)                       \
+            __SwitchCommands_CaseBinary(cmp, not_equal, bool_, bool_)                   \
+            __SwitchCommands_CaseBinary(cmp, equal, char_, char_)                       \
+            __SwitchCommands_CaseBinary(cmp, not_equal, char_, char_)                   \
+            __SwitchCommands_CaseBinary(cmp, greater, char_, char_)                     \
+            __SwitchCommands_CaseBinary(cmp, greater_equal, char_, char_)               \
+            __SwitchCommands_CaseBinary(cmp, less, char_, char_)                        \
+            __SwitchCommands_CaseBinary(cmp, less_equal, char_, char_)                  \
+            __SwitchCommands_CaseBinary(cmp, equal, object, object)                     \
+            __SwitchCommands_CaseBinary(cmp, not_equal, object, object)                 \
+            __SwitchCommands_CaseBinary(cmp, equal, ptr, ptr)                           \
+            __SwitchCommands_CaseBinary(cmp, not_equal, ptr, ptr)                       \
                                                                                         \
             /* ret */                                                                   \
             __SwitchCommands_CaseRet(0)                                                 \
@@ -5710,7 +5761,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __SwitchCommands_CaseRet(6)                                                 \
             __SwitchCommands_CaseRet(7)                                                 \
             __SwitchCommands_CaseRet(8)                                                 \
-            __SwitchCommands_CaseRet(__large_ret_unit_size)                             \
+            __SwitchCommands_CaseRet(__LargeRetUnitSize)                                \
                                                                                         \
             /* label */                                                                 \
             __Case( __label_command_t )                                                 \
@@ -5721,10 +5772,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __Case( __end_finally_command_t )                                           \
                                                                                         \
             /* jmp */                                                                   \
-            __Case( __jmp_command_t<xil_jmp_model_t::none> )                            \
-            __Case( __jmp_command_t<xil_jmp_model_t::true_> )                           \
-            __Case( __jmp_command_t<xil_jmp_model_t::false_> )                          \
-            __Case( __jmp_command_t<xil_jmp_model_t::leave> )                           \
+            __SwitchCommands_CaseJmp(none)                                              \
+            __SwitchCommands_CaseJmp(true_)                                             \
+            __SwitchCommands_CaseJmp(false_)                                            \
+            __SwitchCommands_CaseJmp(leave)                                             \
             __Case( __leave_ret_command_t )                                             \
             __Case( __switch_jmp_command_t )                                            \
                                                                                         \
@@ -5737,37 +5788,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __SwitchCommands_CaseCopies(default_)                                       \
             __SwitchCommands_CaseCopies(reverse)                                        \
             __SwitchCommands_CaseCopies(zero)                                           \
-            __Case( __memory_copy_command_ex_t<__nokey> )                               \
+            __Case( __memory_copy_command_ex_t )                                        \
                                                                                         \
             /* end */                                                                   \
-            __Case( __execute_end_command_t )                                           \
+            /* __Case( __execute_end_command_t ) */                                     \
                                                                                         \
-        default:                                                                        \
-            __Default(_cmd_value)                                                       \
+
+    
+    #define __EndSwitchCommands(_cmd_value)                                             \
         }
 
     //-------- ---------- ---------- ---------- ----------
-
-    __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
-                                                 command_t * command)
-    {
-        __BeginExecuteCommand()
-
-        #define __Case(_t, _ts...)                                                      \
-            case _t, ##_ts::cmd_value:                                                  \
-                ((_t, ##_ts *)command)->execute(ctx);                                   \
-                break;
-
-        #define __Default(_cmd_value)                                                   \
-            throw _EC(unexpected, _F(_T("unexpected command %1%"), __Cmd(_cmd_value)));
-
-        __SwitchCommands(command->cmd_value)
-
-        #undef __Case
-        #undef __Default
-
-        __EndExecuteCommand()
-    }
 
     #if EXEC_TRACE
     const string_t to_command_string(command_t * command)
@@ -5776,28 +5807,22 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case _t, ##_ts::cmd_value:                                                  \
                 return ((_t, ##_ts *)command)->to_string();
 
-        #define __Default(_cmd_value)                                                   \
-            return _F(_T("[%1%]"), _cmd_value);
+        __BeginSwitchCommands(command->cmd_value)
 
-        __SwitchCommands(command->cmd_value)
+            case __EndCmd:
+                return _T("[end]");
 
-        #undef __Default
+            default:
+                return _F(_T("[%1%]"), _cmd_value);
+
+        __EndSwitchCommands(command->cmd_value)
+
         #undef __Case
     }
 
     #endif  // EXEC_TRACE
 
-    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL_METHOD // EXEC_EXECUTE_MODEL == xxx
-
-    __AlwaysInline void __inline_execute_command(command_execute_context_t & ctx,
-                                                 command_t * command)
-    {
-        __BeginExecuteCommand()
-
-        command->execute(ctx);
-
-        __EndExecuteCommand()
-    }
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL // EXEC_EXECUTE_MODEL == xxx
 
     #if EXEC_TRACE
 
@@ -5815,16 +5840,76 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __exec_env_error_t __execute_commands(command_execute_context_t & ctx,
                                           command_t ** & commands)
     {
+
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
         try
         {
     __begin__:
-            __inline_execute_command(ctx, *commands++);
+            command_t * command = *commands++;
+
+            __BeginExecuteCommand()
+            command->execute_method(command, ctx);
+            __EndExecuteCommand()
+
             goto __begin__;
         }
         catch (__exec_env_error_t & e)
         {
             return e;
         }
+
+
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE
+
+    __begin__:
+
+        command_t * command = *commands++;
+
+        __BeginExecuteCommand()
+
+        #define __Case(_t, _ts...)                                                      \
+            case _t, ##_ts::cmd_value:                                                  \
+                ((_t, ##_ts *)command)->execute(ctx);                                   \
+                goto __begin__;
+
+        __BeginSwitchCommands(command->cmd_value)
+
+            case __EndCmd:
+                return _E(exec_env_code_t::end);
+
+            default:
+                throw _EC(unexpected, _F(_T("unexpected command %1%"), command->cmd_value));
+
+        __EndSwitchCommands()
+
+        #undef __Case
+
+        __EndExecuteCommand()
+
+
+    #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+        try
+        {
+    __begin__:
+            command_t * command = *commands++;
+
+            __BeginExecuteCommand()
+            command->execute(ctx);
+            __EndExecuteCommand()
+
+            goto __begin__;
+        }
+        catch (__exec_env_error_t & e)
+        {
+            return e;
+        }
+
+    #else
+        
+        #error unknown EXEC_EXECUTE_MODEL
+
+    #endif  // EXEC_EXECUTE_MODEL == xxx
     }
 
     void __execute_command(command_execute_context_t & ctx, command_t * command)
@@ -5863,6 +5948,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     void execute_commands(command_execute_context_t & ctx, command_t ** commands)
     {
         #if EXEC_TRACE
+        _PF(_T("~ %1% commands in total ~"), __COUNTER__);
         _PF(_T("-> %|1$-50|[%2%]"), _T("<begin>"), ctx.stack.top());
         #endif  // EXEC_TRACE
 
