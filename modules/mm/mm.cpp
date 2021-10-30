@@ -33,7 +33,7 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
         *((array_length_t *)((rt_type_t **)arr_obj - 1) - 1) = length;
     }
 
-    al::xheap_t __default_memory;
+    al::xheap_t __default_memory(_T("default"));
     
     ////////// ////////// ////////// ////////// //////////
 

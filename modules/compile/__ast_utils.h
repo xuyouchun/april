@@ -193,6 +193,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns whether it has no error.
         operator bool() const { return __region != nullptr; }
 
+        X_TO_STRING_IMPL(_T("variable_defination_t"))
+
     private:
         ast_context_t      & __cctx;
         ast_walk_context_t & __wctx;

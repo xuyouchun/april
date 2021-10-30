@@ -24,6 +24,8 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
             return nullptr;
         }
+
+        X_TO_STRING_IMPL(_T("rtlib_manager_t"))
     
     private:
         std::map<string_t, libfunc_t> __func_map;

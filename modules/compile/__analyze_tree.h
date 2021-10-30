@@ -591,6 +591,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         analyze_root_node_t * const root;               // Node root
         analyze_normal_path_node_t * const path_root;   // Path root.
+
+        X_TO_STRING_IMPL(_T("analyze_tree_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -690,10 +692,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual __stack_node_action_type_t action_type() const = 0;
 
         // Returns two actions are equals.
-        virtual bool equals(const __stack_node_action_t & action) const = 0;
+        virtual bool equals(const __stack_node_action_t & action) const override = 0;
 
         // Clone actions.
-        virtual __stack_node_action_t * clone(memory_t * memory) const = 0;
+        virtual __stack_node_action_t * clone(memory_t * memory) const override = 0;
+
+        X_TO_STRING_IMPL(_T("__stack_node_action_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -921,6 +925,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Memory management.
         memory_t * const memory;
 
+        X_TO_STRING_IMPL(_T("analyze_tree_build_context_t"))
+
     private:
         __node_index_t __next_node_index = 0;
         al::heap_t<void * []> __heap;
@@ -959,6 +965,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Build the tree.
         analyze_root_node_t * build();
+
+        X_TO_STRING_IMPL(_T("analyze_tree_builder_t"))
 
     private:
         const char_t * const __pattern;                     // Pattern.
@@ -1290,6 +1298,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<typename itor_t>
         static analyze_path_node_stack_t * new_stack(analyze_tree_build_context_t * context,
                 const analyze_node_t * head, itor_t begin, itor_t end);
+
+        X_TO_STRING_IMPL(_T("analyze_path_node_stack_t"))
     };
 
     typedef analyze_path_node_stack_t __path_node_stack_t;
@@ -1345,6 +1355,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns stack of specified head.
         const __path_node_stack_t * stack_of(const analyze_node_t * head) const;
+
+        X_TO_STRING_IMPL(_T("analyze_path_node_stacks_t"))
     };
 
     typedef analyze_path_node_stacks_t __path_node_stacks_t;
@@ -1460,6 +1472,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns the counter.
         static size_t counter() { return __counter; }
+
+        X_TO_STRING_IMPL(_T("analyze_path_node_t"))
 
     protected:
         analyze_tree_build_context_t * const __build_context;
@@ -1706,23 +1720,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Matches the next token.
         void go(const __node_key_t * keys, __tag_t * tag, __node_value_t * out_value = nullptr);
 
+        X_TO_STRING_IMPL(_T("analyze_context_t"))
+
     private:
-        lang_t * __lang;                            // Language.
-        lang_service_helper_t __service_helper;     // Service helper
+        lang_t * __lang;                                // Language.
+        lang_service_helper_t __service_helper;         // Service helper
         token_property_cache_t<token_property_t> __token_property_cache;
 
-        analyze_callback_t * __callback;            // Analyze callback.
-        analyze_tree_t * __tree;                    // Analyzze tree.
+        analyze_callback_t * __callback;                // Analyze callback.
+        analyze_tree_t * __tree;                        // Analyzze tree.
 
-        __stack_node_t * __stack_root = nullptr;    // Stack root.
-        al::xheap_t __sn_heap;                      // A heap, memory management.
+        __stack_node_t * __stack_root = nullptr;        // Stack root.
+        al::xheap_t __sn_heap;                          // A heap, memory management.
 
         template<typename t> using __w_t = al::respool_wrapper_t<t>;
         __w_t<__stack_node_t> __stack_node_factory;
         al::heap_t<__stack_node_assign_key_action_t> __assign_key_action_factory;
         al::heap_t<__stack_node_raise_matched_event_action_t> __raise_matched_event_action_factory;
 
-        __leafs_t __leafs;                          // Leafs
+        __leafs_t __leafs;                              // Leafs
 
         typedef al::svector_t<__stack_node_t *, 2> __stack_node_vector_t;
 
@@ -2122,6 +2138,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             analyzer_element_t element;     // Element.
 
             __ast_flag_t * next = nullptr;  // Next flag.
+
+            X_TO_STRING_IMPL(_T("__ast_flag_t"))
         };
 
         //-------- ---------- ---------- ---------- ----------
@@ -2289,6 +2307,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         void analyze();
 
+        X_TO_STRING_IMPL(_T("__analyzer_t"))
+
     private:
         lang_t                    * __lang;             // Language.
         analyze_tree_t            * __tree;             // Tree.
@@ -2351,6 +2371,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         static const int32_t __cache_key__ = 1;
 
+        X_TO_STRING_IMPL(_T("analyzer_t"))
+
     private:
         analyze_tree_t * __tree;
         lang_t * __lang;
@@ -2395,6 +2417,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns build result.
         ast_node_t * get_result();
+
+        X_TO_STRING_IMPL(_T("ast_factory_t"))
 
     private:
         ast_context_t & __ast_context;
@@ -2442,6 +2466,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Builds nodes.
         ast_node_t * build();
+
+        X_TO_STRING_IMPL(_T("ast_builder_t"))
 
     protected:
         typedef analyzer_element_t              __element_t;

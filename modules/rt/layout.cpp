@@ -151,6 +151,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns host type.
         virtual rt_type_t * get_host_type() override { return nullptr; }
 
+        X_TO_STRING_IMPL(_T("__type_place_holder_t"))
+
     protected:
 
         // When caculate size.
@@ -710,8 +712,17 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
+    X_ENUM_INFO(param_layout_type_t)
+
+        X_C(default_,   _T("default"))
+
+        X_C(this_,      _T("this"))
+
+    X_ENUM_INFO_END
+
     // Appends a param.
-    void params_layout_t::append(ref_t type_ref, param_type_t param_type)
+    void params_layout_t::append(ref_t type_ref, param_type_t param_type,
+                param_layout_type_t layout_type)
     {
         if (param_type == param_type_t::extends)
         {
@@ -725,7 +736,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         int index;
 
         rt_type_t * type = __get_type(type_ref, &gp, &index);
-        append(type, param_type);
+        append(type, param_type, layout_type);
 
         // Params generic type.
         if (gp != nullptr && (generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
@@ -734,18 +745,23 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 index1 < count; index1++)
             {
                 rt_type_t * type1 = __ctx.gp_manager->type_at(index1);
-                append(type1, param_type);
+                append(type1, param_type, layout_type);
             }
         }
     }
 
     // Appends a param.
-    void params_layout_t::append(rt_type_t * type, param_type_t param_type)
+    void params_layout_t::append(rt_type_t * type, param_type_t param_type,
+                param_layout_type_t layout_type)
     {
+        typedef param_type_t p_t;
+
         _A(type != nullptr);
 
         storage_type_t storage_type;
-        msize_t unit_size = unit_size_of(type->get_variable_size(__ctx.env, &storage_type));
+        msize_t unit_size = param_type == p_t::ref || param_type == p_t::out
+                            || layout_type == param_layout_type_t::this_? 1
+            : unit_size_of(type->get_variable_size(__ctx.env, &storage_type));
 
         __items.push_back(__item_t { type, param_type, __current_offset });
         __current_offset += unit_size;

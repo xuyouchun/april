@@ -278,6 +278,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    // Pushes calling bottom.
+    struct x_push_calling_bottom_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_calling_bottom_xil_t()
+            : __super_t(xil_storage_type_t::calling_bottom)
+        { }
+    };
+
     // Pushes array element xil.
     struct x_push_array_element_xil_t : xil_extra_t<push_xil_t>
     {

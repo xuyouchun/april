@@ -43,6 +43,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         // Returns global context.
         global_context_t & global_context() { return __global_context(); }
 
+        X_TO_STRING_IMPL(_T("april_compiler_t"))
+
     private:
         xheap_t                 __xheap;            // Memory management.
         compiler_t *            __compiler;         // Compiler.
@@ -87,6 +89,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
         // Run the specified assembly.
         bool run(const string_t & execute_assembly = _T(""));
+
+        X_TO_STRING_IMPL(_T("april_xcompiler_t"))
 
     private:
         class __cassembly_t;
@@ -167,10 +171,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             // Commits it.
             virtual void commit() = 0;
 
-            virtual const string_t to_string() const override
-            {
-                return _T("cassembly");
-            }
+            X_TO_STRING_IMPL(_T("__cassembly_t"))
 
         protected:
             virtual __cassembly_executable_t is_executable() = 0;

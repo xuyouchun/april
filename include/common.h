@@ -316,11 +316,11 @@ namespace X_ROOT_NS {
         template<size_t size, bool sign>
         struct __int_type_info_t { };
 
-        #define __X_INT_VALUE_INFO(type_name)                       \
-            template<> struct __int_type_info_t<sizeof(type_name),  \
-                    std::is_signed<type_name>::value>               \
-            {                                                       \
-                typedef type_name type;                             \
+        #define __X_INT_VALUE_INFO(type_name)                                           \
+            template<> struct __int_type_info_t<sizeof(type_name),                      \
+                    std::is_signed<type_name>::value>                                   \
+            {                                                                           \
+                typedef type_name type;                                                 \
             };
 
         __X_INT_VALUE_INFO(int8_t)
@@ -430,19 +430,19 @@ namespace X_ROOT_NS {
         char_t      char_value;
     };
 
-    #define __X_EACH_TYPES      \
-        __X_TYPE_OP(int8)       \
-        __X_TYPE_OP(uint8)      \
-        __X_TYPE_OP(int16)      \
-        __X_TYPE_OP(uint16)     \
-        __X_TYPE_OP(int32)      \
-        __X_TYPE_OP(uint32)     \
-        __X_TYPE_OP(int64)      \
-        __X_TYPE_OP(uint64)     \
-        __X_TYPE_OP(float)      \
-        __X_TYPE_OP(double)     \
-        __X_TYPE_OP(ldouble)    \
-        __X_TYPE_OP(bool)       \
+    #define __X_EACH_TYPES                                                              \
+        __X_TYPE_OP(int8)                                                               \
+        __X_TYPE_OP(uint8)                                                              \
+        __X_TYPE_OP(int16)                                                              \
+        __X_TYPE_OP(uint16)                                                             \
+        __X_TYPE_OP(int32)                                                              \
+        __X_TYPE_OP(uint32)                                                             \
+        __X_TYPE_OP(int64)                                                              \
+        __X_TYPE_OP(uint64)                                                             \
+        __X_TYPE_OP(float)                                                              \
+        __X_TYPE_OP(double)                                                             \
+        __X_TYPE_OP(ldouble)                                                            \
+        __X_TYPE_OP(bool)                                                               \
         __X_TYPE_OP(char)
 
     namespace
@@ -498,32 +498,32 @@ namespace X_ROOT_NS {
         //-------- ---------- ---------- ---------- ----------
         // Defines get/set functions for any numeric types.
 
-        #define __X_VALUE_DEF(type)                                             \
-            template<> struct __value_t<type##_t>                               \
-            {                                                                   \
-                typedef type##_t numeric_t;                                     \
-                static const value_type_t value_type = value_type_t::type##_;   \
-                                                                                \
-                static numeric_t get_value(const value_t & value) _NE           \
-                {                                                               \
-                    return value.type##_value;                                  \
-                }                                                               \
-                                                                                \
-                static void set_value(value_t & value, numeric_t v) _NE         \
-                {                                                               \
-                    value.type##_value = v;                                     \
-                }                                                               \
-                                                                                \
-                static string_t to_string(const value_t & value)                \
-                {                                                               \
-                    return __value_to_string(value.type##_value);               \
-                }                                                               \
-            };                                                                  \
-                                                                                \
-            template<> struct __value_type_t<value_type_t::type##_>             \
-            {                                                                   \
-                typedef type##_t numeric_t;                                     \
-                static const value_type_t value_type = value_type_t::type##_;   \
+        #define __X_VALUE_DEF(type)                                                     \
+            template<> struct __value_t<type##_t>                                       \
+            {                                                                           \
+                typedef type##_t numeric_t;                                             \
+                static const value_type_t value_type = value_type_t::type##_;           \
+                                                                                        \
+                static numeric_t get_value(const value_t & value) _NE                   \
+                {                                                                       \
+                    return value.type##_value;                                          \
+                }                                                                       \
+                                                                                        \
+                static void set_value(value_t & value, numeric_t v) _NE                 \
+                {                                                                       \
+                    value.type##_value = v;                                             \
+                }                                                                       \
+                                                                                        \
+                static string_t to_string(const value_t & value)                        \
+                {                                                                       \
+                    return __value_to_string(value.type##_value);                       \
+                }                                                                       \
+            };                                                                          \
+                                                                                        \
+            template<> struct __value_type_t<value_type_t::type##_>                     \
+            {                                                                           \
+                typedef type##_t numeric_t;                                             \
+                static const value_type_t value_type = value_type_t::type##_;           \
             };
 
         #define __X_TYPE_OP __X_VALUE_DEF
@@ -582,8 +582,8 @@ namespace X_ROOT_NS {
 
         operator string_t() const _NE
         {
-            #define __X_CASE(type)                              \
-                case value_type_t::type##_:                     \
+            #define __X_CASE(type)                                                      \
+                case value_type_t::type##_:                                             \
                     return __value_t<type##_t>::to_string(value);
 
             switch (type)
@@ -604,8 +604,8 @@ namespace X_ROOT_NS {
             if (__value_t<numeric_t>::value_type == type)
                 return __root_ns::get_value<numeric_t>(value);
 
-            #define __X_CASE(type)                              \
-                case value_type_t::type##_:                     \
+            #define __X_CASE(type)                                                      \
+                case value_type_t::type##_:                                             \
                     return static_cast<numeric_t>(__root_ns::get_value<type##_t>(value));
 
             switch (type)
@@ -630,9 +630,9 @@ namespace X_ROOT_NS {
             if (type != other.type)
                 return false;
 
-            #define __X_CASE(type)                                          \
-                case value_type_t::type##_:                                 \
-                    return __root_ns::get_value<type##_t>(value)            \
+            #define __X_CASE(type)                                                      \
+                case value_type_t::type##_:                                             \
+                    return __root_ns::get_value<type##_t>(value)                        \
                         == __root_ns::get_value<type##_t>(other.value);
 
             switch (type)
@@ -653,9 +653,9 @@ namespace X_ROOT_NS {
             if (type != other.type)
                 return type < other.type;
 
-            #define __X_CASE(type)                                          \
-                case value_type_t::type##_:                                 \
-                    return __root_ns::get_value<type##_t>(value)            \
+            #define __X_CASE(type)                                                      \
+                case value_type_t::type##_:                                             \
+                    return __root_ns::get_value<type##_t>(value)                        \
                         < __root_ns::get_value<type##_t>(other.value);
 
             switch (type)
@@ -676,9 +676,9 @@ namespace X_ROOT_NS {
             if (type != other.type)
                 return type <= other.type;
 
-            #define __X_CASE(type)                                          \
-                case value_type_t::type##_:                                 \
-                    return __root_ns::get_value<type##_t>(value)            \
+            #define __X_CASE(type)                                                      \
+                case value_type_t::type##_:                                             \
+                    return __root_ns::get_value<type##_t>(value)                        \
                         <= __root_ns::get_value<type##_t>(other.value);
 
             switch (type)
@@ -711,8 +711,8 @@ namespace X_ROOT_NS {
 
         tvalue_t operator - () const _NE
         {
-            #define __X_CASE(type)                          \
-                case value_type_t::type##_:                 \
+            #define __X_CASE(type)                                                      \
+                case value_type_t::type##_:                                             \
                     return tvalue_t(-value.type##_value);
 
             switch (type)
@@ -779,8 +779,8 @@ namespace X_ROOT_NS {
     //-------- ---------- ---------- ---------- ----------
 
     // Limits
-    #define __X_LIMIT_VALUES(type)   \
-        const type##_t type##_max = std::numeric_limits<type##_t>::max();  \
+    #define __X_LIMIT_VALUES(type)                                                      \
+        const type##_t type##_max = std::numeric_limits<type##_t>::max();               \
         const type##_t type##_min = std::numeric_limits<type##_t>::min();
 
     __X_LIMIT_VALUES(int8)
@@ -1070,16 +1070,20 @@ namespace X_ROOT_NS {
     //-------- ---------- ---------- ---------- ----------
     // Defines to_string() overiable functions.
 
-    #define X_TO_STRING                             \
-        operator string_t() const                   \
-        {                                           \
-            return this->to_string();               \
-        }                                           \
-                                                    \
+    #define X_TO_STRING                                                                 \
+        operator string_t() const { return this->to_string(); }                         \
         virtual const string_t to_string() const override;
 
-    #define X_DEFINE_TO_STRING(type_t)              \
+    #define X_TO_STRING_IMPL_                                                           \
+        operator string_t() const { return this->to_string(); }                         \
+        virtual const string_t to_string() const override
+
+    #define X_DEFINE_TO_STRING(type_t)                                                  \
         const string_t type_t::to_string() const
+
+    #define X_TO_STRING_IMPL(_s)                                                        \
+        operator string_t() const { return this->to_string(); }                         \
+        virtual const string_t to_string() const override { return _s; }
 
     //-------- ---------- ---------- ---------- ----------
     // Puts an object to a stream.
@@ -1248,12 +1252,12 @@ namespace X_ROOT_NS {
 
     #if X_DEBUG
 
-    #define X_ERROR(code, args...)                                          \
+    #define X_ERROR(code, args...)                                                      \
         __root_ns::_error(code, ##args, _T(__FILE__), __LINE__)
 
     #else
 
-    #define X_ERROR(code, args...)                                          \
+    #define X_ERROR(code, args...)                                                      \
         __root_ns::_error(code, ##args)
 
     #endif
@@ -1263,12 +1267,12 @@ namespace X_ROOT_NS {
 
     #if X_DEBUG
 
-    #define X_ASSERT(x, args...)                                            \
-        do {                                                                \
-            if (!(x)) {                                                      \
-                __root_ns::__raise_assert_error(_T("") #x,                  \
-                    _T(__FILE__), __LINE__, ##args);                        \
-            }                                                               \
+    #define X_ASSERT(x, args...)                                                        \
+        do {                                                                            \
+            if (!(x)) {                                                                 \
+                __root_ns::__raise_assert_error(_T("") #x,                              \
+                    _T(__FILE__), __LINE__, ##args);                                    \
+            }                                                                           \
         } while (0)
 
     #else
@@ -1310,15 +1314,15 @@ namespace X_ROOT_NS {
     }
 
     // Assert a value must be a specified type.
-    #define X_MUST(type_t, value)                                       \
-        (([](auto v) -> type_t {                                        \
-            if (v == nullptr)                                           \
-                return (type_t)nullptr;                                 \
-            type_t v2 = dynamic_cast<type_t>(v);                        \
-            if (v2 == nullptr)                                          \
-                throw _ECF(convert_error, _T("cannot convert from %1% to %2%"),  \
-                        type_str<decltype(v)>(), type_str<type_t>());   \
-            return v2;                                                  \
+    #define X_MUST(type_t, value)                                                       \
+        (([](auto v) -> type_t {                                                        \
+            if (v == nullptr)                                                           \
+                return (type_t)nullptr;                                                 \
+            type_t v2 = dynamic_cast<type_t>(v);                                        \
+            if (v2 == nullptr)                                                          \
+                throw _ECF(convert_error, _T("cannot convert from %1% to %2%"),         \
+                        type_str<decltype(v)>(), type_str<type_t>());                   \
+            return v2;                                                                  \
         })(value))
 
     ////////// ////////// ////////// ////////// //////////
@@ -1552,6 +1556,8 @@ namespace X_ROOT_NS {
         box_t(const t & value) _NE : value(value) { }
 
         t value;
+
+        X_TO_STRING_IMPL(_T("box_t"))
     };
 
     // Creates an box wrapper for the specified value.
@@ -1795,15 +1801,6 @@ namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // The wrapper of object, used when creates an object that not inherited by object_t.
-    template<typename t>
-    class obj_wrap_t : public t, public object_t
-    {
-        using t::t;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
     // An memory manager interface.
     X_INTERFACE memory_t
     {
@@ -1842,8 +1839,6 @@ namespace X_ROOT_NS {
         template<typename obj_t, typename ... args_t>
         static obj_t * new_obj(memory_t * memory, args_t && ... args)
         {
-            memory_flag_t flag = __revise_memory_flag<obj_t>();
-
             if (!memory)
                 memory = __default_memory();
 
@@ -1855,8 +1850,6 @@ namespace X_ROOT_NS {
         template<typename obj_t, typename ... args_t>
         static obj_t * new_obj(size_t size, memory_t * memory, args_t && ... args)
         {
-            memory_flag_t flag = __revise_memory_flag<obj_t>();
-
             if (!memory)
                 memory = __default_memory();
 
@@ -1972,6 +1965,8 @@ namespace X_ROOT_NS {
         // Dealloctor
         virtual ~file_xistream_t() override;
 
+        X_TO_STRING_IMPL(_T("file_xistream_t"))
+
     private:
         std::fstream    __stream;
     };
@@ -2016,6 +2011,8 @@ namespace X_ROOT_NS {
 
         // Dealloctor
         virtual ~file_xostream_t() override;
+
+        X_TO_STRING_IMPL(_T("file_xostream_t"))
 
     private:
         std::fstream    __stream;
@@ -2106,6 +2103,8 @@ namespace X_ROOT_NS {
 
     public:
         static default_memory_t * instance();
+
+        X_TO_STRING_IMPL(_T("default_memory_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2184,6 +2183,8 @@ namespace X_ROOT_NS {
             static __self_t * creator = new __self_t();
             return creator;
         }
+
+        X_TO_STRING_IMPL(_T("default_creator_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2211,6 +2212,8 @@ namespace X_ROOT_NS {
 
         // Deallocator, delete all objects in the pool.
         virtual ~pool_t() override;
+
+        X_TO_STRING_IMPL(_T("pool_t"))
 
     private:
         std::set<object_t *> __objects;
@@ -2849,19 +2852,19 @@ namespace X_ROOT_NS {
         }
     };
 
-    #define __OutputWrapper(name)                                   \
-        template<typename t>                                        \
-        __##name##_output_wrapper_t<t> _##name(const t & value)     \
-        {                                                           \
-            return __##name##_output_wrapper_t<t>(value);           \
-        }                                                           \
-                                                                    \
-        template<typename stream_t, typename t>                     \
-        X_INLINE stream_t & operator << (stream_t & stream,         \
-                        const __##name##_output_wrapper_t<t> & w)   \
-        {                                                           \
-            w.write_to(stream);                                     \
-            return stream;                                          \
+    #define __OutputWrapper(name)                                                       \
+        template<typename t>                                                            \
+        __##name##_output_wrapper_t<t> _##name(const t & value)                         \
+        {                                                                               \
+            return __##name##_output_wrapper_t<t>(value);                               \
+        }                                                                               \
+                                                                                        \
+        template<typename stream_t, typename t>                                         \
+        X_INLINE stream_t & operator << (stream_t & stream,                             \
+                        const __##name##_output_wrapper_t<t> & w)                       \
+        {                                                                               \
+            w.write_to(stream);                                                         \
+            return stream;                                                              \
         }
 
     __OutputWrapper(hex)
@@ -3164,6 +3167,22 @@ namespace X_ROOT_NS {
     {
         return value <= max_of_bits<_t, _bits>() && value >= min_of_bits<_t, _bits>();
     }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // The wrapper of object, used when creates an object that not inherited by object_t.
+    template<typename _t>
+    class obj_wrap_t : public _t, public object_t
+    {
+    public:
+
+        using _t::_t;
+
+        X_TO_STRING_IMPL_
+        {
+            return _str( *(_t *)this );
+        }
+    };
 
     ////////// ////////// ////////// ////////// //////////
 

@@ -127,6 +127,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns assembly at index.
         rt_assembly_t * at(int index);
 
+        X_TO_STRING_IMPL(_T("rt_assemblies_t"))
+
     private:
         rt_context_t & __ctx;
         typedef std::tuple<string_t, string_t> __assembly_key_t;
@@ -213,6 +215,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         {
             return __acquire<member_t>(size);
         }
+
+        X_TO_STRING_IMPL(_T("rt_memory_t"))
 
     private:
         al::heap_t<void *[]> __heap;
@@ -331,6 +335,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Converts to string id.
         rt_sid_t to_sid(const string_t & s);
+
+        X_TO_STRING_IMPL(_T("rt_spool_t"))
 
     private:
         std::set<const rt_string_t> __string_set;
@@ -648,6 +654,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Creates a rt_tuple_field_t array.
         rt_tuple_field_t * new_tuple_field_array(size_t count);
 
+        X_TO_STRING_IMPL(_T("rt_pool_t"))
+
     private:
         al::heap_t<rt_type_t *[]> __types_heap;
         std::set<__rt_generic_args_key_t> __types_map;
@@ -684,6 +692,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         rt_spool_t      spool;
 
         rt_assemblies_t assemblies;
+
+        X_TO_STRING_IMPL(_T("rt_context_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -900,12 +910,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     };
 
     // Returns whether it's a generic type.
-    X_INLINE bool is_general(rt_type_t * type)
-    {
-        _A(type != nullptr);
+    bool is_general(rt_type_t * type);
 
-        return type->get_kind() == rt_type_kind_t::general;
-    }
+    // Returns whether it's a custom struct.
+    bool is_custom_struct(analyzer_env_t & env, rt_type_t * type);
 
     //-------- ---------- ---------- ---------- ----------
     // General like type.
@@ -1671,6 +1679,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         virtual rt_method_ref_param_t * get_method_ref_param(ref_t ref) = 0;
 
         int index = -1;
+
+        X_TO_STRING_IMPL(_T("rt_assembly_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1747,6 +1757,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Returns tuple type.
         rt_general_type_t * get_tuple_type();
+
+        X_TO_STRING_IMPL(_T("analyzer_env_t"))
 
     private:
         rt_assembly_t * __core_assembly = nullptr;
@@ -1906,6 +1918,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Gets prototype of runtime method.
         void get_prototype(rt_method_t * rt_method, method_prototype_t * out_prototype);
+
+        X_TO_STRING_IMPL(_T("assembly_analyzer_t"))
 
     private:
 

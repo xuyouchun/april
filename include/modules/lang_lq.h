@@ -32,6 +32,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_lq {
 
         static const char_t * const __default_name__;
 
+        X_TO_STRING_IMPL(_T("lq_lang_t"))
+
     private:
         lang_id_t __lang_id;
     };

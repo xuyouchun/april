@@ -406,9 +406,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (expression != nullptr)
         {
             statement_compile_context_t & sctx = (statement_compile_context_t &)ctx;
-
             type_t * type = sctx.method->get_type();
             xil_type_t dtype = to_xil_type(type);
+
+            // For custom struct type, push the address to stack top when calling new constructor.
+            if (is_custom_struct(type))
+            {
+                expression_compile_context_t cctx(ctx);
+                __pre_custom_struct_return(cctx, pool, expression);
+            }
 
             __compile_expression(ctx, pool, expression, dtype);
         }

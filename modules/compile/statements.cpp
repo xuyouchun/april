@@ -480,6 +480,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return expression == nullptr || expression->is_empty(xpool);
     }
 
+    X_DEFINE_TO_STRING(expression_statement_t)
+    {
+        return _str(expression);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
@@ -492,6 +497,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __exit_type_t type_def_statement_t::exit_type(__exit_type_context_t & ctx)
     {
         return __exit_type_t::none;
+    }
+
+    X_DEFINE_TO_STRING(type_def_statement_t)
+    {
+        return _str(type_def);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -604,6 +614,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __exit_type_t::break_;
     }
 
+    X_DEFINE_TO_STRING(break_statement_t)
+    {
+        return _T("break");
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
@@ -619,6 +634,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __exit_type_t continue_statement_t::exit_type(__exit_type_context_t & ctx)
     {
         return __exit_type_t::continue_;
+    }
+
+    X_DEFINE_TO_STRING(continue_statement_t)
+    {
+        return _T("continue");
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -643,6 +663,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __exit_type_t::throw_;
     }
 
+    X_DEFINE_TO_STRING(throw_statement_t)
+    {
+        return _F(_T("throw %1%"), expression);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
@@ -655,6 +680,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __exit_type_t goto_statement_t::exit_type(__exit_type_context_t & ctx)
     {
         return __exit_type_t::goto_;
+    }
+
+    X_DEFINE_TO_STRING(goto_statement_t)
+    {
+        return _F(_T("goto %1%"), label);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -679,6 +709,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __exit_type_t return_statement_t::exit_type(__exit_type_context_t & ctx)
     {
         return __exit_type_t::return_;
+    }
+
+    X_DEFINE_TO_STRING(return_statement_t)
+    {
+        return _F(_T("return %1%"), expression);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -736,6 +771,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __e_exit_type_t et_body = __exit_type(ctx, body);
         return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+    }
+
+    X_DEFINE_TO_STRING(do_while_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("do\n{\n");
+        ss << _str(body).c_str();
+        ss << _T("\n} while (") << _str(condition).c_str() << _T(")");
+
+        return ss.str();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -799,6 +845,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
     }
 
+    X_DEFINE_TO_STRING(loop_until_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("loop\n{\n");
+        ss << _str(body).c_str();
+        ss << _T("\n} until (") << _str(condition).c_str() << _T(")");
+
+        return ss.str();
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     typedef __statement_region_t<
@@ -856,6 +913,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __e_exit_type_t et_body = __exit_type(ctx, body);
         return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+    }
+
+    X_DEFINE_TO_STRING(while_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("while (") << _str(condition).c_str() << _T(")\n {\n");
+        ss << _str(body).c_str();
+        ss << _T("\n}\n");
+
+        return ss.str();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -940,6 +1008,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
     }
 
+    X_DEFINE_TO_STRING(for_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("for (") << 
+            (initialize != nullptr? _str(initialize).c_str() : _str(defination_initialize).c_str())
+            << _T("; ") << _str(condition).c_str()
+            << _T("; ") << _str(increase).c_str() << _T(")\n{\n");
+        ss << _str(body).c_str();
+        ss << _T("\n}\n");
+
+        return ss.str();
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
@@ -955,6 +1037,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // TODO
         X_UNEXPECTED();
         return __exit_type_t::none;
+    }
+
+    X_DEFINE_TO_STRING(for_each_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("foreach (") << _str(type_name).c_str() << _T(" ") << _str(variable) <<
+            _T(" in ") << _str(iterator).c_str() << _T(")\n{\n");
+        ss << _str(body).c_str();
+        ss << _T("\n}\n");
+
+        return ss.str();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1031,6 +1125,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return et;
     }
 
+    X_DEFINE_TO_STRING(if_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("if (") << _str(condition).c_str() << _T(")\n{\n")
+            << _str(if_body).c_str() << _T("\n}\n");
+        
+        if (else_body != nullptr)
+            ss << _T("{\n") << _str(else_body).c_str() << _T("\n}\n");
+
+        return ss.str();
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns whether it contains a default label.
@@ -1043,6 +1150,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         return false;
+    }
+
+    X_DEFINE_TO_STRING(case_t)
+    {
+        stringstream_t ss;
+
+        for (expression_t * exp : constants)
+        {
+            if (exp == nullptr)
+                ss << _T("default:");
+            else
+                ss << _T("case ") << _str(exp).c_str() << _T(":");
+
+            ss << _T("\n");
+            if (statements != nullptr)
+            {
+                for (statement_t * statement : *statements)
+                {
+                    ss << _str(statement).c_str() << _T("\n");
+                }
+            }
+        }
+
+        return ss.str();
     }
 
     typedef __statement_region_t<__e_mask_t::break_> __switch_statement_region_t;
@@ -1402,7 +1533,33 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return *type;
     }
 
+    X_DEFINE_TO_STRING(switch_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("switch (") << _str(expression).c_str() << _T(")\n{\n");
+
+        for (auto && case_ : cases)
+        {
+            ss << _str(case_);
+        }
+
+        ss << _T("\n}\n");
+
+        return ss.str();
+    }
+
     ////////// ////////// ////////// ////////// //////////
+
+    X_DEFINE_TO_STRING(catch_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("catch (") << _str(type_name).c_str() << _T(" ") << _str(name)
+            << _T(")\r{\n") << _str(body).c_str() << _T("\r}\n");
+
+        return ss.str();
+    }
 
     template<__block_type_t _block_type, bool _push_back = false>
     class __block_statement_region_t : public __statement_region_t< >
@@ -1568,6 +1725,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return *et;
     }
 
+    X_DEFINE_TO_STRING(try_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("try\n{\n") << _str(try_statement).c_str() << _T("\n}\n");
+        
+        for (auto && it : catches)
+        {
+            ss << _str(it).c_str();
+        }
+
+        if (finally_statement != nullptr)
+            ss << _T("finally\n{\n") << _str(finally_statement).c_str() << _T("\n}\n");
+
+        return ss.str();
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
@@ -1586,6 +1760,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     bool empty_statement_t::is_empty(xpool_t & xpool)
     {
         return true;
+    }
+
+    X_DEFINE_TO_STRING(empty_statement_t)
+    {
+        return _T("");
     }
 
     ////////// ////////// ////////// ////////// //////////

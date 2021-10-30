@@ -327,6 +327,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         expression_t * build_expression(lang_expression_build_context_t & ctx,
                                         const lang_expression_build_args_t & args);
 
+        X_TO_STRING_IMPL(_T("analyze_stack_context_t"))
+
     private:
         lang_service_helper_t __service_helper;
         lang_token_property_service_t * __token_property_service = nullptr;
@@ -393,6 +395,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Analyze.
         expression_t * analyze();
+
+        X_TO_STRING_IMPL(_T("analyze_stack_t"))
 
     private:
         __stack_context_t *  __context;

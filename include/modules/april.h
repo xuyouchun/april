@@ -259,6 +259,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             return *__unions.get<_options_t>();
         }
 
+        X_TO_STRING_IMPL(_T("april_options_t"))
+
     private:
         unions_t<compile_options_t, run_options_t> __unions;
 
@@ -299,6 +301,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
         // Executes.
         void execute();
+
+        X_TO_STRING_IMPL(_T("april_t"))
 
     private:
         april_options_t & __options;

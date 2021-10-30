@@ -4618,6 +4618,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return previous->get(state);
         }
+
+        X_TO_STRING_IMPL(_T("__ast_walk_context_layer_base_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4636,6 +4638,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return nullptr;
         }
+
+        X_TO_STRING_IMPL(_T("__empty_ast_walk_context_layer_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -6497,7 +6501,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Context for compile statements.
     statement_compile_context_t::statement_compile_context_t(
                 method_compile_context_t & mctx, method_t * method)
-        : mctx(mctx), method(method)
+        : mctx(mctx), method(method), __xheap(_T("statement_compile_context"))
     {
         _A(method != nullptr);
         begin_region<root_statement_region_t>();

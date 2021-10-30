@@ -363,6 +363,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns row count.
         virtual size_t row_count() const = 0;
+
+        X_TO_STRING_IMPL(_T("mt_manager_object_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -559,6 +561,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns a null ref with current index.
         ref_t current_null() { return ref_t(__heap.size(), 0); }
 
+        X_TO_STRING_IMPL(_T("mt_manager_base_t"))
+
     private:
         std::map<entity_t, ref_t> __mt_map;
         __heap_t __heap;
@@ -687,6 +691,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Reads entity at specified res.
         template<typename t> t read(res_t res) const { return read<t>(res.pos); }
+
+        X_TO_STRING_IMPL(_T("mt_heap_t"))
 
     private:
         std::map<sid_t, res_t> __map;
@@ -1367,6 +1373,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns string pool.
         spool_t & get_spool() const { return __spool; }
 
+        X_TO_STRING_IMPL(_T("assembly_layout_t"))
+
     protected:
         mt_manager_object_t * __mt_objects[(size_t)mt_table_index_t::__end__];
         mt_heap_t  __heap;
@@ -1628,6 +1636,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 __read_heap();
         }
 
+        X_TO_STRING_IMPL(_T("metadata_reader_t"))
+
     private:
         xistream_t  & __stream;         // Assembly stream
         mt_header_t * __header;         // Metadata header
@@ -1779,6 +1789,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             return sid;
         }
+
+        X_TO_STRING_IMPL(_T("res_reader_t"))
 
     private:
 

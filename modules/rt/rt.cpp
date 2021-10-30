@@ -308,6 +308,24 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return assembly_analyzer_t(env, this->get_assembly(), gp_manager);
     }
 
+    // Returns whether it's a generic type.
+    bool is_general(rt_type_t * type)
+    {
+        _A(type != nullptr);
+
+        return type->get_kind() == rt_type_kind_t::general;
+    }
+
+    // Returns whether it's a custom struct.
+    bool is_custom_struct(analyzer_env_t & env, rt_type_t * type)
+    {
+        if (type == nullptr)    // Maybe void
+            return false;
+
+        return type->get_vtype(env) == vtype_t::mobject_ &&
+            type->get_ttype(env) == ttype_t::struct_;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns size of structure.

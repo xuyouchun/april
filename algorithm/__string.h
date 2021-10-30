@@ -656,6 +656,8 @@ namespace X_ROOT_NS { namespace algorithm {
             return sid_t(&(*r.first));
         }
 
+        X_TO_STRING_IMPL(_T("tspool_t"))
+
     private:
         std::set<const __string_t> __string_set;
     };

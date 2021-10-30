@@ -430,6 +430,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         xpool_t &   xpool;
         logger_t &  logger;
+
+        X_TO_STRING_IMPL(_T("eobject_commit_context_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -440,6 +442,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
         // Commits
         virtual void commit(eobject_commit_context_t & ctx) { }
+
+        X_TO_STRING_IMPL(_T("eobject_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1666,6 +1670,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Xpool.
         xpool_t & xpool;
+
+        X_TO_STRING_IMPL(_T("statement_exit_type_context_t"))
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1794,6 +1800,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Param type
     X_ENUM(param_type_t)
+
+        default_ = __default__,
 
         ref,        // e.g. ref int value
 
@@ -2914,7 +2922,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructors.
-        switch_manager_t() { }
+        switch_manager_t() : __heap(_T("switch_manager")) { }
 
         // Appends table with row count.
         switch_table_t * append_table(int row_count);
@@ -2924,6 +2932,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Write the switch-case to a buffer.
         void write(xil_buffer_t & buffer);
+
+        X_TO_STRING_IMPL(_T("switch_manager_t"))
 
     private:
         int __tbl_index = 0;
@@ -2981,6 +2991,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         logger_t &              logger;
 
         method_compile_controller_t * const controller;
+
+        X_TO_STRING_IMPL(_T("method_compile_context_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4218,6 +4230,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __tcid_t((void *)&(*r.first));
         }
 
+        X_TO_STRING_IMPL(_T("type_collection_cache_t"))
+
     private:
         std::set<type_collection_key_t> __set;
     };
@@ -4390,6 +4404,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Commit types.
         void commit_types(logger_t & logger);
+
+        X_TO_STRING_IMPL(_T("xpool_t"))
 
     private:
         attribute_t * __compile_time_attribute = nullptr;
@@ -4873,6 +4889,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Gets the variable of the name.
         variable_t * get(const name_t & name);
 
+        X_TO_STRING_IMPL(_T("variable_region_t"))
+
     private:
         memory_t * __memory;                             // Memory management.
         std::multimap<name_t, variable_t *> __variables; // Variable map.
@@ -5040,6 +5058,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return false;
         }
 
+        X_TO_STRING_IMPL(_T("ast_walk_queue_t"))
+
     private:
 
         // Queue item.
@@ -5064,6 +5084,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
                 return true;
             }
+
+            X_TO_STRING_IMPL(_T("__queue_item_t"))
 
         private:
             std::queue<element_t> __queue;
@@ -5228,6 +5250,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Load assembly by package name and assembly name.
         assembly_t * load_assembly(const mname_t * package_name, const mname_t * assembly_name);
+
+        X_TO_STRING_IMPL(_T("ast_walk_context_t"))
 
     private:
 
@@ -5575,9 +5599,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         auto end()   const { return __projects.end();   }
 
         // Converts to string.
-        virtual const string_t to_string() const override
+        X_TO_STRING_IMPL_
         {
-            return __super_t::to_string();
+            return _T("ast_solution_t");
         }
 
     private:
@@ -5612,17 +5636,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns end iterator.
         auto end()   const { return __files.end();   }
 
-        // Converts to a string.
-        virtual const string_t to_string() const override
-        {
-            return __super_t::to_string();
-        }
-
         // Its solution.
         ast_solution_t * solution = nullptr;
 
         // Assembly path.
         string_t         assembly_path;
+
+        X_TO_STRING_IMPL(_T("ast_project_t"))
 
     private:
         std::map<sid_t, ast_file_t *>   __file_map;
@@ -5652,7 +5672,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         ast_project_t * project = nullptr;
 
         // Converts to a string.
-        virtual const string_t to_string() const override
+        X_TO_STRING_IMPL_
         {
             return __super_t::to_string();
         }
@@ -5723,6 +5743,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns xpool.
         xpool_t & xpool();
+
+        X_TO_STRING_IMPL(_T("expression_compile_context_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -7104,6 +7126,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Writes to buffer.
         void write(statement_compile_context_t & ctx, xil_buffer_t & buffer);
 
+        X_TO_STRING_IMPL(_T("xilx_block_manager_t"))
+
     private:
 
         // Xilx block.
@@ -7145,6 +7169,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Xilx block manager.
         xilx_block_manager_t & block_manager;
+
+        X_TO_STRING_IMPL(_T("xilx_write_context_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -7230,6 +7256,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Write xilxes to a pool.
         virtual void write(xilx_write_context_t & ctx, xil_pool_t & pool);
 
+        X_TO_STRING_IMPL(_T("statement_region_t"))
+
     private:
         statement_point_t * __points[(size_t)__point_type_t::__end__];
         al::svector_t<xilx_t *, 16> __xilxes;
@@ -7293,6 +7321,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Destructor.
         virtual ~xil_buffer_t() override;
 
+        X_TO_STRING_IMPL(_T("xil_buffer_t"))
+
     private:
         byte_t * __buffer = nullptr, * __p = nullptr, * __p_read = nullptr;
         size_t   __size   = 0;
@@ -7336,7 +7366,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __index_of((void *)((byte_t *)xil - (__i_t)(&((__v_xw_t *)nullptr)->xil)));
         }
 
+        X_TO_STRING_IMPL(_T("xil_pool_t"))
+
     public:
+
+        xil_pool_t() : __heap(_T("xil_pool")) { }
 
         // Append a xil.
         template<typename _xil_t, typename ... args_t>
@@ -7404,6 +7438,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Commits.
         void commit(statement_compile_context_t & ctx);
+
+        X_TO_STRING_IMPL(_T("jmp_manager_t"))
 
     private:
         std::map<jmp_xil_t *, local_label_t> __local_jmp_map;
@@ -7508,6 +7544,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns memory management.
         memory_t * get_memory() { return &__xheap; }
+
+        X_TO_STRING_IMPL(_T("statement_compile_context_t"))
 
     private:
         xheap_t                 __xheap;                        // Memory managerment.

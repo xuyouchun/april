@@ -55,6 +55,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         virtual ast_node_t * build_ast(ast_context_t & context,
                                                     lang_ast_build_args_t & args) override;
 
+        X_TO_STRING_IMPL(_T("cs_lang_service_t"))
+
     private:
         cs_lang_t * __lang;
     };

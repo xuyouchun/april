@@ -48,6 +48,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         void append_table(exec_switch_table_t * tbl);
         exec_switch_table_t * get_table(int index);
 
+        X_TO_STRING_IMPL(_T("exec_switch_manager_t"))
+
     private:
         al::svector_t<exec_switch_table_t *, 2> __tables;
     };

@@ -93,6 +93,8 @@ namespace X_ROOT_NS { namespace algorithm {
             }
         }
 
+        X_TO_STRING_IMPL(_T("heap_t"))
+
     public:
 
         // Creates an object with give arguments.
@@ -298,6 +300,8 @@ namespace X_ROOT_NS { namespace algorithm {
             return __rows.size()? __rows[__rows.size() - 1] : nullptr;
         }
 
+        X_TO_STRING_IMPL(_T("heap_t<obj_t[]>"))
+
     private:
         std::list<obj_t *> __rows;
         obj_t * __current_row;
@@ -319,7 +323,8 @@ namespace X_ROOT_NS { namespace algorithm {
     public:
     
         // Constructor
-        xheap_t(const string_t & name = _T(""));
+        xheap_t(const char_t * name = _T(""));
+        xheap_t(bool disable_deallocate, const char_t * name = _T(""));
 
         // Allocates memory with specified size. ( memory_t::alloc )
         virtual void * alloc(size_t size, memory_flag_t flag = memory_flag_t::__default__) override;
@@ -332,6 +337,8 @@ namespace X_ROOT_NS { namespace algorithm {
 
         // Deallocator
         virtual ~xheap_t() override;
+
+        X_TO_STRING
 
     private:
         static const size_t __large_object_size = 128;
@@ -356,7 +363,9 @@ namespace X_ROOT_NS { namespace algorithm {
         __row_collection_t __row_collections[__large_object_size / sizeof(int)];
         std::vector<object_t *> __large_objs;
         std::vector<byte_t *>   __large_bytes;
+
         const string_t __name;
+        bool __disable_deallocate = false;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -497,6 +506,8 @@ namespace X_ROOT_NS { namespace algorithm {
                 __released_queue.pop();
             }
         }
+
+        X_TO_STRING_IMPL(_T("respool_t"))
 
     private:
         std::set<t *> __acquired_set;
@@ -756,6 +767,8 @@ namespace X_ROOT_NS { namespace algorithm {
         __self_t * parent;
 
         virtual ~lr_tree_node_t() override { }
+
+        X_TO_STRING_IMPL(_T("lr_tree_node_t"))
     };
 
     // Creates a new lr_tree.
@@ -1539,6 +1552,8 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         virtual ~respool_wrapper_t() override { }
+
+        X_TO_STRING_IMPL(_T("respool_wrapper_t"))
 
     private:
         std::queue<t *> __queue;

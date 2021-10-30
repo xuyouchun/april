@@ -38,6 +38,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         codepos_t pos_of(const char_t * p);
 
+        X_TO_STRING_IMPL(_T("codepos_helper_t"))
+
     private:
         bool __initialized = false;
         const char_t * __code;
@@ -82,6 +84,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 stream << string_t(*token);
             }
         }
+
+        X_TO_STRING_IMPL(_T("token_pool_t"))
 
     private:
         std::vector<token_t *> __tokens;

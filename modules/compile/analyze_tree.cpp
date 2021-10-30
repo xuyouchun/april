@@ -2813,7 +2813,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     analyze_context_t::analyze_context_t(lang_t * lang, analyze_tree_t * tree,
                                          analyze_callback_t * callback)
         : __lang(lang), __callback(callback), __tree(tree)
-        , __sn_heap(_T("sn_heap")), __leafs(&__sn_heap)
+        , __sn_heap(_T("analyze_context")), __leafs(&__sn_heap)
         , __service_helper(lang), __token_property_cache(&__service_helper)
         , __raise_matched_event_action_factory(&__sn_heap)
     {
@@ -3790,6 +3790,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                          code_section_t ** &p_section)
         : __context(context)
         , __p_section(p_section), __section(*__p_section), __depth(__section->depth)
+        , __heap(_T("analyzer_element_reader"))
     {
         __reader = __context.token_reader_of(__section->lang);
         __enumerator = __reader->read(__section->source_code, __section->length, __section->file());
@@ -4186,6 +4187,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             return __ast_factory.get_result();
         }
+
+        X_TO_STRING_IMPL(_T("__analyze_callback_t"))
 
     private:
         ast_factory_t __ast_factory;

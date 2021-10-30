@@ -22,7 +22,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define EXEC_EXECUTE_MODEL_INLINE   3
 
     #define EXEC_TRACE          0  // 0:none, 1:trace, 2:trace details, 3:trace more details
-    #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_INLINE
+    #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_VIRTUAL
 
     const size_t __default_stack_size = 1024 * 1024;
 
@@ -246,6 +246,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Returns stack bottom.
         __AlwaysInline rt_stack_unit_t * bottom() _NE { return __buffer; }
 
+        // Returns the position (a index) of current stack top.
+        __AlwaysInline int pos() _NE { return __top - __buffer; }
+
+        X_TO_STRING_IMPL(_T("executor_stack_t"))
+
     private:
         rt_stack_unit_t * __top, * __lp;
         rt_stack_unit_t * __buffer;
@@ -345,6 +350,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Gets the specified string.
         rt_string_t * get(const char_t * s, rt_length_t length);
 
+        X_TO_STRING_IMPL(_T("rt_string_pool_t"))
+
     private:
         std::unordered_map<
             __string_key_t, rt_string_t *,
@@ -414,6 +421,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     __node_queue.pop();
                 }
             }
+
+        X_TO_STRING_IMPL(_T("__resource_manager_base_t"))
 
         protected:
 
@@ -668,6 +677,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Next node in chain.
         __self_t * next;
+
+        X_TO_STRING_IMPL(_T("block_node_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -985,6 +996,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             memory_t::free(nullptr, __stack_buffer);
         }
 
+        X_TO_STRING_IMPL(_T("command_execute_context_t"))
+
     private:
         rt_stack_unit_t * __stack_buffer;
         pool_t            __memory_pool;
@@ -997,10 +1010,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     typedef void (*command_execute_method_t)
         (command_t * command, command_execute_context_t & ctx);
 
-    typedef const string_t (*command_to_string_method_t)(command_t * command);
+    typedef const string_t (*command_to_string_method_t)(const command_t * command);
 
     // Command.
     class command_t
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL && EXEC_TRACE
+        : public object_t
+    #endif
     {
         typedef command_t __self_t;
         typedef object_t  __super_t;
@@ -1009,7 +1025,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
 
-        #pragma message("Execute model: MANUAL METHOD")
+        // #pragma message("Execute model: MANUAL METHOD")
         command_execute_method_t   execute_method;
 
         #if EXEC_TRACE
@@ -1018,20 +1034,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE
 
-        #pragma message("Execute model: INLINE")
+        // #pragma message("Execute model: INLINE")
         command_t(command_value_t cmd_value) _NE : cmd_value(cmd_value) { }
 
         const command_value_t cmd_value;
 
         #elif EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
 
-        #pragma message("Execute model: VIRTUAL METHOD")
+        // #pragma message("Execute model: VIRTUAL METHOD")
         // Executes this command.
         virtual void execute(command_execute_context_t & ctx) = 0;
 
         #if EXEC_TRACE
         // Returns this string.
-        virtual const string_t to_string() = 0;
+        virtual const string_t to_string() const override { return _T("[command]"); }
         #endif // EXEC_TRACE
 
         #else
@@ -1061,6 +1077,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Last assembly.
         rt_assembly_t * last() const { return __last; }
+
+        X_TO_STRING_IMPL(_T("exec_assemblies_t"))
 
     private:
         typedef std::tuple<string_t, string_t> __key_t;
@@ -1128,6 +1146,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         void execute();
 
         executor_env_t env;
+
+        X_TO_STRING_IMPL(_T("executor_t"))
 
     private:
         rt_context_t & __ctx;

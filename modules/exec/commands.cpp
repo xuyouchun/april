@@ -48,7 +48,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __BeginToString()                                                           \
                                                                                         \
-        virtual const string_t to_string() override                                     \
+        virtual const string_t to_string() const override                               \
         {
 
     #else
@@ -112,7 +112,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     typedef rt_stack_unit_t __unit_t;
     const msize_t __stack_stub_size = unit_size_of(sizeof(__calling_stub_t));
 
-    static al::xheap_t __command_heap;
+    static al::xheap_t __command_heap(_T("commands"));
 
     template<typename _cmd_t, typename ... _args_t>
     _cmd_t * __new_command(memory_t * memory, _args_t && ... args)
@@ -236,7 +236,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             with_args_t(memory_t * memory) : __memory(memory) { }
             with_args_t() : with_args_t(&__command_heap) { }
 
-            template<command_value_t _cv, _template_keys_t ... keys, typename ... _others_t>
+            template<command_value_t _cv, _template_keys_t ... _keys, typename ... _others_t>
             command_t * get_command(_args_t ... args, _others_t && ... others)
             {
                 __key_t key(_cv, args ...);
@@ -245,7 +245,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 if (it != __map.end())
                     return it->second;
 
-                command_t * command = _command_template_t::template new_command<_cv, keys ...>(
+                command_t * command = _command_template_t::template new_command<_cv, _keys ...>(
                     __memory, std::forward<_args_t>(args) ..., std::forward<_others_t>(others) ...
                 );
 
@@ -257,6 +257,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             std::map<__key_t, command_t *> __map;
             memory_t * __memory;
         };
+
+        X_TO_STRING_IMPL(_T("__command_manager_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -693,6 +695,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __PushAddressCommand_ToString(local_addr, __offset)
 
         __BeginExecute(ctx)
+
+            // _PP( __LocalAddress(__This->__offset) );
+            // _PP( ctx.stack.pos() );
 
             ctx.stack.push(__LocalAddress(__This->__offset));
 
@@ -1280,6 +1285,50 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    #define __PushCallingBottomCmd  __Cmd(push, calling_bottom)
+    __DefineCmdValue_(__PushCallingBottomCmd)
+
+    class __push_calling_bottom_command_t : public __command_base_t<__PushCallingBottomCmd>
+    {
+        typedef __push_calling_bottom_command_t __self_t;
+
+    public:
+        __push_calling_bottom_command_t(__offset_t offset) : __offset(offset) { }
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _T("push calling bottom");
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            // _PP( (void *)*(ctx.stack.top() - __offset) );
+
+            ctx.stack.push<void *>(
+                (void *)*(ctx.stack.top() - __offset)
+            );
+
+        __EndExecute()
+
+    private:
+        __offset_t __offset;
+    };
+
+    struct __push_calling_bottom_template_t
+    {
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
+        {
+            typedef __push_calling_bottom_command_t this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     static xil_type_t __xil_type_of(__context_t & ctx, rt_type_t * type)
     {
         _A(type != nullptr);
@@ -1374,6 +1423,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<__offset_t> __params_address_command_manager;
 
         static __command_manager_t<
+            __push_calling_bottom_template_t
+        >::with_args_t<__offset_t> __calling_bottom_command_manager;
+
+        static __command_manager_t<
             __push_convert_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<> __convert_command_manager;
 
@@ -1390,6 +1443,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     ctx.params_layout.extends_offset()
                 );
 
+            case xil_storage_type_t::calling_bottom:
+                return __calling_bottom_command_manager.template get_command<
+                                                        __PushCallingBottomCmd>(
+                    ctx.params_layout.unit_size() + ctx.locals_layout.unit_size()
+                        + __stack_stub_size + 1
+                );
+
             case xil_storage_type_t::local_addr:    // Push local address command.
                 return __push_address_command_manager.template get_command<
                     __StAddrCmd(push, local_addr), stype_t::local_addr>(
@@ -1400,6 +1460,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return __push_address_command_manager.template get_command<
                     __StAddrCmd(push, argument_addr), stype_t::argument_addr>(
                     ctx.params_layout.offset_of(xil.get_identity())
+                );
+
+            case xil_storage_type_t::field_addr:    // Push field address command.
+                return __push_address_command_manager.template get_command<
+                    __StAddrCmd(push, field_addr), stype_t::field_addr>(
+                    __field_offset(ctx, xil.field_ref())
                 );
 
             case xil_storage_type_t::convert:
@@ -2952,6 +3018,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __pre_static_call(ctx, __This->get_type());
 
+            // _P(_T("-- push calling"), (void *)ctx.stack.lp(), (void *)ctx.current);
+
             exec_method_t * method = __This->__get_method(ctx);
             ctx.push_calling(method);
             ctx.stack.increase_top(method->stack_unit_size);
@@ -3759,19 +3827,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     ////////// ////////// ////////// ////////// //////////
 
     #define __RetCmd(_ret_size)     __Cmd(smp, ret_##_ret_size)
-    #define __LargeRetUnitSize      255
-    #define __LargeRetCmd           __RetCmd(255)
+    #define __StructRetUnitSize     65535
+    #define __StructRetCmd          __RetCmd(65535)
 
     __DefineCmdValue_(__RetCmd(0))
     __DefineCmdValue_(__RetCmd(1))
-    __DefineCmdValue_(__RetCmd(2))
-    __DefineCmdValue_(__RetCmd(3))
-    __DefineCmdValue_(__RetCmd(4))
-    __DefineCmdValue_(__RetCmd(5))
-    __DefineCmdValue_(__RetCmd(6))
-    __DefineCmdValue_(__RetCmd(7))
-    __DefineCmdValue_(__RetCmd(8))
-    __DefineCmdValue_(__LargeRetCmd)
+    __DefineCmdValue_(__StructRetCmd)
 
     #define __IsRetCmdValue(_cv)    ((_cv) >= __RetCmd(0) && (_cv) <= __LargeRetCmd)
 
@@ -3810,7 +3871,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         #if EXEC_TRACE
 
         __BeginToString()
-            return _T("ret");
+            return _F(_T("ret  [%1%]"), _ret_size);
         __EndToString()
 
         #endif  // EXEC_TRACE
@@ -3824,18 +3885,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     //-------- ---------- ---------- ---------- ----------
 
     template<>
-    class __ret_command_t<__LargeRetCmd, __LargeRetUnitSize>
-        : public __ret_command_base_t<__LargeRetCmd>
+    class __ret_command_t<__StructRetCmd, __StructRetUnitSize>
+        : public __ret_command_base_t<__StructRetCmd>
         , public __ret_command_identity_t
     {
         typedef __ret_command_t     __self_t;
 
     public:
-        __ret_command_t(msize_t local_unit_size, msize_t param_unit_size, msize_t ret_unit_size)
+        __ret_command_t(msize_t local_unit_size, msize_t param_unit_size)
             : __total_unit_size(param_unit_size + __stack_stub_size + local_unit_size)
-            , __param_unit_ret_size(param_unit_size - ret_unit_size)
-            , __total_unit_ret_size(__total_unit_size - ret_unit_size)
-            , __ret_unit_size(ret_unit_size)
+            , __param_unit_ret_size(param_unit_size)
         {
             #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
             __ret_commands.insert(this);
@@ -3846,23 +3905,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             // param, stub, local, ret
             rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
-            ctx.pop_calling((const __calling_stub_t *)(p + __This->__param_unit_ret_size));
+            auto stub = (const __calling_stub_t *)(p + __This->__param_unit_ret_size);
 
-            // TODO: optimize
-            for (rt_stack_unit_t * dst = p - __This->__ret_unit_size,
-                    * dst_end = dst + __This->__ret_unit_size,
-                    * src = p + __This->__total_unit_ret_size;
-                dst < dst_end;)
-            {
-                *dst++ = *src++;
-            }
+            // _P(_T("-- pop calling"), (void *)stub->lp, (void *)stub->current);
+
+            ctx.pop_calling(stub);
+            ctx.stack.pop<void *>();
+
+            _PP( ctx.stack.pos() );
 
         __EndExecute()
 
         #if EXEC_TRACE
 
         __BeginToString()
-            return _T("ret");
+            return _T("ret  [struct]");
         __EndToString()
 
         #endif  // EXEC_TRACE
@@ -3870,8 +3927,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     private:
         msize_t __total_unit_size;      // param_unit_size + __stack_stub_size + local_unit_size
         msize_t __param_unit_ret_size;  // param_unit_size - _ret_size
-        msize_t __total_unit_ret_size;  // __total_unit_size - _ret_size
-        msize_t __ret_unit_size;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -3891,17 +3946,18 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
         };
 
-        template<> struct __new_t<__LargeRetUnitSize>
+        template<> struct __new_t<__StructRetUnitSize>
         {
             template<command_value_t _cv>
             static command_t * new_(memory_t * memory,
                             msize_t local_size, msize_t param_size, msize_t ret_size)
             {
-                return __new_command<__ret_command_t<__LargeRetCmd, __LargeRetUnitSize>>(
-                    memory, local_size, param_size, ret_size
+                return __new_command<__ret_command_t<__StructRetCmd, __StructRetUnitSize>>(
+                    memory, local_size, param_size
                 );
             }
         };
+
 
         template<command_value_t _cv, msize_t _ret_size>
         static auto new_command(memory_t * memory,
@@ -3918,11 +3974,23 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         static __command_manager_t<
             __ret_command_template_t, msize_t
-        >::with_args_t<msize_t, msize_t> __ret_command_manager;
+        >::with_args_t<msize_t, msize_t, msize_t> __ret_command_manager;
 
-        msize_t ret_unit_size = ctx.ret_unit_size();
+        msize_t ret_unit_size   = ctx.ret_unit_size();
         msize_t local_unit_size = ctx.locals_layout.unit_size();
         msize_t param_unit_size = ctx.params_layout.unit_size();
+
+        // _PF(_T("local:%1% param:%2% ret:%3%"), local_unit_size, param_unit_size, ret_unit_size);
+
+        ref_t ret_type_ref = (*ctx.method)->type;
+        rt_type_t * ret_type = ctx.get_type(ret_type_ref);
+
+        if (is_custom_struct(ctx.env, ret_type))
+        {
+            return __ret_command_manager.template get_command<__StructRetCmd, __StructRetUnitSize>(
+                local_unit_size, param_unit_size, 0
+            );
+        }
 
         switch (ret_unit_size)
         {
@@ -3935,18 +4003,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __CaseRet(0)
             __CaseRet(1)
-            __CaseRet(2)
-            __CaseRet(3)
-            __CaseRet(4)
-            __CaseRet(5)
-            __CaseRet(6)
-            __CaseRet(7)
-            __CaseRet(8)
 
             default:
-                return __ret_command_manager.template get_command<__LargeRetCmd, __LargeRetUnitSize>(
-                    local_unit_size, param_unit_size, ret_unit_size
-                );
+                X_UNEXPECTED();
 
 
             #undef __CaseRet
@@ -4815,7 +4874,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<size_t> __stack_alloc_command_manager;
 
         ref_t type_ref = xil.type_ref();
-
         rt_type_t * type = ctx.get_type(type_ref);
 
         if (type == nullptr)
@@ -5354,7 +5412,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __BeginExecuteCommand()                                                     \
         void * top0 = ctx.stack.top();                                                  \
-        _PF(_T("   %|1$-50|[%2%]"), to_command_string(command), top0);
+        _PF(_T("\033[01;36m   %|1$-50|[%2%]\033[0m"), to_command_string(command), top0);
 
     #elif EXEC_TRACE >= 2   // EXEC_TRACE >= 3
 
@@ -5366,8 +5424,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __EndExecuteCommand()                                                       \
         void * top1 = ctx.stack.top();                                                  \
         int    diff = (int)((byte_t *)top1 - (byte_t *)top0);                           \
-        _PF(_T("-> %|1$-50|[%2%] %3%%4%"), to_command_string(command), top1,            \
-                diff >= 0? _T("+") : _T(""), diff                                       \
+        _PF(_T("\033[01;36m-> %|1$-50|[%2%] %3%%4%\033[0m"), to_command_string(command),\
+            top1, diff >= 0? _T("+") : _T(""), diff                                     \
         );
 
     #else   // EXEC_TRACE >= 2
@@ -5754,14 +5812,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             /* ret */                                                                   \
             __SwitchCommands_CaseRet(0)                                                 \
             __SwitchCommands_CaseRet(1)                                                 \
-            __SwitchCommands_CaseRet(2)                                                 \
-            __SwitchCommands_CaseRet(3)                                                 \
-            __SwitchCommands_CaseRet(4)                                                 \
-            __SwitchCommands_CaseRet(5)                                                 \
-            __SwitchCommands_CaseRet(6)                                                 \
-            __SwitchCommands_CaseRet(7)                                                 \
-            __SwitchCommands_CaseRet(8)                                                 \
-            __SwitchCommands_CaseRet(__LargeRetUnitSize)                                \
+            __SwitchCommands_CaseRet(__StructRetUnitSize)                               \
                                                                                         \
             /* label */                                                                 \
             __Case( __label_command_t )                                                 \
@@ -5948,8 +5999,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     void execute_commands(command_execute_context_t & ctx, command_t ** commands)
     {
         #if EXEC_TRACE
-        _PF(_T("~ %1% commands in total ~"), __COUNTER__);
-        _PF(_T("-> %|1$-50|[%2%]"), _T("<begin>"), ctx.stack.top());
+        _PF(_T("~ %1% command classes in total ~"), __COUNTER__);
+        _PF(_T("\033[01;36m-> %|1$-50|[%2%]\033[0m"), _T("<begin>"), ctx.stack.top());
         #endif  // EXEC_TRACE
 
         ctx.push_calling(commands);
@@ -5960,7 +6011,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.pop_calling();
 
         #if EXEC_TRACE
-        _PF(_T("-> %|1$-50|[%2%]"), _T("<end>"), ctx.stack.top());
+        _PF(_T("\033[01;36m-> %|1$-50|[%2%]\033[0m"), _T("<end>"), ctx.stack.top());
         #endif  // EXEC_TRACE
     }
 

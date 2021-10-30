@@ -6,7 +6,11 @@ namespace X_ROOT_NS { namespace algorithm {
     ////////// ////////// ////////// ////////// //////////
 
     // Constructor
-    xheap_t::xheap_t(const string_t & name) : __name(name)
+    xheap_t::xheap_t(const char_t * name) : xheap_t(false, name) { }
+
+    // Constructor
+    xheap_t::xheap_t(bool disable_deallocate, const char_t * name)
+        : __disable_deallocate(disable_deallocate), __name(name)
     {
         for (size_t index = 0; index < array_size(__row_collections); index++)
         {
@@ -80,7 +84,9 @@ namespace X_ROOT_NS { namespace algorithm {
     {
         for (object_t * obj : __large_objs)
         {
-            obj->~object_t();
+            if (!__disable_deallocate)
+                obj->~object_t();
+
             delete [] (byte_t *)obj;
         }
 
@@ -96,14 +102,23 @@ namespace X_ROOT_NS { namespace algorithm {
 
             for (__row_t & r : rc.rows)
             {
-                for (size_t obj_index = 0; obj_index < r.object_count; obj_index++)
+                if (!__disable_deallocate)
                 {
-                    ((object_t *)(r.buffer + obj_index * obj_size))->~object_t();
+                    for (size_t obj_index = 0, obj_count = r.object_count;
+                        obj_index < obj_count; obj_index++)
+                    {
+                        ((object_t *)(r.buffer + obj_index * obj_size))->~object_t();
+                    }
                 }
 
                 delete [] r.buffer;
             }
         }
+    }
+
+    X_DEFINE_TO_STRING(xheap_t)
+    {
+        return _F(_T("xheap_t %1%"), __name);
     }
 
     ////////// ////////// ////////// ////////// //////////

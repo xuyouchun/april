@@ -96,6 +96,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             }
         }
 
+        X_TO_STRING_IMPL(_T("method_reader_t"))
+
     private:
         memory_t * __memory;                        // Memory management.
         const byte_t * __bytes, * __bytes_end;      // Buffer.
@@ -143,9 +145,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         assembly_analyzer_t analyzer = to_analyzer(env, host_type, gp_manager);
 
+        const char_t * prefix = _T("* ");
+
         #if EXEC_TRACE
         // _PF(_T("parse_commands: %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
-        _PF(_T("\n==== %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
+        _PF(_T("\n\033[01;30m%1%==== %2%.%3%\033[0m"), prefix, 
+            host_type->get_name(env), analyzer.get_name(method));
         #endif  // EXEC_TRACE
 
         rt_assembly_t * assembly = host_type->get_assembly();
@@ -170,7 +175,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Read params variables
         params_layout_t & params_layout = creating_ctx.params_layout;
         if (!((decorate_value_t)(*method)->decorate).is_static)
-            params_layout.append(host_type, param_type_t::__default__);
+            params_layout.append(host_type, param_type_t::default_, param_layout_type_t::this_);
 
         assembly->each_params((*method)->params, [&](int index, mt_param_t & mt_param) {
 
@@ -210,14 +215,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         al::svector_t<command_t *, 128> commands;
 
         const xil_base_t * xil;
-        reader.each_xil([&creating_ctx, &commands](const xil_base_t * xil) {
+        reader.each_xil([&](const xil_base_t * xil) {
             command_t * command = new_command(creating_ctx, xil);
             _A(command != nullptr);
             commands.push_back(command);
 
             #if EXEC_TRACE
 
-            _PF(_T("  %1%"), to_command_string(command));
+            _PF(_T("\033[01;30m%1%  %2%\033[0m"), prefix, to_command_string(command));
 
             #endif  // EXEC_TRACE
         });
@@ -292,7 +297,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         exec_method->block_manager = block_manager;
 
         #if EXEC_TRACE
-        _PF(_T("==== End of %1%.%2%\n"), host_type->get_name(env), analyzer.get_name(method));
+        _PF(_T("\033[01;30m%1%==== End of %2%.%3%\033[0m\n"), prefix,
+                host_type->get_name(env), analyzer.get_name(method));
         #endif
 
         return exec_method;

@@ -48,6 +48,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns whether the statement is empty.
         virtual bool is_empty(xpool_t & xpool) override;
 
+        auto begin() const { return std::begin(__statements); }
+        auto end()   const { return std::end(__statements);   }
+
     private:
         __statements_t __statements;
     };
@@ -75,6 +78,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns whether the statement is empty.
         virtual bool is_empty(xpool_t & xpool) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -98,6 +103,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns whether the statement is empty.
         virtual bool is_empty(xpool_t & xpool) override { return true; }
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -174,6 +181,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -188,6 +197,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -208,6 +219,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -228,6 +241,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -248,6 +263,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -271,6 +288,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -293,6 +312,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -315,6 +336,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -346,6 +369,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -372,6 +397,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -396,6 +423,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -410,6 +439,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns whether it contains a default label.
         bool contains_default() const;
+
+        X_TO_STRING
     };
 
     typedef eobject_ast_t<case_t *> case_ast_t;
@@ -436,6 +467,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
 
     private:
 
@@ -479,6 +512,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         statement_t *   body        =   nullptr;        // Body.
 
         variable_t  *   variable    =   nullptr;        // Variable object.
+
+        X_TO_STRING
     };
 
     typedef eobject_ast_t<catch_t *> catch_ast_t;
@@ -507,6 +542,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -525,6 +562,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns whether the statement is empty.
         virtual bool is_empty(xpool_t & xpool) override;
+
+        X_TO_STRING
     };
 
     ////////// ////////// ////////// ////////// //////////

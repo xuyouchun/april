@@ -90,6 +90,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Converts generic params to runtime type.
         rt_type_t * parse(rt_generic_param_t * rt_generic_param);
+
+        X_TO_STRING_IMPL(_T("generic_context_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -132,6 +134,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Append generic params of given type.
         void import(rt_type_t * t);
+
+        X_TO_STRING_IMPL(_T("generic_param_manager_builder_t"))
 
     private:
         generic_param_manager_t & __gp_mgr;
@@ -185,6 +189,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns the empty manager.
         static const __self_t * empty_instance();
 
+        X_TO_STRING_IMPL(_T("generic_param_manager_t"))
+
     private:
         al::svector_t<rt_type_t *, 10> __atypes;
         al::small_map_t<rt_sid_t, std::tuple<int, int>> __named_atypes;
@@ -202,6 +208,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Constructor.
         __variables_layout_t(assembly_analyzer_t & ctx);
+
+        X_TO_STRING_IMPL(_T("__variables_layout_t"))
 
     protected:
         assembly_analyzer_t & __ctx;          // Context of assembly analyzer.
@@ -357,6 +365,14 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     ////////// ////////// ////////// ////////// //////////
     // params_layout_t
 
+    X_ENUM(param_layout_type_t)
+
+        default_    = __default__,
+
+        this_,
+
+    X_ENUM_END
+
     // Params layout.
     class params_layout_t : public __variables_layout_t
     {
@@ -367,10 +383,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         using __super_t::__super_t;
 
         // Appends a param.
-        void append(ref_t type_ref, param_type_t param_type);
+        void append(ref_t type_ref, param_type_t param_type,
+                param_layout_type_t layout_type = param_layout_type_t::default_);
 
         // Appends a param.
-        void append(rt_type_t * type, param_type_t param_type);
+        void append(rt_type_t * type, param_type_t param_type,
+                param_layout_type_t layout_type = param_layout_type_t::default_);
 
         // Returns offset of param index.
         msize_t offset_of(int index);

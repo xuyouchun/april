@@ -32,9 +32,9 @@ namespace X_ROOT_NS {
     // Write a tvalue_t object into output stream
     ostream_t & operator << (ostream_t & stream, const tvalue_t & v)
     {
-        #define __X_CASE(type)                              \
-            case value_type_t::type##_:                     \
-                stream << get_value<type##_t>(v.value);     \
+        #define __X_CASE(type)                                                          \
+            case value_type_t::type##_:                                                 \
+                stream << get_value<type##_t>(v.value);                                 \
                 break;
 
         switch (v.type)

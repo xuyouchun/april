@@ -52,6 +52,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         token_enumerator_base_t(token_reader_context_t & context, lang_t * lang,
                 const char_t * code, size_t length, const code_file_t * file);
         
+        X_TO_STRING_IMPL(_T("token_enumerator_base_t"))
+
     protected:
         token_reader_context_t & __context;
         lang_t *                 __lang;

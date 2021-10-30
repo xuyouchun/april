@@ -47,6 +47,8 @@ namespace X_ROOT_NS { namespace algorithm {
             __dealloc();
         }
 
+        X_TO_STRING_IMPL(_T("~resource_pool_t"))
+
     private:
         std::set<resource_object_t *> __set;
         memory_t * __memory;

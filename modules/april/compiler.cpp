@@ -16,6 +16,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
     // Constructor.
     april_compiler_t::april_compiler_t(const string_t & solution_name)
+        : __xheap(_T("april_compiler"))
     {
         __lang_factory.register_lang_t<lang_cs::cs_lang_t>();
         __lang_factory.register_lang_t<lang_lq::lq_lang_t>();
@@ -211,7 +212,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
     // Constructor.
     april_xcompiler_t::april_xcompiler_t(const __compile_options_t & options)
-        : __options(options)
+        : __options(options), __xheap(_T("april_xcompiler"))
     { }
 
     // Compiles.

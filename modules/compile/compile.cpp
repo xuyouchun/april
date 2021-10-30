@@ -456,7 +456,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Constructor.
     global_context_t::global_context_t(lang_factory_t * lang_factory)
-        : lang_factory(lang_factory), xpool(&__heap)
+        : lang_factory(lang_factory), xpool(&__heap), __heap(_T("global_context"))
     {
         _A(lang_factory != nullptr);
 

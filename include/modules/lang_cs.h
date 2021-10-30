@@ -33,6 +33,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         static const char_t * const __default_name__;
 
+        X_TO_STRING_IMPL(_T("cs_lang_t"))
+
     private:
         object_t * __service;
         pool_t __pool;
@@ -73,13 +75,15 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     public:
 
         // Constructor.
-        template<typename ... args_t>
-        cs_token_enumerator_t(args_t && ... args)
-            : token_enumerator_base_t(std::forward<args_t>(args) ...)
+        template<typename ... _args_t>
+        cs_token_enumerator_t(_args_t && ... args)
+            : token_enumerator_base_t(std::forward<_args_t>(args) ...)
         { }
 
         // Returns next token.
         virtual token_t * next() override;
+
+        X_TO_STRING_IMPL(_T("cs_token_enumerator_t"))
     };
 
     typedef ttoken_reader_t<cs_token_enumerator_t> cs_token_reader_t;

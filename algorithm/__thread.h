@@ -186,6 +186,8 @@ namespace X_ROOT_NS { namespace algorithm {
 
             mutex_t           mutex;
             volatile int32_t  ref_count = 0;
+
+            X_TO_STRING_IMPL(_T("__mutex_wrap_t"))
         };
 
         std::map<__key_t, __mutex_wrap_t *> __mutex_map;

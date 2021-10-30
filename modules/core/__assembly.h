@@ -44,6 +44,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         const mname_t * package_name  = nullptr;    // Package name.
         assembly_t *    assembly      = nullptr;    // Assembly.
+
+        X_TO_STRING_IMPL(_T("assembly_reference_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -65,6 +67,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Get a reference of a assembly.
         assembly_reference_t * get_reference(assembly_t * assembly);
+
+        X_TO_STRING_IMPL(_T("assembly_references_t"))
         
     private:
         typedef std::tuple<__package_name_t, __assembly_name_t> __assembly_reference_key_t;
@@ -136,6 +140,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __each_types(__array_types, callback);
         }
 
+        X_TO_STRING_IMPL(_T("types_t"))
+
     private:
         xpool_t &    __xpool;       // Xpool.
         assembly_t * __assembly;    // Assembly.
@@ -202,15 +208,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         method_t *  entry_point     = nullptr;      // Entry point.
         sid_t       information;                    // Information.
 
-        // Converts to a string.
-        operator string_t () const { return (string_t)*name; }
-
-        // Convets to a string.
-        virtual const string_t to_string() const override 
-        {
-            return (string_t)*this;
-        }
-
         // Gets xpool.
         xpool_t & get_xpool() const { return __xpool; }
 
@@ -218,6 +215,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bool has_entry_point() const { return entry_point != nullptr; }
 
         static const efamily_t __family__ = efamily_t::assembly;
+
+        X_TO_STRING_IMPL_
+        {
+            return (string_t)*name;
+        }
 
     private:
         xpool_t & __xpool;      // Xpool.
@@ -251,6 +253,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns the end iterator.
         auto end()   const { return __assemblies.end();   }
+
+        X_TO_STRING_IMPL(_T("assemblies_t"))
 
     private:
         std::map<sid_t, assembly_t *> __assembly_sid_map;

@@ -266,6 +266,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Global context.
         global_context_t & global_context;
+
+        X_TO_STRING_IMPL(_T("code_object_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -284,7 +286,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         string_t name;      // Name
 
         // Converts to a string.
-        virtual const string_t to_string() const override
+        X_TO_STRING_IMPL_
         {
             return name;
         }
@@ -313,6 +315,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns code file.
         const code_file_t * file() const;
+
+        X_TO_STRING_IMPL(_T("code_section_t"))
     };
 
     // Writes a code section to a stream.
@@ -357,6 +361,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns source code.
         const char_t * source_code() const { return code.c_str(); }
 
+        X_TO_STRING_IMPL(_T("code_t"))
+
     private:
         __sections_t        __sections;
         pool_t              __pool;
@@ -399,6 +405,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Path.
         virtual const string_t & get_file_path() const override { return path; }
+
+        X_TO_STRING_IMPL(_T("file_t"))
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -435,6 +443,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         assembly_t * assembly = nullptr;
         string_t     assembly_path;
+
+        X_TO_STRING_IMPL(_T("project_t"))
 
     private:
         std::map<string_t, file_t *> __file_map;
@@ -486,6 +496,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns count of assembly refs.
         size_t ref_assembly_count() const { return __ref_assemblies.size(); }
 
+        X_TO_STRING_IMPL(_T("ref_assemblies_t"))
+
     private:
         typedef std::tuple<string_t, string_t> __ref_assembly_key_t;
         std::map<__ref_assembly_key_t, ref_assembly_t *> __ref_assemblies;
@@ -514,6 +526,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Completed notify.
         virtual void completed() override;
+
+        X_TO_STRING_IMPL(_T("file_ref_assembly_t"))
 
     private:
         const lib::path_t __path;
@@ -558,6 +572,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Ref of assemblies.
         ref_assemblies_t ref_assemblies;
+
+        X_TO_STRING_IMPL(_T("solution_t"))
 
     private:
         std::map<string_t, project_t *> __project_map;
@@ -624,7 +640,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor.
         token_reader_context_t(compile_context_t & context)
-            : compile_context(context)
+            : compile_context(context), __heap(_T("token_reader_context"))
         { }
 
         // Compile context.
@@ -884,6 +900,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         static const int __cache_key__ = _global_cache_key;
 
+        X_TO_STRING_IMPL(_T("lang_cache_t"))
+
     private:
         std::map<_key_t, _value_t> __cache;
     };
@@ -988,6 +1006,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         xpool_t xpool;
 
+        X_TO_STRING_IMPL(_T("global_context_t"))
+
     private:
         std::map<lang_id_t, lang_t *> __lang_map;
 
@@ -1032,6 +1052,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         string_t        name;           // Name
         string_t        message;        // Message
         code_element_t * element;       // Element
+
+        X_TO_STRING_IMPL(_T("compile_log_t"))
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1046,6 +1068,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             __logs.push_back(log);
         }
+
+        X_TO_STRING_IMPL(_T("compile_logs_t"))
 
     private:
         std::vector<const compile_log_t *> __logs;
@@ -1065,7 +1089,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Constructor.
         compile_context_t(global_context_t & global_context, assembly_writer_t * writer)
-            : global_context(global_context), __writer(writer)
+            : global_context(global_context), __writer(writer), __heap(_T("compile_context"))
         { }
 
         // Creates a new object.
@@ -1132,6 +1156,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Creates output stream of project.
         xostream_t * create_output_stream(ast_project_t * project);
+
+        X_TO_STRING_IMPL(_T("compile_context_t"))
 
     private:
         lang_factory_t * __lang_factory;
@@ -1219,6 +1245,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         lang_t * const lang;                    // Language.
         logger_t & logger;                      // Logger.
 
+        X_TO_STRING_IMPL(_T("ast_context_t"))
+
     private:
         multipy_logger_t __logger;
     };
@@ -1249,6 +1277,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Creates a new stream for specified project.
         virtual xostream_t * new_stream(compile_context_t & ctx, ast_project_t * cproject) override;
+
+        X_TO_STRING_IMPL(_T("file_assembly_writer_t"))
 
     private:
         string_t __directory;
@@ -1299,6 +1329,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Creates a compile context for specified writer.
         compile_context_t * new_compile_context(memory_t * memory, assembly_writer_t * writer);
+
+        X_TO_STRING_IMPL(_T("compiler_t"))
 
     private:
         global_context_t __global_context;              // Global context.
@@ -1352,6 +1384,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             // Destories a language.
             virtual void destory(memory_t * memory, lang_t * obj) override { }
+
+            X_TO_STRING_IMPL(_T("__simple_creator_t"))
         };
     }
 
@@ -1386,6 +1420,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             return register_lang_t<_lang_t>(_lang_t::__default_name__);
         }
+
+        X_TO_STRING_IMPL(_T("simple_lang_factory_t"))
 
     private:
         std::map<lang_id_t, lang_creator_t *> __creators;
@@ -1527,6 +1563,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             return property;
         }
+
+        X_TO_STRING_IMPL(_T("property_cache_t"))
 
     private:
         __cache_t __cache;

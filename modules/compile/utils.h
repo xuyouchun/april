@@ -121,12 +121,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Pre append custom struct.
+    // Pre append custom struct for assign.
     // If expression is new_expression_t, only put address of this variable.
     // Otherwise, append object_copy xil.
     // See also: __compile_new_struct_object() in expression.cpp.
     void __pre_custom_struct_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
         variable_t * variable, expression_t * expression);
+
+    // Pre append custom struct for return.
+    void __pre_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
+        expression_t * expression);
 
     // Push address of variable.
     void __push_variable_address(expression_compile_context_t & ctx, xil_pool_t & pool,

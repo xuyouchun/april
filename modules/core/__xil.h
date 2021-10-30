@@ -271,6 +271,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         field_addr      = 7,        // Field address
 
+        calling_bottom  = 10,       // The value at the calling stack bottom.
+
         params          = 11,       // Stack address of dynamic arguments
 
         array_element   = 12,       // Array element
@@ -314,6 +316,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         reverse         = 1,            // Default is dst address at the top, reverse is oppsite.
 
         zero            = 2,            // Set object memory to zero.
+
+        ret             = 3,            // When return a custom struct.
 
     __EnumEnd
 
@@ -783,6 +787,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::duplicate:
+            case xil_storage_type_t::calling_bottom:
             case xil_storage_type_t::params:
                 size -= 1;                              // __dtype, identity no use
                 break;
@@ -1642,6 +1647,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Read next xil.
         bool read(const xil_base_t ** out_xil);
 
+        X_TO_STRING_IMPL(_T("xil_reader_t"))
+
     private:
         const byte_t * __bytes, * __bytes_end;
     };
@@ -1667,6 +1674,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns whether it's empty.
         bool empty() const { return __size == 0; }
+
+        X_TO_STRING_IMPL(_T("xil_buffer_writer_t"))
 
     private:
         xil_buffer_t &  __buffer;

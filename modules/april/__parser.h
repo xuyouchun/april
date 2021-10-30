@@ -25,6 +25,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
         __ptree_t & root();
 
+        X_TO_STRING_IMPL(_T("parser_t"))
+
     protected:
         virtual void on_parse(__ptree_stream_t & stream, __ptree_t & ptree) = 0;
 
@@ -42,6 +44,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         using __super_t::__super_t;
 
         virtual void on_parse(__ptree_stream_t & stream, __ptree_t & root) override;
+
+        X_TO_STRING_IMPL(_T("xml_parser_t"))
     };
 
     ////////// ////////// ////////// ////////// /////////
@@ -52,6 +56,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         void read(memory_t * memory, __ptree_t & root, const lib::path_t & relative_path);
 
         string_t name;
+
+        X_TO_STRING_IMPL(_T("config_t"))
 
     protected:
         virtual void on_read(memory_t * memory, __ptree_t & root,
@@ -72,6 +78,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
         std::vector<project_config_t *> projects;
 
+        X_TO_STRING_IMPL(_T("solution_config_t"))
+
     protected:
         virtual void on_read(memory_t * memory, __ptree_t & root,
                                                 const lib::path_t & relative_path) override;
@@ -91,6 +99,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
         std::vector<file_config_t *> files;
 
+        X_TO_STRING_IMPL(_T("project_config_t"))
+
     protected:
         virtual void on_read(memory_t * memory, __ptree_t & root,
                                                 const lib::path_t & relative_path) override;
@@ -109,6 +119,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         file_config_t(const lib::path_t & path) : path(path) { }
 
         lib::path_t path;
+
+        X_TO_STRING_IMPL(_T("file_config_t"))
 
     protected:
         virtual void on_read(memory_t * memory, __ptree_t & root,
