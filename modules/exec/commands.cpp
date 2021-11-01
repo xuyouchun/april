@@ -732,20 +732,21 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         typedef __vnum_t<_xt2>      __value2_t;
 
     public:
-        __push_command_t(__offset_t offset) : __offset(offset) { }
+        __push_command_t(__offset_t offset)
+            : __real_offset(offset + __stack_stub_size) { }
 
-        __PushCommand_ToString(argument, _xt1, _xt2, __offset)
+        __PushCommand_ToString(argument, _xt1, _xt2, __real_offset - __stack_stub_size)
 
         __BeginExecute(ctx)
 
             ctx.stack.push(static_cast<__value2_t>(
-                __Argument(__value1_t, __This->__offset + __stack_stub_size)
+                __Argument(__value1_t, __This->__real_offset)
             ));
 
         __EndExecute()
 
     private:
-        __offset_t __offset;
+        __offset_t __real_offset;
     };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, argument, _xt1, _xt2)
@@ -1285,50 +1286,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    #define __PushCallingBottomCmd  __Cmd(push, calling_bottom)
-    __DefineCmdValue_(__PushCallingBottomCmd)
-
-    class __push_calling_bottom_command_t : public __command_base_t<__PushCallingBottomCmd>
-    {
-        typedef __push_calling_bottom_command_t __self_t;
-
-    public:
-        __push_calling_bottom_command_t(__offset_t offset) : __offset(offset) { }
-
-        #if EXEC_TRACE
-
-        __BeginToString()
-            return _T("push calling bottom");
-        __EndToString()
-
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            // _PP( (void *)*(ctx.stack.top() - __offset) );
-
-            ctx.stack.push<void *>(
-                (void *)*(ctx.stack.top() - __offset)
-            );
-
-        __EndExecute()
-
-    private:
-        __offset_t __offset;
-    };
-
-    struct __push_calling_bottom_template_t
-    {
-        template<command_value_t _cv, typename ... _args_t>
-        static auto new_command(memory_t * memory, _args_t && ... args)
-        {
-            typedef __push_calling_bottom_command_t this_command_t;
-            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
     static xil_type_t __xil_type_of(__context_t & ctx, rt_type_t * type)
     {
         _A(type != nullptr);
@@ -1342,7 +1299,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                             xil_type_t * out_dtype1, xil_type_t * out_dtype2)
     {
         xil_storage_type_t stype = xil.stype();
-        *out_dtype2 = __fetch_dtype(ctx, xil);
 
         // Gets xil_type of data source.
         switch (stype)
@@ -1350,27 +1306,49 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case xil_storage_type_t::local:
             case xil_storage_type_t::local_addr:
                 *out_dtype1 = __xil_type_of(ctx, ctx.locals_layout.type_at(xil.get_identity()));
+                *out_dtype2 = __fetch_dtype(ctx, xil);
                 break;
 
             case xil_storage_type_t::argument:
-            case xil_storage_type_t::argument_addr:
-                *out_dtype1 = __xil_type_of(ctx, ctx.params_layout.type_at(xil.get_identity()));
-                break;
+            case xil_storage_type_t::argument_addr: {
+                uint16_t identity = xil.get_identity();
+                if (identity == XIL_CALLING_BOTTOM_IDENTITY)
+                {
+                    *out_dtype1 = xil_type_t::ptr;
+                    *out_dtype2 = xil_type_t::ptr;
+                }
+                else
+                {
+                    *out_dtype1 = __xil_type_of(ctx, ctx.params_layout.type_at(xil.get_identity()));
+                    *out_dtype2 = __fetch_dtype(ctx, xil);
+                }
+            }   break;
 
             case xil_storage_type_t::field:
             case xil_storage_type_t::field_addr:
                 *out_dtype1 = __xil_type_of(ctx, __field_type(ctx, xil.field_ref()));
+                *out_dtype2 = __fetch_dtype(ctx, xil);
                 break;
 
             case xil_storage_type_t::array_element:
             case xil_storage_type_t::array_element_addr:
                 *out_dtype1 = __xil_type_of(ctx, __array_element_type(ctx, xil.type_ref()));
+                *out_dtype2 = __fetch_dtype(ctx, xil);
                 break;
 
             default:
+                *out_dtype2 = __fetch_dtype(ctx, xil);
                 *out_dtype1 = *out_dtype2;
                 break;
         }
+    }
+
+    uint16_t __offset_of_argument(command_creating_context_t & ctx, uint16_t identity)
+    {
+        if (identity == XIL_CALLING_BOTTOM_IDENTITY)
+            return ctx.params_layout.unit_size() + 1;
+
+        return ctx.params_layout.offset_of(identity);
     }
 
     static command_t * __new_push_command(__context_t & ctx, const push_xil_t & xil)
@@ -1423,10 +1401,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<__offset_t> __params_address_command_manager;
 
         static __command_manager_t<
-            __push_calling_bottom_template_t
-        >::with_args_t<__offset_t> __calling_bottom_command_manager;
-
-        static __command_manager_t<
             __push_convert_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<> __convert_command_manager;
 
@@ -1443,13 +1417,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     ctx.params_layout.extends_offset()
                 );
 
-            case xil_storage_type_t::calling_bottom:
-                return __calling_bottom_command_manager.template get_command<
-                                                        __PushCallingBottomCmd>(
-                    ctx.params_layout.unit_size() + ctx.locals_layout.unit_size()
-                        + __stack_stub_size + 1
-                );
-
             case xil_storage_type_t::local_addr:    // Push local address command.
                 return __push_address_command_manager.template get_command<
                     __StAddrCmd(push, local_addr), stype_t::local_addr>(
@@ -1459,7 +1426,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case xil_storage_type_t::argument_addr: // Push agrument address command.
                 return __push_address_command_manager.template get_command<
                     __StAddrCmd(push, argument_addr), stype_t::argument_addr>(
-                    ctx.params_layout.offset_of(xil.get_identity())
+                    __offset_of_argument(ctx, xil.get_identity())
                 );
 
             case xil_storage_type_t::field_addr:    // Push field address command.
@@ -1595,7 +1562,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     return __command_manager.template get_command<                      \
                         __StCmd(push, argument, _xt1, _xt2),                            \
                         xil_storage_type_t::argument, xil_type_t::_xt1, xil_type_t::_xt2    \
-                    >(ctx.params_layout.offset_of(xil.get_identity()));
+                    >(__offset_of_argument(ctx, xil.get_identity()));
 
 
             #define __CaseArguments(_xt2)                                               \
@@ -2057,6 +2024,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     public:
         __pop_empty_command_t(msize_t unit_size) : __unit_size(unit_size) { }
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("pop empty"));
+        __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx)
 
@@ -3905,14 +3880,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             // param, stub, local, ret
             rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
-            auto stub = (const __calling_stub_t *)(p + __This->__param_unit_ret_size);
-
             // _P(_T("-- pop calling"), (void *)stub->lp, (void *)stub->current);
+            ctx.pop_calling((const __calling_stub_t *)(p + __This->__param_unit_ret_size));
+            ctx.stack.pop<void *>();    // pop the bottom struct object address.
 
-            ctx.pop_calling(stub);
-            ctx.stack.pop<void *>();
-
-            _PP( ctx.stack.pos() );
+            // _PP( ctx.stack.pos() );
 
         __EndExecute()
 
@@ -5412,7 +5384,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __BeginExecuteCommand()                                                     \
         void * top0 = ctx.stack.top();                                                  \
-        _PF(_T("\033[01;36m   %|1$-50|[%2%]\033[0m"), to_command_string(command), top0);
+        _PF(_T("\033[22;36m   %|1$-50|[%2%]\033[0m"), to_command_string(command), top0);
 
     #elif EXEC_TRACE >= 2   // EXEC_TRACE >= 3
 

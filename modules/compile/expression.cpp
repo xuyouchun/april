@@ -78,33 +78,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return false;
     }
 
-    // Pre append custom struct.
-    template<typename __append_func_t>
-    void __pre_custom_struct(expression_compile_context_t & ctx, xil_pool_t & pool,
-        expression_t * expression, __append_func_t append_func)
-    { 
-        type_t * type = expression->get_type(__xpool(ctx));
-        _A( is_custom_struct(type) );
+    // Returns whether it's a function call expression.
+    bool __is_call_expression(expression_t * exp)
+    {
+        expression_family_t family = exp->this_family();
+        if (family == expression_family_t::function)
+            return true;
 
-        if (expression->this_family() == expression_family_t::new_)
+        if (family == expression_family_t::binary)
         {
-            // Do not need to assign, only put address of this local variable,
-            //   and then execute constructor on this local variable.
-            // See also: __compile_new_struct_object() in expression.cpp
+            binary_expression_t * binary_exp = (binary_expression_t *)exp;
 
-            new_expression_t * new_exp = (new_expression_t *)expression;
+            if (binary_exp->overload_method != nullptr)
+                return true;
 
-            if (new_exp->constructor != nullptr)
-                append_func();
-
-            expression->compile(ctx, pool);
+            return binary_exp->exp2()->this_family() == expression_family_t::function;
         }
-        else  // assign
+
+        if (family == expression_family_t::unitary)
         {
-            expression->compile(ctx, pool);
-            append_func();
-            pool.append<x_object_copy_xil_t>(__ref_of(ctx, type));
+            unitary_expression_t * unitary_exp = (unitary_expression_t *)exp;
+            return unitary_exp->overload_method != nullptr;
         }
+
+        return false;
     }
 
     // Pre append custom struct for assign.
@@ -129,7 +126,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             expression->compile(ctx, pool);
         }
-        else if (family == expression_family_t::function)  // function
+        else if (__is_call_expression(expression))  // function
         {
             __push_variable_address(ctx, pool, variable);
             expression->compile(ctx, pool);
@@ -143,14 +140,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Pre append custom struct for return.
-    void __pre_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
+    void __do_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
         expression_t * expression)
     {
         type_t * type = expression->get_type(__xpool(ctx));
         _A( is_custom_struct(type) );
 
         expression_family_t family = expression->this_family();
-        if (expression->this_family() == expression_family_t::new_)
+        if (family == expression_family_t::new_)
         {
             // Do not need to assign, only put address of this local variable,
             //   and then execute constructor on this local variable.
@@ -161,12 +158,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (new_exp->constructor != nullptr)
                 pool.append<x_push_calling_bottom_xil_t>();
 
-            // expression->compile(ctx, pool);
+            expression->compile(ctx, pool);
         }
-        else  // assign or function call.
+        else if (__is_call_expression(expression))  // function
         {
             pool.append<x_push_calling_bottom_xil_t>();
             expression->compile(ctx, pool);
+        }
+        else  // variables.
+        {
+            expression->compile(ctx, pool);
+            pool.append<x_push_calling_bottom_xil_t>();
+            pool.append<x_object_copy_xil_t>(__ref_of(ctx, type));
         }
     }
 
@@ -613,6 +616,52 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         );
     }
 
+    // Compile argument.
+    static void __compile_argument(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+        method_base_t * method, int index)
+    {
+        _A(exp != nullptr);
+
+        type_t * atype = method != nullptr?
+            method->get_param_type(index) : exp->get_type(__xpool(ctx));
+
+        _A(atype != nullptr);
+
+        if (is_custom_struct(atype))
+        {
+            ref_t type_ref = __ref_of(ctx, atype);
+            pool.append<x_stack_alloc_xil_t>(type_ref);
+
+            expression_family_t family = exp->this_family();
+
+            if (family == expression_family_t::new_)    // new expression
+            {
+                new_expression_t * new_exp = (new_expression_t *)exp;
+                new_exp->compile(ctx, pool);
+            }
+            else if (__is_call_expression(exp)) // function call expression
+            {
+                exp->compile(ctx, pool);
+            }
+            else  // assign
+            {
+                exp->compile(ctx, pool);
+                pool.append<x_object_copy_xil_t>(type_ref, xil_copy_kind_t::reverse);
+            }
+        }
+        else
+        {
+            vtype_t vtype = vtype_t::__default__;
+            if (method != nullptr)
+                vtype = method->get_param_vtype(index);
+
+            xil_type_t xil_type = to_xil_type(vtype);
+            if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
+                exp->compile(ctx, pool, xil_type);
+        }
+
+    }
+
     // Compile arguments.
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
         method_base_t * method = nullptr)
@@ -624,37 +673,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             argument_t * argument = (*arguments)[index];
             expression_t * exp = argument->expression;
-            _A(exp != nullptr);
 
-            type_t * atype = method->get_param_type(index);
-            _A(atype != nullptr);
-
-            if (is_custom_struct(atype))
-            {
-                ref_t type_ref = __ref_of(ctx, atype);
-                pool.append<x_stack_alloc_xil_t>(type_ref);
-
-                if (exp->this_family() == expression_family_t::new_)
-                {
-                    new_expression_t * new_exp = (new_expression_t *)exp;
-                    new_exp->compile(ctx, pool);
-                }
-                else
-                {
-                    exp->compile(ctx, pool);
-                    pool.append<x_object_copy_xil_t>(type_ref, xil_copy_kind_t::reverse);
-                }
-            }
-            else
-            {
-                vtype_t vtype = vtype_t::__default__;
-                if (method != nullptr)
-                    vtype = method->get_param_vtype(index);
-
-                xil_type_t xil_type = to_xil_type(vtype);
-                if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
-                    exp->compile(ctx, pool, xil_type);
-            }
+            __compile_argument(ctx, pool, exp, method, index);
         }
     }
 
@@ -1131,7 +1151,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * ret_type = method->get_type();
         vtype_t vtype;
 
-        if (ret_type != nullptr && (vtype = ret_type->this_vtype()) != vtype_t::void_)
+        if ( (ret_type != nullptr && (vtype = ret_type->this_vtype()) != vtype_t::void_)
+            || is_custom_struct(ret_type) )
         {
             xil_type_t xil_type = to_xil_type(vtype);
 
@@ -1373,8 +1394,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __check_overload_prototype(ctx, method, 2, this->exps);
 
         // Compile arguments.
-        expression_at(0)->compile(ctx, pool);
-        expression_at(1)->compile(ctx, pool);
+        __compile_argument(ctx, pool, expression_at(0), method, 0);
+        __compile_argument(ctx, pool, expression_at(1), method, 1);
 
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_call_xil_t>(xil_call_type_t::static_, method_ref);
@@ -1673,9 +1694,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         bool effective = is_effective(this);
         xil_call_type_t call_type = call_type_of_method(method);
+        type_t * ret_type = method->get_type();
 
-        if (effective && !__is_member_expression(this->parent) && !__is_static(call_type))
-            pool.append<x_push_this_ref_xil_t>();
+        if (effective)
+        {
+            if (!__is_member_expression(this->parent) && !__is_static(call_type))
+                pool.append<x_push_this_ref_xil_t>();
+
+            // When return type is custom struct, but not assign to a variable.
+            if (this->parent == nullptr && is_custom_struct(ret_type))
+                pool.append<x_stack_alloc_xil_t>(__ref_of(ctx, ret_type));
+        }
 
         __compile_arguments(ctx, pool, this->arguments(), method);
 

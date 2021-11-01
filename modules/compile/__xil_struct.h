@@ -244,6 +244,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
+    // Pushes calling bottom.
+    struct x_push_calling_bottom_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_calling_bottom_xil_t()
+            : __super_t(xil_storage_type_t::argument, xil_type_t::ptr, XIL_CALLING_BOTTOM_IDENTITY)
+        { }
+    };
+
     // Pushes argument address xil.
     struct x_push_argument_addr_xil_t : x_push_variable_xil_t
     {
@@ -276,16 +286,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             this->set_field_ref(field_ref);
         }
-    };
-
-    // Pushes calling bottom.
-    struct x_push_calling_bottom_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        x_push_calling_bottom_xil_t()
-            : __super_t(xil_storage_type_t::calling_bottom)
-        { }
     };
 
     // Pushes array element xil.

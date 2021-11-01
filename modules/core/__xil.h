@@ -271,8 +271,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         field_addr      = 7,        // Field address
 
-        calling_bottom  = 10,       // The value at the calling stack bottom.
-
         params          = 11,       // Stack address of dynamic arguments
 
         array_element   = 12,       // Array element
@@ -689,6 +687,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         uint8_t index           : 4;
     */
 
+    #define XIL_CALLING_BOTTOM_IDENTITY        65535U
+
     // Push xil.
     __BeginXil(push)
 
@@ -787,7 +787,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 break;
 
             case xil_storage_type_t::duplicate:
-            case xil_storage_type_t::calling_bottom:
             case xil_storage_type_t::params:
                 size -= 1;                              // __dtype, identity no use
                 break;

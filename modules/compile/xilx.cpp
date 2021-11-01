@@ -413,10 +413,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (is_custom_struct(type))
             {
                 expression_compile_context_t cctx(ctx);
-                __pre_custom_struct_return(cctx, pool, expression);
+                __do_custom_struct_return(cctx, pool, expression);
             }
-
-            __compile_expression(ctx, pool, expression, dtype);
+            else
+            {
+                __compile_expression(ctx, pool, expression, dtype);
+            }
         }
 
         xil::append_ret(pool);

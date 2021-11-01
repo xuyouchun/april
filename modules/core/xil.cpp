@@ -338,8 +338,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(field_addr,     _T("field_addr"))
 
-        X_C(calling_bottom, _T("calling_bottom"))
-
         X_C(params,         _T("params"))
 
         X_C(array_element,  _T("array_element"))

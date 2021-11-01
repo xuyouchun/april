@@ -129,7 +129,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         variable_t * variable, expression_t * expression);
 
     // Pre append custom struct for return.
-    void __pre_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
+    void __do_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
         expression_t * expression);
 
     // Push address of variable.
