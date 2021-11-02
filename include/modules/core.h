@@ -5248,6 +5248,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the typename of vtype.
         type_name_t * to_type_name(vtype_t vtype);
 
+        // Returns the typename of type.
+        type_name_t * to_type_name(type_t * type);
+
         // Load assembly by package name and assembly name.
         assembly_t * load_assembly(const mname_t * package_name, const mname_t * assembly_name);
 
@@ -5286,6 +5289,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Vtype -> typename cache.
         std::map<vtype_t, type_name_t *> __vtype_type_name_map;
+
+        // type_t * -> typename cache.
+        std::map<type_t *, type_name_t *> __type_type_name_map;
 
         // Push a new layer.
         template<typename layer_t, typename ... args_t>

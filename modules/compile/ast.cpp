@@ -1187,7 +1187,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             method_t * method = context.current_method();
             _A(method != nullptr);
 
-            if (method->type_name == nullptr || is_void_type(method->type_name->type))
+            if (method->type_name == nullptr || method->type_name->type == nullptr
+                                             || is_void_type(method->type_name->type))
             {
                 __body.push_back(__new_obj<return_statement_t>());
             }
@@ -2309,7 +2310,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         method_t * method = context.current_method();
         _A(method != nullptr);
 
-        if (method->type_name == nullptr || is_void_type(method->type_name->type))
+        if (method->type_name == nullptr || method->type_name->type == nullptr
+                                         || is_void_type(method->type_name->type))
         {
             if (__statement.expression != nullptr)
                 this->__log(this, __c_t::method_unexpected_return_value, method);
@@ -3367,7 +3369,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (__property.set_method != nullptr)
         {
             __property.set_method->name = __to_method_name(_T("set"));
-            __property.set_method->type_name = context.to_type_name(vtype_t::void_);
+            __property.set_method->type_name = context.to_type_name(context.xpool.get_void_type());
+            _P(_T("---- "), __property.set_method->name, __property.set_method->type_name);
             __property.set_method->decorate  = __property.decorate;
 
             params_t * params = __new_obj<params_t>();

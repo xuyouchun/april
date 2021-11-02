@@ -84,6 +84,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         expression_family_t family = exp->this_family();
         if (family == expression_family_t::function)
             return true;
+        
+        variable_expression_t * variable_exp = dynamic_cast<variable_expression_t *>(exp);
+        if (variable_exp != nullptr)
+        {
+            variable_t * variable = variable_exp->get_variable();
+            return variable->is_calling();
+        }
 
         if (family == expression_family_t::binary)
         {
@@ -92,7 +99,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (binary_exp->overload_method != nullptr)
                 return true;
 
-            return binary_exp->exp2()->this_family() == expression_family_t::function;
+            return __is_call_expression(binary_exp->exp2());
         }
 
         if (family == expression_family_t::unitary)
@@ -128,6 +135,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else if (__is_call_expression(expression))  // function
         {
+            _PP(expression);
+
             __push_variable_address(ctx, pool, variable);
             expression->compile(ctx, pool);
         }

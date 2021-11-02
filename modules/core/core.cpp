@@ -2412,6 +2412,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns whether it's a specifed vtype.
     X_ALWAYS_INLINE static bool __is_vtype(type_t * type, vtype_t vtype)
     {
+        if (type == nullptr)
+            arch::print_stack();
+
         _A(type != nullptr);
 
         return type->this_gtype() == gtype_t::general
@@ -5049,15 +5052,28 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         auto it = __vtype_type_name_map.find(vtype);
         if (it == __vtype_type_name_map.end())
         {
-            type_name_t * type_name = xpool.new_obj<type_name_t>(
-                xpool.get_internal_type(vtype)
-            );
-
+            type_name_t * type_name = to_type_name(xpool.get_internal_type(vtype));
             __vtype_type_name_map[vtype] = type_name;
+
             return type_name;
         }
 
         return it->second;
+    }
+
+    // Returns the typename of type.
+    type_name_t * ast_walk_context_t::to_type_name(type_t * type)
+    {
+        auto it = __type_type_name_map.find(type);
+        if (it == __type_type_name_map.end())
+        {
+            type_name_t * type_name = xpool.new_obj<type_name_t>(type);
+            __type_type_name_map[type] = type_name;
+
+            return type_name;
+        }
+
+        return it->second;;
     }
 
     // Load assembly by package name and assembly name.

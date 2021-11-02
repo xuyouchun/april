@@ -696,9 +696,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx)
 
-            // _PP( __LocalAddress(__This->__offset) );
-            // _PP( ctx.stack.pos() );
-
             ctx.stack.push(__LocalAddress(__This->__offset));
 
         __EndExecute()
@@ -2993,8 +2990,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             __pre_static_call(ctx, __This->get_type());
 
-            // _P(_T("-- push calling"), (void *)ctx.stack.lp(), (void *)ctx.current);
-
             exec_method_t * method = __This->__get_method(ctx);
             ctx.push_calling(method);
             ctx.stack.increase_top(method->stack_unit_size);
@@ -3880,11 +3875,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             // param, stub, local, ret
             rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
-            // _P(_T("-- pop calling"), (void *)stub->lp, (void *)stub->current);
             ctx.pop_calling((const __calling_stub_t *)(p + __This->__param_unit_ret_size));
             ctx.stack.pop<void *>();    // pop the bottom struct object address.
-
-            // _PP( ctx.stack.pos() );
 
         __EndExecute()
 
@@ -4428,7 +4420,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         __AlwaysInline bool operator()(command_execute_context_t & ctx)
         {
-            //_P(_T("jmp true: "), ctx.stack.pick<bool>());
             return ctx.stack.pop<bool>();
         }
 
@@ -4444,7 +4435,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         __AlwaysInline bool operator()(command_execute_context_t & ctx)
         {
-            //_P(_T("jmp false: "), ctx.stack.pick<bool>());
             return !ctx.stack.pop<bool>();
         }
 
@@ -5319,7 +5309,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     command_t * new_command(command_creating_context_t & ctx, const xil_base_t * xil)
     {
-        //_P(_T(">> new_command: "), (xil_command_t)xil->command());
         switch (xil->command())
         {
             case xil_command_t::empty:
