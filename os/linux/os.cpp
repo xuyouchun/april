@@ -21,6 +21,12 @@ namespace X_ROOT_NS { namespace os {
         return ::calloc(n, size);
     }
 
+    // Reallocates memory of specified size.
+    void * realloc(void * p, size_t size)
+    {
+        return ::realloc(p, size);
+    }
+
     // Frees memory.
     void free(void * p)
     {

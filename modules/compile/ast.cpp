@@ -1569,7 +1569,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Sets name.
     void type_ast_node_t::set_name(const name_t & name, __el_t * el)
     {
-        this->__assign_name(__type.name, name, el, _T("type"));
+        this->__assign_name(__type.name, name, el, _T("type name"));
     }
 
     // Sets ttype.
@@ -3357,7 +3357,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (__property.get_method != nullptr)
         {
-            __property.get_method->name = __to_method_name(_T("get"));
+            __property.get_method->name      = __to_method_name(_T("get"));
             __property.get_method->type_name = __property.type_name;
             __property.get_method->decorate  = __property.decorate;
             __property.get_method->params    = __property.params;
@@ -3368,9 +3368,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (__property.set_method != nullptr)
         {
-            __property.set_method->name = __to_method_name(_T("set"));
+            __property.set_method->name      = __to_method_name(_T("set"));
             __property.set_method->type_name = context.to_type_name(context.xpool.get_void_type());
-            _P(_T("---- "), __property.set_method->name, __property.set_method->type_name);
             __property.set_method->decorate  = __property.decorate;
 
             params_t * params = __new_obj<params_t>();

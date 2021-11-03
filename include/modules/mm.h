@@ -36,6 +36,11 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
         // Creates new array.
         virtual rt_ref_t new_array(rt_array_type_t * type, const array_length_t * lengths)
                                                    override;
+        // allocate a memory space.
+        virtual void * alloc(size_t size, void * realloc) override;
+
+        // free a memory space.
+        virtual void free(void * ptr) override;
 
         X_TO_STRING_IMPL(_T("default_rt_heap_t"))
     };

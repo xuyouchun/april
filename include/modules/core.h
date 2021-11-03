@@ -4402,6 +4402,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Append a new type.
         void append_new_type(type_t * type);
 
+        // Returns whether it's a core assembly.
+        bool is_core_assembly(assembly_t * assembly);
+
         // Commit types.
         void commit_types(logger_t & logger);
 
@@ -4410,6 +4413,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     private:
         attribute_t * __compile_time_attribute = nullptr;
         std::queue<type_t *> __new_types;
+        std::map<sid_t, general_type_t *> __new_system_type_dict;
 
         // Returns specified type with cache.
         general_type_t * __get_specified_type(const char_t * name, general_type_t * & __cache);
@@ -4429,6 +4433,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         general_type_t * __trace_attribute_type = nullptr;
 
         type_name_t __object_type_name;
+
+        sid_t __core_assembly_name = sid_t::null;
     };
 
     // Returns whether it is a compile time attribute.

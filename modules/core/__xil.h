@@ -295,6 +295,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         stack_allocs    = 3,            // Allocate objects from stack.
 
+        temp_alloc      = 4,            // Allocate temp object for stack.
+
+        temp_allocs     = 5,            // Allocate temp objects for stack.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
@@ -1452,7 +1456,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         int size = sizeof(new_xil_t);
 
-        if (xil.new_type() == xil_new_type_t::stack_allocs)
+        xil_new_type_t type = xil.new_type();
+        if (type == xil_new_type_t::stack_allocs || type == xil_new_type_t::temp_allocs)
             size += sizeof(uint32_t);   // the size of __extra.
 
         return size;

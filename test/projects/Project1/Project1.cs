@@ -8,40 +8,30 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        MyStruct st = __CreateStruct(1, 2, 3);
-
-        int r = st.A + st.B + st.C;
-        Console.WriteLine(r);
-    }
-    
-    private static MyStruct __CreateStruct(int a, int b, int c)
-    {
-        return new MyStruct(a, b, c);
+        long ticks = DateTime.UtcNow.Ticks;
+        Console.WriteLine(ticks);
     }
 
-    private static int __Add(int a, int b, int c)
+    public static MyStruct __GetStruct(int a)
     {
-        return a + b + c;
+        return new MyStruct(a);
     }
 };
 
 
 struct MyStruct
 {
-    public MyStruct(int a, int b, int c)
+    public MyStruct(int a)
     {
         A = a;
-        B = b;
-        C = c;
     }
 
 	public int A;
-    public int B;
-    public int C;
-    public int D;
-    public int E;
-    public int F;
-    public int G;
+
+    public static MyStruct Instance
+    {
+        get { return new MyStruct(123); }
+    }
 };
 
 class MyClass

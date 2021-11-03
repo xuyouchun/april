@@ -140,6 +140,31 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // New temp_alloc xil.
+    struct x_temp_alloc_xil_t : x_new_xil_base_t
+    {
+        typedef x_new_xil_base_t __super_t;
+
+        x_temp_alloc_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::temp_alloc, type_ref) { }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // New temp_allocs xil.
+    struct x_temp_allocs_xil_t : x_new_xil_base_t
+    {
+        typedef x_new_xil_base_t __super_t;
+
+        x_temp_allocs_xil_t(ref_t type_ref, uint32_t count)
+            : __super_t(xil_new_type_t::temp_allocs, type_ref)
+        {
+            this->set_count(count);
+        }
+    };
+
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Begin init array.
     struct x_array_begin_xil_t : xil_extra_t<init_xil_t>
     {

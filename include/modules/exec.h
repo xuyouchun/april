@@ -21,7 +21,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define EXEC_EXECUTE_MODEL_MAUNAL   2
     #define EXEC_EXECUTE_MODEL_INLINE   3
 
-    #define EXEC_TRACE          3  // 0:none, 1:trace, 2:trace details, 3:trace more details
+    #define EXEC_TRACE          2  // 0:none, 1:trace, 2:trace details, 3:trace more details
     #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_VIRTUAL
 
     const size_t __default_stack_size = 1024 * 1024;
@@ -130,7 +130,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             {
                 return ((__tmp_t *)(top - 1))->value;
             }
-
         };
     }
 
@@ -905,7 +904,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Constructor.
         command_execute_context_t(rt_heap_t * heap, executor_env_t & env,
                     size_t stack_size = __default_stack_size) _NE
-            : stack(__stack_buffer = memory_t::alloc_objs<rt_stack_unit_t>(nullptr, stack_size))
+            : stack(__stack_buffer = (rt_stack_unit_t *)heap->alloc(
+                                            stack_size * sizeof(rt_stack_unit_t)))
             , heap(heap), env(env)
         {
             _A(heap != nullptr);
@@ -990,10 +990,25 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return stub->method;
         }
 
+        // Allocate a temp memory space.
+        __AlwaysInline void * alloc_temp(size_t size) _NE
+        {
+            if (__temp_ptr == nullptr || __temp_size < size)
+                __temp_ptr = heap->alloc(size, __temp_ptr);
+
+            return __temp_ptr;
+        }
+
+        // Allocate a temp memory space for specified units.
+        __AlwaysInline void * alloc_temp_units(size_t units) _NE
+        {
+            return alloc_temp(units * sizeof(rt_stack_unit_t));
+        }
+
         // Destructor.
         virtual ~command_execute_context_t() override
         {
-            memory_t::free(nullptr, __stack_buffer);
+            heap->free(__stack_buffer);
         }
 
         X_TO_STRING_IMPL(_T("command_execute_context_t"))
@@ -1001,6 +1016,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     private:
         rt_stack_unit_t * __stack_buffer;
         pool_t            __memory_pool;
+        void *            __temp_ptr = nullptr;
+        size_t            __temp_size;
     };
 
     ////////// ////////// ////////// ////////// //////////

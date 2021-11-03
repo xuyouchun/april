@@ -7,4 +7,4 @@ libs/
 bin/
 include/config.h
 Makefile.options.me
-
+.DS_Store

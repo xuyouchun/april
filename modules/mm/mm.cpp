@@ -43,6 +43,12 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
         return memory_t::alloc(&__default_memory, size);
     }
 
+    // Free memory of specified ptr.
+    X_ALWAYS_INLINE void __free_memory(void * p)
+    {
+        memory_t::free(&__default_memory, p);
+    }
+
     // Allocate memory with specified size/extern size.
     X_ALWAYS_INLINE void * __alloc(size_t extern_size, size_t size)
     {
@@ -182,6 +188,22 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
 
         zero_memory((__uint_t *)obj, size / sizeof(__uint_t));
         return rt_ref_t(obj);
+    }
+
+    // allocate a memory space.
+    void * default_rt_heap_t::alloc(size_t size, void * realloc)
+    {
+        if (realloc != nullptr)
+            __free_memory(realloc);
+
+        return __alloc_memory(size);
+    }
+
+    // free a memory space.
+    void default_rt_heap_t::free(void * ptr)
+    {
+        if (ptr != nullptr)
+            __free_memory(ptr);
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -722,6 +722,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_new_type_t::stack_allocs:
                 return _T("stack_allocs");
 
+            case xil_new_type_t::temp_alloc:
+                return _T("temp_alloc");
+
+            case xil_new_type_t::temp_allocs:
+                return _T("temp_allocs");
+
             default:
                 X_UNEXPECTED();
         }

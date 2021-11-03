@@ -135,7 +135,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else if (__is_call_expression(expression))  // function
         {
-            _PP(expression);
 
             __push_variable_address(ctx, pool, variable);
             expression->compile(ctx, pool);
@@ -829,6 +828,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 __validate_set_method(ctx, method);
 
+                if (ca.custom_struct)
+                    __compile_argument(ctx, pool, exp2, method, 0);
+
                 ref_t method_ref = __search_method_ref(ctx, method);
                 pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
 
@@ -1150,6 +1152,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Pre call a method.
+    static void __pre_call_method(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+                                                    method_base_t * method)
+    {
+        type_t * ret_type = method->get_type();
+
+        // When return type is custom struct, but not assign to a variable.
+        if (is_custom_struct(ret_type))
+        {
+            if (exp->parent == nullptr)
+            {
+                pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
+            }
+            else if (__is_member_expression(exp->parent))
+            {
+                pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
+                pool.append<x_push_duplicate_xil_t>();
+            }
+        }
+    }
+
     // Pops return value from stack
     static void __pop_empty_for_method(__cctx_t & ctx, xil_pool_t & pool,
                                         method_base_t * method, expression_t * owner_exp)
@@ -1160,21 +1183,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * ret_type = method->get_type();
         vtype_t vtype;
 
-        if ( (ret_type != nullptr && (vtype = ret_type->this_vtype()) != vtype_t::void_)
-            || is_custom_struct(ret_type) )
+        if ((ret_type != nullptr && (vtype = ret_type->this_vtype()) != vtype_t::void_)
+            && !is_custom_struct(ret_type))
         {
             xil_type_t xil_type = to_xil_type(vtype);
-
-            if (xil_type == xil_type_t::object && is_struct(ret_type))
-            {
-                ref_t type_ref = __ref_of(ctx, ret_type);
-                _A(type_ref != ref_t::null);
-                pool.append<x_pop_empty_xil_t>(type_ref);
-            }
-            else
-            {
-                pool.append<x_pop_empty_xil_t>(to_xil_type(ret_type->this_vtype()));
-            }
+            pool.append<x_pop_empty_xil_t>(xil_type);
         }
     }
 
@@ -1189,6 +1202,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __validate_get_method(ctx, method);
 
         __compile_arguments(ctx, pool, arguments, method);
+
+        __pre_call_method(ctx, pool, owner_exp, method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
@@ -1405,6 +1420,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Compile arguments.
         __compile_argument(ctx, pool, expression_at(0), method, 0);
         __compile_argument(ctx, pool, expression_at(1), method, 1);
+
+        __pre_call_method(ctx, pool, this, method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_call_xil_t>(xil_call_type_t::static_, method_ref);
@@ -1707,12 +1724,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (effective)
         {
-            if (!__is_member_expression(this->parent) && !__is_static(call_type))
+            bool parent_is_member = __is_member_expression(this->parent);
+            if (!parent_is_member && !__is_static(call_type))
                 pool.append<x_push_this_ref_xil_t>();
 
-            // When return type is custom struct, but not assign to a variable.
-            if (this->parent == nullptr && is_custom_struct(ret_type))
-                pool.append<x_stack_alloc_xil_t>(__ref_of(ctx, ret_type));
+            __pre_call_method(ctx, pool, this, method);
         }
 
         __compile_arguments(ctx, pool, this->arguments(), method);

@@ -4350,9 +4350,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         if (__cache == nullptr)
         {
-            __cache = get_internal_type(name_t(spool.to_sid(name)));
-            if (__cache == nullptr)
+            auto it = __new_system_type_dict.find(spool.to_sid(name));
+            if (it == __new_system_type_dict.end())
                 throw _ED(compile_error_code_t::type_not_found, name);
+
+            __cache = it->second;
         }
 
         return __cache;
@@ -4362,6 +4364,24 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     void xpool_t::append_new_type(type_t * type)
     {
         __new_types.push(type);
+
+        if (type->this_gtype() == gtype_t::general)
+        {
+            general_type_t * gtype = (general_type_t *)type;
+            if (is_core_assembly(gtype->assembly))
+            {
+                __new_system_type_dict[spool.to_sid(gtype->to_identity())] = gtype;
+            }
+        }
+    }
+
+    // Returns whether it's System namespace.
+    bool xpool_t::is_core_assembly(assembly_t * assembly)
+    {
+        if (__core_assembly_name == sid_t::null)
+            __core_assembly_name = spool.to_sid(CoreAssembly);
+
+        return __core_assembly_name == assembly->name->sid;
     }
 
     // Commit types.

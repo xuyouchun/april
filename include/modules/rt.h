@@ -238,6 +238,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Creates a new array.
         virtual rt_ref_t new_array(rt_array_type_t * type, const array_length_t * lengths) = 0;
+
+        // allocate a memory space.
+        virtual void * alloc(size_t size, void * realloc = nullptr) = 0;
+
+        // free a memory space.
+        virtual void free(void * ptr) = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------

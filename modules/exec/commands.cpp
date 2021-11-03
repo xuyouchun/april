@@ -4675,6 +4675,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __DefineCmdValue_(__NewCmd(default_))
     __DefineCmdValue_(__NewCmd(array))
     __DefineCmdValue_(__NewCmd(stack_alloc))
+    __DefineCmdValue_(__NewCmd(temp_alloc))
 
     template<xil_new_type_t _new_type> class __new_command_t { };
 
@@ -4794,6 +4795,36 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         size_t __units;
     };
 
+    template<>
+    class __new_command_t<xil_new_type_t::temp_alloc>
+        : public __command_base_t<__NewCmd(temp_alloc)>
+    {
+        typedef __new_command_t     __self_t;
+
+    public:
+        __new_command_t(size_t units) _NE : __units(units) { }
+
+        __BeginExecute(ctx)
+
+            ctx.stack.push(
+                ctx.alloc_temp_units(__This->__units)
+            );
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("temp_alloc %1% units"), __This->__units);
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+    private:
+        size_t __units;
+    };
+
+
     //-------- ---------- ---------- ---------- ----------
 
     struct __new_command_template_t
@@ -4813,12 +4844,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
     };
 
-    struct __new_stack_alloc_command_template_t
+    struct __new_alloc_command_template_t
     {
-        template<command_value_t _cv, typename ... _args_t>
+        template<command_value_t _cv, xil_new_type_t _new_type, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __new_command_t<xil_new_type_t::stack_alloc> this_command_t;
+            typedef __new_command_t<_new_type> this_command_t;
             return __new_command<this_command_t>(memory,  std::forward<_args_t>(args) ...);
         }
     };
@@ -4832,8 +4863,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<rt_type_t *> __new_command_manager;
 
         static __command_manager_t<
-            __new_stack_alloc_command_template_t
-        >::with_args_t<size_t> __stack_alloc_command_manager;
+            __new_alloc_command_template_t, xil_new_type_t
+        >::with_args_t<size_t> __alloc_command_manager;
 
         ref_t type_ref = xil.type_ref();
         rt_type_t * type = ctx.get_type(type_ref);
@@ -4855,8 +4886,17 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
                 msize_t obj_size = type->get_size(ctx.env);
                 size_t units = _alignf(obj_size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
-                return __stack_alloc_command_manager.template
-                    get_command<__NewCmd(stack_alloc)>(units);
+                return __alloc_command_manager.template
+                    get_command<__NewCmd(stack_alloc), xil_new_type_t::stack_alloc>(units);
+
+            }   break;
+
+            case xil_new_type_t::temp_alloc: {
+
+                msize_t obj_size = type->get_size(ctx.env);
+                size_t units = _alignf(obj_size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
+                return __alloc_command_manager.template
+                    get_command<__NewCmd(temp_alloc), xil_new_type_t::temp_alloc>(units);
 
             }   break;
 
@@ -4868,10 +4908,24 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 size_t units = _alignf(obj_size * count, sizeof(rt_stack_unit_t))
                                                         / sizeof(rt_stack_unit_t);
 
-                return __stack_alloc_command_manager.template
-                    get_command<__NewCmd(stack_alloc)>(units);
+                return __alloc_command_manager.template
+                    get_command<__NewCmd(stack_alloc), xil_new_type_t::stack_alloc>(units);
 
             }   break;
+
+            case xil_new_type_t::temp_allocs: {
+
+                msize_t obj_size = type->get_size(ctx.env);
+                uint32_t count = xil.count();
+
+                size_t units = _alignf(obj_size * count, sizeof(rt_stack_unit_t))
+                                                        / sizeof(rt_stack_unit_t);
+
+                return __alloc_command_manager.template
+                    get_command<__NewCmd(temp_alloc), xil_new_type_t::temp_alloc>(units);
+
+            }   break;
+
 
             default:
                 X_UNEXPECTED();
@@ -5795,6 +5849,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __Case( __new_command_t<xil_new_type_t::default_> )                         \
             __Case( __new_command_t<xil_new_type_t::array> )                            \
             __Case( __new_command_t<xil_new_type_t::stack_alloc> )                      \
+            __Case( __new_command_t<xil_new_type_t::temp_alloc> )                       \
                                                                                         \
             /* copy */                                                                  \
             __SwitchCommands_CaseCopies(default_)                                       \
