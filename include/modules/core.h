@@ -1888,6 +1888,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts value_type (defines in common module) to vtype.
     vtype_t to_vtype(value_type_t value_type) _NE;
 
+    // Converts type_t to vtype.
+    vtype_t to_vtype(type_t * type);
+
     // Returns whether a vtype can convert to another type
     // E.g. int can convert to long.
     bool is_vtype_compatible(vtype_t from, vtype_t to) _NE;
@@ -6228,6 +6231,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual type_t * get_type(xpool_t & xpool) const override
         {
             return overload_method? overload_method->get_type() : nullptr;
+        }
+
+        // Returns vtype.
+        virtual vtype_t get_vtype() const override
+        {
+            return overload_method? to_vtype(overload_method->get_type()) : vtype_t::__unknown__;
         }
 
         // Returns operator property.

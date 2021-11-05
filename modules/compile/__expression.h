@@ -65,6 +65,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
             xil_type_t dtype) override;
 
+    private:
+
+        // Compile operator overload.
+        void __compile_operator_overload(expression_compile_context_t & ctx, xil_pool_t & pool);
+
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////

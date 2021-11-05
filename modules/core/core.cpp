@@ -3935,6 +3935,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __get_vtype(type_name->type);
     }
 
+    // Converts type_t to vtype.
+    vtype_t to_vtype(type_t * type)
+    {
+        return __get_vtype(type);
+    }
+
     //-------- ---------- ---------- ---------- ----------
 
     // Execute the variable.

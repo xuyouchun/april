@@ -10,29 +10,33 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-    #define __B(name)     AstBuilderName(name)
-    #define __C(name)     AstName(name)
-    #define __This        (*this)
-    #define __Type        std::remove_reference_t<decltype(*__This)>
+    #define __B(_name)      AstBuilderName(_name)
+    #define __C(_name)      AstName(_name)
+    #define __This          (*this)
+    #define __Type_(_node)  std::remove_reference_t<decltype(*_node)>
+    #define __Type          __Type_(__This)
 
-    #define __ApplyToken(name, token, args)   \
-        void __B(name)::apply_token(token_t * token, __apply_token_args_t & args)
+    #define __ChildCount(_node, _child_name)                                            \
+        (_node->child_count(__Type_(_node)::_child_name))
 
-    #define __ApplyAst(name, node, args)  \
-        void __B(name)::apply_ast(ast_node_t * node, __apply_ast_args_t & args)
+    #define __ApplyToken(_name, _token, _args)                                          \
+        void __B(_name)::apply_token(token_t * _token, __apply_token_args_t & _args)
 
-    #define __OnCompleted(name, args)   \
-                    void __B(name)::on_completed(ast_builder_completed_args_t & args)
+    #define __ApplyAst(_name, _node, _args)                                             \
+        void __B(_name)::apply_ast(ast_node_t * _node, __apply_ast_args_t & _args)
 
-    #define __AstValue(name)        ((element_value_t)cs_branch_type_t::name)
+    #define __OnCompleted(_name, _args)                                                 \
+                    void __B(_name)::on_completed(ast_builder_completed_args_t & _args)
 
-    #define __TokenValue(name)      ((element_value_t)cs_token_value_t::name)
+    #define __AstValue(_name)       ((element_value_t)cs_branch_type_t::_name)
 
-    #define __NewFakeAst(type_t, value) \
-        this->__new_fake_ast<type_t, (ast_value_t)__AstValue(value)>()
+    #define __TokenValue(_name)     ((element_value_t)cs_token_value_t::_name)
 
-    #define __EachChild(ast_t, index, func)                                 \
-        ((ast_t *)node)->each_child_node<ast_node_t>(ast_t::index, func)    \
+    #define __NewFakeAst(_type_t, _value)                                               \
+        this->__new_fake_ast<_type_t, (ast_value_t)__AstValue(_value)>()
+
+    #define __EachChild(_ast_t, _index, _func)                                          \
+        ((_ast_t *)node)->each_child_node<ast_node_t>(ast_t::_index, _func)
 
 
     ////////// ////////// ////////// ////////// //////////
@@ -1749,9 +1753,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 break;
 
             case __AstValue(_operator):
-                __This->set_operator(
-                    ((_operator_ast_node_t *)node)->op_property, node
-                );
+                __operator_ast_node = (_operator_ast_node_t *)node;
                 break;
 
             case __AstValue(attributes):
@@ -1776,7 +1778,48 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
     }
 
-    __OnCompleted(method, args) { }
+    __OnCompleted(method, args)
+    {
+        if (__operator_ast_node == nullptr)
+            return;
+
+        const operator_property_t * op_property = __operator_ast_node->op_property;
+        params_ast_node_t * params_node = (params_ast_node_t *)__This->child_at(__Type::params);
+
+        if (params_node != nullptr)
+        {
+            #define __CheckReassign(_op_count, _op)                                         \
+                do {                                                                        \
+                    if (__ChildCount(params_node, params) == _op_count)                     \
+                        op_property = get_system_operator_property(operator_t::_op);        \
+                } while (0)
+
+            switch (op_property->op)
+            {
+                case operator_t::add:
+                    __CheckReassign(1, positive);
+                    break;
+
+                case operator_t::positive:
+                    __CheckReassign(2, add);
+                    break;
+
+                case operator_t::sub:
+                    __CheckReassign(1, minus);
+                    break;
+
+                case operator_t::minus:
+                    __CheckReassign(2, sub);
+                    break;
+
+                default: break;
+            }
+
+            #undef __CheckReassign
+        }
+
+        __This->set_operator(op_property, __operator_ast_node);
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // _operator

@@ -452,7 +452,11 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // method
 
-    __SimpleBuilder(method)
+    __Builder(method)
+
+        _operator_ast_node_t * __operator_ast_node = nullptr;
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // _operator

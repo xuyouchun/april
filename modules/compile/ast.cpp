@@ -3275,6 +3275,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (__method.param_count() != __op_property->arity)
         {
+            _P(_T("-------- check"), __method.param_count(), __op_property->arity);
             this->__log(this, (__op_property->arity == 1)?
                     __c_t::unitary_operator_overload_wrong_param_count :
                     __c_t::binary_operator_overload_wrong_param_count, __op_property->op

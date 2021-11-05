@@ -13,6 +13,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns vtype of unitary expression.
     vtype_t unitary_expression_t::get_vtype() const
     {
+        vtype_t vtype0 = __super_t::get_vtype();
+        if (vtype0 != vtype_t::__unknown__)
+            return vtype0;
+
         expression_t * e = exp();
         if (e == nullptr)
             return vtype_t::__unknown__;
@@ -251,6 +255,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns vtype of binary expression.
     vtype_t binary_expression_t::get_vtype() const
     {
+        vtype_t vtype = __super_t::get_vtype();
+        if (vtype != vtype_t::__unknown__)
+            return vtype;
+
         expression_t * e1 = exp1(), * e2 = exp2();
         if (e1 == nullptr || e2 == nullptr)
             return vtype_t::__unknown__;

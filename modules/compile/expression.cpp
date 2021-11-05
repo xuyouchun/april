@@ -86,39 +86,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     bool __is_call_expression(expression_t * exp)
     {
         expression_behaviour_t behaviour = exp->get_behaviour();
+
         return behaviour == expression_behaviour_t::execute ||
                behaviour == expression_behaviour_t::new_;
-
-        /*
-        expression_family_t family = exp->this_family();
-        if (family == expression_family_t::function)
-            return true;
-        
-        variable_expression_t * variable_exp = dynamic_cast<variable_expression_t *>(exp);
-        if (variable_exp != nullptr)
-        {
-            variable_t * variable = variable_exp->get_variable();
-            return variable->is_calling();
-        }
-
-        if (family == expression_family_t::binary)
-        {
-            binary_expression_t * binary_exp = (binary_expression_t *)exp;
-
-            if (binary_exp->overload_method != nullptr)
-                return true;
-
-            return __is_call_expression(binary_exp->exp2());
-        }
-
-        if (family == expression_family_t::unitary)
-        {
-            unitary_expression_t * unitary_exp = (unitary_expression_t *)exp;
-            return unitary_exp->overload_method != nullptr;
-        }
-
-        return false;
-        */
     }
 
     // Pre append custom struct for assign.
@@ -1542,6 +1512,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         expression_t * exp = expression_at(0);
         _A(exp != nullptr);
 
+        if (this->overload_method != nullptr)
+        {
+            __compile_operator_overload(ctx, pool);
+            return;
+        }
+
         if (!is_effective(this))
         {
             exp->compile(ctx, pool);
@@ -1573,6 +1549,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             __try_append_convert_xil(pool, this->get_vtype(), dtype);
         }
+    }
+
+    // Compiles operator overload..
+    void __sys_t<unitary_expression_t>::__compile_operator_overload(__cctx_t & ctx,
+                                                                    xil_pool_t & pool)
+    {
+        method_t * method = this->overload_method;
+
+        // Checks method prototype.
+        __check_overload_prototype(ctx, method, 1, this->exps);
+
+        __pre_call_method(ctx, pool, this, method);
+
+        // Compile arguments.
+        __compile_argument(ctx, pool, expression_at(0), method, 0);
+
+        ref_t method_ref = __search_method_ref(ctx, method);
+        pool.append<x_call_xil_t>(xil_call_type_t::static_, method_ref);
+
+        __pop_empty_for_method(ctx, pool, method, this);
     }
 
     ////////// ////////// ////////// ////////// //////////
