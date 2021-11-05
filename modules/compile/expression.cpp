@@ -282,7 +282,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns whether it's the left member expression.
     static bool __is_left_member(expression_t * exp, expression_t * exp1, bool recursion)
     {
-        if (__is_left_member(exp, exp1))
+        expression_t * exp0;
+        if (!__is_member_expression(exp, &exp0))
+            return false;
+
+        if (exp0 == exp1)
             return true;
 
         expression_t * parent_exp;
@@ -1185,7 +1189,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             else if (__is_left_member(exp->parent, exp, true))
             {
                 pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
-                pool.append<x_push_duplicate_xil_t>();
+
+                if (is_effective(exp->parent))
+                    pool.append<x_push_duplicate_xil_t>();
             }
         }
     }
