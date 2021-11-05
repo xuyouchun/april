@@ -1,4 +1,3 @@
-
 #include <compile.h>
 #include "utils.h"
 
@@ -14,6 +13,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     void __compile_cvalue(__cctx_t & ctx, xil_pool_t & pool, cvalue_t cvalue,
         xil_type_t dtype = xil_type_t::empty);
+
+    static void __pre_call_method(__cctx_t & ctx, xil_pool_t & pool,
+        expression_t * exp, method_base_t * method);
+
+    ////////// ////////// ////////// ////////// //////////
 
     // Returns xil type of the expression.
     xil_type_t __xil_type(expression_t * exp)
@@ -81,6 +85,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns whether it's a function call expression.
     bool __is_call_expression(expression_t * exp)
     {
+        expression_behaviour_t behaviour = exp->get_behaviour();
+        return behaviour == expression_behaviour_t::execute ||
+               behaviour == expression_behaviour_t::new_;
+
+        /*
         expression_family_t family = exp->this_family();
         if (family == expression_family_t::function)
             return true;
@@ -109,6 +118,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         return false;
+        */
     }
 
     // Pre append custom struct for assign.
@@ -135,7 +145,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else if (__is_call_expression(expression))  // function
         {
-
             __push_variable_address(ctx, pool, variable);
             expression->compile(ctx, pool);
         }
@@ -273,6 +282,49 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         return exp != nullptr && exp->this_family() == expression_family_t::binary
             && ((binary_expression_t *)exp)->op() == operator_t::member_point;
+    }
+
+    // Returns whether it is a member expression.
+    static bool __is_member_expression(expression_t * exp, expression_t ** out_exp1,
+                                                           expression_t ** out_exp2 = nullptr)
+    {
+        if (!__is_member_expression(exp))
+            return false;
+
+        binary_expression_t * binary_exp = (binary_expression_t *)exp;
+
+        if (out_exp1 != nullptr)
+            *out_exp1 = binary_exp->exp1();
+
+        if (out_exp2 != nullptr)
+            *out_exp2 = binary_exp->exp2();
+
+        return true;
+    }
+
+    // Returns whether it's the left member expression.
+    static bool __is_left_member(expression_t * exp, expression_t * exp1)
+    {
+        expression_t * exp0;
+        return __is_member_expression(exp, &exp0, nullptr) && exp0 == exp1;
+    }
+
+    // Returns whether it's the left member expression.
+    static bool __is_left_member(expression_t * exp, expression_t * exp1, bool recursion)
+    {
+        if (__is_left_member(exp, exp1))
+            return true;
+
+        expression_t * parent_exp;
+        return !recursion || (parent_exp = exp->parent) == nullptr? false :
+            __is_left_member(parent_exp, exp, true);
+    }
+
+    // Returns whether it's the right member expression.
+    static bool __is_right_member(expression_t * exp, expression_t * exp2)
+    {
+        expression_t * exp0;
+        return __is_member_expression(exp, nullptr, &exp0) && exp0 == exp2;
     }
 
     // Returns whether it's effective.
@@ -505,20 +557,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_member_point(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        exp1->compile(ctx, pool);
-
-        switch (exp2->this_family())
+        if (__is_call_expression(exp2))
         {
-            case expression_family_t::name:
-                exp2->compile(ctx, pool);
-                break;
-
-            case expression_family_t::function:
-                exp2->compile(ctx, pool);
-                break;
-
-            default:
-                throw _ED(__e_t::unexpected_member, exp2);
+            // exp1 will compile during exp2 compiling.
+            exp2->compile(ctx, pool);
+        }
+        else
+        {
+            exp1->compile(ctx, pool);
+            exp2->compile(ctx, pool);
         }
     }
 
@@ -1154,7 +1201,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Pre call a method.
     static void __pre_call_method(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
-                                                    method_base_t * method)
+                                                                 method_base_t * method)
     {
         type_t * ret_type = method->get_type();
 
@@ -1165,7 +1212,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
             }
-            else if (__is_member_expression(exp->parent))
+            else if (__is_left_member(exp->parent, exp, true))
             {
                 pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
                 pool.append<x_push_duplicate_xil_t>();
@@ -1202,8 +1249,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __validate_get_method(ctx, method);
 
         __compile_arguments(ctx, pool, arguments, method);
-
-        __pre_call_method(ctx, pool, owner_exp, method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
@@ -1250,6 +1295,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             pool.append<x_push_this_ref_xil_t>();
     }
 
+    // Pushes this with check for function.
+    static void __push_this_with_check_for_function(__cctx_t & ctx, xil_pool_t & pool,
+                                                                    expression_t * owner_exp)
+    {
+        if (owner_exp == nullptr)
+            return;
+
+        expression_t * exp1;
+        if (__is_member_expression(owner_exp->parent, &exp1))
+            exp1->compile(ctx, pool);
+        else
+            pool.append<x_push_this_ref_xil_t>();
+    }
+
     // Compiles variable.
     static void __compile_variable(__cctx_t & ctx, xil_pool_t & pool,
                         variable_t * variable, xil_type_t dtype, expression_t * owner_exp)
@@ -1271,14 +1330,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __compile_field_variable(ctx, pool, (field_variable_t *)variable, dtype);
                 break;
 
-            case variable_type_t::property:
-                __push_this_with_check(ctx, pool, owner_exp);
-                __compile_property_variable(ctx, pool, (property_variable_t *)variable,
-                                                                        dtype, owner_exp);
-                break;
+            case variable_type_t::property: {
+                property_variable_t * property_var = (property_variable_t *)variable;
+                __pre_call_method(ctx, pool, owner_exp, property_var->property->get_method);
+                __push_this_with_check_for_function(ctx, pool, owner_exp);
+                __compile_property_variable(ctx, pool, property_var, dtype, owner_exp);
+            }   break;
 
             case variable_type_t::method:
-                __push_this_with_check(ctx, pool, owner_exp);
+                __push_this_with_check_for_function(ctx, pool, owner_exp);
                 __compile_method_variable(ctx, pool, (method_variable_t *)variable, dtype);
                 break;
 
@@ -1417,11 +1477,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Checks method prototype.
         __check_overload_prototype(ctx, method, 2, this->exps);
 
+        __pre_call_method(ctx, pool, this, method);
+
         // Compile arguments.
         __compile_argument(ctx, pool, expression_at(0), method, 0);
         __compile_argument(ctx, pool, expression_at(1), method, 1);
-
-        __pre_call_method(ctx, pool, this, method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_call_xil_t>(xil_call_type_t::static_, method_ref);
@@ -1718,23 +1778,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         method_base_t * method = this->get_method();
         _A(method != nullptr);
 
-        bool effective = is_effective(this);
         xil_call_type_t call_type = call_type_of_method(method);
-        type_t * ret_type = method->get_type();
+        bool effective = is_effective(this);
 
         if (effective)
         {
-            bool parent_is_member = __is_member_expression(this->parent);
-            if (!parent_is_member && !__is_static(call_type))
+            if (__is_right_member(this->parent, this))
+            {
+                __pre_call_method(ctx, pool, this->parent, method);
+                ((binary_expression_t *)this->parent)->exp1()->compile(ctx, pool);
+            }
+            else if (!__is_static(call_type))
+            {
+                __pre_call_method(ctx, pool, this, method);
                 pool.append<x_push_this_ref_xil_t>();
+            }
 
-            __pre_call_method(ctx, pool, this, method);
-        }
+            __compile_arguments(ctx, pool, this->arguments(), method);
 
-        __compile_arguments(ctx, pool, this->arguments(), method);
-
-        if (effective)
-        {
             ref_t method_ref = __search_method_ref(ctx, method);
 
             // _PF(_T("==== function call: %1%, %2%, %3%, %4%"), call_type, method->to_string(),
@@ -1750,6 +1811,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __try_append_convert_xil(pool, method->get_type(), dtype);
             else
                 __pop_empty_for_method(ctx, pool, method, this);
+        }
+        else
+        {
+            expression_t * exp1;
+
+            if (__is_member_expression(this->parent, &exp1))
+                exp1->compile(ctx, pool);
+
+            __compile_arguments(ctx, pool, this->arguments(), method);
         }
     }
 
@@ -2012,6 +2082,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __sys_t<new_expression_t>::__compile_new_struct_object(__cctx_t & ctx, xil_pool_t & pool,
                                                                         type_t * type)
     {
+        bool need_call_constructor = this->constructor != nullptr
+                                    && this->constructor->param_count() > 0;
+
+        if (need_call_constructor)
+        {
+            if (__is_left_member(this->parent, this))
+            {
+                pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, type));
+
+                if (is_effective(this->parent))
+                    pool.append<x_push_duplicate_xil_t>();
+            }
+        }
+
         if (this->arguments() != nullptr)
         {
             if (this->constructor == nullptr)
@@ -2021,7 +2105,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // custom constructor.
-        if (this->constructor != nullptr && this->constructor->param_count() > 0)
+        if (need_call_constructor)
         {
             xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
             ref_t method_ref = __search_method_ref(ctx, this->constructor);

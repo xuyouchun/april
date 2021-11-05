@@ -5457,6 +5457,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Returns behaviour.
+    expression_behaviour_t name_expression_t::get_behaviour() const
+    {
+        if (expression_type == name_expression_type_t::variable && variable != nullptr)
+        {
+            return variable->is_calling()? expression_behaviour_t::execute
+                                         : expression_behaviour_t::default_;
+        }
+
+        return expression_behaviour_t::default_;
+    }
+
     // Convert name_expression to a string.
     const string_t name_expression_t::to_string() const
     {
@@ -6137,9 +6149,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Returns behaviour.
+    expression_behaviour_t binary_expression_t::get_behaviour() const
+    {
+        if (op() == operator_t::member_point)
+            return exp2()->get_behaviour();
+
+        return __super_t::get_behaviour();
+    }
+
     // Converts binary expression to a string.
     const string_t binary_expression_t::to_string() const
     {
+        if (op() == operator_t::member_point)
+            return _F(_T("%1%.%2%"), expression_at(0)->to_string(), expression_at(1)->to_string());
+
         return sprintf(_T("(%1% %2% %3%)"),
             expression_at(0)->to_string(), op(), expression_at(1)->to_string()
         );

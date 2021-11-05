@@ -6043,16 +6043,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
 
         // Returns behaviour.
-        virtual expression_behaviour_t get_behaviour() const override
-        {
-            if (expression_type == name_expression_type_t::variable && variable != nullptr)
-            {
-                return variable->is_calling()? expression_behaviour_t::execute
-                                             : expression_behaviour_t::default_;
-            }
-
-            return expression_behaviour_t::default_;
-        }
+        virtual expression_behaviour_t get_behaviour() const override;
 
         // Converts to a string.
         virtual const string_t to_string() const override;
@@ -6251,6 +6242,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if (op_property->is_assign)
                 return expression_behaviour_t::assign;
 
+            if (overload_method != nullptr)
+                return expression_behaviour_t::execute;
+
             return expression_behaviour_t::default_;
         }
     };
@@ -6308,6 +6302,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return expression_family_t::binary;
         }
+
+        // Returns behaviour.
+        virtual expression_behaviour_t get_behaviour() const override;
 
         // Returns vtype.
         virtual vtype_t get_vtype() const override;
