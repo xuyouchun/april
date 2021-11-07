@@ -8,6 +8,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     using namespace core;
 
+    #define __Log(_code, _args...)                                                      \
+        this->__log(this, __c_t::_code, ##_args)
+
     ////////// ////////// ////////// ////////// //////////
 
     X_ENUM_INFO(xbranch_value_t)
@@ -423,6 +426,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Operator overload not defined.
         X_D(operator_overload_not_defined, _T("Operator '%1%' not defined for %2%"))
 
+        // Cannot determine local type.
+        X_D(cannot_determine_local_variable_type,
+                                            _T("Cannot determine type of local variable '%1%'"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -766,7 +773,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns this eobject.
     type_name_t * uncertain_type_name_ast_node_t::to_eobject()
     {
-        return __type_name;
+        return __new_obj<type_name_t>(uncertain_type_t::instance());
     }
 
     // Walks this node.
@@ -793,7 +800,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Commits this node.
     void type_def_param_ast_node_t::on_commit()
     {
-
+        // Empty.
     }
 
     // Returns this eobject.
@@ -2115,6 +2122,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void defination_st_ast_node_t::on_commit()
     {
         __statement.type_name = __to_eobject<type_name_t *>(type_name);
+
         this->transform_child_to(items, __statement);
     }
 
@@ -2149,24 +2157,33 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    static bool __is_uncertain(type_name_t * type_name)
+    {
+        return type_name->type != nullptr
+            && type_name->type->this_gtype() == gtype_t::uncertain;
+    }
+
     // Walks default step.
     void defination_st_ast_node_t::__walk_default(ast_walk_context_t & context)
     {
         this->__check_empty(__statement.type_name, this, __c_t::type_name_missing,
                                                         _T("variable defination"));
+
         variable_defination_t vd(this->__context, context, &__statement);
 
         for (defination_statement_item_t * var_item : __statement.items)
         {
+            type_name_t * type_name = __to_eobject<type_name_t *>(this->type_name);
+
             var_item->variable = vd.define_local(
-                __statement.type_name, var_item->name, __statement.constant,
+                type_name, var_item->name, __statement.constant,
                 var_item->expression, var_item
             );
 
-            if (var_item->expression != nullptr)
+            if (var_item->expression != nullptr && !__is_uncertain(type_name))
             {
                 var_item->expression->parent = __new_obj<type_cast_expression_t>(
-                    __statement.type_name, var_item->expression
+                    type_name, var_item->expression
                 );
             }
         }
@@ -2175,18 +2192,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Walks analysis step.
     void defination_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        if (!__statement.constant)
-            return;
-
         for (defination_statement_item_t * var_item : __statement.items)
         {
+            if (!__is_uncertain(var_item->variable->type_name))
+                continue;
+
             if (var_item->expression == nullptr)
+                __Log(cannot_determine_local_variable_type, var_item->name);
+            else
+                var_item->variable->type_name->type = var_item->expression->get_type(__get_xpool());
+
+            // _PF(_T("%1% %2%"), var_item->variable->type_name->type, var_item->name);
+        }
+
+        if (__statement.constant)
+        {
+            for (defination_statement_item_t * var_item : __statement.items)
             {
-                this->__log(this, __c_t::constant_variable_initialize_missing, var_item->name);
-            }
-            else if (__execute_expression(var_item->expression) == cvalue_t::nan)
-            {
-                this->__log(this, __c_t::constant_variable_required_constant_value, var_item->name);
+                if (var_item->expression == nullptr)
+                    __Log(constant_variable_initialize_missing, var_item->name);
+                else if (__execute_expression(var_item->expression) == cvalue_t::nan)
+                    __Log(constant_variable_required_constant_value, var_item->name);
             }
         }
     }
@@ -3275,7 +3301,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (__method.param_count() != __op_property->arity)
         {
-            _P(_T("-------- check"), __method.param_count(), __op_property->arity);
             this->__log(this, (__op_property->arity == 1)?
                     __c_t::unitary_operator_overload_wrong_param_count :
                     __c_t::binary_operator_overload_wrong_param_count, __op_property->op
@@ -3366,11 +3391,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         param_t * value_param = nullptr;
+        xpool_t & xpool = __get_xpool();
 
         if (__property.set_method != nullptr)
         {
             __property.set_method->name      = __to_method_name(_T("set"));
-            __property.set_method->type_name = context.to_type_name(context.xpool.get_void_type());
+            __property.set_method->type_name = xpool.to_type_name(xpool.get_void_type());
             __property.set_method->decorate  = __property.decorate;
 
             params_t * params = __new_obj<params_t>();

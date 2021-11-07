@@ -3673,6 +3673,34 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // uncertain_type_t
+
+    // Returns members descripted by args.
+    member_t * uncertain_type_t::get_member(analyze_member_args_t & args)
+    {
+        return nullptr;
+    }
+
+    // Returns memeber descripted by args.
+    void uncertain_type_t::get_members(analyze_members_args_t & args)
+    {
+        // Empty.
+    }
+
+    // Returns all members.
+    void uncertain_type_t::get_all_members(members_t & out_members)
+    {
+        // Empty.
+    }
+
+    // The uncertain type sigleton instance.
+    uncertain_type_t * uncertain_type_t::instance()
+    {
+        static uncertain_type_t __instance;
+        return &__instance;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // null_type_t
 
     // Returns members descripted by args.
@@ -4403,6 +4431,36 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Converts vtype to typename.
+    type_name_t * xpool_t::to_type_name(vtype_t vtype)
+    {
+        auto it = __vtype_type_name_map.find(vtype);
+        if (it == __vtype_type_name_map.end())
+        {
+            type_name_t * type_name = to_type_name(get_internal_type(vtype));
+            __vtype_type_name_map[vtype] = type_name;
+
+            return type_name;
+        }
+
+        return it->second;
+    }
+
+    // Returns the typename of type.
+    type_name_t * xpool_t::to_type_name(type_t * type)
+    {
+        auto it = __type_type_name_map.find(type);
+        if (it == __type_type_name_map.end())
+        {
+            type_name_t * type_name = new_obj<type_name_t>(type);
+            __type_type_name_map[type] = type_name;
+
+            return type_name;
+        }
+
+        return it->second;;
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // variable_region_t
 
@@ -5070,36 +5128,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         __current_layer = previous_layer;
-    }
-
-    // Converts vtype to typename.
-    type_name_t * ast_walk_context_t::to_type_name(vtype_t vtype)
-    {
-        auto it = __vtype_type_name_map.find(vtype);
-        if (it == __vtype_type_name_map.end())
-        {
-            type_name_t * type_name = to_type_name(xpool.get_internal_type(vtype));
-            __vtype_type_name_map[vtype] = type_name;
-
-            return type_name;
-        }
-
-        return it->second;
-    }
-
-    // Returns the typename of type.
-    type_name_t * ast_walk_context_t::to_type_name(type_t * type)
-    {
-        auto it = __type_type_name_map.find(type);
-        if (it == __type_type_name_map.end())
-        {
-            type_name_t * type_name = xpool.new_obj<type_name_t>(type);
-            __type_type_name_map[type] = type_name;
-
-            return type_name;
-        }
-
-        return it->second;;
     }
 
     // Load assembly by package name and assembly name.

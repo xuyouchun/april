@@ -89,7 +89,10 @@ public struct String
 [__internal__]
 public struct Boolean
 {
-
+    public override String ToString()
+    {
+        return this? "True": "False";
+    }
 };
 
 ////////// ////////// ////////// ////////// //////////

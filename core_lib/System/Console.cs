@@ -17,8 +17,7 @@ public static class Console
 
     public static Void WriteLine(String value)
     {
-        Write(value);
-        WriteLine();
+        Internal.Console_WriteStringLine(value);
     }
 
     public static Void WriteLine()
@@ -135,6 +134,18 @@ public static class Console
     {
         Internal.Console_WriteDoubleLine(value);
     }
+
+    public static Void Write(Boolean value)
+    {
+        Internal.Console_WriteString(value.ToString());
+    }
+
+    public static Void WriteLine(Boolean value)
+    {
+        Internal.Console_WriteString(value.ToString());
+        Internal.Console_WriteString("\r\n");
+    }
+
 };
 
 

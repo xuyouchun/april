@@ -2002,6 +2002,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         
         null,           // Null type.
 
+        uncertain,      // Uncertaind type.
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -2341,6 +2343,46 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     typedef eobject_ast_t<type_t *> type_ast_t;
+
+    ////////// ////////// ////////// ////////// //////////
+    // Uncertain type.
+
+    class uncertain_type_t : public __named_type_t
+    {
+        typedef type_t __super_t;
+
+    public:
+        // Returns gtype, ttype, vtype.
+        virtual gtype_t this_gtype() const override final { return gtype_t::uncertain; }
+        virtual ttype_t this_ttype() const override final { return ttype_t::__unknown__; }
+        virtual vtype_t this_vtype() const override final { return vtype_t::__unknown__; }
+        virtual mtype_t this_mtype() const override final { return mtype_t::__unknown__; }
+
+        // Returns member descripted by specified args.
+        virtual member_t * get_member(analyze_member_args_t & args) override;
+
+        // Returns members descripted by specified args.
+        virtual void get_members(analyze_members_args_t & args) override;
+
+        // Returns all members.
+        virtual void get_all_members(members_t & out_members) override;
+
+        // Enum all super types, Applies each item for callback function.
+        virtual void each_super_type(each_super_type_callback_t callback) override { }
+
+        // Converts to full name.
+        virtual const string_t to_full_name() const override { return (string_t)*this; }
+
+        // Converts to short name.
+        virtual const string_t to_short_name() const override { return (string_t)*this; }
+
+        // Converts to identity of this type.
+        virtual const string_t to_identity() const override { return _T("<uncertain>"); }
+
+        // Signle instance of uncertain type.
+        static uncertain_type_t * instance();
+
+    };
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -4411,6 +4453,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commit types.
         void commit_types(logger_t & logger);
 
+        // Returns the typename of vtype.
+        type_name_t * to_type_name(vtype_t vtype);
+
+        // Returns the typename of type.
+        type_name_t * to_type_name(type_t * type);
+
         X_TO_STRING_IMPL(_T("xpool_t"))
 
     private:
@@ -4438,6 +4486,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_name_t __object_type_name;
 
         sid_t __core_assembly_name = sid_t::null;
+
+        // Vtype -> typename cache.
+        std::map<vtype_t, type_name_t *> __vtype_type_name_map;
+
+        // type_t * -> typename cache.
+        std::map<type_t *, type_name_t *> __type_type_name_map;
     };
 
     // Returns whether it is a compile time attribute.
@@ -5254,12 +5308,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Combines two mnames.
         const mname_t * combine(const mname_t * name1, const name_t & name2);
 
-        // Returns the typename of vtype.
-        type_name_t * to_type_name(vtype_t vtype);
-
-        // Returns the typename of type.
-        type_name_t * to_type_name(type_t * type);
-
         // Load assembly by package name and assembly name.
         assembly_t * load_assembly(const mname_t * package_name, const mname_t * assembly_name);
 
@@ -5295,12 +5343,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Assembly cache.
         typedef std::tuple<const mname_t *, const mname_t *> __assembly_cache_key_t;
         std::map<__assembly_cache_key_t, assembly_t *> __assembly_cache;
-
-        // Vtype -> typename cache.
-        std::map<vtype_t, type_name_t *> __vtype_type_name_map;
-
-        // type_t * -> typename cache.
-        std::map<type_t *, type_name_t *> __type_type_name_map;
 
         // Push a new layer.
         template<typename layer_t, typename ... args_t>
@@ -5380,6 +5422,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return this->to_string();
         }
+
+        // Parent node.
+        ast_node_t * parent = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -5409,6 +5454,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             _A(node != nullptr);
 
             __childs[index] = node;
+            node->parent = this;
         }
 
         // Converts to string.
@@ -5842,6 +5888,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual type_t * get_type(xpool_t & xpool) const
         {
             throw _unimplemented_error(this, _T("get_type"));
+        }
+
+        // Returns the type_name of expression.
+        virtual type_name_t * get_type_name(xpool_t & xpool) const
+        {
+            return xpool.to_type_name(get_type(xpool));
         }
 
         // Returns the behaviour.
@@ -6662,6 +6714,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns type.
         virtual type_t * get_type(xpool_t & xpool) const override;
+
+        // Returns the type_name of expression.
+        virtual type_name_t * get_type_name(xpool_t & xpool) const override
+        {
+            return type_name;
+        }
 
         // Converts to string.
         virtual const string_t to_string() const override;

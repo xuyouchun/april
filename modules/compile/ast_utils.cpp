@@ -95,7 +95,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 expression_t * exp1 = binary_exp->exp1();
                 return exp1->get_type(xpool);
-                return nullptr;
             }
 
             return pick_type_from_current_context(xpool, parent_exp);
@@ -927,10 +926,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return true;
         }
 
-        #define __CheckWalk(exp)                    \
-            do                                      \
-            {                                       \
-                if (!__check_walk(exp))  return;     \
+        #define __CheckWalk(exp)                                                        \
+            do                                                                          \
+            {                                                                           \
+                if (!__check_walk(exp))  return;                                        \
             } while (false)
 
         // Walks expression.
@@ -1103,6 +1102,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         template<size_t _exp_count>
         void __walk_op_expression(op_expression_t<_exp_count> * exp)
         {
+            // Check expression types.
+            bool has_mobject = al::any_of(exp->exps, [&](expression_t * exp) {
+                return __is_mobject(__xpool(__cctx), exp);
+            });
+
+            if (!has_mobject)
+                return;
+
             const operator_property_t * op_property = exp->op_property;
             _A(op_property != nullptr);
 
@@ -1113,20 +1120,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     return;
 
                 case operator_overload_model_t::no_overloaded:
-                    ast_log(__cctx, exp, __c_t::operator_cannot_be_overloaded, op_property);
+                    ast_log(__cctx, exp, __c_t::operator_cannot_be_overloaded, op_property->op);
                     return;
 
                 default:
                     break;
             }
-
-            // Check expression types.
-            bool has_mobject = al::any_of(exp->exps, [&](expression_t * exp) {
-                return __is_mobject(__xpool(__cctx), exp);
-            });
-
-            if (!has_mobject)
-                return;
 
             // Collect argument types.
             atypes_t atypes;

@@ -654,6 +654,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Operator overload not defined.
         operator_overload_not_defined,
 
+        // Cannot determine local type.
+        cannot_determine_local_variable_type,
+
         __the_end__         = 10000,
 
     X_ENUM_END
@@ -1742,7 +1745,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        type_name_t * __type_name = nullptr;
+        // __w_t<type_name_t> __type_name;
     };
 
     ////////// ////////// ////////// ////////// //////////

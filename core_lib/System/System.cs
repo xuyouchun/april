@@ -18,7 +18,7 @@ public class Object
     }
 
     // Converts to string.
-    public String ToString()
+    public virtual String ToString()
     {
         return GetType().Name;
     }
