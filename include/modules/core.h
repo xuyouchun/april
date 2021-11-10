@@ -64,6 +64,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #define CoreType_Single       _T("Single")
     #define CoreType_Double       _T("Double")
 
+    // Reflection.
+    #define CoreType_ReflectionInfo     _T("Reflection.ReflectionInfo")
+    #define CoreType_Assembly           _T("Reflection.Assembly")
+    #define CoreType_Member             _T("Reflection.Member")
+    #define CoreType_Method             _T("Reflection.Method")
+    #define CoreType_Property           _T("Reflection.Property")
+    #define CoreType_Event              _T("Reflection.Event")
+    #define CoreType_Field              _T("Reflection.Field")
+    #define CoreType_Parameter          _T("Reflection.Parameter")
+    #define CoreType_GenericParameter   _T("Reflection.GenericParameter")
+
     // Exceptions.
     #define CoreType_NullReferenceException     _T("NullReferenceException")
 
@@ -3045,6 +3056,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Base class of method.
     X_INTERFACE method_base_t
     {
+        // Returns name.
+        virtual name_t get_name() const = 0;
+
         // Returns this family.
         virtual member_family_t this_family() const = 0;
 
@@ -3094,6 +3108,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Method inline type, inline, noinline or default.
         method_inline_type_t inline_type    = method_inline_type_t::default_;
+
+        // Returns name.
+        virtual name_t get_name() const override { return name; }
 
         // Returns this family.
         virtual member_family_t this_family() const override
@@ -3209,6 +3226,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typex_t() _NE : __v(nullptr) { }
         typex_t(type_t * type) _NE : __v(type) { }
         typex_t(type_t * type, __gatype_t atype) _NE : __v(al::incorp(type, atype)) { }
+        typex_t(param_t * param) : __v(al::incorp(param->get_type(), param->ptype)) { }
 
         type_t *  type() const _NE     { return incorp_p((type_t *)__v);  }
         __gatype_t atype() const _NE   { return incorp_v<__gatype_t>(__v); }
@@ -3251,6 +3269,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_method_t(method_t * template_, _type_collection_t && args)
             : template_(template_), args(std::forward<_type_collection_t>(args))
         { }
+
+        // Returns name.
+        virtual name_t get_name() const override { return __template()->name; }
 
         // Returns the family.
         virtual member_family_t this_family() const _NE override
@@ -4402,7 +4423,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns System.Object type.
         general_type_t * get_object_type();
 
-        // Returns System.Object type.
+        // Returns System.Object type name.
         type_name_t * get_object_type_name();
 
         // Returns System.Void type.
@@ -4437,6 +4458,33 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns System.Diagnostics.TraceAttribute type.
         general_type_t * get_trace_attribute_type();
+
+        // Returns System.Reflection.ReflectionInfo type.
+        general_type_t * get_reflection_info_type();
+
+        // Returns System.Reflection.Assembly type.
+        general_type_t * get_assembly_type();
+
+        // Returns System.Reflection.Member type.
+        general_type_t * get_member_type();
+
+        // Returns System.Reflection.Method type.
+        general_type_t * get_method_type();
+
+        // Returns System.Reflection.Property type.
+        general_type_t * get_property_type();
+
+        // Returns System.Reflection.Event type.
+        general_type_t * get_event_type();
+
+        // Returns System.Reflection.Field type.
+        general_type_t * get_field_type();
+
+        // Returns System.Reflection.Parameter type.
+        general_type_t * get_parameter_type();
+
+        // Returns System.Reflection.GenericParameter type.
+        general_type_t * get_generic_parameter_type();
 
         // Creates a new object.
         template<typename t, typename ... args_t> t * new_obj(args_t && ... args)
@@ -4482,6 +4530,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         general_type_t * __exception_type   = nullptr;
         general_type_t * __tuple_type       = nullptr;
         general_type_t * __trace_attribute_type = nullptr;
+
+        general_type_t * __reflection_info_type = nullptr;
+        general_type_t * __assembly_type    = nullptr;
+        general_type_t * __member_type      = nullptr;
+        general_type_t * __method_type      = nullptr;
+        general_type_t * __property_type    = nullptr;
+        general_type_t * __event_type       = nullptr;
+        general_type_t * __field_type       = nullptr;
+        general_type_t * __parameter_type   = nullptr;
+        general_type_t * __generic_parameter_type = nullptr;
 
         type_name_t __object_type_name;
 
@@ -4879,10 +4937,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        method_variable_t(method_t * method) : method(method)
-        {
-            _A(method != nullptr);
-        }
+        method_variable_t(method_t * method);
 
         // Relation method.
         method_t * method = nullptr;
@@ -4898,6 +4953,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Converters to string.
         X_TO_STRING
+
+    private:
+        type_t * __type = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -458,7 +458,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 eobject_commit_context_t ctx(context.xpool, context.logger);
                 __module->commit(ctx);
                 context.xpool.commit_types(context.logger);
+                context.delay(this, (int)walk_step_t::end, tag);
             }   break;
+
+            case walk_step_t::end:
+                context.xpool.commit_types(context.logger);
+                break;
 
             default: break;
         }
@@ -2202,7 +2207,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             else
                 var_item->variable->type_name->type = var_item->expression->get_type(__get_xpool());
 
-            // _PF(_T("%1% %2%"), var_item->variable->type_name->type, var_item->name);
+            _PF(_T("%1% %2%"), var_item->variable->type_name->type, var_item->name);
         }
 
         if (__statement.constant)
@@ -2353,7 +2358,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 type_t * return_type = __statement.expression->get_type(__get_xpool());
                 type_t * method_type = method->type_name->type;
 
-                if (!is_type_compatible(return_type, method_type))
+                if (return_type != nullptr && !is_type_compatible(return_type, method_type))
                     this->__log(this, __c_t::method_incompatible_return_value, method);
             }
         }

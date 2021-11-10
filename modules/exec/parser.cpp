@@ -244,9 +244,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             for (method_xil_block_t & block : block_array)
             {
-                #define __CommandAt(_index) (                                       \
-                    _index < commands.size()? command_arr + _index :                \
-                        (throw _ED(__e_t::xil_block_index_out_of_range), nullptr)   \
+                #define __CommandAt(_index) (                                           \
+                    _index < commands.size()? command_arr + _index :                    \
+                        (throw _ED(__e_t::xil_block_index_out_of_range), nullptr)       \
                     )
 
                 p_block->start       = __CommandAt(block.xil_start);

@@ -3347,6 +3347,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 new_method->trait           = method->trait;
                 new_method->host_type       = this;
                 new_method->body            = method->body;
+                new_method->variable        = xpool.new_obj<method_variable_t>(new_method);
 
                 new_method->params = ctx.xpool.new_obj<params_t>();
 
@@ -3475,6 +3476,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         new_method->decorate    = method->decorate;
         new_method->trait       = method->trait;
         new_method->host_type   = this;
+        new_method->variable    = ctx.xpool.new_obj<method_variable_t>(new_method);
 
         if (method->params != nullptr)
         {
@@ -3511,7 +3513,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         new_property->attributes = property->attributes;
         new_property->decorate   = property->decorate;
         new_property->host_type  = this;
-        new_property->variable   = property->variable;
         new_property->variable   = ctx.xpool.new_obj<property_variable_t>(new_property);
 
         new_property->get_method = ctx.get_relation<method_t>(property->get_method);
@@ -4118,16 +4119,36 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Constructor.
+    method_variable_t::method_variable_t(method_t * method) : method(method)
+    {
+        _A(method != nullptr);
+    }
+
     // Returns type of the method.
     type_t * method_variable_t::get_type(xpool_t & xpool)
     {
-        return to_type(method->type_name);
+        if (__type == nullptr)
+        {
+            type_collection_t types = { method->get_type() };
+            for (size_t index = 0, count = method->param_count(); index < count; index++)
+            {
+                param_t * param = method->param_at(index);
+                types.push_back(typex_t(param));
+            }
+
+            __type = xpool.new_generic_type(
+                xpool.get_delegate_type(), types, nullptr
+            );
+        }
+
+        return __type;
     }
 
     // Returns vtype.
     vtype_t method_variable_t::get_vtype()
     {
-        return __get_vtype(method->type_name);
+        return vtype_t::mobject_;
     }
 
     // Returns name of the method.
@@ -4376,6 +4397,78 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         return __get_specified_type(
             __CoreTypeName(CoreType_TraceAttribute), __trace_attribute_type
+        );
+    }
+
+    // Returns System.Reflection.ReflectionInfo type.
+    general_type_t * xpool_t::get_reflection_info_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_ReflectionInfo), __reflection_info_type
+        );
+    }
+
+    // Returns System.Reflection.Assembly type.
+    general_type_t * xpool_t::get_assembly_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_Assembly), __assembly_type
+        );
+    }
+
+    // Returns System.Reflection.Member type.
+    general_type_t * xpool_t::get_member_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_Member), __member_type
+        );
+    }
+
+    // Returns System.Reflection.Method type.
+    general_type_t * xpool_t::get_method_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_Method), __method_type
+        );
+    }
+
+    // Returns System.Reflection.Property type.
+    general_type_t * xpool_t::get_property_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_Property), __property_type
+        );
+    }
+
+    // Returns System.Reflection.Event type.
+    general_type_t * xpool_t::get_event_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_Event), __event_type
+        );
+    }
+
+    // Returns System.Reflection.Field type.
+    general_type_t * xpool_t::get_field_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_Field), __field_type
+        );
+    }
+
+    // Returns System.Reflection.Parameter type.
+    general_type_t * xpool_t::get_parameter_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_Parameter), __parameter_type
+        );
+    }
+
+    // Returns System.Reflection.GenericParameter type.
+    general_type_t * xpool_t::get_generic_parameter_type()
+    {
+        return __get_specified_type(
+            __CoreTypeName(CoreType_GenericParameter), __generic_parameter_type
         );
     }
 
@@ -5454,6 +5547,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Sets variable to a name expression.
     void name_expression_t::set(variable_t * variable)
     {
+        _A(variable != nullptr);
+
         this->expression_type = name_expression_type_t::variable;
         this->variable = variable;
     }
@@ -5461,6 +5556,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Sets type to a name expression.
     void name_expression_t::set(type_t * type)
     {
+        _A(type != nullptr);
+
         this->expression_type = name_expression_type_t::type;
         this->type = type;
     }
@@ -5468,6 +5565,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Sets typedef to a name expression.
     void name_expression_t::set(type_def_t * type_def)
     {
+        _A(type_def != nullptr);
+
         this->expression_type = name_expression_type_t::type_def;
         this->type_def = type_def;
     }

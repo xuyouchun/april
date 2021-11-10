@@ -189,14 +189,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    // Returns whether it's effective.
-    // Xils will not generated if the expression is not effective.
-    bool is_effective(expression_t * exp)
+    bool __is_effective(expression_behaviour_t behaviour)
     {
-        if (exp == nullptr)
-            return false;
-
-        switch (exp->get_behaviour())
+        switch (behaviour)
         {
             case expression_behaviour_t::assign:
             case expression_behaviour_t::execute:
@@ -204,8 +199,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return true;
 
             default:
-                return is_effective(exp->parent);
+                return false;
         }
+    }
+
+    // Returns whether it's effective.
+    // Xils will not generated if the expression is not effective.
+    bool is_effective(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return false;
+
+        if (__is_effective(exp->get_behaviour()))
+            return true;
+
+        return is_effective(exp->parent);
     }
 
     // Try to append a push convert xil.
@@ -1196,11 +1204,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Returns whether it's effective, for the whole expression.
+    bool __is_whole_effective(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return false;
+
+        if (__is_member_expression(exp))
+            return __is_whole_effective(exp->parent);
+
+        return __is_effective(exp->get_behaviour());
+    }
+
     // Pops return value from stack
     static void __pop_empty_for_method(__cctx_t & ctx, xil_pool_t & pool,
                                         method_base_t * method, expression_t * owner_exp)
     {
-        if (is_effective(owner_exp->parent))
+        if (__is_whole_effective(owner_exp->parent))
             return;
 
         type_t * ret_type = method->get_type();
@@ -1991,9 +2011,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns constructor call type.
     xil_call_type_t __get_constructor_calltype(type_t * host_type, method_t * constructor)
     {
-        #define __EConstructor(name)                                            \
-            throw _ED(__e_t::unexpected_constructor_prototype__##name,          \
-                                                            constructor);
+        #define __EConstructor(name)                                                    \
+            throw _ED(__e_t::unexpected_constructor_prototype__##name, constructor);
 
         type_t * type = to_type(constructor->type_name);
         if (type != nullptr && !is_void_type(type))
@@ -2085,7 +2104,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                                         type_t * type)
     {
         bool need_call_constructor = this->constructor != nullptr
-                                    && this->constructor->param_count() > 0;
+                                  && this->constructor->param_count() > 0;
 
         if (need_call_constructor)
         {

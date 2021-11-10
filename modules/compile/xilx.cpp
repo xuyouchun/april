@@ -349,6 +349,49 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    static method_variable_t * __try_fetch_method_variable(expression_t * exp)
+    {
+        _A(exp->this_family() == expression_family_t::name);
+
+        name_expression_t * name_exp = (name_expression_t *)exp;
+        if (name_exp->expression_type == name_expression_type_t::variable)
+        {
+            variable_t * variable = name_exp->variable;
+            if (variable->this_type() == variable_type_t::method)
+                return (method_variable_t *)variable;
+        }
+
+        return nullptr;
+    }
+
+    static method_variable_t * __try_fetch_method_variable(expression_t * exp,
+                                                           expression_t ** out_instance)
+    {
+        expression_t * out_instance_;
+        expression_family_t family = exp->this_family();
+
+        if (family == expression_family_t::name)
+        {
+            al::assign(out_instance, nullptr);
+            return __try_fetch_method_variable(exp);
+        }
+
+        if (family == expression_family_t::binary)
+        {
+            binary_expression_t * binary_exp = (binary_expression_t *)exp;
+            if (binary_exp->op() == operator_t::member_point &&
+                binary_exp->exp2()->this_family() == expression_family_t::name)
+            {
+                method_variable_t * variable = __try_fetch_method_variable(binary_exp->exp2());
+                al::assign(out_instance, binary_exp->exp1());
+
+                return variable;
+            }
+        }
+
+        return nullptr;
+    }
+
     // Local assign xilx.
     void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
@@ -356,6 +399,42 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (expression == nullptr)
         {
             write_assign_xil(ctx, pool, local, xil_type_t::empty);
+            return;
+        }
+
+        // Delegate.
+        expression_t * instance;
+        method_variable_t * method_var = __try_fetch_method_variable(expression, &instance);
+
+        if (method_var != nullptr)
+        {
+            xpool_t & xpool = __xpool(ctx);
+
+            expression_compile_context_t cctx(ctx);
+            __push_variable_address(cctx, pool, local);
+
+            if (instance == nullptr)
+                pool.append<x_push_null_xil_t>();
+            else
+                __compile_expression(ctx, pool, instance);
+
+            type_t * delegate_type = local->get_type(__xpool(ctx));
+
+            // TODO: check delegate prototype.
+
+            atypes_t atypes = {
+                atype_t(xpool.get_object_type()), atype_t(xpool.get_method_type())
+            };
+
+            analyze_member_args_t args(member_type_t::method, name_t::null, &atypes);
+            args.method_trait = method_trait_t::constructor;
+            _PP(delegate_type);
+            method_t * constructor = (method_t *)delegate_type->get_member(args);
+            _A(constructor != nullptr);
+
+            ref_t method_ref = __search_method_ref(ctx, constructor);
+            pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
+
             return;
         }
 

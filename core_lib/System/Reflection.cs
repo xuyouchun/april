@@ -4,6 +4,7 @@ namespace Reflection
 {
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public class ReflectionInfo
 	{
 		public String Name
@@ -18,6 +19,7 @@ namespace Reflection
 
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public sealed class Assembly : ReflectionInfo
 	{
 		public Array<Type> GetTypes()
@@ -29,6 +31,7 @@ namespace Reflection
 
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public class Member : ReflectionInfo
 	{
 		public Type Type
@@ -44,6 +47,7 @@ namespace Reflection
 
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public sealed class Method : Member
 	{
 		public Array<Parameter> GetParameters()
@@ -59,6 +63,7 @@ namespace Reflection
 
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public sealed class Property : Member
 	{
 		public Method GetMethod
@@ -74,6 +79,7 @@ namespace Reflection
 
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public sealed class Event : Member
 	{
 		public Method AddMethod
@@ -89,6 +95,7 @@ namespace Reflection
 
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public sealed class Field : Member
 	{
 
@@ -96,6 +103,7 @@ namespace Reflection
 
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public sealed class Parameter : ReflectionInfo
 	{
 		public String Name
@@ -111,6 +119,7 @@ namespace Reflection
 
 	////////// ////////// ////////// ////////// //////////
 
+    [__internal__]
 	public sealed class GenericParameter : ReflectionInfo
 	{
 		public String Name

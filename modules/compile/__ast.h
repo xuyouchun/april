@@ -53,6 +53,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Post analysis.
         post_analysis   = 28,
 
+        // All completed.
+        end             = 30,
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -181,146 +183,146 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     #define __X_BRANCH_ENUM_ITEM(name)  \
         __BRANCH_ENUM_ITEM(name, ::X_ROOT_NS::modules::compile::xbranch_value_t)
 
-    #define X_BRANCH_ENUM(name)  X_ENUM_(name, sizeof(code_element_t))      \
-                                                                            \
-        /* common branch values */                                          \
-                                                                            \
-        import              =   __C_BRANCH_ENUM_ITEM(import),               \
-                                                                            \
-        using_              =   __C_BRANCH_ENUM_ITEM(using_),               \
-                                                                            \
-        expression          =   __C_BRANCH_ENUM_ITEM(expression),           \
-                                                                            \
-        statement           =   __C_BRANCH_ENUM_ITEM(statement),            \
-                                                                            \
-        type_name           =   __C_BRANCH_ENUM_ITEM(type_name),            \
-                                                                            \
-        cvalue              =   __C_BRANCH_ENUM_ITEM(cvalue),               \
-                                                                            \
-        attribute           =   __C_BRANCH_ENUM_ITEM(attribute),            \
-                                                                            \
-        attributes          =   __C_BRANCH_ENUM_ITEM(attributes),           \
-                                                                            \
-        type                =   __C_BRANCH_ENUM_ITEM(type),                 \
-                                                                            \
-        field               =   __C_BRANCH_ENUM_ITEM(field),                \
-                                                                            \
-        property            =   __C_BRANCH_ENUM_ITEM(property),             \
-                                                                            \
-        method              =   __C_BRANCH_ENUM_ITEM(method),               \
-                                                                            \
-        event               =   __C_BRANCH_ENUM_ITEM(event),                \
-                                                                            \
-        /* xcommon branch values */                                         \
-                                                                            \
-        asts                =   __X_BRANCH_ENUM_ITEM(asts),                 \
-                                                                            \
-        namespace_          =   __X_BRANCH_ENUM_ITEM(namespace_),           \
-                                                                            \
-        array_type_name     =   __X_BRANCH_ENUM_ITEM(array_type_name),      \
-                                                                            \
-        general_type_name   =   __X_BRANCH_ENUM_ITEM(general_type_name),    \
-                                                                            \
-        type_name_unit      =   __X_BRANCH_ENUM_ITEM(type_name_unit),       \
-                                                                            \
-        uncertain_type_name =   __X_BRANCH_ENUM_ITEM(uncertain_type_name),  \
-                                                                            \
-        type_def            =   __X_BRANCH_ENUM_ITEM(type_def),             \
-                                                                            \
-        type_def_param      =   __X_BRANCH_ENUM_ITEM(type_def_param),       \
-                                                                            \
-        type_def_params     =   __X_BRANCH_ENUM_ITEM(type_def_params),      \
-                                                                            \
-        type_of             =   __X_BRANCH_ENUM_ITEM(type_of),              \
-                                                                            \
-        mname               =   __X_BRANCH_ENUM_ITEM(mname),                \
-                                                                            \
-        expressions         =   __X_BRANCH_ENUM_ITEM(expressions),          \
-                                                                            \
-        argument            =   __X_BRANCH_ENUM_ITEM(argument),             \
-                                                                            \
-        arguments           =   __X_BRANCH_ENUM_ITEM(arguments),            \
-                                                                            \
-        param               =   __X_BRANCH_ENUM_ITEM(param),                \
-                                                                            \
-        params              =   __X_BRANCH_ENUM_ITEM(params),               \
-                                                                            \
-        generic_param       =   __X_BRANCH_ENUM_ITEM(generic_param),        \
-                                                                            \
-        generic_params      =   __X_BRANCH_ENUM_ITEM(generic_params),       \
-                                                                            \
-        generic_constraint  =   __X_BRANCH_ENUM_ITEM(generic_constraint),   \
-                                                                            \
-        generic_constraints =   __X_BRANCH_ENUM_ITEM(generic_constraints),  \
-                                                                            \
-        generic_arg         =   __X_BRANCH_ENUM_ITEM(generic_arg),          \
-                                                                            \
-        generic_args        =   __X_BRANCH_ENUM_ITEM(generic_args),         \
-                                                                            \
-        decorate            =   __X_BRANCH_ENUM_ITEM(decorate),             \
-                                                                            \
-        method_body         =   __X_BRANCH_ENUM_ITEM(method_body),          \
-                                                                            \
-        statements          =   __X_BRANCH_ENUM_ITEM(statements),           \
-                                                                            \
-        expression_st       =   __X_BRANCH_ENUM_ITEM(expression_st),        \
-                                                                            \
-        type_def_st         =   __X_BRANCH_ENUM_ITEM(type_def_st),          \
-                                                                            \
-        defination_st       =   __X_BRANCH_ENUM_ITEM(defination_st),        \
-                                                                            \
-        break_st            =   __X_BRANCH_ENUM_ITEM(break_st),             \
-                                                                            \
-        continue_st         =   __X_BRANCH_ENUM_ITEM(continue_st),          \
-                                                                            \
-        throw_st            =   __X_BRANCH_ENUM_ITEM(throw_st),             \
-                                                                            \
-        goto_st             =   __X_BRANCH_ENUM_ITEM(goto_st),              \
-                                                                            \
-        return_st           =   __X_BRANCH_ENUM_ITEM(return_st),            \
-                                                                            \
-        do_while_st         =   __X_BRANCH_ENUM_ITEM(do_while_st),          \
-                                                                            \
-        loop_until_st       =   __X_BRANCH_ENUM_ITEM(loop_until_st),        \
-                                                                            \
-        while_st            =   __X_BRANCH_ENUM_ITEM(while_st),             \
-                                                                            \
-        for_st              =   __X_BRANCH_ENUM_ITEM(for_st),               \
-                                                                            \
-        for_each_st         =   __X_BRANCH_ENUM_ITEM(for_each_st),          \
-                                                                            \
-        if_st               =   __X_BRANCH_ENUM_ITEM(if_st),                \
-                                                                            \
-        switch_st           =   __X_BRANCH_ENUM_ITEM(switch_st),            \
-                                                                            \
-        case_               =   __X_BRANCH_ENUM_ITEM(case_),                \
-                                                                            \
-        try_st              =   __X_BRANCH_ENUM_ITEM(try_st),               \
-                                                                            \
-        catch_              =   __X_BRANCH_ENUM_ITEM(catch_),               \
-                                                                            \
-        empty_st            =   __X_BRANCH_ENUM_ITEM(empty_st),             \
-                                                                            \
-        statement_group_st  =   __X_BRANCH_ENUM_ITEM(statement_group_st),   \
-                                                                            \
-        type_name_exp       =   __X_BRANCH_ENUM_ITEM(type_name_exp),        \
-                                                                            \
-        type_cast_exp       =   __X_BRANCH_ENUM_ITEM(type_cast_exp),        \
-                                                                            \
-        function            =   __X_BRANCH_ENUM_ITEM(function),             \
-                                                                            \
-        index               =   __X_BRANCH_ENUM_ITEM(index),                \
-                                                                            \
-        new_                =   __X_BRANCH_ENUM_ITEM(new_),                 \
-                                                                            \
-        array_initializer   =   __X_BRANCH_ENUM_ITEM(array_initializer),    \
-                                                                            \
-        array_lengths       =   __X_BRANCH_ENUM_ITEM(array_lengths),        \
-                                                                            \
-        new_array           =   __X_BRANCH_ENUM_ITEM(new_array),            \
-                                                                            \
-        default_value       =   __X_BRANCH_ENUM_ITEM(default_value),        \
-                                                                            \
+    #define X_BRANCH_ENUM(name)  X_ENUM_(name, sizeof(code_element_t))                  \
+                                                                                        \
+        /* common branch values */                                                      \
+                                                                                        \
+        import              =   __C_BRANCH_ENUM_ITEM(import),                           \
+                                                                                        \
+        using_              =   __C_BRANCH_ENUM_ITEM(using_),                           \
+                                                                                        \
+        expression          =   __C_BRANCH_ENUM_ITEM(expression),                       \
+                                                                                        \
+        statement           =   __C_BRANCH_ENUM_ITEM(statement),                        \
+                                                                                        \
+        type_name           =   __C_BRANCH_ENUM_ITEM(type_name),                        \
+                                                                                        \
+        cvalue              =   __C_BRANCH_ENUM_ITEM(cvalue),                           \
+                                                                                        \
+        attribute           =   __C_BRANCH_ENUM_ITEM(attribute),                        \
+                                                                                        \
+        attributes          =   __C_BRANCH_ENUM_ITEM(attributes),                       \
+                                                                                        \
+        type                =   __C_BRANCH_ENUM_ITEM(type),                             \
+                                                                                        \
+        field               =   __C_BRANCH_ENUM_ITEM(field),                            \
+                                                                                        \
+        property            =   __C_BRANCH_ENUM_ITEM(property),                         \
+                                                                                        \
+        method              =   __C_BRANCH_ENUM_ITEM(method),                           \
+                                                                                        \
+        event               =   __C_BRANCH_ENUM_ITEM(event),                            \
+                                                                                        \
+        /* xcommon branch values */                                                     \
+                                                                                        \
+        asts                =   __X_BRANCH_ENUM_ITEM(asts),                             \
+                                                                                        \
+        namespace_          =   __X_BRANCH_ENUM_ITEM(namespace_),                       \
+                                                                                        \
+        array_type_name     =   __X_BRANCH_ENUM_ITEM(array_type_name),                  \
+                                                                                        \
+        general_type_name   =   __X_BRANCH_ENUM_ITEM(general_type_name),                \
+                                                                                        \
+        type_name_unit      =   __X_BRANCH_ENUM_ITEM(type_name_unit),                   \
+                                                                                        \
+        uncertain_type_name =   __X_BRANCH_ENUM_ITEM(uncertain_type_name),              \
+                                                                                        \
+        type_def            =   __X_BRANCH_ENUM_ITEM(type_def),                         \
+                                                                                        \
+        type_def_param      =   __X_BRANCH_ENUM_ITEM(type_def_param),                   \
+                                                                                        \
+        type_def_params     =   __X_BRANCH_ENUM_ITEM(type_def_params),                  \
+                                                                                        \
+        type_of             =   __X_BRANCH_ENUM_ITEM(type_of),                          \
+                                                                                        \
+        mname               =   __X_BRANCH_ENUM_ITEM(mname),                            \
+                                                                                        \
+        expressions         =   __X_BRANCH_ENUM_ITEM(expressions),                      \
+                                                                                        \
+        argument            =   __X_BRANCH_ENUM_ITEM(argument),                         \
+                                                                                        \
+        arguments           =   __X_BRANCH_ENUM_ITEM(arguments),                        \
+                                                                                        \
+        param               =   __X_BRANCH_ENUM_ITEM(param),                            \
+                                                                                        \
+        params              =   __X_BRANCH_ENUM_ITEM(params),                           \
+                                                                                        \
+        generic_param       =   __X_BRANCH_ENUM_ITEM(generic_param),                    \
+                                                                                        \
+        generic_params      =   __X_BRANCH_ENUM_ITEM(generic_params),                   \
+                                                                                        \
+        generic_constraint  =   __X_BRANCH_ENUM_ITEM(generic_constraint),               \
+                                                                                        \
+        generic_constraints =   __X_BRANCH_ENUM_ITEM(generic_constraints),              \
+                                                                                        \
+        generic_arg         =   __X_BRANCH_ENUM_ITEM(generic_arg),                      \
+                                                                                        \
+        generic_args        =   __X_BRANCH_ENUM_ITEM(generic_args),                     \
+                                                                                        \
+        decorate            =   __X_BRANCH_ENUM_ITEM(decorate),                         \
+                                                                                        \
+        method_body         =   __X_BRANCH_ENUM_ITEM(method_body),                      \
+                                                                                        \
+        statements          =   __X_BRANCH_ENUM_ITEM(statements),                       \
+                                                                                        \
+        expression_st       =   __X_BRANCH_ENUM_ITEM(expression_st),                    \
+                                                                                        \
+        type_def_st         =   __X_BRANCH_ENUM_ITEM(type_def_st),                      \
+                                                                                        \
+        defination_st       =   __X_BRANCH_ENUM_ITEM(defination_st),                    \
+                                                                                        \
+        break_st            =   __X_BRANCH_ENUM_ITEM(break_st),                         \
+                                                                                        \
+        continue_st         =   __X_BRANCH_ENUM_ITEM(continue_st),                      \
+                                                                                        \
+        throw_st            =   __X_BRANCH_ENUM_ITEM(throw_st),                         \
+                                                                                        \
+        goto_st             =   __X_BRANCH_ENUM_ITEM(goto_st),                          \
+                                                                                        \
+        return_st           =   __X_BRANCH_ENUM_ITEM(return_st),                        \
+                                                                                        \
+        do_while_st         =   __X_BRANCH_ENUM_ITEM(do_while_st),                      \
+                                                                                        \
+        loop_until_st       =   __X_BRANCH_ENUM_ITEM(loop_until_st),                    \
+                                                                                        \
+        while_st            =   __X_BRANCH_ENUM_ITEM(while_st),                         \
+                                                                                        \
+        for_st              =   __X_BRANCH_ENUM_ITEM(for_st),                           \
+                                                                                        \
+        for_each_st         =   __X_BRANCH_ENUM_ITEM(for_each_st),                      \
+                                                                                        \
+        if_st               =   __X_BRANCH_ENUM_ITEM(if_st),                            \
+                                                                                        \
+        switch_st           =   __X_BRANCH_ENUM_ITEM(switch_st),                        \
+                                                                                        \
+        case_               =   __X_BRANCH_ENUM_ITEM(case_),                            \
+                                                                                        \
+        try_st              =   __X_BRANCH_ENUM_ITEM(try_st),                           \
+                                                                                        \
+        catch_              =   __X_BRANCH_ENUM_ITEM(catch_),                           \
+                                                                                        \
+        empty_st            =   __X_BRANCH_ENUM_ITEM(empty_st),                         \
+                                                                                        \
+        statement_group_st  =   __X_BRANCH_ENUM_ITEM(statement_group_st),               \
+                                                                                        \
+        type_name_exp       =   __X_BRANCH_ENUM_ITEM(type_name_exp),                    \
+                                                                                        \
+        type_cast_exp       =   __X_BRANCH_ENUM_ITEM(type_cast_exp),                    \
+                                                                                        \
+        function            =   __X_BRANCH_ENUM_ITEM(function),                         \
+                                                                                        \
+        index               =   __X_BRANCH_ENUM_ITEM(index),                            \
+                                                                                        \
+        new_                =   __X_BRANCH_ENUM_ITEM(new_),                             \
+                                                                                        \
+        array_initializer   =   __X_BRANCH_ENUM_ITEM(array_initializer),                \
+                                                                                        \
+        array_lengths       =   __X_BRANCH_ENUM_ITEM(array_lengths),                    \
+                                                                                        \
+        new_array           =   __X_BRANCH_ENUM_ITEM(new_array),                        \
+                                                                                        \
+        default_value       =   __X_BRANCH_ENUM_ITEM(default_value),                    \
+                                                                                        \
         __user_defined__    =  __X_BRANCH_ENUM_ITEM(__user_defined__),
 
 
@@ -328,77 +330,77 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    #define X_BRANCH_ENUM_INFO(name)  X_ENUM_INFO(name)                     \
-        X_C(import,                 _T("import"))                           \
-        X_C(using_,                 _T("using"))                            \
-        X_C(expression,             _T("expression"))                       \
-        X_C(statement,              _T("statement"))                        \
-        X_C(type_name,              _T("type_name"))                        \
-        X_C(cvalue,                 _T("cvalue"))                           \
-        X_C(attribute,              _T("attribute"))                        \
-        X_C(attributes,             _T("attributes"))                       \
-        X_C(type,                   _T("type"))                             \
-        X_C(field,                  _T("field"))                            \
-        X_C(property,               _T("property"))                         \
-        X_C(method,                 _T("method"))                           \
-        X_C(event,                  _T("event"))                            \
-                                                                            \
-        X_C(asts,                   _T("asts"))                             \
-        X_C(namespace_,             _T("namespace"))                        \
-        X_C(array_type_name,        _T("array_type_name"))                  \
-        X_C(general_type_name,      _T("general_type_name"))                \
-        X_C(type_name_unit,         _T("type_name_unit"))                   \
-        X_C(uncertain_type_name,    _T("uncertain_type_name"))              \
-        X_C(type_def_param,         _T("type_def_param"))                   \
-        X_C(type_def_params,        _T("type_def_params"))                  \
-        X_C(type_def,               _T("type_def"))                         \
-        X_C(type_of,                _T("type_of"))                          \
-        X_C(mname,                  _T("mname"))                            \
-        X_C(expressions,            _T("expressions"))                      \
-        X_C(argument,               _T("argument"))                         \
-        X_C(arguments,              _T("arguments"))                        \
-        X_C(param,                  _T("param"))                            \
-        X_C(params,                 _T("params"))                           \
-        X_C(generic_param,          _T("generic_param"))                    \
-        X_C(generic_params,         _T("generic_params"))                   \
-        X_C(generic_constraint,     _T("generic_constraint"))               \
-        X_C(generic_constraints,    _T("generic_constraints"))              \
-        X_C(generic_arg,            _T("generic_arg"))                      \
-        X_C(generic_args,           _T("generic_args"))                     \
-        X_C(decorate,               _T("decorate"))                         \
-        X_C(method_body,            _T("method_body"))                      \
-                                                                            \
-        X_C(statements,             _T("statements"))                       \
-        X_C(expression_st,          _T("expression_st"))                    \
-        X_C(type_def_st,            _T("type_def_st"))                      \
-        X_C(defination_st,          _T("defination_st"))                    \
-        X_C(break_st,               _T("break_st"))                         \
-        X_C(continue_st,            _T("continue_st"))                      \
-        X_C(throw_st,               _T("throw_st"))                         \
-        X_C(goto_st,                _T("goto_st"))                          \
-        X_C(return_st,              _T("return_st"))                        \
-        X_C(do_while_st,            _T("do_while_st"))                      \
-        X_C(loop_until_st,          _T("loop_until_st"))                    \
-        X_C(while_st,               _T("while_st"))                         \
-        X_C(for_st,                 _T("for_st"))                           \
-        X_C(for_each_st,            _T("for_each_st"))                      \
-        X_C(if_st,                  _T("if_st"))                            \
-        X_C(switch_st,              _T("switch_st"))                        \
-        X_C(case_,                  _T("case"))                             \
-        X_C(try_st,                 _T("try_st"))                           \
-        X_C(catch_,                 _T("catch"))                            \
-        X_C(empty_st,               _T("empty_st"))                         \
-        X_C(statement_group_st,     _T("statement_group_st"))               \
-                                                                            \
-        X_C(type_name_exp,          _T("type_name_exp"))                    \
-        X_C(type_cast_exp,          _T("type_cast_exp"))                    \
-        X_C(function,               _T("function"))                         \
-        X_C(index,                  _T("index"))                            \
-        X_C(new_,                   _T("new"))                              \
-        X_C(array_initializer,      _T("array_initializer"))                \
-        X_C(array_lengths,          _T("array_lengths"))                    \
-        X_C(new_array,              _T("new_array"))                        \
-        X_C(default_value,          _T("default_value"))                    \
+    #define X_BRANCH_ENUM_INFO(name)  X_ENUM_INFO(name)                                 \
+        X_C(import,                 _T("import"))                                       \
+        X_C(using_,                 _T("using"))                                        \
+        X_C(expression,             _T("expression"))                                   \
+        X_C(statement,              _T("statement"))                                    \
+        X_C(type_name,              _T("type_name"))                                    \
+        X_C(cvalue,                 _T("cvalue"))                                       \
+        X_C(attribute,              _T("attribute"))                                    \
+        X_C(attributes,             _T("attributes"))                                   \
+        X_C(type,                   _T("type"))                                         \
+        X_C(field,                  _T("field"))                                        \
+        X_C(property,               _T("property"))                                     \
+        X_C(method,                 _T("method"))                                       \
+        X_C(event,                  _T("event"))                                        \
+                                                                                        \
+        X_C(asts,                   _T("asts"))                                         \
+        X_C(namespace_,             _T("namespace"))                                    \
+        X_C(array_type_name,        _T("array_type_name"))                              \
+        X_C(general_type_name,      _T("general_type_name"))                            \
+        X_C(type_name_unit,         _T("type_name_unit"))                               \
+        X_C(uncertain_type_name,    _T("uncertain_type_name"))                          \
+        X_C(type_def_param,         _T("type_def_param"))                               \
+        X_C(type_def_params,        _T("type_def_params"))                              \
+        X_C(type_def,               _T("type_def"))                                     \
+        X_C(type_of,                _T("type_of"))                                      \
+        X_C(mname,                  _T("mname"))                                        \
+        X_C(expressions,            _T("expressions"))                                  \
+        X_C(argument,               _T("argument"))                                     \
+        X_C(arguments,              _T("arguments"))                                    \
+        X_C(param,                  _T("param"))                                        \
+        X_C(params,                 _T("params"))                                       \
+        X_C(generic_param,          _T("generic_param"))                                \
+        X_C(generic_params,         _T("generic_params"))                               \
+        X_C(generic_constraint,     _T("generic_constraint"))                           \
+        X_C(generic_constraints,    _T("generic_constraints"))                          \
+        X_C(generic_arg,            _T("generic_arg"))                                  \
+        X_C(generic_args,           _T("generic_args"))                                 \
+        X_C(decorate,               _T("decorate"))                                     \
+        X_C(method_body,            _T("method_body"))                                  \
+                                                                                        \
+        X_C(statements,             _T("statements"))                                   \
+        X_C(expression_st,          _T("expression_st"))                                \
+        X_C(type_def_st,            _T("type_def_st"))                                  \
+        X_C(defination_st,          _T("defination_st"))                                \
+        X_C(break_st,               _T("break_st"))                                     \
+        X_C(continue_st,            _T("continue_st"))                                  \
+        X_C(throw_st,               _T("throw_st"))                                     \
+        X_C(goto_st,                _T("goto_st"))                                      \
+        X_C(return_st,              _T("return_st"))                                    \
+        X_C(do_while_st,            _T("do_while_st"))                                  \
+        X_C(loop_until_st,          _T("loop_until_st"))                                \
+        X_C(while_st,               _T("while_st"))                                     \
+        X_C(for_st,                 _T("for_st"))                                       \
+        X_C(for_each_st,            _T("for_each_st"))                                  \
+        X_C(if_st,                  _T("if_st"))                                        \
+        X_C(switch_st,              _T("switch_st"))                                    \
+        X_C(case_,                  _T("case"))                                         \
+        X_C(try_st,                 _T("try_st"))                                       \
+        X_C(catch_,                 _T("catch"))                                        \
+        X_C(empty_st,               _T("empty_st"))                                     \
+        X_C(statement_group_st,     _T("statement_group_st"))                           \
+                                                                                        \
+        X_C(type_name_exp,          _T("type_name_exp"))                                \
+        X_C(type_cast_exp,          _T("type_cast_exp"))                                \
+        X_C(function,               _T("function"))                                     \
+        X_C(index,                  _T("index"))                                        \
+        X_C(new_,                   _T("new"))                                          \
+        X_C(array_initializer,      _T("array_initializer"))                            \
+        X_C(array_lengths,          _T("array_lengths"))                                \
+        X_C(new_array,              _T("new_array"))                                    \
+        X_C(default_value,          _T("default_value"))                                \
 
 
     #define X_BRANCH_ENUM_INFO_END  X_ENUM_INFO_END
@@ -1249,26 +1251,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     #define RawAstName(name)   __##name##_ast_node_t
 
-    #define Ast(name, value)                                                    \
-        namespace                                                               \
-        {                                                                       \
-            struct __##name##_ast_node_data_t                                   \
-                : public ::X_ROOT_NS::modules::compile::node_data_base_t<       \
-                    __##name##_ast_node_data_t,                                 \
-                    decltype(value), value>                                     \
-            {                                                                   \
+    #define Ast(name, value)                                                            \
+        namespace                                                                       \
+        {                                                                               \
+            struct __##name##_ast_node_data_t                                           \
+                : public ::X_ROOT_NS::modules::compile::node_data_base_t<               \
+                    __##name##_ast_node_data_t,                                         \
+                    decltype(value), value>                                             \
+            {                                                                           \
                 enum {
 
 
-    #define EndAst(name)                                                        \
-                __end__ };                                                      \
-            };                                                                  \
-        }                                                                       \
-                                                                                \
+    #define EndAst(name)                                                                \
+                __end__ };                                                              \
+            };                                                                          \
+        }                                                                               \
+                                                                                        \
         typedef node_wrapper_t<__##name##_ast_node_data_t> RawAstName(name);
 
-    #define __EmptyAst(name, value)                                             \
-        Ast(name, value)                                                        \
+    #define __EmptyAst(name, value)                                                     \
+        Ast(name, value)                                                                \
         EndAst(name)
 
     

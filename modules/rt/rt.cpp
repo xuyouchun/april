@@ -1818,9 +1818,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         if ((host_type != nullptr && host_type->get_kind() == rt_type_kind_t::generic)
             || template_->generic_param_count() > 0)
         {
-            size_t generic_param_count = template_->generic_param_count();
-            rt_type_t * atypes[generic_param_count];
-            rt_type_t ** p_atypes = (rt_type_t **)atypes;
+            al::svector_t<rt_type_t *> atypes;
 
             for (ref_t gp_ref : (*template_)->generic_params)
             {
@@ -1828,13 +1826,31 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 _A(gp != nullptr);
 
                 rt_sid_t name = to_sid((*gp)->name);
-                rt_type_t * atype = gp_manager->type_at(name);
-                _A(atype != nullptr);
 
-                *p_atypes++ = atype;
+                if ((generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
+                {
+                    int index, count;
+                    if (gp_manager->types_of(name, &index, &count))
+                    {
+                        for (int end = index + count; index < end; index++)
+                        {
+                            rt_type_t * atype = gp_manager->type_at(index);
+                            atypes.push_back(atype);
+
+                            // _PP(atype->get_name(env));
+                        }
+                    }
+                }
+                else
+                {
+                    rt_type_t * atype = gp_manager->type_at(name);
+                    _A(atype != nullptr);
+
+                    atypes.push_back(atype);
+                }
             }
 
-            return to_generic_type(template_, host_type, atypes, generic_param_count);
+            return to_generic_type(template_, host_type, std::begin(atypes), atypes.size());
         }
 
         return template_;
@@ -2036,7 +2052,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         int index, count;
         if (gp_manager->types_of(name, &index, &count))
         {
-            for (; index < count; index++)
+            for (int end = index + count; index < end; index++)
             {
                 rt_type_t * type = gp_manager->type_at(index);
 

@@ -577,6 +577,143 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Impl for System.ReflectionInfo
+    class __reflection_info_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __reflection_info_type_impl_t::type_name[]
+                                                = __CoreTypeName(CoreType_ReflectionInfo);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl for System.Assembly
+    class __assembly_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __assembly_type_impl_t::type_name[] = __CoreTypeName(CoreType_Assembly);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl for System.Member
+    class __member_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __member_type_impl_t::type_name[] = __CoreTypeName(CoreType_Member);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl for System.Method
+    class __method_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __method_type_impl_t::type_name[] = __CoreTypeName(CoreType_Method);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl for System.Property
+    class __property_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __property_type_impl_t::type_name[] = __CoreTypeName(CoreType_Property);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl for System.Event
+    class __event_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __event_type_impl_t::type_name[] = __CoreTypeName(CoreType_Event);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl for System.Field
+    class __field_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __field_type_impl_t::type_name[] = __CoreTypeName(CoreType_Field);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl for System.Parameter
+    class __parameter_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __parameter_type_impl_t::type_name[] = __CoreTypeName(CoreType_Parameter);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Impl for System.GenericParameter
+    class __generic_parameter_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __generic_parameter_type_impl_t::type_name[]
+                                            = __CoreTypeName(CoreType_GenericParameter);
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Internal attribute type impls.
     class __internal_attribute_type_impls_t : public __type_impls_t
     {
@@ -661,6 +798,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             // Attributes.
             __impls.append<__trace_attribute_type_impl_t>();
+
+            // Reflection.
+            __impls.append<__reflection_info_type_impl_t>();
+            __impls.append<__assembly_type_impl_t>();
+            __impls.append<__member_type_impl_t>();
+            __impls.append<__method_type_impl_t>();
+            __impls.append<__property_type_impl_t>();
+            __impls.append<__event_type_impl_t>();
+            __impls.append<__field_type_impl_t>();
+            __impls.append<__parameter_type_impl_t>();
+            __impls.append<__generic_parameter_type_impl_t>();
         }
 
         // Commits it.

@@ -1012,7 +1012,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Walks name expression.
         void __walk_name(name_expression_t * name_exp, type_t * parent_type = nullptr)
         {
-            if (name_exp->is_variable_expression() && name_exp->variable != nullptr)
+            if (name_exp->expression_type != name_expression_type_t::__default__)
                 return;
 
             name_t name = name_exp->name;
@@ -1706,7 +1706,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         catch (const logic_error_t<ast_error_t> & e)
         {
-            __deal_error(e, method->name, method);
+            __deal_error(e, method->get_name(), method);
             return nullptr;
         }
     }

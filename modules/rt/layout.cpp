@@ -248,31 +248,28 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         rt_type_t ** types_end = types + type_count;
 
-        if ((param_type_t)generic_params.extra == param_type_t::extends)
+        for (ref_t gp_ref : generic_params)
         {
-            rt_generic_param_t * gp = __analyzer.get_generic_param(generic_params);
+            rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
             rt_sid_t name = __analyzer.to_sid((*gp)->name);
 
-            __gp_mgr.append(name, __gp_mgr.size(), type_count);
-        }
-        else
-        {
-            for (ref_t gp_ref : generic_params)
+            if ((generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
             {
-                rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
-                rt_sid_t name = __analyzer.to_sid((*gp)->name);
+                __gp_mgr.append(name, __gp_mgr.size(), types_end - types);
+                while (types < types_end)
+                {
+                    // _PP((*types)->get_name(__analyzer.env));
+                    __gp_mgr.append(*types++);
+                }
 
+                break;
+            }
+            else
+            {
+                // _P(_T("default type"), name, (*types)->get_name(__analyzer.env));
                 __gp_mgr.append(name, *types++);
             }
         }
-
-        while (types < types_end)
-        {
-            // _PP((*types)->get_name(__analyzer.env));
-            __gp_mgr.append(*types++);
-        }
-
-        // _PP(__gp_mgr.size());
     }
 
     // Appends generic params
