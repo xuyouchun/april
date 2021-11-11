@@ -156,6 +156,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Function calling expression.
         X_C(function,                   _T("function"))
 
+        // Function name expression.
+        X_C(function_name,              _T("function_name"))
+
         // Index expression.
         X_C(index,                      _T("index"))
 
@@ -2767,6 +2770,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void function_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__expression.namex, _T("function"));
+
+        if (__expression.generic_args != nullptr && __expression.get_name() == name_t::null)
+        {
+            this->__log(this->child_at(generic_args), __c_t::function_generic_args_redundance);
+        }
+
+        __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // function_name
+
+    void function_name_ast_node_t::set_name(name_t name, __el_t * el)
+    {
+        this->__assign_name(__expression.name, name, el, _T("function name"));
+    }
+
+    // Commits this node.
+    void function_name_ast_node_t::on_commit()
+    {
+        __expression.generic_args  = __to_eobject<generic_args_t *>(generic_args);
+    }
+
+    // Returns this eobject.
+    expression_t * function_name_ast_node_t::to_eobject()
+    {
+        return &__expression;
+    }
+
+    // Walks this node.
+    void function_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        this->__check_name_empty(__expression.name, _T("function"));
 
         if (__expression.generic_args != nullptr && __expression.get_name() == name_t::null)
         {

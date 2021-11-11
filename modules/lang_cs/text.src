@@ -77,7 +77,7 @@ $_expression:
 ;
 
 # Expression, such as a + b * c.
-$expression:  $_expression ;
+$expression:  $_expression (. $function_name)?;
 
 # Multipy expressions, such as (a + b, c + d).
 $expressions: $expression (, $expression) *;
@@ -148,6 +148,9 @@ $uncertain_type_name: var ;
 
 # Type name.
 $type_name: $general_type_name | $array_type_name | $uncertain_type_name ;
+
+# Function name.
+$function_name: name $generic_args ;
 
 # Typedef generic param.
 $type_def_param: name ...?;

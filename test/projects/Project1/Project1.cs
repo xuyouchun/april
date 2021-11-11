@@ -8,7 +8,17 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        var func = MyClass<int>.Nest<long>.Add;
+        // var func = MyClass<int>.Nest<long>.Add;
+
+        var func = MyClass.Add<int>;
+    }
+};
+
+class MyClass
+{
+    public static int Add<T>(T a, T b)
+    {
+        return 0;
     }
 };
 

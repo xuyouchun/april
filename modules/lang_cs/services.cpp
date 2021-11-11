@@ -148,6 +148,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
             __Case(type)
 
             __Case(function)
+            __Case(function_name)
             __Case(index)
             __Case_(new_, new)
             __Case(new_array)

@@ -1185,6 +1185,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __walk_function((function_expression_t *)exp2, type);
                     return __exp2_walked_t::yes;
 
+                case expression_family_t::function_name:
+                    __walk_function_name((function_name_expression_t *)exp2, type);
+                    return __exp2_walked_t::yes;
+
                 default:
                     break;
             }
@@ -1380,6 +1384,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 default:
                     break;
             }
+        }
+
+        // Walks function name.
+        void __walk_function_name(function_name_expression_t * exp, type_t * type)
+        {
+            _PP(exp);
+            _PP(type);
         }
 
         // Tries to get method.

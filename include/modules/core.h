@@ -5875,7 +5875,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         new_, new_array, default_value, type_of, type_name, type_cast,
 
-        this_, base,
+        this_, base, function_name,
 
     X_ENUM_END
 
@@ -6693,6 +6693,55 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     private:
 
         incorp_t<void, __ftype_t> __relation_data;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Function name expression.
+    class function_name_expression_t : public __simple_expression_base_t
+                                     , public variable_expression_t
+    {
+        typedef expression_t __super_t;
+
+    public:
+
+        name_t name = name_t::null;                     // Name.
+        generic_args_t  * generic_args  = nullptr;      // Generic arguments.
+
+        variable_t * variable = nullptr;                // Variable.
+
+        // Returns vtype.
+        virtual vtype_t get_vtype() const override;
+
+        // Returns this family.
+        virtual expression_family_t this_family() const override
+        {
+            return expression_family_t::function_name;
+        }
+
+        // Returns type.
+        virtual type_t * get_type(xpool_t & xpool) const override;
+
+        // Gets name.
+        name_t get_name() const;
+
+        // Returns whether it is a variable expression.
+        virtual bool is_variable_expression() const override
+        {
+            return true;
+        }
+
+        // Returns variable expression.
+        virtual variable_t * get_variable() override
+        {
+            return variable;
+        }
+
+        // Sets variable.
+        void set_variable(variable_t * variable);
+
+        // Converts to string.
+        virtual const string_t to_string() const override;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -

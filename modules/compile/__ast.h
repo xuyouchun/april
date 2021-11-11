@@ -162,6 +162,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         function,                   // Function call expression.
 
+        function_name,              // Function name expression.
+
         index,                      // Index expression.
 
         new_,                       // New expression.
@@ -311,6 +313,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                                                         \
         function            =   __X_BRANCH_ENUM_ITEM(function),                         \
                                                                                         \
+        function_name       =   __X_BRANCH_ENUM_ITEM(function_name),                    \
+                                                                                        \
         index               =   __X_BRANCH_ENUM_ITEM(index),                            \
                                                                                         \
         new_                =   __X_BRANCH_ENUM_ITEM(new_),                             \
@@ -395,6 +399,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_C(type_name_exp,          _T("type_name_exp"))                                \
         X_C(type_cast_exp,          _T("type_cast_exp"))                                \
         X_C(function,               _T("function"))                                     \
+        X_C(function_name,          _T("function_name"))                                \
         X_C(index,                  _T("index"))                                        \
         X_C(new_,                   _T("new"))                                          \
         X_C(array_initializer,      _T("array_initializer"))                            \
@@ -3667,6 +3672,44 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         __wexp_t<function_expression_t> __expression;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // function_name
+
+    // Function name
+    Ast(function_name, __xcvalue_t::function_name)
+
+        // Generic arguments.
+        generic_args,
+
+    EndAst(function_name)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Function name ast node.
+    class function_name_ast_node_t : public __function_name_ast_node_t
+                                   , public expression_ast_t
+    {
+        typedef __function_name_ast_node_t __super_t;
+
+    public:
+        using __function_name_ast_node_t::__function_name_ast_node_t;
+
+        // Sets name.
+        void set_name(name_t name, __el_t * el);
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        __wexp_t<function_name_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////

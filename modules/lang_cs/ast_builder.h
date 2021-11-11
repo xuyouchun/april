@@ -296,6 +296,11 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     __SimpleBuilder(function)
 
     ////////// ////////// ////////// ////////// //////////
+    // function_name
+
+    __SimpleBuilder(function_name)
+
+    ////////// ////////// ////////// ////////// //////////
     // index
 
     __SimpleBuilder(index)

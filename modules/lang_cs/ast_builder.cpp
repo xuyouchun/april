@@ -1029,6 +1029,31 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     __OnCompleted(function, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // function_name
+
+    __ApplyToken(function_name, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(name):
+                __This->set_name(this->__to_name(token), token);
+                break;
+        }
+    }
+
+    __ApplyAst(function_name, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(generic_args):
+                __This->set_child(__Type::generic_args, node);
+                break;
+        }
+    }
+
+    __OnCompleted(function_name, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // index
 
     __ApplyToken(index, token, args) { }

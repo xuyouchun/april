@@ -5807,6 +5807,47 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // function_name_expression_t
+
+    // Returns vtype.
+    vtype_t function_name_expression_t::get_vtype() const
+    {
+        return vtype_t::mobject_;
+    }
+
+    // Returns type.
+    type_t * function_name_expression_t::get_type(xpool_t & xpool) const
+    {
+        if (variable == nullptr)
+            return nullptr;
+
+        return variable->get_type(xpool);
+    }
+
+    // Gets name.
+    name_t function_name_expression_t::get_name() const
+    {
+        return name;
+    }
+
+    // Sets variable.
+    void function_name_expression_t::set_variable(variable_t * variable)
+    {
+        _A(variable != nullptr);
+
+        this->variable = variable;
+    }
+
+    // Converts to string.
+    const string_t function_name_expression_t::to_string() const
+    {
+        if (generic_args == nullptr)
+            return get_name();
+
+        return _F(_T("%1%<%2%>"), get_name(), generic_args);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
 
     // Sets name to a expression.
     void index_expression_t::set_namex(expression_t * exp)
