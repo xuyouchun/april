@@ -105,7 +105,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
             e_t error_code = __ascertain_type(context, type_name);
             if (error_code == e_t::unknown_type)
             {
-                type_name_unit_t * unit;
+                name_unit_t * unit;
                 if (type_name->units.size() > 0 && 
                     (unit = type_name->units[type_name->units.size() - 1]) != nullptr)
                 {

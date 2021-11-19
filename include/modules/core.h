@@ -27,6 +27,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class method_compile_context_t;
     class statement_region_t;
     class general_type_t;
+    class generic_type_t;
 
     typedef int16_t element_value_t;
 
@@ -2173,8 +2174,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         analyze_member_args_t(member_type_t member_type, name_t name,
                 atypes_t * atypes = nullptr, generic_args_t * generic_args = nullptr,
                 type_t * return_type = nullptr)
-            : member_type(member_type), name(name), atypes(atypes), generic_args(generic_args)
-            , return_type(return_type)
+            : member_type(member_type), name(name)
+            , atypes(atypes), generic_args(generic_args), return_type(return_type)
         { }
 
         member_type_t       member_type;        // Member type.
@@ -2184,6 +2185,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_args_t *    generic_args;       // Generic arguments.
         method_trait_t      method_trait    = method_trait_t::__default__;  // Method trait.
         arg_types_t         out_arg_types;      // Generic types auto determined
+        size_t              generic_args_count = 0; // Generic argument count when fetch nest types.
 
         bool                exact_match     = false;    // Whether exact match the member.
 
@@ -3696,6 +3698,52 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Nest type member collection.
+    template<size_t size>
+    class __member_vector_t<type_t *, size> : public al::svector_t<type_t *, size>
+    {
+        typedef al::svector_t<type_t *, size> __super_t;
+        typedef int __generic_args_count_t;
+
+        typedef std::tuple<name_t, __generic_args_count_t> __key_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Spushes a nest type to back.
+        type_t * push_back(type_t * type);
+
+        // Enumerate all nest types with specified name.
+        template<typename _f_t>
+        void each(name_t name, _f_t f)
+        {
+            for (auto it = __type_map.lower_bound(name), it_end = __type_map.upper_bound(name);
+                it != it_end; it++)
+            {
+                f(it->second);
+            }
+        }
+
+        // Enumerate all nest types with specified name and generic param count.
+        type_t * get(name_t name, int generic_param_count)
+        {
+            __key_t key(name, generic_param_count);
+            for (auto it = __types_map.lower_bound(key), it_end = __types_map.upper_bound(key);
+                it != it_end; it++)
+            {
+                return it->second;
+            }
+
+            return nullptr;
+        }
+
+    private:
+        std::multimap<name_t, type_t *> __type_map;
+        std::multimap<__key_t, type_t *> __types_map;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Method member collection.
     template<size_t size>
     class __member_vector_t<method_t *, size> : public al::svector_t<method_t *, size>
@@ -3842,13 +3890,62 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void each_super_type(each_super_type_callback_t callback) override;
 
     protected:
+
         msize_t __rcount = unknown_msize, __value_size = unknown_msize;
+
+        class __transform_context_t;
+        void __transform(__transform_context_t & tctx);
+
+        // Returns type of specified name.
+        type_t * __type_at(general_type_t * template_, type_collection_t & args, name_t name);
 
     private:
 
         // Ensure size is initialized.
         void __ensure_size_initialize();
         bool __committed = false;
+
+        typedef __transform_context_t __tctx_t;
+
+        // Transform member to its implementation with type arguments.
+        template<typename _members_t>
+        void __transform_members(__tctx_t & tctx, _members_t & members, _members_t & out_members);
+
+        // Transform type to its implemenation with type arguments.
+        type_t *      __transform_type(__tctx_t & tctx, type_t * type);
+
+        // Transform typename to its implemenation with type arguments.
+        type_name_t * __transform_type_name(__tctx_t & tctx, type_name_t * type_name);
+
+        // Transform type to its implemenation with type arguments.
+        type_t *      __transform_generic_type(__tctx_t & tctx, generic_type_t * type);
+
+        // Transform field to its implemenation with type arguments.
+        field_t *     __transform_member(__tctx_t & tctx, field_t * field);
+
+        // Transform method to its implemenation with type arguments.
+        method_t *    __transform_member(__tctx_t & tctx, method_t * method);
+
+        // Transform property to its implemenation with type arguments.
+        property_t *  __transform_member(__tctx_t & tctx, property_t * property);
+
+        // Transform event to its implemenation with type argumentss.
+        event_t *     __transform_member(__tctx_t & tctx, event_t * event);
+
+        // Transform nest type to its implemenation with type arguments.
+        general_type_t * __transform_member(__tctx_t & tctx, type_t * nest_type);
+
+        // Transform typedef to its implemenation with type arguments.
+        type_def_t *  __transform_member(__tctx_t & tctx, type_def_t * type_def);
+
+        // Transform type_name to its implemenation with type arguments.
+        type_name_t * __transform_member(__tctx_t & tctx, type_name_t * type_name);
+
+        // Transform tuple type.
+        void __transform_tuple_type(__tctx_t & tctx); 
+
+        // Returns type of specified name.
+        type_t * __type_at(__tctx_t & tctx, name_t name);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4006,10 +4103,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bool any_type_def_param() const _NE;
 
         // Returns type at specified index.
-        type_t * type_at(size_t index) const _NE;
+        type_t * type_at(size_t index) _NE;
 
         // Returns type of specified name.
-        type_t * type_at(name_t name) const;
+        type_t * type_at(name_t name);
 
         // Returns fullname of the type.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
@@ -4028,46 +4125,43 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     private:
 
-        class __transform_context_t;
-        typedef __transform_context_t __ctx_t;
-
-        // Transform member to its implementation with type arguments.
-        template<typename _members_t>
-        void __transform_members(__ctx_t & ctx, _members_t & members, _members_t & out_members);
-
-        // Transform type to its implemenation with type arguments.
-        type_t *      __transform_type(xpool_t & xpool, type_t * type);
-
-        // Transform typename to its implemenation with type arguments.
-        type_name_t * __transform_type_name(xpool_t & xpool, type_name_t * type_name);
-
-        // Transform type to its implemenation with type arguments.
-        type_t *      __transform_generic_type(xpool_t & xpool, generic_type_t * type);
-
-        // Transform field to its implemenation with type arguments.
-        field_t *     __transform_member(__ctx_t & ctx, field_t * field);
-
-        // Transform method to its implemenation with type arguments.
-        method_t *    __transform_member(__ctx_t & ctx, method_t * method);
-
-        // Transform property to its implemenation with type arguments.
-        property_t *  __transform_member(__ctx_t & ctx, property_t * property);
-
-        // Transform event to its implemenation with type argumentss.
-        event_t *     __transform_member(__ctx_t & ctx, event_t * event);
-
-        // Transform nest type to its implemenation with type arguments.
-        type_t *      __transform_member(__ctx_t & ctx, type_t * nest_type);
-
-        // Transform typedef to its implemenation with type arguments.
-        type_def_t *  __transform_member(__ctx_t & ctx, type_def_t * type_def);
-
-        // Transform type_name to its implemenation with type arguments.
-        type_name_t * __transform_member(__ctx_t & ctx, type_name_t * type_name);
-
-        // Transform tuple type.
-        void __transform_tuple_type(xpool_t & xpool); 
     };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Implements of template<size_t size> __member_vector_t<type_t *, size>
+
+    // Pushes a general nest type to back.
+    template<size_t size>
+    type_t * __member_vector_t<type_t *, size>::push_back(type_t * type)
+    {
+        _A(type != nullptr);
+        __super_t::push_back(type);
+
+        switch (type->this_gtype())
+        {
+            case gtype_t::general: {
+                general_type_t * general_type = (general_type_t *)type;
+                __type_map.insert(std::make_pair(general_type->name, type));
+                __types_map.insert(std::make_pair(
+                    __key_t(general_type->name, general_type->params_count()), type
+                ));
+            }   break;
+
+            case gtype_t::generic: {
+                generic_type_t * generic_type = (generic_type_t *)type;
+                general_type_t * general_type = generic_type->template_;
+                __type_map.insert(std::make_pair(general_type->name, type));
+                __types_map.insert(std::make_pair(
+                    __key_t(general_type->name, general_type->params_count()), type
+                ));
+            }   break;
+
+            default:
+                X_UNEXPECTED();
+        }
+
+        return type;
+    }
 
     //-------- ---------- ---------- ---------- ----------
     // array_type_t
@@ -4238,9 +4332,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void register_commit(eobject_t * eobj);
 
         // Commits it.
-        void commit(eobject_commit_context_t & ctx);
+        virtual void commit(eobject_commit_context_t & ctx) override;
 
         static const efamily_t __family__ = efamily_t::module;
+
+        // Converts to string.
+        X_TO_STRING
 
     private:
         std::vector<eobject_t *> __need_commit_eobjects;
@@ -5369,6 +5466,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Load assembly by package name and assembly name.
         assembly_t * load_assembly(const mname_t * package_name, const mname_t * assembly_name);
 
+        // Commit types.
+        void commit_types();
+
         X_TO_STRING_IMPL(_T("ast_walk_context_t"))
 
     private:
@@ -5875,7 +5975,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         new_, new_array, default_value, type_of, type_name, type_cast,
 
-        this_, base, function_name,
+        this_, base, name_unit,
 
     X_ENUM_END
 
@@ -6163,6 +6263,40 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     //-------- ---------- ---------- ---------- ----------
+
+    // Name unit expression.
+    class name_unit_expression_t : public name_expression_t
+    {
+        typedef name_expression_t __super_t;
+
+    public:
+
+        // Constructors.
+        using __super_t::__super_t;
+
+        name_unit_expression_t(name_t name, generic_args_t * generic_args)
+            : __super_t(name), generic_args(generic_args)
+        { }
+
+        generic_args_t * generic_args = nullptr;
+
+        size_t generic_args_count() const
+        {
+            return generic_args == nullptr? 0 : generic_args->size();
+        }
+
+        // Returns this family.
+        virtual expression_family_t this_family() const override
+        {
+            return expression_family_t::name_unit;
+        }
+
+        // Converts to a string.
+        virtual const string_t to_string() const override;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
 
     // Typename expression.
     class type_name_expression_t : public __simple_expression_base_t
@@ -6693,55 +6827,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     private:
 
         incorp_t<void, __ftype_t> __relation_data;
-    };
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // Function name expression.
-    class function_name_expression_t : public __simple_expression_base_t
-                                     , public variable_expression_t
-    {
-        typedef expression_t __super_t;
-
-    public:
-
-        name_t name = name_t::null;                     // Name.
-        generic_args_t  * generic_args  = nullptr;      // Generic arguments.
-
-        variable_t * variable = nullptr;                // Variable.
-
-        // Returns vtype.
-        virtual vtype_t get_vtype() const override;
-
-        // Returns this family.
-        virtual expression_family_t this_family() const override
-        {
-            return expression_family_t::function_name;
-        }
-
-        // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
-
-        // Gets name.
-        name_t get_name() const;
-
-        // Returns whether it is a variable expression.
-        virtual bool is_variable_expression() const override
-        {
-            return true;
-        }
-
-        // Returns variable expression.
-        virtual variable_t * get_variable() override
-        {
-            return variable;
-        }
-
-        // Sets variable.
-        void set_variable(variable_t * variable);
-
-        // Converts to string.
-        virtual const string_t to_string() const override;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -

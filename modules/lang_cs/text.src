@@ -40,7 +40,7 @@ $type_of: typeof \( $type_name \) ;
 # Default value expression: default(T).
 $default_value: default \( $type_name \) ;
 
-# Type name expression: T.MyMethod().
+# Type name expression: System.Int32.
 $type_name_exp: $type_name ;
 
 # Type cast expression: (T)100 .
@@ -50,11 +50,11 @@ $type_cast_exp: \( $type_name \) $_single_expression ;
 $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new | $new_array | $type_of | $type_cast_exp
-    | $default_value
+    | $default_value | $name_unit
     | \( $_expression (, $_expression)* \)
   ) (. $__item )*
-|
-  $type_name_exp (. $__item)+
+#|
+#  $type_name_exp (. $__item )+
 ;
 
 # Expression, such as a + b * c.
@@ -69,7 +69,7 @@ $_expression:
           | &&  | \|\|
           | \|  | ^   | &   | \|= | &= | ^=
         ) $_expression                                  # binary operator
-      | ( as | is ) $type_name_exp
+      | ( as | is ) $type_name_exp                      # as/is type
       | \? $_expression `\: $_expression                # xxx? xxx : xxx   ? :
       | (\+\+ | --)                                     # right unary operator
     )*
@@ -77,10 +77,10 @@ $_expression:
 ;
 
 # Expression, such as a + b * c.
-$expression:  $_expression (. $function_name)?;
+$expression:  $_expression ;
 
 # Multipy expressions, such as (a + b, c + d).
-$expressions: $expression (, $expression) *;
+$expressions: $expression (, $expression)* ;
 
 # Namespace statement.
 $namespace:
@@ -130,11 +130,11 @@ $type:
 ;
 
 # Type name units, such as: MyStruct, MyClass<int, long> .
-$type_name_unit: name $generic_args? ;
+$name_unit: name $generic_args? ;
 
 # General type name.
 $general_type_name:
-        (global? \:\:)? $type_name_unit (. $type_name_unit)*
+        (global? \:\:)? $name_unit (. $name_unit)*
      |  void | object
      |  char | string | byte | sbyte | short | ushort | int | uint | long | ulong | bool
      |  double | float | decimal
@@ -148,9 +148,6 @@ $uncertain_type_name: var ;
 
 # Type name.
 $type_name: $general_type_name | $array_type_name | $uncertain_type_name ;
-
-# Function name.
-$function_name: name $generic_args ;
 
 # Typedef generic param.
 $type_def_param: name ...?;

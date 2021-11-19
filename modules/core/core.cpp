@@ -2800,6 +2800,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // Base class __general_type_like_base_t.
 
     // Returns members descripted by args.
     member_t * __general_type_like_base_t::get_member(analyze_member_args_t & args)
@@ -2825,7 +2826,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __FindMemberAndRet(type_defs, args.name);
 
         if (enum_has_flag(args.member_type, member_type_t::type))
-            __FindMemberAndRet(nest_types, args.name);
+        {
+            type_t * type = nest_types.get(args.name, args.generic_args_count);
+            if (type != nullptr)
+                return type;
+        }
 
         if (enum_has_flag(args.member_type, member_type_t::method))
         {
@@ -3000,6 +3005,404 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __super_t::commit(ctx);
             __committed = true;
         }
+    }
+
+    // Context of transform types or members.
+    class __general_type_like_base_t::__transform_context_t
+    {
+    public:
+        __transform_context_t(xpool_t & xpool, general_type_t * template_, type_collection_t & args)
+            : xpool(xpool), template_(template_), args(args) { }
+
+        xpool_t           & xpool;
+        general_type_t    * template_;
+        type_collection_t & args;
+
+        // Adds a relation of members.
+        void add_relation(void * a, void * b)
+        {
+            __relation_map[a] = b;
+        }
+
+        // Gets relation.
+        template<typename t> t * get_relation(t * a)
+        {
+            auto it = __relation_map.find(a);
+            if (it == __relation_map.end())
+                return nullptr;
+
+            return (t *)it->second;
+        }
+
+    private:
+        std::map<void *, void *> __relation_map;
+    };
+
+    // Commits generic type.
+    void __general_type_like_base_t::__transform(__transform_context_t & tctx)
+    {
+        if (this->committed())
+            return;
+
+        general_type_t * template_ = tctx.template_;
+
+        _A(template_ != nullptr);
+        _A(template_->committed());
+
+        xpool_t & xpool = tctx.xpool;
+        if (template_ == xpool.get_tuple_type())    // Tuple
+        {
+            __transform_tuple_type(tctx);
+        }
+        else
+        {
+            __transform_members(tctx, template_->fields, fields);
+            __transform_members(tctx, template_->methods, methods);
+            __transform_members(tctx, template_->properties, properties);
+            __transform_members(tctx, template_->events, events);
+            __transform_members(tctx, template_->nest_types, nest_types);
+            __transform_members(tctx, template_->type_defs, type_defs);
+            __transform_members(tctx, template_->super_type_names, super_type_names);
+        }
+    }
+
+    // Transform tuple type.
+    void __general_type_like_base_t::__transform_tuple_type(__tctx_t & tctx)
+    {
+        xpool_t & xpool = tctx.xpool;
+        general_type_t * template_ = tctx.template_;
+        type_collection_t & args = tctx.args;
+
+        // Fields.
+        for (int index = 0, count = args.size(); index < count; index++)
+        {
+            type_t * type = args[index];
+            string_t name = _F(_T("Item%1%"), index + 1);
+
+            position_field_t * new_field = xpool.new_obj<position_field_t>();
+            new_field->position     = index;
+            new_field->name         = xpool.to_name(name.c_str());
+            new_field->type_name    = xpool.new_obj<type_name_t>(type);
+            new_field->init_value   = nullptr;
+            new_field->decorate     = nullptr;
+            new_field->host_type    = this;
+            new_field->variable     = xpool.new_obj<field_variable_t>(new_field);
+
+            fields.push_back(new_field);
+        }
+
+        // Methods.
+        for (method_t * method : template_->methods)
+        {
+            if (method->trait == method_trait_t::constructor)
+            {
+                impl_method_t * new_method = xpool.new_obj<impl_method_t>();
+                new_method->raw = method;
+
+                new_method->owner_type_name = nullptr;
+                new_method->type_name       = nullptr;
+                new_method->generic_params  = nullptr;
+                new_method->name            = method->name;
+                new_method->decorate        = method->decorate;
+                new_method->trait           = method->trait;
+                new_method->host_type       = this;
+                new_method->body            = method->body;
+                new_method->variable        = xpool.new_obj<method_variable_t>(new_method);
+
+                new_method->params = xpool.new_obj<params_t>();
+
+                for (int index = 0, count = args.size(); index < count; index++)
+                {
+                    type_t * type = args[index];
+                    string_t name = _F(_T("item%1%"), index + 1);
+
+                    param_t * new_param = xpool.new_obj<param_t>();
+
+                    new_param->name         = xpool.to_name(name.c_str());
+                    new_param->attributes   = nullptr;
+                    new_param->type_name    = xpool.new_obj<type_name_t>(type);
+                    new_param->ptype        = param_type_t::__default__;
+                    new_param->default_value = nullptr;
+
+                    new_method->params->push_back(new_param);
+                }
+
+                tctx.add_relation(method, new_method);
+                methods.push_back(new_method);
+            }
+            else
+            {
+                method_t * new_method = __transform_member(tctx, method);
+                methods.push_back(new_method);
+            }
+        }
+    }
+
+    // Transform members.
+    template<typename _members_t>
+    void __general_type_like_base_t::__transform_members(__tctx_t & tctx,
+                                    _members_t & members, _members_t & out_members)
+    {
+        typedef typename _members_t::value_type _member_t;
+        for (_member_t member : members)
+        {
+            _member_t new_member = __transform_member(tctx, member);
+            out_members.push_back(new_member);
+        }
+    }
+
+    // Transform a generic type.
+    type_t * __general_type_like_base_t::__transform_generic_type(__tctx_t & tctx,
+                                    generic_type_t * type)
+    {
+        xpool_t & xpool = tctx.xpool;
+
+        type_collection_t type_args;
+        for (type_t * arg_type : type->args)
+        {
+            type_t * new_arg_type = __transform_type(tctx, arg_type);
+            type_args.push_back(new_arg_type);
+        }
+
+        generic_type_t * new_type = xpool.new_generic_type(type->template_, type_args,
+                                                           type->host_type);
+        new_type->decorate  = type->decorate;
+        //new_type->host_type = this;
+
+        return new_type;
+    }
+
+    // Transform type.
+    type_t * __general_type_like_base_t::__transform_type(__tctx_t & tctx, type_t * type)
+    {
+        xpool_t & xpool = tctx.xpool;
+
+        switch (type->this_gtype())
+        {
+            case gtype_t::generic_param:
+                return __type_at(tctx, ((generic_param_t *)type)->name);
+
+            case gtype_t::array: {
+                array_type_t * array_type = (array_type_t *)type;
+                type_t * new_element_type = __transform_type(tctx, array_type->element_type);
+                return xpool.new_array_type(new_element_type, array_type->dimension);
+
+            }   break;
+
+            case gtype_t::generic:
+                return __transform_generic_type(tctx, (generic_type_t *)type);
+
+            default:
+                return type;
+        }
+    }
+
+    // Transform type name.
+    type_name_t * __general_type_like_base_t::__transform_type_name(__tctx_t & tctx,
+                                                        type_name_t * type_name)
+    {
+        xpool_t & xpool = tctx.xpool;
+
+        type_t * type;
+        if (type_name == nullptr || (type = type_name->type) == nullptr)
+            return type_name;
+
+        type_t * new_type = __transform_type(tctx, type);
+        if (type == new_type || new_type == nullptr)
+            return type_name;
+
+        return xpool.new_obj<type_name_t>(new_type);
+    }
+
+    // Transform field.
+    field_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx, field_t * field)
+    {
+        xpool_t & xpool = tctx.xpool;
+
+        impl_field_t * new_field = xpool.new_obj<impl_field_t>();
+        new_field->raw = field;
+
+        new_field->name       = field->name;
+        new_field->type_name  = __transform_type_name(tctx, field->type_name);
+        new_field->attributes = field->attributes;
+        new_field->init_value = field->init_value;
+        new_field->decorate   = field->decorate;
+        new_field->host_type  = this;
+        new_field->variable   = xpool.new_obj<field_variable_t>(new_field);
+
+        return new_field;
+    }
+
+    // Transform method.
+    method_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx, method_t * method)
+    {
+        xpool_t & xpool = tctx.xpool;
+
+        impl_method_t * new_method = xpool.new_obj<impl_method_t>();
+        new_method->raw = method;
+
+        new_method->owner_type_name = __transform_type_name(tctx, method->owner_type_name);
+        new_method->type_name   = __transform_type_name(tctx, method->type_name);
+        new_method->generic_params = method->generic_params;
+        new_method->name        = method->name;
+        new_method->decorate    = method->decorate;
+        new_method->trait       = method->trait;
+        new_method->host_type   = this;
+        new_method->variable    = xpool.new_obj<method_variable_t>(new_method);
+
+        if (method->params != nullptr)
+        {
+            new_method->params = xpool.new_obj<params_t>();
+
+            for (param_t * param : *method->params)
+            {
+                param_t * new_param = xpool.new_obj<param_t>();
+
+                new_param->name = param->name;
+                new_param->attributes = param->attributes;
+                new_param->type_name = __transform_type_name(tctx, param->type_name);
+                new_param->ptype = param->ptype;
+                new_param->default_value = param->default_value;
+
+                new_method->params->push_back(new_param);
+            }
+        }
+
+        tctx.add_relation(method, new_method);
+        return new_method;
+    }
+
+    // Transform property.
+    property_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx,
+                                                                property_t * property)
+    {
+        xpool_t & xpool = tctx.xpool;
+
+        impl_property_t * new_property = xpool.new_obj<impl_property_t>();
+        new_property->raw = property;
+
+        new_property->owner_type_name = __transform_type_name(tctx, property->owner_type_name);
+        new_property->name       = property->name;
+        new_property->type_name  = __transform_type_name(tctx, property->type_name);
+        new_property->attributes = property->attributes;
+        new_property->decorate   = property->decorate;
+        new_property->host_type  = this;
+        new_property->variable   = xpool.new_obj<property_variable_t>(new_property);
+
+        new_property->get_method = tctx.get_relation<method_t>(property->get_method);
+        new_property->set_method = tctx.get_relation<method_t>(property->set_method);
+
+        return new_property;
+    }
+
+    // Transform event.
+    event_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx, event_t * event)
+    {
+        xpool_t & xpool = tctx.xpool;
+
+        impl_event_t * new_event = xpool.new_obj<impl_event_t>();
+        new_event->raw = event;
+
+        new_event->owner_type_name = __transform_type_name(tctx, event->owner_type_name);
+        new_event->type_name  = __transform_type_name(tctx, event->type_name);
+        new_event->attributes = event->attributes;
+        new_event->decorate   = event->decorate;
+        new_event->host_type  = this;
+        new_event->variable   = xpool.new_obj<event_variable_t>(new_event);
+
+        // TODO
+        new_event->add_method = event->add_method;
+        new_event->remove_method = event->remove_method;
+
+        return new_event;
+    }
+
+    // Transform nest type.
+    general_type_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx,
+                                                        type_t * nest_type)
+    {
+        xpool_t & xpool = tctx.xpool;
+        general_type_t * template_ = _M(general_type_t *, nest_type);
+        general_type_t * new_nest_type = xpool.new_obj<general_type_t>();
+
+        new_nest_type->name       = template_->name;
+        new_nest_type->namespace_ = template_->namespace_;
+        new_nest_type->assembly   = template_->assembly;
+        new_nest_type->params     = template_->params;
+        new_nest_type->vtype      = template_->vtype;
+        new_nest_type->ttype      = template_->ttype;
+        new_nest_type->mtype      = template_->mtype;
+        new_nest_type->host_type  = this;
+
+        type_collection_t args;
+        __tctx_t tctx0(tctx.xpool, template_, args);
+        new_nest_type->__transform(tctx0);
+
+        xpool.append_new_type(new_nest_type);
+
+        return new_nest_type;
+    }
+
+    // Transform typedef.
+    type_def_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx,
+                                                                type_def_t * type_def)
+    {
+        xpool_t & xpool = tctx.xpool;
+
+        impl_type_def_t * new_type_def = xpool.new_obj<impl_type_def_t>();
+        new_type_def->raw = type_def;
+
+        new_type_def->type_name = __transform_type_name(tctx, type_def->type_name);
+        new_type_def->name      = type_def->name;
+        new_type_def->params    = type_def->params;
+        new_type_def->decorate  = type_def->decorate;
+        new_type_def->host_type = this;
+
+        return new_type_def;
+    }
+
+    // Transform typename.
+    type_name_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx,
+                                                     type_name_t * type_name)
+    {
+        return __transform_type_name(tctx, type_name);
+    }
+
+    // Returns type of specified name.
+    type_t * __general_type_like_base_t::__type_at(general_type_t * template_,
+                                                type_collection_t & args, name_t name)
+    {
+        if (template_ != nullptr && template_->params != nullptr)
+        {
+            generic_params_t & params = *template_->params;
+            for (size_t index = 0, count = params.size(); index < count; index++)
+            {
+                if (params[index]->name == name)
+                {
+                    if (index < args.size())
+                        return nullptr;
+
+                    return args[index];
+                }
+            }
+        }
+
+        type_t * type = this->host_type;
+        while (type != nullptr)
+        {
+            if (type->this_gtype() == gtype_t::generic)
+                return ((generic_type_t *)type)->type_at(name);
+
+            type = type->host_type;
+        }
+
+        return nullptr;
+    }
+
+    // Returns type of specified name.
+    type_t * __general_type_like_base_t::__type_at(__tctx_t & tctx, name_t name)
+    {
+        return __type_at(tctx.template_, tctx.args, name);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3249,338 +3652,28 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // generic_type_t
 
-    // Context of transform types or members.
-    class generic_type_t::__transform_context_t
+    // Returns type at specified index.
+    type_t * generic_type_t::type_at(size_t index) _NE
     {
-    public:
-        __transform_context_t(xpool_t & xpool) : xpool(xpool) { }
+        if (index >= argument_count())
+            return nullptr;
 
-        xpool_t & xpool;
+        return args[index];
+    }
 
-        // Adds a relation of members.
-        void add_relation(void * a, void * b)
-        {
-            __relation_map[a] = b;
-        }
+    // Returns type of specified name.
+    type_t * generic_type_t::type_at(name_t name)
+    {
+        return __super_t::__type_at(template_, args, name);
+    }
 
-        // Gets relation.
-        template<typename t> t * get_relation(t * a)
-        {
-            auto it = __relation_map.find(a);
-            if (it == __relation_map.end())
-                return nullptr;
-
-            return (t *)it->second;
-        }
-
-    private:
-        std::map<void *, void *> __relation_map;
-    };
-
-    // Commits generic type.
+    // Commits it.
     void generic_type_t::commit(eobject_commit_context_t & ctx)
     {
-        if (this->committed())
-            return;
-
-        _A(template_ != nullptr);
-        _A(template_->committed());
-
-        xpool_t & xpool = ctx.xpool;
-        if (template_ == xpool.get_tuple_type())    // Tuple
-        {
-            __transform_tuple_type(xpool);
-        }
-        else
-        {
-            __transform_context_t tctx(xpool);
-
-            __transform_members(tctx, template_->fields, fields);
-            __transform_members(tctx, template_->methods, methods);
-            __transform_members(tctx, template_->properties, properties);
-            __transform_members(tctx, template_->events, events);
-            __transform_members(tctx, template_->nest_types, nest_types);
-            __transform_members(tctx, template_->type_defs, type_defs);
-            __transform_members(tctx, template_->super_type_names, super_type_names);
-        }
+        __transform_context_t tctx(ctx.xpool, template_, args);
+        __super_t::__transform(tctx);
 
         __super_t::commit(ctx);
-    }
-
-
-    // Transform tuple type.
-    void generic_type_t::__transform_tuple_type(xpool_t & xpool)
-    {
-        __transform_context_t ctx(xpool);
-
-        // Fields.
-        for (int index = 0, count = args.size(); index < count; index++)
-        {
-            type_t * type = args[index];
-            string_t name = _F(_T("Item%1%"), index + 1);
-
-            position_field_t * new_field = xpool.new_obj<position_field_t>();
-            new_field->position     = index;
-            new_field->name         = xpool.to_name(name.c_str());
-            new_field->type_name    = xpool.new_obj<type_name_t>(type);
-            new_field->init_value   = nullptr;
-            new_field->decorate     = nullptr;
-            new_field->host_type    = this;
-            new_field->variable     = xpool.new_obj<field_variable_t>(new_field);
-
-            fields.push_back(new_field);
-        }
-
-        // Methods.
-        for (method_t * method : template_->methods)
-        {
-            if (method->trait == method_trait_t::constructor)
-            {
-                impl_method_t * new_method = ctx.xpool.new_obj<impl_method_t>();
-                new_method->raw = method;
-
-                new_method->owner_type_name = nullptr;
-                new_method->type_name       = nullptr;
-                new_method->generic_params  = nullptr;
-                new_method->name            = method->name;
-                new_method->decorate        = method->decorate;
-                new_method->trait           = method->trait;
-                new_method->host_type       = this;
-                new_method->body            = method->body;
-                new_method->variable        = xpool.new_obj<method_variable_t>(new_method);
-
-                new_method->params = ctx.xpool.new_obj<params_t>();
-
-                for (int index = 0, count = args.size(); index < count; index++)
-                {
-                    type_t * type = args[index];
-                    string_t name = _F(_T("item%1%"), index + 1);
-
-                    param_t * new_param = ctx.xpool.new_obj<param_t>();
-
-                    new_param->name         = xpool.to_name(name.c_str());
-                    new_param->attributes   = nullptr;
-                    new_param->type_name    = xpool.new_obj<type_name_t>(type);
-                    new_param->ptype        = param_type_t::__default__;
-                    new_param->default_value = nullptr;
-
-                    new_method->params->push_back(new_param);
-                }
-
-                ctx.add_relation(method, new_method);
-                methods.push_back(new_method);
-            }
-            else
-            {
-                method_t * new_method = __transform_member(ctx, method);
-                methods.push_back(new_method);
-            }
-        }
-    }
-
-    // Transform members.
-    template<typename _members_t>
-    void generic_type_t::__transform_members(__transform_context_t & ctx,
-                                    _members_t & members, _members_t & out_members)
-    {
-        typedef typename _members_t::value_type _member_t;
-        for (_member_t member : members)
-        {
-            _member_t new_member = __transform_member(ctx, member);
-            out_members.push_back(new_member);
-        }
-    }
-
-    // Transform a generic type.
-    type_t * generic_type_t::__transform_generic_type(xpool_t & xpool, generic_type_t * type)
-    {
-        type_collection_t type_args;
-        for (type_t * arg_type : type->args)
-        {
-            type_t * new_arg_type = __transform_type(xpool, arg_type);
-            type_args.push_back(new_arg_type);
-        }
-
-        generic_type_t * new_type = xpool.new_generic_type(type->template_, type_args,
-                                                           type->host_type);
-        new_type->decorate  = type->decorate;
-        //new_type->host_type = this;
-
-        return new_type;
-    }
-
-    // Transform type.
-    type_t * generic_type_t::__transform_type(xpool_t & xpool, type_t * type)
-    {
-        switch (type->this_gtype())
-        {
-            case gtype_t::generic_param:
-                return type_at(((generic_param_t *)type)->name);
-
-            case gtype_t::array: {
-                array_type_t * array_type = (array_type_t *)type;
-                type_t * new_element_type = __transform_type(xpool, array_type->element_type);
-                return xpool.new_array_type(new_element_type, array_type->dimension);
-
-            }   break;
-
-            case gtype_t::generic:
-                return __transform_generic_type(xpool, (generic_type_t *)type);
-
-            default:
-                return type;
-        }
-    }
-
-    // Transform type name.
-    type_name_t * generic_type_t::__transform_type_name(xpool_t & xpool, type_name_t * type_name)
-    {
-        type_t * type;
-        if (type_name == nullptr || (type = type_name->type) == nullptr)
-            return type_name;
-
-        type_t * new_type = __transform_type(xpool, type);
-        if (type == new_type || new_type == nullptr)
-            return type_name;
-
-        return xpool.new_obj<type_name_t>(new_type);
-    }
-
-    // Transform field.
-    field_t * generic_type_t::__transform_member(__transform_context_t & ctx, field_t * field)
-    {
-        impl_field_t * new_field = ctx.xpool.new_obj<impl_field_t>();
-        new_field->raw = field;
-
-        new_field->name       = field->name;
-        new_field->type_name  = __transform_type_name(ctx.xpool, field->type_name);
-        new_field->attributes = field->attributes;
-        new_field->init_value = field->init_value;
-        new_field->decorate   = field->decorate;
-        new_field->host_type  = this;
-        new_field->variable   = ctx.xpool.new_obj<field_variable_t>(new_field);
-
-        return new_field;
-    }
-
-    // Transform method.
-    method_t * generic_type_t::__transform_member(__transform_context_t & ctx, method_t * method)
-    {
-        impl_method_t * new_method = ctx.xpool.new_obj<impl_method_t>();
-        new_method->raw = method;
-
-        new_method->owner_type_name = __transform_type_name(ctx.xpool, method->owner_type_name);
-        new_method->type_name   = __transform_type_name(ctx.xpool, method->type_name);
-        new_method->generic_params = method->generic_params;
-        new_method->name        = method->name;
-        new_method->decorate    = method->decorate;
-        new_method->trait       = method->trait;
-        new_method->host_type   = this;
-        new_method->variable    = ctx.xpool.new_obj<method_variable_t>(new_method);
-
-        if (method->params != nullptr)
-        {
-            new_method->params = ctx.xpool.new_obj<params_t>();
-
-            for (param_t * param : *method->params)
-            {
-                param_t * new_param = ctx.xpool.new_obj<param_t>();
-
-                new_param->name = param->name;
-                new_param->attributes = param->attributes;
-                new_param->type_name = __transform_type_name(ctx.xpool, param->type_name);
-                new_param->ptype = param->ptype;
-                new_param->default_value = param->default_value;
-
-                new_method->params->push_back(new_param);
-            }
-        }
-
-        ctx.add_relation(method, new_method);
-        return new_method;
-    }
-
-    // Transform property.
-    property_t * generic_type_t::__transform_member(__transform_context_t & ctx,
-                                                    property_t * property)
-    {
-        impl_property_t * new_property = ctx.xpool.new_obj<impl_property_t>();
-        new_property->raw = property;
-
-        new_property->owner_type_name = __transform_type_name(ctx.xpool, property->owner_type_name);
-        new_property->name       = property->name;
-        new_property->type_name  = __transform_type_name(ctx.xpool, property->type_name);
-        new_property->attributes = property->attributes;
-        new_property->decorate   = property->decorate;
-        new_property->host_type  = this;
-        new_property->variable   = ctx.xpool.new_obj<property_variable_t>(new_property);
-
-        new_property->get_method = ctx.get_relation<method_t>(property->get_method);
-        new_property->set_method = ctx.get_relation<method_t>(property->set_method);
-
-        return new_property;
-    }
-
-    // Transform event.
-    event_t * generic_type_t::__transform_member(__transform_context_t & ctx, event_t * event)
-    {
-        impl_event_t * new_event = ctx.xpool.new_obj<impl_event_t>();
-        new_event->raw = event;
-
-        new_event->owner_type_name = __transform_type_name(ctx.xpool, event->owner_type_name);
-        new_event->type_name  = __transform_type_name(ctx.xpool, event->type_name);
-        new_event->attributes = event->attributes;
-        new_event->decorate   = event->decorate;
-        new_event->host_type  = this;
-        new_event->variable   = ctx.xpool.new_obj<event_variable_t>(new_event);
-
-        // TODO
-        new_event->add_method = event->add_method;
-        new_event->remove_method = event->remove_method;
-
-        return new_event;
-    }
-
-    // Transform nest type.
-    type_t * generic_type_t::__transform_member(__transform_context_t & ctx, type_t * nest_type)
-    {
-        general_type_t * template_ = _M(general_type_t *, nest_type);
-
-        type_collection_t type_args;
-        if (template_->params != nullptr)
-        {
-            for (generic_param_t * param : *template_->params)
-                type_args.push_back(param);
-        }
-
-        generic_type_t * new_nest_type = ctx.xpool.new_generic_type(template_, type_args, this);
-        new_nest_type->decorate  = nest_type->decorate;
-        new_nest_type->host_type = this;
-
-        return new_nest_type;
-    }
-
-    // Transform typedef.
-    type_def_t * generic_type_t::__transform_member(__transform_context_t & ctx,
-                                                    type_def_t * type_def)
-    {
-        impl_type_def_t * new_type_def = ctx.xpool.new_obj<impl_type_def_t>();
-        new_type_def->raw = type_def;
-
-        new_type_def->type_name = __transform_type_name(ctx.xpool, type_def->type_name);
-        new_type_def->name      = type_def->name;
-        new_type_def->params    = type_def->params;
-        new_type_def->decorate  = type_def->decorate;
-        new_type_def->host_type = this;
-
-        return new_type_def;
-    }
-
-    // Transform typename.
-    type_name_t * generic_type_t::__transform_member(__transform_context_t & ctx,
-                                                     type_name_t * type_name)
-    {
-        return __transform_type_name(ctx.xpool, type_name);
     }
 
     // Gets the short name of a generic type.
@@ -3621,34 +3714,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return al::any_of(args, [](type_t * t) {
             return t && t->this_gtype() == gtype_t::type_def_param;
         });
-    }
-
-    // Returns type at specified index.
-    type_t * generic_type_t::type_at(size_t index) const _NE
-    {
-        if (index >= argument_count())
-            return nullptr;
-
-        return args[index];
-    }
-
-    // Returns type of specified name.
-    type_t * generic_type_t::type_at(name_t name) const
-    {
-        if (template_ != nullptr && template_->params != nullptr)
-        {
-            generic_params_t & params = *template_->params;
-            for (size_t index = 0, count = params.size(); index < count; index++)
-            {
-                if (params[index]->name == name)
-                    return type_at(index);
-            }
-        }
-
-        if (host_type != nullptr && host_type->this_gtype() == gtype_t::generic)
-            return ((generic_type_t *)host_type)->type_at(name);
-
-        return nullptr;
     }
 
     // Returns identity of a generic type.
@@ -4744,6 +4809,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Converts to string.
+    X_DEFINE_TO_STRING(module_t)
+    {
+        return _T("module");
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // ast_walk_context_layer_t
 
@@ -5234,6 +5305,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         );
     }
 
+    // Commit types.
+    void ast_walk_context_t::commit_types()
+    {
+        xpool.commit_types(logger);
+    }
+
     // Enums each ast nodes.
     void __each_eobjects(ast_node_t * node, std::function<void (eobject_t *)> f)
     {
@@ -5622,6 +5699,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // name_unit_expression_t
+
+    const string_t name_unit_expression_t::to_string() const
+    {
+        return _F(_T("%1%<%2%>"), name, _str(generic_args));
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // type_name_expression_t
 
     // Returns vtype of a type_name expression.
@@ -5804,47 +5889,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return _F(_T("%1%(%2%)"), _str(namex), __to_string(arguments()));
 
         return _F(_T("%1%<%2%>(%3%)"), _str(namex), _str(generic_args), __to_string(arguments()));
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-    // function_name_expression_t
-
-    // Returns vtype.
-    vtype_t function_name_expression_t::get_vtype() const
-    {
-        return vtype_t::mobject_;
-    }
-
-    // Returns type.
-    type_t * function_name_expression_t::get_type(xpool_t & xpool) const
-    {
-        if (variable == nullptr)
-            return nullptr;
-
-        return variable->get_type(xpool);
-    }
-
-    // Gets name.
-    name_t function_name_expression_t::get_name() const
-    {
-        return name;
-    }
-
-    // Sets variable.
-    void function_name_expression_t::set_variable(variable_t * variable)
-    {
-        _A(variable != nullptr);
-
-        this->variable = variable;
-    }
-
-    // Converts to string.
-    const string_t function_name_expression_t::to_string() const
-    {
-        if (generic_args == nullptr)
-            return get_name();
-
-        return _F(_T("%1%<%2%>"), get_name(), generic_args);
     }
 
     ////////// ////////// ////////// ////////// //////////

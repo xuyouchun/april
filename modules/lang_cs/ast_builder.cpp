@@ -64,6 +64,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 __This->append_cvalue(node);
                 break;
 
+            case __AstValue(name_unit):
+                __This->append_name_unit((name_unit_ast_node_t *)node);
+                break;
+
             default:
                 if (is<expression_ast_t *>(node))
                     __This->append_expression(node);
@@ -120,9 +124,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     __OnCompleted(type_name, args) { }
 
     ////////// ////////// ////////// ////////// //////////
-    // type_name_unit
+    // name_unit
 
-    __ApplyToken(type_name_unit, token, args)
+    __ApplyToken(name_unit, token, args)
     {
         switch (token->value)
         {
@@ -132,7 +136,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
     }
 
-    __ApplyAst(type_name_unit, node, args)
+    __ApplyAst(name_unit, node, args)
     {
         switch (node->value())
         {
@@ -142,7 +146,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
     }
 
-    __OnCompleted(type_name_unit, args) { }
+    __OnCompleted(name_unit, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // general_type_name
@@ -237,7 +241,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     {
         switch (node->value())
         {
-            case __AstValue(type_name_unit):
+            case __AstValue(name_unit):
                 __This->append_child(__Type::units, node);
                 break;
         }
@@ -919,6 +923,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 __This->append_cvalue(node);
                 break;
 
+            case __AstValue(name_unit):
+                __This->append_name_unit((name_unit_ast_node_t *)node);
+                break;
+
             default:
                 if (is<expression_ast_t *>(node))
                     __This->append_expression(node);
@@ -1027,31 +1035,6 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     __OnCompleted(function, args) { }
-
-    ////////// ////////// ////////// ////////// //////////
-    // function_name
-
-    __ApplyToken(function_name, token, args)
-    {
-        switch (token->value)
-        {
-            case __TokenValue(name):
-                __This->set_name(this->__to_name(token), token);
-                break;
-        }
-    }
-
-    __ApplyAst(function_name, node, args)
-    {
-        switch (node->value())
-        {
-            case __AstValue(generic_args):
-                __This->set_child(__Type::generic_args, node);
-                break;
-        }
-    }
-
-    __OnCompleted(function_name, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // index

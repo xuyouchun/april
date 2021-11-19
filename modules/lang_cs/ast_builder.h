@@ -48,9 +48,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         auto __to_name_unit_ast(const string_t & name)
         {
-            const ast_value_t value = (ast_value_t)cs_branch_type_t::type_name_unit;
-            return this->template __to_ast<value, type_name_unit_t>(
-                type_name_unit_t(this->__to_name(name), nullptr)
+            const ast_value_t value = (ast_value_t)cs_branch_type_t::name_unit;
+            return this->template __to_ast<value, name_unit_t>(
+                name_unit_t(this->__to_name(name), nullptr)
             );
         }
     };
@@ -115,11 +115,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     __SimpleBuilder(type_name)
 
     ////////// ////////// ////////// ////////// //////////
-    // type_name_unit
+    // name_unit
 
-    __Builder(type_name_unit)
-
-    __EndBuilder
+    __SimpleBuilder(name_unit)
 
     ////////// ////////// ////////// ////////// //////////
     // general_type_name
@@ -294,11 +292,6 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // function
 
     __SimpleBuilder(function)
-
-    ////////// ////////// ////////// ////////// //////////
-    // function_name
-
-    __SimpleBuilder(function_name)
 
     ////////// ////////// ////////// ////////// //////////
     // index

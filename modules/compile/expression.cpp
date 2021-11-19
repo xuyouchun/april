@@ -1869,22 +1869,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool);
 
     ////////// ////////// ////////// ////////// //////////
-    // function_name_expression_t
-
-    // Executes function expression.
-    cvalue_t __sys_t<function_name_expression_t>::execute(expression_execute_context_t & ctx)
-    {
-        return __super_t::execute(ctx);
-    }
-    
-    // Compiles function name expression.
-    void __sys_t<function_name_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
-                                                                        xil_type_t dtype)
-    {
-        // Do nothing.
-    }
-
-    ////////// ////////// ////////// ////////// //////////
     // type_cast_expression_t
 
     // Executes type cast expression.

@@ -74,7 +74,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         general_type_name,          // General type name.
 
-        type_name_unit,             // Type name unit, e.g. Text in System.Text.
+        name_unit,                  // Name unit, e.g. Text in System.Text.
 
         array_type_name,            // Array type name, e.g. Int32[].
 
@@ -225,7 +225,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                                                         \
         general_type_name   =   __X_BRANCH_ENUM_ITEM(general_type_name),                \
                                                                                         \
-        type_name_unit      =   __X_BRANCH_ENUM_ITEM(type_name_unit),                   \
+        name_unit           =   __X_BRANCH_ENUM_ITEM(name_unit),                        \
                                                                                         \
         uncertain_type_name =   __X_BRANCH_ENUM_ITEM(uncertain_type_name),              \
                                                                                         \
@@ -353,7 +353,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_C(namespace_,             _T("namespace"))                                    \
         X_C(array_type_name,        _T("array_type_name"))                              \
         X_C(general_type_name,      _T("general_type_name"))                            \
-        X_C(type_name_unit,         _T("type_name_unit"))                               \
+        X_C(name_unit,              _T("name_unit"))                                    \
         X_C(uncertain_type_name,    _T("uncertain_type_name"))                          \
         X_C(type_def_param,         _T("type_def_param"))                               \
         X_C(type_def_params,        _T("type_def_params"))                              \
@@ -756,17 +756,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             // Creates new object.
-            template<typename t, typename ... args_t>
-            t * __new_obj(args_t && ... args)
+            template<typename _t, typename ... _args_t>
+            _t * __new_obj(_args_t && ... args)
             {
-                return __context.compile_context.new_obj<t>(std::forward<args_t>(args) ...);
+                return __context.compile_context.new_obj<_t>(std::forward<_args_t>(args) ...);
             }
 
             // Creates a new system expression.
-            template<typename _exp_t, typename ... args_t>
-            system_expression_t<_exp_t> * __new_system_expression(args_t && ... args)
+            template<typename _exp_t, typename ... _args_t>
+            system_expression_t<_exp_t> * __new_system_expression(_args_t && ... args)
             {
-                return __new_obj<system_expression_t<_exp_t>>(std::forward<args_t>(args) ...);
+                return __new_obj<system_expression_t<_exp_t>>(std::forward<_args_t>(args) ...);
+            }
+
+            template<typename _exp_t, typename ... _args_t>
+            __wexp_t<_exp_t> * __new_wexp(_args_t && ... args)
+            {
+                return __new_obj<__wexp_t<_exp_t>>(std::forward<_args_t>(args) ...);
             }
 
             // Creates a new constant expression.
@@ -779,11 +785,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             // Creates a new expression statement.
-            template<typename _exp_t, typename ... args_t>
-            statement_t * __new_expression_statement(args_t && ... args)
+            template<typename _exp_t, typename ... _args_t>
+            statement_t * __new_expression_statement(_args_t && ... args)
             {
                 return __new_obj<expression_statement_t>(
-                    __new_system_expression<_exp_t>(std::forward<args_t>(args) ...)
+                    __new_system_expression<_exp_t>(std::forward<_args_t>(args) ...)
                 );
             }
 
@@ -856,11 +862,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             // Logs message.
-            template<typename _code_element_t, typename ... args_t>
-            void __log(_code_element_t * element, args_t && ... args)
+            template<typename _code_element_t, typename ... _args_t>
+            void __log(_code_element_t * element, _args_t && ... args)
             {
                 xlogger_t(__context.logger).logf(
-                    as<code_element_t *>(element), std::forward<args_t>(args) ...
+                    as<code_element_t *>(element), std::forward<_args_t>(args) ...
                 );
             }
 
@@ -937,12 +943,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
 
             // Checks whether it's empty.
-            template<typename t, typename _log_code_t, typename ... args_t>
-            bool __check_empty(const t & value, __el_t * el, _log_code_t code, args_t && ... args)
+            template<typename t, typename _log_code_t, typename ... _args_t>
+            bool __check_empty(const t & value, __el_t * el, _log_code_t code, _args_t && ... args)
             {
                 if (__is_empty_value(value))
                 {
-                    __log(el? el : (__el_t *)this, code, std::forward<args_t>(args) ...);
+                    __log(el? el : (__el_t *)this, code, std::forward<_args_t>(args) ...);
                     return false;
                 }
 
@@ -1003,9 +1009,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructors.
-        template<typename ... args_t>
-        node_wrapper_t(ast_context_t & context, args_t && ... args)
-            : __base_t(std::forward<args_t>(args) ...), __utils_t(context)
+        template<typename ... _args_t>
+        node_wrapper_t(ast_context_t & context, _args_t && ... args)
+            : __base_t(std::forward<_args_t>(args) ...), __utils_t(context)
         { }
 
         // Returns index.
@@ -1028,12 +1034,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Sets child with check.
-        template<typename code_t, typename ... args_t>
+        template<typename code_t, typename ... _args_t>
         void set_child_with_check(__index_t index, __node_t * node,
-                                    code_t duplicate_code, args_t && ... args)
+                                    code_t duplicate_code, _args_t && ... args)
         {
             if (has_child(index))
-                this->__log(node, duplicate_code, std::forward<args_t>(args) ...);
+                this->__log(node, duplicate_code, std::forward<_args_t>(args) ...);
             else
                 this->set_child(index, node);
         }
@@ -1311,8 +1317,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef __mname_ast_node_t __super_t;
 
     public:
-        template<typename ... args_t>
-        mname_ast_node_t(args_t && ... args) : __super_t(std::forward<args_t>(args) ...)
+        template<typename ... _args_t>
+        mname_ast_node_t(_args_t && ... args) : __super_t(std::forward<_args_t>(args) ...)
         {
             new ((void *)__mname) mname_t();
         }
@@ -1409,17 +1415,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
-    // type_name_unit_t
+    // name_unit_t
 
-    // Typename unit.
-    struct type_name_unit_t : public eobject_t
+    // Name unit.
+    struct name_unit_t : public eobject_t
     {
         // Constructor.
-        type_name_unit_t() = default;
-        type_name_unit_t(const name_t & name, generic_args_t * args = nullptr)
+        name_unit_t() = default;
+        name_unit_t(const name_t & name, generic_args_t * args = nullptr)
             : name(name), args(args) { }
 
-        typedef type_name_unit_t * itype_t;
+        typedef name_unit_t * itype_t;
 
         name_t           name    = name_t::null;    // Name
         generic_args_t * args    = nullptr;         // Arguments.
@@ -1473,7 +1479,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         bool is_no_specialization() const { return !args || al::all_of_empty(*args); }
     };
 
-    typedef eobject_ast_t<typename type_name_unit_t::itype_t> type_name_unit_ast_t;
+    typedef eobject_ast_t<typename name_unit_t::itype_t> name_unit_ast_t;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1494,7 +1500,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class general_type_name_t : public type_name_t
     {
     public:
-        typedef al::svector_t<type_name_unit_t *, 3> unit_list_t;
+        typedef al::svector_t<name_unit_t *, 3> unit_list_t;
         typedef typename unit_list_t::iterator unit_iterator_t;
 
         // Typename units.
@@ -1515,7 +1521,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns whether it's equals to a string.
         template<size_t n> bool equals(const char_t (&s)[n])
         {
-            type_name_unit_t * unit;
+            name_unit_t * unit;
 
             return units.size() == 1 && (unit = units[0]) != nullptr
                 && al::equals(((sid_t)unit->name).c_str(), s);
@@ -1649,20 +1655,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Typename unit.
-    Ast(type_name_unit, __xcvalue_t::type_name_unit)
+    Ast(name_unit, __xcvalue_t::name_unit)
 
         // Generic arguments.
         generic_args,
 
-    EndAst(type_name_unit)
+    EndAst(name_unit)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Typename unit ast node.
-    class type_name_unit_ast_node_t : public __type_name_unit_ast_node_t
-                                    , public type_name_unit_ast_t
+    class name_unit_ast_node_t : public __name_unit_ast_node_t
+                               , public name_unit_ast_t
     {
-        typedef __type_name_unit_ast_node_t __super_t;
+        typedef __name_unit_ast_node_t __super_t;
 
     public:
         using __super_t::__super_t;
@@ -1674,13 +1680,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void on_commit() override;
 
         // Returns eobject.
-        virtual type_name_unit_t * to_eobject() override;
+        virtual name_unit_t * to_eobject() override;
 
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<type_name_unit_t> __type_name_unit;
+        __w_t<name_unit_t> __name_unit;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2564,6 +2570,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Appends name.
         void append_name(name_t name, token_t * token);
 
+        // Appends name unit.
+        void append_name_unit(name_unit_ast_node_t * node);
+
         // Appends expression.
         void append_expression(ast_node_t * node);
 
@@ -2801,7 +2810,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void on_commit() override;
 
         // Returns this eobject.
-        type_t * to_eobject() override;
+        general_type_t * to_eobject() override;
 
         // Walks this node.
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
@@ -3675,44 +3684,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
-    // function_name
-
-    // Function name
-    Ast(function_name, __xcvalue_t::function_name)
-
-        // Generic arguments.
-        generic_args,
-
-    EndAst(function_name)
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    // Function name ast node.
-    class function_name_ast_node_t : public __function_name_ast_node_t
-                                   , public expression_ast_t
-    {
-        typedef __function_name_ast_node_t __super_t;
-
-    public:
-        using __function_name_ast_node_t::__function_name_ast_node_t;
-
-        // Sets name.
-        void set_name(name_t name, __el_t * el);
-
-        // Commits this node.
-        virtual void on_commit() override;
-
-        // Returns this eobject.
-        virtual expression_t * to_eobject() override;
-
-        // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<function_name_expression_t> __expression;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
     // index
 
     // Index.
@@ -4193,8 +4164,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        template<typename ... args_t>
-        asts_node_t(ast_context_t & context, args_t && ... args)
+        template<typename ... _args_t>
+        asts_node_t(ast_context_t & context, _args_t && ... args)
             : __utils_t(context) { }
 
         // Walks this node.
