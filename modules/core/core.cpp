@@ -1662,12 +1662,137 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Type transform, __transform_func_t is type_t * (name_t)
+    template<typename __transform_func_t>
+    class __type_transform_t
+    {
+    public:
+        __type_transform_t(xpool_t & xpool, __transform_func_t & func)
+            : __xpool(xpool), __func(func)
+        { }
+        
+        type_t * transform_type(type_t * type)
+        {
+            switch (type->this_gtype())
+            {
+                case gtype_t::generic_param:
+                    return __type_at(((generic_param_t *)type)->name);
+
+                case gtype_t::array: {
+                    array_type_t * array_type = (array_type_t *)type;
+                    type_t * new_element_type = transform_type(array_type->element_type);
+                    return __xpool.new_array_type(new_element_type, array_type->dimension);
+
+                }   break;
+
+                case gtype_t::generic:
+                    return __transform_generic_type((generic_type_t *)type);
+
+                default:
+                    return type;
+            }
+        }
+
+        type_name_t * transform_type_name(type_name_t * type_name)
+        {
+            type_t * type;
+            if (type_name == nullptr || (type = type_name->type) == nullptr)
+                return type_name;
+
+            type_t * new_type = transform_type(type);
+            if (type == new_type || new_type == nullptr)
+                return type_name;
+
+            return __xpool.to_type_name(new_type);
+        }
+
+    private:
+        xpool_t &            __xpool;
+        __transform_func_t & __func;
+
+        type_t * __type_at(name_t name)
+        {
+            return __func(name);
+        }
+
+        // Transform a generic type.
+        type_t * __transform_generic_type(generic_type_t * type)
+        {
+            type_collection_t type_args;
+            al::transform(type->args, std::back_inserter(type_args),
+                [this](type_t * arg_type) { return transform_type(arg_type); }
+            );
+
+            generic_type_t * new_type = __xpool.new_generic_type(
+                type->template_, type_args, type->host_type
+            );
+
+            new_type->decorate  = type->decorate;
+            new_type->host_type = nullptr;
+
+            return new_type;
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // impl_method_t
 
     // Returns param type of specified index.
     type_t * impl_method_t::get_param_type(int index) const
     {
         return method_t::get_param_type(index);
+    }
+
+    // Builds with generic args.
+    void impl_method_t::build(xpool_t & xpool, method_t * raw, type_collection_t & args)
+    {
+        auto type_at = [&](name_t name) -> type_t * {
+
+            for (size_t index = 0, count = raw->generic_param_count(); index < count; index++)
+            {
+                generic_param_t * gp = (*raw->generic_params)[index];
+
+                if (gp->name == name)
+                    return args[index];
+            }
+
+            X_UNEXPECTED();
+        };
+
+        __type_transform_t<decltype(type_at)> transformer(xpool, type_at);
+
+        _A(raw != nullptr);
+        _A(raw->generic_param_count() == args.size());
+
+        this->raw = raw;
+
+        this->owner_type_name = raw->owner_type_name;
+        this->type_name   = transformer.transform_type_name(raw->type_name);
+        this->generic_params = raw->generic_params;
+        this->name        = raw->name;
+        this->decorate    = raw->decorate;
+        this->trait       = raw->trait;
+        this->host_type   = raw->host_type;
+        this->variable    = xpool.new_obj<method_variable_t>(this);
+
+        if (raw->params != nullptr)
+        {
+            this->params = xpool.new_obj<params_t>();
+
+            for (param_t * param : *raw->params)
+            {
+                param_t * new_param = xpool.new_obj<param_t>();
+
+                new_param->name = param->name;
+                new_param->attributes = param->attributes;
+                new_param->type_name = transformer.transform_type_name(param->type_name);
+                new_param->ptype = param->ptype;
+                new_param->default_value = param->default_value;
+
+                this->params->push_back(new_param);
+            }
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3008,11 +3133,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Context of transform types or members.
-    class __general_type_like_base_t::__transform_context_t
+    class __general_type_like_base_t::__transform_context_t : no_copy_ctor_t
     {
+        typedef __transform_context_t __self_t;
+        typedef __type_transform_t<__self_t> __this_type_transform_t;
+
     public:
-        __transform_context_t(xpool_t & xpool, general_type_t * template_, type_collection_t & args)
-            : xpool(xpool), template_(template_), args(args) { }
+        __transform_context_t(xpool_t & xpool, __general_type_like_base_t * owner_object,
+                general_type_t * template_, type_collection_t & args)
+            : xpool(xpool), template_(template_), __owner_object(owner_object), args(args)
+            , __type_transform(xpool, *this) { }
 
         xpool_t           & xpool;
         general_type_t    * template_;
@@ -3034,8 +3164,28 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return (t *)it->second;
         }
 
+        type_t * operator() (name_t name)
+        {
+            return __type_at(name);
+        }
+
+        type_name_t * transform_type_name(type_name_t * type_name)
+        {
+            return __type_transform.transform_type_name(type_name);
+        }
+
     private:
-        std::map<void *, void *> __relation_map;
+        std::map<void *, void *>     __relation_map;
+        __this_type_transform_t      __type_transform;
+        type_t *                     __host_type;
+        __general_type_like_base_t * __owner_object;
+
+
+        // Returns type of specified name.
+        type_t * __type_at(name_t name)
+        {
+            return __owner_object->__type_at(template_, args, name);
+        }
     };
 
     // Commits generic type.
@@ -3138,6 +3288,35 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
+    // Returns type of specified name.
+    type_t * __general_type_like_base_t::__type_at(general_type_t * template_,
+                                                   type_collection_t & args, name_t name)
+    {
+        if (template_ != nullptr && template_->params != nullptr && args.size() > 0)
+        {
+            generic_params_t & params = *template_->params;
+            for (size_t index = 0, count = params.size(); index < count; index++)
+            {
+                if (params[index]->name == name)
+                {
+                    _A( index < args.size() );
+                    return args[index];
+                }
+            }
+        }
+
+        type_t * type = this->host_type;
+        while (type != nullptr)
+        {
+            if (type->this_gtype() == gtype_t::generic)
+                return ((generic_type_t *)type)->type_at(name);
+
+            type = type->host_type;
+        }
+
+        return nullptr;
+    }
+
     // Transform members.
     template<typename _members_t>
     void __general_type_like_base_t::__transform_members(__tctx_t & tctx,
@@ -3151,67 +3330,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
-    // Transform a generic type.
-    type_t * __general_type_like_base_t::__transform_generic_type(__tctx_t & tctx,
-                                    generic_type_t * type)
-    {
-        xpool_t & xpool = tctx.xpool;
-
-        type_collection_t type_args;
-        for (type_t * arg_type : type->args)
-        {
-            type_t * new_arg_type = __transform_type(tctx, arg_type);
-            type_args.push_back(new_arg_type);
-        }
-
-        generic_type_t * new_type = xpool.new_generic_type(type->template_, type_args,
-                                                           type->host_type);
-        new_type->decorate  = type->decorate;
-        //new_type->host_type = this;
-
-        return new_type;
-    }
-
-    // Transform type.
-    type_t * __general_type_like_base_t::__transform_type(__tctx_t & tctx, type_t * type)
-    {
-        xpool_t & xpool = tctx.xpool;
-
-        switch (type->this_gtype())
-        {
-            case gtype_t::generic_param:
-                return __type_at(tctx, ((generic_param_t *)type)->name);
-
-            case gtype_t::array: {
-                array_type_t * array_type = (array_type_t *)type;
-                type_t * new_element_type = __transform_type(tctx, array_type->element_type);
-                return xpool.new_array_type(new_element_type, array_type->dimension);
-
-            }   break;
-
-            case gtype_t::generic:
-                return __transform_generic_type(tctx, (generic_type_t *)type);
-
-            default:
-                return type;
-        }
-    }
-
-    // Transform type name.
+    // Transform typename to its implemenation with type arguments.
     type_name_t * __general_type_like_base_t::__transform_type_name(__tctx_t & tctx,
-                                                        type_name_t * type_name)
+                                                            type_name_t * type_name)
     {
-        xpool_t & xpool = tctx.xpool;
-
-        type_t * type;
-        if (type_name == nullptr || (type = type_name->type) == nullptr)
-            return type_name;
-
-        type_t * new_type = __transform_type(tctx, type);
-        if (type == new_type || new_type == nullptr)
-            return type_name;
-
-        return xpool.new_obj<type_name_t>(new_type);
+        return tctx.transform_type_name(type_name);
     }
 
     // Transform field.
@@ -3269,6 +3392,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         tctx.add_relation(method, new_method);
+
         return new_method;
     }
 
@@ -3335,7 +3459,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         new_nest_type->host_type  = this;
 
         type_collection_t args;
-        __tctx_t tctx0(tctx.xpool, template_, args);
+        __tctx_t tctx0(tctx.xpool, this, template_, args);
         new_nest_type->__transform(tctx0);
 
         xpool.append_new_type(new_nest_type);
@@ -3368,42 +3492,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __transform_type_name(tctx, type_name);
     }
 
-    // Returns type of specified name.
-    type_t * __general_type_like_base_t::__type_at(general_type_t * template_,
-                                                type_collection_t & args, name_t name)
-    {
-        if (template_ != nullptr && template_->params != nullptr)
-        {
-            generic_params_t & params = *template_->params;
-            for (size_t index = 0, count = params.size(); index < count; index++)
-            {
-                if (params[index]->name == name)
-                {
-                    if (index < args.size())
-                        return nullptr;
-
-                    return args[index];
-                }
-            }
-        }
-
-        type_t * type = this->host_type;
-        while (type != nullptr)
-        {
-            if (type->this_gtype() == gtype_t::generic)
-                return ((generic_type_t *)type)->type_at(name);
-
-            type = type->host_type;
-        }
-
-        return nullptr;
-    }
-
-    // Returns type of specified name.
-    type_t * __general_type_like_base_t::__type_at(__tctx_t & tctx, name_t name)
-    {
-        return __type_at(tctx.template_, tctx.args, name);
-    }
 
     ////////// ////////// ////////// ////////// //////////
     // default_type_impl_t
@@ -3670,7 +3758,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Commits it.
     void generic_type_t::commit(eobject_commit_context_t & ctx)
     {
-        __transform_context_t tctx(ctx.xpool, template_, args);
+        __transform_context_t tctx(ctx.xpool, this, template_, args);
         __super_t::__transform(tctx);
 
         __super_t::commit(ctx);

@@ -8,16 +8,10 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        /*
-        int a = 10, b = 20;
-        int c = a + b;
+        // var func2 = MyClass<int>.Nest<long>.Add;
+        var func3 = MyClass.Add<long>;
 
-        Console.WriteLine(c);
-        */
-
-        // var func1 = MyClass3.Nest.Add;
-
-        var func2 = MyClass<int>.Nest<long>.Add;
+        // var func4 = MyClass<int>.Nest<long>.Add2<short>;
     }
 };
 
@@ -36,6 +30,11 @@ class MyClass<T1>
     class Nest<T2>
     {
         public static int Add(T1 a, T2 b)
+        {
+            return 0;
+        }
+
+        public static int Add2<T>(T a, T b)
         {
             return 0;
         }

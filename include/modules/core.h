@@ -3028,6 +3028,43 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     //-------- ---------- ---------- ---------- ----------
+    // typex_t
+
+    struct typex_t : compare_operators_t<typex_t, void *>
+    {
+        typedef generic_arg_type_t __gatype_t;
+
+        typex_t() _NE : __v(nullptr) { }
+        typex_t(type_t * type) _NE : __v(type) { }
+        typex_t(type_t * type, __gatype_t atype) _NE : __v(al::incorp(type, atype)) { }
+        typex_t(param_t * param) : __v(al::incorp(param->get_type(), param->ptype)) { }
+
+        type_t *  type() const _NE     { return incorp_p((type_t *)__v);  }
+        __gatype_t atype() const _NE   { return incorp_v<__gatype_t>(__v); }
+        param_type_t ptype() const _NE { return (param_type_t)atype(); }
+
+        operator type_t * () const _NE     { return type(); }
+        operator __gatype_t () const _NE   { return atype(); }
+        operator param_type_t () const _NE { return ptype(); }
+        operator void *   () const _NE     { return __v; }
+
+        // Converts to string.
+        operator string_t() const;
+
+    private:
+        void * __v;
+    };
+
+    // Type collection.
+    typedef __vector_t<typex_t> type_collection_t;
+
+    // Converts generic arguments to a type collection.
+    type_collection_t to_type_collection(generic_args_t * args);
+
+    // Fill generic arguments to a type collection.
+    void fill_type_collection(type_collection_t & tc, generic_args_t * args);
+
+    //-------- ---------- ---------- ---------- ----------
 
     // Context for compile a method.
     class method_compile_context_t : public object_t, public no_copy_ctor_t
@@ -3211,49 +3248,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns param type of specified index.
         virtual type_t * get_param_type(int index) const override;
 
+        // Builds with generic args.
+        void build(xpool_t & xpool, method_t * raw, type_collection_t & args);
+
         // Returns this family.
         virtual member_family_t this_family() const override
         {
             return member_family_t::impl;
         }
     };
-
-    //-------- ---------- ---------- ---------- ----------
-    // typex_t
-
-    struct typex_t : compare_operators_t<typex_t, void *>
-    {
-        typedef generic_arg_type_t __gatype_t;
-
-        typex_t() _NE : __v(nullptr) { }
-        typex_t(type_t * type) _NE : __v(type) { }
-        typex_t(type_t * type, __gatype_t atype) _NE : __v(al::incorp(type, atype)) { }
-        typex_t(param_t * param) : __v(al::incorp(param->get_type(), param->ptype)) { }
-
-        type_t *  type() const _NE     { return incorp_p((type_t *)__v);  }
-        __gatype_t atype() const _NE   { return incorp_v<__gatype_t>(__v); }
-        param_type_t ptype() const _NE { return (param_type_t)atype(); }
-
-        operator type_t * () const _NE     { return type(); }
-        operator __gatype_t () const _NE   { return atype(); }
-        operator param_type_t () const _NE { return ptype(); }
-        operator void *   () const _NE     { return __v; }
-
-        // Converts to string.
-        operator string_t() const;
-
-    private:
-        void * __v;
-    };
-
-    // Type collection.
-    typedef __vector_t<typex_t> type_collection_t;
-
-    // Converts generic arguments to a type collection.
-    type_collection_t to_type_collection(generic_args_t * args);
-
-    // Fill generic arguments to a type collection.
-    void fill_type_collection(type_collection_t & tc, generic_args_t * args);
 
     //-------- ---------- ---------- ---------- ----------
     // generic_method_t
@@ -3911,14 +3914,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename _members_t>
         void __transform_members(__tctx_t & tctx, _members_t & members, _members_t & out_members);
 
-        // Transform type to its implemenation with type arguments.
-        type_t *      __transform_type(__tctx_t & tctx, type_t * type);
-
         // Transform typename to its implemenation with type arguments.
         type_name_t * __transform_type_name(__tctx_t & tctx, type_name_t * type_name);
-
-        // Transform type to its implemenation with type arguments.
-        type_t *      __transform_generic_type(__tctx_t & tctx, generic_type_t * type);
 
         // Transform field to its implemenation with type arguments.
         field_t *     __transform_member(__tctx_t & tctx, field_t * field);
@@ -3943,9 +3940,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Transform tuple type.
         void __transform_tuple_type(__tctx_t & tctx); 
-
-        // Returns type of specified name.
-        type_t * __type_at(__tctx_t & tctx, name_t name);
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -88,6 +88,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Name unit expression.
+    __SystemExpressionT(name_unit_expression_t)
+
+        // Execute the expression.
+        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+
+        // Compile the expression.
+        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
+            xil_type_t dtype) override;
+
+    __EndSystemExpressionT
+
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Constant value expression.
     __SystemExpressionT(cvalue_expression_t)
 

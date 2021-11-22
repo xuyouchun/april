@@ -1629,6 +1629,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // name_unit_expression_t
+
+    // Executes name expression.
+    cvalue_t __sys_t<name_unit_expression_t>::execute(expression_execute_context_t & ctx)
+    {
+        return __super_t::execute(ctx);
+    }
+
+    // Compiles name unit expression.
+    void __sys_t<name_unit_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
+                                                                  xil_type_t dtype)
+    {
+        if (!__is_this_effective(this))
+            return;
+
+        switch (this->expression_type)
+        {
+            case name_expression_type_t::variable:
+                __compile_variable(ctx, pool, this->variable, dtype, this);
+                break;
+
+            case name_expression_type_t::type:
+            case name_expression_type_t::type_def:
+                break;
+
+            default:
+                _PP(this->expression_type);
+                X_UNEXPECTED();
+        }
+    }
+
+
+    ////////// ////////// ////////// ////////// //////////
     // cvalue_expression_t
 
     // Executes value expression.

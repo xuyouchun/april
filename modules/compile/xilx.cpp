@@ -351,7 +351,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     static method_variable_t * __try_fetch_method_variable(expression_t * exp)
     {
-        _A(exp->this_family() == expression_family_t::name);
+        typedef expression_family_t ef_t;
+        _A(al::in(exp->this_family(), ef_t::name, ef_t::name_unit));
 
         name_expression_t * name_exp = (name_expression_t *)exp;
         if (name_exp->expression_type == name_expression_type_t::variable)
@@ -367,7 +368,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static method_variable_t * __try_fetch_method_variable(expression_t * exp,
                                                            expression_t ** out_instance)
     {
-        expression_t * out_instance_;
         expression_family_t family = exp->this_family();
 
         if (family == expression_family_t::name)
@@ -378,9 +378,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (family == expression_family_t::binary)
         {
+            typedef expression_family_t ef_t;
+
             binary_expression_t * binary_exp = (binary_expression_t *)exp;
             if (binary_exp->op() == operator_t::member_point &&
-                binary_exp->exp2()->this_family() == expression_family_t::name)
+                al::in(binary_exp->exp2()->this_family(), ef_t::name, ef_t::name_unit))
             {
                 method_variable_t * variable = __try_fetch_method_variable(binary_exp->exp2());
                 al::assign(out_instance, binary_exp->exp1());
@@ -408,6 +410,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (method_var != nullptr)
         {
+            _PP( method_var );
+
             xpool_t & xpool = __xpool(ctx);
 
             expression_compile_context_t cctx(ctx);
@@ -419,6 +423,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __compile_expression(ctx, pool, instance);
 
             type_t * delegate_type = local->get_type(__xpool(ctx));
+            _PP(delegate_type);
 
             // TODO: check delegate prototype.
 
@@ -428,7 +433,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             analyze_member_args_t args(member_type_t::method, name_t::null, &atypes);
             args.method_trait = method_trait_t::constructor;
-            _PP(delegate_type);
             method_t * constructor = (method_t *)delegate_type->get_member(args);
             _A(constructor != nullptr);
 

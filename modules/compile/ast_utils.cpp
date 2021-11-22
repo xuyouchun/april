@@ -1283,7 +1283,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             try
             {
                 *out_member = type->get_member(args);
-                _PP(*out_member);
 
                 if (*out_member == nullptr)
                 {
@@ -1303,6 +1302,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     );
 
                     member = __xpool(__cctx).new_generic_type(template_, args, type);
+
                     __wctx.commit_types();
                 }
 
@@ -1398,17 +1398,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Walks method.
         __exp2_walked_t __walk_fieldx(type_t * type, name_unit_expression_t * name_unit_exp)
         {
-            _P(_T("__walk_fieldx_name_unit"), type, name_unit_exp);
-
             member_t * member;
             if (!__try_get_member(type, name_unit_exp, &member))
                 return __exp2_walked_t::no;
 
             switch (member->this_type())
             {
-                case member_type_t::method:
-                    _P(_T("---------- haha"), member);
-                    break;
+                case member_type_t::method: {
+                    xpool_t & xpool = __xpool(__cctx);
+                    method_t * method = (method_t *)member;
+
+                    impl_method_t * impl_method = xpool.new_obj<impl_method_t>();
+                    type_collection_t types;
+                    fill_type_collection(types, name_unit_exp->generic_args);
+                    impl_method->build(xpool, method, types);
+
+                    name_unit_exp->set(impl_method->variable);
+
+                }   break;
 
                 case member_type_t::type:
                     name_unit_exp->set((type_t *)member);
