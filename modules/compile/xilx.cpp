@@ -410,17 +410,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (method_var != nullptr)
         {
-            _PP( method_var );
-
             xpool_t & xpool = __xpool(ctx);
 
             expression_compile_context_t cctx(ctx);
             __push_variable_address(cctx, pool, local);
 
+            // Pushes instance.
             if (instance == nullptr)
                 pool.append<x_push_null_xil_t>();
             else
                 __compile_expression(ctx, pool, instance);
+
+            // Pushes method info.
+            pool.append<x_push_null_xil_t>();
+            _PP(method_var);
 
             type_t * delegate_type = local->get_type(__xpool(ctx));
             _PP(delegate_type);

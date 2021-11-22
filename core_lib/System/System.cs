@@ -169,7 +169,7 @@ public struct Delegate<TReturn, TArgs ...>
     public Delegate(Object instance, Method method)
     {
         __instance = instance;
-        __method = method;
+        __method   = method;
     }
 
     private readonly Object __instance;

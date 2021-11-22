@@ -332,11 +332,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(constant,       _T("constant"))
 
-        X_C(local_addr,      _T("local_addr"))
+        X_C(local_addr,     _T("local_addr"))
 
         X_C(argument_addr,  _T("argument_addr"))
 
         X_C(field_addr,     _T("field_addr"))
+
+        X_C(object,         _T("object"))
 
         X_C(params,         _T("params"))
 
@@ -345,6 +347,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_C(array_element_addr, _T("array_element_addr"))
 
         X_C(duplicate,      _T("duplicate"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+    // Object type
+
+    X_ENUM_INFO(xil_storage_object_type_t)
+
+        X_C(method_info,    _T("method_info"))
 
     X_ENUM_INFO_END
 

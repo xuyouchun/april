@@ -325,6 +325,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    // Pushes object xil.
+    struct x_push_object_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_object_xil_t(xil_storage_object_type_t object_type, ref_t ref)
+            : __super_t(xil_storage_type_t::object, xil_type_t::empty)
+        {
+            this->object_type = object_type;
+            this->set_field_ref(ref);
+        }
+    };
+
     // Pushes duplicate xil.
     struct x_push_duplicate_xil_t : xil_extra_t<push_xil_t>
     {

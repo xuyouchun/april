@@ -271,6 +271,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         field_addr      = 7,        // Field address
 
+        object          = 10,       // Internal object.
+
         params          = 11,       // Stack address of dynamic arguments
 
         array_element   = 12,       // Array element
@@ -691,6 +693,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         uint8_t index           : 4;
     */
 
+    __Enum(xil_storage_object_type_t)
+
+        method_info,
+
+    __EnumEnd
+
     #define XIL_CALLING_BOTTOM_IDENTITY        65535U
 
     // Push xil.
@@ -700,8 +708,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         push_xil_t(xil_storage_type_t stype, xil_type_t dtype = xil_type_t::empty) _NE
             : __super_t(xil_command_t::push, stype), __dtype((byte_t)dtype) { }
 
-        byte_t __dtype          : 4;        // xil_type_t
-        byte_t identity         : 4;
+        union
+        {
+            struct
+            {
+                byte_t __dtype          : 4;        // xil_type_t
+                byte_t identity         : 4;
+            };
+
+            xil_storage_object_type_t object_type;
+        };
 
         byte_t __extra[0];
 
@@ -780,6 +796,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_storage_type_t::field_addr:
             case xil_storage_type_t::array_element:
             case xil_storage_type_t::array_element_addr:
+            case xil_storage_type_t::object:
                 size += sizeof(__ref_t);
                 break;
 
