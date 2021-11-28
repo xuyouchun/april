@@ -1529,16 +1529,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Returns param vtype of specified index.
-    vtype_t method_base_t::get_param_vtype(int index) const
+    // Returns vtype at specified index.
+    vtype_t param_types_t::param_vtype_at(size_t index) const
     {
-        return __get_vtype(this->get_param_type(index));
+        return __get_vtype(this->param_type_at(index));
     }
 
     //-------- ---------- ---------- ---------- ----------
 
     // Returns param type of specified index.
-    type_t * method_t::get_param_type(int index) const
+    type_t * method_t::param_type_at(size_t index) const
     {
         param_t * param = param_at(index);
         _A(param != nullptr);
@@ -1672,6 +1672,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             : __xpool(xpool), __func(func)
         { }
         
+        // Transform type.
         type_t * transform_type(type_t * type)
         {
             switch (type->this_gtype())
@@ -1694,6 +1695,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
+        // Transform type_name.
         type_name_t * transform_type_name(type_name_t * type_name)
         {
             type_t * type;
@@ -1739,9 +1741,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // impl_method_t
 
     // Returns param type of specified index.
-    type_t * impl_method_t::get_param_type(int index) const
+    type_t * impl_method_t::param_type_at(size_t index) const
     {
-        return method_t::get_param_type(index);
+        return method_t::param_type_at(index);
     }
 
     // Builds with generic args.
@@ -1809,10 +1811,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return _F(_T("%s %s"), _str(atype), _str(type));
     }
 
-    // Returns param type of specified index.
-    type_t * generic_method_t::get_param_type(int index) const
+    // Returns param count.
+    size_t generic_method_t::param_count() const
     {
-        return __template()->get_param_type(index);
+        return __template()->param_count();
+    }
+
+    // Returns param type of specified index.
+    type_t * generic_method_t::param_type_at(size_t index) const
+    {
+        return __template()->param_type_at(index);
     }
 
     // Converts generic method to a string.
@@ -3169,6 +3177,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __type_at(name);
         }
 
+        // Transform type.
+        type_t * transform_type(type_t * type)
+        {
+            return __type_transform.transform_type(type);
+        }
+
+        // Transform type_name.
         type_name_t * transform_type_name(type_name_t * type_name)
         {
             return __type_transform.transform_type_name(type_name);
@@ -3179,7 +3194,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __this_type_transform_t      __type_transform;
         type_t *                     __host_type;
         __general_type_like_base_t * __owner_object;
-
 
         // Returns type of specified name.
         type_t * __type_at(name_t name)
@@ -3288,19 +3302,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
-    // Returns type of specified name.
-    type_t * __general_type_like_base_t::__type_at(general_type_t * template_,
-                                                   type_collection_t & args, name_t name)
+    template<typename _pred_t, typename _f_t>
+    bool __general_type_like_base_t::__find_type(general_type_t * template_, 
+            const type_collection_t & args, _pred_t pred, _f_t f) const
     {
         if (template_ != nullptr && template_->params != nullptr && args.size() > 0)
         {
             generic_params_t & params = *template_->params;
             for (size_t index = 0, count = params.size(); index < count; index++)
             {
-                if (params[index]->name == name)
+                if (pred(params[index]))
                 {
-                    _A( index < args.size() );
-                    return args[index];
+                    f(args, index);
+                    return true;
                 }
             }
         }
@@ -3309,12 +3323,52 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         while (type != nullptr)
         {
             if (type->this_gtype() == gtype_t::generic)
-                return ((generic_type_t *)type)->type_at(name);
+            {
+                generic_type_t * g = (generic_type_t *)type;
+                if (__find_type(g->template_, g->args, pred, f))
+                    return true;
+            }
 
             type = type->host_type;
         }
 
-        return nullptr;
+        return false;
+    }
+
+    // Returns type of specified name.
+    type_t * __general_type_like_base_t::__type_at(general_type_t * template_,
+                                 const type_collection_t & args, name_t name) const
+    {
+        type_t * type = nullptr;
+
+        __find_type(template_, args,
+            [&](generic_param_t * param) { return param->name == name; },
+            [&](auto & args_, size_t index) {
+
+            _A(index < args_.size());
+            type = args_[index];
+
+        });
+
+        return type;
+    }
+
+    // Returns types of specified name. (for extends generic arguments)
+    bool __general_type_like_base_t::__types_at(general_type_t * template_,
+            const type_collection_t & args, name_t type_name, std::function<void (typex_t)> f)
+    {
+        bool found = __find_type(template_, args,
+            [&](generic_param_t * param) { return param->name == type_name; },
+            [&](auto & args_, size_t index) {
+
+            for (size_t count = args_.size(); index < count; index++)
+            {
+                f(args_[index]);
+            }
+
+        });
+
+        return found;
     }
 
     // Transform members.
@@ -3373,21 +3427,54 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         new_method->host_type   = this;
         new_method->variable    = xpool.new_obj<method_variable_t>(new_method);
 
+        // Params
         if (method->params != nullptr)
         {
             new_method->params = xpool.new_obj<params_t>();
 
             for (param_t * param : *method->params)
             {
-                param_t * new_param = xpool.new_obj<param_t>();
+                if (param->ptype == param_type_t::extends)
+                {
+                    int index = 0;
 
-                new_param->name = param->name;
-                new_param->attributes = param->attributes;
-                new_param->type_name = __transform_type_name(tctx, param->type_name);
-                new_param->ptype = param->ptype;
-                new_param->default_value = param->default_value;
+                    name_t type_name = xpool.to_name(_str(param->type_name).c_str());
+                    __types_at(tctx.template_, tctx.args, type_name, [&](typex_t typex) {
 
-                new_method->params->push_back(new_param);
+                        string_t name = _F(_T("arg%1%"), ++index);
+                        param_t * new_param = xpool.new_obj<param_t>();
+
+                        new_param->name       = xpool.to_name(name.c_str());
+                        new_param->attributes = nullptr;
+                        new_param->type_name  = xpool.to_type_name((type_t *)typex);
+                        new_param->ptype      = (param_type_t)typex;
+                        new_param->default_value = nullptr;
+
+                        new_method->params->push_back(new_param);
+
+                    });
+                }
+                else
+                {
+                    param_t * new_param = xpool.new_obj<param_t>();
+
+                    new_param->name          = param->name;
+                    new_param->attributes    = param->attributes;
+                    new_param->type_name     = __transform_type_name(tctx, param->type_name);
+                    new_param->ptype         = param->ptype;
+                    new_param->default_value = param->default_value;
+
+                    new_method->params->push_back(new_param);
+                }
+            }
+        }
+
+        // Generic params.
+        if (method->generic_params != nullptr)
+        {
+            for (generic_param_t * gp : *method->generic_params)
+            {
+                new_method->args.push_back(tctx.transform_type(gp));
             }
         }
 
@@ -3741,7 +3828,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // generic_type_t
 
     // Returns type at specified index.
-    type_t * generic_type_t::type_at(size_t index) _NE
+    type_t * generic_type_t::type_at(size_t index) const _NE
     {
         if (index >= argument_count())
             return nullptr;
@@ -3750,9 +3837,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of specified name.
-    type_t * generic_type_t::type_at(name_t name)
+    type_t * generic_type_t::type_at(name_t name) const
     {
         return __super_t::__type_at(template_, args, name);
+    }
+
+    // Returns param type count. (for delegate type)
+    size_t generic_type_t::param_count() const
+    {
+        return argument_count();
+    }
+
+    // Returns type at specified index. (for delegate type)
+    type_t * generic_type_t::param_type_at(size_t index) const
+    {
+        return type_at(index);
     }
 
     // Commits it.
@@ -4389,17 +4488,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Creates a new generic method.
-    generic_method_t * xpool_t::new_generic_method(method_t * template_, xtype_collection_t & types)
+    generic_method_t * xpool_t::new_generic_method(method_t * template_, xtype_collection_t & types,
+                                                                         type_t * host_type)
     {
         _A(template_ != nullptr);
         _A(template_->generic_param_count() == types.size());
 
-        generic_method_cache_key_t key(template_, types.get_tcid(*this));
+        generic_method_cache_key_t key(template_, types.get_tcid(*this), host_type);
         generic_method_t * method = generic_method_cache->get(key);
         if (method == nullptr)
         {
             method = memory_t::new_obj<generic_method_t>(memory, template_,
-                                    (const type_collection_t &)types);
+                                    (const type_collection_t &)types, host_type);
             generic_method_cache->set(key, method);
         }
 
@@ -4407,12 +4507,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Creates a new generic method.
-    generic_method_t * xpool_t::new_generic_method(method_t * template_, type_collection_t & types)
+    generic_method_t * xpool_t::new_generic_method(method_t * template_, type_collection_t & types,
+                                                                         type_t * host_type)
     {
         _A(template_ != nullptr);
 
         xtype_collection_t xtypes(types);
-        return new_generic_method(template_, xtypes);
+        return new_generic_method(template_, xtypes, host_type);
     }
 
     // Creates a new assembly reference.
@@ -5946,8 +6047,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case __ftype_t::method:
                 return get_method()->get_type();
 
-            case __ftype_t::variable:
-                return get_variable()->get_type(xpool);
+            case __ftype_t::variable: {
+                type_t * type = get_variable()->get_type(xpool);
+                _A(type->this_gtype() == gtype_t::generic);
+
+                generic_type_t * generic_type = (generic_type_t *)type;
+                _A(generic_type->template_ == xpool.get_delegate_type());
+
+                return generic_type->type_at(0);  // index 0 is return type of delegate type.
+            }
 
             default:
                 return nullptr;

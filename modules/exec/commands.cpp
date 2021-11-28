@@ -544,7 +544,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case xil_storage_type_t::field:
             case xil_storage_type_t::field_addr: {
 
-                rt_field_base_t * rt_field = ctx.get_field(xil.field_ref());
+                rt_field_base_t * rt_field = ctx.get_field(xil.get_ref());
                 _A(rt_field != nullptr);
 
                 return __to_dtype(ctx, rt_field->get_field_type(ctx));
@@ -552,7 +552,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_storage_type_t::constant: {
 
-                ref_t type_ref = xil.type_ref();
+                ref_t type_ref = xil.get_ref();
                 return __to_dtype(ctx, ctx.get_type(type_ref));
             }
 
@@ -1283,6 +1283,113 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    #define __PushObjectCmd  __Cmd(push, object)
+    __DefineCmdValue_(__PushObjectCmd)
+
+    class __push_object_command_t : public __command_base_t<__PushObjectCmd>
+    {
+        typedef __push_object_command_t __self_t;
+
+    public:
+        
+        #if EXEC_TRACE
+        __push_object_command_t(rt_object_t * object, xil_storage_object_type_t object_type,
+                                                      rt_sid_t name)
+            : __object(object), __object_type(object_type), __name(name) { }
+        #else
+        __push_object_command_t(rt_object_t * object) : __object(object) { }
+        #endif  // EXEC_TRACE
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("push object [%1%]%2%"), __object_type, __name);
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            ctx.stack.push(__object);
+
+        __EndExecute()
+
+    private:
+        rt_object_t * __object;
+
+        #if EXEC_TRACE
+        xil_storage_object_type_t __object_type;
+        rt_sid_t                  __name;
+        #endif  // EXEC_TRACE
+    };
+
+    struct __push_object_template_t
+    {
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, ref_t ref,
+            __context_t & ctx, xil_storage_object_type_t object_type)
+        {
+            rt_object_t * object;
+
+            #if EXEC_TRACE
+            rt_sid_t name;
+            #endif
+
+            switch (object_type)
+            {
+                case xil_storage_object_type_t::method_info: {
+                    object = __get_method_info(ctx, ref
+                    #if EXEC_TRACE
+                        , &name
+                    #endif
+                    );
+                }   break;
+
+                default:
+                    X_UNEXPECTED();
+            }
+
+            return __new_command<__push_object_command_t>(memory, object
+            #if EXEC_TRACE
+                , object_type, name
+            #endif
+            );
+        }   
+
+        // Returns method info.
+        static rt_object_t * __get_method_info(__context_t & ctx, ref_t method_ref
+            #if EXEC_TRACE
+            , rt_sid_t * out_name
+            #endif
+        )
+        {
+            switch ((mt_member_extra_t)method_ref.extra)
+            {
+                case mt_member_extra_t::generic: {
+                    rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
+                    #if EXEC_TRACE
+                    *out_name = rt_generic_method->get_name();
+                    #endif
+                    return rt_generic_method;
+                }   break;
+
+                case mt_member_extra_t::import:
+                case mt_member_extra_t::internal: {
+                    rt_method_t * rt_method = ctx.get_method(method_ref);
+                    #if EXEC_TRACE
+                    *out_name = rt_method->get_name();
+                    #endif
+                    return rt_method;
+                }   break;
+
+                default:
+                    X_UNEXPECTED();
+            }
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     static xil_type_t __xil_type_of(__context_t & ctx, rt_type_t * type)
     {
         _A(type != nullptr);
@@ -1323,13 +1430,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_storage_type_t::field:
             case xil_storage_type_t::field_addr:
-                *out_dtype1 = __xil_type_of(ctx, __field_type(ctx, xil.field_ref()));
+                *out_dtype1 = __xil_type_of(ctx, __field_type(ctx, xil.get_ref()));
                 *out_dtype2 = __fetch_dtype(ctx, xil);
                 break;
 
             case xil_storage_type_t::array_element:
             case xil_storage_type_t::array_element_addr:
-                *out_dtype1 = __xil_type_of(ctx, __array_element_type(ctx, xil.type_ref()));
+                *out_dtype1 = __xil_type_of(ctx, __array_element_type(ctx, xil.get_ref()));
                 *out_dtype2 = __fetch_dtype(ctx, xil);
                 break;
 
@@ -1357,7 +1464,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 __push_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t   \
             >::with_args_t<_v_t>
 
-        #define __DefineConstantCommandManagerT(_name)                                   \
+        #define __DefineConstantCommandManagerT(_name)                                  \
             static __CommandManagerT(_name##_t)  _name##_push_command_manager;
 
         __DefineConstantCommandManagerT(int8)
@@ -1398,6 +1505,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         >::with_args_t<__offset_t> __params_address_command_manager;
 
         static __command_manager_t<
+            __push_object_template_t
+        >::with_args_t<ref_t> __object_command_manager;
+
+        static __command_manager_t<
             __push_convert_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<> __convert_command_manager;
 
@@ -1413,7 +1524,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return __params_address_command_manager.template get_command<__PushParamsAddrCmd>(
                     ctx.params_layout.extends_offset()
                 );
-
+            case xil_storage_type_t::object:        // Push object command.
+                return __object_command_manager.template get_command<__PushObjectCmd>(
+                    xil.get_ref(), ctx, xil.object_type
+                );
             case xil_storage_type_t::local_addr:    // Push local address command.
                 return __push_address_command_manager.template get_command<
                     __StAddrCmd(push, local_addr), stype_t::local_addr>(
@@ -1429,7 +1543,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case xil_storage_type_t::field_addr:    // Push field address command.
                 return __push_address_command_manager.template get_command<
                     __StAddrCmd(push, field_addr), stype_t::field_addr>(
-                    __field_offset(ctx, xil.field_ref())
+                    __field_offset(ctx, xil.get_ref())
                 );
 
             case xil_storage_type_t::convert:
@@ -1474,7 +1588,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return __object_push_command_manager.template get_command<
                     __StCmd(push, constant, object, object),
                     xil_storage_type_t::constant, xil_type_t::object, xil_type_t::object
-                >(ctx.get_type(xil.type_ref()));
+                >(ctx.get_type(xil.get_ref()));
 
             #define __CaseConstants(_xt2)                                               \
                 __CaseConstant(int8,    int8,    _xt2)                                  \
@@ -1603,7 +1717,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     return __command_manager.template get_command<                      \
                         __StCmd(push, field, _xt1, _xt2),                               \
                         xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2   \
-                    >(__field_offset(ctx, xil.field_ref()));
+                    >(__field_offset(ctx, xil.get_ref()));
 
             #define __CaseFields(_xt2)                                                  \
                 __CaseField(int8,       _xt2)                                           \
@@ -1652,7 +1766,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseArrayElement(_xt1, _xt2)                                      \
                 case __V(xil_storage_type_t::array_element, xil_type_t::_xt1, xil_type_t::_xt2): { \
-                    dimension_t dimension = __array_dimension(ctx, xil.type_ref());     \
+                    dimension_t dimension = __array_dimension(ctx, xil.get_ref());      \
                     switch (dimension <= 8? dimension : 0)                              \
                     {                                                                   \
                         __CaseArrayElement_Dimension(_xt1, _xt2, 0, dimension)          \
@@ -2059,7 +2173,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         if (xil.dtype() != xil_type_t::empty)
             return get_vtype_size(to_vtype(xil.dtype()));
 
-        ref_t type_ref = xil.type_ref();
+        ref_t type_ref = xil.get_ref();
         return ctx.size_of(type_ref);
     }
 
@@ -2193,7 +2307,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     return __command_manager.template get_command<                      \
                         __StCmd(pop, field, _xt1, _xt2),                                \
                         xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2   \
-                    >(__field_offset(ctx, xil.field_ref()));
+                    >(__field_offset(ctx, xil.get_ref()));
 
             #define __CaseFields(_xt2)                                                  \
                 __CaseField(int8,       _xt2)                                           \
@@ -2240,7 +2354,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseArrayElement(_xt1, _xt2)                                      \
                 case __V(xil_storage_type_t::array_element, xil_type_t::_xt1, xil_type_t::_xt2): { \
-                    dimension_t dimension = __array_dimension(ctx, xil.type_ref());     \
+                    dimension_t dimension = __array_dimension(ctx, xil.get_ref());      \
                     switch (dimension <= 8? dimension : 0)                              \
                     {                                                                   \
                         __CaseArrayElement_Dimension(_xt1, _xt2, 0, dimension)          \
@@ -2678,7 +2792,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     return __command_manager.template get_command<                      \
                         __StCmd(pick, field, _xt1, _xt2),                               \
                         xil_storage_type_t::field, xil_type_t::_xt1, xil_type_t::_xt2   \
-                    >(__field_offset(ctx, xil.field_ref()));
+                    >(__field_offset(ctx, xil.get_ref()));
 
             #define __CaseFields(_xt2)                                                  \
                 __CaseField(int8,       _xt2)                                           \
@@ -2725,7 +2839,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #define __CaseArrayElement(_xt1, _xt2)                                      \
                 case __V(xil_storage_type_t::array_element, xil_type_t::_xt1, xil_type_t::_xt2): { \
-                    dimension_t dimension = __array_dimension(ctx, xil.type_ref());     \
+                    dimension_t dimension = __array_dimension(ctx, xil.get_ref());      \
                     switch (dimension <= 8? dimension : 0)                              \
                     {                                                                   \
                         __CaseArrayElement_Dimension(_xt1, _xt2, 0, dimension)          \

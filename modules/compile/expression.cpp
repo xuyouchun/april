@@ -655,12 +655,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compile argument.
     static void __compile_argument(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
-        method_base_t * method, int index)
+        param_types_t * param_types, int index)
     {
         _A(exp != nullptr);
 
-        type_t * atype = method != nullptr?
-            method->get_param_type(index) : exp->get_type(__xpool(ctx));
+        type_t * atype = param_types != nullptr?
+            param_types->param_type_at(index) : exp->get_type(__xpool(ctx));
 
         _A(atype != nullptr);
 
@@ -689,8 +689,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         else
         {
             vtype_t vtype = vtype_t::__default__;
-            if (method != nullptr)
-                vtype = method->get_param_vtype(index);
+            if (param_types != nullptr)
+                vtype = param_types->param_vtype_at(index);
 
             xil_type_t xil_type = to_xil_type(vtype);
             if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
@@ -701,7 +701,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compile arguments.
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
-        method_base_t * method = nullptr)
+        param_types_t * param_types = nullptr)
     {
         if (arguments == nullptr)
             return;
@@ -711,7 +711,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             argument_t * argument = (*arguments)[index];
             expression_t * exp = argument->expression;
 
-            __compile_argument(ctx, pool, exp, method, index);
+            __compile_argument(ctx, pool, exp, param_types, index);
         }
     }
 
@@ -1882,10 +1882,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __sys_t<function_expression_t>::__compile_delegate(__cctx_t & ctx, xil_pool_t & pool,
                                                             xil_type_t dtype)
     {
+        xpool_t & xpool = __xpool(ctx);
+
+        // Validate delegate type.
         variable_t * variable = this->get_variable();
         _A(variable != nullptr);
 
-        type_t * type = variable->get_type(__xpool(ctx));
+        type_t * type = variable->get_type(xpool);
         if (type->this_gtype() != gtype_t::generic)
             throw _ED(__e_t::delegate_type_error, type);
 
@@ -1895,7 +1898,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (template_ != __xpool(ctx).get_delegate_type())
             throw _ED(__e_t::delegate_type_error, gtype);
 
-        _PP(type);
+        __compile_variable(ctx, pool, variable, xil_type_t::ptr, this);
+        __compile_arguments(ctx, pool, this->arguments(), gtype);
+
+        analyze_member_args_t args(member_type_t::method, xpool.to_name(_T("Invoke")));
+        method_t * method = (method_t *)gtype->get_member(args);
+
+        ref_t method_ref = __search_method_ref(ctx, method);
+        pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
+
+        if (dtype != xil_type_t::empty)
+            __try_append_convert_xil(pool, method->get_type(), dtype);
+        else
+            __pop_empty_for_method(ctx, pool, method, this);
     }
 
     // Compile delegate calling expression.
@@ -2263,6 +2278,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (type == nullptr)
             throw _ED(__e_t::type_missing);
+
+        if (is_void_type(type))
+            return;
 
         if (!is_effective(this->parent))
             return;

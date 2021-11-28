@@ -188,6 +188,7 @@ public struct Delegate<TReturn, TArgs ...>
 
     public TReturn Invoke(TArgs ... args)
     {
+        Console.WriteLine("Call Invoke");
         return default(TReturn);
     }
 };

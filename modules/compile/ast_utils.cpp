@@ -1585,7 +1585,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 if (tc.empty())
                     function_exp->set_method(method);
                 else
-                    function_exp->set_method(__xpool(__cctx).new_generic_method(method, tc));
+                    function_exp->set_method(__xpool(__cctx).new_generic_method(method, tc, type));
             }
 
             if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)

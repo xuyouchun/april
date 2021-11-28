@@ -241,10 +241,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // generic_param_manager_builder_t
 
     // Appends generic params
-    void generic_param_manager_builder_t::append(ref_t generic_params, rt_type_t ** types,
-                                                 int type_count)
+    void generic_param_manager_builder_t::append(ref_t generic_params,
+                                    rt_type_t ** types, int type_count)
     {
-        _A(generic_params.count <= type_count);
+        // _A(generic_params.count <= type_count);
 
         rt_type_t ** types_end = types + type_count;
 
@@ -258,7 +258,6 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                 __gp_mgr.append(name, __gp_mgr.size(), types_end - types);
                 while (types < types_end)
                 {
-                    // _PP((*types)->get_name(__analyzer.env));
                     __gp_mgr.append(*types++);
                 }
 
@@ -266,8 +265,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             }
             else
             {
-                // _P(_T("default type"), name, (*types)->get_name(__analyzer.env));
-                __gp_mgr.append(name, *types++);
+                rt_type_t * type = *types++;
+                __gp_mgr.append(name, type);
             }
         }
     }
@@ -329,11 +328,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     }
 
     // Enumerates all generic host types.
-    template<typename _f_t> void __each_generic_hosts(rt_type_t * type, _f_t f)
+    template<typename _f_t> void __each_hosts(rt_type_t * type, _f_t f)
     {
         rt_type_t * host_type = type->get_host_type();
         if (host_type != nullptr)
-            __each_generic_hosts((rt_generic_type_t *)host_type, f);
+            __each_hosts(host_type, f);
 
         f(type);
     }
@@ -343,7 +342,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         _A(t != nullptr);
 
-        __each_generic_hosts(t, [&, this](rt_type_t * t0) {
+        __each_hosts(t, [&, this](rt_type_t * t0) {
             this->append(t0);
         });
     }

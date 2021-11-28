@@ -482,10 +482,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return _F(_T("push argument (%1%)%2%"), dtype(), get_identity());
 
             case xil_storage_type_t::field:
-                return _F(_T("push field (%1%)%2%"), dtype(), field_ref());
+                return _F(_T("push field (%1%)%2%"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
-                return _F(_T("push array element (%1%)%2%"), dtype(), type_ref());
+                return _F(_T("push array element (%1%)%2%"), dtype(), get_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("push constant (%1%)%2%"),
@@ -514,10 +514,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return _F(_T("pop argument (%1%)%2%"), dtype(), get_identity());
 
             case xil_storage_type_t::field:
-                return _F(_T("pop field (%1%)%2%"), dtype(), field_ref());
+                return _F(_T("pop field (%1%)%2%"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
-                return _F(_T("pop array element (%1%)%2%"), dtype(), type_ref());
+                return _F(_T("pop array element (%1%)%2%"), dtype(), get_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("pop constant (%1%)%2%"),
@@ -549,10 +549,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return _F(_T("pick argument %1%"), get_identity());
 
             case xil_storage_type_t::field:
-                return _F(_T("pick field %1%(%2%)"), dtype(), field_ref());
+                return _F(_T("pick field %1%(%2%)"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
-                return _F(_T("pick array element %1%(%2%)"), dtype(), type_ref());
+                return _F(_T("pick array element %1%(%2%)"), dtype(), get_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("pick constant (%1%)%2%"),

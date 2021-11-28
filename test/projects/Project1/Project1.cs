@@ -23,10 +23,12 @@ class MyClass
     public void Execute()
     {
         var func = this.Add;
+        int r = func(1, 2);
     }
 
     public int Add(int a, int b)
     {
+        Console.Write("+++++++++++ Add");
         return a + b;
     }
 };

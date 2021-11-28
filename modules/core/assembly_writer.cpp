@@ -318,9 +318,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Assigns generic method metadata.
-        void __assign_mt(mt_generic_method_t * mt, generic_method_t * method, type_t * host)
+        void __assign_mt(mt_generic_method_t * mt, generic_method_t * method)
         {
-            mt->host      = __W->__commit_type(host);
+            mt->host      = __W->__commit_type(method->host_type);
             mt->template_ = __W->__commit_method(method->template_);
             mt->args      = __W->__commit_generic_arguments(method->args);
         }
@@ -941,7 +941,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             switch (raw->this_family())
             {
                 case member_family_t::generic:
-                    return __commit_generic_method((generic_method_t *)raw, host);
+                    return __commit_generic_method((generic_method_t *)raw);
 
                 case member_family_t::general: {
                     auto & mgr = __mt_manager<__tidx_t::generic_method>();
@@ -960,7 +960,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Commits generic method.
-        ref_t __commit_generic_method(generic_method_t * method, type_t * host = nullptr)
+        ref_t __commit_generic_method(generic_method_t * method)
         {
             if (method == nullptr)
                 return __current_null<__tidx_t::generic_method>();
@@ -971,7 +971,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt_generic_method_t * mt_generic_method;
             ref_t ref = mgr.append(method, &mt_generic_method);
 
-            __assign_mt(mt_generic_method, method, host);
+            __assign_mt(mt_generic_method, method);
 
             return ref;
         }

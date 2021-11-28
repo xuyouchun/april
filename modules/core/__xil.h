@@ -203,6 +203,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         internal        = 4,        // Internal call, defined in core library.
 
+        delegate        = 5,        // Delegate call
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
@@ -747,17 +749,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
-        // Returns field ref.
-        ref_t field_ref() const _NE { return *(ref_t *)__extra; }
+        // Returns ref.
+        ref_t get_ref() const _NE { return *(ref_t *)__extra; }
 
-        // Sets field ref.
-        void set_field_ref(ref_t ref) _NE { *(ref_t *)__extra = ref; }
-
-        // Returns type ref.
-        ref_t type_ref() const _NE { return *(ref_t *)__extra; }
-
-        // Sets type ref.
-        void set_type_ref(ref_t type_ref) _NE { *(ref_t *)__extra = type_ref; }
+        // Sets ref.
+        void set_ref(ref_t ref) _NE { *(ref_t *)__extra = ref; }
 
         // Returns the second type. used for push convert.
         xil_type_t dtype2() const _NE { return (xil_type_t)*(byte_t *)__extra; }
@@ -857,7 +853,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             : __super_t(xil_command_t::pop, xil_storage_type_t::empty)
             , __dtype((byte_t)xil_type_t::empty)
         {
-            set_type_ref(struct_type_ref);
+            set_ref(struct_type_ref);
         }
 
         byte_t     __dtype      : 4;
@@ -891,17 +887,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
-        // Returns type ref.
-        ref_t type_ref() const { return *(ref_t *)__extra; }
+        // Returns ref.
+        ref_t get_ref() const { return *(ref_t *)__extra; }
 
-        // Sets type ref.
-        void set_type_ref(ref_t type_ref) { *(ref_t *)__extra = type_ref; }
-
-        // Returns field ref.
-        ref_t field_ref() const { return *(ref_t *)__extra; }
-
-        // Sets field ref.
-        void set_field_ref(ref_t ref) { *(ref_t *)__extra = ref; }
+        // Sets ref.
+        void set_ref(ref_t ref) { *(ref_t *)__extra = ref; }
 
         // Returns extra data.
         template<typename t> const t & get_extra() const
@@ -1003,17 +993,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
-        // Returns field ref.
-        ref_t field_ref() const { return *(ref_t *)__extra; }
+        // Returns ref.
+        ref_t get_ref() const { return *(ref_t *)__extra; }
 
-        // Sets field ref.
-        void set_field_ref(ref_t ref) { *(ref_t *)__extra = ref; }
-
-        // Returns type ref.
-        ref_t type_ref() const { return *(ref_t *)__extra; }
-
-        // Sets type ref.
-        void set_type_ref(ref_t ref) { *(ref_t *)__extra = ref; }
+        // Sets ref.
+        void set_ref(ref_t ref) { *(ref_t *)__extra = ref; }
 
         // Returns extra data.
         template<typename t> const t & get_extra() const

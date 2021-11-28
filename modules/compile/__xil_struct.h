@@ -77,7 +77,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_pop_array_element_xil_t(xil_type_t dtype, ref_t array_type_ref)
             : __super_t(xil_storage_type_t::array_element, dtype)
         {
-            this->set_type_ref(array_type_ref);
+            this->set_ref(array_type_ref);
         }
     };
 
@@ -297,7 +297,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_field_xil_t(ref_t field_ref, xil_type_t dtype)
             : __super_t(xil_storage_type_t::field, dtype)
         {
-            this->set_field_ref(field_ref);
+            this->set_ref(field_ref);
         }
     };
 
@@ -309,7 +309,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_field_addr_xil_t(ref_t field_ref)
             : __super_t(xil_storage_type_t::field_addr, xil_type_t::ptr)
         {
-            this->set_field_ref(field_ref);
+            this->set_ref(field_ref);
         }
     };
 
@@ -321,7 +321,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_array_element_xil_t(xil_type_t dtype, ref_t array_type_ref)
             : __super_t(xil_storage_type_t::array_element, dtype)
         {
-            this->set_type_ref(array_type_ref);
+            this->set_ref(array_type_ref);
         }
     };
 
@@ -334,7 +334,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __super_t(xil_storage_type_t::object, xil_type_t::empty)
         {
             this->object_type = object_type;
-            this->set_field_ref(ref);
+            this->set_ref(ref);
         }
     };
 
@@ -387,7 +387,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_generic_const_xil_t(ref_t type_ref)
             : __super_t(xil_storage_type_t::constant, xil_type_t::empty)
         {
-            this->set_type_ref(type_ref);
+            this->set_ref(type_ref);
         }
     };
 
@@ -411,7 +411,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_null_xil_t()
             : __super_t(xil_storage_type_t::constant, xil_type_t::object)
         {
-            this->set_type_ref(ref_t::null);
+            this->set_ref(ref_t::null);
         }
     };
 
@@ -423,7 +423,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_type_xil_t(ref_t type_ref)
             : __super_t(xil_storage_type_t::constant, xil_type_t::object)
         {
-            this->set_type_ref(type_ref);
+            this->set_ref(type_ref);
         }
     };
 
@@ -483,7 +483,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_pop_field_xil_t(xil_type_t xtype, ref_t field_ref)
             : __super_t(xil_storage_type_t::field, xtype)
         {
-            this->set_field_ref(field_ref);
+            this->set_ref(field_ref);
         }
     };
 
@@ -495,7 +495,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_pick_field_xil_t(xil_type_t xtype, ref_t field_ref) _NE
             : __super_t(xil_storage_type_t::field, xtype)
         {
-            this->set_field_ref(field_ref);
+            this->set_ref(field_ref);
         }
     };
 

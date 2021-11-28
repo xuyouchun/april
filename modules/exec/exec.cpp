@@ -129,6 +129,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Initializes generic param manager builder.
         rt_method_t * template_ = rt_generic_method->template_;
         assembly_analyzer_t analyzer = to_analyzer(*this, template_->get_host_type());
+
+        _PP(rt_generic_method->get_name());
         generic_param_manager_t gp_mgr(analyzer, rt_generic_method);
 
         // Parses commands.

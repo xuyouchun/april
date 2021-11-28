@@ -422,14 +422,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __compile_expression(ctx, pool, instance);
 
             // Pushes method info.
-            pool.append<x_push_null_xil_t>();
-            _PP(method_var);
+            _A(method_var->method != nullptr);
+            ref_t method_ref = __search_method_ref(ctx, method_var->method);
+            pool.append<x_push_object_xil_t>(xil_storage_object_type_t::method_info, method_ref);
 
             type_t * delegate_type = local->get_type(__xpool(ctx));
-            _PP(delegate_type);
+            // _PP(delegate_type);
 
             // TODO: check delegate prototype.
 
+            // Check and call delegate.
             atypes_t atypes = {
                 atype_t(xpool.get_object_type()), atype_t(xpool.get_method_type())
             };
@@ -439,8 +441,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             method_t * constructor = (method_t *)delegate_type->get_member(args);
             _A(constructor != nullptr);
 
-            ref_t method_ref = __search_method_ref(ctx, constructor);
-            pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
+            ref_t constructor_method_ref = __search_method_ref(ctx, constructor);
+            pool.append<x_call_xil_t>(xil_call_type_t::instance, constructor_method_ref);
 
             return;
         }
@@ -482,6 +484,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __compile_expression(ctx, pool, expression);
         write_assign_xil(ctx, pool, local, __xil_type(expression));
+
+        _P(_T("-----"), expression, __xil_type(expression));
+        _P(_T("-------- assign"), local, __xil_type(expression));
     };
 
     ////////// ////////// ////////// ////////// //////////

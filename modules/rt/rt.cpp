@@ -941,10 +941,12 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                     ss << _T(",");
 
                 rt_type_t * atype = atypes[k];
-                if (atype == nullptr)
+                const char_t * s;
+
+                if (atype == nullptr || (s = atype->get_name(env).c_str()) == nullptr)
                     ss << _T("?");
                 else
-                    ss << atype->get_name(env).c_str();
+                    ss << s;
             }
         }
 
@@ -2286,7 +2288,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             case mt_member_extra_t::internal: {
                 template_ = analyzer.get_method(mt->template_);
 
-                if (mt->host.empty())    // it's general host type.
+                if (mt->host.empty())   // it's general host type.
                     host_type = assembly->get_host_by_method_ref(mt->template_);
                 else                    // the generic host type, with generic arguments.
                     host_type = analyzer.get_type(mt->host);
@@ -2308,7 +2310,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
             case mt_member_extra_t::import: {
                 template_ = analyzer.get_method(mt->template_);
 
-                if (mt->host.empty())    // it's general host type.
+                if (mt->host.empty())   // it's general host type.
                     host_type = template_->get_host_type();
                 else                    // the generic host type, with generic arguments.
                     host_type = analyzer.get_type(mt->host);

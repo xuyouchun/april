@@ -3092,8 +3092,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Param type collection.
+    X_INTERFACE param_types_t
+    {
+        // Returns type count.
+        virtual size_t param_count() const = 0;
+
+        // Returns type at specified index.
+        virtual type_t * param_type_at(size_t index) const = 0;
+
+        // Returns vtype at specified index.
+        vtype_t param_vtype_at(size_t index) const;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Base class of method.
-    X_INTERFACE method_base_t
+    X_INTERFACE method_base_t : public param_types_t
     {
         // Returns name.
         virtual name_t get_name() const = 0;
@@ -3109,12 +3124,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns the type of this type.
         virtual type_t * get_type() const = 0;
-
-        // Returns param type of specified index.
-        virtual type_t * get_param_type(int index) const = 0;
-
-        // Returns param vtype of specified index.
-        vtype_t get_param_vtype(int index) const;
 
         // Returns Decorates.
         virtual decorate_t * get_decorate() const = 0;
@@ -3178,14 +3187,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns return type of the method.
         virtual type_t * get_type() const override { return to_type(type_name); }
 
-        // Returns param type of specified index.
-        virtual type_t * get_param_type(int index) const override;
-
         // Returns param count.
-        size_t param_count() const
+        virtual size_t param_count() const override
         {
             return params? params->size() : 0;
         }
+
+        // Returns param type at specified index.
+        virtual type_t * param_type_at(size_t index) const override;
 
         // Returns the param at the specified index.
         param_t * param_at(size_t index) const
@@ -3245,8 +3254,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // The raw general template method.
         method_t * raw = nullptr;
 
+        // Type arguments.
+        type_collection_t args;
+
         // Returns param type of specified index.
-        virtual type_t * get_param_type(int index) const override;
+        virtual type_t * param_type_at(size_t index) const override;
 
         // Builds with generic args.
         void build(xpool_t & xpool, method_t * raw, type_collection_t & args);
@@ -3264,6 +3276,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Generic method.
     class generic_method_t : public method_base_t, public eobject_t
     {
+        typedef eobject_t __super_t;
+
     public:
 
         // Constructor.
@@ -3271,9 +3285,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Constructor.
         template<typename _type_collection_t>
-        generic_method_t(method_t * template_, _type_collection_t && args)
+        generic_method_t(method_t * template_, _type_collection_t && args, type_t * host_type)
             : template_(template_), args(std::forward<_type_collection_t>(args))
-        { }
+            , host_type(host_type)
+        {
+            _A(host_type != nullptr);
+        }
 
         // Returns name.
         virtual name_t get_name() const override { return __template()->name; }
@@ -3302,8 +3319,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return __template()->get_type();
         }
 
+        // Returns param count.
+        virtual size_t param_count() const override;
+
         // Returns param type of specified index.
-        virtual type_t * get_param_type(int index) const override;
+        virtual type_t * param_type_at(size_t index) const override;
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() const override
@@ -3315,10 +3335,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_TO_STRING
 
         // General template.
-        method_t        * template_ = nullptr;
+        method_t * template_ = nullptr;
 
         // Generic type arguments.
         type_collection_t args;
+
+        // Host type.
+        type_t * host_type = nullptr;
 
     private:
 
@@ -3900,7 +3923,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void __transform(__transform_context_t & tctx);
 
         // Returns type of specified name.
-        type_t * __type_at(general_type_t * template_, type_collection_t & args, name_t name);
+        type_t * __type_at(general_type_t * template_, const type_collection_t & args,
+                                                                name_t name) const;
+
+        // Returns types of specified name. (for extends generic arguments)
+        bool __types_at(general_type_t * template_, const type_collection_t & args,
+                            name_t type_name, std::function<void (typex_t)> f);
 
     private:
 
@@ -3940,6 +3968,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Transform tuple type.
         void __transform_tuple_type(__tctx_t & tctx); 
+
+        // Find type(s) of specified name.
+        template<typename _pred_t, typename _f_t>
+        bool __find_type(general_type_t * template_, const type_collection_t & args,
+                                    _pred_t pred, _f_t f) const;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4037,7 +4070,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // generic_type_t
 
     // Generic type.
-    class generic_type_t : public __general_type_like_base_t
+    class generic_type_t : public __general_type_like_base_t, public param_types_t
     {
         typedef __general_type_like_base_t __super_t;
 
@@ -4097,10 +4130,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bool any_type_def_param() const _NE;
 
         // Returns type at specified index.
-        type_t * type_at(size_t index) _NE;
+        type_t * type_at(size_t index) const _NE;
 
         // Returns type of specified name.
-        type_t * type_at(name_t name);
+        type_t * type_at(name_t name) const;
+
+        // Returns param type count. (for delegate type)
+        virtual size_t param_count() const override;
+
+        // Returns type at specified index. (for delegate type)
+        virtual type_t * param_type_at(size_t index) const override;
 
         // Returns fullname of the type.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
@@ -4491,10 +4530,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         array_type_t * new_array_type(type_t * element_type, dimension_t dimension);
 
         // Creates a new generic method.
-        generic_method_t * new_generic_method(method_t * template_, type_collection_t & types);
+        generic_method_t * new_generic_method(method_t * template_, type_collection_t & types,
+                                          type_t * host_type);
 
         // Creates a new generic method.
-        generic_method_t * new_generic_method(method_t * template_, xtype_collection_t & types);
+        generic_method_t * new_generic_method(method_t * template_, xtype_collection_t & types,
+                                          type_t * host_type);
 
         // Creates a new assembly reference.
         assembly_reference_t * new_reference(const mname_t * package_name, assembly_t * assembly);

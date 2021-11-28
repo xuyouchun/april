@@ -424,37 +424,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return array_type;
         }
 
-        // Returns generic method of ref.
-        generic_method_t * __get_generic_method(ref_t ref)
-        {
-            __CheckRefLimit(ref, __generic_methods, _T("generic method"));
-
-            generic_method_t * generic_method = __generic_methods[ref.index];
-            if (generic_method == nullptr)
-            {
-                auto & mgr = __mt_manager<__tidx_t::generic_method>();
-
-                mt_generic_type_t & mt = mgr[ref];
-                method_t * template_ = __get_method(mt.template_);
-                _A(template_ != nullptr);
-
-                ref_t arg_ref = mt.args;
-                auto & arg_mgr = __mt_manager<__tidx_t::generic_argument>();
-
-                __CheckRefLimit(arg_ref, arg_mgr.count(), _T("generic argument"));
-
-                type_collection_t args;
-                arg_mgr.each(arg_ref, [this, &args](int index, mt_generic_argument_t & mt) {
-                    return args.push_back(__get_type(mt.type)), true;
-                });
-
-                generic_method = this->__xpool.new_generic_method(template_, args);
-                __generic_methods[ref.index] = generic_method;
-            }
-
-            return generic_method;
-        }
-
         // Returns whether it's a interal type.
         bool __is_internal_type(ref_t ref)
         {
