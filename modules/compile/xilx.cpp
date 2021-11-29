@@ -19,12 +19,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return to_xil_type(vtype);
     }
 
-    // Returns xpool of expression_compile_context_t
-    X_ALWAYS_INLINE static xpool_t & __xpool(__xw_context_t & ctx)
-    {
-        return ((statement_compile_context_t &)ctx).xpool();
-    }
-
     ////////// ////////// ////////// ////////// //////////
 
     // Appends jmp xil.
@@ -410,8 +404,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (method_var != nullptr)
         {
-            xpool_t & xpool = __xpool(ctx);
-
             expression_compile_context_t cctx(ctx);
             __push_variable_address(cctx, pool, local);
 
@@ -426,14 +418,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             ref_t method_ref = __search_method_ref(ctx, method_var->method);
             pool.append<x_push_object_xil_t>(xil_storage_object_type_t::method_info, method_ref);
 
-            type_t * delegate_type = local->get_type(__xpool(ctx));
+            type_t * delegate_type = local->get_type();
             // _PP(delegate_type);
 
             // TODO: check delegate prototype.
 
             // Check and call delegate.
             atypes_t atypes = {
-                atype_t(xpool.get_object_type()), atype_t(xpool.get_method_type())
+                atype_t(__XPool.get_object_type()), atype_t(__XPool.get_method_type())
             };
 
             analyze_member_args_t args(member_type_t::method, name_t::null, &atypes);
@@ -447,7 +439,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return;
         }
 
-        type_t * type = expression->get_type(__xpool(ctx));
+        type_t * type = expression->get_type();
         _A(type != nullptr);
 
         // Custom struct
@@ -484,9 +476,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __compile_expression(ctx, pool, expression);
         write_assign_xil(ctx, pool, local, __xil_type(expression));
-
-        _P(_T("-----"), expression, __xil_type(expression));
-        _P(_T("-------- assign"), local, __xil_type(expression));
     };
 
     ////////// ////////// ////////// ////////// //////////

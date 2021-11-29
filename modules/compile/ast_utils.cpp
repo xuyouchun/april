@@ -15,34 +15,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Returns xpool of ast context.
-    static xpool_t & __xpool(ast_context_t & cctx)
-    {
-        return cctx.compile_context.global_context.xpool;
-    }
-
-    // Returns spool of ast context.
-    static spool_t & __spool(ast_context_t & cctx)
-    {
-        return __xpool(cctx).spool;
-    }
-
-    // Converts to sid.
-    static sid_t __to_sid(ast_context_t & cctx, const string_t & s)
-    {
-        return __spool(cctx).to_sid(s);
-    }
-
     // Converts to name.
-    static name_t __to_name(ast_context_t & cctx, const string_t & s)
+    static name_t __to_name(const string_t & s)
     {
-        return name_t(__spool(cctx).to_sid(s));
+        return name_t(__SPool.to_sid(s));
     }
 
     // Returns vtype of expression.
-    static vtype_t __vtype_of(xpool_t & xpool, expression_t * exp)
+    static vtype_t __vtype_of(expression_t * exp)
     {
-        type_t * type = exp->get_type(xpool);
+        type_t * type = exp->get_type();
         if (type != nullptr)
             return type->this_vtype();
 
@@ -50,9 +32,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns vtype of expression.
-    static bool __is_mobject(xpool_t & xpool, expression_t * exp)
+    static bool __is_mobject(expression_t * exp)
     {
-        return __vtype_of(xpool, exp) == vtype_t::mobject_;
+        return __vtype_of(exp) == vtype_t::mobject_;
     }
 
     // Converts multi-name to sid.
@@ -73,13 +55,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns expression type.
     type_t * get_expression_type(ast_context_t & cctx, expression_t * expression)
     {
-        return get_expression_type(__xpool(cctx), expression);
+        return get_expression_type(expression);
     }
 
     // Pick type from current context, includes.
     // int a = [exp];       => exp type is int
     // func([exp]);         => exp type is argument type
-    type_t * pick_type_from_current_context(xpool_t & xpool, expression_t * exp)
+    type_t * pick_type_from_current_context(expression_t * exp)
     {
         _A(exp != nullptr);
 
@@ -95,10 +77,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (binary_exp->op() == operator_t::assign)
             {
                 expression_t * exp1 = binary_exp->exp1();
-                return exp1->get_type(xpool);
+                return exp1->get_type();
             }
 
-            return pick_type_from_current_context(xpool, parent_exp);
+            return pick_type_from_current_context(parent_exp);
         }
         else if (family == expression_family_t::type_cast)
         {
@@ -107,7 +89,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return type_cast_exp->type_name->type;
         }
 
-        return pick_type_from_current_context(xpool, parent_exp);
+        return pick_type_from_current_context(parent_exp);
     }
 
     // Fills argument types.
@@ -369,7 +351,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * __ascertain_general_type()
         {
             const mname_t * current_ns = ns_to_full_name(__wctx.current_namespace());
-            mname_operate_context_t op_ctx = to_mname_operate_context(__wctx.xpool);
+            mname_operate_context_t op_ctx = to_mname_operate_context();
 
             if (__type_name->global_type == global_type_t::global)
                 return __search_global_type(__type_name->begin(), __type_name->end()).type;
@@ -1055,7 +1037,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             expression_t * body_exp = index_exp->namex();
             __walk(body_exp);
 
-            type_t * body_type = body_exp->get_type(__xpool(__cctx));
+            type_t * body_type = body_exp->get_type();
             _A(body_type != nullptr);
 
             arguments_t * arguments = index_exp->arguments();
@@ -1150,7 +1132,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             // Check expression types.
             bool has_mobject = al::any_of(exp->exps, [&](expression_t * exp) {
-                return __is_mobject(__xpool(__cctx), exp);
+                return __is_mobject(exp);
             });
 
             if (!has_mobject)
@@ -1177,7 +1159,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             atypes_t atypes;
             for (expression_t * exp : exp->exps)
             {
-                type_t * arg_type = exp->get_type(__xpool(__cctx));
+                type_t * arg_type = exp->get_type();
                 _A(arg_type != nullptr);
                 atypes.push_back(arg_type);
             }
@@ -1186,7 +1168,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             const char_t * op_name = exp->op_property->name;
             _A(op_name != nullptr);
 
-            name_t name = __to_name(__cctx, _F(_T("op_%1%"), op_name));
+            name_t name = __to_name(_F(_T("op_%1%"), op_name));
 
             method_t * method = nullptr;
             for (atype_t atype : atypes)
@@ -1245,7 +1227,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __pick_argument_types_from_context_type(type_t * context_type, atypes_t & atypes,
             type_t ** out_return_type)
         {
-            xpool_t & xpool = __xpool(__cctx);
+            xpool_t & xpool = __XPool;
 
             if (context_type->this_gtype() == gtype_t::generic)
             {
@@ -1301,7 +1283,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                         [](generic_arg_t * arg) { return arg->get_type(); }
                     );
 
-                    member = __xpool(__cctx).new_generic_type(template_, args, type);
+                    member = __XPool.new_generic_type(template_, args, type);
 
                     __wctx.commit_types();
                 }
@@ -1314,9 +1296,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 {
                     try
                     {
-                        type_t * context_type = pick_type_from_current_context(
-                            __xpool(__cctx), name_exp
-                        );
+                        type_t * context_type = pick_type_from_current_context(name_exp);
 
                         if (context_type == nullptr)
                             return false;
@@ -1405,13 +1385,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             switch (member->this_type())
             {
                 case member_type_t::method: {
-                    xpool_t & xpool = __xpool(__cctx);
                     method_t * method = (method_t *)member;
 
-                    impl_method_t * impl_method = xpool.new_obj<impl_method_t>();
+                    impl_method_t * impl_method = __XPool.new_obj<impl_method_t>();
                     type_collection_t types;
                     fill_type_collection(types, name_unit_exp->generic_args);
-                    impl_method->build(xpool, method, types);
+                    impl_method->build(method, types);
 
                     name_unit_exp->set(impl_method->variable);
 
@@ -1585,7 +1564,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 if (tc.empty())
                     function_exp->set_method(method);
                 else
-                    function_exp->set_method(__xpool(__cctx).new_generic_method(method, tc, type));
+                    function_exp->set_method(__XPool.new_generic_method(method, tc, type));
             }
 
             if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)

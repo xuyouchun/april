@@ -119,7 +119,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (statement == nullptr)
             return true;
 
-        return statement->is_empty(ctx.xpool());
+        return statement->is_empty();
     }
 
     // Compiles statement.
@@ -153,7 +153,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type of a statement.
     __e_exit_type_t __exit_type(statement_compile_context_t & ctx, statement_t * statement)
     {
-        statement_exit_type_context_t et_ctx(ctx.xpool());
+        statement_exit_type_context_t et_ctx;
         return __exit_type(et_ctx, statement);
     }
 
@@ -316,19 +316,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Executes the expression.
-    cvalue_t execute_expression(xpool_t & xpool, expression_t * exp)
+    cvalue_t execute_expression(expression_t * exp)
     {
         if (exp == nullptr)
             return cvalue_t::nan;
 
-        expression_execute_context_t ectx(xpool);
+        expression_execute_context_t ectx;
         return exp->execute(ectx);
     }
 
     // Executes the expression.
     cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp)
     {
-        return execute_expression(ctx.xpool(), exp);
+        return execute_expression(exp);
     }
 
     // Executes the expression.
@@ -357,7 +357,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (exp == nullptr)
             return cvalue_t::nan;
 
-        expression_execute_context_t ectx(ctx.xpool);
+        expression_execute_context_t ectx;
         return exp->execute(ectx);
     }
 
@@ -383,7 +383,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else
         {
-            statement_exit_type_context_t et_ctx(ctx.xpool());
+            statement_exit_type_context_t et_ctx;
 
             for (statement_t * statement : __statements)
             {
@@ -402,11 +402,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns whether the statement is empty.
-    bool statement_group_t::is_empty(xpool_t & xpool)
+    bool statement_group_t::is_empty()
     {
         for (statement_t * statement : __statements)
         {
-            if (!statement->is_empty(xpool))
+            if (!statement->is_empty())
                 return false;
         }
 
@@ -475,9 +475,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns whether the statement is empty.
-    bool expression_statement_t::is_empty(xpool_t & xpool)
+    bool expression_statement_t::is_empty()
     {
-        return expression == nullptr || expression->is_empty(xpool);
+        return expression == nullptr || expression->is_empty();
     }
 
     X_DEFINE_TO_STRING(expression_statement_t)
@@ -579,14 +579,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type.
     __exit_type_t defination_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        if (is_empty(ctx.xpool))
+        if (is_empty())
             return __exit_type_t::none;
 
         return __exit_type_t::pass;
     }
 
     // Returns whether the statement is empty.
-    bool defination_statement_t::is_empty(xpool_t & xpool)
+    bool defination_statement_t::is_empty()
     {
         for (defination_statement_item_t * item : items)
         {
@@ -1419,8 +1419,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Finds case by constant value.
     switch_statement_t::__case_iterator_t
-    switch_statement_t::__find_case(xpool_t & xpool, cvalue_t value,
-                                                      __case_iterator_t * default_iterator)
+    switch_statement_t::__find_case(cvalue_t value, __case_iterator_t * default_iterator)
     {
         for (__case_iterator_t it = cases.begin(), it_end = cases.end();
             it != it_end; it++)
@@ -1429,7 +1428,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 if (exp == nullptr)
                     *default_iterator = it;
-                else if (execute_expression(xpool, exp) == value)
+                else if (execute_expression(exp) == value)
                     return it;
             }
         }
@@ -1475,7 +1474,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __case_iterator_t it_start = cases.begin(), it_end = cases.end();
 
             __case_iterator_t default_case = it_end;
-            __case_iterator_t it = __find_case(ctx.xpool, value, &default_case);
+            __case_iterator_t it = __find_case(value, &default_case);
 
             if (it == cases.end() && (it = default_case) == it_end)
                 return __exit_type_t::none;
@@ -1715,7 +1714,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (!et.has(__exit_type_t::throw_))
             return et;
 
-        general_type_t * exception_type = ctx.xpool.get_exception_type();
+        general_type_t * exception_type = __XPool.get_exception_type();
         for (catch_t * c : catches)
         {
             if (c != nullptr && to_type(c->type_name) == exception_type)
@@ -1757,7 +1756,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns whether the statement is empty.
-    bool empty_statement_t::is_empty(xpool_t & xpool)
+    bool empty_statement_t::is_empty()
     {
         return true;
     }

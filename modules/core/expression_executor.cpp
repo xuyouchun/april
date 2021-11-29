@@ -534,7 +534,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if (is_string(cv1) || is_string(cv2))
         {
             string_t s = _F(_T("%1%%2%"), cv1, cv2);
-            return cvalue_t(ctx.xpool.spool.to_sid(s).c_str());
+            return cvalue_t(__SPool.to_sid(s).c_str());
         }
 
         if (!is_number(cv1) || !is_number(cv2))

@@ -20,7 +20,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if (it != __assembly_references.end())
             return it->second;
 
-        assembly_reference_t * ref = __xpool.new_reference(package_name, assembly);
+        assembly_reference_t * ref = __XPool.new_reference(package_name, assembly);
         __assembly_references[key] = ref;
 
         if (!al::map_insert(__assembly_reference_relation, assembly, ref))
@@ -161,7 +161,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(template_ != nullptr);
 
         return __get_type(__generic_types, __generic_type_key_t(
-            template_, types.get_tcid(__xpool), types.size(), host_type
+            template_, types.get_tcid(), types.size(), host_type
         ));
     }
 
@@ -174,9 +174,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_type_t * generic_type = get_generic_type(template_, types, host_type);
         if (generic_type == nullptr)
         {
-            generic_type = __xpool.new_generic_type(template_, types, host_type);
+            generic_type = __XPool.new_generic_type(template_, types, host_type);
             __append(__generic_types,
-                __generic_type_key_t(template_, types.get_tcid(__xpool), types.size(), host_type),
+                __generic_type_key_t(template_, types.get_tcid(), types.size(), host_type),
                 generic_type
             );
         }
@@ -193,7 +193,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         array_type_t * array_type = __get_type(__array_types, __array_type_key_t(type, dimension));
         if (array_type == nullptr)
         {
-            array_type = __xpool.new_array_type(type, dimension);
+            array_type = __XPool.new_array_type(type, dimension);
             __append(__array_types, __array_type_key_t(type, dimension), array_type);
         }
 

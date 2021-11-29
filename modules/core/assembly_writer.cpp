@@ -90,8 +90,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Constructors.
         __assembly_writer_super_t(xostream_t & stream, assembly_t & assembly, logger_t & logger,
                                   method_compile_controller_t * controller)
-            : __super_t(assembly.get_xpool()), __stream(stream)
-            , __assembly(assembly), __logger(logger), __controller(controller)
+            : __stream(stream), __assembly(assembly), __logger(logger), __controller(controller)
         { }
 
     protected:
@@ -255,7 +254,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             mt->constructor = __W->__commit_method(attr->constructor);
             mt->arguments   = __W->__commit_attribute_arguments(attr->arguments,
                                                                 attr->constructor);
-            mt->flag.compile_time = is_compile_time_attribute(this->__xpool, attr);
+            mt->flag.compile_time = is_compile_time_attribute(attr);
         }
 
         // Assigns attribute argument metadata.
@@ -1160,7 +1159,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return __current_null<__tidx_t::constant>();
             }
 
-            expression_execute_context_t ctx(this->__xpool);
+            expression_execute_context_t ctx;
             cvalue_t value = exp->execute(ctx);
 
             if (is_nan(value))
@@ -1330,7 +1329,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             ref_t ref = mgr.append(cvalue_t(string), &c);
             c->constant_type = constant_type_t::string_;
             c->constant_flag.extern_ = true;
-            *(res_t *)c->data2 = __S(this->__xpool.spool.to_sid(string));
+            *(res_t *)c->data2 = __S(__SPool.to_sid(string));
 
             return ref;
         }
@@ -1464,11 +1463,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             xil_buffer_t buffer;
             xil_pool_t   pool;
 
-            method_compile_context_t ctx(this->__xpool, *this, buffer, pool,
-                                         this->__logger, this->__controller);
+            method_compile_context_t ctx(*this, buffer, pool, this->__logger, this->__controller);
             method->compile(ctx);
 
-            xil_buffer_writer_t writer(this->__xpool, buffer, method);
+            xil_buffer_writer_t writer(buffer, method);
             writer.write(pool);
 
             if (writer.empty())

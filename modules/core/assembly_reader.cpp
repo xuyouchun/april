@@ -71,9 +71,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Constructors.
         __assembly_reader_super_t(xistream_t & stream, assembly_t & assembly,
                 assembly_loader_t * loader)
-            : __super_t(assembly.get_xpool()), __assembly(assembly), __stream(stream)
+            : __assembly(assembly), __stream(stream)
             , __assembly_loader(loader), __attributes(this)
-            , __res_reader(this->__heap, assembly.get_xpool().spool)
+            , __res_reader(this->__heap, __XPool.spool)
         { }
 
         // Read metadatas.
@@ -132,7 +132,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             {
                 attribute_t * attr = __super_t::operator[](pos);
                 if (__owner->__is_compile_time_attribute(attr))
-                    return __owner->__xpool.get_compile_time_attribute();
+                    return __XPool.get_compile_time_attribute();
 
                 return attr;
             }
@@ -275,7 +275,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if (__is_null_or_empty(sid))
                 return nullptr;
 
-            mname_operate_context_t mctx = to_mname_operate_context(this->__xpool);
+            mname_operate_context_t mctx = to_mname_operate_context();
             return mname_t::parse(mctx, (string_t)sid);
         }
 
@@ -394,7 +394,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 });
 
                 type_t * host_type = __get_type(mt.host);
-                generic_type = this->__xpool.new_generic_type(
+                generic_type = __XPool.new_generic_type(
                             (general_type_t *)template_, args, host_type);
 
                 __generic_types[ref.index] = generic_type;
@@ -417,7 +417,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 type_t * element_type = __get_type(mt.element_type);
                 _A(element_type != nullptr);
 
-                array_type = this->__xpool.new_array_type(element_type, mt.dimension);
+                array_type = __XPool.new_array_type(element_type, mt.dimension);
                 __array_types[ref.index] = array_type;
             }
 
@@ -518,7 +518,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             __commit<__tidx_t::attribute>(__attributes);
             __commit_general_types();
-            this->__xpool.commit_types(__logger);
+            __XPool.commit_types(__logger);
 
             __commit_type_defs();
         }
@@ -817,7 +817,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 );
 
                 args.exact_match = true;
-                eobject_commit_context_t ctx(this->__xpool, __logger);
+                eobject_commit_context_t ctx(__logger);
                 host_type->commit(ctx);
 
                 method_t * method = (method_t *)host_type->get_member(args);
@@ -1236,7 +1236,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<__tidx_t tidx, typename entity_t = typename mt_t<tidx>::entity_t>
         void __commit(__list_t<entity_t> & entities)
         {
-            eobject_commit_context_t ctx(this->__xpool, __logger);
+            eobject_commit_context_t ctx(__logger);
             for (entity_t entity : entities)
             {
                 entity->commit(ctx);
@@ -1246,7 +1246,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits general types.
         void __commit_general_types()
         {
-            eobject_commit_context_t ctx(this->__xpool, __logger);
+            eobject_commit_context_t ctx(__logger);
 
             for (general_type_t * type : __general_types)
             {
@@ -1344,9 +1344,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Gets assembly type.
     assembly_type_t get_assembly_type(xistream_t & stream)
     {
-        pool_t pool;
-        xpool_t xpool(&pool);
-        assembly_t assembly(xpool, nullptr);
+        assembly_t assembly(nullptr);
 
         try
         {

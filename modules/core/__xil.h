@@ -1669,7 +1669,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        xil_buffer_writer_t(xpool_t & xpool, xil_buffer_t & buffer, method_t * method);
+        xil_buffer_writer_t(xil_buffer_t & buffer, method_t * method);
 
         // Writes to buffer.
         size_t write(xil_pool_t & pool);
@@ -1686,7 +1686,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xil_buffer_t &  __buffer;
         method_t *      __method;
         size_t          __size = 0;
-        xpool_t &       __xpool;
 
         #if CORE_TRACE_XIL_WRITE
 

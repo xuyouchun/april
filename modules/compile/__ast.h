@@ -968,7 +968,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 global_context_t & gctx = __global_context();
                 return mname_t::combine(
-                    to_mname_operate_context(gctx.xpool), name1, name2
+                    to_mname_operate_context(), name1, name2
                 );
             }
 
@@ -977,7 +977,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 global_context_t & gctx = __global_context();
                 return mname_t::parse(
-                    to_mname_operate_context(gctx.xpool), s
+                    to_mname_operate_context(), s
                 );
             }
 
@@ -986,7 +986,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 _A(exp != nullptr);
 
-                expression_execute_context_t ctx(__get_xpool());
+                expression_execute_context_t ctx;
                 return exp->execute(ctx);
             }
         };

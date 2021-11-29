@@ -637,10 +637,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // argument_t
 
     // Returns type of argument.
-    type_t * argument_t::get_type(xpool_t & xpool) const
+    type_t * argument_t::get_type() const
     {
         if (expression != nullptr)
-            return expression->get_type(xpool);
+            return expression->get_type();
 
         return nullptr;
     }
@@ -1333,8 +1333,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Write local variables to a buffer.
-    void local_variables_t::write(xpool_t & xpool, __assembly_layout_t & layout,
-                                                        xil_buffer_t & buffer)
+    void local_variables_t::write(__assembly_layout_t & layout, xil_buffer_t & buffer)
     {
         int variable_count = __variables.size();
         if (variable_count == 0)
@@ -1345,13 +1344,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         for (local_variable_t * variable : __variables)
         {
-            type_t * type = variable->get_type(xpool);
+            type_t * type = variable->get_type();
             ref_t ref = layout.ref_of(type);
             if (ref == ref_t::null)
                 throw _ED(compile_error_code_t::type_not_found, type);
 
             local_variable_defination_t defination = { ref, variable->index };
-            defination.write(xpool, layout, buffer);
+            defination.write(layout, buffer);
         }
     }
 
@@ -1478,8 +1477,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Write local variable defination to a buffer.
-    void local_variable_defination_t::write(xpool_t & xpool, __assembly_layout_t & layout,
-                                                            xil_buffer_t & buffer)
+    void local_variable_defination_t::write(__assembly_layout_t & layout, xil_buffer_t & buffer)
     {
         buffer.write(type);
         buffer.write(index);
@@ -1554,7 +1552,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         statement_compile_context_t sctx(mctx, this);
 
-        __local_variables.write(mctx.xpool, mctx.layout, mctx.buffer);
+        __local_variables.write(mctx.layout, mctx.buffer);
 
         // Compiles statements to xilxes.
         for (statement_t * statement : body->statements)
@@ -1668,9 +1666,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class __type_transform_t
     {
     public:
-        __type_transform_t(xpool_t & xpool, __transform_func_t & func)
-            : __xpool(xpool), __func(func)
-        { }
+        __type_transform_t(__transform_func_t & func) : __func(func) { }
         
         // Transform type.
         type_t * transform_type(type_t * type)
@@ -1683,7 +1679,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 case gtype_t::array: {
                     array_type_t * array_type = (array_type_t *)type;
                     type_t * new_element_type = transform_type(array_type->element_type);
-                    return __xpool.new_array_type(new_element_type, array_type->dimension);
+                    return __XPool.new_array_type(new_element_type, array_type->dimension);
 
                 }   break;
 
@@ -1706,11 +1702,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             if (type == new_type || new_type == nullptr)
                 return type_name;
 
-            return __xpool.to_type_name(new_type);
+            return __XPool.to_type_name(new_type);
         }
 
     private:
-        xpool_t &            __xpool;
         __transform_func_t & __func;
 
         type_t * __type_at(name_t name)
@@ -1726,7 +1721,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 [this](type_t * arg_type) { return transform_type(arg_type); }
             );
 
-            generic_type_t * new_type = __xpool.new_generic_type(
+            generic_type_t * new_type = __XPool.new_generic_type(
                 type->template_, type_args, type->host_type
             );
 
@@ -1747,8 +1742,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Builds with generic args.
-    void impl_method_t::build(xpool_t & xpool, method_t * raw, type_collection_t & args)
+    void impl_method_t::build(method_t * raw, type_collection_t & args)
     {
+        xpool_t & xpool = __XPool;
+
         auto type_at = [&](name_t name) -> type_t * {
 
             for (size_t index = 0, count = raw->generic_param_count(); index < count; index++)
@@ -1762,7 +1759,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             X_UNEXPECTED();
         };
 
-        __type_transform_t<decltype(type_at)> transformer(xpool, type_at);
+        __type_transform_t<decltype(type_at)> transformer(type_at);
 
         _A(raw != nullptr);
         _A(raw->generic_param_count() == args.size());
@@ -1780,7 +1777,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         if (raw->params != nullptr)
         {
-            this->params = xpool.new_obj<params_t>();
+            this->params = __XPool.new_obj<params_t>();
 
             for (param_t * param : *raw->params)
             {
@@ -3147,12 +3144,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef __type_transform_t<__self_t> __this_type_transform_t;
 
     public:
-        __transform_context_t(xpool_t & xpool, __general_type_like_base_t * owner_object,
+        __transform_context_t(__general_type_like_base_t * owner_object,
                 general_type_t * template_, type_collection_t & args)
-            : xpool(xpool), template_(template_), __owner_object(owner_object), args(args)
-            , __type_transform(xpool, *this) { }
+            : template_(template_), __owner_object(owner_object), args(args)
+            , __type_transform(*this) { }
 
-        xpool_t           & xpool;
         general_type_t    * template_;
         type_collection_t & args;
 
@@ -3213,8 +3209,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(template_ != nullptr);
         _A(template_->committed());
 
-        xpool_t & xpool = tctx.xpool;
-        if (template_ == xpool.get_tuple_type())    // Tuple
+        if (template_ == __XPool.get_tuple_type())    // Tuple
         {
             __transform_tuple_type(tctx);
         }
@@ -3233,9 +3228,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Transform tuple type.
     void __general_type_like_base_t::__transform_tuple_type(__tctx_t & tctx)
     {
-        xpool_t & xpool = tctx.xpool;
         general_type_t * template_ = tctx.template_;
         type_collection_t & args = tctx.args;
+
+        xpool_t & xpool = __XPool;
 
         // Fields.
         for (int index = 0, count = args.size(); index < count; index++)
@@ -3394,7 +3390,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Transform field.
     field_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx, field_t * field)
     {
-        xpool_t & xpool = tctx.xpool;
+        xpool_t & xpool = __XPool;
 
         impl_field_t * new_field = xpool.new_obj<impl_field_t>();
         new_field->raw = field;
@@ -3413,7 +3409,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Transform method.
     method_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx, method_t * method)
     {
-        xpool_t & xpool = tctx.xpool;
+        xpool_t & xpool = __XPool;
 
         impl_method_t * new_method = xpool.new_obj<impl_method_t>();
         new_method->raw = method;
@@ -3487,7 +3483,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     property_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx,
                                                                 property_t * property)
     {
-        xpool_t & xpool = tctx.xpool;
+        xpool_t & xpool = __XPool;
 
         impl_property_t * new_property = xpool.new_obj<impl_property_t>();
         new_property->raw = property;
@@ -3509,7 +3505,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Transform event.
     event_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx, event_t * event)
     {
-        xpool_t & xpool = tctx.xpool;
+        xpool_t & xpool = __XPool;
 
         impl_event_t * new_event = xpool.new_obj<impl_event_t>();
         new_event->raw = event;
@@ -3532,7 +3528,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     general_type_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx,
                                                         type_t * nest_type)
     {
-        xpool_t & xpool = tctx.xpool;
+        xpool_t & xpool = __XPool;
         general_type_t * template_ = _M(general_type_t *, nest_type);
         general_type_t * new_nest_type = xpool.new_obj<general_type_t>();
 
@@ -3546,7 +3542,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         new_nest_type->host_type  = this;
 
         type_collection_t args;
-        __tctx_t tctx0(tctx.xpool, this, template_, args);
+        __tctx_t tctx0(this, template_, args);
         new_nest_type->__transform(tctx0);
 
         xpool.append_new_type(new_nest_type);
@@ -3558,7 +3554,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     type_def_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx,
                                                                 type_def_t * type_def)
     {
-        xpool_t & xpool = tctx.xpool;
+        xpool_t & xpool = __XPool;
 
         impl_type_def_t * new_type_def = xpool.new_obj<impl_type_def_t>();
         new_type_def->raw = type_def;
@@ -3777,7 +3773,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         if (get_base_type() == nullptr)
         {
-            type_name_t * object_type_name = ctx.xpool.get_object_type_name();
+            type_name_t * object_type_name = __XPool.get_object_type_name();
             if (object_type_name->type != this)
             {
                 type_name_t * base_types[] = { object_type_name };
@@ -3785,7 +3781,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
-        if (this == ctx.xpool.get_tuple_type())
+        if (this == __XPool.get_tuple_type())
             mtype = mtype_t::tuple;
     }
 
@@ -3857,7 +3853,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Commits it.
     void generic_type_t::commit(eobject_commit_context_t & ctx)
     {
-        __transform_context_t tctx(ctx.xpool, this, template_, args);
+        __transform_context_t tctx(this, template_, args);
         __super_t::__transform(tctx);
 
         __super_t::commit(ctx);
@@ -4240,10 +4236,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Returns type of the param.
-    type_t * param_variable_t::get_type(xpool_t & xpool)
+    type_t * param_variable_t::get_type()
     {
         if (param->ptype == param_type_t::extends)
-            return xpool.get_ptr_type();
+            return __XPool.get_ptr_type();
 
         return to_type(param->type_name);
     }
@@ -4337,7 +4333,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of array index variable.
-    type_t * array_index_variable_t::get_type(xpool_t & xpool)
+    type_t * array_index_variable_t::get_type()
     {
         return element_type;
     }
@@ -4378,7 +4374,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of the method.
-    type_t * method_variable_t::get_type(xpool_t & xpool)
+    type_t * method_variable_t::get_type()
     {
         if (__type == nullptr)
         {
@@ -4389,8 +4385,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 types.push_back(typex_t(param));
             }
 
-            __type = xpool.new_generic_type(
-                xpool.get_delegate_type(), types, nullptr
+            __type = __XPool.new_generic_type(
+                __XPool.get_delegate_type(), types, nullptr
             );
         }
 
@@ -4419,12 +4415,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // xpool_t
 
     // Returns type collection id.
-    type_collection_id_t xtype_collection_t::get_tcid(xpool_t & pool)
+    type_collection_id_t xtype_collection_t::get_tcid()
     {
         if (tcid.empty())
-            tcid = pool.type_collection.get_tcid(types);
+            tcid = __XPool.type_collection.get_tcid(types);
 
         return tcid;
+    }
+
+    xpool_t::xpool_t(memory_t * memory) : memory(memory)
+    {
+        __current = this;
     }
 
     // Initialize.
@@ -4440,7 +4441,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(template_ != nullptr);
         _A(template_->is_match(types.size()));
 
-        generic_type_cache_key_t key(template_, types.get_tcid(*this), host_type);
+        generic_type_cache_key_t key(template_, types.get_tcid(), host_type);
         generic_type_t * type = generic_type_cache->get(key);
         if (type == nullptr)
         {
@@ -4494,7 +4495,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(template_ != nullptr);
         _A(template_->generic_param_count() == types.size());
 
-        generic_method_cache_key_t key(template_, types.get_tcid(*this), host_type);
+        generic_method_cache_key_t key(template_, types.get_tcid(), host_type);
         generic_method_t * method = generic_method_cache->get(key);
         if (method == nullptr)
         {
@@ -4768,7 +4769,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Commit types.
     void xpool_t::commit_types(logger_t & logger)
     {
-        eobject_commit_context_t ctx(*this, logger);
+        eobject_commit_context_t ctx(logger);
         while (!__new_types.empty())
         {
             type_t * type = __new_types.front();
@@ -4807,6 +4808,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         return it->second;;
     }
+
+    xpool_t * xpool_t::__current;
 
     ////////// ////////// ////////// ////////// //////////
     // variable_region_t
@@ -5100,7 +5103,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             namespace_t * previous_ns = (namespace_t *)previous->get(__layer_state_t::namespace_);
             const mname_t * previous_name = previous_ns? previous_ns->full_name : nullptr;
-            mname_operate_context_t mctx = to_mname_operate_context(context.xpool);
+            mname_operate_context_t mctx = to_mname_operate_context();
 
             if (previous_name == nullptr)
                 __ns->full_name = to_mname(ns->name);
@@ -5199,7 +5202,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         __region_ast_walk_context_layer_t(__context_t & context, __layer_t * previous_layer,
                                       object_t * owner, variable_region_t * previous_region)
             : __super_t(context, previous_layer, owner)
-            , __variable_region(context.xpool.memory, previous_region, _variable_type_mask, owner)
+            , __variable_region(__XPool.memory, previous_region, _variable_type_mask, owner)
         { }
 
         // Gets the eobject of specified layer state.
@@ -5325,9 +5328,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // ast_walk_context_t
 
     // Ast walk context.
-    ast_walk_context_t::ast_walk_context_t(assembly_t & assembly, xpool_t & xpool,
+    ast_walk_context_t::ast_walk_context_t(assembly_t & assembly,
             assembly_loader_t * assembly_loader, logger_t & logger, __layer_t * layer)
-        : assembly(assembly), xpool(xpool), __assembly_loader(assembly_loader), logger(logger)
+        : assembly(assembly), __assembly_loader(assembly_loader), logger(logger)
     {
         _A(assembly_loader != nullptr);
 
@@ -5427,7 +5430,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return nullptr;
 
         return al::map_get(__parent_mnames, mname, [this, mname]() {
-            return mname_t::get_parent(to_mname_operate_context(xpool), mname);
+            return mname_t::get_parent(to_mname_operate_context(), mname);
         });
     }
 
@@ -5438,7 +5441,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return nullptr;
 
         return al::map_get(__child_mnames, mname, [this, mname]() {
-            return mname_t::get_child(to_mname_operate_context(xpool), mname);
+            return mname_t::get_child(to_mname_operate_context(), mname);
         });
     }
 
@@ -5450,7 +5453,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         return al::map_get(__combine_names, __combine_name_key_t(name1, name2),
             [this, name1, name2]() {
-                return mname_t::combine(to_mname_operate_context(xpool), name1, name2);
+                return mname_t::combine(to_mname_operate_context(), name1, name2);
             }
         );
     }
@@ -5463,7 +5466,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         return al::map_get(__combine_names2, __combine_name_key2_t(name1, name2),
             [this, name1, name2]() {
-                return mname_t::combine(to_mname_operate_context(xpool), name1, name2);
+                return mname_t::combine(to_mname_operate_context(), name1, name2);
             }
         );
     }
@@ -5497,7 +5500,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Commit types.
     void ast_walk_context_t::commit_types()
     {
-        xpool.commit_types(logger);
+        __XPool.commit_types(logger);
     }
 
     // Enums each ast nodes.
@@ -5684,14 +5687,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
-    // expression_compile_context_t
-
-    xpool_t & expression_compile_context_t::xpool()
-    {
-        return statement_ctx.xpool();
-    }
-
-    ////////// ////////// ////////// ////////// //////////
     // expression
 
     // Expression family.
@@ -5789,7 +5784,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of name expression.
-    type_t * name_expression_t::get_type(xpool_t & xpool) const
+    type_t * name_expression_t::get_type() const
     {
         if (variable == nullptr)
             return nullptr;
@@ -5797,7 +5792,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch (expression_type)
         {
             case name_expression_type_t::variable:
-                return variable->get_type(xpool);
+                return variable->get_type();
 
             case name_expression_type_t::type:
                 return type;
@@ -5905,7 +5900,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of type_name expression.
-    type_t * type_name_expression_t::get_type(xpool_t & xpool) const
+    type_t * type_name_expression_t::get_type() const
     {
         if (type_name == nullptr)
             return nullptr;
@@ -5932,7 +5927,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of a type_cast expression.
-    type_t * type_cast_expression_t::get_type(xpool_t & xpool) const
+    type_t * type_cast_expression_t::get_type() const
     {
         if (type_name == nullptr)
             return nullptr;
@@ -5967,7 +5962,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of a cvalue expression.
-    type_t * cvalue_expression_t::get_type(xpool_t & xpool) const
+    type_t * cvalue_expression_t::get_type() const
     {
         if (value == nullptr)
             return nullptr;
@@ -5975,16 +5970,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch (value->value_type)
         {
             case cvalue_type_t::number:
-                return xpool.get_internal_type(to_vtype(value->number.type));
+                return __XPool.get_internal_type(to_vtype(value->number.type));
 
             case cvalue_type_t::string:
-                return xpool.get_string_type();
+                return __XPool.get_string_type();
 
             case cvalue_type_t::null:
                 return null_type_t::instance();
 
             case cvalue_type_t::type:
-                return xpool.get_type_type();
+                return __XPool.get_type_type();
 
             default:
                 return nullptr;
@@ -6040,7 +6035,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type.
-    type_t * function_expression_t::get_type(xpool_t & xpool) const
+    type_t * function_expression_t::get_type() const
     {
         switch (get_ftype())
         {
@@ -6048,11 +6043,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return get_method()->get_type();
 
             case __ftype_t::variable: {
-                type_t * type = get_variable()->get_type(xpool);
+                type_t * type = get_variable()->get_type();
                 _A(type->this_gtype() == gtype_t::generic);
 
                 generic_type_t * generic_type = (generic_type_t *)type;
-                _A(generic_type->template_ == xpool.get_delegate_type());
+                _A(generic_type->template_ == __XPool.get_delegate_type());
 
                 return generic_type->type_at(0);  // index 0 is return type of delegate type.
             }
@@ -6071,7 +6066,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return __get_vtype(get_method()->get_type());
 
             case __ftype_t::variable:
-                return get_variable()->get_vtype();
+                return __get_vtype(get_type());
 
             default:
                 return vtype_t::__unknown__;
@@ -6114,12 +6109,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of a index expression.
-    type_t * index_expression_t::get_type(xpool_t & xpool) const
+    type_t * index_expression_t::get_type() const
     {
         if (variable == nullptr)
             return nullptr;
 
-        return variable->get_type(xpool);
+        return variable->get_type();
     }
 
     // Converts index expression to a string.
@@ -6152,7 +6147,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type.
-    type_t * new_expression_t::get_type(xpool_t & xpool) const
+    type_t * new_expression_t::get_type() const
     {
         return to_type(type_name);
     }
@@ -6378,9 +6373,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns array type.
-    type_t * new_array_expression_t::to_array_type(xpool_t & xpool) const
+    type_t * new_array_expression_t::to_array_type() const
     {
-        return xpool.new_array_type(get_element_type(), dimension());
+        return __XPool.new_array_type(get_element_type(), dimension());
     }
 
     // Returns element type.
@@ -6396,9 +6391,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type.
-    type_t * new_array_expression_t::get_type(xpool_t & xpool) const
+    type_t * new_array_expression_t::get_type() const
     {
-        return to_array_type(xpool);
+        return to_array_type();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -6424,7 +6419,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of default value expression.
-    type_t * default_value_expression_t::get_type(xpool_t & xpool) const
+    type_t * default_value_expression_t::get_type() const
     {
         return to_type(type_name);
     }
@@ -6460,7 +6455,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of a type_of expression.
-    type_t * type_of_expression_t::get_type(xpool_t & xpool) const
+    type_t * type_of_expression_t::get_type() const
     {
         return nullptr;
     }
@@ -6475,7 +6470,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of this expression.
-    type_t * this_expression_t::get_type(xpool_t & xpool) const
+    type_t * this_expression_t::get_type() const
     {
         return __type;
     }
@@ -6502,7 +6497,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type of the base expression.
-    type_t * base_expression_t::get_type(xpool_t & xpool) const
+    type_t * base_expression_t::get_type() const
     {
         return __type;
     }
@@ -6523,14 +6518,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // unitary_expression_t
 
     // Returns vtype of the unitary expression.
-    type_t * unitary_expression_t::get_type(xpool_t & xpool) const
+    type_t * unitary_expression_t::get_type() const
     {
-        type_t * type = __super_t::get_type(xpool);
+        type_t * type = __super_t::get_type();
         if (type != nullptr)
             return type;
 
         vtype_t vtype = get_vtype();
-        return xpool.get_internal_type(vtype);
+        return __XPool.get_internal_type(vtype);
     }
 
     // Converts unitary expression to a string.
@@ -6543,9 +6538,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // binary_expression_t
 
     // Returns type of the binary expression.
-    type_t * binary_expression_t::get_type(xpool_t & xpool) const
+    type_t * binary_expression_t::get_type() const
     {
-        type_t * type = __super_t::get_type(xpool);
+        type_t * type = __super_t::get_type();
         if (type != nullptr)
             return type;
 
@@ -6553,12 +6548,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             case operator_t::member_point: {
                 expression_t * e2 = exp2();
-                return e2 != nullptr? e2->get_type(xpool) : nullptr;
+                return e2 != nullptr? e2->get_type() : nullptr;
             }   break;
 
             default: {
                 vtype_t vtype = get_vtype();
-                return xpool.get_internal_type(vtype);
+                return __XPool.get_internal_type(vtype);
             }   break;
         }
     }
@@ -6596,23 +6591,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Return type of expressions.
-    type_t * expressions_t::get_type(xpool_t & xpool) const
+    type_t * expressions_t::get_type() const
     {
         if (__expressions.size() == 0)
             return nullptr;
 
-        return __expressions[__expressions.size() - 1]->get_type(xpool);
+        return __expressions[__expressions.size() - 1]->get_type();
     }
 
     ////////// ////////// ////////// ////////// //////////
 
     // Returns an expression type.
-    type_t * get_expression_type(xpool_t & xpool, expression_t * expression)
+    type_t * get_expression_type(expression_t * expression)
     {
         if (expression == nullptr)
             return nullptr;
 
-        type_t * type = expression->get_type(xpool);
+        type_t * type = expression->get_type();
         if (type != nullptr)
             return type;
 
@@ -6620,7 +6615,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if (vtype == vtype_t::__unknown__)
             return nullptr;
 
-        return xpool.get_internal_type(vtype);
+        return __XPool.get_internal_type(vtype);
     }
 
     ////////// ////////// ////////// ////////// //////////

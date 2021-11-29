@@ -49,18 +49,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return host_type;
     }
 
-    // Returns xpool of expression_compile_context_t;
-    X_ALWAYS_INLINE static xpool_t & __xpool(__cctx_t & ctx)
-    {
-        return ctx.statement_ctx.xpool();
-    }
-
     // Executes the expression, returns nan when it is not a constant value.
     static cvalue_t __execute_expression(__cctx_t & ctx, expression_t * exp)
     {
         _A(exp != nullptr);
 
-        expression_execute_context_t e_ctx(__xpool(ctx));
+        expression_execute_context_t e_ctx;
         return exp->execute(e_ctx);
     }
 
@@ -95,7 +89,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __pre_custom_struct_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
         variable_t * variable, expression_t * expression)
     {
-        type_t * type = expression->get_type(__xpool(ctx));
+        type_t * type = expression->get_type();
         _A( is_custom_struct(type) );
 
         expression_family_t family = expression->this_family();
@@ -130,7 +124,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __do_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
         expression_t * expression)
     {
-        type_t * type = expression->get_type(__xpool(ctx));
+        type_t * type = expression->get_type();
         _A( is_custom_struct(type) );
 
         expression_family_t family = expression->this_family();
@@ -660,7 +654,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(exp != nullptr);
 
         type_t * atype = param_types != nullptr?
-            param_types->param_type_at(index) : exp->get_type(__xpool(ctx));
+            param_types->param_type_at(index) : exp->get_type();
 
         _A(atype != nullptr);
 
@@ -741,7 +735,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static type_t * __array_element_type_of(__cctx_t & ctx, index_expression_t * exp)
     {
         variable_t * var = __pick_var((variable_expression_t *)exp);
-        type_t * type = var->get_type(__xpool(ctx));
+        type_t * type = var->get_type();
+
         if (type == nullptr)
             throw _ED(__e_t::index_type_undetermined, var);
 
@@ -780,7 +775,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         variable_t * var = __pick_var(r_exp);
-        bool custom_struct = is_custom_struct(var->get_type(__xpool(ctx)));
+        bool custom_struct = is_custom_struct(var->get_type());
 
         switch (var->this_type())
         {
@@ -879,8 +874,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __compile_arguments(ctx, pool, args);
                 body->compile(ctx, pool);
 
-                type_t * element_type = arr_var->get_type(__xpool(ctx));
-                type_t * array_type = __xpool(ctx).new_array_type(
+                type_t * element_type = arr_var->get_type();
+                type_t * array_type = __XPool.new_array_type(
                     element_type, arr_var->dimension()
                 );
 
@@ -1090,7 +1085,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     xil_type_t __to_xil_type(__cctx_t & ctx, variable_t * variable)
     {
-        type_t * type = variable->get_type(__xpool(ctx));
+        type_t * type = variable->get_type();
         if (type->this_gtype() == gtype_t::generic_param)
             return xil_type_t::empty;
 
@@ -1119,7 +1114,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (dtype == xil_type_t::empty)
                 dtype = xil_type;
 
-            type_t * type = variable->get_type(__xpool(ctx));
+            type_t * type = variable->get_type();
 
             // TODO: when member point, int, long ... types also should be ptr type.
             if (is_custom_struct(type))
@@ -1145,7 +1140,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (!__is_static(call_type_of_method(ctx.statement_ctx.method)))
                 index++;
 
-            type_t * type = variable->get_type(__xpool(ctx));
+            type_t * type = variable->get_type();
 
             // TODO: when member point, int, long ... types also should be ptr type.
             if (is_custom_struct(type))
@@ -1455,7 +1450,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             param_t * param = method->param_at(k);
             _A(param != nullptr);
 
-            type_t * exp_type = exp->get_type(__xpool(ctx));
+            type_t * exp_type = exp->get_type();
             type_t * param_type = param->get_type();
 
             if (!is_type_compatible(exp_type, param_type))
@@ -1882,26 +1877,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __sys_t<function_expression_t>::__compile_delegate(__cctx_t & ctx, xil_pool_t & pool,
                                                             xil_type_t dtype)
     {
-        xpool_t & xpool = __xpool(ctx);
-
         // Validate delegate type.
         variable_t * variable = this->get_variable();
         _A(variable != nullptr);
 
-        type_t * type = variable->get_type(xpool);
+        type_t * type = variable->get_type();
         if (type->this_gtype() != gtype_t::generic)
             throw _ED(__e_t::delegate_type_error, type);
 
         generic_type_t * gtype = (generic_type_t *)type;
         general_type_t * template_ = gtype->template_;
 
-        if (template_ != __xpool(ctx).get_delegate_type())
+        if (template_ != __XPool.get_delegate_type())
             throw _ED(__e_t::delegate_type_error, gtype);
 
         __compile_variable(ctx, pool, variable, xil_type_t::ptr, this);
         __compile_arguments(ctx, pool, this->arguments(), gtype);
 
-        analyze_member_args_t args(member_type_t::method, xpool.to_name(_T("Invoke")));
+        analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
         method_t * method = (method_t *)gtype->get_member(args);
 
         ref_t method_ref = __search_method_ref(ctx, method);
@@ -2028,7 +2021,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         namex->compile(ctx, pool);
 
         type_t * element_type = __array_element_type_of(ctx, this);
-        type_t * array_type = __xpool(ctx).new_array_type(
+        type_t * array_type = __XPool.new_array_type(
             element_type, variable->dimension()
         );
 
@@ -2221,7 +2214,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // new
-        type_t * type = this->to_array_type(__xpool(ctx));
+        type_t * type = this->to_array_type();
 
         if (type == nullptr)
             throw _ED(__e_t::type_missing);

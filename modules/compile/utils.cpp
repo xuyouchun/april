@@ -157,7 +157,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             case member_family_t::impl: {
                 impl_method_t * m = (impl_method_t *)method;
 
-                generic_method_t * generic_method = ctx.xpool().new_generic_method(
+                generic_method_t * generic_method = __XPool.new_generic_method(
                     m->raw, m->args, m->host_type
                 );
 

@@ -23,15 +23,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    #define __SystemExpressionT(exp_t)                      \
-        template<>                                          \
-        class system_expression_t<exp_t> : public exp_t     \
-        {                                                   \
-            typedef exp_t __super_t;                        \
-        public:                                             \
+    #define __SystemExpressionT(exp_t)                                                  \
+        template<>                                                                      \
+        class system_expression_t<exp_t> : public exp_t                                 \
+        {                                                                               \
+            typedef exp_t __super_t;                                                    \
+        public:                                                                         \
             using __super_t::__super_t;
 
-    #define __EndSystemExpressionT                          \
+    #define __EndSystemExpressionT                                                      \
         };
 
     ////////// ////////// ////////// ////////// //////////

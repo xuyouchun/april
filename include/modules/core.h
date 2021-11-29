@@ -436,11 +436,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class eobject_commit_context_t : public object_t
     {
     public:
-        eobject_commit_context_t(xpool_t & xpool, logger_t & logger)
-            : xpool(xpool), logger(logger)
+        eobject_commit_context_t(logger_t & logger)
+            : logger(logger)
         { }
 
-        xpool_t &   xpool;
         logger_t &  logger;
 
         X_TO_STRING_IMPL(_T("eobject_commit_context_t"))
@@ -1677,11 +1676,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        statement_exit_type_context_t(xpool_t & xpool)
-            : xpool(xpool) { }
-
-        // Xpool.
-        xpool_t & xpool;
+        statement_exit_type_context_t() { }
 
         X_TO_STRING_IMPL(_T("statement_exit_type_context_t"))
     };
@@ -1698,7 +1693,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) = 0;
 
         // Returns whether the statement is empty.
-        virtual bool is_empty(xpool_t & xpool) = 0;
+        virtual bool is_empty() = 0;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1844,7 +1839,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         expression_t *       expression = nullptr;                      // Value.
 
         // Returns argument type.
-        type_t * get_type(xpool_t & xpool) const;
+        type_t * get_type() const;
 
         // Converts to string.
         operator string_t() const;
@@ -2755,7 +2750,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         msize_t     index;
 
         // Write the local variable as xil to buffer.
-        void write(xpool_t & xpool, __assembly_layout_t & layout, xil_buffer_t & buffer);
+        void write(__assembly_layout_t & layout, xil_buffer_t & buffer);
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -3006,7 +3001,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
     public:
         // Write loca variables to a buffer.
-        void write(xpool_t & xpool, __assembly_layout_t & layout, xil_buffer_t & buffer);
+        void write(__assembly_layout_t & layout, xil_buffer_t & buffer);
 
         // Appends a variable.
         void append(local_variable_t * variable);
@@ -3072,14 +3067,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructors.
-        method_compile_context_t(xpool_t & xpool, __assembly_layout_t & layout,
+        method_compile_context_t(__assembly_layout_t & layout,
              xil_buffer_t & buffer, xil_pool_t & xil_pool, logger_t & logger,
              method_compile_controller_t * controller = method_compile_controller_t::default_())
-            : layout(layout), xpool(xpool), xil_pool(xil_pool), buffer(buffer), logger(logger)
+            : layout(layout), xil_pool(xil_pool), buffer(buffer), logger(logger)
             , controller(controller? controller : method_compile_controller_t::default_())
         { }
 
-        xpool_t &               xpool;
         __assembly_layout_t &   layout;
         xil_buffer_t &          buffer;
         xil_pool_t &            xil_pool;
@@ -3261,7 +3255,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual type_t * param_type_at(size_t index) const override;
 
         // Builds with generic args.
-        void build(xpool_t & xpool, method_t * raw, type_collection_t & args);
+        void build(method_t * raw, type_collection_t & args);
 
         // Returns this family.
         virtual member_family_t this_family() const override
@@ -4453,7 +4447,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                                                                 __assembly_reference_cache_t;
 
     ////////// ////////// ////////// ////////// //////////
-    // xpool_t
 
     // Extesion type collection.
     struct xtype_collection_t : no_copy_ctor_t
@@ -4479,7 +4472,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bool   empty() const _NE { return size() == 0;  }
 
         // Returns type collection id.
-        type_collection_id_t get_tcid(xpool_t & pool);
+        type_collection_id_t get_tcid();
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4491,7 +4484,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor
-        xpool_t(memory_t * memory) : memory(memory) { }
+        xpool_t(memory_t * memory);
 
         // Initialize.
         void initialize();
@@ -4639,6 +4632,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the typename of type.
         type_name_t * to_type_name(type_t * type);
 
+        // Returns current xpool.
+        static xpool_t & current()
+        {
+            _A(__current != nullptr);
+            return *__current;
+        }
+
         X_TO_STRING_IMPL(_T("xpool_t"))
 
     private:
@@ -4682,20 +4682,25 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // type_t * -> typename cache.
         std::map<type_t *, type_name_t *> __type_type_name_map;
+
+        static xpool_t * __current; 
     };
 
+    #define __XPool xpool_t::current()
+    #define __SPool __XPool.spool
+
     // Returns whether it is a compile time attribute.
-    X_INLINE bool is_compile_time_attribute(xpool_t & xpool, attribute_t * attr)
+    X_INLINE bool is_compile_time_attribute(attribute_t * attr)
     {
-        return xpool.get_compile_time_attribute() == attr;
+        return __XPool.get_compile_time_attribute() == attr;
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Converts pool to mname operation context.
-    X_INLINE mname_operate_context_t to_mname_operate_context(xpool_t & pool)
+    X_INLINE mname_operate_context_t to_mname_operate_context()
     {
-        return mname_operate_context_t(pool.spool, pool.memory, pool.mname_cache);
+        return mname_operate_context_t(__XPool.spool, __XPool.memory, __XPool.mname_cache);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4730,7 +4735,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual name_t get_name() const = 0;
 
         // Returns type of the varible.
-        virtual type_t * get_type(xpool_t & xpool) = 0;
+        virtual type_t * get_type() = 0;
 
         // Returns this variable's type.
         virtual variable_type_t this_type() = 0;
@@ -4835,7 +4840,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         expression_t * expression   = nullptr;          // Constant initialize value.
 
         // Returns this variable's type.
-        virtual type_t * get_type(xpool_t & xpool) override { return to_type(type_name); }
+        virtual type_t * get_type() override { return to_type(type_name); }
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
@@ -4867,7 +4872,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         param_t * param     = nullptr;
 
         // Returns type of the param.
-        virtual type_t * get_type(xpool_t & xpool) override;
+        virtual type_t * get_type() override;
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
@@ -4899,7 +4904,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         field_t * field = nullptr;
 
         // Returns type of the field.
-        virtual type_t * get_type(xpool_t & xpool) override
+        virtual type_t * get_type() override
         {
             return to_type(field->type_name);
         }
@@ -4934,7 +4939,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         property_t * property = nullptr;
 
         // Returns type of the property.
-        virtual type_t * get_type(xpool_t & xpool) override
+        virtual type_t * get_type() override
         {
             return to_type(property->type_name);
         }
@@ -4976,7 +4981,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         property_t * property = nullptr;
 
         // Returns type of the property index.
-        virtual type_t * get_type(xpool_t & xpool) override
+        virtual type_t * get_type() override
         {
             return to_type(property->type_name);
         }
@@ -5014,7 +5019,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_t * element_type = nullptr;
 
         // Returns type of the element in the array.
-        virtual type_t * get_type(xpool_t & xpool) override;
+        virtual type_t * get_type() override;
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
@@ -5043,7 +5048,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         event_t * event = nullptr;
 
         // Returns type of the event.
-        virtual type_t * get_type(xpool_t & xpool) override
+        virtual type_t * get_type() override
         {
             return to_type(event->type_name);
         }
@@ -5075,7 +5080,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         method_t * method = nullptr;
 
         // Returns type of the method.
-        virtual type_t * get_type(xpool_t & xpool) override;
+        virtual type_t * get_type() override;
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
@@ -5368,7 +5373,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        ast_walk_context_t(assembly_t & assembly, xpool_t & xpool,
+        ast_walk_context_t(assembly_t & assembly,
             assembly_loader_t * assembly_loader, logger_t & logger, __layer_t * layer = nullptr
         );
 
@@ -5484,8 +5489,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             __walk_items.enque(__walk_item_t { __current_layer, node, step, tag }, step);
         }
 
-        xpool_t & xpool;
-
         // Returns the parent mname.
         const mname_t * parent_of(const mname_t * mname);
 
@@ -5558,7 +5561,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     template<typename _module_ast_node_t = module_ast_node_t>
     void ast_walk(ast_walk_context_t & walk_context, const std::vector<ast_node_t *> & nodes)
     {
-        _module_ast_node_t * module_node = walk_context.xpool.new_obj<_module_ast_node_t>();
+        _module_ast_node_t * module_node = __XPool.new_obj<_module_ast_node_t>();
 
         for (ast_node_t * node : nodes)
         {
@@ -5969,10 +5972,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        expression_execute_context_t(xpool_t & xpool) : xpool(xpool) { }
-
-        // Xpool.
-        xpool_t & xpool;
+        expression_execute_context_t() { }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -5994,9 +5994,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return statement_ctx;
         }
-
-        // Returns xpool.
-        xpool_t & xpool();
 
         X_TO_STRING_IMPL(_T("expression_compile_context_t"))
     };
@@ -6069,7 +6066,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Returns whether it's do nothing.
-        virtual bool is_empty(xpool_t & xpool) { return false; }
+        virtual bool is_empty() { return false; }
 
         // Returns vtype.
         virtual vtype_t get_vtype() const
@@ -6078,15 +6075,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Returns the type of the expression.
-        virtual type_t * get_type(xpool_t & xpool) const
+        virtual type_t * get_type() const
         {
             throw _unimplemented_error(this, _T("get_type"));
         }
 
         // Returns the type_name of expression.
-        virtual type_name_t * get_type_name(xpool_t & xpool) const
+        virtual type_name_t * get_type_name() const
         {
-            return xpool.to_type_name(get_type(xpool));
+            return __XPool.to_type_name(get_type());
         }
 
         // Returns the behaviour.
@@ -6276,7 +6273,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Sets variable.
         void set(variable_t * variable);
@@ -6357,7 +6354,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Converts to a string.
         virtual const string_t to_string() const override
@@ -6400,7 +6397,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Executes the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
@@ -6458,7 +6455,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -6507,7 +6504,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         method_t * overload_method = nullptr;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override
+        virtual type_t * get_type() const override
         {
             return overload_method? overload_method->get_type() : nullptr;
         }
@@ -6560,7 +6557,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Execute the expression.
         cvalue_t execute(expression_execute_context_t & ctx) override;
@@ -6598,7 +6595,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Executes the expression.
         virtual cvalue_t execute(expression_execute_context_t & ctx) override;
@@ -6648,7 +6645,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Converts to a string.
         virtual const string_t to_string() const override
@@ -6845,7 +6842,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Gets name.
         name_t get_name() const;
@@ -6891,7 +6888,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t  get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Converts to string.
         virtual const string_t to_string() const override;
@@ -6940,10 +6937,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Returns the type_name of expression.
-        virtual type_name_t * get_type_name(xpool_t & xpool) const override
+        virtual type_name_t * get_type_name() const override
         {
             return type_name;
         }
@@ -7112,7 +7109,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void set_initializer(array_initializer_t * initializer);
 
         // Returns array type.
-        type_t * to_array_type(xpool_t & pool) const;
+        type_t * to_array_type() const;
 
         // Returns element type.
         type_t * get_element_type() const;
@@ -7136,7 +7133,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Converts to a string.
         virtual const string_t to_string() const override;
@@ -7200,7 +7197,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns this type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Converts to string.
         virtual const string_t to_string() const override;
@@ -7229,7 +7226,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns this type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Converts to string.
         virtual const string_t to_string() const override;
@@ -7257,7 +7254,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Converts to a string.
         virtual const string_t to_string() const override;
@@ -7291,7 +7288,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() const override;
 
         // Returns type.
-        virtual type_t * get_type(xpool_t & xpool) const override;
+        virtual type_t * get_type() const override;
 
         // Converts to string.
         virtual const string_t to_string() const override;
@@ -7309,7 +7306,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
 
     // Gets the type of the expression.
-    type_t * get_expression_type(xpool_t & xpool, expression_t * expression);
+    type_t * get_expression_type(expression_t * expression);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -7788,9 +7785,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Completes a region.
         statement_region_t * end_region();
 
-        // Returns xpool.
-        xpool_t & xpool() { return mctx.xpool; }
-
         // Returns assembly layout.
         __assembly_layout_t & assembly_layout() { return mctx.layout; }
 
@@ -7804,7 +7798,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename t, typename ... args_t>
         t * new_global_obj(args_t && ... args)
         {
-            return memory_t::new_obj<t>(xpool().memory, std::forward<args_t>(args) ...);
+            return memory_t::new_obj<t>(__XPool.memory, std::forward<args_t>(args) ...);
         }
 
         // Creates a new object.
@@ -7830,7 +7824,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Converts a string to name_t.
         name_t to_name(const string_t & name)
         {
-            return name_t(xpool().spool.to_sid(name));
+            return name_t(__XPool.spool.to_sid(name));
         }
 
         // Returns assembly.

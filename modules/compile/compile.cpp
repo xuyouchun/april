@@ -665,7 +665,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             try
             {
-                assembly = __context.new_obj<__assembly_t>(__xpool(), assembly_name);
+                assembly = __context.new_obj<__assembly_t>(assembly_name);
                 assembly->load(*ref_assembly, this);
             }
             catch (error_t & e)
@@ -732,7 +732,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     const mname_t * __to_mname(global_context_t & gctx, const string_t & name)
     {
         return mname_t::parse(
-            to_mname_operate_context(gctx.xpool), name
+            to_mname_operate_context(), name
         );
     }
 
@@ -823,14 +823,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (!bctx.begin_compile(cproject))
             throw _E(compile_error_code_t::assembly_circular_reference);
 
-        __assembly_t * assembly = context.new_obj<__assembly_t>(
-            __global_context.xpool, cproject->name
-        );
+        __assembly_t * assembly = context.new_obj<__assembly_t>(cproject->name);
 
         multipy_logger_t logger(context);
-        ast_walk_context_t walk_context(
-            *assembly, context.global_context.xpool, assembly_loader, logger
-        );
+        ast_walk_context_t walk_context(*assembly, assembly_loader, logger);
 
         std::vector<ast_node_t *> nodes;
         for (ast_file_t * cfile : *cproject)

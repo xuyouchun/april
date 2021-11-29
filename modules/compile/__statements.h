@@ -23,7 +23,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class statement_base_t : public statement_t
     {
         // Returns whether the statement is empty.
-        virtual bool is_empty(xpool_t & xpool) override { return false; }
+        virtual bool is_empty() override { return false; }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -46,7 +46,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
 
         // Returns whether the statement is empty.
-        virtual bool is_empty(xpool_t & xpool) override;
+        virtual bool is_empty() override;
 
         auto begin() const { return std::begin(__statements); }
         auto end()   const { return std::end(__statements);   }
@@ -77,7 +77,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
 
         // Returns whether the statement is empty.
-        virtual bool is_empty(xpool_t & xpool) override;
+        virtual bool is_empty() override;
 
         X_TO_STRING
     };
@@ -102,7 +102,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
 
         // Returns whether the statement is empty.
-        virtual bool is_empty(xpool_t & xpool) override { return true; }
+        virtual bool is_empty() override { return true; }
 
         X_TO_STRING
     };
@@ -166,7 +166,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
 
         // Returns whether the statement is empty.
-        virtual bool is_empty(xpool_t & xpool) override;
+        virtual bool is_empty() override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -488,8 +488,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __compile_as_switch (statement_compile_context_t & ctx, int row_count);
 
         // Finds case by constant value.
-        __case_iterator_t __find_case(xpool_t & xpool, cvalue_t value,
-                                      __case_iterator_t * default_case);
+        __case_iterator_t __find_case(cvalue_t value, __case_iterator_t * default_case);
 
         // Returns exit type of statements.
         statement_exit_type_t __exit_type_of(statement_exit_type_context_t & ctx,
@@ -561,7 +560,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
 
         // Returns whether the statement is empty.
-        virtual bool is_empty(xpool_t & xpool) override;
+        virtual bool is_empty() override;
 
         X_TO_STRING
     };
@@ -641,7 +640,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Executes the expression.
-    cvalue_t execute_expression(xpool_t & xpool, expression_t * exp);
+    cvalue_t execute_expression(expression_t * exp);
 
     // Executes the expression.
     cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp);

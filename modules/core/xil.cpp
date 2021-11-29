@@ -924,9 +924,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
 
     // Constructor.
-    xil_buffer_writer_t::xil_buffer_writer_t(xpool_t & xpool, xil_buffer_t & buffer,
-                                                              method_t * method)
-        : __xpool(xpool), __buffer(buffer), __method(method)
+    xil_buffer_writer_t::xil_buffer_writer_t(xil_buffer_t & buffer, method_t * method)
+        : __buffer(buffer), __method(method)
     {
         _A(method != nullptr);
     }
@@ -987,7 +986,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         if (__trace_type == __trace_type_t::unknown)
         {
-            if (__method->has_attribute(__xpool.get_trace_attribute_type(), true))
+            if (__method->has_attribute(__XPool.get_trace_attribute_type(), true))
                 __trace_type = __trace_type_t::trace;
             else
                 __trace_type = __trace_type_t::no_trace;

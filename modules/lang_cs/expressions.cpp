@@ -17,9 +17,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Returns type of cs_condigion_expression.
-    type_t * cs_condition_expression_t::get_type(xpool_t & xpool) const
+    type_t * cs_condition_expression_t::get_type() const
     {
-        return value1()->get_type(xpool);
+        return value1()->get_type();
     }
 
     // Compiles this expression.

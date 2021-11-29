@@ -455,7 +455,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
 
             case walk_step_t::post_confirm: {
-                eobject_commit_context_t ctx(context.xpool, context.logger);
+                eobject_commit_context_t ctx(context.logger);
                 __module->commit(ctx);
                 context.commit_types();
                 context.delay(this, (int)walk_step_t::end, tag);
@@ -491,7 +491,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __this_mname()->commit(__global_context().xpool.spool);
         const mname_t * mname =  mname_t::to_internal(
-            to_mname_operate_context(__global_context().xpool), __this_mname()
+            to_mname_operate_context(), __this_mname()
         );
 
         __this_mname()->~mname_t();
@@ -1188,7 +1188,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef statement_exit_type_t       __exit_type_t;
         typedef enum_t<__exit_type_t>       __e_exit_type_t;
 
-        statement_exit_type_context_t ctx(this->__get_xpool());
+        statement_exit_type_context_t ctx;
         __e_exit_type_t exit_type = exit_type_of(ctx, &__body.statements);
 
         // method_t * method = context.current_method();
@@ -1676,13 +1676,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void type_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
     {
         general_type_t * type = (general_type_t *)to_eobject();
-        mname_operate_context_t mctx = to_mname_operate_context(__global_context().xpool);
+        mname_operate_context_t mctx = to_mname_operate_context();
         type->namespace_ = context.current_namespace();
 
         if (!context.assembly.types.append_type(type))
             this->__log(this, __c_t::type_defination_duplicate, type);
 
-        context.xpool.append_new_type(type);
+        __XPool.append_new_type(type);
 
         __super_t::on_walk(context, step, tag);
 
@@ -2067,7 +2067,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (__attr.arguments != nullptr)
         {
-            expression_execute_context_t ctx(__get_xpool());
+            expression_execute_context_t ctx;
             for (argument_t * argument : *__attr.arguments)
             {
                 expression_t * exp = argument->expression;
@@ -2240,7 +2240,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (var_item->expression == nullptr)
                 __Log(cannot_determine_local_variable_type, var_item->name);
             else
-                var_item->variable->type_name->type = var_item->expression->get_type(__get_xpool());
+                var_item->variable->type_name->type = var_item->expression->get_type();
 
             _PF(_T("%1% %2%"), var_item->variable->type_name->type, var_item->name);
         }
@@ -2390,7 +2390,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
             else
             {
-                type_t * return_type = __statement.expression->get_type(__get_xpool());
+                type_t * return_type = __statement.expression->get_type();
                 type_t * method_type = method->type_name->type;
 
                 if (return_type != nullptr && !is_type_compatible(return_type, method_type))
@@ -2971,7 +2971,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // To ensure the array type be pushed into xpool before execute xpool_t::commit_types().
         // Then used by some expressions, like (new int[10]).Length;
         // Otherwise, An error of 'type not found' will be occued.
-        __expression.to_array_type(this->__get_xpool());
+        __expression.to_array_type();
     }
 
     // Walks analysis step.

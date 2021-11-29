@@ -59,8 +59,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructors.
-        assembly_references_t(assembly_t * assembly, xpool_t & xpool)
-            : __assembly(assembly), __xpool(xpool) { }
+        assembly_references_t(assembly_t * assembly)
+            : __assembly(assembly) { }
 
         // Add a reference.
         assembly_reference_t * add_reference(__package_name_t package_name, assembly_t * assembly);
@@ -76,7 +76,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         std::map<assembly_t *, assembly_reference_t *> __assembly_reference_relation;
 
         assembly_t * __assembly;
-        xpool_t &    __xpool;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -88,7 +87,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        types_t(assembly_t * assembly, xpool_t & xpool) : __assembly(assembly), __xpool(xpool) { }
+        types_t(assembly_t * assembly) : __assembly(assembly) { }
 
         // Appends a type.
         bool append_type(general_type_t * type);
@@ -143,7 +142,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_TO_STRING_IMPL(_T("types_t"))
 
     private:
-        xpool_t &    __xpool;       // Xpool.
         assembly_t * __assembly;    // Assembly.
 
         typedef sid_t __full_class_name_t, __namespace_t, __name_t;
@@ -187,9 +185,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        assembly_t(xpool_t & xpool, const mname_t * name)
-            : named_object_t(name), types(this, xpool), references(this, xpool)
-            , __xpool(xpool), version(1, 0, 0, 0)
+        assembly_t(const mname_t * name)
+            : named_object_t(name), types(this), references(this)
+            , version(1, 0, 0, 0)
         { }
 
         // Write assembly buffer to a stream.
@@ -208,9 +206,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         method_t *  entry_point     = nullptr;      // Entry point.
         sid_t       information;                    // Information.
 
-        // Gets xpool.
-        xpool_t & get_xpool() const { return __xpool; }
-
         // Returns whether the assembly has a entry point.
         bool has_entry_point() const { return entry_point != nullptr; }
 
@@ -220,9 +215,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return (string_t)*name;
         }
-
-    private:
-        xpool_t & __xpool;      // Xpool.
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -1446,12 +1446,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        compile_assembly_layout_t(xpool_t & xpool)
-            : __xpool(xpool), __super_t(xpool.spool)
+        compile_assembly_layout_t()
+            : __super_t(__SPool)
         { }
 
     protected:
-        xpool_t &  __xpool;
 
         template<typename t> using __mt_list_t = std::vector<t>;
         template<typename t> using __vector_t = al::svector_t<t>;
@@ -1474,7 +1473,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename identity_t>   // identity_t: name_t, vtype_t, value_type_t
         type_t * __get_internal_type(identity_t identity)
         {
-            type_t * type = __xpool.get_internal_type(identity);
+            type_t * type = __XPool.get_internal_type(identity);
             if (type == nullptr)
                 throw _ED(assembly_error_code_t::type_not_found, identity);
 
@@ -1487,7 +1486,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             if (cache == nullptr)
             {
-                cache = __xpool.get_internal_type(identity);
+                cache = __XPool.get_internal_type(identity);
                 if (cache == nullptr)
                     throw _ED(assembly_error_code_t::type_not_found, identity);
             }
@@ -1499,7 +1498,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         template<typename t, typename ... args_t>
         t * __new_obj(args_t && ... args)
         {
-            return __xpool.new_obj<t>(std::forward<args_t>(args) ...);
+            return __XPool.new_obj<t>(std::forward<args_t>(args) ...);
         }
 
     private:
@@ -1507,7 +1506,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Converts a string to name_t.
         name_t __to_name(const char_t * name)
         {
-            return name_t(__xpool.spool.to_sid(name));
+            return name_t(__XPool.spool.to_sid(name));
         }
     };
 
