@@ -1253,6 +1253,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         call_xil_t(xil_call_type_t call_type, ref_t method)
             : __super_t(xil_command_t::call, call_type), method(method) { }
 
+        call_xil_t(xil_call_type_t call_type)
+            : __super_t(xil_command_t::call, call_type) { }
+
+        // Call method ref.
         __ref_t method;
 
         // Call type.
@@ -1266,6 +1270,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns size of a call_xil_t.
     constexpr size_t size_of(const call_xil_t & xil)
     {
+        if (xil.call_type() == xil_call_type_t::delegate)
+            return sizeof(call_xil_t) - sizeof(__ref_t);
+
         return sizeof(call_xil_t);
     }
 

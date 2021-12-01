@@ -43,6 +43,23 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Member type.
+    X_ENUM_INFO(rt_member_type_t)
+
+        X_C(general,    _T("general"))
+
+        X_C(generic,    _T("generic"))
+
+        X_C(array,      _T("array"))
+
+        X_C(tuple,      _T("tuple"))
+
+        X_C(position,   _T("position"))
+
+    X_ENUM_INFO_END
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Storage types.
     X_ENUM_INFO(storage_type_t)
 
@@ -160,6 +177,11 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         return length - str.length;
     }
+
+    //-------- ---------- ---------- ---------- ----------
+    // rt_sid_t
+
+    const rt_sid_t rt_sid_t::null;
 
     //-------- ---------- ---------- ---------- ----------
     // rt_spool_t

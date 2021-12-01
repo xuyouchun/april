@@ -13,6 +13,16 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    #define __DefineName(name)  rt_sid_t name = rt_sid_t::null;
+
+    struct command_creating_context_names_t
+    {
+        __DefineName(Method)
+        __DefineName(Object)
+    };
+
+    #undef __DefineName
+
     // Context for creating command.
     class command_creating_context_t : public assembly_analyzer_t
                                      , public no_copy_ctor_t
@@ -38,6 +48,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         // Converts template to a generic type. (with cache)
         rt_type_t * to_generic_type(rt_general_type_t * template_);
+
+        command_creating_context_names_t names;
 
     private:
         msize_t __ret_unit_size = unknown_msize;

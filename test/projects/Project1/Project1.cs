@@ -20,16 +20,34 @@ class Project1
 
 class MyClass
 {
+    typedef System.Delegate<int, int, int> __Func;
+
     public void Execute()
     {
-        var func = this.Add;
+        __Func func = GetFunc();
         int r = func(1, 2);
+        Console.Write(r);
     }
 
     public int Add(int a, int b)
     {
-        Console.Write("+++++++++++ Add");
         return a + b;
+    }
+
+    public int Sub(int a, int b)
+    {
+        return a - b;
+    }
+
+    public __Func GetFunc()
+    {
+        var func = this.Sub;
+        return func;
+    }
+
+    public int DoFunc(__Func func, int a, int b)
+    {
+        return func(a, b);
     }
 };
 

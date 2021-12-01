@@ -126,6 +126,10 @@ internal static class Internal
     public static extern String Reflection_GetTypeName(Object obj);
 
 
+    // Delegate
+    [__internal__]
+    public static extern Void Delegate_Invoke();
+
     // Math
 
     [__internal__]

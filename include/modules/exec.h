@@ -21,7 +21,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define EXEC_EXECUTE_MODEL_MAUNAL   2
     #define EXEC_EXECUTE_MODEL_INLINE   3
 
-    #define EXEC_TRACE          3  // 0:none, 1:trace, 2:trace details, 3:trace more details
+    #define EXEC_TRACE          2  // 0:none, 1:trace, 2:trace details, 3:trace more details
     #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_VIRTUAL
 
     const size_t __default_stack_size = 1024 * 1024;
@@ -948,6 +948,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             stack.set_lp(stub->lp);
         }
 
+        // Returns current calling stub.
+        __AlwaysInline __calling_stub_t * stub() _NE
+        {
+            return (__calling_stub_t *)stack.lp() - 1;
+        }
+
+        // Switch to specified method.
+        __AlwaysInline void switch_to(exec_method_t * method) _NE
+        {
+            this->stub()->method = method;
+            this->current = method->commands;
+        }
+
         // Returns whether stack is on head.
         __AlwaysInline bool stack_empty() _NE
         {
@@ -1121,11 +1134,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             : __super_t(memory, rpool, assemblies), __command_heap(memory)
         { }
 
-        // Execute method of runtime method.
+        // Returns execute method of runtime method.
         exec_method_t * exec_method_of(rt_method_t * rt_method);
 
-        // Execute method of runtime generic method.
+        // Returns execute method of runtime generic method.
         exec_method_t * exec_method_of(rt_generic_method_t * rt_generic_method);
+
+        // Returns execute method of runtime method or generic method.
+        exec_method_t * exec_method_of(rt_method_base_t * rt_method_base);
 
         // Creates an array of command_t *.
         command_t ** new_commands(size_t count);

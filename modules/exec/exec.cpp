@@ -98,7 +98,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 return method;                                                  \
         } while (false);                                         
 
-    // Execute method of runtime method.
+    // Returns execute method of runtime method.
     exec_method_t * executor_env_t::exec_method_of(rt_method_t * rt_method)
     {
         _A(rt_method != nullptr);
@@ -113,7 +113,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         return exec_method;
     }
 
-    // Execute method of runtime generic method.
+    // Returns execute method of runtime generic method.
     exec_method_t * executor_env_t::exec_method_of(rt_generic_method_t * rt_generic_method)
     {
         _A(rt_generic_method != nullptr);
@@ -138,6 +138,24 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         exec_method->rt_method = rt_generic_method;
 
         return exec_method;
+    }
+
+    // Returns execute method of runtime method or generic method.
+    exec_method_t * executor_env_t::exec_method_of(rt_method_base_t * rt_method_base)
+    {
+        _A(rt_method_base != nullptr);
+
+        switch (rt_method_base->this_type())
+        {
+            case rt_member_type_t::general:
+                return exec_method_of((rt_method_t *)rt_method_base);
+
+            case rt_member_type_t::generic:
+                return exec_method_of((rt_generic_method_t *)rt_method_base);
+
+            default:
+                X_UNEXPECTED();
+        }
     }
 
     // Creates an array of command_t *.

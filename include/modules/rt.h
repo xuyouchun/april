@@ -326,6 +326,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
         // Converts to const char_t *.
         const char_t * c_str() const { return value? value->s : nullptr; }
+
+        static const rt_sid_t null;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -785,10 +787,24 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Member type.
+    X_ENUM(rt_member_type_t)
+
+        general,
+
+        generic,
+
+        array,          // Array type.
+
+        tuple,          // Tuple field.
+
+        position,       // Position field.
+
+    X_ENUM_END
+
     // Runtime member.
     class rt_member_t : public rt_object_t
     {
-    public:
 
     };
 
@@ -1257,6 +1273,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
     public:
 
+        // Returns type of this member.
+        virtual rt_member_type_t this_type() = 0;
+
         // Returns method name.
         virtual rt_sid_t get_name() = 0;
     };
@@ -1270,6 +1289,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                       , public rt_method_base_t
     {
     public:
+
+        // Returns type of this object.
+        virtual rt_member_type_t this_type() override { return rt_member_type_t::general; }
 
         // Host type.
         rt_type_t * host_type = nullptr;
@@ -1299,6 +1321,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Constructor.
         rt_generic_method_t() = default;
         rt_generic_method_t(rt_method_t * template_, rt_type_t * host_type, rt_type_t ** atypes);
+
+        // Returns type of this object.
+        virtual rt_member_type_t this_type() override { return rt_member_type_t::generic; }
 
         // Method template.
         rt_method_t *  template_ = nullptr;
@@ -1331,7 +1356,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     public:
 
         // Offset.
-        msize_t     offset = unknown_msize;
+        msize_t offset = unknown_msize;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1363,7 +1388,6 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
                      , public rt_metadata_object_t<__tidx_t::field>
     {
     public:
-
         virtual rt_type_t * get_field_type(assembly_analyzer_t & analyzer,
                                 rt_generic_type_t * owner) override;
     };
@@ -1379,7 +1403,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         int position = 0;
 
         virtual rt_type_t * get_field_type(assembly_analyzer_t & analyzer,
-                                rt_generic_type_t * owner) { return type; }
+                                rt_generic_type_t * owner) override { return type; }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1387,8 +1411,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Runtime generic field.
     class rt_generic_field_t : public rt_object_t
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1396,8 +1419,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     // Runtime position field.
     class rt_position_field_t : public rt_object_t
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1406,8 +1428,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_field_ref_t : public rt_object_t
                          , public rt_metadata_object_t<__tidx_t::field_ref>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1416,8 +1437,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_event_t : public rt_member_t
                      , public rt_metadata_object_t<__tidx_t::event>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1426,8 +1446,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_event_ref_t : public rt_object_t
                          , public rt_metadata_object_t<__tidx_t::event_ref>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1436,8 +1455,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_property_t : public rt_member_t
                         , public rt_metadata_object_t<__tidx_t::property>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1446,8 +1464,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_super_type_t : public rt_object_t
                           , public rt_metadata_object_t<__tidx_t::super_type>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1456,8 +1473,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_nest_type_t : public rt_object_t
                          , public rt_metadata_object_t<__tidx_t::nest_type>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1466,8 +1482,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_property_ref_t : public rt_object_t
                             , public rt_metadata_object_t<__tidx_t::property_ref>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1476,8 +1491,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_generic_param_t : public rt_object_t
                              , public rt_metadata_object_t<__tidx_t::generic_param>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1486,8 +1500,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_param_t : public rt_object_t
                      , public rt_metadata_object_t<__tidx_t::param>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1496,8 +1509,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_generic_argument_t : public rt_object_t
                                 , public rt_metadata_object_t<__tidx_t::generic_argument>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1506,8 +1518,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_attribute_t : public rt_object_t
                          , public rt_metadata_object_t<__tidx_t::attribute>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1516,8 +1527,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_attribute_argument_t : public rt_object_t
                                   , public rt_metadata_object_t<__tidx_t::attribute_argument>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1526,8 +1536,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_method_ref_param_t : public rt_object_t
                                 , public rt_metadata_object_t<__tidx_t::method_ref_param>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1536,8 +1545,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     class rt_assembly_ref_t : public rt_object_t
                             , public rt_metadata_object_t<__tidx_t::assembly_ref>
     {
-    public:
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------

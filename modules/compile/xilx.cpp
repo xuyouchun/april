@@ -434,7 +434,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             _A(constructor != nullptr);
 
             ref_t constructor_method_ref = __search_method_ref(ctx, constructor);
-            pool.append<x_call_xil_t>(xil_call_type_t::instance, constructor_method_ref);
+            pool.append<x_method_call_xil_t>(xil_call_type_t::instance, constructor_method_ref);
 
             return;
         }

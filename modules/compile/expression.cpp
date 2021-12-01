@@ -65,7 +65,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         cvalue_t cvalue = __execute_expression(ctx, expression);
 
-        if (!is_nan(cvalue))
+        if (!is_nan(cvalue) && cvalue.value_type != cvalue_type_t::__default__)
         {
             if (is_effective(expression))
                 __compile_cvalue(ctx, pool, cvalue, dtype);
@@ -856,7 +856,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __compile_argument(ctx, pool, exp2, method, 0);
 
                 ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
+                pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
 
             }   break;
 
@@ -900,7 +900,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __validate_set_method(ctx, method);
 
                 ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
+                pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
 
             }   break;
 
@@ -1208,7 +1208,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (__is_member_expression(exp))
             return __is_whole_effective(exp->parent);
 
-        return __is_effective(exp->get_behaviour());
+        return __is_effective(exp->get_behaviour()) || __is_whole_effective(exp->parent);
     }
 
     // Pops return value from stack
@@ -1242,7 +1242,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __compile_arguments(ctx, pool, arguments, method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
+        pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
 
         __pop_empty_for_method(ctx, pool, method, owner_exp);
     }
@@ -1475,7 +1475,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __compile_argument(ctx, pool, expression_at(1), method, 1);
 
         ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<x_call_xil_t>(xil_call_type_t::static_, method_ref);
+        pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
 
         __pop_empty_for_method(ctx, pool, method, this);
     }
@@ -1587,7 +1587,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __compile_argument(ctx, pool, expression_at(0), method, 0);
 
         ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<x_call_xil_t>(xil_call_type_t::static_, method_ref);
+        pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
 
         __pop_empty_for_method(ctx, pool, method, this);
     }
@@ -1618,6 +1618,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
 
             default:
+                _PP(this);
                 _PP(this->expression_type);
                 X_UNEXPECTED();
         }
@@ -1821,6 +1822,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    static bool __is_delegate_invoke(xil_call_type_t call_type, name_t name)
+    {
+        if (call_type != xil_call_type_t::internal)
+            return false;
+
+        static name_t delegate_invoke_name;
+
+        if (delegate_invoke_name == name_t::null)
+            delegate_invoke_name = __XPool.to_name(_T("Delegate_Invoke"));
+
+        return name == delegate_invoke_name;
+    }
+
     // Compile method calling expression.
     void __sys_t<function_expression_t>::__compile_method(__cctx_t & ctx, xil_pool_t & pool,
                                                           xil_type_t dtype)
@@ -1853,9 +1867,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // );
 
             if (__left_is_base(this->parent) && call_type == xil_call_type_t::virtual_)
-                pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
+            {
+                pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
+            }
+            else if (__is_delegate_invoke(call_type, method->get_name()))
+            {
+                // Delegate Invoke.
+                pool.append<x_delegate_call_xil_t>();
+            }
             else
-                pool.append<x_call_xil_t>(call_type, method_ref);
+            {
+                pool.append<x_method_call_xil_t>(call_type, method_ref);
+            }
 
             if (dtype != xil_type_t::empty)
                 __try_append_convert_xil(pool, method->get_type(), dtype);
@@ -1892,13 +1915,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             throw _ED(__e_t::delegate_type_error, gtype);
 
         __compile_variable(ctx, pool, variable, xil_type_t::ptr, this);
-        __compile_arguments(ctx, pool, this->arguments(), gtype);
 
         analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
         method_t * method = (method_t *)gtype->get_member(args);
+        _A(method != nullptr);
+
+        __compile_arguments(ctx, pool, this->arguments(), method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<x_call_xil_t>(xil_call_type_t::instance, method_ref);
+        pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
 
         if (dtype != xil_type_t::empty)
             __try_append_convert_xil(pool, method->get_type(), dtype);
@@ -2132,7 +2157,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
             ref_t method_ref = __search_method_ref(ctx, this->constructor);
-            pool.append<x_call_xil_t>(call_type, method_ref);
+            pool.append<x_method_call_xil_t>(call_type, method_ref);
         }
         else if (!is_parent_effective)
         {
@@ -2171,7 +2196,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
             ref_t method_ref = __search_method_ref(ctx, this->constructor);
-            pool.append<x_call_xil_t>(call_type, method_ref);
+            pool.append<x_method_call_xil_t>(call_type, method_ref);
         }
         else    // default constructor.
         {

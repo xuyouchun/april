@@ -67,6 +67,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __Cmd(_cmd, _n)             __cmd_##_cmd##_##_n
     #define __DefineCmdValue(_cmd, _n)  __DefineCmdValue_(__Cmd(_cmd, _n));
 
+    #define __RtSidOf(_ctx, _name) (_ctx.names._name == rt_sid_t::null?                 \
+            (_ctx.names._name = _ctx.to_sid(_S(_name))) : _ctx.names._name)
+
     ////////// ////////// ////////// ////////// //////////
 
     using namespace rt;
@@ -1590,6 +1593,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                     xil_storage_type_t::constant, xil_type_t::object, xil_type_t::object
                 >(ctx.get_type(xil.get_ref()));
 
+            case __V(xil_storage_type_t::constant, xil_type_t::__unknown__, xil_type_t::__unknown__):
+                __ReturnInstance(__empty_command_t);
+
             #define __CaseConstants(_xt2)                                               \
                 __CaseConstant(int8,    int8,    _xt2)                                  \
                 __CaseConstant(uint8,   uint8,   _xt2)                                  \
@@ -2931,6 +2937,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __DefineCmdValue_(__CallCmd_(static_,  general))
     __DefineCmdValue_(__CallCmd_(static_,  generic))
 
+    __DefineCmdValue_(__CallCmd(delegate))
+
     typedef rtlib::libfunc_t __libfunc_t;
 
     class __internal_call_command_t : public __command_base_t<__CallCmd(internal)>
@@ -3042,8 +3050,19 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    class __call_command_base_t_
+    {
+    public:
+        virtual exec_method_t * get_method(command_execute_context_t & ctx) = 0;
+
+        virtual void switch_to(command_execute_context_t & ctx) = 0;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     template<command_value_t _cv, typename _rt_method_t>
     class __call_command_base_t : public __command_base_t<_cv>
+                                , public __call_command_base_t_
     {
         typedef __call_command_base_t   __self_t;
 
@@ -3062,6 +3081,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __EndToString()
 
         #endif  // EXEC_TRACE
+
+        virtual exec_method_t * get_method(command_execute_context_t & ctx) override
+        {
+            return this->__get_method(ctx);
+        }
 
     protected:
         __AlwaysInline exec_method_t * __get_method(command_execute_context_t & ctx)
@@ -3109,6 +3133,14 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             ctx.stack.increase_top(method->stack_unit_size);
 
         __EndExecute()
+
+        virtual void switch_to(command_execute_context_t & ctx) override
+        {
+            __pre_static_call(ctx, __This->get_type());
+
+            exec_method_t * method = __This->__get_method(ctx);
+            ctx.current = method->commands;
+        }
 
         #if EXEC_TRACE
 
@@ -3195,6 +3227,12 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __EndExecute()
 
+        virtual void switch_to(command_execute_context_t & ctx) override
+        {
+            exec_method_t * method = __This->__get_method(ctx);
+            ctx.current = method->commands;
+        }
+
         #if EXEC_TRACE
 
         __BeginToString()
@@ -3221,33 +3259,30 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
     };
 
-    static command_t * __new_instance_call_command(__context_t & ctx, const call_xil_t & xil)
+    static command_t * __new_instance_call_command(__context_t & ctx, rt_method_base_t * method)
     {
-        ref_t method_ref = (ref_t)xil.method;
-
-        switch ((mt_member_extra_t)method_ref.extra)
+        switch (method->this_type())
         {
-            case mt_member_extra_t::generic: {
+            case rt_member_type_t::generic: {
 
                 static __command_manager_t<
                     __instance_call_command_template_t<rt_generic_method_t>
                 >::with_args_t<rt_generic_method_t *> __instance_generic_call_command_manager;
 
-                rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
+                rt_generic_method_t * rt_generic_method = (rt_generic_method_t *)method;
 
                 return __instance_generic_call_command_manager.template
                     get_command<__CallCmd_(instance, generic)>(rt_generic_method, ctx);
 
             }   break;
 
-            case mt_member_extra_t::import:
-            case mt_member_extra_t::internal: {
+            case rt_member_type_t::general: {
 
                 static __command_manager_t<
                     __instance_call_command_template_t<rt_method_t>
                 >::with_args_t<rt_method_t *> __instance_call_command_manager;
 
-                rt_method_t * rt_method = ctx.get_method(method_ref);
+                rt_method_t * rt_method = (rt_method_t *)method;
 
                 return __instance_call_command_manager.template
                     get_command<__CallCmd_(instance, general)>(rt_method, ctx);
@@ -3257,6 +3292,29 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             default:
                 X_UNEXPECTED();
         }
+    }
+
+    static command_t * __new_instance_call_command(__context_t & ctx, const call_xil_t & xil)
+    {
+        ref_t method_ref = (ref_t)xil.method;
+        rt_method_base_t * method;
+
+        switch ((mt_member_extra_t)method_ref.extra)
+        {
+            case mt_member_extra_t::generic:
+                method = ctx.get_generic_method(method_ref);
+                break;
+
+            case mt_member_extra_t::import:
+            case mt_member_extra_t::internal:
+                method = ctx.get_method(method_ref);
+                break;
+
+            default:
+                X_UNEXPECTED();
+        }
+
+        return __new_instance_call_command(ctx, method);
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -3331,8 +3389,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         }
     };
 
-    //-------- ---------- ---------- ---------- ----------
-
     static command_t * __new_virtual_call_command(__context_t & ctx, const call_xil_t & xil)
     {
         ref_t method_ref = (ref_t)xil.method;
@@ -3347,6 +3403,102 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         return __virtual_call_command_manager.template
             get_command<__CallCmd(virtual_)>(offset, ctx);
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    class __delegate_call_command_t : public __command_base_t<__CallCmd(delegate)>
+    {
+        typedef __delegate_call_command_t               __self_t;
+        typedef __command_base_t<__CallCmd(delegate)>   __super_t;
+
+    public:
+        __delegate_call_command_t(msize_t this_offset,
+            msize_t method_field_offset, msize_t object_field_offset)
+            : __this_offset(this_offset + __stack_stub_size)
+            , __method_field_offset(method_field_offset)
+            , __object_field_offset(object_field_offset)
+        { }
+
+        __BeginExecute(ctx)
+
+            rt_object_t * self = __Argument(rt_object_t *, __this_offset);
+
+            rt_object_t * object = __Field(rt_object_t *, self, __object_field_offset);
+            rt_method_base_t * method = __Field(rt_method_base_t *, self, __method_field_offset);
+
+            // _P(_T("call delegate"), method->get_name());
+
+            exec_method_t * exec_method = ctx.env.exec_method_of(method);
+            __Argument(rt_object_t *, __this_offset) = object;
+            ctx.switch_to(exec_method);
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("call delegate"));
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+        msize_t __this_offset, __method_field_offset, __object_field_offset;;
+    };
+
+    struct __delegate_call_command_template_t
+    {
+        template<command_value_t _cv, typename ... args_t>
+        static auto new_command(memory_t * memory, msize_t this_offset,
+                msize_t method_field_offset, msize_t object_field_offset)
+        {
+            static_assert(_cv == __CallCmd(delegate), "invaid command value");
+
+            typedef __delegate_call_command_t this_command_t;
+            return __new_command<this_command_t>(memory, this_offset,
+                method_field_offset, object_field_offset
+            );
+        }
+    };
+
+    static command_t * __new_delegate_call_command(__context_t & ctx, const call_xil_t & xil)
+    {
+        static __command_manager_t<
+            __delegate_call_command_template_t
+        >::with_args_t<msize_t, msize_t, msize_t> __delegate_call_command_manager;
+
+        uint16_t this_offset = __offset_of_argument(ctx, 0);
+        uint16_t method_field_offset = unknown_msize, object_field_offset = unknown_msize;
+
+        rt_generic_type_t * delegate_type = _M(rt_generic_type_t *, ctx.type);
+
+        delegate_type->each_field(ctx.env, [&](ref_t field_ref, rt_field_base_t * rt_field) {
+
+            #define __ThisFieldOffset (delegate_type->get_field_offset(ctx.env, field_ref))
+
+            auto name = rt_field->get_field_type(ctx, delegate_type)->get_name(ctx.env);
+            if (name == __RtSidOf(ctx, Method))
+                method_field_offset = __ThisFieldOffset;
+            else if (name == __RtSidOf(ctx, Object))
+                object_field_offset = __ThisFieldOffset;
+
+            #undef __ThisFieldOffset
+
+            return true;
+        });
+
+        _A(this_offset >= 0 && method_field_offset >= 0 && object_field_offset >= 0);
+
+        /*
+        _PF(_T("__new_delegate_call_command, this_offset:%1%, method_field_offset:%2%, ")
+            _T("object_field_offset:%3%"),
+            this_offset, method_field_offset, object_field_offset
+        );
+        */
+   
+        return __delegate_call_command_manager.template get_command<__CallCmd(delegate)>(
+            this_offset, method_field_offset, object_field_offset
+        );
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -3366,6 +3518,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             case xil_call_type_t::virtual_:
                 return __new_virtual_call_command(ctx, xil);
+
+            case xil_call_type_t::delegate:
+                return __new_delegate_call_command(ctx, xil);
 
             default:
                 X_UNEXPECTED();
@@ -5883,6 +6038,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __Case( __instance_call_command_t<__CallCmd_(instance, generic), rt_generic_method_t> ) \
             __Case( __instance_call_command_t<__CallCmd_(instance, general), rt_method_t> ) \
             __Case( __virtual_call_command_t )                                          \
+            __Case( __delegate_call_command_t )                                         \
                                                                                         \
             /* al */                                                                    \
             __SwitchCommands_CaseBinaries(al, add)                                      \

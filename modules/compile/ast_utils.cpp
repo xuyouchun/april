@@ -1427,6 +1427,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                 && variable->this_type() != variable_type_t::method)
                     {
                         function_exp->set_variable(variable);
+                        __walk_arguments(function_exp->arguments());
                     }
                     else
                     {

@@ -1738,7 +1738,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns param type of specified index.
     type_t * impl_method_t::param_type_at(size_t index) const
     {
-        return method_t::param_type_at(index);
+        return __super_t::param_type_at(index);
     }
 
     // Builds with generic args.

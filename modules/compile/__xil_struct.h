@@ -55,6 +55,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Method call xil.
+    struct x_method_call_xil_t : x_call_xil_t
+    {
+        typedef x_call_xil_t __super_t;
+
+        x_method_call_xil_t(xil_call_type_t call_type, ref_t method)
+            : __super_t(call_type, method)
+        {
+            _A(method != ref_t::null);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Delegate call xil.
+    struct x_delegate_call_xil_t : x_call_xil_t
+    {
+        typedef x_call_xil_t __super_t;
+
+        x_delegate_call_xil_t()
+            : __super_t(xil_call_type_t::delegate)
+        { }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Pop empty xil.
     struct x_pop_empty_xil_t : xil_extra_t<pop_xil_t>
     {

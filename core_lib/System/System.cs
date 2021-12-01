@@ -173,22 +173,11 @@ public struct Delegate<TReturn, TArgs ...>
     }
 
     private readonly Object __instance;
-
-    public Object Instance
-    {
-        get { return __instance; }
-    }
-
     private readonly Method __method;
-
-    public Method Method
-    {
-        get { return __method; }
-    }
 
     public TReturn Invoke(TArgs ... args)
     {
-        Console.WriteLine("Call Invoke");
+        Internal.Delegate_Invoke(); 
         return default(TReturn);
     }
 };
