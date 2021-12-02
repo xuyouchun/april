@@ -398,47 +398,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return;
         }
 
-        // Delegate.
-        expression_t * instance;
-        method_variable_t * method_var = __try_fetch_method_variable(expression, &instance);
-
-        if (method_var != nullptr)
-        {
-            expression_compile_context_t cctx(ctx);
-            __push_variable_address(cctx, pool, local);
-
-            // Pushes instance.
-            if (instance == nullptr)
-                pool.append<x_push_null_xil_t>();
-            else
-                __compile_expression(ctx, pool, instance);
-
-            // Pushes method info.
-            _A(method_var->method != nullptr);
-            ref_t method_ref = __search_method_ref(ctx, method_var->method);
-            pool.append<x_push_object_xil_t>(xil_storage_object_type_t::method_info, method_ref);
-
-            type_t * delegate_type = local->get_type();
-            // _PP(delegate_type);
-
-            // TODO: check delegate prototype.
-
-            // Check and call delegate.
-            atypes_t atypes = {
-                atype_t(__XPool.get_object_type()), atype_t(__XPool.get_method_type())
-            };
-
-            analyze_member_args_t args(member_type_t::method, name_t::null, &atypes);
-            args.method_trait = method_trait_t::constructor;
-            method_t * constructor = (method_t *)delegate_type->get_member(args);
-            _A(constructor != nullptr);
-
-            ref_t constructor_method_ref = __search_method_ref(ctx, constructor);
-            pool.append<x_method_call_xil_t>(xil_call_type_t::instance, constructor_method_ref);
-
-            return;
-        }
-
         type_t * type = expression->get_type();
         _A(type != nullptr);
 

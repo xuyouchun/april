@@ -85,6 +85,104 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                behaviour == expression_behaviour_t::new_;
     }
 
+    // Try to fetch method variable of expression specified.
+    static method_variable_t * __try_fetch_method_variable(expression_t * exp)
+    {
+        typedef expression_family_t ef_t;
+        _A(al::in(exp->this_family(), ef_t::name, ef_t::name_unit));
+
+        name_expression_t * name_exp = (name_expression_t *)exp;
+        if (name_exp->expression_type == name_expression_type_t::variable)
+        {
+            variable_t * variable = name_exp->variable;
+            if (variable->this_type() == variable_type_t::method)
+                return (method_variable_t *)variable;
+        }
+
+        return nullptr;
+    }
+
+    // Try to fetch method variable of expression specified.
+    static method_variable_t * __try_fetch_method_variable(expression_t * exp,
+                                                           expression_t ** out_instance)
+    {
+        expression_family_t family = exp->this_family();
+
+        if (family == expression_family_t::name)
+        {
+            al::assign(out_instance, nullptr);
+            return __try_fetch_method_variable(exp);
+        }
+
+        if (family == expression_family_t::binary)
+        {
+            typedef expression_family_t ef_t;
+
+            binary_expression_t * binary_exp = (binary_expression_t *)exp;
+            if (binary_exp->op() == operator_t::member_point &&
+                al::in(binary_exp->exp2()->this_family(), ef_t::name, ef_t::name_unit))
+            {
+                method_variable_t * variable = __try_fetch_method_variable(binary_exp->exp2());
+                al::assign(out_instance, binary_exp->exp1());
+
+                return variable;
+            }
+        }
+
+        return nullptr;
+    }
+
+    // Pre assign to a variable for delegate type.
+    void __pre_delegate_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
+        variable_t * variable, method_variable_t * method_var, expression_t * instance)
+    {
+        if (variable != nullptr)
+            __push_variable_address(ctx, pool, variable);
+
+        // Pushes instance.
+        if (instance == nullptr)
+            pool.append<x_push_null_xil_t>();
+        else
+            instance->compile(ctx, pool);
+
+        // Pushes method info.
+        _A(method_var->method != nullptr);
+        ref_t method_ref = __search_method_ref(ctx, method_var->method);
+        pool.append<x_push_object_xil_t>(xil_storage_object_type_t::method_info, method_ref);
+
+        type_t * delegate_type = method_var->get_type();
+        // _PP(delegate_type);
+
+        // TODO: check delegate prototype.
+
+        // Check and call delegate.
+        atypes_t atypes = {
+            atype_t(__XPool.get_object_type()), atype_t(__XPool.get_method_type())
+        };
+
+        analyze_member_args_t args(member_type_t::method, name_t::null, &atypes);
+        args.method_trait = method_trait_t::constructor;
+        method_t * constructor = (method_t *)delegate_type->get_member(args);
+        _A(constructor != nullptr);
+
+        ref_t constructor_method_ref = __search_method_ref(ctx, constructor);
+        pool.append<x_method_call_xil_t>(xil_call_type_t::instance, constructor_method_ref);
+    }
+
+    // Try to do assignment for delegate types.
+    bool __try_delegate_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
+        variable_t * variable, expression_t * expression)
+    {
+        expression_t * instance;
+        method_variable_t * method_var = __try_fetch_method_variable(expression, &instance);
+
+        if (method_var == nullptr)
+            return false;
+
+        __pre_delegate_assign(ctx, pool, variable, method_var, instance);
+        return true;
+    }
+
     // Pre append custom struct for assign.
     void __pre_custom_struct_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
         variable_t * variable, expression_t * expression)
@@ -111,6 +209,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             __push_variable_address(ctx, pool, variable);
             expression->compile(ctx, pool);
+        }
+        else if (__try_delegate_assign(ctx, pool, variable, expression))
+        {
+            // OK
         }
         else // assign
         {
@@ -673,6 +775,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             else if (__is_call_expression(exp)) // function call expression
             {
                 exp->compile(ctx, pool);
+            }
+            else if (__try_delegate_assign(ctx, pool, nullptr, exp))
+            {
+                // OK
             }
             else  // assign
             {

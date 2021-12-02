@@ -24,9 +24,10 @@ class MyClass
 
     public void Execute()
     {
-        __Func func = GetFunc();
-        int r = func(1, 2);
-        Console.Write(r);
+        var func = Add;
+
+        var r = func(1, 2);
+        Console.WriteLine(r);
     }
 
     public int Add(int a, int b)
@@ -37,12 +38,6 @@ class MyClass
     public int Sub(int a, int b)
     {
         return a - b;
-    }
-
-    public __Func GetFunc()
-    {
-        var func = this.Sub;
-        return func;
     }
 
     public int DoFunc(__Func func, int a, int b)
