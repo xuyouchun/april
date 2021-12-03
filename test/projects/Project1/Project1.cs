@@ -16,14 +16,10 @@ class Project1
 class MyClass
 {
     typedef System.Delegate<int, int, int> __Func;
-    typedef System.Delegate<__Func> __FuncCreator;
-    typedef System.Delegate<__FuncCreator> __FuncCreatorFactory;
 
     public void Execute()
     {
-        var r = __GetFuncCreatorFactory()()()(1, 2) + 100 
-            + __GetFuncCreatorFactory()()()(3, 4);
-        Console.WriteLine(r);
+        Console.WriteLine( __DoFunc(this.Sub, 10, 20) );
     }
 
     public int Add(int a, int b)
@@ -36,31 +32,9 @@ class MyClass
         return a - b;
     }
 
-    public int DoFunc(__Func func, int a, int b)
+    private int __DoFunc(__Func func, int a, int b)
     {
         return func(a, b);
-    }
-
-    public __Func GetFunc()
-    {
-        return Add;
-    }
-
-    public __FuncCreator __GetFuncCreator()
-    {
-        return GetFunc;
-    }
-
-    public __FuncCreatorFactory __GetFuncCreatorFactory()
-    {
-        return __GetFuncCreator;
-    }
-
-    // public System.Delegate<
-
-    public MyStruct GetStruct()
-    {
-        return new MyStruct(10, 20);
     }
 };
 

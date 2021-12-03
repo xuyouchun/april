@@ -1013,7 +1013,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             variable_t * variable;
             if (__region != nullptr && (variable = __region->get(name)) != nullptr)
             {
-                name_exp->set(variable);
+                if (variable->this_type() == variable_type_t::method)
+                {
+                    type_t * context_type;
+
+                    type_t * host_type = ((method_variable_t *)variable)->method->host_type;
+                    method_t * method = __pick_method_from_current_context(
+                        host_type, name_exp, &context_type
+                    );
+
+                    if (method != nullptr)
+                    {
+                        _A(method->variable != nullptr);
+                        name_exp->set(method->variable);
+                    }
+                    else
+                    {
+                        if (context_type != nullptr)
+                        {
+                            ast_log(__cctx, name_exp, __c_t::cannot_find_method_with_prototype,
+                                                    __to_method_prototype(context_type));
+                        }
+                        else
+                        {
+                            // If context_type is not nullptr, maybe it's defined by var.
+                            // TODO: need check duplicated methods.
+                            name_exp->set(variable);
+                        }
+                    }
+                }
+                else
+                {
+                    name_exp->set(variable);
+                }
             }
             else
             {
@@ -1224,28 +1256,100 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __exp2_walked_t::no;
         }
 
-        void __pick_argument_types_from_context_type(type_t * context_type, atypes_t & atypes,
-            type_t ** out_return_type)
+        // Try convert to a delegate type.
+        generic_type_t * __try_fetch_delegate_type(type_t * type)
         {
-            xpool_t & xpool = __XPool;
+            if (type == nullptr)
+                return nullptr;
 
-            if (context_type->this_gtype() == gtype_t::generic)
+            if (type->this_gtype() == gtype_t::generic)
             {
-                generic_type_t * generic_type = (generic_type_t *)context_type;
+                xpool_t & xpool = __XPool;
+
+                generic_type_t * generic_type = (generic_type_t *)type;
                 general_type_t * general_type = generic_type->template_;
 
                 if (general_type == xpool.get_delegate_type()
                     || general_type == xpool.get_multicast_delegate_type())
                 {
-                    auto & args = generic_type->args;
-                    _A(args.size() > 0);
-
-                    al::assign(out_return_type, args[0]);
-
-                    if (args.size() >= 2)   // The first is return type.
-                        al::copy(args, std::back_inserter(atypes), 1);
+                    return generic_type;
                 }
             }
+
+            return nullptr;
+        }
+
+        bool __pick_argument_types_from_context_type(type_t * context_type, atypes_t & atypes,
+            type_t ** out_return_type)
+        {
+            generic_type_t * delegate_type = __try_fetch_delegate_type(context_type);
+            if (delegate_type != nullptr)
+            {
+                auto & args = delegate_type->args;
+                _A(args.size() > 0);
+
+                al::assign(out_return_type, get_delegate_return_type(delegate_type));
+
+                if (args.size() >= 2)   // The first is return type.
+                    al::copy(args, std::back_inserter(atypes), 1);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        // Returns a method prototype from a generic type.
+        string_t __to_method_prototype(type_t * type)
+        {
+            generic_type_t * delegate_type = __try_fetch_delegate_type(type);
+
+            if (delegate_type != nullptr)
+            {
+                auto & args = delegate_type->args;
+                _A(args.size() > 0);
+
+                stringstream_t ss;
+                ss << get_delegate_return_type(delegate_type) << _T(" (");
+
+                for (size_t index = 1, count = args.size(); index < count; index++)
+                {
+                    if (index > 1)
+                        ss << _T(", ");
+
+                    ss << args[index];
+                }
+
+                ss << _T(")");
+
+                return ss.str();
+            }
+
+            return _T("?");
+        }
+
+        // Pick a method from current context type.
+        method_t * __pick_method_from_current_context(type_t * type, name_expression_t * name_exp,
+            type_t ** out_context_type = nullptr)
+        {
+            _A(name_exp != nullptr);
+
+            type_t * context_type = pick_type_from_current_context(name_exp);
+            al::assign(out_context_type, context_type);
+
+            if (context_type == nullptr)
+                return nullptr;
+
+            atypes_t atypes;
+            type_t * return_type;
+
+            __pick_argument_types_from_context_type(context_type, atypes, &return_type);
+
+            analyze_member_args_t args1(
+                member_type_t::method, name_exp->name, &atypes, nullptr, return_type
+            );
+
+            return (method_t *)type->get_member(args1);
         }
 
         bool __try_get_member(type_t * type, name_expression_t * name_exp, member_t ** out_member)
@@ -1284,7 +1388,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     );
 
                     member = __XPool.new_generic_type(template_, args, type);
-
                     __wctx.commit_types();
                 }
 
@@ -1296,20 +1399,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 {
                     try
                     {
-                        type_t * context_type = pick_type_from_current_context(name_exp);
-
-                        if (context_type == nullptr)
-                            return false;
-
-                        atypes_t atypes;
-                        type_t * return_type;
-
-                        __pick_argument_types_from_context_type(context_type, atypes, &return_type);
-
-                        analyze_member_args_t args1(
-                            member_type_t::method, name, &atypes, nullptr, return_type
-                        );
-                        *out_member = type->get_member(args1);
+                        *out_member = __pick_method_from_current_context(type, name_exp);
 
                         if (*out_member == nullptr)
                         {

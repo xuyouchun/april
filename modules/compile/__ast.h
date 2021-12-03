@@ -664,6 +664,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Cannot determine local type.
         cannot_determine_local_variable_type,
 
+        // Cannot find method with prototype.
+        cannot_find_method_with_prototype,
+
         __the_end__         = 10000,
 
     X_ENUM_END

@@ -148,7 +148,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         pool.append<x_push_object_xil_t>(xil_storage_object_type_t::method_info, method_ref);
 
         type_t * delegate_type = method_var->get_type();
-        // _PP(delegate_type);
+        _PP(delegate_type);
 
         // TODO: check delegate prototype.
 

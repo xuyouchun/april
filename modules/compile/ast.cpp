@@ -430,6 +430,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_D(cannot_determine_local_variable_type,
                                             _T("Cannot determine type of local variable '%1%'"))
 
+        // Cannot find method with prototype.
+        X_D(cannot_find_method_with_prototype,
+                        _T("Cannot find method with prototype %1%"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
