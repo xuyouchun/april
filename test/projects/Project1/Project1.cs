@@ -11,22 +11,18 @@ class Project1
         MyClass obj = new MyClass();
         obj.Execute();
     }
-
-    public int Add(int a, int b)
-    {
-        return a + b;
-    }
 };
 
 class MyClass
 {
     typedef System.Delegate<int, int, int> __Func;
+    typedef System.Delegate<__Func> __FuncCreator;
+    typedef System.Delegate<__FuncCreator> __FuncCreatorFactory;
 
     public void Execute()
     {
-        var func = Add;
-
-        var r = func(1, 2);
+        var r = __GetFuncCreatorFactory()()()(1, 2) + 100 
+            + __GetFuncCreatorFactory()()()(3, 4);
         Console.WriteLine(r);
     }
 
@@ -44,21 +40,40 @@ class MyClass
     {
         return func(a, b);
     }
+
+    public __Func GetFunc()
+    {
+        return Add;
+    }
+
+    public __FuncCreator __GetFuncCreator()
+    {
+        return GetFunc;
+    }
+
+    public __FuncCreatorFactory __GetFuncCreatorFactory()
+    {
+        return __GetFuncCreator;
+    }
+
+    // public System.Delegate<
+
+    public MyStruct GetStruct()
+    {
+        return new MyStruct(10, 20);
+    }
 };
 
-class MyClass<T1>
+struct MyStruct
 {
-    class Nest<T2>
+    public MyStruct(int a, int b)
     {
-        public static int Add(T1 a, T2 b)
-        {
-            return 0;
-        }
-
-        public static int Add2<T>(T a, T b)
-        {
-            return 0;
-        }
+        A = a;
+        B = b;
+        C = 1;
+        D = 2;
     }
+
+    public int A, B, C, D;
 };
 

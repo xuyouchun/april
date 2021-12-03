@@ -92,17 +92,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (is_custom_struct(type))     // custom struct 
             X_UNEXPECTED();
 
-        #define __Append(name, xil_type)                                    \
-            pool.append<x_##name##_local_xil_t>(                            \
-                xil_type, local->identity                                   \
+        #define __Append(name, xil_type)                                        \
+            pool.append<x_##name##_local_xil_t>(                                \
+                xil_type, local->identity                                       \
             )
 
-        #define __Write(xil_type)                                           \
-            do {                                                            \
-                if (pick)                                                   \
-                    __Append(pick, xil_type);                               \
-                else                                                        \
-                    __Append(pop, xil_type);                                \
+        #define __Write(xil_type)                                               \
+            do {                                                                \
+                if (pick)                                                       \
+                    __Append(pick, xil_type);                                   \
+                else                                                            \
+                    __Append(pop, xil_type);                                    \
             } while (false)
             
         switch (type->this_gtype())
@@ -391,7 +391,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Local assign xilx.
     void local_assign_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-        // null
+        // null expression.
         if (expression == nullptr)
         {
             write_assign_xil(ctx, pool, local, xil_type_t::empty);

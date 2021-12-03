@@ -2786,7 +2786,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Commits this node.
     void function_ast_node_t::on_commit()
     {
-        __expression.namex         = __to_eobject<expression_t *>(namex);
+        __expression.set_namex(__to_eobject<expression_t *>(namex));
         __expression.generic_args  = __to_eobject<generic_args_t *>(generic_args);
 
         __expression.set_arguments(__to_eobject<arguments_t *>(arguments));

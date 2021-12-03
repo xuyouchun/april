@@ -137,6 +137,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool,
                                                                   xil_type_t dtype);
 
+        // Compile delegate calling expression, for complex namex expressions.
+        void __compile_default(expression_compile_context_t & ctx, xil_pool_t & pool,
+                                                                  xil_type_t dtype);
+
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////

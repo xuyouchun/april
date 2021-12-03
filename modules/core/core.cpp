@@ -4408,7 +4408,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts method variable to a string.
     X_DEFINE_TO_STRING(method_variable_t)
     {
-        return _str(method);
+        if (method->generic_params != nullptr)
+            return _F(_T("%1%<%2%>"), method->name, method->generic_params);
+
+        return method->name;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -5997,6 +6000,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_INFO_END
 
+    // Sets namex, namex maybe a name or an expression.
+    void function_expression_t::set_namex(expression_t * namex) _NE
+    {
+        _A(namex != nullptr);
+
+        this->namex = namex;
+        namex->parent = this;
+    }
+
     // Sets method.
     void function_expression_t::set_method(method_base_t * method) _NE
     {
@@ -6034,6 +6046,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return name_t::null;
     }
 
+    // Returns delegate return type, (type at index 0).
+    type_t * get_delegate_return_type(type_t * type)
+    {
+        _A(type != nullptr);
+        _A(type->this_gtype() == gtype_t::generic);
+
+        generic_type_t * generic_type = (generic_type_t *)type;
+        _A(generic_type->template_ == __XPool.get_delegate_type());
+
+        return get_delegate_return_type(generic_type);
+    }
+
+    // Returns delegate return type, (type at index 0).
+    type_t * get_delegate_return_type(generic_type_t * type)
+    {
+        _A(type != nullptr);
+
+        return type->type_at(0);  // index 0 is return type of delegate type.
+    }
+
     // Returns type.
     type_t * function_expression_t::get_type() const
     {
@@ -6044,33 +6076,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             case __ftype_t::variable: {
                 type_t * type = get_variable()->get_type();
-                _A(type->this_gtype() == gtype_t::generic);
-
-                generic_type_t * generic_type = (generic_type_t *)type;
-                _A(generic_type->template_ == __XPool.get_delegate_type());
-
-                return generic_type->type_at(0);  // index 0 is return type of delegate type.
+                return get_delegate_return_type(type);
             }
 
-            default:
-                return nullptr;
+            default: {
+                type_t * type;
+                if (namex == nullptr || (type = namex->get_type()) == nullptr)
+                    return nullptr;
+
+                return get_delegate_return_type(type);
+            }
         }
     }
 
     // Returns vtype of function_expression.
     vtype_t function_expression_t::get_vtype() const
     {
-        switch (get_ftype())
-        {
-            case __ftype_t::method:
-                return __get_vtype(get_method()->get_type());
-
-            case __ftype_t::variable:
-                return __get_vtype(get_type());
-
-            default:
-                return vtype_t::__unknown__;
-        }
+        return __get_vtype(get_type());
     }
 
     // Converts a function expression to a string.

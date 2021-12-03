@@ -1415,11 +1415,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (namex_exp == nullptr)
                 return;
 
-            __avoid_walk(namex_exp);
-
             switch (namex_exp->this_family())
             {
                 case expression_family_t::name: {
+                    __avoid_walk(namex_exp);
                     name_expression_t * name_exp = (name_expression_t *)namex_exp;
                     variable_t * variable;
 
@@ -1436,6 +1435,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 }   return;
 
                 case expression_family_t::binary: {
+                    __avoid_walk(namex_exp);
                     binary_expression_t * binary_exp = (binary_expression_t *)namex_exp;
 
                     if (binary_exp->op() == operator_t::member_point)
@@ -1466,6 +1466,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 }   break;
 
                 default:
+                    __walk(namex_exp);
+                    __walk_arguments(function_exp->arguments());
                     break;
             }
         }

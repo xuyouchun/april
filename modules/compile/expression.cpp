@@ -134,11 +134,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Pre assign to a variable for delegate type.
     void __pre_delegate_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
-        variable_t * variable, method_variable_t * method_var, expression_t * instance)
+        method_variable_t * method_var, expression_t * instance)
     {
-        if (variable != nullptr)
-            __push_variable_address(ctx, pool, variable);
-
         // Pushes instance.
         if (instance == nullptr)
             pool.append<x_push_null_xil_t>();
@@ -169,6 +166,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         pool.append<x_method_call_xil_t>(xil_call_type_t::instance, constructor_method_ref);
     }
 
+    #define __FakeVariable_PushCallingBottom            ((variable_t *)1)
+    #define __Is_FakeVariable_PushCallingBottom(var)    (var == __FakeVariable_PushCallingBottom)
+
     // Try to do assignment for delegate types.
     bool __try_delegate_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
         variable_t * variable, expression_t * expression)
@@ -179,7 +179,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (method_var == nullptr)
             return false;
 
-        __pre_delegate_assign(ctx, pool, variable, method_var, instance);
+        if (__Is_FakeVariable_PushCallingBottom(variable))
+            pool.append<x_push_calling_bottom_xil_t>();
+        else if (variable != nullptr)
+            __push_variable_address(ctx, pool, variable);
+
+        __pre_delegate_assign(ctx, pool, method_var, instance);
         return true;
     }
 
@@ -247,6 +252,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             pool.append<x_push_calling_bottom_xil_t>();
             expression->compile(ctx, pool);
+        }
+        else if (__try_delegate_assign(ctx, pool, __FakeVariable_PushCallingBottom, expression))
+        {
+            // OK
         }
         else  // variables.
         {
@@ -418,6 +427,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         return false;
+    }
+
+    // Returns whether it's function namex. (function name or delegate expression)
+    static bool __is_function_namex(expression_t * exp)
+    {
+        expression_t * parent_exp;
+        if (exp == nullptr || (parent_exp = exp->parent) == nullptr)
+            return false;
+
+        if (parent_exp->this_family() != expression_family_t::function)
+            return false;
+
+        function_expression_t * func_exp = (function_expression_t *)parent_exp;
+        return func_exp->namex == exp;
     }
 
     // Returns whether the expression assign equals, e.g. +=, -=.
@@ -1284,9 +1307,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Pre call a method.
     static void __pre_call_method(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
-                                                                 method_base_t * method)
+                                                                type_t * ret_type)
     {
-        type_t * ret_type = method->get_type();
+        _A(exp != nullptr);
 
         // When return type is custom struct, but not assign to a variable.
         if (is_custom_struct(ret_type))
@@ -1295,7 +1318,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
             }
-            else if (__is_left_member(exp->parent, exp, true))
+            else if (__is_left_member(exp->parent, exp, true) || __is_function_namex(exp))
             {
                 pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
 
@@ -1303,6 +1326,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     pool.append<x_push_duplicate_xil_t>();
             }
         }
+
+    }
+
+    // Pre call a method.
+    static void __pre_call_method(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+                                                                 method_base_t * method)
+    {
+        _A(method != nullptr);
+
+        type_t * ret_type = method->get_type();
+        __pre_call_method(ctx, pool, exp, ret_type);
+    }
+
+    // Post call a method.
+    static void __post_call_method(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+                                                                method_base_t * method)
+    {
+
     }
 
     // Returns whether it's effective, for the whole expression.
@@ -1318,11 +1359,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Pops return value from stack
-    static void __pop_empty_for_method(__cctx_t & ctx, xil_pool_t & pool,
+    static bool __try_pop_empty_for_method(__cctx_t & ctx, xil_pool_t & pool,
                                         method_base_t * method, expression_t * owner_exp)
     {
         if (__is_whole_effective(owner_exp->parent))
-            return;
+            return false;
 
         type_t * ret_type = method->get_type();
         vtype_t vtype;
@@ -1332,7 +1373,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             xil_type_t xil_type = to_xil_type(vtype);
             pool.append<x_pop_empty_xil_t>(xil_type);
+            return true;
         }
+
+        return false;
     }
 
     // Compile property variable.
@@ -1350,7 +1394,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
 
-        __pop_empty_for_method(ctx, pool, method, owner_exp);
+        __try_pop_empty_for_method(ctx, pool, method, owner_exp);
     }
 
     // Compile property variable.
@@ -1583,7 +1627,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
 
-        __pop_empty_for_method(ctx, pool, method, this);
+        __try_pop_empty_for_method(ctx, pool, method, this);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1695,7 +1739,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
 
-        __pop_empty_for_method(ctx, pool, method, this);
+        __try_pop_empty_for_method(ctx, pool, method, this);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1923,7 +1967,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __compile_delegate(ctx, pool, dtype);
                 break;
 
+            case function_expression_type_t::__default__:
+                __compile_default(ctx, pool, dtype);
+                break;
+
             default:
+                X_UNEXPECTED();
                 break;
         }
     }
@@ -1958,12 +2007,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __pre_call_method(ctx, pool, this->parent, method);
                 ((binary_expression_t *)this->parent)->exp1()->compile(ctx, pool);
             }
-            else if (!__is_static(call_type))
+            else
             {
-                __pre_call_method(ctx, pool, this, method);
-                pool.append<x_push_this_ref_xil_t>();
-            }
+                bool is_static = __is_static(call_type);
 
+                if (!is_static || __is_function_namex(this))
+                    __pre_call_method(ctx, pool, this, method);
+
+                if (!is_static)
+                    pool.append<x_push_this_ref_xil_t>();
+            }
+            
             __compile_arguments(ctx, pool, this->arguments(), method);
 
             ref_t method_ref = __search_method_ref(ctx, method);
@@ -1989,7 +2043,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (dtype != xil_type_t::empty)
                 __try_append_convert_xil(pool, method->get_type(), dtype);
             else
-                __pop_empty_for_method(ctx, pool, method, this);
+                __try_pop_empty_for_method(ctx, pool, method, this);
         }
         else
         {
@@ -2034,7 +2088,44 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (dtype != xil_type_t::empty)
             __try_append_convert_xil(pool, method->get_type(), dtype);
         else
-            __pop_empty_for_method(ctx, pool, method, this);
+            __try_pop_empty_for_method(ctx, pool, method, this);
+    }
+
+    // Compile delegate calling expression, for complex namex expressions.
+    void __sys_t<function_expression_t>::__compile_default(__cctx_t & ctx, xil_pool_t & pool,
+                                                              xil_type_t dtype)
+    {
+        if (this->namex == nullptr)     // TODO: why nullptr?
+            return;
+
+        type_t * type = this->namex->get_type();
+        _A(type != nullptr);
+
+        if (type->this_gtype() != gtype_t::generic)
+            throw _ED(__e_t::delegate_type_error, type);
+
+        generic_type_t * gtype = (generic_type_t *)type;
+        general_type_t * template_ = gtype->template_;
+
+        if (template_ != __XPool.get_delegate_type())
+            throw _ED(__e_t::delegate_type_error, gtype);
+
+        analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
+        method_t * method = (method_t *)gtype->get_member(args);
+        _A(method != nullptr);
+
+        __pre_call_method(ctx, pool, namex, method);
+        namex->compile(ctx, pool);
+
+        __compile_arguments(ctx, pool, this->arguments(), method);
+
+        ref_t method_ref = __search_method_ref(ctx, method);
+        pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
+
+        if (dtype != xil_type_t::empty)
+            __try_append_convert_xil(pool, method->get_type(), dtype);
+        else
+            __try_pop_empty_for_method(ctx, pool, method, this);
     }
 
     // Compile delegate calling expression.

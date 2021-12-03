@@ -6806,10 +6806,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         function_expression_t() = default;
         function_expression_t(method_t * method, arguments_t * arguments)
             : __super_t(arguments)
-        { }
+        {
+            _A(method != nullptr);
+        }
 
         expression_t    * namex         = nullptr;      // Name
         generic_args_t  * generic_args  = nullptr;      // Generic arguments.
+
+        // Sets namex, namex maybe a name or an expression.
+        void set_namex(expression_t * namex) _NE;
 
         // Sets method.
         void set_method(method_base_t * method) _NE;
@@ -6860,6 +6865,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         incorp_t<void, __ftype_t> __relation_data;
     };
+
+    // Returns delegate return type, (type at index 0).
+    type_t * get_delegate_return_type(type_t * type);
+
+    // Returns delegate return type, (type at index 0).
+    type_t * get_delegate_return_type(generic_type_t * type);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
