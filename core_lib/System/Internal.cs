@@ -130,6 +130,12 @@ internal static class Internal
     [__internal__]
     public static extern Void Delegate_Invoke();
 
+    [__internal__]
+    public static extern Void Delegate_Init();
+
+    [__internal__]
+    public static extern Void Delegate_InitWithCallType();
+
     // Math
 
     [__internal__]

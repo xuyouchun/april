@@ -67,9 +67,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __Cmd(_cmd, _n)             __cmd_##_cmd##_##_n
     #define __DefineCmdValue(_cmd, _n)  __DefineCmdValue_(__Cmd(_cmd, _n));
 
-    #define __RtSidOf(_ctx, _name) (_ctx.names._name == rt_sid_t::null?                 \
-            (_ctx.names._name = _ctx.to_sid(_S(_name))) : _ctx.names._name)
-
     ////////// ////////// ////////// ////////// //////////
 
     using namespace rt;
@@ -2937,7 +2934,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     __DefineCmdValue_(__CallCmd_(static_,  general))
     __DefineCmdValue_(__CallCmd_(static_,  generic))
 
-    __DefineCmdValue_(__CallCmd(delegate))
+    __DefineCmdValue_(__CallCmd(delegate_init))
+    __DefineCmdValue_(__CallCmd(delegate_init_with_call_type))
+    __DefineCmdValue_(__CallCmd(delegate_invoke))
 
     typedef rtlib::libfunc_t __libfunc_t;
 
@@ -3406,30 +3405,188 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     }
 
     //-------- ---------- ---------- ---------- ----------
+    // Delegate call command.
 
-    class __delegate_call_command_t : public __command_base_t<__CallCmd(delegate)>
+    static msize_t __delegate_method_field_offset       = unknown_msize;
+    static msize_t __delegate_instance_field_offset     = unknown_msize;
+
+    static msize_t __delegate_method_argument_offset    = unknown_msize;
+    static msize_t __delegate_instance_argument_offset  = unknown_msize;
+
+    // Used in init with type.
+    static msize_t __delegate_method_argument_offset2   = unknown_msize;
+    static msize_t __delegate_instance_argument_offset2 = unknown_msize;
+    static msize_t __delegate_call_type_argument_offset2 = unknown_msize;
+
+    template<command_value_t _cv>
+    class __delegate_call_command_base_t : public __command_base_t<_cv>
     {
-        typedef __delegate_call_command_t               __self_t;
-        typedef __command_base_t<__CallCmd(delegate)>   __super_t;
+        typedef __delegate_call_command_base_t  __self_t;
+        typedef __command_base_t<_cv>           __super_t;
 
     public:
-        __delegate_call_command_t(msize_t this_offset,
-            msize_t method_field_offset, msize_t object_field_offset)
+        __delegate_call_command_base_t(msize_t this_offset)
             : __this_offset(this_offset + __stack_stub_size)
-            , __method_field_offset(method_field_offset)
-            , __object_field_offset(object_field_offset)
         { }
+
+    protected:
+        const msize_t __this_offset;
+
+        typedef command_execute_context_t       __ctx_t;
+
+        rt_object_t * __get_self(__ctx_t & ctx) _NE
+        {
+            return __Argument(rt_object_t *, __This->__this_offset);
+        }
+
+        void __set_self(__ctx_t & ctx, rt_object_t * self) _NE
+        {
+            __Argument(rt_object_t *, __This->__this_offset) = self;
+        }
+
+        rt_object_t * __get_instance(__ctx_t & ctx, rt_object_t * self) _NE
+        {
+            return __Field(rt_object_t *, self, __delegate_instance_field_offset);
+        }
+
+        void __set_instance(__ctx_t & ctx, rt_object_t * self, rt_object_t * instance) _NE
+        {
+            __Field(rt_object_t *, self, __delegate_instance_field_offset) = instance;
+        }
+
+        rt_method_base_t * __get_method(__ctx_t & ctx, rt_object_t * self) _NE
+        {
+            return __Field(rt_method_base_t *, self, __delegate_method_field_offset);
+        }
+
+        void __set_method(__ctx_t & ctx, rt_object_t * self, rt_method_base_t * method) _NE
+        {
+            __Field(rt_method_base_t *, self, __delegate_method_field_offset) = method;
+        }
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // delegate invoke init command.
+
+    template<command_value_t _cv> class __delegate_call_command_t { };
+
+    template<>
+    class __delegate_call_command_t<__CallCmd(delegate_init)>
+        : public __delegate_call_command_base_t<__CallCmd(delegate_init)>
+    {
+        typedef __delegate_call_command_t       __self_t;
+        typedef __delegate_call_command_base_t<__CallCmd(delegate_init)>  __super_t;
+
+    public:
+        using __super_t::__super_t;
 
         __BeginExecute(ctx)
 
-            rt_object_t * self = __Argument(rt_object_t *, __this_offset);
+            rt_object_t * self = __This->__get_self(ctx);
 
-            rt_object_t * object = __Field(rt_object_t *, self, __object_field_offset);
-            rt_method_base_t * method = __Field(rt_method_base_t *, self, __method_field_offset);
+            __This->__set_instance(ctx, self, __get_instance_argument(ctx));
+            __This->__set_method(ctx, self, __get_method_argument(ctx));
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("call delegate init"));
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+    private:
+
+        rt_object_t * __get_instance_argument(__ctx_t & ctx) _NE
+        {
+            return __Argument(rt_object_t *, __delegate_instance_argument_offset);
+        }
+
+        rt_method_base_t * __get_method_argument(__ctx_t & ctx) _NE
+        {
+            return __Argument(rt_method_base_t *, __delegate_method_argument_offset);
+        }
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // delegate invoke init with call type command.
+
+    template<>
+    class __delegate_call_command_t<__CallCmd(delegate_init_with_call_type)>
+        : public __delegate_call_command_base_t<__CallCmd(delegate_init_with_call_type)>
+    {
+        typedef __delegate_call_command_t       __self_t;
+        typedef __delegate_call_command_base_t<__CallCmd(delegate_init_with_call_type)> 
+                                                __super_t;
+    public:
+        using __super_t::__super_t;
+
+        __BeginExecute(ctx)
+
+            rt_object_t * self = __This->__get_self(ctx);
+
+            __This->__set_instance(ctx, self, __get_instance_argument(ctx));
+            __This->__set_method(ctx, self,
+                al::incorp(__get_method_argument(ctx), __get_call_type_argument(ctx))
+            );
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("call delegate init (with call type)"));
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+    private:
+
+        rt_object_t * __get_instance_argument(__ctx_t & ctx) _NE
+        {
+            return __Argument(rt_object_t *, __delegate_instance_argument_offset2);
+        }
+
+        rt_method_base_t * __get_method_argument(__ctx_t & ctx) _NE
+        {
+            return __Argument(rt_method_base_t *, __delegate_method_argument_offset2);
+        }
+
+        int32_t __get_call_type_argument(__ctx_t & ctx) _NE
+        {
+            return __Argument(int32_t, __delegate_call_type_argument_offset2);
+        }
+    };
+
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // delegate invoke call command.
+
+    template<>
+    class __delegate_call_command_t<__CallCmd(delegate_invoke)>
+        : public __delegate_call_command_base_t<__CallCmd(delegate_invoke)>
+    {
+        typedef __delegate_call_command_t       __self_t;
+        typedef __delegate_call_command_base_t<__CallCmd(delegate_invoke)>  __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        __BeginExecute(ctx)
+
+            rt_object_t * self = __This->__get_self(ctx);
+            rt_object_t * object = __This->__get_instance(ctx, self);
+            rt_method_base_t * method = __This->__get_method(ctx, self);
+
+            xil_call_type_t call_type = (xil_call_type_t)al::incorp_v<int32_t>(method);
+            method = al::incorp_p(method);
 
             // _P(_T("call delegate"), method->get_name());
 
             exec_method_t * exec_method = ctx.env.exec_method_of(method);
+
             __Argument(rt_object_t *, __this_offset) = object;
             ctx.switch_to(exec_method);
 
@@ -3438,67 +3595,97 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         #if EXEC_TRACE
 
         __BeginToString()
-            return _F(_T("call delegate"));
+            return _F(_T("call delegate invoke"));
         __EndToString()
 
         #endif  // EXEC_TRACE
 
-        msize_t __this_offset, __method_field_offset, __object_field_offset;;
     };
 
-    struct __delegate_call_command_template_t
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    struct __delegate_command_template_t
     {
         template<command_value_t _cv, typename ... args_t>
-        static auto new_command(memory_t * memory, msize_t this_offset,
-                msize_t method_field_offset, msize_t object_field_offset)
+        static auto new_command(memory_t * memory, msize_t this_offset, xil_call_command_t command)
         {
-            static_assert(_cv == __CallCmd(delegate), "invaid command value");
-
-            typedef __delegate_call_command_t this_command_t;
-            return __new_command<this_command_t>(memory, this_offset,
-                method_field_offset, object_field_offset
-            );
+            typedef __delegate_call_command_t<_cv> this_command_t;
+            return __new_command<this_command_t>(memory, this_offset);
         }
     };
 
-    static command_t * __new_delegate_call_command(__context_t & ctx, const call_xil_t & xil)
+    template<command_value_t _cv>
+    command_t * __new_delegate_command(__context_t & ctx, const call_xil_t & xil)
     {
         static __command_manager_t<
-            __delegate_call_command_template_t
-        >::with_args_t<msize_t, msize_t, msize_t> __delegate_call_command_manager;
+            __delegate_command_template_t
+        >::with_args_t<msize_t, xil_call_command_t> __delegate_command_manager;
 
         uint16_t this_offset = __offset_of_argument(ctx, 0);
-        uint16_t method_field_offset = unknown_msize, object_field_offset = unknown_msize;
+        return __delegate_command_manager.template get_command<_cv>(this_offset, xil.command);
+    }
 
-        rt_generic_type_t * delegate_type = _M(rt_generic_type_t *, ctx.type);
+    static command_t * __new_command_call_command(__context_t & ctx, const call_xil_t & xil)
+    {
+        #define __InitOffset(_name, _identity)                                          \
+            _name = __offset_of_argument(ctx, _identity) + __stack_stub_size;
 
-        delegate_type->each_field(ctx.env, [&](ref_t field_ref, rt_field_base_t * rt_field) {
+        #define __IsOffsetEmpty(_name) (_name == unknown_msize)
 
-            #define __ThisFieldOffset (delegate_type->get_field_offset(ctx.env, field_ref))
+        if (__IsOffsetEmpty(__delegate_method_field_offset))
+        {
+            rt_generic_type_t * delegate_type = _M(rt_generic_type_t *, ctx.type);
 
-            auto name = rt_field->get_field_type(ctx, delegate_type)->get_name(ctx.env);
-            if (name == __RtSidOf(ctx, Method))
-                method_field_offset = __ThisFieldOffset;
-            else if (name == __RtSidOf(ctx, Object))
-                object_field_offset = __ThisFieldOffset;
+            delegate_type->each_field(ctx.env, [&](ref_t field_ref, rt_field_base_t * rt_field) {
 
-            #undef __ThisFieldOffset
+                #define __ThisFieldOffset (delegate_type->get_field_offset(ctx.env, field_ref))
+                #define __RtSidOf(_name) ctx.to_sid(_name)
 
-            return true;
-        });
+                auto name = rt_field->get_field_type(ctx, delegate_type)->get_name(ctx.env);
+                if (name == __RtSidOf(_T("Method")))
+                    __delegate_method_field_offset = __ThisFieldOffset;
+                else if (name == __RtSidOf(_T("Object")))
+                    __delegate_instance_field_offset = __ThisFieldOffset;
 
-        _A(this_offset >= 0 && method_field_offset >= 0 && object_field_offset >= 0);
+                #undef __RtSidOf
+                #undef __ThisFieldOffset
 
-        /*
-        _PF(_T("__new_delegate_call_command, this_offset:%1%, method_field_offset:%2%, ")
-            _T("object_field_offset:%3%"),
-            this_offset, method_field_offset, object_field_offset
-        );
-        */
-   
-        return __delegate_call_command_manager.template get_command<__CallCmd(delegate)>(
-            this_offset, method_field_offset, object_field_offset
-        );
+                return true;
+            });
+        }
+
+        switch (xil.command)
+        {
+            case xil_call_command_t::delegate_init:
+
+                if (__IsOffsetEmpty(__delegate_instance_argument_offset))
+                {
+                    __InitOffset(__delegate_instance_argument_offset, 1);
+                    __InitOffset(__delegate_method_argument_offset, 2);
+                }
+
+                return __new_delegate_command<__CallCmd(delegate_init)>(ctx, xil);
+
+            case xil_call_command_t::delegate_init_with_call_type:
+
+                if (__IsOffsetEmpty(__delegate_instance_argument_offset2))
+                {
+                    __InitOffset(__delegate_instance_argument_offset2, 1);
+                    __InitOffset(__delegate_method_argument_offset2, 2);
+                    __InitOffset(__delegate_call_type_argument_offset2, 3);
+                }
+
+                return __new_delegate_command<__CallCmd(delegate_init_with_call_type)>(ctx, xil);
+
+            case xil_call_command_t::delegate_invoke:
+                return __new_delegate_command<__CallCmd(delegate_invoke)>(ctx, xil);
+
+            default:
+                X_UNEXPECTED();
+        }
+
+        #undef __IsOffsetEmpty
+        #undef __InitOffset
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -3519,8 +3706,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             case xil_call_type_t::virtual_:
                 return __new_virtual_call_command(ctx, xil);
 
-            case xil_call_type_t::delegate:
-                return __new_delegate_call_command(ctx, xil);
+            case xil_call_type_t::command:
+                return __new_command_call_command(ctx, xil);
 
             default:
                 X_UNEXPECTED();
@@ -6038,7 +6225,8 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             __Case( __instance_call_command_t<__CallCmd_(instance, generic), rt_generic_method_t> ) \
             __Case( __instance_call_command_t<__CallCmd_(instance, general), rt_method_t> ) \
             __Case( __virtual_call_command_t )                                          \
-            __Case( __delegate_call_command_t )                                         \
+            __Case( __delegate_call_command_t<__CallCmd(delegate_init) )                \
+            __Case( __delegate_call_command_t<__CallCmd(delegate_invoke) )              \
                                                                                         \
             /* al */                                                                    \
             __SwitchCommands_CaseBinaries(al, add)                                      \

@@ -268,6 +268,24 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(internal,       _T("internal"))
 
+        X_C(command,        _T("command"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Call commands.
+
+    X_ENUM_INFO(xil_call_command_t)
+
+        X_C(none,               _T("none"))
+
+        X_C(delegate_init,      _T("delegate_init"))
+
+        X_C(delegate_init_with_call_type,  _T("delegate_init_with_call_type"))
+
+        X_C(delegate_invoke,    _T("delegate_invoke"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

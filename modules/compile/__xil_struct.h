@@ -69,14 +69,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Delegate call xil.
-    struct x_delegate_call_xil_t : x_call_xil_t
+    // Command call xil.
+    struct x_command_call_xil_t : x_call_xil_t
     {
         typedef x_call_xil_t __super_t;
 
-        x_delegate_call_xil_t()
-            : __super_t(xil_call_type_t::delegate)
-        { }
+        x_command_call_xil_t(xil_call_command_t command) : __super_t(command)
+        {
+            // Empty.
+        }
     };
 
     //-------- ---------- ---------- ---------- ----------

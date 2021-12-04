@@ -2246,7 +2246,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             else
                 var_item->variable->type_name->type = var_item->expression->get_type();
 
-            _PF(_T("%1% %2%"), var_item->variable->type_name->type, var_item->name);
+            // _PF(_T("%1% %2%"), var_item->variable->type_name->type, var_item->name);
         }
 
         if (__statement.constant)

@@ -166,10 +166,14 @@ public class Enum
 public struct Delegate<TReturn, TArgs ...>
 {
     // Constructor.
-    public Delegate(Object instance, Method method)
+    private Delegate(Object instance, Method method)
     {
-        __instance = instance;
-        __method   = method;
+        Internal.Delegate_Init();
+    }
+
+    private Delegate(Object instance, Method method, Int32 callType)
+    {
+        Internal.Delegate_InitWithCallType();
     }
 
     private readonly Object __instance;

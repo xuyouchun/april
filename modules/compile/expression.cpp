@@ -102,6 +102,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    #define __FakeVariable_PushCallingBottom            ((variable_t *)1)
+    #define __Is_FakeVariable_PushCallingBottom(var)    (var == __FakeVariable_PushCallingBottom)
+
     // Try to fetch method variable of expression specified.
     static method_variable_t * __try_fetch_method_variable(expression_t * exp,
                                                            expression_t ** out_instance)
@@ -136,11 +139,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __pre_delegate_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
         method_variable_t * method_var, expression_t * instance)
     {
+        _A(method_var != nullptr && method_var->method != nullptr);
+
         // Pushes instance.
         if (instance == nullptr)
-            pool.append<x_push_null_xil_t>();
+        {
+            if (method_var->method->is_static())
+                pool.append<x_push_null_xil_t>();
+            else
+                pool.append<x_push_this_ref_xil_t>();
+        }
         else
+        {
             instance->compile(ctx, pool);
+        }
 
         // Pushes method info.
         _A(method_var->method != nullptr);
@@ -148,14 +160,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         pool.append<x_push_object_xil_t>(xil_storage_object_type_t::method_info, method_ref);
 
         type_t * delegate_type = method_var->get_type();
-        _PP(delegate_type);
+        // _PP(delegate_type);
 
         // TODO: check delegate prototype.
 
         // Check and call delegate.
+
         atypes_t atypes = {
             atype_t(__XPool.get_object_type()), atype_t(__XPool.get_method_type())
         };
+
+        if (instance != nullptr && instance->this_family() == expression_family_t::base)
+        {
+            // base.xxx
+            atypes.push_back(atype_t(__XPool.get_internal_type(vtype_t::int32_)));
+            pool.append<x_push_const_xil_t<int32_t>>(xil_type_t::int32,
+                tvalue_t((int32_t)xil_call_type_t::instance)
+            );
+        }
 
         analyze_member_args_t args(member_type_t::method, name_t::null, &atypes);
         args.method_trait = method_trait_t::constructor;
@@ -165,9 +187,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ref_t constructor_method_ref = __search_method_ref(ctx, constructor);
         pool.append<x_method_call_xil_t>(xil_call_type_t::instance, constructor_method_ref);
     }
-
-    #define __FakeVariable_PushCallingBottom            ((variable_t *)1)
-    #define __Is_FakeVariable_PushCallingBottom(var)    (var == __FakeVariable_PushCallingBottom)
 
     // Try to do assignment for delegate types.
     bool __try_delegate_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -1977,17 +1996,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    static bool __is_delegate_invoke(xil_call_type_t call_type, name_t name)
+    static xil_call_command_t __to_command_command(xil_call_type_t call_type, name_t name)
     {
         if (call_type != xil_call_type_t::internal)
-            return false;
+            return xil_call_command_t::none;
 
-        static name_t delegate_invoke_name;
+    #define __IsInternalCommand(_name, _command)                                        \
+        {                                                                               \
+            static name_t static_##_name;                                               \
+                                                                                        \
+            if (static_##_name == name_t::null)                                         \
+                static_##_name = __XPool.to_name(_S(_name));                            \
+                                                                                        \
+            if (static_##_name == name)                                                 \
+                return xil_call_command_t::_command;                                    \
+        }
 
-        if (delegate_invoke_name == name_t::null)
-            delegate_invoke_name = __XPool.to_name(_T("Delegate_Invoke"));
+        __IsInternalCommand(Delegate_Invoke, delegate_invoke)
+        __IsInternalCommand(Delegate_Init, delegate_init)
+        __IsInternalCommand(Delegate_InitWithCallType, delegate_init_with_call_type)
 
-        return name == delegate_invoke_name;
+        return xil_call_command_t::none;
     }
 
     // Compile method calling expression.
@@ -2030,14 +2059,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
             }
-            else if (__is_delegate_invoke(call_type, method->get_name()))
-            {
-                // Delegate Invoke.
-                pool.append<x_delegate_call_xil_t>();
-            }
             else
             {
-                pool.append<x_method_call_xil_t>(call_type, method_ref);
+                xil_call_command_t cmd = __to_command_command(call_type, method->get_name());
+                if (cmd != xil_call_command_t::none)
+                    pool.append<x_command_call_xil_t>(cmd);
+                else
+                    pool.append<x_method_call_xil_t>(call_type, method_ref);
             }
 
             if (dtype != xil_type_t::empty)

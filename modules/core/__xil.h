@@ -203,7 +203,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         internal        = 4,        // Internal call, defined in core library.
 
-        delegate        = 5,        // Delegate call
+        command         = 5,        // Execute a command
+
+    __EnumEnd
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Call commands.
+    __Enum(xil_call_command_t)
+
+        none = __default__,
+
+        delegate_init,              // Delegate init
+
+        delegate_init_with_call_type,   // Delegate init with call type
+
+        delegate_invoke,            // Delegate invoke
 
     __EnumEnd
 
@@ -1253,11 +1268,18 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         call_xil_t(xil_call_type_t call_type, ref_t method)
             : __super_t(xil_command_t::call, call_type), method(method) { }
 
-        call_xil_t(xil_call_type_t call_type)
-            : __super_t(xil_command_t::call, call_type) { }
+        // Constructor, for command call.
+        call_xil_t(xil_call_command_t command)
+            : __super_t(xil_command_t::call, xil_call_type_t::command)
+            , command(command) { }
 
-        // Call method ref.
-        __ref_t method;
+        union
+        {
+            // Call method ref.
+            __ref_t method;
+
+            xil_call_command_t command;
+        };
 
         // Call type.
         xil_call_type_t call_type() const { return (xil_call_type_t)hdata(); }
@@ -1270,9 +1292,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns size of a call_xil_t.
     constexpr size_t size_of(const call_xil_t & xil)
     {
-        if (xil.call_type() == xil_call_type_t::delegate)
-            return sizeof(call_xil_t) - sizeof(__ref_t);
-
         return sizeof(call_xil_t);
     }
 

@@ -21,7 +21,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define EXEC_EXECUTE_MODEL_MAUNAL   2
     #define EXEC_EXECUTE_MODEL_INLINE   3
 
-    #define EXEC_TRACE          2  // 0:none, 1:trace, 2:trace details, 3:trace more details
+    #define EXEC_TRACE          3  // 0:none, 1:trace, 2:trace details, 3:trace more details
     #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_VIRTUAL
 
     const size_t __default_stack_size = 1024 * 1024;
@@ -231,10 +231,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         __AlwaysInline rt_stack_unit_t * pop(size_t unit_size) _NE { return __top -= unit_size; }
 
         // Increases top of unit size.
-        __AlwaysInline void increase_top(size_t unit_size) _NE { __top += unit_size; }
+        __AlwaysInline void increase_top(int unit_size) _NE { __top += unit_size; }
 
         // Increases top of unit size.
-        template<size_t unit_size> __AlwaysInline void increase_top() _NE { __top += unit_size; }
+        template<int unit_size> __AlwaysInline void increase_top() _NE { __top += unit_size; }
 
         // Local variables top.
         __AlwaysInline rt_stack_unit_t * lp() _NE { return __lp; }
@@ -957,7 +957,13 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         // Switch to specified method.
         __AlwaysInline void switch_to(exec_method_t * method) _NE
         {
-            this->stub()->method = method;
+            __calling_stub_t * stub = this->stub();
+
+            exec_method_t * old_method = stub->method;
+            stub->method = method;
+
+            stack.increase_top(method->stack_unit_size - old_method->stack_unit_size);
+
             this->current = method->commands;
         }
 

@@ -8,18 +8,37 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        MyClass obj = new MyClass();
+        MyClass obj = new MyClass(10, 20);
         obj.Execute();
     }
 };
 
-class MyClass
+class BaseClass
 {
+    public int Mul(int a, int b)
+    {
+        return a * b;
+    }
+};
+
+class MyClass : BaseClass
+{
+    public MyClass(int a, int b)
+    {
+        this.__A = a;
+        this.__B = b;
+    }
+
     typedef System.Delegate<int, int, int> __Func;
+
+    private int __A, __B;
 
     public void Execute()
     {
-        Console.WriteLine( __DoFunc(this.Sub, 10, 20) );
+        var func = base.Mul;
+        int r = func(2, 3);
+
+        Console.WriteLine(r);
     }
 
     public int Add(int a, int b)
@@ -36,18 +55,5 @@ class MyClass
     {
         return func(a, b);
     }
-};
-
-struct MyStruct
-{
-    public MyStruct(int a, int b)
-    {
-        A = a;
-        B = b;
-        C = 1;
-        D = 2;
-    }
-
-    public int A, B, C, D;
 };
 
