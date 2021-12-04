@@ -190,7 +190,9 @@ public struct Delegate<TReturn, TArgs ...>
 [__internal__]
 public sealed class MulticastDelegate<TReturn, TArgs ...>
 {
-    private readonly Array<Delegate<TReturn, TArgs ...> > __delegates;
+    public typedef Delegate<TReturn, TArgs ...> Delegate;
+
+    private readonly Array<Delegate> __delegates;
 
     public TReturn Invoke(TArgs ... args)
     {

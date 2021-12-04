@@ -353,6 +353,14 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 __This->set_child(__Type::type_name, node);
                 break;
 
+            case __AstValue(attributes):
+                __This->set_child(__Type::attributes, node);
+                break;
+
+            case __AstValue(decorate):
+                __This->set_child(__Type::decorate, node);
+                break;
+
             case __AstValue(type_def_params):
                 __This->set_child(__Type::params, node);
                 break;

@@ -514,6 +514,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected method defination.
         unexpected_method_defination,
 
+        // Unexpected typedef decorate.
+        unexpected_type_def_decorate,
+
+        // Unexpected typedef attribute.
+        unexpected_type_def_attribute,
+
         // A constant variable require a value to be provided.
         constant_variable_initialize_missing,
 
@@ -1842,6 +1848,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Typedef.
     Ast(type_def, __xcvalue_t::type_def)
+
+        // Attributes.
+        attributes,
+        
+        // Decorate.
+        decorate,
 
         // Typename
         type_name,

@@ -3632,7 +3632,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         type_name_t *       type_name  = nullptr;   // Type defined.
         type_def_params_t * params     = nullptr;   // Generic params.
-        namespace_t *       namespace_ = nullptr;   // Its namespace, (When not defined in a  type).
+        namespace_t *       namespace_ = nullptr;   // Its namespace, (When not defined in a type).
 
         // Returns this type.
         virtual member_type_t this_type() override final

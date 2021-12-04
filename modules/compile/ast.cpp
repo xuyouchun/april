@@ -258,6 +258,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected property defination.
         X_D(unexpected_property_defination, _T("properties cannot be defined here: \"%1%\""))
 
+        // Unexpected typedef decorate.
+        X_D(unexpected_type_def_decorate,
+                _T("decorates can only be defined on type_def when it is a member of types"))
+
+        // Unexpected typedef decorate.
+        X_D(unexpected_type_def_attribute, _T("attributes cannot be defined on type_def statements"))
+
         // Unexpected method defination.
         X_D(unexpected_method_defination, _T("methods cannot be defined here: \"%1%\""))
 
@@ -859,6 +866,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Commits this node.
     void type_def_ast_node_t::on_commit()
     {
+        __type_def.decorate   = __to_eobject<decorate_t *>(decorate);
+        __type_def.attributes = __to_eobject_with_owner<attributes_t *>(attributes, &__type_def);
         __type_def.type_name  = __to_eobject<type_name_t *>(type_name);
         __type_def.params     = __to_eobject<type_def_params_t *>(params);
     }
@@ -883,6 +892,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_def_t * type_def = to_eobject();
         if (!context.assembly.types.append_type_def(to_sid(ns), type_def))
             this->__log(this, __c_t::type_def_defination_duplicate, type_def);
+
+        if (context.current_type() == nullptr)   // outside types.
+        {
+            if (__type_def.decorate != nullptr)
+                this->__log(this, __c_t::unexpected_type_def_decorate);
+        }
+
+        if (context.current_method() != nullptr) // in a method, typedef statement.
+        {
+            if (__type_def.decorate != nullptr)
+                this->__log(this, __c_t::unexpected_type_def_decorate);
+
+            if (__type_def.attributes != nullptr)
+                this->__log(this, __c_t::unexpected_type_def_attribute);
+        }
 
         __super_t::on_walk(context, step, tag);
         context.pop();

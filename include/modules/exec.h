@@ -21,7 +21,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define EXEC_EXECUTE_MODEL_MAUNAL   2
     #define EXEC_EXECUTE_MODEL_INLINE   3
 
-    #define EXEC_TRACE          3  // 0:none, 1:trace, 2:trace details, 3:trace more details
+    #define EXEC_TRACE          0  // 0:none, 1:trace, 2:trace details, 3:trace more details
     #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_VIRTUAL
 
     const size_t __default_stack_size = 1024 * 1024;

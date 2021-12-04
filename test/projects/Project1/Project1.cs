@@ -35,8 +35,8 @@ class MyClass : BaseClass
 
     public void Execute()
     {
-        var func = base.Mul;
-        int r = func(2, 3);
+        var func1 = this.Add, func2 = this.Sub;
+        var r = func1(2, 3) * func2(4, 5);
 
         Console.WriteLine(r);
     }
@@ -55,5 +55,25 @@ class MyClass : BaseClass
     {
         return func(a, b);
     }
+
+    private MyClass2 __GetObject2()
+    {   
+        return new MyClass2(__A, __B);
+    }
 };
 
+class MyClass2
+{
+    public MyClass2(int a, int b)
+    {
+        this.__A = a;
+        this.__B = b;
+    }
+
+    private int __A, __B;
+
+    public int Add(int a, int b)
+    {
+        return a + b + __A * __B;
+    }
+};
