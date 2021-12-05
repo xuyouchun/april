@@ -1,5 +1,6 @@
 
 #include <core.h>
+#include <lib.h>
 
 namespace X_ROOT_NS { namespace modules { namespace core {
 
@@ -502,16 +503,37 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_storage_type_t::field:
                 return _F(_T("push field (%1%)%2%"), dtype(), get_ref());
 
-            case xil_storage_type_t::array_element:
-                return _F(_T("push array element (%1%)%2%"), dtype(), get_ref());
-
             case xil_storage_type_t::constant:
                 return _F(_T("push constant (%1%)%2%"),
                     dtype(), __xil_value_to_string(*this, dtype())
                 );
 
+            case xil_storage_type_t::local_addr:
+                return _F(_T("push local_addr (%1%)"), get_identity());
+
+            case xil_storage_type_t::argument_addr:
+                return _F(_T("push argument_addr (%1%)"), get_identity());
+
+            case xil_storage_type_t::field_addr:
+                return _F(_T("push field_addr (%1%)"), get_ref());
+
+            case xil_storage_type_t::object:
+                return _F(_T("push internal object %1%"), object_type);
+
+            case xil_storage_type_t::params:
+                return _T("push params");
+
+            case xil_storage_type_t::array_element:
+                return _F(_T("push array element (%1%)%2%"), dtype(), get_ref());
+
+            case xil_storage_type_t::array_element_addr:
+                return _F(_T("push array_element_addr %1%"), get_ref());
+
             case xil_storage_type_t::duplicate:
                 return _T("dup");
+
+            case xil_storage_type_t::convert:
+                return _F(_T("convert %1%=>%2%"), dtype(), dtype2());
 
             default:
                 return _T("push ?");
@@ -931,7 +953,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         #if CORE_TRACE_XIL_READ
 
-        _PF(_T("[%1%] %2%"), __size_of(*out_xil), __to_string(*out_xil));
+        _PFC(dark_gray, _T("[%1%] %2%"), __size_of(*out_xil), __to_string(*out_xil));
 
         #endif
 
@@ -969,10 +991,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             #if CORE_TRACE_XIL_WRITE
 
+            {
+                lib::console_style_guard_t guard(lib::console_color_t::none,
+                    lib::console_color_t::none, xbool_t::yes, xbool_t::yes);
+
+                _P(_T("----------------- xxxxxxxxxxxxxxxxxxxxxxx"));
+            }
+
             if (trace_type == __trace_type_t::trace)
             {
-                _PF(_T("  %|1$4| | %|2$-40|%3% [%4%]"),
-                    index++, __to_string(xil), __size_of(xil), __to_hex(xil)
+                _PFC(dark_gray, _T("  %|1$4| | %|2$-40|%3% [%4%]"),
+                    ++index, __to_string(xil), __size_of(xil), __to_hex(xil)
                 );
             }
 
@@ -994,7 +1023,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         if (!__traced_method && __get_trace_type() == __trace_type_t::trace)
         {
-            _PF(_T("\n%1%"), __method);
+            _PFC(dark_gray, _T("\n%1%"), __method);
             __traced_method = true;
         }
     }

@@ -1,0 +1,67 @@
+
+Delegate implemenation, 0.11, 2021-12-05
+
+#10. var
+    Undetermined type: var.
+
+    var a = 10, b = 10.0, c = a + b;    // a is System.Int32, b is System.Double, c is System.Double
+    var obj = new Class1();             // obj is Class1
+
+#10. Delegate
+    All delegates is System.Delegate<TReturn, TArgs ...> type.
+    The first generic argument is return type, it can be a void type.
+
+    class Program
+    {
+        public static void Main()
+        {
+            Class1 obj1 = new Class1();
+
+            var func1 = obj1.Add;       // func1 is System.Delegate<int, int, int>
+            var func2 = Class1.Print;   // func2 is System.Delegate<void, string>
+
+            int r1 = func1(1, 2);               // Call a delegate
+            int r2 = __DoFunc(func1, 1, 2);     // Pass a delegate as argument
+            int r3 = __DoFunc(this.Add, 1, 2);  // Pass a method as argument, it will be converted to 
+                                                //   a delegate automatically.
+
+            var func3 = __GetFunc();    // Get a delegate from a function.
+            int r4 = func3(1, 2);
+
+            typedef System.Delegate<int, int, int> Func;    // use typedef
+            Func func4 = __GetFunc();
+            int r5 = func4(1, 2);
+
+            int r6 = __GetFunc()(1, 2); // Use a returned delegate directly.
+        }
+
+        private static int __DoFunc(System.Delegate<int, int, int> func, int a, int b)
+        {
+            return func(a, b);
+        }
+
+        private static System.Delegate<int, int, int> __GetFunc()
+        {
+            Class1 obj1 = new Class1();
+            return obj1.Add;
+        }
+    }
+
+    class Class1
+    {
+        public int Add(int a, int b)
+        {
+            return a + b;
+        }
+
+        public int Sub(int a, int b)
+        {
+            return a - b;
+        }
+
+        public static void Print(string s)
+        {
+            Console.WriteLine(s);
+        }
+    }
+

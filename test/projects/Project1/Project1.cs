@@ -2,13 +2,14 @@
 import System;
 
 using System;
+using System.Diagnostics;
 
 class Project1
 {
     [EntryPoint]
     public static void Main()
     {
-        MyClass obj = new MyClass(10, 20);
+        MyClass obj = new MyClass(0);
         obj.Execute();
     }
 };
@@ -23,42 +24,61 @@ class BaseClass
 
 class MyClass : BaseClass
 {
-    public MyClass(int a, int b)
+    public MyClass(int a)
     {
         this.__A = a;
-        this.__B = b;
     }
 
     typedef System.Delegate<int, int, int> __Func;
 
-    private int __A, __B;
+    private int __A;
 
+    [Trace]
     public void Execute()
     {
-        var func1 = this.Add, func2 = this.Sub;
-        var r = func1(2, 3) * func2(4, 5);
+        int count = 0;
+        for (int k = 2; k <= 100'0000; k += 1)
+        {
+            bool yes = true;
+            for (int i = 2, end = (int)Math.Sqrt(k); i <= end; i++)
+            {
+                if (k % i == 0)
+                {
+                    yes = false;
+                    break;
+                }
+            }
 
-        Console.WriteLine(r);
+            if (yes)
+                count++;
+        }
+
+        Console.WriteLine(count);
     }
 
     public int Add(int a, int b)
     {
-        return a + b;
+        return a + b + __A;
     }
 
     public int Sub(int a, int b)
     {
-        return a - b;
+        return a - b + __A;
+    }
+
+    public static __Func operator + (MyClass obj, int a)
+    {
+        return new MyClass(a).Add;
+    }
+
+    public static __Func operator - (MyClass obj, int a)
+    {
+        return new MyClass(-a).Sub;
     }
 
     private int __DoFunc(__Func func, int a, int b)
     {
         return func(a, b);
-    }
-
-    private MyClass2 __GetObject2()
-    {   
-        return new MyClass2(__A, __B);
     }
 };
 

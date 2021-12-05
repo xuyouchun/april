@@ -4,6 +4,7 @@
 
 #include <common.h>
 #include <algorithm.h>
+#include <os.h>
 
 namespace X_ROOT_NS { namespace lib {
 
@@ -308,6 +309,39 @@ namespace X_ROOT_NS { namespace lib {
     // Split path to directory and filter.
     // Returns true if the path contains filters.
     bool split_path_filter(const path_t & path, path_t & out_dir, string_t & out_filter);
+
+    ////////// ////////// ////////// ////////// //////////
+    // Console
+
+    using os::set_console_style;
+    using os::reset_console_style;
+    using os::console_color_t;
+
+    struct console_style_guard_t
+    {
+        console_style_guard_t(console_color_t color,
+            console_color_t bg_color = console_color_t::none,
+            xbool_t underline = xbool_t::none)
+        {
+            set_console_style(color, bg_color, underline);
+        }
+
+        ~console_style_guard_t()
+        {
+            reset_console_style();
+        }
+    };
+
+    #define X_SET_CONSOLE_COLOR(_color)                                                 \
+        X_ROOT_NS::lib::console_style_guard_t __console_style_guard_##__COUNTER__(      \
+            X_ROOT_NS::lib::console_color_t::_color                                     \
+        )
+
+    #define _PFC(_color, _format, _args...)                                             \
+        do {                                                                            \
+            X_SET_CONSOLE_COLOR(_color);                                                \
+            _PF(_format, ##_args);                                                      \
+        } while (false)
 
     ////////// ////////// ////////// ////////// //////////
 

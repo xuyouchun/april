@@ -373,6 +373,19 @@ namespace X_ROOT_NS {
 namespace X_ROOT_NS {
 
     //-------- ---------- ---------- ---------- ----------
+    // XBool, xbool_t, has three values.
+
+    X_ENUM(xbool_t)
+
+        no      = __default__,
+
+        yes     = 1,
+
+        none    = __unknown__,
+
+    X_ENUM_END
+
+    //-------- ---------- ---------- ---------- ----------
 
     // Enum Types
     X_ENUM(value_type_t)

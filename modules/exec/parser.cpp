@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "commands.h"
 #include "utils.h"
+#include <lib.h>
 
 namespace X_ROOT_NS { namespace modules { namespace exec {
 
@@ -149,8 +150,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         #if EXEC_TRACE
         // _PF(_T("parse_commands: %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
-        _PF(_T("\n\033[01;30m%1% %2%.%3%\033[0m"), prefix, 
-            host_type->get_name(env), analyzer.get_name(method));
+
+        _PFC(dark_gray, _T("\n\033[01;30m%1% %2%.%3%\033[0m"), prefix, 
+            host_type->get_name(env), analyzer.get_name(method)
+        );
+
         #endif  // EXEC_TRACE
 
         rt_assembly_t * assembly = host_type->get_assembly();
@@ -222,7 +226,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #if EXEC_TRACE
 
-            _PF(_T("\033[01;30m%1%  %2%\033[0m"), prefix, to_command_string(command));
+            _PFC(dark_gray, _T("%1%  %2%"), prefix, to_command_string(command));
 
             #endif  // EXEC_TRACE
         });
@@ -297,8 +301,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         exec_method->block_manager = block_manager;
 
         #if EXEC_TRACE
-        _PF(_T("\033[01;30m%1% End of %2%.%3%\033[0m\n"), prefix,
-                host_type->get_name(env), analyzer.get_name(method));
+
+        _PFC(dark_gray, _T("\033[01;30m%1% End of %2%.%3%\033[0m\n"), prefix,
+            host_type->get_name(env), analyzer.get_name(method)
+        );
+
         #endif
 
         return exec_method;

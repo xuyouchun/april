@@ -4,6 +4,7 @@
 #include <mm.h>
 #include "utils.h"
 #include "parser.h"
+#include <lib.h>
 
 namespace X_ROOT_NS { namespace modules { namespace exec {
 
@@ -5883,7 +5884,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #define __BeginExecuteCommand()                                                     \
         void * top0 = ctx.stack.top();                                                  \
-        _PF(_T("\033[22;36m   %|1$-50|[%2%]\033[0m"), to_command_string(command), top0);
+        _PFC(cyan, _T("   %|1$-50|[%2%]"), to_command_string(command), top0);           \
 
     #elif EXEC_TRACE >= 2   // EXEC_TRACE >= 3
 
@@ -5895,7 +5896,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     #define __EndExecuteCommand()                                                       \
         void * top1 = ctx.stack.top();                                                  \
         int    diff = (int)((byte_t *)top1 - (byte_t *)top0);                           \
-        _PF(_T("\033[01;36m-> %|1$-50|[%2%] %3%%4%\033[0m"), to_command_string(command),\
+        _PFC(light_cyan, _T("-> %|1$-50|[%2%] %3%%4%"), to_command_string(command),     \
             top1, diff >= 0? _T("+") : _T(""), diff                                     \
         );
 
@@ -6474,7 +6475,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     {
         #if EXEC_TRACE
         _PF(_T("~ %1% command classes in total ~"), __COUNTER__);
-        _PF(_T("\033[01;36m-> %|1$-50|[%2%]\033[0m"), _T("<begin>"), ctx.stack.top());
+        _PFC(light_cyan, _T("-> %|1$-50|[%2%]"), _T("<begin>"), ctx.stack.top());
         #endif  // EXEC_TRACE
 
         ctx.push_calling(commands);
@@ -6485,7 +6486,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         ctx.pop_calling();
 
         #if EXEC_TRACE
-        _PF(_T("\033[01;36m-> %|1$-50|[%2%]\033[0m"), _T("<end>"), ctx.stack.top());
+        _PFC(light_cyan, _T("-> %|1$-50|[%2%]"), _T("<end>"), ctx.stack.top());
         #endif  // EXEC_TRACE
     }
 

@@ -12,6 +12,18 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    X_ENUM_INFO(xbool_t)
+
+        X_C(no,         _T("no"))
+
+        X_C(yes,        _T("yes"))
+
+        X_C(none,       _T("none"))
+
+    X_ENUM_INFO_END
+
+    ////////// ////////// ////////// ////////// //////////
+
     // All value_type_t descriptions
 
     #define __X_TYPE_OP(type) X_C(type##_, _S(type))
