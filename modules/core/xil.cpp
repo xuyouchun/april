@@ -495,13 +495,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch (stype())
         {
             case xil_storage_type_t::local:
-                return _F(_T("push local (%1%)%2%"), dtype(), get_identity());
+                return _F(_T("push local %1% [%2%]"), dtype(), get_identity());
 
             case xil_storage_type_t::argument:
-                return _F(_T("push argument (%1%)%2%"), dtype(), get_identity());
+                return _F(_T("push argument %1% [%2%]"), dtype(), get_identity());
 
             case xil_storage_type_t::field:
-                return _F(_T("push field (%1%)%2%"), dtype(), get_ref());
+                return _F(_T("push field %1% [%2%]"), dtype(), get_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("push constant (%1%)%2%"),
@@ -509,13 +509,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 );
 
             case xil_storage_type_t::local_addr:
-                return _F(_T("push local_addr (%1%)"), get_identity());
+                return _F(_T("push local_addr [%1%]"), get_identity());
 
             case xil_storage_type_t::argument_addr:
-                return _F(_T("push argument_addr (%1%)"), get_identity());
+                return _F(_T("push argument_addr [%1%]"), get_identity());
 
             case xil_storage_type_t::field_addr:
-                return _F(_T("push field_addr (%1%)"), get_ref());
+                return _F(_T("push field_addr {%1%}"), get_ref());
 
             case xil_storage_type_t::object:
                 return _F(_T("push internal object %1%"), object_type);
@@ -524,10 +524,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return _T("push params");
 
             case xil_storage_type_t::array_element:
-                return _F(_T("push array element (%1%)%2%"), dtype(), get_ref());
+                return _F(_T("push array element %1% [%2%]"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element_addr:
-                return _F(_T("push array_element_addr %1%"), get_ref());
+                return _F(_T("push array_element_addr {%1%}"), get_ref());
 
             case xil_storage_type_t::duplicate:
                 return _T("dup");
@@ -548,21 +548,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch (stype())
         {
             case xil_storage_type_t::local:
-                return _F(_T("pop local (%1%)%2%"), dtype(), get_identity());
+                return _F(_T("pop local %1% [%2%]"), dtype(), get_identity());
 
             case xil_storage_type_t::argument:
-                return _F(_T("pop argument (%1%)%2%"), dtype(), get_identity());
+                return _F(_T("pop argument %1% [%2%]"), dtype(), get_identity());
 
             case xil_storage_type_t::field:
-                return _F(_T("pop field (%1%)%2%"), dtype(), get_ref());
+                return _F(_T("pop field %1% {%2%}"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
-                return _F(_T("pop array element (%1%)%2%"), dtype(), get_ref());
-
-            case xil_storage_type_t::constant:
-                return _F(_T("pop constant (%1%)%2%"),
-                    dtype(), __xil_value_to_string(*this, dtype())
-                );
+                return _F(_T("pop array element %1% {%2%}"), dtype(), get_ref());
 
             case xil_storage_type_t::empty:
                 return _F(_T("pop %1%"), dtype() != xil_type_t::empty?
@@ -583,21 +578,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         switch (stype())
         {
             case xil_storage_type_t::local:
-                return _F(_T("pick local %1%"), get_identity());
+                return _F(_T("pick local %1% [%2%]"), dtype(), get_identity());
 
             case xil_storage_type_t::argument:
-                return _F(_T("pick argument %1%"), get_identity());
+                return _F(_T("pick argument %1% [%2%]"), dtype(), get_identity());
 
             case xil_storage_type_t::field:
-                return _F(_T("pick field %1%(%2%)"), dtype(), get_ref());
+                return _F(_T("pick field %1% {%2%}"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
-                return _F(_T("pick array element %1%(%2%)"), dtype(), get_ref());
-
-            case xil_storage_type_t::constant:
-                return _F(_T("pick constant (%1%)%2%"),
-                    dtype(), __xil_value_to_string(*this, dtype())
-                );
+                return _F(_T("pick array element %1% {%2%}"), dtype(), get_ref());
 
             default:
                 return _T("pick ?");
@@ -646,7 +636,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Converts call xil to a string.
     call_xil_t::operator string_t() const
     {
-        return _F(_T("call %1% %2%"), call_type(), *(ref_t *)&method);
+        return _F(_T("call %1% {%2%}"), call_type(), *(ref_t *)&method);
     }
 
     ////////// ////////// ////////// ////////// //////////

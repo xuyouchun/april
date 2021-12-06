@@ -6,39 +6,36 @@ using System.Diagnostics;
 
 class Project1
 {
-    [EntryPoint, Trace]
+    [EntryPoint]
     public static void Main()
     {
-        for (int v = 2; v <= 100; v++)
-        {
-            bool prime = true;
-
-            for (int k = 2, end = Math.Sqrt(v); k <= end; k++)
-            {
-                if (v % k == 0)
-                {
-                    prime = false;
-                    break;
-                }
-            }
-
-            if (prime)
-                Console.WriteLine(v);
-        }
+        new Class1(100).Execute();
     }
 };
 
-struct MyStruct
+class Class1
 {
-    public MyStruct(int value)
+    typedef System.Delegate<int, int, int> __Func;
+
+    public Class1(int value)
     {
-        Value = value;
+        __value = value;
     }
 
-    public int Value;
+    private int __value;
 
-    public MyStruct GetStruct()
+    [Trace]
+    public void Execute()
     {
-        return new MyStruct(Value + 1);
+        var func = __Add;
+        int r = func(10, 20);
+
+        Console.WriteLine(r);
+    }
+
+    private static int __Add(int a, int b)
+    {
+        return a + b;
     }
 };
+

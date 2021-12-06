@@ -889,9 +889,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     // Calling stub.
     struct __calling_stub_t
     {
-        rt_stack_unit_t *   lp;         // Local variables top.
-        command_t **        current;    // Current command.
-        exec_method_t *     method;     // Method.
+        rt_stack_unit_t *   lp;             // Local variables top.
+        command_t **        current;        // Current command.
+        exec_method_t *     method;         // Method.
     };
 
     class executor_env_t;

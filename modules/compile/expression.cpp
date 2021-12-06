@@ -35,6 +35,35 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return to_xil_type(vtype);
     }
 
+    // Returns whether it's static call type.
+    X_ALWAYS_INLINE static bool __is_static(xil_call_type_t call_type)
+    {
+        return call_type == xil_call_type_t::static_ || call_type == xil_call_type_t::internal;
+    }
+
+    // Returns whether it's a static method.
+    X_ALWAYS_INLINE static bool __is_static(method_t * method)
+    {
+        _A(method != nullptr);
+
+        return __is_static(call_type_of_method(method));
+    }
+
+    // Returns this method.
+    X_ALWAYS_INLINE static method_t * __this_method(__cctx_t & cctx)
+    {
+        return cctx.statement_ctx.method;
+    }
+
+    // Returns xil type.
+    X_ALWAYS_INLINE static xil_type_t __to_xil_type(type_t * type)
+    {
+        if (type == nullptr)
+            return xil_type_t::empty;
+
+        return to_xil_type(type->this_vtype());
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns host type of a member.
@@ -135,6 +164,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Real expression means it will generate xils when compiling.
+    static bool __is_instance(expression_t * expression)
+    {
+        if (expression == nullptr)
+            return false;
+
+        switch (expression->this_family())
+        {
+            case expression_family_t::name:
+            case expression_family_t::name_unit:
+                return ((name_expression_t *)expression)->expression_type
+                                        == name_expression_type_t::variable;
+
+            default:
+                return true;
+        }
+    }
+
     // Pre assign to a variable for delegate type.
     void __pre_delegate_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
         method_variable_t * method_var, expression_t * instance)
@@ -142,12 +189,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(method_var != nullptr && method_var->method != nullptr);
 
         // Pushes instance.
-        if (instance == nullptr)
+        if (method_var->method->is_static())
         {
-            if (method_var->method->is_static())
+            if (__is_instance(instance))
+                throw _ED(__e_t::instance_unexpected_on_static_member, instance, method_var->method);
+
+            if (instance == nullptr)
                 pool.append<x_push_null_xil_t>();
             else
-                pool.append<x_push_this_ref_xil_t>();
+                instance->compile(ctx, pool);
+        }
+        else if (instance == nullptr)
+        {
+            pool.append<x_push_this_ref_xil_t>();
         }
         else
         {
@@ -484,27 +538,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles number.
     void __compile_number(__cctx_t & ctx, xil_pool_t & pool, const tvalue_t & value);
-
-    // Returns whether it's static call type.
-    X_ALWAYS_INLINE static bool __is_static(xil_call_type_t call_type)
-    {
-        return call_type == xil_call_type_t::static_ || call_type == xil_call_type_t::internal;
-    }
-
-    // Returns this method.
-    X_ALWAYS_INLINE static method_t * __this_method(__cctx_t & cctx)
-    {
-        return cctx.statement_ctx.method;
-    }
-
-    // Returns xil type.
-    X_ALWAYS_INLINE static xil_type_t __to_xil_type(type_t * type)
-    {
-        if (type == nullptr)
-            return xil_type_t::empty;
-
-        return to_xil_type(type->this_vtype());
-    }
 
     ////////// ////////// ////////// ////////// //////////
     // Binary expressions
@@ -1285,7 +1318,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         else
         {
             msize_t index = variable->param->index;
-            if (!__is_static(call_type_of_method(ctx.statement_ctx.method)))
+            if (!__is_static(ctx.statement_ctx.method))
                 index++;
 
             type_t * type = variable->get_type();
@@ -1450,19 +1483,51 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             throw _ED(__e_t::unknown_method, method_var);
     }
 
-    // Pushes this with check.
-    static void __push_this_with_check(__cctx_t & ctx, xil_pool_t & pool, expression_t * owner_exp)
+    // Check whether static member has instance object reference.
+    static void __check_static_member(__cctx_t & ctx, expression_t * owner_exp,
+                                                      variable_t * variable)
     {
+        member_t * member;
+        if (variable == nullptr || (member = variable->get_relation_member()) == nullptr)
+            return;
+
+        expression_t * left_exp;
+        bool has_instance;
+
+        if (__is_member_expression(owner_exp->parent, &left_exp))
+            has_instance = __is_instance(left_exp);
+        else
+            has_instance = !ctx.statement_ctx.method->is_static();
+
+        bool is_static = member->is_static();
+
+        // _P(_T("__check_static_member"), owner_exp, variable, is_static, has_instance);
+
+        if (is_static && has_instance)
+            throw _ED(__e_t::instance_unexpected_on_static_member, left_exp, member);
+
+        if (!is_static && !has_instance)
+            throw _ED(__e_t::instance_required_on_non_static_member, member);
+    }
+
+    // Pushes this with check.
+    static void __push_this_with_check(__cctx_t & ctx, xil_pool_t & pool,
+                        expression_t * owner_exp, variable_t * variable)
+    {
+        __check_static_member(ctx, owner_exp, variable);
+
         if (owner_exp != nullptr && !__is_member_expression(owner_exp->parent))
             pool.append<x_push_this_ref_xil_t>();
     }
 
     // Pushes this with check for function.
     static void __push_this_with_check_for_function(__cctx_t & ctx, xil_pool_t & pool,
-                                                                    expression_t * owner_exp)
+                                        expression_t * owner_exp, variable_t * variable)
     {
         if (owner_exp == nullptr)
             return;
+
+        __check_static_member(ctx, owner_exp, variable);
 
         expression_t * exp1;
         if (__is_member_expression(owner_exp->parent, &exp1))
@@ -1488,19 +1553,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
 
             case variable_type_t::field:
-                __push_this_with_check(ctx, pool, owner_exp);
+                __push_this_with_check(ctx, pool, owner_exp, variable);
                 __compile_field_variable(ctx, pool, (field_variable_t *)variable, dtype);
                 break;
 
             case variable_type_t::property: {
                 property_variable_t * property_var = (property_variable_t *)variable;
                 __pre_call_method(ctx, pool, owner_exp, property_var->property->get_method);
-                __push_this_with_check_for_function(ctx, pool, owner_exp);
+                __push_this_with_check_for_function(ctx, pool, owner_exp, variable);
                 __compile_property_variable(ctx, pool, property_var, dtype, owner_exp);
             }   break;
 
             case variable_type_t::method:
-                __push_this_with_check_for_function(ctx, pool, owner_exp);
+                __push_this_with_check_for_function(ctx, pool, owner_exp, variable);
                 __compile_method_variable(ctx, pool, (method_variable_t *)variable, dtype);
                 break;
 

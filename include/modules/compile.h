@@ -198,6 +198,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Type error when create instance.
         create_instance_type_error,
 
+        // Instance reference cannot be accessed on static members.
+        instance_unexpected_on_static_member,
+
+        // An object reference is required for the non-static field, method, or property.
+        instance_required_on_non_static_member,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////

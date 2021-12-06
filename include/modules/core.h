@@ -4777,6 +4777,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns vtype.
         virtual vtype_t get_vtype() = 0;
 
+        // Returns relation member.
+        virtual member_t * get_relation_member() { return nullptr; }
+
         // Write count.
         uint16_t write_count = 0;
 
@@ -4937,6 +4940,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns vtype.
         virtual vtype_t get_vtype() override;
 
+        // Returns relation member.
+        virtual member_t * get_relation_member() override { return field; }
+
         // Retuns name of the field.
         virtual name_t get_name() const override
         {
@@ -4971,6 +4977,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
+
+        // Returns relation member.
+        virtual member_t * get_relation_member() override { return property; }
 
         // Returns name of the property.
         virtual name_t get_name() const override
@@ -5013,6 +5022,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
+
+        // Returns relation member.
+        virtual member_t * get_relation_member() override { return property; }
 
         // Returns name of the property.
         virtual name_t get_name() const override
@@ -5081,6 +5093,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns vtype.
         virtual vtype_t get_vtype() override;
 
+        // Returns relation member.
+        virtual member_t * get_relation_member() override { return event; }
+
         // Returns name of the event.
         virtual name_t get_name() const override
         {
@@ -5109,6 +5124,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
+
+        // Returns relation member.
+        virtual member_t * get_relation_member() override { return method; }
 
         // Returns name of the method.
         virtual name_t get_name() const override;

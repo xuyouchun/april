@@ -4279,7 +4279,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             , __param_unit_ret_size(param_unit_size - _ret_size)
             , __total_unit_ret_size(__total_unit_size - _ret_size)
         {
-
             #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
             __ret_commands.insert(this);
             #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
@@ -4287,9 +4286,9 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx)
 
-            // param, stub, local, ret
+            __calling_stub_t * stub = ctx.stub();
             rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
-            ctx.pop_calling((const __calling_stub_t *)(p + __This->__param_unit_ret_size));
+            ctx.pop_calling(stub);
 
             copy_array<_ret_size>(p + __This->__total_unit_ret_size, p - _ret_size);
 
@@ -4330,9 +4329,10 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
         __BeginExecute(ctx)
 
-            // param, stub, local, ret
+            __calling_stub_t * stub = ctx.stub();
             rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
-            ctx.pop_calling((const __calling_stub_t *)(p + __This->__param_unit_ret_size));
+            ctx.pop_calling(stub);
+
             ctx.stack.pop<void *>();    // pop the bottom struct object address.
 
         __EndExecute()

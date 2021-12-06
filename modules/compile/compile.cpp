@@ -160,6 +160,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_D(create_instance_type_error,
                 _T("Cannot create instance of type '%1%', because it's a '%2%' type"))
 
+        X_D(instance_unexpected_on_static_member,
+                _T("Instance reference '%1%' cannot be accessed on static member '%2%'"))
+
+        X_D(instance_required_on_non_static_member,
+                _T("An object reference is required for the non-static member '%1%'"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
