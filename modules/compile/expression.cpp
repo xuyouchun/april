@@ -1243,7 +1243,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Compiles local variable.
     static void __compile_local_variable(__cctx_t & ctx, xil_pool_t & pool,
-                                    local_variable_t * variable, xil_type_t dtype)
+                    local_variable_t * variable, xil_type_t dtype = xil_type_t::empty)
     {
         //_PF(_T("-------- variable: %1%, %2%, %3%"), variable,
         //                variable->read_count, variable->write_count);
@@ -1335,11 +1335,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             if (exp->parent == nullptr)
             {
-                pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
+                local_variable_t * variable = ctx.define_temp_local(ret_type);
+                __compile_local_variable(ctx, pool, variable);
             }
             else if (__is_left_member(exp->parent, exp, true) || __is_function_namex(exp))
             {
-                pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, ret_type));
+                local_variable_t * variable = ctx.define_temp_local(ret_type);
+                __compile_local_variable(ctx, pool, variable);
 
                 if (is_effective(exp->parent))
                     pool.append<x_push_duplicate_xil_t>();
@@ -2401,7 +2403,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             if (__is_left_member(this->parent, this))
             {
-                pool.append<x_temp_alloc_xil_t>(__ref_of(ctx, type));
+                local_variable_t * variable = ctx.define_temp_local(type);
+                __compile_local_variable(ctx, pool, variable);
 
                 if (is_effective(this->parent))
                     pool.append<x_push_duplicate_xil_t>();

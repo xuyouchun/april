@@ -773,12 +773,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_new_type_t::stack_allocs:
                 return _T("stack_allocs");
 
-            case xil_new_type_t::temp_alloc:
-                return _T("temp_alloc");
-
-            case xil_new_type_t::temp_allocs:
-                return _T("temp_allocs");
-
             default:
                 X_UNEXPECTED();
         }
@@ -990,13 +984,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         for (xil_t * xil : pool)
         {
             #if CORE_TRACE_XIL_WRITE
-
-            {
-                lib::console_style_guard_t guard(lib::console_color_t::none,
-                    lib::console_color_t::none, xbool_t::yes, xbool_t::yes);
-
-                _P(_T("----------------- xxxxxxxxxxxxxxxxxxxxxxx"));
-            }
 
             if (trace_type == __trace_type_t::trace)
             {

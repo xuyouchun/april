@@ -374,6 +374,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this statement group.
     void statement_group_t::compile(statement_compile_context_t & ctx)
     {
+        ctx.current_region()->variable_region = this->variable_region;
+
         if (!__remove_unreached_codes(ctx))
         {
             for (statement_t * statement : __statements)

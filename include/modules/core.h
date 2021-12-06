@@ -25,7 +25,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     class statement_compile_context_t;
     class expression_execute_context_t;
     class method_compile_context_t;
+    class xilx_write_context_t;
+
     class statement_region_t;
+    class variable_region_t;
+
     class general_type_t;
     class generic_type_t;
 
@@ -2664,12 +2668,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         method_body_t() = default;
 
         // Constructor.
-        method_body_t(std::initializer_list<statement_t *> initializer)
-            : statements(initializer)
+        method_body_t(variable_region_t * variable_region)
+            : variable_region(variable_region)
+        { }
+
+        // Constructor.
+        method_body_t(std::initializer_list<statement_t *> initializer,
+            variable_region_t * variable_region = nullptr)
+            : statements(initializer), variable_region(variable_region)
         { }
 
         // Statements.
         statements_t statements;
+
+        // Current variable region.
+        variable_region_t * variable_region = nullptr;
 
         // Pushes statements at front.
         template<typename _statements_t>
@@ -3005,6 +3018,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Appends a variable.
         void append(local_variable_t * variable);
+
+        // Enumerator begin.
+        auto begin() const { return std::begin(__variables); }
+
+        // Enumerator end.
+        auto end() const { return std::end(__variables); }
+
+        // Local variable count.
+        size_t size() const { return __variables.size(); }
 
     private:
         al::svector_t<local_variable_t *, 5>  __variables;
@@ -4511,6 +4533,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Creates a new name_t object of specified string.
         name_t to_name(const char_t * s) { return name_t(spool.to_sid(s)); }
 
+        // Creates a new name_t object of specified string.
+        name_t to_name(const string_t & s) { return to_name(s.c_str()); }
+
         // Creates a new generic type.
         generic_type_t * new_generic_type(general_type_t * template_,
                                           xtype_collection_t & types, type_t * host_type);
@@ -4753,10 +4778,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual vtype_t get_vtype() = 0;
 
         // Write count.
-        int write_count = 0;
+        uint16_t write_count = 0;
 
         // Read count.
-        int read_count = 0;
+        uint16_t read_count = 0;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -5118,9 +5143,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Constructor.
         variable_region_t(memory_t * memory, variable_region_t * previous,
-                variable_type_t mask = (variable_type_t)0xFF, object_t * owner = nullptr)
-            : __memory(memory), previous(previous), __mask(mask)
-            , __owner(owner? owner: previous? previous->__owner : nullptr) { }
+                variable_type_t mask = (variable_type_t)0xFF, object_t * owner = nullptr);
 
         // Previous variable region.
         variable_region_t * previous = nullptr;
@@ -5146,6 +5169,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Gets the variable of the name.
         variable_t * get(const name_t & name);
+
+        // Returns current local index, usually used for temp name of new local variables.
+        int current_local_index() { return __current_local_index(); }
 
         X_TO_STRING_IMPL(_T("variable_region_t"))
 
@@ -5983,11 +6009,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
-        expression_compile_context_t(statement_compile_context_t & statement_ctx)
-            : statement_ctx(statement_ctx) { }
+        expression_compile_context_t(xilx_write_context_t & ctx);
+
+        // Relation xilx write context.
+        xilx_write_context_t & xilx_ctx;
 
         // Relation statement context.
         statement_compile_context_t & statement_ctx;
+
+        // Variable region.
+        variable_region_t * variable_region;
+
+        // Defines a local variable.
+        local_variable_t * define_temp_local(type_t * type);
 
         // Relation statement context.
         operator statement_compile_context_t & () const
@@ -5996,6 +6030,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         X_TO_STRING_IMPL(_T("expression_compile_context_t"))
+
+    private:
+        byte_t __new_variable_region[sizeof(variable_region_t)] = { 0 };
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -7478,6 +7515,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Standalone regions.
         std::queue<statement_region_t *> regions;
 
+        // Current variable region.
+        variable_region_t * variable_region = nullptr;
+
         // Xilx block manager.
         xilx_block_manager_t & block_manager;
 
@@ -7535,6 +7575,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Parent region.
         statement_region_t * parent = nullptr;
+
+        // Current variable region.
+        variable_region_t * variable_region = nullptr;
 
         // Sets point with point type.
         virtual void set_point(__point_type_t point_type, statement_point_t * point);

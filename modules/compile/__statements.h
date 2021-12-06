@@ -51,6 +51,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         auto begin() const { return std::begin(__statements); }
         auto end()   const { return std::end(__statements);   }
 
+        // Current variable region.
+        variable_region_t * variable_region = nullptr;
+
     private:
         __statements_t __statements;
     };

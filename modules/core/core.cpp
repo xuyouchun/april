@@ -1552,8 +1552,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         statement_compile_context_t sctx(mctx, this);
 
-        __local_variables.write(mctx.layout, mctx.buffer);
-
         // Compiles statements to xilxes.
         for (statement_t * statement : body->statements)
         {
@@ -1580,6 +1578,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             });
         }
 
+        __local_variables.write(mctx.layout, mctx.buffer);
+
         mctx.xil_pool.commit();
         sctx.jmp_manager.commit(sctx);
 
@@ -1588,6 +1588,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         xw_ctx.block_manager.commit(sctx);
         xw_ctx.block_manager.write(sctx, mctx.buffer);
+
+        /* Show all variables.
+        for (local_variable_t * variable : __local_variables)
+        {
+            _PP(variable);
+        }
+        */
     }
 
     // Finds param by name.
@@ -4817,6 +4824,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // variable_region_t
 
+    // Constructor.
+    variable_region_t::variable_region_t(memory_t * memory, variable_region_t * previous,
+                                         variable_type_t mask, object_t * owner)
+        : __memory(memory), previous(previous), __mask(mask)
+        , __owner(owner? owner: previous? previous->__owner : nullptr)
+    { }
+
     // Defines a local variable.
     local_variable_t * variable_region_t::define_local(type_name_t * type_name,
                     const name_t & name, bool constant, expression_t * expression)
@@ -4974,7 +4988,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if (!__is_supported(_variable_t::type))
         {
             throw _EF(ast_error_t::variable_defination_unexpected,
-                _T("%1% variable \"%2%\" cannot defined here"), _desc(_variable_t::type), name
+                _T("%1% variable \"%2%\" cannot be defined here"), _desc(_variable_t::type), name
             );
         }
 
@@ -5688,6 +5702,38 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_D(invalid_unitary_operator,   _T("operator '%1%' cannot use for '%2%'"))
 
     X_ENUM_INFO_END
+
+    ////////// ////////// ////////// ////////// //////////
+    // expression_compile_context_t
+
+    // Constructor.
+    expression_compile_context_t::expression_compile_context_t(xilx_write_context_t & ctx)
+        : xilx_ctx(ctx), statement_ctx((statement_compile_context_t &)ctx)
+        , variable_region(ctx.variable_region)
+    { }
+
+    // Defines a local variable.
+    local_variable_t * expression_compile_context_t::define_temp_local(type_t * type)
+    {
+        _A(type != nullptr);
+        _A(variable_region != nullptr);
+
+        xpool_t & xpool = __XPool;
+        variable_region_t * new_variable_region = (variable_region_t *)&__new_variable_region;
+
+        if (__new_variable_region[0] == 0)  // variable region not initialized.
+        {
+            new ((void *) new_variable_region) variable_region_t(
+                xpool.memory, variable_region
+            );
+        }
+
+        name_t name = xpool.to_name(_F(_T("__temp_var_%2%__"),
+            new_variable_region->current_local_index()
+        ));
+
+        return new_variable_region->define_local(xpool.to_type_name(type), name);
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // expression
@@ -6722,8 +6768,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     xilx_block_manager_t & block_manager, statement_region_t * region)
         : sc_context(sc_context), block_manager(block_manager)
     {
-        if (region != nullptr)
-            regions.push(region);
+        _A( region != nullptr );
+        _A( region->variable_region != nullptr );
+
+        regions.push(region);
+        this->variable_region = region->variable_region;
     }
 
     // Converts to method context.
@@ -6789,9 +6838,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Write xilxes to a pool.
     void statement_region_t::write(xilx_write_context_t & ctx, xil_pool_t & pool)
     {
+        variable_region_t * old_region = ctx.variable_region;
+        ctx.variable_region = al::nvl(this->variable_region, old_region);
+
         this->each([&ctx, &pool](xilx_t * xilx) {
             xilx->write(ctx, pool);
         });
+
+        ctx.variable_region = old_region;
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -6994,8 +7048,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 method_compile_context_t & mctx, method_t * method)
         : mctx(mctx), method(method), __xheap(_T("statement_compile_context"))
     {
-        _A(method != nullptr);
-        begin_region<root_statement_region_t>();
+        _A(method != nullptr && method->body != nullptr);
+
+        auto * region = begin_region<root_statement_region_t>();
+        region->variable_region = method->body->variable_region;
+
+        _A( region->variable_region != nullptr );
     }
 
     // Completes a region.

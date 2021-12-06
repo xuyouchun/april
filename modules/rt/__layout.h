@@ -330,10 +330,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         msize_t __current_identity() { return __identity++; }
 
         // Arrange variables.
-        template<typename f_t, typename caller_t>
+        template<typename _f_t, typename _caller_t>
         msize_t __arrange_variables_f(__group_t & g, msize_t offset,
                     __partial_iterator_t it_begin, __partial_iterator_t it_end,
-                    f_t f, caller_t caller);
+                    _f_t f, _caller_t caller);
 
         // Arrange variables.
         msize_t __arrange_variables(__group_t & g, msize_t offset,

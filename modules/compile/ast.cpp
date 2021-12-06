@@ -1198,6 +1198,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
+                __body.variable_region = context.current_region();
                 __super_t::on_walk(context, step, tag);
                 this->__delay(context, walk_step_t::post_analysis);
                 break;
@@ -1553,7 +1554,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (statements.size() > 0)
             {
                 if (method.body == nullptr)
-                    method.body = __new_obj<method_body_t>();
+                    method.body = __new_obj<method_body_t>(__wctx.current_region());
 
                 method.body->push_front(statements);
             }
@@ -1722,7 +1723,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if (it == std::end(__type.methods))  // no constructor
             {
-                method_t * method = __append_default_constructor();
+                method_t * method = __append_default_constructor(context);
                 this->__delay(context, walk_step_t::analysis, method);
             }
             else
@@ -1735,7 +1736,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 }
                 else
                 {
-                    method_t * method = __append_default_constructor();
+                    method_t * method = __append_default_constructor(context);
                     this->__delay(context, walk_step_t::analysis, method);
                 }
             }
@@ -1749,7 +1750,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Appends default constructor.
-    method_t * type_ast_node_t::__append_default_constructor()
+    method_t * type_ast_node_t::__append_default_constructor(ast_walk_context_t & context)
     {
         method_t * method = __new_obj<method_t>();
 
@@ -1757,7 +1758,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         method->decorate = __new_obj<decorate_t>();
         method->decorate->access = access_value_t::public_;
         method->trait    = method_trait_t::constructor;
-        method->body     = __new_obj<method_body_t>();
+        method->body     = __new_obj<method_body_t>(context.current_region());
 
         method->body->push_back(__new_obj<return_statement_t>());
 
@@ -2761,7 +2762,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void statement_group_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push_new_region();
+
+        __statement_group.variable_region = context.current_region();
+
         __super_t::on_walk(context, step, tag);
+
         context.pop();
     }
 
@@ -3502,7 +3507,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             (__property.name##_method->body == nullptr)
 
         #define __BodyIgnored(name)                                             \
-            (!__AccessorEmpty(name)  && __BodyEmpty(name))
+            (!__AccessorEmpty(name) && __BodyEmpty(name))
 
         if (__AccessorEmpty(get) && __AccessorEmpty(set))
         {
@@ -3545,7 +3550,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __new_field_expression(field)
             );
 
-            __property.get_method->body = __new_obj<method_body_t>();
+            __property.get_method->body = __new_obj<method_body_t>(context.current_region());
             __property.get_method->body->push_back(statement);
         }
 
@@ -3563,7 +3568,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 // Returns.
                 __new_obj<return_statement_t>()
-            });
+
+            }, context.current_region());
 
             __property.set_method->body = body;
         }

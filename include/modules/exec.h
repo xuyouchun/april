@@ -1009,21 +1009,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             return stub->method;
         }
 
-        // Allocate a temp memory space.
-        __AlwaysInline void * alloc_temp(size_t size) _NE
-        {
-            if (__temp_ptr == nullptr || __temp_size < size)
-                __temp_ptr = heap->alloc(size, __temp_ptr);
-
-            return __temp_ptr;
-        }
-
-        // Allocate a temp memory space for specified units.
-        __AlwaysInline void * alloc_temp_units(size_t units) _NE
-        {
-            return alloc_temp(units * sizeof(rt_stack_unit_t));
-        }
-
         // Destructor.
         virtual ~command_execute_context_t() override
         {
@@ -1035,8 +1020,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     private:
         rt_stack_unit_t * __stack_buffer;
         pool_t            __memory_pool;
-        void *            __temp_ptr = nullptr;
-        size_t            __temp_size;
     };
 
     ////////// ////////// ////////// ////////// //////////

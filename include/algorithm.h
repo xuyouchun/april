@@ -92,6 +92,14 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    template<typename _t>
+    X_INLINE _t * nvl(_t * obj, _t * obj2)
+    {
+        return obj != nullptr? obj : obj2;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Compares given values.
     // Return -1(less), 1(greater), 0(equals).
 

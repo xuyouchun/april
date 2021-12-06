@@ -2837,7 +2837,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __walk_default(ast_walk_context_t & context, int step, void * tag);
 
         // Appends default constructors.
-        method_t * __append_default_constructor();
+        method_t * __append_default_constructor(ast_walk_context_t & context);
 
         // Walks analysis step.
         void __walk_analysis(ast_walk_context_t & context, method_t * method);
