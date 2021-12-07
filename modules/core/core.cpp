@@ -784,14 +784,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     mname_t * mname_operate_context_t::new_mname(const sid_t & sid)
     {
         typedef obj_wrap_t<mname_t> wmname_t;
-        return memory_t::new_obj<wmname_t>(memory, sid);
+        return memory_t::new_obj<wmname_t>(__Memory, sid);
     }
 
     // Creates a new mname.
     mname_t * mname_operate_context_t::new_mname(const mname_t & mname)
     {
         typedef obj_wrap_t<mname_t> wmname_t;
-        mname_t * m = memory_t::new_obj<wmname_t>(memory);
+        mname_t * m = memory_t::new_obj<wmname_t>(__Memory);
 
         m->sid = mname.sid;
         al::copy(mname.parts, std::back_inserter(m->parts));
@@ -1324,26 +1324,33 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Appends a variable.
-    void local_variables_t::append(local_variable_t * variable)
+    // Enumerate all local variables.
+    void local_variables_t::each(std::function<void (local_variable_t *)> f) const
     {
-        _A(variable != nullptr);
+        __node_t::each(__head, f);
+    }
 
-        __variables.push_back(variable);
+    // Return count of variables.
+    size_t local_variables_t::size() const _NE
+    {
+        size_t size = 0;
+        __node_t::each(__head, [&](auto) { size++; });
+
+        return size;
     }
 
     // Write local variables to a buffer.
-    void local_variables_t::write(__assembly_layout_t & layout, xil_buffer_t & buffer)
+    void local_variables_t::write(__assembly_layout_t & layout, xil_buffer_t & buffer) const
     {
-        int variable_count = __variables.size();
+        int variable_count = this->size();
         if (variable_count == 0)
             return;
 
-        method_variable_stub_t stub(__variables.size());
+        method_variable_stub_t stub(variable_count);
         stub.write(buffer);
 
-        for (local_variable_t * variable : __variables)
-        {
+        each([&](local_variable_t * variable) {
+
             type_t * type = variable->get_type();
             ref_t ref = layout.ref_of(type);
             if (ref == ref_t::null)
@@ -1351,7 +1358,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             local_variable_defination_t defination = { ref, variable->index };
             defination.write(layout, buffer);
-        }
+
+        });
+    }
+
+    // Converts to string.
+    local_variables_t::operator string_t() const
+    {
+        stringstream_t ss;
+        int index = 0;
+
+        each([&](local_variable_t * variable) {
+
+            if (index++ > 0)
+                ss << _T("\n");
+
+            ss << _F(_T("%1% %2% [%3%] %4%"), variable->type_name, variable->name,
+                                         variable->identity,variable->index).c_str();
+        });
+
+        return ss.str();
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -1590,10 +1616,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         xw_ctx.block_manager.write(sctx, mctx.buffer);
 
         /* Show all variables.
-        for (local_variable_t * variable : __local_variables)
-        {
-            _PP(variable);
-        }
+        if (!__local_variables.empty())
+            _PP(__local_variables);
         */
     }
 
@@ -1618,12 +1642,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     generic_param_t * method_t::find_param(const name_t & name)
     {
         return __find_param(generic_params, name);
-    }
-
-    // Append local variable to a method.
-    void method_t::append_local(local_variable_t * variable)
-    {
-        __local_variables.append(variable);
     }
 
     // Converts to a string.
@@ -4825,11 +4843,24 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // variable_region_t
 
     // Constructor.
-    variable_region_t::variable_region_t(memory_t * memory, variable_region_t * previous,
+    variable_region_t::variable_region_t(variable_region_t * previous,
                                          variable_type_t mask, object_t * owner)
-        : __memory(memory), previous(previous), __mask(mask)
-        , __owner(owner? owner: previous? previous->__owner : nullptr)
+        : previous(previous), __mask(mask)
+        , __last_local_variable(previous? previous->__last_local_variable : nullptr)
     { }
+
+    // Constructor.
+    variable_region_t::variable_region_t(variable_region_t * previous,
+                                         variable_type_t mask, method_t * method)
+        : variable_region_t(previous, mask, (object_t *)method)
+    {
+        if (method != nullptr)
+        {
+            __local_variable_t ** head_addr = method->__local_variables.head_addr();
+            __last_local_variable = *head_addr == nullptr?
+                al::incorp((void *)head_addr, false) : al::incorp((void *)*head_addr, true);
+        }
+    }
 
     // Defines a local variable.
     local_variable_t * variable_region_t::define_local(type_name_t * type_name,
@@ -4838,13 +4869,27 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(type_name != nullptr);
         _A(!name.empty());
 
-        local_variable_t * variable = __define<local_variable_t>(type_name, name);
+        __local_variable_t * variable = __define<__local_variable_t>(type_name, name);
         variable->identity   = __next_local_identity();
         variable->index      = __next_local_index();
         variable->constant   = constant;
         variable->expression = expression;
 
-        ((method_t *)__owner)->append_local(variable);
+        if (__last_local_variable != nullptr)
+        {
+            if (al::incorp_v<bool>(__last_local_variable))   // node
+            {
+                al::incorp_p((__local_variable_t *)__last_local_variable)->append_next(variable);
+            }
+            else    // head addr
+            {
+                __local_variable_t::append_next(
+                    al::incorp_p((__local_variable_t **)__last_local_variable), variable
+                );
+            }
+
+            __last_local_variable = al::incorp((void *)variable, true);
+        }
 
         return variable;
     }
@@ -4970,7 +5015,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     _variable_t * variable_region_t::__new_variable(_args_t && ... args)
     {
         _variable_t * variable = memory_t::new_obj<_variable_t>(
-            __memory, std::forward<_args_t>(args) ...
+            __Memory, std::forward<_args_t>(args) ...
         );
 
         return variable;
@@ -5216,10 +5261,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
+        template<typename _owner_t>
         __region_ast_walk_context_layer_t(__context_t & context, __layer_t * previous_layer,
-                                      object_t * owner, variable_region_t * previous_region)
-            : __super_t(context, previous_layer, owner)
-            , __variable_region(__XPool.memory, previous_region, _variable_type_mask, owner)
+                                      _owner_t * owner, variable_region_t * previous_region)
+            : __super_t(context, previous_layer)
+            , __variable_region(previous_region, _variable_type_mask, owner)
         { }
 
         // Gets the eobject of specified layer state.
@@ -5245,8 +5291,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
 
         // Constructor.
+        template<typename _owner_t>
         __no_region_ast_walk_context_layer_t(__context_t & context, __layer_t * previous,
-                                                                    object_t * owner)
+                                                                    _owner_t * owner)
             : __super_t(context, previous, owner)
         { }
 
@@ -5417,7 +5464,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     void ast_walk_context_t::push_new_region()
     {
         typedef __region_ast_walk_context_layer_t<variable_type_t::local> layer_t;
-        __push_new_layer<layer_t>(nullptr, current_region());
+        __push_new_layer<layer_t>((object_t *)nullptr, current_region());
     }
 
     // Pushes a new document.
@@ -5712,6 +5759,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         , variable_region(ctx.variable_region)
     { }
 
+
+    // Relation method compile context.
+    expression_compile_context_t::operator method_compile_context_t & () const
+    {
+        return statement_ctx.mctx;
+    }
+
     // Defines a local variable.
     local_variable_t * expression_compile_context_t::define_temp_local(type_t * type)
     {
@@ -5722,13 +5776,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         variable_region_t * new_variable_region = (variable_region_t *)&__new_variable_region;
 
         if (__new_variable_region[0] == 0)  // variable region not initialized.
-        {
-            new ((void *) new_variable_region) variable_region_t(
-                xpool.memory, variable_region
-            );
-        }
+            new ((void *) new_variable_region) variable_region_t(variable_region);
 
-        name_t name = xpool.to_name(_F(_T("__temp_var_%2%__"),
+        name_t name = xpool.to_name(_F(_T("__temp_var_%1%__"),
             new_variable_region->current_local_index()
         ));
 

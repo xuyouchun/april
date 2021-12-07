@@ -180,6 +180,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_D(convert_switch_to_if_statement,
                 _T("Converts switch to if statement when case lables is too little."))
 
+        // Auto determine constant variables, even thought it is not marked as const.
+        X_D(auto_determine_constant_variables,
+                _T("Auto determine const variables, even thought it is not marked as const."))
+
+        // Compute constant values while compiling.
+        X_D(compute_constant_values,
+                _T("Auto compute constant values while compiling."))
+
+        // Optimize basic algorithm.
+        X_D(optimize_basic_algorighm,
+                _T("Optimize basic algorithm"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

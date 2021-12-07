@@ -3009,27 +3009,34 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    typedef chain_node_t<local_variable_t> local_variable_chain_node_t;
+
     // Local variables.
     class local_variables_t
     {
+        typedef local_variable_chain_node_t __node_t;
+
     public:
         // Write loca variables to a buffer.
-        void write(__assembly_layout_t & layout, xil_buffer_t & buffer);
+        void write(__assembly_layout_t & layout, xil_buffer_t & buffer) const;
 
         // Appends a variable.
-        void append(local_variable_t * variable);
+        __node_t ** head_addr() _NE { return &__head; }
 
-        // Enumerator begin.
-        auto begin() const { return std::begin(__variables); }
+        // Enumerate all local variables.
+        void each(std::function<void (local_variable_t *)> f) const;
 
-        // Enumerator end.
-        auto end() const { return std::end(__variables); }
+        // Returns count of variables.
+        size_t size() const _NE;
 
-        // Local variable count.
-        size_t size() const { return __variables.size(); }
+        // Returns whether it's empty.
+        bool empty() const _NE { return __head == nullptr; }
+
+        // Converts to string.
+        operator string_t() const;
 
     private:
-        al::svector_t<local_variable_t *, 5>  __variables;
+        __node_t * __head = nullptr;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -3155,6 +3162,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // General method.
     class method_t : public method_base_t, public __named_member_t
     {
+        friend class variable_region_t;
         typedef method_base_t __super_t;
 
     public:
@@ -3230,9 +3238,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() const override { return decorate; }
-
-        // Appends local variable.
-        void append_local(local_variable_t * variable);
 
         // Compile the method to xil.
         void compile(method_compile_context_t & ctx);
@@ -4711,8 +4716,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         static xpool_t * __current; 
     };
 
-    #define __XPool xpool_t::current()
-    #define __SPool __XPool.spool
+    #define __XPool     xpool_t::current()
+    #define __SPool     __XPool.spool
+    #define __Memory    __XPool.memory
 
     // Returns whether it is a compile time attribute.
     X_INLINE bool is_compile_time_attribute(attribute_t * attr)
@@ -5157,11 +5163,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Variable region.
     class variable_region_t : public object_t
     {
+        typedef local_variable_chain_node_t  __local_variable_t;
+
     public:
 
         // Constructor.
-        variable_region_t(memory_t * memory, variable_region_t * previous,
+        variable_region_t(variable_region_t * previous,
                 variable_type_t mask = (variable_type_t)0xFF, object_t * owner = nullptr);
+
+        // Constructor.
+        variable_region_t(variable_region_t * previous, variable_type_t mask, method_t * owner);
 
         // Previous variable region.
         variable_region_t * previous = nullptr;
@@ -5194,10 +5205,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_TO_STRING_IMPL(_T("variable_region_t"))
 
     private:
-        memory_t * __memory;                             // Memory management.
-        std::multimap<name_t, variable_t *> __variables; // Variable map.
-        variable_type_t __mask;                          // Variable mask.
-        object_t * __owner;                              // The region owner.
+        std::multimap<name_t, variable_t *> __variables;    // Variable map.
+        variable_type_t     __mask;                         // Variable mask.
+
+        void * __last_local_variable; // The last local variable node.
 
         static const msize_t __empty_index = unknown_msize;
         msize_t __local_index = __empty_index, __local_identity = 0;
@@ -5297,7 +5308,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Constructors.
         ast_walk_context_layer_t(__context_t & context, __self_t * previous,
-                                                object_t * owner = nullptr)
+                                                        object_t * owner = nullptr)
             : context(context), previous(previous)
         { }
 
@@ -6046,6 +6057,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return statement_ctx;
         }
+
+        // Relation method compile context.
+        operator method_compile_context_t & () const;
 
         X_TO_STRING_IMPL(_T("expression_compile_context_t"))
 

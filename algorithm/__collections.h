@@ -1090,28 +1090,39 @@ namespace X_ROOT_NS { namespace algorithm {
         }
 
         // Pushes the value to the front.
-        template<typename _objs_t>
-        void push_front(const _objs_t & objs)
+        template<typename _values_t>
+        void push_front(const _values_t & values)
         {
-            size_t obj_size = __ns::size(objs);
+            insert(values, 0);
+        }
+
+        // Pushes the value to the front.
+        template<typename _values_t>
+        void insert(const _values_t & values, size_t index)
+        {
+            if (index > size())
+                throw _EC(invalid_operation, _T("index is too large"));
+
+            size_t value_size = __ns::size(values);
 
             if (__is_in_array())
             {
-                t * p = __p + obj_size;
+                t * p = __p + value_size;
                 if (p <= __array + init_size)
                 {
-                    std::move_backward(__array, __p, __p + obj_size);
-                    std::copy(std::begin(objs), std::end(objs), __array);
-                    __p += obj_size;
+                    std::move_backward(__array + index, __p, __p + value_size);
+                    std::copy(std::begin(values), std::end(values), __array + index);
+                    __p += value_size;
                 }
                 else
                 {
-                    size_t size = this->size(), new_size = size + obj_size;
+                    size_t size = this->size(), new_size = size + value_size;
                     size_t buffer_size = _alignd(size, new_size);
                     t * buffer_start = this->__alloc_objs<t>(buffer_size);
 
-                    std::copy(std::begin(objs), std::end(objs), buffer_start);
-                    std::move(__array, __array + size, buffer_start + obj_size);
+                    std::copy(__array, __array + index, buffer_start);
+                    std::copy(std::begin(values), std::end(values), buffer_start + index);
+                    std::copy(__array + index, __array + size, buffer_start + index + value_size);
 
                     __buffer_start = buffer_start;
                     __buffer_size  = buffer_size;
@@ -1120,21 +1131,22 @@ namespace X_ROOT_NS { namespace algorithm {
             }
             else
             {
-                size_t size = this->size(), new_size = size + obj_size;
+                size_t size = this->size(), new_size = size + value_size;
                 if (new_size <= __buffer_size)
                 {
-                    std::move_backward(__buffer_start, __p, __p + obj_size);
-                    std::copy(std::begin(objs), std::end(objs), __buffer_start);
-
-                    __p += obj_size;
+                    std::move_backward(__buffer_start + index, __p, __p + value_size);
+                    std::copy(std::begin(values), std::end(values), __buffer_start + index);
+                    __p += value_size;
                 }
                 else
                 {
                     __buffer_size = _alignd(size, new_size);
                     t * new_buffer = this->__alloc_objs<t>(__buffer_size);
 
-                    std::copy(std::begin(objs), std::end(objs), new_buffer);
-                    std::move(__buffer_start, __buffer_start + size, new_buffer + obj_size);
+                    std::copy(__buffer_start, __buffer_start + index, new_buffer);
+                    std::copy(std::begin(values), std::end(values), new_buffer + index);
+                    std::copy(__buffer_start + index, __buffer_start + size,
+                                                    new_buffer + index + value_size);
                     this->__free(__buffer_start);
 
                     __buffer_start = new_buffer;

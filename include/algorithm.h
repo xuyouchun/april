@@ -734,7 +734,7 @@ namespace X_ROOT_NS { namespace algorithm {
     template<typename _incorp_t, typename _t>
     X_INLINE _t * incorp(_t * p, _incorp_t v) _NE
     {
-        return (_t *)((__incorp_int_t)p | (__incorp_int_t)v);
+        return (_t *)((__incorp_int_t)p | ((__incorp_int_t)v & __incorp_mask));
     }
 
     template<typename _t>
@@ -765,6 +765,68 @@ namespace X_ROOT_NS { namespace algorithm {
 
     private:
         _p_t * __data;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // chain node.
+
+    template<typename _t>
+    class chain_node_t : public _t
+    {
+        typedef chain_node_t    __self_t;
+        typedef _t              __super_t;
+
+    public:
+
+        using __super_t::__super_t;
+
+        __self_t * next = nullptr;
+
+        // Appends next node.
+        void append_next(__self_t * node)
+        {
+            _A(node != nullptr);
+
+            node->next = this->next;
+            this->next = node;
+        }
+
+        // Removes next node.
+        __self_t * remove_next()
+        {
+            if (next == nullptr)
+                return nullptr;
+
+            __self_t * next = this->next;
+            this->next = this->next->next;
+
+            return next;
+        }
+
+        // Enumerate all nodes.
+        template<typename _f_t>
+        static void each(__self_t * node, _f_t f)
+        {
+            while (node != nullptr)
+            {
+                f(node);
+                node = node->next;
+            }
+        }
+
+        // Appends next node on specified node.
+        static void append_next(__self_t ** p_node, __self_t * node)
+        {
+            _A(node != nullptr);
+
+            if (p_node == nullptr)
+                return;
+
+            if (*p_node == nullptr)
+                *p_node = node;
+            else
+                (*p_node)->append_next(node);
+        }
     };
 
     ////////// ////////// ////////// ////////// //////////

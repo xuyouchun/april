@@ -212,9 +212,15 @@ namespace X_ROOT_NS { namespace algorithm {
     // Returns an iterator to the first element in the range, for which pred returns true.
     // If no such element is found, return the container.end().
     template<typename container_t, typename pred_t>
-    auto find_if (const container_t & container, pred_t pred)
+    auto find_if(const container_t & container, pred_t pred)
     {
         return std::find_if(std::begin(container), std::end(container), pred);
+    }
+
+    template<typename container_t, typename t>
+    auto find(const container_t & container, const t & value)
+    {
+        return std::find(std::begin(container), std::end(container), value);
     }
 
     // Returns true if any pred returns true for any element in the container.

@@ -92,6 +92,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static bool __try_compile_constant_expression(__cctx_t & ctx, xil_pool_t & pool,
                     expression_t * expression, xil_type_t dtype = xil_type_t::empty)
     {
+        if (!is_optimize(ctx, compile_optimize_code_t::compute_constant_values))
+            return false;
+
         cvalue_t cvalue = __execute_expression(ctx, expression);
 
         if (!is_nan(cvalue) && cvalue.value_type != cvalue_type_t::__default__)
@@ -542,96 +545,114 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // Binary expressions
 
+    static bool __is_optimize_basic_algorighm(__cctx_t & ctx)
+    {
+        return is_optimize(ctx, compile_optimize_code_t::optimize_basic_algorighm);
+    }
+
     // Compiles add expression.
     static void __compile_add(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        if (__execute_expression(ctx, exp1) == cvalue_t(0))  // x + 0
+        if (__is_optimize_basic_algorighm(ctx))
         {
-            exp2->compile(ctx, pool);
-        }
-        else if (__execute_expression(ctx, exp2) == cvalue_t(0)) // 0 + x
-        {
-            exp1->compile(ctx, pool);
-        }
-        else
-        {
-            exp1->compile(ctx, pool);
-            exp2->compile(ctx, pool);
+            if (__execute_expression(ctx, exp1) == cvalue_t(0))  // x + 0
+            {
+                exp2->compile(ctx, pool);
+                return;
+            }
 
-            pool.append<x_al_xil_t>(
-                xil_al_command_t::add, __xil_type(exp1), __xil_type(exp2)
-            );
+            if (__execute_expression(ctx, exp2) == cvalue_t(0)) // 0 + x
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
         }
+
+        exp1->compile(ctx, pool);
+        exp2->compile(ctx, pool);
+
+        pool.append<x_al_xil_t>(
+            xil_al_command_t::add, __xil_type(exp1), __xil_type(exp2)
+        );
     }
 
     // Compiles sub expression.
     static void __compile_sub(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        if (__execute_expression(ctx, exp1) == cvalue_t(0))  // 0 * x
+        if (__is_optimize_basic_algorighm(ctx))
         {
-            exp2->compile(ctx, pool);
-            pool.append<x_al_xil_t>(xil_al_command_t::minus, __xil_type(exp1));
-        }
-        else if (__execute_expression(ctx, exp2) == cvalue_t(0))  // x * 0
-        {
-            exp1->compile(ctx, pool);
-        }
-        else
-        {
-            exp1->compile(ctx, pool);
-            exp2->compile(ctx, pool);
+            if (__execute_expression(ctx, exp1) == cvalue_t(0))  // 0 * x
+            {
+                exp2->compile(ctx, pool);
+                pool.append<x_al_xil_t>(xil_al_command_t::minus, __xil_type(exp1));
+                return;
+            }
 
-            pool.append<x_al_xil_t>(
-                xil_al_command_t::sub, __xil_type(exp1), __xil_type(exp2)
-            );
+            if (__execute_expression(ctx, exp2) == cvalue_t(0))  // x * 0
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
         }
+
+        exp1->compile(ctx, pool);
+        exp2->compile(ctx, pool);
+
+        pool.append<x_al_xil_t>(
+            xil_al_command_t::sub, __xil_type(exp1), __xil_type(exp2)
+        );
     }
 
     // Compiles mul expression.
     static void __compile_mul(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        cvalue_t cvalue1 = __execute_expression(ctx, exp1), cvalue2;
-        if (cvalue1 == cvalue_t(1))     // 1 * x
+        if (__is_optimize_basic_algorighm(ctx))
         {
-            exp2->compile(ctx, pool);
-        }
-        else if ((cvalue2 = __execute_expression(ctx, exp2)) == cvalue_t(1))  // x * 1
-        {
-            exp1->compile(ctx, pool);
-        }
-        // TODO x * 0 || 0 * x
-        else
-        {
-            exp1->compile(ctx, pool);
-            exp2->compile(ctx, pool);
+            if (__execute_expression(ctx, exp1) == cvalue_t(1)) // 1 * x
+            {
+                exp2->compile(ctx, pool);
+                return;
+            }
 
-            pool.append<x_al_xil_t>(
-                xil_al_command_t::mul, __xil_type(exp1), __xil_type(exp2)
-            );
+            if (__execute_expression(ctx, exp2) == cvalue_t(1))  // x * 1
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
         }
+
+        // TODO x * 0 || 0 * x
+
+        exp1->compile(ctx, pool);
+        exp2->compile(ctx, pool);
+
+        pool.append<x_al_xil_t>(
+            xil_al_command_t::mul, __xil_type(exp1), __xil_type(exp2)
+        );
     }
 
     // Compiles div expression.
     static void __compile_div(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        cvalue_t cvalue2 = __execute_expression(ctx, exp2);
-        if (cvalue2 == cvalue_t(1))      // x / 1
+        if (__is_optimize_basic_algorighm(ctx))
         {
-            exp1->compile(ctx, pool);
+            if (__execute_expression(ctx, exp2) == cvalue_t(1))      // x / 1
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
         }
-        else
-        {
-            exp1->compile(ctx, pool);
-            exp2->compile(ctx, pool);
 
-            pool.append<x_al_xil_t>(
-                xil_al_command_t::div, __xil_type(exp1), __xil_type(exp2)
-            );
-        }
+        exp1->compile(ctx, pool);
+        exp2->compile(ctx, pool);
+
+        pool.append<x_al_xil_t>(
+            xil_al_command_t::div, __xil_type(exp1), __xil_type(exp2)
+        );
     }
 
     // Compiles mod expression.
@@ -662,6 +683,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_bit_or(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__is_optimize_basic_algorighm(ctx))
+        {
+            if (__execute_expression(ctx, exp1) == cvalue_t(0))     // 0 | x
+            {
+                exp2->compile(ctx, pool);
+                return;
+            }
+
+            if (__execute_expression(ctx, exp2) == cvalue_t(0))     // x | 0
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
+        }
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
@@ -686,6 +722,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_left_shift(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__is_optimize_basic_algorighm(ctx))
+        {
+            if (__execute_expression(ctx, exp2) == cvalue_t(0))     // x << 0
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
+        }
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
@@ -698,6 +743,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_right_shift(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__is_optimize_basic_algorighm(ctx))
+        {
+            if (__execute_expression(ctx, exp2) == cvalue_t(0))     // x >> 0
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
+        }
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
@@ -726,6 +780,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_logic_and(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__is_optimize_basic_algorighm(ctx))
+        {
+            if (__execute_expression(ctx, exp1) == cvalue_t(true))     // true && x
+            {
+                exp2->compile(ctx, pool);
+                return;
+            }
+
+            if (__execute_expression(ctx, exp2) == cvalue_t(true))     // x && true
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
+        }
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
@@ -736,6 +805,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __compile_logic_or(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__is_optimize_basic_algorighm(ctx))
+        {
+            if (__execute_expression(ctx, exp1) == cvalue_t(false))     // false || x
+            {
+                exp2->compile(ctx, pool);
+                return;
+            }
+
+            if (__execute_expression(ctx, exp2) == cvalue_t(false))     // x || false
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
+        }
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
