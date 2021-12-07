@@ -57,7 +57,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Appends switch jmp xilx.
-        switch_jmp_xilx_t * __append_switch (__context_t & ctx, switch_table_t * tbl)
+        switch_jmp_xilx_t * __append_switch(__context_t & ctx, switch_table_t * tbl)
         {
             return append_xilx<switch_jmp_xilx_t>(ctx, tbl);
         }
