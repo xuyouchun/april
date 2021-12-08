@@ -1316,7 +1316,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        compiler_t(lang_factory_t * lang_factory) : __global_context(lang_factory)
+        compiler_t(lang_factory_t * lang_factory,
+                   method_compile_controller_t * controller = nullptr)
+            : __global_context(lang_factory), controller(controller)
         {
             _A(lang_factory != nullptr);
         }
@@ -1326,15 +1328,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Compiles a solution.
         compiler_result_t compile(compile_context_t & context, ast_solution_t * csolution,
-                                            ref_assemblies_t * ref_assembilies = nullptr);
+            ref_assemblies_t * ref_assembilies = nullptr);
 
         // Compiles a solution.
         compiler_result_t compile(memory_t * memory, solution_t * solution,
-                                                assembly_writer_t * writer = nullptr);
+            assembly_writer_t * writer = nullptr);
 
         // Compiles a solution.
         compiler_result_t compile(memory_t * memory, solution_t * solution,
-                                                const string_t & output_path);
+            const string_t & output_path);
 
         // Returns global context.
         global_context_t & get_context() { return __global_context; }
@@ -1343,6 +1345,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         compile_context_t * new_compile_context(memory_t * memory, assembly_writer_t * writer);
 
         X_TO_STRING_IMPL(_T("compiler_t"))
+
+        // Compile controller.
+        method_compile_controller_t * controller = nullptr;
 
     private:
         global_context_t __global_context;              // Global context.
@@ -1365,6 +1370,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Compiles project.
         __assembly_t * __compile_project(__building_context_t & bctx, compile_context_t & context,
                 ast_project_t * cproject, assembly_loader_t * assembly_loader);
+
+        // Returns method compile controller.
+        method_compile_controller_t * __get_controller();
     };
 
     ////////// ////////// ////////// ////////// //////////

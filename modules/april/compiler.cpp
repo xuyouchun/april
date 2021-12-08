@@ -15,13 +15,14 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     // april_compiler_t
 
     // Constructor.
-    april_compiler_t::april_compiler_t(const string_t & solution_name)
-        : __xheap(_T("april_compiler"))
+    april_compiler_t::april_compiler_t(const string_t & solution_name,
+                                       method_compile_controller_t * controller)
+        : __xheap(_T("april_compiler")), __controller(controller)
     {
         __lang_factory.register_lang_t<lang_cs::cs_lang_t>();
         __lang_factory.register_lang_t<lang_lq::lq_lang_t>();
 
-        __compiler = __new_obj<compiler_t>(&__lang_factory);
+        __compiler = __new_obj<compiler_t>(&__lang_factory, __controller);
         __solution = __new_obj<solution_t>(__global_context(), solution_name);
     }
 
@@ -212,7 +213,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
     // Constructor.
     april_xcompiler_t::april_xcompiler_t(const __compile_options_t & options)
-        : __options(options), __xheap(_T("april_xcompiler"))
+        : __options(options), __xheap(_T("april_xcompiler")), __controller(options)
     { }
 
     // Compiles.
@@ -326,7 +327,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     // Compiles solution.
     bool april_xcompiler_t::__compile_solution(solution_config_t * solution_config)
     {
-        april_compiler_t compiler(solution_config->name);
+        april_compiler_t compiler(solution_config->name, &__controller);
         __init_compiler(compiler);
 
         __cassemblies_t cas;
@@ -571,6 +572,28 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             throw _ED(__e_t::duplicated_executable_assembly_, name);
 
         return c1;
+    }
+
+    // Returns whether specified code need optimized.
+    bool april_xcompiler_t::__method_compile_controller_t::optimize(int code)
+    {
+        int optimize_level = __options.optimize;
+
+        #define __Case(_code, _level)                                                   \
+            case compile_optimize_code_t::_code:                                        \
+                return optimize_level >= _level;
+
+        switch ((compile_optimize_code_t)code)
+        {
+            __Case(remove_unreached_codes,              2)
+            __Case(convert_switch_to_if_statement,      2)
+            __Case(auto_determine_constant_variables,   2)
+            __Case(compute_constant_values,             1)
+            __Case(optimize_basic_algorighm,            2)
+
+            default:
+                return optimize_level >= 1;
+        }
     }
 
     ////////// ////////// ////////// ////////// /////////

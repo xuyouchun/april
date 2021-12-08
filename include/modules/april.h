@@ -99,6 +99,9 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         // No executable assembly.
         no_executable_assembly,
 
+        // Optimize argument error.
+        optimize_argument_error,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// /////////
@@ -227,6 +230,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         {
             std::vector<string_t>   files;
             string_t                output_path;
+            int                     optimize;
         };
 
         //-------- ---------- ---------- ---------- ----------

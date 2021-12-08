@@ -20,7 +20,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     public:
 
         // Constructor.
-        april_compiler_t(const string_t & solution_name = _T("solution1"));
+        april_compiler_t(const string_t & solution_name = _T("solution1"),
+                         method_compile_controller_t * controller = nullptr);
 
         // Begins a project.
         project_t * begin_project(const string_t & name = _T(""));
@@ -51,6 +52,8 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         simple_lang_factory_t   __lang_factory;     // Language factory.
         solution_t *            __solution;         // Solution.
         project_t *             __current_project = nullptr;    // Current project.
+
+        method_compile_controller_t * __controller; // Method compile controller.
 
         // Returns global context.
         global_context_t & __global_context() { return __compiler->get_context(); }
@@ -96,6 +99,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         class __cassembly_t;
         class __raw_cassembly_t;
         class __project_cassembly_t;
+        class __method_compile_controller_t;
 
         const __compile_options_t & __options;
         std::vector<lib::path_t> __assemblies;
@@ -263,6 +267,23 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
         //-------- ---------- ---------- ---------- ----------
 
+        // Method compile controller.
+        class __method_compile_controller_t : public method_compile_controller_t
+        {
+        public:
+            __method_compile_controller_t(const __compile_options_t & options)
+                : __options(options)
+            { }
+
+            // Returns whether specified code need optimized.
+            virtual bool optimize(int code) override;
+
+        private:
+            const __compile_options_t & __options;
+        };
+
+        //-------- ---------- ---------- ---------- ----------
+
         std::vector<__cassembly_t *> __cassemblies;
 
         // Gets default execute assembly.
@@ -270,6 +291,9 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
         // Gets assembly of speicified name.
         __cassembly_t * __get_assembly(const string_t & name);
+
+        // Method compile controller.
+        __method_compile_controller_t __controller;
     };
 
     ////////// ////////// ////////// ////////// /////////

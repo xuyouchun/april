@@ -867,7 +867,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (stream == nullptr)
                 stream = &__empty_xostream;
 
-            assembly->write(*stream, logger, default_controller());
+            assembly->write(*stream, logger, __get_controller());
             stream->completed();
         }
 
@@ -899,6 +899,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                     assembly_writer_t * writer)
     {
         return memory_t::new_obj<compile_context_t>(memory, __global_context, writer);
+    }
+
+    // Returns method compile controller.
+    method_compile_controller_t * compiler_t::__get_controller()
+    {
+        if (controller != nullptr)
+            return controller;
+
+        return default_controller();
     }
 
     ////////// ////////// ////////// ////////// //////////

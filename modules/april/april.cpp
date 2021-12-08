@@ -91,6 +91,10 @@ namespace X_ROOT_NS { namespace modules { namespace april {
         // No executable assembly.
         X_D(no_executable_assembly, _T("no executable assembly"))
 
+        // Optimize argument error.
+        X_D(optimize_argument_error,
+            _T("--optimize argument error, should in range 0-3, but '%1%' specified"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// /////////
@@ -127,7 +131,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
     // Constructor.
     april_options_t::april_options_t()
     {
-        
+        // Empty.
     }
 
     const string_t __help_message = _T("                                    \n\
@@ -314,6 +318,7 @@ Use \"april help [command]\" for more information about a command.          \n\
     {
         parser.footer("files ...");
         parser.add<std::string>("output", 'o', "output file", false, "");
+        parser.add<int>("optimize", 'O', "optimize level, <0|1|2|3|4>", false, 0);
     }
 
     // Reads compile options.
@@ -322,6 +327,10 @@ Use \"april help [command]\" for more information about a command.          \n\
     {
         __copy_strings(parser.rest(), options.files);
         options.output_path = __read_string(parser, "output");
+        options.optimize    = parser.get<int>("optimize");
+
+        if (!(options.optimize >= 0 && options.optimize <= 3))
+            throw _ED(april_error_code_t::optimize_argument_error, options.optimize);
 
         if (options.files.empty())
         {
@@ -346,7 +355,7 @@ Use \"april help [command]\" for more information about a command.          \n\
     // Constructor.
     april_t::april_t(april_options_t & options) : __options(options)
     {
-
+        // Empty.
     }
 
     // Executes.
