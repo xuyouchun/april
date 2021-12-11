@@ -321,6 +321,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected expression.
         X_D(unexpected_expression, _T("unexpected expression, \"%1%\""))
 
+        // Invalid expression.
+        X_D(invalid_expression, _T("invalid expression %1%"))
+
         // Member not found.
         X_D(member_not_found, _T("member \"%1%\" undefined in type \"%2%\""))
 
@@ -440,6 +443,31 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Cannot find method with prototype.
         X_D(cannot_find_method_with_prototype,
                         _T("Cannot find method with prototype %1%"))
+
+        // Unexpected decorate on enum fields.
+        X_D(unexpected_enum_decorate, _T("Unexpected keyword '%1%' on enum field %2%"))
+
+        // Unexpected type on enum fields.
+        X_D(unexpected_enum_type, _T("Unexpected type '%1%' on enum field %2%"))
+
+        // Enum field prototype error.
+        X_D(enum_field_prototype_error, _T("Enum field '%1%' should be static and const"))
+
+        // Expect constant value.
+        X_D(expect_constant_value,
+                            _T("The expression '%1%' assigned to '%2%' must be constant"))
+
+        // Type int or unsigned int type expected.
+        X_D(unexpected_underlying_type,
+                _T("Type int or unsigned int type expected, (include short or long types)"))
+
+        // The enum value is too large
+        X_D(enum_value_too_large,
+                _T("The enum value %1% is too large for underlying type %2%"))
+
+        // The enum value is too small
+        X_D(enum_value_too_small,
+                _T("The enum value %1% is too small for underlying type %2%"))
 
     X_ENUM_INFO_END
 
@@ -1049,13 +1077,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // decorate
 
     // Bit field wrapper.
-    template<typename getf_t, typename setf_t>
+    template<typename _getf_t, typename _setf_t>
     struct __bit_field_wrap_t
     {
-        __bit_field_wrap_t(getf_t getf, setf_t setf) : __getf(getf), __setf(setf) { }
+        __bit_field_wrap_t(_getf_t getf, _setf_t setf) : __getf(getf), __setf(setf) { }
 
-        getf_t __getf;
-        setf_t __setf;
+        _getf_t __getf;
+        _setf_t __setf;
 
         typedef decltype(__getf()) __value_t;
 
@@ -1066,10 +1094,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     // Bit field wrapper.
-    template<typename getf_t, typename setf_t>
-    auto __bit_field_wrap(getf_t getf, setf_t setf)
+    template<typename _getf_t, typename _setf_t>
+    auto __bit_field_wrap(_getf_t getf, _setf_t setf)
     {
-        return __bit_field_wrap_t<getf_t, setf_t>(getf, setf);
+        return __bit_field_wrap_t<_getf_t, _setf_t>(getf, setf);
     }
 
     #define __BitField(obj, field)                              \
@@ -1147,7 +1175,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Commits this node.
     void decorate_ast_node_t::on_commit()
     {
-
+        // Empty.
     }
 
     // Returns this eobject.
@@ -1330,7 +1358,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             case walk_step_t::analysis: {
                 expression_t * exp = this->to_eobject();
                 if (!exp->walked)
+                {
                     walk_expression(this->__context, context, exp);
+                    type_t * type = exp->get_type();
+                    if (type == nullptr)
+                        this->__log(this, __c_t::invalid_expression, exp);
+                }
             }   break;
 
             default: break;
@@ -1713,7 +1746,40 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __XPool.append_new_type(type);
 
+        // Set type for enum fields.
+        if (is_enum(type))
+        {
+            for (field_t * field : type->fields)
+            {
+                if (field->type_name != nullptr)
+                    this->__log(this, __c_t::unexpected_enum_type, field->type_name, field->name);
+
+                field->type_name = __XPool.to_type_name(type);
+
+                if (field->decorate != nullptr)
+                {
+                    decorate_value_t dv(*(decorate_value_t *)field->decorate);
+
+                    if (dv != decorate_value_t::default_value)
+                        this->__log(this, __c_t::unexpected_enum_decorate, dv, field->name);
+
+                    if (!field->decorate->is_static || !field->decorate->is_const)
+                        this->__log(this, __c_t::enum_field_prototype_error, field->name);
+                }
+                else
+                {
+                    field->decorate = __new_obj<decorate_t>(decorate_t::default_value);
+                    field->decorate->is_static = true;
+                    field->decorate->is_const  = true;
+                }
+            }
+        }
+
+        // Walk members.
         __super_t::on_walk(context, step, tag);
+
+        // Check default constructors.
+        method_t * new_default_constructor = nullptr;
 
         if (al::in(type->this_ttype(), ttype_t::class_, ttype_t::struct_))
         {
@@ -1731,22 +1797,129 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 // struct type do not need a default constructor.
                 method_t * constructor = *it;
                 if (type->this_ttype() == ttype_t::struct_ && constructor->param_count() == 0)
-                {
                     this->__log(this, __c_t::do_not_need_default_constructor, type);
+                else
+                    new_default_constructor = __append_default_constructor(context);
+            }
+        }
+
+        this->__delay(context, walk_step_t::analysis, new_default_constructor);
+    }
+
+    template<vtype_t _vtype, typename _fields_t>
+    void type_ast_node_t::__fill_field_values(_fields_t & fields)
+    {
+        typedef vnum_t<_vtype> __integer_type_t;
+
+        constexpr __integer_type_t min = min_value<__integer_type_t>();
+        constexpr __integer_type_t max = max_value<__integer_type_t>();
+
+        cvalue_t cvalue_min = cvalue_t(min);
+        cvalue_t cvalue_max = cvalue_t(max);
+
+        __integer_type_t value = 0;
+        bool is_next_value = true;
+
+        for (field_t * field : fields)
+        {
+            #define __Exp(_v)  _F(_T("'%1% = %2%'"), field->name, _v)
+
+            if (field->init_value != nullptr)
+            {
+                cvalue_t v = field->init_value->execute();
+                if (v == cvalue_t::nan)
+                {
+                    this->__log(this, __c_t::expect_constant_value, field->init_value,
+                                                                    _T("enum field"));
                 }
                 else
                 {
-                    method_t * method = __append_default_constructor(context);
-                    this->__delay(context, walk_step_t::analysis, method);
+                    if (v > cvalue_max)
+                    {
+                        this->__log(this, __c_t::enum_value_too_large, __Exp(v), _vtype);
+                    }
+                    else if (v < cvalue_min)
+                    {
+                        this->__log(this, __c_t::enum_value_too_small, __Exp(v), _vtype);
+                    }
+                    else
+                    {
+                        cvalue_t v2 = v.change_type(_vtype);
+                        field->init_value = __XPool.get_cvalue_expression(v2);
+
+                        value = (__integer_type_t)v.number;
+                        is_next_value = false;
+                    }
                 }
             }
+            else
+            {
+                if (is_next_value)
+                {
+                    field->init_value = __XPool.get_cvalue_expression((cvalue_t)value);
+                    is_next_value = false;
+                }
+                else
+                {
+                    if (value == max)
+                    {
+                        this->__log(this, __c_t::enum_value_too_large, __Exp(value), _vtype);
+                    }
+                    else
+                    {
+                        field->init_value = __XPool.get_cvalue_expression((cvalue_t)(++value));
+                    }
+                }
+            }
+
+            #undef __Exp
         }
     }
 
     // Walks analysis step.
-    void type_ast_node_t::__walk_analysis(ast_walk_context_t & context, method_t * method)
+    void type_ast_node_t::__walk_analysis(ast_walk_context_t & context,
+                                                        method_t * new_default_constructor)
     {
-        __method_utils_t(__context, context).revise_constructor(*method, nullptr);
+        general_type_t * type = (general_type_t *)to_eobject();
+
+        if (new_default_constructor != nullptr)
+            __method_utils_t(__context, context).revise_constructor(*new_default_constructor,
+                                                                    nullptr);
+        // Sets enum values.
+        if (is_enum(type))
+        {
+            vtype_t underlying_vtype = type->get_underlying_vtype();
+
+            if (!is_integer(underlying_vtype))
+            {
+                this->__log(this, __c_t::unexpected_underlying_type);
+                underlying_vtype = underlying_vtype;
+            }
+
+            type->vtype = underlying_vtype;
+
+            switch (underlying_vtype)
+            {
+                #define __Case(_type)                                               \
+                    case vtype_t::_type##_:                                         \
+                        __fill_field_values<vtype_t::_type##_>(type->fields);       \
+                        break;
+
+                __Case(int8)
+                __Case(uint8)
+                __Case(int16)
+                __Case(uint16)
+                __Case(int32)
+                __Case(uint32)
+                __Case(int64)
+                __Case(uint64)
+
+                #undef __Case
+
+                default:
+                    X_UNEXPECTED();
+            }
+        }
     }
 
     // Appends default constructor.
@@ -2096,7 +2269,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (__attr.arguments != nullptr)
         {
-            expression_execute_context_t ctx;
             for (argument_t * argument : *__attr.arguments)
             {
                 expression_t * exp = argument->expression;
@@ -2104,7 +2276,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 {
                     try
                     {
-                        exp->execute(ctx);
+                        exp->execute();
                     }
                     catch (const error_t & e)
                     {
@@ -2266,12 +2438,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (!__is_uncertain(var_item->variable->type_name))
                 continue;
 
-            if (var_item->expression == nullptr)
+            type_t * type = nullptr;
+            if (var_item->expression != nullptr)
+                type = var_item->expression->get_type();
+
+            if (type == nullptr)
                 __Log(cannot_determine_local_variable_type, var_item->name);
             else
-                var_item->variable->type_name->type = var_item->expression->get_type();
+                var_item->variable->type_name->type = type;
 
-            // _PF(_T("%1% %2%"), var_item->variable->type_name->type, var_item->name);
+            _PF(_T("%1% %2% (%3%)"), var_item->variable->type_name->type, var_item->name,
+                                                                var_item->expression);
         }
 
         if (__statement.constant)

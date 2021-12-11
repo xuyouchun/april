@@ -571,15 +571,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
     // tools
 
-    // Executes the expression.
-    cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp);
-
-    // Executes the expression.
-    cvalue_t execute_expression(expression_compile_context_t & ctx, expression_t * exp);
-
-    // Executes the expression.
-    cvalue_t execute_expression(expression_execute_context_t & ctx, expression_t * exp);
-
     namespace xilx
     {
         // Appends xilx.
@@ -640,25 +631,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             compile_statement(ctx, statement);
             ctx.end_region();
         }
-    }
-
-    // Executes the expression.
-    cvalue_t execute_expression(expression_t * exp);
-
-    // Executes the expression.
-    cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp);
-
-    // Executes the expression.
-    cvalue_t execute_expression(xilx_write_context_t & ctx, expression_t * exp);
-
-    // Executes the expression.
-    cvalue_t execute_expression(expression_compile_context_t & ctx, expression_t * exp);
-
-    // Returns whether it's a constant expression.
-    template<typename _ctx_t>
-    bool is_constant_expression(_ctx_t & ctx, expression_t * exp)
-    {
-        return execute_expression(ctx, exp) != cvalue_t::nan;
     }
 
     // Returns whether it can be optimized.

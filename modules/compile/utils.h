@@ -13,6 +13,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef statement_compile_context_t  __sctx_t;
     }
 
+    #define __CompileFailed(_format, _s ...)                                            \
+        _E(__e_t::compile_failed, _F(_format, ##_s))
+
+    #define __Failed(_format, _s ...)                                                   \
+        throw __CompileFailed(_T("") _format, ##_s)
+
     ////////// ////////// ////////// ////////// //////////
 
     class code_section_builder_t

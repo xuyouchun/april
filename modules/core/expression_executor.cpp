@@ -205,13 +205,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Executes unitary expression.
-    cvalue_t unitary_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t unitary_expression_t::execute()
     {
         expression_t * e = exp();
         if (e == nullptr)
             return cvalue_t::null;
 
-        cvalue_t cv = e->execute(ctx);
+        cvalue_t cv = e->execute();
         if (!is_number(cv))
             return cvalue_t::nan;
 
@@ -524,13 +524,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Executes a binary expression.
-    cvalue_t binary_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t binary_expression_t::execute()
     {
         expression_t * e1 = exp1(), * e2 = exp2();
         if (e1 == nullptr || e2 == nullptr)
             return cvalue_t::nan;
 
-        cvalue_t cv1 = e1->execute(ctx), cv2 = e2->execute(ctx);
+        cvalue_t cv1 = e1->execute(), cv2 = e2->execute();
         if (is_string(cv1) || is_string(cv2))
         {
             string_t s = _F(_T("%1%%2%"), cv1, cv2);
@@ -629,13 +629,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Executes a binary expression.
-    cvalue_t type_cast_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t type_cast_expression_t::execute()
     {
         expression_t * exp = this->expression();
         if (exp == nullptr)
             return cvalue_t::nan;
 
-        cvalue_t v = exp->execute(ctx);
+        cvalue_t v = exp->execute();
         if (v.is_nan() || type_name == nullptr)
             return v;
 

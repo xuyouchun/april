@@ -607,6 +607,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Unexpected expression.
         unexpected_expression,
 
+        // Invalid expression.
+        invalid_expression,
+
         // Constructor method should no return type.
         constructor_method_should_no_return_type,
 
@@ -672,6 +675,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Cannot find method with prototype.
         cannot_find_method_with_prototype,
+
+        // Unexpected decorate on enum fields.
+        unexpected_enum_decorate,
+
+        // Unexpected type on enum fields.
+        unexpected_enum_type,
+
+        // Enum field prototype error,
+        enum_field_prototype_error,
+
+        // Expect constant value.
+        expect_constant_value,
+
+        // Unexpected underlying type.
+        unexpected_underlying_type,
+
+        // The enum value is too large
+        enum_value_too_large,
+
+        // The enum value is too small
+        enum_value_too_small,
 
         __the_end__         = 10000,
 
@@ -995,8 +1019,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 _A(exp != nullptr);
 
-                expression_execute_context_t ctx;
-                return exp->execute(ctx);
+                return exp->execute();
             }
         };
     }
@@ -2839,8 +2862,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Appends default constructors.
         method_t * __append_default_constructor(ast_walk_context_t & context);
 
+        // Fill field values.
+        template<vtype_t _vtype, typename _fields_t> void __fill_field_values(_fields_t & fields);
+
         // Walks analysis step.
-        void __walk_analysis(ast_walk_context_t & context, method_t * method);
+        void __walk_analysis(ast_walk_context_t & context, method_t * new_default_constructor);
     };
 
     ////////// ////////// ////////// ////////// //////////

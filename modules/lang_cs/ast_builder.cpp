@@ -1869,18 +1869,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
     }
 
-    __OnCompleted(_enum_fields, args)
-    {
-        __This->set_child(__Type::type_name, __NewFakeAst(general_type_name_t, type_name));
-
-        decorate_t decorate;
-        decorate.is_static = true;
-        decorate.is_const  = true;
-
-        __This->set_child(__Type::decorate,
-            this->__to_ast<__AstValue(decorate)>(decorate)
-        );
-    }
+    __OnCompleted(_enum_fields, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // _enum_fields_item

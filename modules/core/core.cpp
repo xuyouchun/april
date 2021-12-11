@@ -1027,6 +1027,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // decorate_t
+
+    X_DEFINE_TO_STRING(decorate_t)
+    {
+        return _str(*(decorate_value_t *)this);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // name_t
 
     // The null sigleton name.
@@ -1184,8 +1192,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                     return *this;
                 break;
 
-            #define __Case(t)                                           \
-                case vtype_t::t##_:                                     \
+            #define __Case(t)                                                           \
+                case vtype_t::t##_:                                                     \
                     return cvalue_t(number.get_value<t##_t>());
 
             __Case(int8)
@@ -1930,10 +1938,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
     }
 
-    // Returns type of a field.
-    type_t * field_t::get_type() const
+    // Returns type of this field.
+    type_t * field_t::get_type()
     {
         return type_name? type_name->type : nullptr;
+    }
+
+    // Returns vtype of this field.
+    vtype_t field_t::get_vtype()
+    {
+        type_t * type = get_type();
+        if (type == nullptr)
+            return vtype_t::__unknown__;
+
+        return type->this_vtype();
     }
 
     // Returns whether ttype is ref type.
@@ -1943,7 +1961,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns whether it's a reference type.
-    bool field_t::is_ref_type() const
+    bool field_t::is_ref_type()
     {
         if (this->this_family() == member_family_t::position)
         {
@@ -2063,6 +2081,48 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_INFO_END
     
+    //-------- ---------- ---------- ---------- ----------
+
+    #define __Case(_type, _kind)                                                        \
+        case vtype_t::_type##_: {                                                       \
+            static const _type##_t value = _type##_##_kind;                             \
+            return (const void *)&value;                                                \
+        }
+
+    #define __Switch(_vtype, _kind)                                                     \
+        switch (_vtype)                                                                 \
+        {                                                                               \
+            __Case(int8,    _kind)                                                      \
+            __Case(uint8,   _kind)                                                      \
+            __Case(int16,   _kind)                                                      \
+            __Case(uint16,  _kind)                                                      \
+            __Case(int32,   _kind)                                                      \
+            __Case(uint32,  _kind)                                                      \
+            __Case(int64,   _kind)                                                      \
+            __Case(uint64,  _kind)                                                      \
+            __Case(float,   _kind)                                                      \
+            __Case(double,  _kind)                                                      \
+            __Case(bool,    _kind)                                                      \
+            __Case(char,    _kind)                                                      \
+                                                                                        \
+            default:    return nullptr;                                                 \
+        }
+
+    // Returns max value of vtype_t.
+    const void * get_max_value(vtype_t vtype)
+    {
+        __Switch(vtype, max);
+    }
+
+    // Returns min value of vtype_t.
+    const void * get_min_value(vtype_t vtype)
+    {
+        __Switch(vtype, min);
+    }
+
+    #undef __Switch
+    #undef __Case
+
     //-------- ---------- ---------- ---------- ----------
 
     // Converts value_type (defines in common module) to vtype.
@@ -2307,16 +2367,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     void type_t::commit(eobject_commit_context_t & ctx)
     {
         // Do nothing.
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-
-    // Returns size of a type.
-    msize_t get_type_size(type_t * type)
-    {
-        _A(type != nullptr);
-
-        return 0;        
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3074,6 +3124,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Returns base type.
     type_t * __general_type_like_base_t::get_base_type()
     {
+        if (is_enum(this))
+            return __XPool.get_enum_type();
+
         if (is_empty(super_type_names))
             return nullptr;
 
@@ -3081,11 +3134,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         _A(base_type != nullptr);
 
         if (base_type->this_ttype() == ttype_t::class_)
-        {
             return base_type;
-        }
 
         return nullptr;
+    }
+
+    // Returns underlying type of enum type.
+    vtype_t __general_type_like_base_t::get_underlying_vtype()
+    {
+        _A(is_enum(this));
+
+        if (super_type_names.size() == 0)
+            return default_enum_underlying_vtype;
+
+        type_t * underlying_type = to_type(super_type_names[0]);
+        _A(underlying_type != nullptr);
+
+        if (underlying_type->this_ttype() == ttype_t::struct_)  // must be value type.
+            return underlying_type->this_vtype();
+
+        return default_enum_underlying_vtype;
     }
 
     // Ensure size of the type initialized.
@@ -3096,6 +3164,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         __rcount = 0;
         __value_size = 0;
+
+        if (is_enum(this))
+        {
+            __value_size = get_vtype_size(get_underlying_vtype());
+            return;
+        }
 
         field_t * value_fields[fields.size()];
         field_t ** value_fields_end = value_fields;
@@ -3633,6 +3707,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
     // general_type_t
+
+    // Returns vtype.
+    vtype_t general_type_t::this_vtype()
+    {
+        return is_enum(this)? get_underlying_vtype() : vtype;
+    }
 
     // Appends a member.
     void general_type_t::append_member(member_t * member)
@@ -4246,10 +4326,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Execute the variable.
-    cvalue_t local_variable_t::execute(expression_execute_context_t & ctx)
+    cvalue_t local_variable_t::execute()
     {
-        return expression == nullptr || !constant? cvalue_t::nan : 
-               expression->execute(ctx);
+        return expression == nullptr || !constant?
+            cvalue_t::nan : expression->execute();
     }
 
     // Returns vtype.
@@ -4302,6 +4382,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     vtype_t field_variable_t::get_vtype()
     {
         return __get_vtype(field->type_name);
+    }
+
+    // Execute the variable.
+    cvalue_t field_variable_t::execute()
+    {
+        _A(field != nullptr);
+
+        if (!is_static_const(field))
+            return cvalue_t::nan;
+
+        if (field->init_value == nullptr)
+            return default_value_of(get_vtype());
+
+        return field->init_value->execute();
     }
 
     // Converts field variable to a string.
@@ -4643,6 +4737,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return __get_specified_type(__CoreTypeName(CoreType_Type), __type_type);
     }
 
+    // Returns System.Enum type.
+    general_type_t * xpool_t::get_enum_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Enum), __enum_type);
+    }
+
     // Returns System.Ptr type.
     general_type_t * xpool_t::get_ptr_type()
     {
@@ -4835,6 +4935,26 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         return it->second;;
+    }
+
+    // Returns cvalue_expression_t of specified cvalue.
+    cvalue_expression_t * xpool_t::get_cvalue_expression(cvalue_t cvalue)
+    {
+        __cvalue_t cv = (__cvalue_t)cvalue;
+        auto it = __cvalue_expression_map.find(cv);
+        if (it == __cvalue_expression_map.end())
+        {
+            auto pair = __cvalue_expression_map.insert(
+                std::make_pair(cv, (cvalue_expression_t *)nullptr)
+            );
+
+            it = pair.first;
+            it->second = new_obj<cvalue_expression_t>(
+                const_cast<__cvalue_t *>(&it->first)
+            );
+        }
+
+        return it->second;
     }
 
     xpool_t * xpool_t::__current;
@@ -5932,12 +6052,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Executes the expression.
-    cvalue_t name_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t name_expression_t::execute()
     {
         switch (expression_type)
         {
             case name_expression_type_t::variable:
-                return variable == nullptr? cvalue_t::nan : variable->execute(ctx);
+                return variable == nullptr? cvalue_t::nan : variable->execute();
 
             case name_expression_type_t::type:
                 return type;
@@ -6518,7 +6638,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // default_value_expression_t
 
     // Returns cvalue of default value expression.
-    cvalue_t default_value_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t default_value_expression_t::execute()
     {
         type_t * type;
         if (type_name == nullptr || (type = type_name->type) == nullptr)
@@ -6558,7 +6678,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Executes the typeof expression.
-    cvalue_t type_of_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t type_of_expression_t::execute()
     {
         if (type_name == nullptr)
             return cvalue_t();
@@ -6600,7 +6720,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Executes this expression.
-    cvalue_t this_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t this_expression_t::execute()
     {
         return cvalue_t::nan;
     }
@@ -6627,7 +6747,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Executes the base expression.
-    cvalue_t base_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t base_expression_t::execute()
     {
         return cvalue_t::nan;
     }
@@ -6669,6 +6789,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return e2 != nullptr? e2->get_type() : nullptr;
             }   break;
 
+            case operator_t::assign:
+                return exp1()->get_type();
+
             default: {
                 vtype_t vtype = get_vtype();
                 return __XPool.get_internal_type(vtype);
@@ -6691,7 +6814,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if (op() == operator_t::member_point)
             return _F(_T("%1%.%2%"), expression_at(0)->to_string(), expression_at(1)->to_string());
 
-        return sprintf(_T("(%1% %2% %3%)"),
+        return sprintf(_T("%1% %2% %3%"),
             expression_at(0)->to_string(), op(), expression_at(1)->to_string()
         );
     }

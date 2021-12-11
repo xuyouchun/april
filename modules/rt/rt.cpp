@@ -373,9 +373,8 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
     {
         al::assign(out_storage_type, storage_type_t::value);
 
-        // TODO: size?
-        X_UNEXPECTED();
-        return 0;
+        vtype_t vtype = type->get_vtype(env);
+        return get_vtype_size(vtype);
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -227,7 +227,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void set_point(__exit_point_type_t type, statement_point_t * label) override
         {
             if (!__is_supported(type))
-                throw _ED(__e_t::unexpected_jmp, type);
+                __Failed("unexpected jmp '%1%'", type);
 
             __super_t::set_point(type, label);
         }
@@ -241,14 +241,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 statement_region_t * parent = this->parent;
                 if (parent == nullptr || (point = parent->get_point(type)) == nullptr)
-                    throw _ED(__e_t::jmp_point_not_found, type);
+                    __Failed("jmp point '%1%' not found", type);
 
             }
             else
             {
                 point = __super_t::get_point(type);
                 if (point == nullptr)
-                    throw _ED(__e_t::jmp_point_not_found, type);
+                    __Failed("jmp point '%1%' not found", type);
             }
 
             return point;
@@ -311,54 +311,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __find_protected_region(ctx.current_region(), point_type,
             enum_or(__region_property_t::protected_block, __region_property_t::with_finally)
         ) != nullptr;
-    }
-
-    ////////// ////////// ////////// ////////// //////////
-
-    // Executes the expression.
-    cvalue_t execute_expression(expression_t * exp)
-    {
-        if (exp == nullptr)
-            return cvalue_t::nan;
-
-        expression_execute_context_t ectx;
-        return exp->execute(ectx);
-    }
-
-    // Executes the expression.
-    cvalue_t execute_expression(statement_compile_context_t & ctx, expression_t * exp)
-    {
-        return execute_expression(exp);
-    }
-
-    // Executes the expression.
-    cvalue_t execute_expression(expression_compile_context_t & ctx, expression_t * exp)
-    {
-        return execute_expression(ctx.statement_ctx, exp);
-    }
-
-    // Executes the expression.
-    cvalue_t execute_expression(__xw_context_t & ctx, expression_t * exp)
-    {
-        return execute_expression((statement_compile_context_t &)ctx, exp);
-    }
-
-    // Executes the expression.
-    cvalue_t execute_expression(expression_execute_context_t & ctx, expression_t * exp)
-    {
-        if (exp == nullptr)
-            return cvalue_t::nan;
-
-        return exp->execute(ctx);
-    }
-
-    cvalue_t execute_expression(__exit_type_context_t & ctx, expression_t * exp)
-    {
-        if (exp == nullptr)
-            return cvalue_t::nan;
-
-        expression_execute_context_t ectx;
-        return exp->execute(ectx);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -735,7 +687,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         compile_statement(ctx, body);
 
         cvalue_t condition_value = __remove_unreached_codes(ctx)?
-                        execute_expression(ctx, condition) : cvalue_t::nan;
+                        execute_expression(condition) : cvalue_t::nan;
 
         if (condition_value == true || condition == nullptr)
         {
@@ -758,7 +710,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type.
     __exit_type_t do_while_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = execute_expression(condition);
 
         // When condition always true.
         if (condition_value == true || condition == nullptr)
@@ -803,7 +755,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         compile_statement(ctx, body);
 
         cvalue_t condition_value = __remove_unreached_codes(ctx)?
-                        execute_expression(ctx, condition) : cvalue_t::nan;
+                        execute_expression(condition) : cvalue_t::nan;
 
         if (condition_value == false || condition == nullptr)
         {
@@ -826,7 +778,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type.
     __exit_type_t loop_until_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = execute_expression(condition);
 
         // When condition always false.
         if (condition_value == false || condition == nullptr)
@@ -870,7 +822,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void while_statement_t::compile(statement_compile_context_t & ctx)
     {
         cvalue_t condition_value = __remove_unreached_codes(ctx)?
-                        execute_expression(ctx, condition) : cvalue_t::nan;
+                        execute_expression(condition) : cvalue_t::nan;
 
         if (condition_value == false)
             return;
@@ -896,7 +848,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type.
     __exit_type_t while_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = execute_expression(condition);
 
         // When condition always false.
         if (condition_value == false)
@@ -952,7 +904,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         cvalue_t condition_value = __remove_unreached_codes(ctx)?
-                        execute_expression(ctx, condition) : cvalue_t::nan;
+                        execute_expression(condition) : cvalue_t::nan;
 
         if (condition_value == false)
         {
@@ -989,7 +941,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type.
     __exit_type_t for_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = execute_expression(condition);
 
         // When condition always false.
         if (condition_value == false)
@@ -1063,7 +1015,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void if_statement_t::compile(statement_compile_context_t & ctx)
     {
         cvalue_t condition_value = __remove_unreached_codes(ctx)?
-                        execute_expression(ctx, condition) : cvalue_t::nan;
+                        execute_expression(condition) : cvalue_t::nan;
 
         if (condition_value == true)
         {
@@ -1107,7 +1059,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Returns exit type.
     __exit_type_t if_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        cvalue_t condition_value = execute_expression(ctx, condition);
+        cvalue_t condition_value = execute_expression(condition);
 
         // When condition always true.
         if (condition_value == true)
@@ -1184,7 +1136,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void switch_statement_t::compile(statement_compile_context_t & ctx)
     {
         if (expression == nullptr)
-            throw _ED(__e_t::expession_missing, _T("switch"));
+            __Failed("switch expression missing");
 
         int row_count = __get_rows();
 
@@ -1234,14 +1186,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 if (exp == nullptr)      // default case
                 {
                     if (default_case_label != 0)
-                        throw _ED(__e_t::duplicate_case, _T("default"));
+                        __Failed("duplicate case 'default'");
                     default_case_label = case_label;
                 }
                 else
                 {
                     int32_t value = __read_const_int(ctx, exp);
                     if (!case_values.insert(value).second)
-                        throw _ED(__e_t::duplicate_case, execute_expression(ctx, exp));
+                        __Failed("duplicate case '%1%'", execute_expression(exp));
 
                     *rows++ = switch_row_t(value, case_label);
                 }
@@ -1273,14 +1225,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                  expression_t * exp)
     {
         if (exp == nullptr)
-            throw _ED(__e_t::expession_missing, _T("case"));
+            __Failed("case expression missing");
 
-        cvalue_t const_value = execute_expression(ctx, exp);
+        cvalue_t const_value = execute_expression(exp);
         if (is_nan(const_value))
-            throw _ED(__e_t::expected_constant_value);
+            __Failed("expected constant value");
 
         if (const_value.value_type != cvalue_type_t::number)
-            throw _ED(__e_t::expected_constant_value_type, _T("int"));
+            __Failed("expected constant value type: 'int'");
 
         tvalue_t tvalue = const_value.number;
         value_t  value  = tvalue.value;
@@ -1312,7 +1264,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return value.bool_value;
 
             default:
-                throw _ED(__e_t::expected_constant_value_type, _T("int"));
+                __Failed("expected constant value type: 'int'");
         }
     }
 
@@ -1391,7 +1343,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             );
 
             cvalue_t condition_cvalue = __remove_unreached_codes(ctx)?
-                            execute_expression(ctx, condition) : cvalue_t::nan;
+                            execute_expression(condition) : cvalue_t::nan;
 
             if (condition_cvalue == true)
             {
@@ -1470,7 +1422,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __e_exit_type_t type;
 
-        cvalue_t value = execute_expression(ctx, expression);
+        cvalue_t value = execute_expression(expression);
         if (value != cvalue_t::nan)
         {
             __case_iterator_t it_start = cases.begin(), it_end = cases.end();
@@ -1659,7 +1611,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             local_label_t label_catch = ctx.next_local_label();
 
             if (c->variable == nullptr)
-                throw _ED(__e_t::catch_exception_variable_undeterminded);
+                __Failed("cache exception variable undeterminded");
 
             ctx.begin_region<__catch_statement_region_t>(
                 label_try, label_try_end, label_catch, to_type(c->type_name)

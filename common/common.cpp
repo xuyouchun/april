@@ -41,6 +41,158 @@ namespace X_ROOT_NS {
 
     ////////// ////////// ////////// ////////// //////////
 
+    tvalue_t::operator string_t() const _NE
+    {
+        #define __X_CASE(type)                                                          \
+            case value_type_t::type##_:                                                 \
+                return __value_t<type##_t>::to_string(value);
+
+        switch (type)
+        {
+            #define __X_TYPE_OP __X_CASE
+            __X_EACH_TYPES 
+            #undef __X_TYPE_OP
+
+            default:
+                return _T("");
+        }
+
+        #undef __X_CASE
+    }
+
+    template<typename _compare_func_t>
+    bool __compare_tvalue(const tvalue_t & v1, const tvalue_t & v2, _compare_func_t f)
+    {
+        #define __Compare(_t1, _t2) f(v1.get_value<_t1>(), v2.get_value<_t2>())
+
+        value_type_t t1 = v1.type, t2 = v2.type;
+
+        if (t1 == t2)
+        {
+            #define __X_CASE(_type)                                                     \
+                case value_type_t::_type##_:                                            \
+                    return __Compare(_type##_t, _type##_t);
+
+            switch (t1)
+            {
+                #define __X_TYPE_OP __X_CASE
+                __X_EACH_TYPES 
+                #undef __X_TYPE_OP
+
+                default:
+                    X_UNEXPECTED();
+            }
+
+            #undef __X_CASE
+        }
+
+        if (is_float(t1) || is_float(t2))
+            return __Compare(ldouble_t, ldouble_t);
+
+        if (t1 == value_type_t::uint64_)
+            return __Compare(uint64_t, int64_t);
+
+        if (t2 == value_type_t::uint64_)
+            return __Compare(int64_t, uint64_t);
+
+        return __Compare(int64_t, int64_t);
+
+        #undef __Compare
+    }
+
+    bool tvalue_t::operator == (const tvalue_t & other) const _NE
+    {
+        return __compare_tvalue(*this, other, [](auto v1, auto v2) { return v1 == v2; });
+    }
+
+    bool tvalue_t::operator < (const tvalue_t & other) const _NE
+    {
+        return __compare_tvalue(*this, other, [](auto v1, auto v2) { return v1 < v2; });
+    }
+
+    bool tvalue_t::operator <= (const tvalue_t & other) const _NE
+    {
+        return __compare_tvalue(*this, other, [](auto v1, auto v2) { return v1 <= v2; });
+    }
+
+    bool tvalue_t::operator != (const tvalue_t & other) const _NE
+    {
+        return __compare_tvalue(*this, other, [](auto v1, auto v2) { return v1 != v2; });
+    }
+
+    bool tvalue_t::operator > (const tvalue_t & other) const _NE
+    {
+        return __compare_tvalue(*this, other, [](auto v1, auto v2) { return v1 > v2; });
+    }
+
+    bool tvalue_t::operator >= (const tvalue_t & other) const _NE
+    {
+        return __compare_tvalue(*this, other, [](auto v1, auto v2) { return v1 >= v2; });
+    }
+
+    tvalue_t tvalue_t::operator - () const _NE
+    {
+        #define __X_CASE(type)                                                          \
+            case value_type_t::type##_:                                                 \
+                return tvalue_t(-value.type##_value);
+
+        switch (type)
+        {
+            #define __X_TYPE_OP __X_CASE
+            __X_EACH_TYPES 
+            #undef __X_TYPE_OP
+
+            default:
+                return *this;
+        }
+
+        #undef __X_CASE
+    }
+
+    // Converts to unsigned type.
+    tvalue_t tvalue_t::to_unsigned() const _NE
+    {
+        switch (type)
+        {
+            case value_type_t::int8_:
+                return tvalue_t((uint8_t)value.int8_value);
+
+            case value_type_t::int16_:
+                return tvalue_t((uint16_t)value.int16_value);
+
+            case value_type_t::int32_:
+                return tvalue_t((uint32_t)value.int32_value);
+
+            case value_type_t::int64_:
+                return tvalue_t((uint64_t)value.int64_value);
+
+            default:
+                return *this;
+        }
+    }
+
+    // Converts to signed type.
+    tvalue_t tvalue_t::to_signed() const _NE
+    {
+        switch (type)
+        {
+            case value_type_t::uint8_:
+                return tvalue_t((int8_t)value.uint8_value);
+
+            case value_type_t::uint16_:
+                return tvalue_t((int16_t)value.uint16_value);
+
+            case value_type_t::uint32_:
+                return tvalue_t((int32_t)value.uint32_value);
+
+            case value_type_t::uint64_:
+                return tvalue_t((int64_t)value.uint64_value);
+
+            default:
+                return *this;
+        }
+    }
+
     // Write a tvalue_t object into output stream
     ostream_t & operator << (ostream_t & stream, const tvalue_t & v)
     {
@@ -171,6 +323,13 @@ namespace X_ROOT_NS {
             msg = sprintf(_T("Assert error: %1%"), exp);
 
         throw assert_error_t(std::move(msg), file, line);
+    }
+
+    // Raise assert error if the specified expression is false.
+    void __raise_assert_error(const char_t * exp, const char_t * file, uint_t line,
+                                                            const string_t & reason)
+    {
+        return __raise_assert_error(exp, file, line, reason.c_str());
     }
 
     ////////// ////////// ////////// ////////// //////////

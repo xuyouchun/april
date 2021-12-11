@@ -23,7 +23,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     class xpool_t;
     class statement_compile_context_t;
-    class expression_execute_context_t;
     class method_compile_context_t;
     class xilx_write_context_t;
 
@@ -32,6 +31,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     class general_type_t;
     class generic_type_t;
+
+    class cvalue_expression_t;
 
     typedef int16_t element_value_t;
 
@@ -639,6 +640,38 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     X_ENUM_END
 
     #undef __TTypeItem
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Returns whether it's a signed int value.
+    X_INLINE bool is_signed_integer(vtype_t vtype) _NE
+    {
+        return al::in(vtype, vtype_t::int8_, vtype_t::int16_, vtype_t::int32_, vtype_t::int64_);
+    }
+
+    // Returns whether it's a unsigned int value.
+    X_INLINE bool is_unsigned_integer(vtype_t vtype) _NE
+    {
+        return al::in(vtype, vtype_t::uint8_, vtype_t::uint16_, vtype_t::uint32_, vtype_t::uint64_);
+    }
+
+    // Returns whether it's a int (signed or unsigned) value.
+    X_INLINE bool is_integer(vtype_t vtype) _NE
+    {
+        return vtype >= vtype_t::int8_ && vtype <= vtype_t::uint64_;
+    }
+
+    // Returns whether it's a float value. (float or double)
+    X_INLINE bool is_float(vtype_t vtype) _NE
+    {
+        return al::in(vtype, vtype_t::float_, vtype_t::double_);
+    }
+
+    // Returns max value of vtype_t.
+    const void * get_max_value(vtype_t vtype);
+
+    // Returns min value of vtype_t.
+    const void * get_min_value(vtype_t vtype);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1492,6 +1525,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef decorate_t * itype_t;
 
         static const decorate_t default_value;
+
+        X_TO_STRING
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1533,6 +1568,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         #undef __DefineAccessMethod
     };
+
+    X_INLINE bool is_static_const(const with_decorate_object_t * obj)
+    {
+        _A(obj != nullptr);
+        return obj->is_static() && obj->is_const();
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1594,6 +1635,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         cvalue_t change_type(vtype_t vtype) const _NE;
 
+        #define __X_TYPE_OP(_type)                                                      \
+            operator _type##_t() const { return number.get_value<_type##_t>(); }
+        __X_EACH_TYPES
+        #undef __X_TYPE_OP
+
         X_TO_STRING
     };
 
@@ -1638,7 +1684,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // The xil interface. Assembly middle language.
     X_INTERFACE xil_t
     {
-
+        // Empty.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2222,10 +2268,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         typedef type_t * itype_t;
 
         // Returns gtype, ttype, vtype.
-        virtual gtype_t this_gtype() const = 0;
-        virtual ttype_t this_ttype() const = 0;
-        virtual vtype_t this_vtype() const = 0;
-        virtual mtype_t this_mtype() const = 0;
+        virtual gtype_t this_gtype() = 0;
+        virtual ttype_t this_ttype() = 0;
+        virtual vtype_t this_vtype() = 0;
+        virtual mtype_t this_mtype() = 0;
 
         // Returns members descripted by args.
         virtual member_t * get_member(analyze_member_args_t & args) = 0;
@@ -2343,14 +2389,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return type != nullptr && type->this_ttype() == ttype_t::struct_;
     }
 
+    // Returns whether a type is enum type.
+    X_ALWAYS_INLINE bool is_enum(type_t * type)
+    {
+        return type != nullptr && type->this_ttype() == ttype_t::enum_;
+    }
+
+    // Returns whether it's a custom defined struct type.
     X_ALWAYS_INLINE bool is_custom_struct(type_t * type)
     {
         return type != nullptr && type->this_ttype() == ttype_t::struct_
                     && type->this_vtype() == vtype_t::mobject_;
     }
 
-    // Returns size of a type.
-    msize_t get_type_size(type_t * type);
+    const vtype_t default_enum_underlying_vtype = vtype_t::int32_;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -2365,10 +2417,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     public:
         // Returns gtype, ttype, vtype.
-        virtual gtype_t this_gtype() const override final { return gtype_t::uncertain; }
-        virtual ttype_t this_ttype() const override final { return ttype_t::__unknown__; }
-        virtual vtype_t this_vtype() const override final { return vtype_t::__unknown__; }
-        virtual mtype_t this_mtype() const override final { return mtype_t::__unknown__; }
+        virtual gtype_t this_gtype() override final { return gtype_t::uncertain; }
+        virtual ttype_t this_ttype() override final { return ttype_t::__unknown__; }
+        virtual vtype_t this_vtype() override final { return vtype_t::__unknown__; }
+        virtual mtype_t this_mtype() override final { return mtype_t::__unknown__; }
 
         // Returns member descripted by specified args.
         virtual member_t * get_member(analyze_member_args_t & args) override;
@@ -2405,10 +2457,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     public:
         // Returns gtype, ttype, vtype.
-        virtual gtype_t this_gtype() const override final { return gtype_t::null; }
-        virtual ttype_t this_ttype() const override final { return ttype_t::__unknown__; }
-        virtual vtype_t this_vtype() const override final { return vtype_t::__unknown__; }
-        virtual mtype_t this_mtype() const override final { return mtype_t::__unknown__; }
+        virtual gtype_t this_gtype() override final { return gtype_t::null; }
+        virtual ttype_t this_ttype() override final { return ttype_t::__unknown__; }
+        virtual vtype_t this_vtype() override final { return vtype_t::__unknown__; }
+        virtual mtype_t this_mtype() override final { return mtype_t::__unknown__; }
 
         // Returns member descripted by specified args.
         virtual member_t * get_member(analyze_member_args_t & args) override;
@@ -2469,10 +2521,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         generic_param_type_t param_type = generic_param_type_t::__default__;
 
         // Returns gtype, ttype, vtype.
-        virtual gtype_t this_gtype() const override final { return gtype_t::generic_param; }
-        virtual ttype_t this_ttype() const override final { return ttype_t::__unknown__; }
-        virtual vtype_t this_vtype() const override final { return vtype_t::__unknown__; }
-        virtual mtype_t this_mtype() const override final { return mtype_t::__unknown__; }
+        virtual gtype_t this_gtype() override final { return gtype_t::generic_param; }
+        virtual ttype_t this_ttype() override final { return ttype_t::__unknown__; }
+        virtual vtype_t this_vtype() override final { return vtype_t::__unknown__; }
+        virtual mtype_t this_mtype() override final { return mtype_t::__unknown__; }
 
         // Returns member descripted by specified args.
         virtual member_t * get_member(analyze_member_args_t & args) override;
@@ -3542,11 +3594,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the size.
         msize_t get_size();
 
-        // Returns its type.
-        type_t * get_type() const;
+        // Returns type of this field.
+        type_t * get_type();
+
+        // Returns type of this field.
+        vtype_t get_vtype();
 
         // Returns whether it's a reference type.
-        bool is_ref_type() const;
+        bool is_ref_type();
 
         // Converts a string.
         virtual const string_t to_string() const override { return (string_t)*this; }
@@ -3614,10 +3669,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bool    extends = false;
 
         // Returns gtype, ttype, vtype.
-        virtual gtype_t this_gtype() const override final { return gtype_t::type_def_param; }
-        virtual ttype_t this_ttype() const override final { return ttype_t::__unknown__; }
-        virtual vtype_t this_vtype() const override final { return vtype_t::__unknown__; }
-        virtual mtype_t this_mtype() const override final { return mtype_t::__unknown__; }
+        virtual gtype_t this_gtype() override final { return gtype_t::type_def_param; }
+        virtual ttype_t this_ttype() override final { return ttype_t::__unknown__; }
+        virtual vtype_t this_vtype() override final { return vtype_t::__unknown__; }
+        virtual mtype_t this_mtype() override final { return mtype_t::__unknown__; }
 
         // Returns member descripted by the args.
         virtual member_t * get_member(analyze_member_args_t & args) override;
@@ -3936,6 +3991,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Enum all super types. Applies each types for calling callback method.
         virtual void each_super_type(each_super_type_callback_t callback) override;
 
+        // Returns underlying type of enum type.
+        vtype_t get_underlying_vtype();
+
     protected:
 
         msize_t __rcount = unknown_msize, __value_size = unknown_msize;
@@ -4039,10 +4097,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         size_t nest_depth() const;
 
         // Returns gtype, ttype, vtype.
-        virtual gtype_t this_gtype() const override final { return gtype_t::general; }
-        virtual ttype_t this_ttype() const override final { return ttype; }
-        virtual vtype_t this_vtype() const override final { return vtype; }
-        virtual mtype_t this_mtype() const override final { return mtype; }
+        virtual gtype_t this_gtype() override final { return gtype_t::general; }
+        virtual ttype_t this_ttype() override final { return ttype; }
+        virtual vtype_t this_vtype() override final;
+        virtual mtype_t this_mtype() override final { return mtype; }
 
         // Returns the name of the type.
         virtual name_t get_name() const override { return name; }
@@ -4116,21 +4174,21 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_collection_t args;
 
         // Returns gtype.
-        virtual gtype_t this_gtype() const _NE override final { return gtype_t::generic; }
+        virtual gtype_t this_gtype() _NE override final { return gtype_t::generic; }
 
         // Returns ttype.
-        virtual ttype_t this_ttype() const _NE override final
+        virtual ttype_t this_ttype() _NE override final
         {
             return template_? template_->this_ttype() : ttype_t::__unknown__;
         }
 
         // Returns vtype.
-        virtual vtype_t this_vtype() const _NE override final
+        virtual vtype_t this_vtype() _NE override final
         {
             return template_? template_->this_vtype() : vtype_t::__unknown__;
         }
 
-        virtual mtype_t this_mtype() const _NE override final
+        virtual mtype_t this_mtype() _NE override final
         {
             return template_? template_->this_mtype() : mtype_t::__unknown__;
         }
@@ -4240,10 +4298,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         dimension_t dimension     = 1;              // Dimension.
 
         // Returns gtype, gtype, vtype.
-        virtual gtype_t this_gtype() const override final { return gtype_t::array;  }
-        virtual ttype_t this_ttype() const override final { return ttype_t::class_; }
-        virtual vtype_t this_vtype() const override final { return vtype_t::mobject_; }
-        virtual mtype_t this_mtype() const override final { return mtype_t::__default__; }
+        virtual gtype_t this_gtype() override final { return gtype_t::array;  }
+        virtual ttype_t this_ttype() override final { return ttype_t::class_; }
+        virtual vtype_t this_vtype() override final { return vtype_t::mobject_; }
+        virtual mtype_t this_mtype() override final { return mtype_t::__default__; }
 
         // Returns name of the type.
         virtual name_t get_name() const override
@@ -4596,6 +4654,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns System.Type type.
         general_type_t * get_type_type();
 
+        // Returns System.Enum type.
+        general_type_t * get_enum_type();
+
         // Returns System.Ptr type.
         general_type_t * get_ptr_type();
 
@@ -4662,6 +4723,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns the typename of type.
         type_name_t * to_type_name(type_t * type);
 
+        // Returns cvalue_expression_t of specified cvalue.
+        cvalue_expression_t * get_cvalue_expression(cvalue_t cvalue);
+
         // Returns current xpool.
         static xpool_t & current()
         {
@@ -4685,6 +4749,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         general_type_t * __array_type       = nullptr;
         general_type_t * __string_type      = nullptr;
         general_type_t * __type_type        = nullptr;
+        general_type_t * __enum_type        = nullptr;
         general_type_t * __ptr_type         = nullptr;
         general_type_t * __delegate_type    = nullptr;
         general_type_t * __multicast_delegate_type = nullptr;
@@ -4712,6 +4777,31 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // type_t * -> typename cache.
         std::map<type_t *, type_name_t *> __type_type_name_map;
+
+        class __cvalue_t : public cvalue_t
+        {
+        public:
+            __cvalue_t(const cvalue_t & value)
+            {
+                *(cvalue_t *)this = value;
+            }
+
+            bool operator < (const __cvalue_t & other) const
+            {
+                if (value_type == cvalue_type_t::number && other.value_type == cvalue_type_t::number)
+                {
+                    if (number.type != other.number.type)
+                        return number.type < other.number.type;
+
+                    return number < other.number;
+                }
+
+                return *(cvalue_t *)this < *(cvalue_t *)&other;
+            }
+        };
+
+        // cvalue_t -> cvalue_expression_t * cache.
+        std::map<__cvalue_t, cvalue_expression_t *> __cvalue_expression_map;
 
         static xpool_t * __current; 
     };
@@ -4778,7 +4868,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual bool is_calling() = 0;
 
         // Execute the variable.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) = 0;
+        virtual cvalue_t execute() = 0;
 
         // Returns vtype.
         virtual vtype_t get_vtype() = 0;
@@ -4815,7 +4905,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             virtual bool is_calling() _NE override { return false; }
 
             // Execute the variable.
-            virtual cvalue_t execute(expression_execute_context_t & ctx) override
+            virtual cvalue_t execute() override
             {
                 return cvalue_t::nan;
             }
@@ -4883,7 +4973,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual name_t get_name() const override { return name; }
 
         // Execute the variable.
-        cvalue_t execute(expression_execute_context_t & ctx) override;
+        cvalue_t execute() override;
 
         // Converts to a string.
         X_TO_STRING
@@ -4954,6 +5044,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return field->name;
         }
+
+        // Execute the variable.
+        virtual cvalue_t execute() override;
 
         // Converts to a string.
         X_TO_STRING
@@ -6021,17 +6114,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Context for execute an expression.
-    class expression_execute_context_t
-    {
-    public:
-
-        // Constructor.
-        expression_execute_context_t() { }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
     // Context for compile an expression.
     class expression_compile_context_t : public object_t
     {
@@ -6125,7 +6207,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) { return cvalue_t::nan; }
+        virtual cvalue_t execute() { return cvalue_t::nan; }
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -6176,7 +6258,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return exp != nullptr && exp->parent == nullptr;
     }
 
-    //-------- ---------- ---------- ---------- ----------
+    // Returns whether it is a constant expression.
+    X_INLINE bool is_constant_expression(expression_t * exp)
+    {
+        return exp->execute() == cvalue_t::nan;
+    }
+
+    // Executes the expression.
+    X_INLINE cvalue_t execute_expression(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return cvalue_t::nan;
+
+        return exp->execute();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
 
     // Expression with specified expression count.
     template<size_t _exp_count>
@@ -6354,7 +6451,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         void set(type_def_t * type_def);
 
         // Executes the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Returns behaviour.
         virtual expression_behaviour_t get_behaviour() const override;
@@ -6469,7 +6566,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual type_t * get_type() const override;
 
         // Executes the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Converts to string.
         virtual const string_t to_string() const override
@@ -6515,7 +6612,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Executes the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override
+        virtual cvalue_t execute() override
         {
             return value? *value : cvalue_t();
         }
@@ -6629,7 +6726,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual type_t * get_type() const override;
 
         // Execute the expression.
-        cvalue_t execute(expression_execute_context_t & ctx) override;
+        cvalue_t execute() override;
 
         // Converts to string.
         virtual const string_t to_string() const override;
@@ -6667,7 +6764,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual type_t * get_type() const override;
 
         // Executes the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Converts to string.
         virtual const string_t to_string() const override;
@@ -6751,7 +6848,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override
+        virtual cvalue_t execute() override
         {
             throw _EC(unimplemented);
         }
@@ -7283,7 +7380,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual const string_t to_string() const override;
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -7312,7 +7409,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual const string_t to_string() const override;
 
         // Executes the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -7340,7 +7437,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual const string_t to_string() const override;
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Set type.
         void set_type(type_t * type) { __type = type; }
@@ -7374,7 +7471,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual const string_t to_string() const override;
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Sets type.
         void set_type(type_t * type) { __type = type; }

@@ -418,6 +418,103 @@ namespace X_ROOT_NS {
 
     X_ENUM_END
 
+    X_INLINE constexpr bool is_float(value_type_t t)
+    {
+        switch (t)
+        {
+            case value_type_t::float_:
+            case value_type_t::double_:
+            case value_type_t::ldouble_:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    X_INLINE constexpr bool is_integer(value_type_t t)
+    {
+        switch (t)
+        {
+            case value_type_t::int8_:
+            case value_type_t::uint8_:
+            case value_type_t::int16_:
+            case value_type_t::uint16_:
+            case value_type_t::int32_:
+            case value_type_t::uint32_:
+            case value_type_t::int64_:
+            case value_type_t::uint64_:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    X_INLINE constexpr bool is_signed(value_type_t t)
+    {
+        switch (t)
+        {
+            case value_type_t::int8_:
+            case value_type_t::int16_:
+            case value_type_t::int32_:
+            case value_type_t::int64_:
+            case value_type_t::float_:
+            case value_type_t::double_:
+            case value_type_t::ldouble_:
+            case value_type_t::char_:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    X_INLINE constexpr bool is_signed_integer(value_type_t t)
+    {
+        switch (t)
+        {
+            case value_type_t::int8_:
+            case value_type_t::int16_:
+            case value_type_t::int32_:
+            case value_type_t::int64_:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    X_INLINE constexpr bool is_unsigned(value_type_t t)
+    {
+        switch (t)
+        {
+            case value_type_t::uint8_:
+            case value_type_t::uint16_:
+            case value_type_t::uint32_:
+            case value_type_t::uint64_:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    X_INLINE constexpr bool is_unsigned_integer(value_type_t t)
+    {
+        switch (t)
+        {
+            case value_type_t::uint8_:
+            case value_type_t::uint16_:
+            case value_type_t::uint32_:
+            case value_type_t::uint64_:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     //-------- ---------- ---------- ---------- ----------
 
     // A value type that include many different types.
@@ -593,24 +690,7 @@ namespace X_ROOT_NS {
             value = to_value(v);
         }
 
-        operator string_t() const _NE
-        {
-            #define __X_CASE(type)                                                      \
-                case value_type_t::type##_:                                             \
-                    return __value_t<type##_t>::to_string(value);
-
-            switch (type)
-            {
-                #define __X_TYPE_OP __X_CASE
-                __X_EACH_TYPES 
-                #undef __X_TYPE_OP
-
-                default:
-                    return _T("");
-            }
-
-            #undef __X_CASE
-        }
+        operator string_t() const _NE;
 
         template<typename numeric_t> numeric_t get_value() const _NE
         {
@@ -638,152 +718,20 @@ namespace X_ROOT_NS {
         __X_EACH_TYPES 
         #undef __X_TYPE_OP
 
-        bool operator == (const tvalue_t & other) const _NE
-        {
-            if (type != other.type)
-                return false;
+        bool operator == (const tvalue_t & other) const _NE;
+        bool operator < (const tvalue_t & other) const _NE;
+        bool operator <= (const tvalue_t & other) const _NE;
+        bool operator != (const tvalue_t & other) const _NE;
+        bool operator > (const tvalue_t & other) const _NE;
+        bool operator >= (const tvalue_t & other) const _NE;
 
-            #define __X_CASE(type)                                                      \
-                case value_type_t::type##_:                                             \
-                    return __root_ns::get_value<type##_t>(value)                        \
-                        == __root_ns::get_value<type##_t>(other.value);
-
-            switch (type)
-            {
-                #define __X_TYPE_OP __X_CASE
-                __X_EACH_TYPES 
-                #undef __X_TYPE_OP
-
-                default:
-                    return true;
-            }
-
-            #undef __X_CASE
-        }
-
-        bool operator < (const tvalue_t & other) const _NE
-        {
-            if (type != other.type)
-                return type < other.type;
-
-            #define __X_CASE(type)                                                      \
-                case value_type_t::type##_:                                             \
-                    return __root_ns::get_value<type##_t>(value)                        \
-                        < __root_ns::get_value<type##_t>(other.value);
-
-            switch (type)
-            {
-                #define __X_TYPE_OP __X_CASE
-                __X_EACH_TYPES 
-                #undef __X_TYPE_OP
-
-                default:
-                    return false;
-            }
-
-            #undef __X_CASE
-        }
-
-        bool operator <= (const tvalue_t & other) const _NE
-        {
-            if (type != other.type)
-                return type <= other.type;
-
-            #define __X_CASE(type)                                                      \
-                case value_type_t::type##_:                                             \
-                    return __root_ns::get_value<type##_t>(value)                        \
-                        <= __root_ns::get_value<type##_t>(other.value);
-
-            switch (type)
-            {
-                #define __X_TYPE_OP __X_CASE
-                __X_EACH_TYPES 
-                #undef __X_TYPE_OP
-
-                default:
-                    return true;
-            }
-
-            #undef __X_CASE
-        }
-
-        bool operator != (const tvalue_t & other) const _NE
-        {
-            return ! operator == (other);
-        }
-
-        bool operator > (const tvalue_t & other) const _NE
-        {
-            return ! operator <= (other);
-        }
-
-        bool operator >= (const tvalue_t & other) const _NE
-        {
-            return ! operator < (other);
-        }
-
-        tvalue_t operator - () const _NE
-        {
-            #define __X_CASE(type)                                                      \
-                case value_type_t::type##_:                                             \
-                    return tvalue_t(-value.type##_value);
-
-            switch (type)
-            {
-                #define __X_TYPE_OP __X_CASE
-                __X_EACH_TYPES 
-                #undef __X_TYPE_OP
-
-                default:
-                    return *this;
-            }
-
-            #undef __X_CASE
-        }
+        tvalue_t operator - () const _NE;
 
         // Converts to unsigned type.
-        tvalue_t to_unsigned() const _NE
-        {
-            switch (type)
-            {
-                case value_type_t::int8_:
-                    return tvalue_t((uint8_t)value.int8_value);
-
-                case value_type_t::int16_:
-                    return tvalue_t((uint16_t)value.int16_value);
-
-                case value_type_t::int32_:
-                    return tvalue_t((uint32_t)value.int32_value);
-
-                case value_type_t::int64_:
-                    return tvalue_t((uint64_t)value.int64_value);
-
-                default:
-                    return *this;
-            }
-        }
+        tvalue_t to_unsigned() const _NE;
 
         // Converts to signed type.
-        tvalue_t to_signed() const _NE
-        {
-            switch (type)
-            {
-                case value_type_t::uint8_:
-                    return tvalue_t((int8_t)value.uint8_value);
-
-                case value_type_t::uint16_:
-                    return tvalue_t((int16_t)value.uint16_value);
-
-                case value_type_t::uint32_:
-                    return tvalue_t((int32_t)value.uint32_value);
-
-                case value_type_t::uint64_:
-                    return tvalue_t((int64_t)value.uint64_value);
-
-                default:
-                    return *this;
-            }
-        }
+        tvalue_t to_signed() const _NE;
     };
 
     // Puts the tvalue_t to a stream.
@@ -816,6 +764,7 @@ namespace X_ROOT_NS {
     __X_LIMIT_VALUES(double)
     __X_LIMIT_VALUES(float)
 
+    __X_LIMIT_VALUES(bool)
     __X_LIMIT_VALUES(size)
 
     #undef __X_LIMIT_VALUES
@@ -1296,6 +1245,9 @@ namespace X_ROOT_NS {
 
     void __raise_assert_error(const char_t * exp, const char_t * file, 
                             uint_t line, const char_t * reason = nullptr);
+
+    void __raise_assert_error(const char_t * exp, const char_t * file, 
+                            uint_t line, const string_t & reason);
 
     ////////// ////////// ////////// ////////// //////////
 

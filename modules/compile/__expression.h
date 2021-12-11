@@ -40,7 +40,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(binary_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -59,7 +59,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(unitary_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -78,7 +78,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(name_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -92,7 +92,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(name_unit_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -107,7 +107,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(cvalue_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -121,7 +121,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(function_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -149,7 +149,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(type_cast_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -163,7 +163,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(type_name_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -177,7 +177,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(index_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -199,7 +199,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(new_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -223,7 +223,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(new_array_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -237,7 +237,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(default_value_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -251,7 +251,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(type_of_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -265,7 +265,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(this_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -279,7 +279,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     __SystemExpressionT(base_expression_t)
 
         // Execute the expression.
-        virtual cvalue_t execute(expression_execute_context_t & ctx) override;
+        virtual cvalue_t execute() override;
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,

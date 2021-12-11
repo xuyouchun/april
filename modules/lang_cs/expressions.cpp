@@ -33,7 +33,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         bool value1_effective = is_effective(value1());
         bool value2_effective = is_effective(value2());
 
-        cvalue_t condition_value = execute_expression(ctx, this->condition());
+        cvalue_t condition_value = execute_expression(this->condition());
 
         if (value1_effective || value2_effective)
         {
@@ -64,15 +64,15 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Executes this expression.
-    cvalue_t cs_condition_expression_t::execute(expression_execute_context_t & ctx)
+    cvalue_t cs_condition_expression_t::execute()
     {
-        cvalue_t condition_value = execute_expression(ctx, this->condition());
+        cvalue_t condition_value = execute_expression(this->condition());
 
         if (condition_value == true)
-            return execute_expression(ctx, this->value1());
+            return execute_expression(this->value1());
 
         if (condition_value == false)
-            return execute_expression(ctx, this->value2());
+            return execute_expression(this->value2());
 
         return cvalue_t::nan;
     }
@@ -111,7 +111,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Executes this expression.
-    cvalue_t cs_expressions_t::execute(expression_execute_context_t & ctx)
+    cvalue_t cs_expressions_t::execute()
     {
         return cvalue_t::nan;
     }

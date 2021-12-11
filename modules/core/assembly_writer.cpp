@@ -1159,8 +1159,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return __current_null<__tidx_t::constant>();
             }
 
-            expression_execute_context_t ctx;
-            cvalue_t value = exp->execute(ctx);
+            cvalue_t value = exp->execute();
 
             if (is_nan(value))
                 throw _ED(__e_t::unexpected_const_value, exp);
@@ -1171,25 +1170,45 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Commits constant.
         ref_t __commit_constant(const cvalue_t & value, type_t ** out_type)
         {
+            switch (value.value_type)
+            {
+                case cvalue_type_t::number:
+                    al::assign_value(out_type, this->__get_internal_type(value.number.type));
+                    break;
+
+                case cvalue_type_t::string:
+                    al::assign_value(out_type, this->__get_string_type());
+                    break;
+
+                case cvalue_type_t::null:
+                    al::assign_value(out_type, (type_t *)nullptr);
+                    break;
+
+                case cvalue_type_t::type:
+                    al::assign_value(out_type, this->__get_type_type());
+                    break;
+
+                case cvalue_type_t::nan:
+                default:
+                    throw _ED(__e_t::unexpected_const_value, value);
+            }
+
+
             auto & mgr = __mt_manager<__tidx_t::constant>();
             __SearchRet(mgr, value);
 
             switch (value.value_type)
             {
                 case cvalue_type_t::number:
-                    al::assign_value(out_type, this->__get_internal_type(value.number.type));
                     return __commit_constant_number(mgr, value.number);
 
                 case cvalue_type_t::string:
-                    al::assign_value(out_type, this->__get_string_type());
                     return __commit_constant_string(mgr, value.string);
 
                 case cvalue_type_t::null:
-                    al::assign_value(out_type, (type_t *)nullptr);
                     return __commit_constant_null(mgr);
 
                 case cvalue_type_t::type:
-                    al::assign_value(out_type, this->__get_type_type());
                     return __commit_constant_type(mgr, (type_t *)value.mobject);
 
                 case cvalue_type_t::nan:

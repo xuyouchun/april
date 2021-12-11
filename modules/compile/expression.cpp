@@ -73,18 +73,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         type_t * host_type = member->host_type;
         if (host_type == nullptr)
-            throw _ED(__e_t::host_type_missing, member);
+            __Failed("member '%1%' host type missing", member);
 
         return host_type;
     }
 
     // Executes the expression, returns nan when it is not a constant value.
-    static cvalue_t __execute_expression(__cctx_t & ctx, expression_t * exp)
+    static cvalue_t __execute_expression(expression_t * exp)
     {
         _A(exp != nullptr);
 
-        expression_execute_context_t e_ctx;
-        return exp->execute(e_ctx);
+        return exp->execute();
     }
 
     // Tries compile expression if it's a constant value.
@@ -95,7 +94,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (!is_optimize(ctx, compile_optimize_code_t::compute_constant_values))
             return false;
 
-        cvalue_t cvalue = __execute_expression(ctx, expression);
+        cvalue_t cvalue = __execute_expression(expression);
 
         if (!is_nan(cvalue) && cvalue.value_type != cvalue_type_t::__default__)
         {
@@ -195,7 +194,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (method_var->method->is_static())
         {
             if (__is_instance(instance))
-                throw _ED(__e_t::instance_unexpected_on_static_member, instance, method_var->method);
+            {
+                __Failed("Instance reference '%1%' cannot be accessed"
+                    "on static member '%2%'", instance, method_var->method);
+            }
 
             if (instance == nullptr)
                 pool.append<x_push_null_xil_t>();
@@ -556,13 +558,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp1) == cvalue_t(0))  // x + 0
+            if (__execute_expression(exp1) == cvalue_t(0))  // x + 0
             {
                 exp2->compile(ctx, pool);
                 return;
             }
 
-            if (__execute_expression(ctx, exp2) == cvalue_t(0)) // 0 + x
+            if (__execute_expression(exp2) == cvalue_t(0)) // 0 + x
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -583,14 +585,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp1) == cvalue_t(0))  // 0 * x
+            if (__execute_expression(exp1) == cvalue_t(0))  // 0 * x
             {
                 exp2->compile(ctx, pool);
                 pool.append<x_al_xil_t>(xil_al_command_t::minus, __xil_type(exp1));
                 return;
             }
 
-            if (__execute_expression(ctx, exp2) == cvalue_t(0))  // x * 0
+            if (__execute_expression(exp2) == cvalue_t(0))  // x * 0
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -611,13 +613,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp1) == cvalue_t(1)) // 1 * x
+            if (__execute_expression(exp1) == cvalue_t(1)) // 1 * x
             {
                 exp2->compile(ctx, pool);
                 return;
             }
 
-            if (__execute_expression(ctx, exp2) == cvalue_t(1))  // x * 1
+            if (__execute_expression(exp2) == cvalue_t(1))  // x * 1
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -640,7 +642,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp2) == cvalue_t(1))      // x / 1
+            if (__execute_expression(exp2) == cvalue_t(1))      // x / 1
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -685,13 +687,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp1) == cvalue_t(0))     // 0 | x
+            if (__execute_expression(exp1) == cvalue_t(0))     // 0 | x
             {
                 exp2->compile(ctx, pool);
                 return;
             }
 
-            if (__execute_expression(ctx, exp2) == cvalue_t(0))     // x | 0
+            if (__execute_expression(exp2) == cvalue_t(0))     // x | 0
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -724,7 +726,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp2) == cvalue_t(0))     // x << 0
+            if (__execute_expression(exp2) == cvalue_t(0))     // x << 0
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -745,7 +747,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp2) == cvalue_t(0))     // x >> 0
+            if (__execute_expression(exp2) == cvalue_t(0))     // x >> 0
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -782,13 +784,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp1) == cvalue_t(true))     // true && x
+            if (__execute_expression(exp1) == cvalue_t(true))     // true && x
             {
                 exp2->compile(ctx, pool);
                 return;
             }
 
-            if (__execute_expression(ctx, exp2) == cvalue_t(true))     // x && true
+            if (__execute_expression(exp2) == cvalue_t(true))     // x && true
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -807,13 +809,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
-            if (__execute_expression(ctx, exp1) == cvalue_t(false))     // false || x
+            if (__execute_expression(exp1) == cvalue_t(false))     // false || x
             {
                 exp2->compile(ctx, pool);
                 return;
             }
 
-            if (__execute_expression(ctx, exp2) == cvalue_t(false))     // x || false
+            if (__execute_expression(exp2) == cvalue_t(false))     // x || false
             {
                 exp1->compile(ctx, pool);
                 return;
@@ -981,7 +983,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         variable_t * var = var_exp->get_variable();
         if (var == nullptr)
-            throw _ED(__e_t::variable_cannot_determined, var_exp->to_string());
+            __Failed("variable '%1%' connot determined", var_exp->to_string());
 
         return var;
     }
@@ -991,7 +993,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         variable_expression_t * var_exp = as<variable_expression_t *>(exp);
         if (var_exp == nullptr || !var_exp->is_variable_expression())
-            throw _ED(__e_t::assign_expression_type_error, exp);
+            __Failed("assign left expression should be a variable/index: found '%1%'", exp);
 
         return __pick_var(var_exp);
     }
@@ -1003,7 +1005,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * type = var->get_type();
 
         if (type == nullptr)
-            throw _ED(__e_t::index_type_undetermined, var);
+            __Failed("index '%1%' type undetermined", var);
 
         return type;
     }
@@ -1054,7 +1056,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                 property_t * property = ((property_variable_t *)var)->property;
                 if (property == nullptr)
-                    throw _ED(__e_t::unknown_property, var);
+                    __Failed("unknown property '%1%'", var);
 
                 __compile_arguments(ctx, pool,
                     ((property_index_variable_t *)var)->arguments, property->set_method
@@ -1109,11 +1111,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             case variable_type_t::property: {
                 property_t * property = ((property_variable_t *)var)->property;
                 if (property == nullptr)
-                    throw _ED(__e_t::unknown_property, var);
+                    __Failed("unknown property '%1%'", var);
 
                 method_t * method = property->set_method;
                 if (method == nullptr)
-                    throw _ED(__e_t::property_cannot_be_write, var);
+                    __Failed("property '%1%' cannot be write", var);
 
                 __validate_set_method(ctx, method);
 
@@ -1131,10 +1133,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 arguments_t * args = arr_var->arguments;
 
                 if (body == nullptr)
-                    throw _ED(__e_t::index_body_missing, var);
+                    __Failed("index '%1%' body missing", var);
 
                 if (args == nullptr)
-                    throw _ED(__e_t::index_arguments_missing, var);
+                    __Failed("index '%1%' arguments missing", var);
 
                 __compile_arguments(ctx, pool, args);
                 body->compile(ctx, pool);
@@ -1156,11 +1158,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 property_t * property = index_var->property;
 
                 if (property == nullptr)
-                    throw _ED(__e_t::unknown_property, var);
+                    __Failed("unknown property '%1%'", var);
 
                 method_t * method = property->set_method;
                 if (method == nullptr)
-                    throw _ED(__e_t::property_cannot_be_write, var);
+                    __Failed("property '%1%' cannot be write", var);
 
                 __validate_set_method(ctx, method);
 
@@ -1369,7 +1371,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (variable->constant)
         {
-            cvalue_t cvalue = __execute_expression(ctx, variable->expression);
+            cvalue_t cvalue = __execute_expression(variable->expression);
             _A(cvalue != cvalue_t::nan);
 
             __compile_cvalue(ctx, pool, cvalue, dtype);
@@ -1421,13 +1423,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         field_t * field = field_var->field;
         if (field == nullptr)
-            throw _ED(__e_t::unknown_field, field_var);
+            __Failed("unknown field '%1%'", field_var);
 
         ref_t field_ref = __search_field_ref(ctx, field);
         type_t * field_type = to_type(field->type_name);
 
         if (field_type == nullptr)
-            throw _ED(__e_t::unknown_field_type, field);
+            __Failed("unknown field '%1%' type", field);
 
         // TODO: when member point, int, long ... types also should be ptr type.
         if (is_custom_struct(field_type))
@@ -1523,7 +1525,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         method_t * method = property->get_method;
         if (method == nullptr)
-            throw _ED(__e_t::property_cannot_be_read, property);
+            __Failed("property '%1%' cannot be read", property);
 
         __validate_get_method(ctx, method);
 
@@ -1541,7 +1543,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         property_t * property = property_var->property;
         if (property == nullptr)
-            throw _ED(__e_t::unknown_property, property_var);
+            __Failed("unknown property '%1%'", property_var);
 
         __compile_property_variable(ctx, pool, property, nullptr, dtype, owner_exp);
     }
@@ -1552,7 +1554,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         property_t * property = property_var->property;
         if (property == nullptr)
-            throw _ED(__e_t::unknown_property, property_var);
+            __Failed("unknown property '%1%'", property_var);
 
         __compile_property_variable(ctx, pool, property, property_var->arguments, dtype, owner_exp);
     }
@@ -1564,7 +1566,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         method_t * method = method_var->method;
 
         if (method == nullptr)
-            throw _ED(__e_t::unknown_method, method_var);
+            __Failed("unknown method '%1%'", method_var);
     }
 
     // Check whether static member has instance object reference.
@@ -1588,10 +1590,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // _P(_T("__check_static_member"), owner_exp, variable, is_static, has_instance);
 
         if (is_static && has_instance)
-            throw _ED(__e_t::instance_unexpected_on_static_member, left_exp, member);
+            __Failed("instance reference '%1%' cannot be accessed on static member '%2%'",
+                                                                        left_exp, member);
 
         if (!is_static && !has_instance)
-            throw _ED(__e_t::instance_required_on_non_static_member, member);
+            __Failed("An object reference is required for the non-static member '%1%'", member);
     }
 
     // Pushes this with check.
@@ -1620,6 +1623,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             pool.append<x_push_this_ref_xil_t>();
     }
 
+    // Compiles static const field.
+    static void __compile_static_const_field(__cctx_t & ctx, xil_pool_t & pool,
+                    field_t * field, xil_type_t dtype)
+    {
+        cvalue_t cv;
+        if (field->init_value != nullptr)
+            cv = field->init_value->execute();
+        else
+            cv = default_value_of(field->get_vtype());
+
+        if (is_nan(cv))
+            __Failed("expected constant value for static const field '%1%'", field->name);
+
+        __compile_cvalue(ctx, pool, cv, dtype);
+    }
+
     // Compiles variable.
     static void __compile_variable(__cctx_t & ctx, xil_pool_t & pool,
                         variable_t * variable, xil_type_t dtype, expression_t * owner_exp)
@@ -1636,10 +1655,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 __compile_param_variable(ctx, pool, (param_variable_t *)variable, dtype);
                 break;
 
-            case variable_type_t::field:
-                __push_this_with_check(ctx, pool, owner_exp, variable);
-                __compile_field_variable(ctx, pool, (field_variable_t *)variable, dtype);
-                break;
+            case variable_type_t::field: {
+                
+                field_t * field = ((field_variable_t *)variable)->field;
+                if (is_static_const(field))
+                {
+                    __compile_static_const_field(ctx, pool, field, dtype);
+                }
+                else
+                {
+                    __push_this_with_check(ctx, pool, owner_exp, variable);
+                    __compile_field_variable(ctx, pool, (field_variable_t *)variable, dtype);
+                }
+
+            }   break;
 
             case variable_type_t::property: {
                 property_variable_t * property_var = (property_variable_t *)variable;
@@ -1661,9 +1690,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Executes binary expression.
-    cvalue_t __sys_t<binary_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<binary_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
 
     // Compiles binary expression.
@@ -1754,13 +1783,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(method != nullptr);
 
         if (method->param_count() != param_count)
-            throw _ED(__e_t::operator_overload__wrong_param_count, method);
+            __Failed("operator overload method '%1%' prototype error: Param count error", method);
 
         if (method->is_generic())
-            throw _ED(__e_t::operator_overload__no_generic, method);
+            __Failed("operator overload method '%1%' prototype error: should not be a generic type",
+                                                                                        method);
 
         if (!method->is_static())
-            throw _ED(__e_t::operator_overload__wrong_prototype, method);
+            __Failed("Operator overload method '%1%' prototype error: should be static", method);
 
         for (int k = 0; k < param_count; k++)
         {
@@ -1774,8 +1804,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             type_t * param_type = param->get_type();
 
             if (!is_type_compatible(exp_type, param_type))
-                throw _ED(__e_t::operator_overload__wrong_argument_type,
-                    _F(_T("%1%(%2%)"), exp, exp_type), _F(_T("%1%(%2%"), param, param_type)
+                __Failed("operator overload method '%1%(%2%)' argument type error: "
+                         "cannot assign %1%(%2%) to param %3%(%4%)",
+                    exp, exp_type, param, param_type
                 );
         }
     }
@@ -1839,9 +1870,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // unitary_expression_t
 
     // Executes unitary expression.
-    cvalue_t __sys_t<unitary_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<unitary_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
 
     // Compiles unitary expression.
@@ -1916,9 +1947,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // name_expression_t
 
     // Executes name expression.
-    cvalue_t __sys_t<name_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<name_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
 
     // Compiles name expression.
@@ -1948,9 +1979,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // name_unit_expression_t
 
     // Executes name expression.
-    cvalue_t __sys_t<name_unit_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<name_unit_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
 
     // Compiles name unit expression.
@@ -1981,9 +2012,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // cvalue_expression_t
 
     // Executes value expression.
-    cvalue_t __sys_t<cvalue_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<cvalue_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
 
     // Compiles numeric.
@@ -2107,9 +2138,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // function_expression_t
 
     // Executes function expression.
-    cvalue_t __sys_t<function_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<function_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // Returns whether left is a base expression.
@@ -2245,13 +2276,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         type_t * type = variable->get_type();
         if (type->this_gtype() != gtype_t::generic)
-            throw _ED(__e_t::delegate_type_error, type);
+            __Failed("delegate type error, should be System.Deletate<...>, but not %1%", type);
 
         generic_type_t * gtype = (generic_type_t *)type;
         general_type_t * template_ = gtype->template_;
 
         if (template_ != __XPool.get_delegate_type())
-            throw _ED(__e_t::delegate_type_error, gtype);
+            __Failed("delegate type error, should be System.Deletate<...>, but not %1%", gtype);
 
         __compile_variable(ctx, pool, variable, xil_type_t::ptr, this);
 
@@ -2281,13 +2312,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(type != nullptr);
 
         if (type->this_gtype() != gtype_t::generic)
-            throw _ED(__e_t::delegate_type_error, type);
+            __Failed("delegate type error, should be System.Deletate<...>, but not %1%", type);
 
         generic_type_t * gtype = (generic_type_t *)type;
         general_type_t * template_ = gtype->template_;
 
         if (template_ != __XPool.get_delegate_type())
-            throw _ED(__e_t::delegate_type_error, gtype);
+            __Failed("delegate type error, should be System.Deletate<...>, but not %1%", gtype);
 
         analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
         method_t * method = (method_t *)gtype->get_member(args);
@@ -2314,9 +2345,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // type_cast_expression_t
 
     // Executes type cast expression.
-    cvalue_t __sys_t<type_cast_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<type_cast_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // Compiles type cast expression.
@@ -2361,9 +2392,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // type_name_expression_t
 
     // Executes type name expression.
-    cvalue_t __sys_t<type_name_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<type_name_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // Compiles type name expression.
@@ -2377,9 +2408,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // index_expression_t
 
     // Executes index expression.
-    cvalue_t __sys_t<index_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<index_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // compiles index expression.
@@ -2387,7 +2418,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         expression_t * namex = this->namex();
         if (namex == nullptr)
-            throw _ED(__e_t::index_main_expression_missing);
+            __Failed("index main expression missing");
 
         if (is_effective(this->parent))
         {
@@ -2445,37 +2476,32 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // new_expression_t
 
     // Executes name expression.
-    cvalue_t __sys_t<new_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<new_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // Returns constructor call type.
     xil_call_type_t __get_constructor_calltype(type_t * host_type, method_t * constructor)
     {
-        #define __EConstructor(name)                                                    \
-            throw _ED(__e_t::unexpected_constructor_prototype__##name, constructor);
-
         type_t * type = to_type(constructor->type_name);
         if (type != nullptr && !is_void_type(type))
-            __EConstructor(should_no_return_type);
+            __Failed("constructor '%1%' should no return type", constructor);
 
         xil_call_type_t call_type = call_type_of_method(constructor);
         switch (call_type)
         {
             case xil_call_type_t::static_:
-                __EConstructor(should_no_static);
-                break;
+                __Failed("constructor '%1%' should no static", constructor);
 
             case xil_call_type_t::virtual_:
-                __EConstructor(should_no_virtual);
-                break;
+                __Failed("constructor '%1%' should no virtual", constructor);
 
             default: break;
         }
 
         if (host_type != nullptr && !is_type_compatible(host_type, constructor->host_type))
-            throw _ED(__e_t::unexpected_host_type, constructor, host_type);
+            __Failed("member '%1%' has unexpected host type '%2%'", constructor, host_type);
 
         #undef __EConstructor
 
@@ -2487,7 +2513,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         type_t * type = to_type(this->type_name);
         if (type == nullptr)
-            throw _ED(__e_t::type_missing);
+            __Failed("type missing");
 
         ttype_t ttype = type->this_ttype();
 
@@ -2502,7 +2528,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 break;
 
             default:
-                throw _ED(__e_t::create_instance_type_error, type, ttype);
+                __Failed("Cannot create instance of type '%1%', because it's a '%2%' type",
+                                                                            type, ttype);
         }
     }
 
@@ -2524,7 +2551,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (this->arguments() != nullptr)
         {
             if (this->constructor == nullptr)
-                throw _ED(__e_t::constructor_missing, type);
+                __Failed("constructor of type '%1%' missing", type);
 
             __compile_arguments(ctx, pool, this->arguments(), this->constructor);
         }
@@ -2563,7 +2590,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (this->arguments() != nullptr)
         {
             if (this->constructor == nullptr)
-                throw _ED(__e_t::constructor_missing, type);
+                __Failed("constructor of type '%1%' missing", type);
 
             __compile_arguments(ctx, pool, this->arguments(), this->constructor);
         }
@@ -2586,9 +2613,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // new_array_expression_t
 
     // Executes new array expression.
-    cvalue_t __sys_t<new_array_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<new_array_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
 
     // Returns new array expression.
@@ -2597,7 +2624,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         type_t * element_type = this->get_element_type();
         if (element_type == nullptr)
-            throw _ED(__e_t::element_type_undeterminded);
+            __Failed("index element type underterminded");
 
         bool this_effective = __is_this_effective(this);
 
@@ -2607,7 +2634,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             for (expression_t * expression : *this->lengths())
             {
                 if (expression == nullptr)
-                    throw _ED(__e_t::unknown_array_length, this);
+                    __Failed("unknown array length: '%1%'", this);
 
                 // TODO: must be int type
 
@@ -2619,7 +2646,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * type = this->to_array_type();
 
         if (type == nullptr)
-            throw _ED(__e_t::type_missing);
+            __Failed("type missing");
 
         ref_t type_ref = __ref_of(ctx, type);
         _A(type_ref != ref_t::null);
@@ -2639,7 +2666,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             initializer->each_element([&](expression_t * element_exp) -> bool {
 
                 if (element_exp == nullptr)
-                    throw _ED(__e_t::element_init_expression_empty);
+                    __Failed("index element init expression empty");
 
                 // TODO: check init expression type.
 
@@ -2660,9 +2687,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // default_value_expression_t
 
     // Executes default value expression.
-    cvalue_t __sys_t<default_value_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<default_value_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // Compiles default value expression.
@@ -2672,7 +2699,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         type_t * type = to_type(this->type_name);
 
         if (type == nullptr)
-            throw _ED(__e_t::type_missing);
+            __Failed("type missing");
 
         if (is_void_type(type))
             return;
@@ -2696,7 +2723,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 cvalue_t value = default_value_of(vtype);
 
                 if (is_nan(value))
-                    throw _ED(__e_t::no_default_value, type);
+                    __Failed("type '%1%' has no default value", type);
 
                 __compile_cvalue(ctx, pool, value);
 
@@ -2723,9 +2750,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // type_of_expression_t
 
     // Executes typeof expression.
-    cvalue_t __sys_t<type_of_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<type_of_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // Compiles typeof expression.
@@ -2738,9 +2765,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // this_expression_t
 
     // Executes this expression.
-    cvalue_t __sys_t<this_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<this_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // Compiles this expression.
@@ -2754,9 +2781,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // base_expression_t
 
     // Executes base expression.
-    cvalue_t __sys_t<base_expression_t>::execute(expression_execute_context_t & ctx)
+    cvalue_t __sys_t<base_expression_t>::execute()
     {
-        return __super_t::execute(ctx);
+        return __super_t::execute();
     }
     
     // Compiles base expression.

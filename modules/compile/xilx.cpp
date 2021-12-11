@@ -87,7 +87,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                     xil_type_t dtype, bool pick)
     {
         type_t * type = to_type(local->type_name);
-        _A(type != nullptr);
+        if (type == nullptr)
+            __Failed("expect type of local variable '%1%'", local);
 
         if (is_custom_struct(type))     // custom struct 
             X_UNEXPECTED();
@@ -145,7 +146,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(param_var->param != nullptr);
 
         type_t * type = to_type(param_var->param->type_name);
-        _A(type != nullptr);
+        if (type == nullptr)
+            __Failed("expect type of argument '%1%'", param_var);
 
         if (is_custom_struct(type))     // custom struct 
             X_UNEXPECTED();
@@ -233,7 +235,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         field_t * field = field_var->field;
         type_t * type = to_type(field->type_name);
-        _A(type != nullptr);
+
+        if (type == nullptr)
+            __Failed("expect type of field '%1%'", field);
 
         if (is_custom_struct(type))     // custom struct 
             X_UNEXPECTED();
@@ -399,7 +403,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         type_t * type = expression->get_type();
-        _A(type != nullptr);
+        if (type == nullptr)
+            __Failed("expect type of expression '%1%'", expression);
 
         // Custom struct
         if (is_custom_struct(type))
@@ -412,7 +417,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (local->write_count == 1)
         {
-            if (is_constant_expression(ctx, expression))
+            if (is_constant_expression(expression))
             {
                 if (is_optimize(ctx, compile_optimize_code_t::auto_determine_constant_variables))
                 {
