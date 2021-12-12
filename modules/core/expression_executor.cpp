@@ -527,6 +527,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     cvalue_t binary_expression_t::execute()
     {
         expression_t * e1 = exp1(), * e2 = exp2();
+
         if (e1 == nullptr || e2 == nullptr)
             return cvalue_t::nan;
 
@@ -620,6 +621,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return __binary_execute<operator_t::logic_or, g_t::bool_>(cv1, cv2);
 
             case operator_t::member_point:
+                if (is_type_expression(e1))
+                    return e2->execute();
+                return cvalue_t::nan;
+
             case operator_t::assign:
             default:
                 return cvalue_t::nan;

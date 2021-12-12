@@ -999,7 +999,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Enums expression.
         void __each(expression_t * exp)
         {
-            each_expression(exp, [this](expression_t * exp0) { __walk(exp0); });
+            each_expression(exp, [this](expression_t * exp0) { __walk(exp0); return true; });
         }
 
         // Walks name expression.

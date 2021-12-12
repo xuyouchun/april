@@ -1256,6 +1256,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         sid_t sid;
 
+        const char_t * c_str() const { return sid.c_str(); }
+
         static const name_t null;
     };
 
@@ -1585,8 +1587,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     public:
         typedef cvalue_t * itype_t;
 
-        cvalue_t(const char_t * string) : value_type(cvalue_type_t::string), string(string) { }
-        cvalue_t(const tvalue_t & number) : value_type(cvalue_type_t::number), number(number) { }
+        cvalue_t(const char_t * string)
+            : value_type(cvalue_type_t::string), string(string) { }
+
+        cvalue_t(const tvalue_t & number)
+            : value_type(cvalue_type_t::number), number(number) { }
 
         cvalue_t(int8_t value)      : cvalue_t(tvalue_t(value)) { }
         cvalue_t(uint8_t value)     : cvalue_t(tvalue_t(value)) { }
@@ -6493,6 +6498,16 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual const string_t to_string() const override;
     };
 
+    // Returns whether it's a name_expression_t or name_unit_expression_t.
+    bool is_name_expression(expression_t * exp);
+
+    // Returns whether it's a type expression.
+    bool is_type_expression(expression_t * exp);
+
+    // Returns whetner it's a variable expression.
+    bool is_field_variable_expression(expression_t * exp,
+                        field_variable_t ** out_variable = nullptr);
+
     //-------- ---------- ---------- ---------- ----------
 
 
@@ -7555,20 +7570,24 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     // Walk sub expression by applies all sub expression for calling callback function.
     template<typename callback_t>
-    X_INLINE void each_expression(expression_t * expression, callback_t callback,
+    X_INLINE bool each_expression(expression_t * expression, callback_t callback,
                                                              bool deep = false)
     {
         if (expression == nullptr)
-            return;
+            return true;
 
         for (size_t index = 0, count = expression->expression_count(); index < count; index++)
         {
             expression_t * exp = expression->expression_at(index);
-            callback(exp);
 
-            if (deep)
-                each_expression(exp, callback, true);
+            if (!callback(exp))
+                return false;
+
+            if (deep && !each_expression(exp, callback, true))
+                return false;
         }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////

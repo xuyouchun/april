@@ -395,7 +395,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             variable_t * var = __pick_variable(e);
             if (var == nullptr)
-                return;
+                return true;
 
             op_expression_base_t * op_exp = as<op_expression_base_t *>(e->parent);
             const operator_property_t * op_property;
@@ -409,6 +409,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
                 var->read_count++;
             }
+
+            return true;
 
         }, true);
     }

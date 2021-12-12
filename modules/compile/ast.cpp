@@ -455,7 +455,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Expect constant value.
         X_D(expect_constant_value,
-                            _T("The expression '%1%' assigned to '%2%' must be constant"))
+                            _T("The expression '%1%' assigned to %2% must be constant"))
 
         // Type int or unsigned int type expected.
         X_D(unexpected_underlying_type,
@@ -468,6 +468,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // The enum value is too small
         X_D(enum_value_too_small,
                 _T("The enum value %1% is too small for underlying type %2%"))
+
+        // The evaluation of the constant value involves a circular definition.
+        X_D(enum_field_circular_definition,
+                _T("The evaluation of the constant value for '%1%' involves a circular definition"))
 
     X_ENUM_INFO_END
 
@@ -1806,85 +1810,291 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->__delay(context, walk_step_t::analysis, new_default_constructor);
     }
 
-    template<vtype_t _vtype, typename _fields_t>
-    void type_ast_node_t::__fill_field_values(_fields_t & fields)
+    class type_ast_node_t::__fields_init_stub_t : public object_t
     {
+    public:
+        __fields_init_stub_t(type_ast_node_t * owner) : __owner(owner) { }
+
+        virtual bool continue_() = 0;
+
+    protected:
+
+        type_ast_node_t * __owner;
+
+        bool __is_all_fields_initialized(field_t * field)
+        {
+            std::vector<field_t *> fields;
+
+            bool r = __deep_each_field(field, [&](field_t * field0) {
+
+                fields.push_back(field0);
+
+                if (field0->init_value == nullptr)
+                    return false;
+
+                return field0->init_value->execute() != cvalue_t::nan;
+
+            });
+
+            return r;
+        }
+
+        template<typename _f_t>
+        bool __deep_each_field(field_t * field, _f_t f)
+        {
+             std::function<bool (field_t *)> callback = [&](field_t * field0) {
+
+                if (!f(field0))
+                    return false;
+
+                if (field0->init_value != nullptr && !__deep_each_field(field0, callback))
+                    return false;
+
+                return true;
+            }; 
+
+            return __each_field(field->init_value, callback);
+        }
+
+        template<typename _f_t> bool __each_field(expression_t * expression, _f_t f)
+        {
+            if (expression == nullptr)
+                return true;
+
+            return each_expression(expression, [&](expression_t * exp) {
+
+                field_variable_t * field_var;
+
+                if (is_field_variable_expression(exp, &field_var))
+                {
+                    field_t * field = field_var->field;
+                    _A(field != nullptr);
+
+                    if (!f(field))
+                        return false;
+                }
+
+                return true;
+
+            }, true);
+        }
+
+        template<typename ... _args_t> void __log(_args_t && ... args)
+        {
+            __owner->__log(__owner, std::forward<_args_t>(args) ...);
+        }
+    };
+
+    // __enum_fields_init_stub_t
+    template<vtype_t _vtype>
+    class type_ast_node_t::__enum_fields_init_stub_t : public __fields_init_stub_t
+    {
+        typedef __fields_init_stub_t __super_t;
         typedef vnum_t<_vtype> __integer_type_t;
 
-        constexpr __integer_type_t min = min_value<__integer_type_t>();
-        constexpr __integer_type_t max = max_value<__integer_type_t>();
+    public:
+        __enum_fields_init_stub_t(type_ast_node_t * owner, general_type_t * type)
+            : __super_t(owner), __type(type) { }
 
-        cvalue_t cvalue_min = cvalue_t(min);
-        cvalue_t cvalue_max = cvalue_t(max);
+        virtual bool continue_() override
+        {
+            int index = __break_index;
+            __break_index = -1;
 
-        __integer_type_t value = 0;
-        bool is_next_value = true;
+            for (int count = __type->fields.size(); index < count; index++)
+            {
+                field_t * field = __type->fields[index];
+                switch (__fill_enum_field_value(field))
+                {
+                    case __fill_ret_t::error:
+                        field->init_value = __XPool.get_cvalue_expression(default_value_of(_vtype));
+                        break;
 
-        for (field_t * field : fields)
+                    case __fill_ret_t::break_:
+                        if (__break_index == -1)
+                            __break_index = index;
+
+                        // Skip next non-value enum fields.
+                        for (; index < count - 1; index++)
+                        {
+                            if (__type->fields[index + 1]->init_value != nullptr)
+                                break;
+                        }
+                        break;
+
+                    case __fill_ret_t::succeed:
+                    default:
+                        break;
+                }
+            }
+
+            return __break_index == -1;
+        }
+
+    private:
+        general_type_t  *   __type;
+        __integer_type_t    __value = 0;
+
+        int __break_index = 0;
+        bool __is_next_value = true;
+
+        static constexpr __integer_type_t __min = min_value<__integer_type_t>();
+        static constexpr __integer_type_t __max = max_value<__integer_type_t>();
+
+        static const cvalue_t __cvalue_min;
+        static const cvalue_t __cvalue_max;
+
+        enum class __fill_ret_t { succeed, error, break_ };
+
+        __fill_ret_t __fill_enum_field_value(field_t * field)
         {
             #define __Exp(_v)  _F(_T("'%1% = %2%'"), field->name, _v)
 
             if (field->init_value != nullptr)
             {
+                if (__is_circular_definition(field))
+                {
+                    __log(__c_t::enum_field_circular_definition, field->name);
+                    return __fill_ret_t::error;
+                }
+
                 cvalue_t v = field->init_value->execute();
+
                 if (v == cvalue_t::nan)
                 {
-                    this->__log(this, __c_t::expect_constant_value, field->init_value,
-                                                                    _T("enum field"));
-                }
-                else
-                {
-                    if (v > cvalue_max)
+                    if (__is_all_fields_initialized(field))
                     {
-                        this->__log(this, __c_t::enum_value_too_large, __Exp(v), _vtype);
+                        __log(__c_t::expect_constant_value, field->init_value, field->name);
+                        return __fill_ret_t::error;
                     }
-                    else if (v < cvalue_min)
-                    {
-                        this->__log(this, __c_t::enum_value_too_small, __Exp(v), _vtype);
-                    }
-                    else
-                    {
-                        cvalue_t v2 = v.change_type(_vtype);
-                        field->init_value = __XPool.get_cvalue_expression(v2);
 
-                        value = (__integer_type_t)v.number;
-                        is_next_value = false;
-                    }
+                    return __fill_ret_t::break_;
                 }
+
+                if (v > __cvalue_max)
+                {
+                    __log(__c_t::enum_value_too_large, __Exp(v), _vtype);
+                    return __fill_ret_t::error;
+                }
+
+                if (v < __cvalue_min)
+                {
+                    __log(__c_t::enum_value_too_small, __Exp(v), _vtype);
+                    return __fill_ret_t::error;
+                }
+
+                cvalue_t v2 = v.change_type(_vtype);
+                field->init_value = __XPool.get_cvalue_expression(v2);
+
+                __value = (__integer_type_t)v.number;
+                __is_next_value = false;
+
+                return __fill_ret_t::succeed;
             }
             else
             {
-                if (is_next_value)
+                if (__is_next_value)
                 {
-                    field->init_value = __XPool.get_cvalue_expression((cvalue_t)value);
-                    is_next_value = false;
+                    field->init_value = __XPool.get_cvalue_expression((cvalue_t)__value);
+                    __is_next_value = false;
+                    return __fill_ret_t::succeed;
                 }
-                else
+
+                if (__value == __max)
                 {
-                    if (value == max)
-                    {
-                        this->__log(this, __c_t::enum_value_too_large, __Exp(value), _vtype);
-                    }
-                    else
-                    {
-                        field->init_value = __XPool.get_cvalue_expression((cvalue_t)(++value));
-                    }
+                    __log(__c_t::enum_value_too_large, __Exp(__value), _vtype);
+                    return __fill_ret_t::error;
                 }
+
+                field->init_value = __XPool.get_cvalue_expression((cvalue_t)(++__value));
+                return __fill_ret_t::succeed;
             }
 
             #undef __Exp
         }
-    }
+
+        bool __is_circular_definition(field_t * field)
+        {
+            std::set<field_t *> fields;
+            return __is_circular_defination(fields, field);
+        }
+
+        bool __is_circular_defination(std::set<field_t *> & fields, field_t * field)
+        {
+            if (!fields.insert(field).second)
+                return true;
+
+            field_t * prev_field;
+            if (field->init_value == nullptr
+                && (prev_field = __get_previous_field(field)) != nullptr)
+            {
+                if (__is_circular_defination(fields, prev_field))
+                    return true;
+            }
+
+            return !__deep_each_field(field, [&](field_t * field0) {
+                return !__is_circular_defination(fields, field0);
+            });
+        }
+
+        field_t * __get_previous_field(field_t * field)
+        {
+            type_t * host_type = field->host_type;
+            _A(host_type != nullptr);
+
+            if (host_type->this_ttype() == ttype_t::enum_)
+            {
+                auto & fields = ((general_type_t *)host_type)->fields;
+                auto it = al::find(fields, field);
+                _A(it != std::end(fields));
+
+                if (it != std::begin(fields))
+                    return *(it - 1);
+            }
+
+            return nullptr;
+        }
+    };
+
+    template<vtype_t _vtype>
+    const cvalue_t type_ast_node_t::__enum_fields_init_stub_t<_vtype>::__cvalue_min(__min);
+
+    template<vtype_t _vtype>
+    const cvalue_t type_ast_node_t::__enum_fields_init_stub_t<_vtype>::__cvalue_max(__max);
 
     // Walks analysis step.
-    void type_ast_node_t::__walk_analysis(ast_walk_context_t & context,
-                                                        method_t * new_default_constructor)
+    void type_ast_node_t::__walk_analysis(ast_walk_context_t & context, void * tag)
+    {
+        object_t * tag_obj = (object_t *)tag;
+        method_t * new_default_constructor = nullptr;
+        __fields_init_stub_t * fields_init_stub = nullptr;
+
+        dynamic_cast_tie(tag_obj, &new_default_constructor, &fields_init_stub);
+
+        if (new_default_constructor != nullptr)
+        {
+            __method_utils_t(__context, context).revise_constructor(*new_default_constructor,
+                                                                    nullptr);
+        }
+
+        if (fields_init_stub != nullptr)
+        {
+            if (!fields_init_stub->continue_())
+            {
+                this->__delay(context, walk_step_t::analysis, fields_init_stub);
+            }
+        }
+        else
+        {
+            __walk_analysis_init_fields(context);
+        }
+    }
+
+    // Walks init fields.
+    void type_ast_node_t::__walk_analysis_init_fields(ast_walk_context_t & context)
     {
         general_type_t * type = (general_type_t *)to_eobject();
 
-        if (new_default_constructor != nullptr)
-            __method_utils_t(__context, context).revise_constructor(*new_default_constructor,
-                                                                    nullptr);
         // Sets enum values.
         if (is_enum(type))
         {
@@ -1893,17 +2103,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (!is_integer(underlying_vtype))
             {
                 this->__log(this, __c_t::unexpected_underlying_type);
-                underlying_vtype = underlying_vtype;
+                underlying_vtype = default_enum_underlying_vtype;
             }
 
             type->vtype = underlying_vtype;
+            __fields_init_stub_t * stub_ = nullptr;
 
             switch (underlying_vtype)
             {
-                #define __Case(_type)                                               \
-                    case vtype_t::_type##_:                                         \
-                        __fill_field_values<vtype_t::_type##_>(type->fields);       \
-                        break;
+                #define __Case(_type)                                                   \
+                    case vtype_t::_type##_: {                                           \
+                        typedef __enum_fields_init_stub_t<vtype_t::_type##_> stub_t;    \
+                        stub_t stub(this, type);                                        \
+                        if (!stub.continue_())                                          \
+                            stub_ = __new_obj<stub_t>(stub);                            \
+                    }  break;
 
                 __Case(int8)
                 __Case(uint8)
@@ -1919,6 +2133,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 default:
                     X_UNEXPECTED();
             }
+
+            if (stub_ != nullptr)
+                this->__delay(context, walk_step_t::analysis, stub_);
         }
     }
 

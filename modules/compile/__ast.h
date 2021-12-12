@@ -697,6 +697,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // The enum value is too small
         enum_value_too_small,
 
+        // The evaluation of the constant value involves a circular definition.
+        enum_field_circular_definition,
+
         __the_end__         = 10000,
 
     X_ENUM_END
@@ -2854,6 +2857,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
+        template<vtype_t _vtype> class __enum_fields_init_stub_t;
+        class __fields_init_stub_t;
+
         __w_t<general_type_t> __type;
 
         // Walks default step.
@@ -2862,11 +2868,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Appends default constructors.
         method_t * __append_default_constructor(ast_walk_context_t & context);
 
-        // Fill field values.
-        template<vtype_t _vtype, typename _fields_t> void __fill_field_values(_fields_t & fields);
-
         // Walks analysis step.
-        void __walk_analysis(ast_walk_context_t & context, method_t * new_default_constructor);
+        void __walk_analysis(ast_walk_context_t & context, void * tag);
+
+        // Walks init fields.
+        void __walk_analysis_init_fields(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

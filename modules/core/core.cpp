@@ -6109,6 +6109,47 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return _F(_T("%1%<%2%>"), name, _str(generic_args));
     }
 
+    // Returns whether it's a name_expression_t or name_unit_expression_t.
+    bool is_name_expression(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return false;
+
+        expression_family_t family = exp->this_family();
+        return al::in(family, expression_family_t::name, expression_family_t::name_unit);
+    }
+
+    // Returns whether it's a type expression.
+    bool is_type_expression(expression_t * exp)
+    {
+        if (!is_name_expression(exp))
+            return false;
+
+        return al::in(((name_expression_t *)exp)->expression_type,
+            name_expression_type_t::type, name_expression_type_t::type_def
+        );
+    }
+
+    // Returns whetner it's a variable expression.
+    bool is_field_variable_expression(expression_t * exp, field_variable_t ** out_variable)
+    {
+        if (!is_name_expression(exp))
+            return false;
+
+        name_expression_t * name_exp = (name_expression_t *)exp;
+        if (name_exp->expression_type != name_expression_type_t::variable)
+            return false;
+
+        variable_t * variable = name_exp->variable;
+        if (variable == nullptr || variable->this_type() != variable_type_t::field)
+            return false;
+
+        if (out_variable != nullptr)
+            *out_variable = (field_variable_t *)variable;
+
+        return true;
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // type_name_expression_t
 

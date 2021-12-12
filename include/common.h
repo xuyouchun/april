@@ -1290,6 +1290,33 @@ namespace X_ROOT_NS {
             return v2;                                                                  \
         })(value))
 
+    namespace
+    {
+        template<int _index, typename _obj_t>
+        int __dynamic_cast_tie(_obj_t * obj) { return -1; }
+
+        template<int _index, typename _obj_t, typename _type_t, typename ... _rest_types_t>
+        int __dynamic_cast_tie(_obj_t * obj, _type_t ** out_obj, _rest_types_t ** ... out_objs)
+        {
+            *out_obj = dynamic_cast<_type_t *>(obj);
+            if (*out_obj != nullptr)
+                return _index;
+
+            return __dynamic_cast_tie<_index + 1>(obj, out_objs ...);
+        }
+    }
+
+    template<typename _obj_t, typename ... _types_t>
+    int dynamic_cast_tie(_obj_t * obj, _types_t ** ... out_objs)
+    {
+        if (obj == nullptr)
+            return -1;
+
+        return __dynamic_cast_tie<0>(obj, out_objs ...);
+    }
+
+
+
     ////////// ////////// ////////// ////////// //////////
 
     class memory_t;
