@@ -2857,8 +2857,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        template<vtype_t _vtype> class __enum_fields_init_stub_t;
         class __fields_init_stub_t;
+        template<vtype_t _vtype> class __enum_fields_init_stub_t;
+        class __general_fields_init_stub_t;
 
         __w_t<general_type_t> __type;
 

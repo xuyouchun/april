@@ -1778,6 +1778,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 }
             }
         }
+        else
+        {
+            for (field_t * field : type->fields)
+            {
+                if (field->decorate != nullptr)
+                {
+                    if (field->decorate->is_const)      // All const fields should be static.
+                        field->decorate->is_static = true;
+                }
+            }
+        }
 
         // Walk members.
         __super_t::on_walk(context, step, tag);
@@ -1813,90 +1824,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class type_ast_node_t::__fields_init_stub_t : public object_t
     {
     public:
-        __fields_init_stub_t(type_ast_node_t * owner) : __owner(owner) { }
+        __fields_init_stub_t(type_ast_node_t * owner, general_type_t * type)
+            : __owner(owner), __type(type) { }
 
-        virtual bool continue_() = 0;
-
-    protected:
-
-        type_ast_node_t * __owner;
-
-        bool __is_all_fields_initialized(field_t * field)
-        {
-            std::vector<field_t *> fields;
-
-            bool r = __deep_each_field(field, [&](field_t * field0) {
-
-                fields.push_back(field0);
-
-                if (field0->init_value == nullptr)
-                    return false;
-
-                return field0->init_value->execute() != cvalue_t::nan;
-
-            });
-
-            return r;
-        }
-
-        template<typename _f_t>
-        bool __deep_each_field(field_t * field, _f_t f)
-        {
-             std::function<bool (field_t *)> callback = [&](field_t * field0) {
-
-                if (!f(field0))
-                    return false;
-
-                if (field0->init_value != nullptr && !__deep_each_field(field0, callback))
-                    return false;
-
-                return true;
-            }; 
-
-            return __each_field(field->init_value, callback);
-        }
-
-        template<typename _f_t> bool __each_field(expression_t * expression, _f_t f)
-        {
-            if (expression == nullptr)
-                return true;
-
-            return each_expression(expression, [&](expression_t * exp) {
-
-                field_variable_t * field_var;
-
-                if (is_field_variable_expression(exp, &field_var))
-                {
-                    field_t * field = field_var->field;
-                    _A(field != nullptr);
-
-                    if (!f(field))
-                        return false;
-                }
-
-                return true;
-
-            }, true);
-        }
-
-        template<typename ... _args_t> void __log(_args_t && ... args)
-        {
-            __owner->__log(__owner, std::forward<_args_t>(args) ...);
-        }
-    };
-
-    // __enum_fields_init_stub_t
-    template<vtype_t _vtype>
-    class type_ast_node_t::__enum_fields_init_stub_t : public __fields_init_stub_t
-    {
-        typedef __fields_init_stub_t __super_t;
-        typedef vnum_t<_vtype> __integer_type_t;
-
-    public:
-        __enum_fields_init_stub_t(type_ast_node_t * owner, general_type_t * type)
-            : __super_t(owner), __type(type) { }
-
-        virtual bool continue_() override
+        bool continue_()
         {
             int index = __break_index;
             __break_index = -1;
@@ -1904,10 +1835,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             for (int count = __type->fields.size(); index < count; index++)
             {
                 field_t * field = __type->fields[index];
-                switch (__fill_enum_field_value(field))
+                if (!is_static_const(field))
+                    continue;
+
+                switch (__fill_value(field))
                 {
                     case __fill_ret_t::error:
-                        field->init_value = __XPool.get_cvalue_expression(default_value_of(_vtype));
+                        field->init_value = __get_default_value(field);
                         break;
 
                     case __fill_ret_t::break_:
@@ -1931,28 +1865,157 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __break_index == -1;
         }
 
-    private:
+    protected:
+        type_ast_node_t *   __owner;
         general_type_t  *   __type;
-        __integer_type_t    __value = 0;
 
         int __break_index = 0;
-        bool __is_next_value = true;
-
-        static constexpr __integer_type_t __min = min_value<__integer_type_t>();
-        static constexpr __integer_type_t __max = max_value<__integer_type_t>();
-
-        static const cvalue_t __cvalue_min;
-        static const cvalue_t __cvalue_max;
 
         enum class __fill_ret_t { succeed, error, break_ };
 
-        __fill_ret_t __fill_enum_field_value(field_t * field)
+        virtual __fill_ret_t __fill_value(field_t * field) = 0;
+        virtual expression_t * __get_default_value(field_t * field) = 0;
+
+        bool __is_all_fields_initialized(field_t * field)
+        {
+            std::vector<field_t *> fields;
+
+            bool r = __deep_each_field(field, [&](field_t * field0) {
+
+                fields.push_back(field0);
+
+                if (field0->init_value == nullptr)
+                    return false;
+
+                return field0->init_value->execute() != cvalue_t::nan;
+
+            });
+
+            return r;
+        }
+
+        bool __is_circular_defination(field_t * field)
+        {
+            __fields_t fields;
+            return __is_circular_defination(fields, field);
+        }
+
+        template<typename ... _args_t> void __log(_args_t && ... args)
+        {
+            __owner->__log(__owner, std::forward<_args_t>(args) ...);
+        }
+
+    private:
+
+        typedef al::svector_t<field_t *> __fields_t;
+
+        template<typename _f_t>
+        bool __deep_each_field(field_t * field, _f_t f)
+        {
+             std::function<bool (field_t *)> callback = [&](field_t * field0) {
+
+                if (!f(field0))
+                    return false;
+
+                if (field0->init_value != nullptr && !__deep_each_field(field0, callback))
+                    return false;
+
+                return true;
+            }; 
+
+            return __each_field(field->init_value, callback);
+        }
+
+        template<typename _f_t> bool __each_field(expression_t * expression, _f_t f)
+        {
+            if (expression == nullptr)
+                return true;
+
+            field_variable_t * field_var;
+
+            if (is_field_variable_expression(expression, &field_var))
+            {
+                field_t * field = field_var->field;
+                _A(field != nullptr);
+
+                if (!f(field))
+                    return false;
+            }
+
+            return each_expression(expression, [&](expression_t * exp) {
+                return __each_field(exp, f);
+            }, true);
+        }
+
+        bool __is_circular_defination(__fields_t & fields, field_t * field)
+        {
+            size_t size = fields.size();
+            if (al::contains(fields, field))
+                return true;
+
+            fields.push_back(field);
+
+            if (__do_is_circular_defination(fields, field))
+                return true;
+
+            fields.truncate(size);
+
+            return false;
+        }
+
+        bool __do_is_circular_defination(__fields_t & fields, field_t * field)
+        {
+            field_t * prev_field;
+            if (field->init_value == nullptr
+                && (prev_field = __get_enum_previous_field(field)) != nullptr)
+            {
+                if (__is_circular_defination(fields, prev_field))
+                    return true;
+            }
+
+            return !__each_field(field->init_value, [&](field_t * field0) {
+                return !__is_circular_defination(fields, field0);
+            });
+        }
+
+        field_t * __get_enum_previous_field(field_t * field)
+        {
+            type_t * host_type = field->host_type;
+            _A(host_type != nullptr);
+
+            if (host_type->this_ttype() == ttype_t::enum_)
+            {
+                auto & fields = ((general_type_t *)host_type)->fields;
+                auto it = al::find(fields, field);
+                _A(it != std::end(fields));
+
+                if (it != std::begin(fields))
+                    return *(it - 1);
+            }
+
+            return nullptr;
+        }
+    };
+
+    // __enum_fields_init_stub_t
+    template<vtype_t _vtype>
+    class type_ast_node_t::__enum_fields_init_stub_t : public __fields_init_stub_t
+    {
+        typedef __fields_init_stub_t __super_t;
+        typedef vnum_t<_vtype> __integer_type_t;
+
+    public:
+        using __super_t::__super_t;
+
+    protected:
+
+        virtual __fill_ret_t __fill_value(field_t * field) override
         {
             #define __Exp(_v)  _F(_T("'%1% = %2%'"), field->name, _v)
 
             if (field->init_value != nullptr)
             {
-                if (__is_circular_definition(field))
+                if (__is_circular_defination(field))
                 {
                     __log(__c_t::enum_field_circular_definition, field->name);
                     return __fill_ret_t::error;
@@ -2013,47 +2076,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             #undef __Exp
         }
 
-        bool __is_circular_definition(field_t * field)
+        virtual expression_t * __get_default_value(field_t * field) override
         {
-            std::set<field_t *> fields;
-            return __is_circular_defination(fields, field);
+            return __XPool.get_cvalue_expression(default_value_of(_vtype));
         }
 
-        bool __is_circular_defination(std::set<field_t *> & fields, field_t * field)
-        {
-            if (!fields.insert(field).second)
-                return true;
+    private:
+        __integer_type_t __value = 0;
 
-            field_t * prev_field;
-            if (field->init_value == nullptr
-                && (prev_field = __get_previous_field(field)) != nullptr)
-            {
-                if (__is_circular_defination(fields, prev_field))
-                    return true;
-            }
+        bool __is_next_value = true;
 
-            return !__deep_each_field(field, [&](field_t * field0) {
-                return !__is_circular_defination(fields, field0);
-            });
-        }
+        static constexpr __integer_type_t __min = min_value<__integer_type_t>();
+        static constexpr __integer_type_t __max = max_value<__integer_type_t>();
 
-        field_t * __get_previous_field(field_t * field)
-        {
-            type_t * host_type = field->host_type;
-            _A(host_type != nullptr);
-
-            if (host_type->this_ttype() == ttype_t::enum_)
-            {
-                auto & fields = ((general_type_t *)host_type)->fields;
-                auto it = al::find(fields, field);
-                _A(it != std::end(fields));
-
-                if (it != std::begin(fields))
-                    return *(it - 1);
-            }
-
-            return nullptr;
-        }
+        static const cvalue_t __cvalue_min;
+        static const cvalue_t __cvalue_max;
     };
 
     template<vtype_t _vtype>
@@ -2061,6 +2098,53 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     template<vtype_t _vtype>
     const cvalue_t type_ast_node_t::__enum_fields_init_stub_t<_vtype>::__cvalue_max(__max);
+
+    class type_ast_node_t::__general_fields_init_stub_t : public __fields_init_stub_t
+    {
+        typedef __fields_init_stub_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        virtual __fill_ret_t __fill_value(field_t * field) override
+        {
+            if (field->init_value == nullptr)
+            {
+                field->init_value = __get_default_value(field);
+                return __fill_ret_t::succeed;
+            }
+
+            if (__is_circular_defination(field))
+            {
+                __log(__c_t::enum_field_circular_definition, field->name);
+                return __fill_ret_t::error;
+            }
+
+            cvalue_t v = field->init_value->execute();
+            if (v == cvalue_t::nan)
+            {
+                if (__is_all_fields_initialized(field))
+                {
+                    __log(__c_t::expect_constant_value, field->init_value, field->name);
+                    return __fill_ret_t::error;
+                }
+
+                return __fill_ret_t::break_;
+            }
+            else
+            {
+                field->init_value = __XPool.get_cvalue_expression(v);
+                return __fill_ret_t::succeed;
+            }
+        }
+
+        virtual expression_t * __get_default_value(field_t * field) override
+        {
+            return __XPool.get_cvalue_expression(
+                default_value_of(field->get_vtype())
+            );
+        }
+    };
 
     // Walks analysis step.
     void type_ast_node_t::__walk_analysis(ast_walk_context_t & context, void * tag)
@@ -2136,6 +2220,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             if (stub_ != nullptr)
                 this->__delay(context, walk_step_t::analysis, stub_);
+        }
+        else
+        {
+            typedef __general_fields_init_stub_t stub_t;
+            stub_t stub(this, type);
+
+            if (!stub.continue_())
+                this->__delay(context, walk_step_t::analysis, __new_obj<stub_t>(stub));
         }
     }
 
