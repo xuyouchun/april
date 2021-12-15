@@ -1527,7 +1527,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 );
             case xil_storage_type_t::object:        // Push object command.
                 return __object_command_manager.template get_command<__PushObjectCmd>(
-                    xil.get_ref(), ctx, xil.object_type
+                    xil.get_ref(), ctx, xil.get_object_type()
                 );
             case xil_storage_type_t::local_addr:    // Push local address command.
                 return __push_address_command_manager.template get_command<

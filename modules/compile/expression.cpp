@@ -2773,8 +2773,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this expression.
     void __sys_t<this_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-        if (__is_this_effective(this))
+        if (!__is_this_effective(this))
+            return;
+
+        if (__is_left_member(this->parent, this))
+        {
             pool.append<x_push_this_ref_xil_t>();
+        }
+        else
+        {
+            method_t * method = ctx.statement_ctx.method;
+            vtype_t vtype = method->host_type->this_vtype();
+
+            if (is_system_value_type(vtype))
+                _P(_T("----------- ha"));
+            else
+                pool.append<x_push_this_ref_xil_t>();
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////

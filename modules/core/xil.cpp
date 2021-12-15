@@ -357,15 +357,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(field_addr,     _T("field_addr"))
 
-        X_C(object,         _T("object"))
-
-        X_C(params,         _T("params"))
-
         X_C(array_element,  _T("array_element"))
 
         X_C(array_element_addr, _T("array_element_addr"))
 
+        X_C(object,         _T("object"))
+
+        X_C(params,         _T("params"))
+
         X_C(duplicate,      _T("duplicate"))
+
+        X_C(convert,        _T("convert"))
 
     X_ENUM_INFO_END
 
@@ -494,6 +496,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         switch (stype())
         {
+            case xil_storage_type_t::empty:
+                return _T("push ?");
+
             case xil_storage_type_t::local:
                 return _F(_T("push local %1% [%2%]"), dtype(), get_identity());
 
@@ -502,6 +507,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             case xil_storage_type_t::field:
                 return _F(_T("push field %1% [%2%]"), dtype(), get_ref());
+
+            case xil_storage_type_t::array_element:
+                return _F(_T("push array element %1% [%2%]"), dtype(), get_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("push constant (%1%)%2%"),
@@ -517,20 +525,29 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case xil_storage_type_t::field_addr:
                 return _F(_T("push field_addr {%1%}"), get_ref());
 
+            case xil_storage_type_t::array_element_addr:
+                return _F(_T("push array_element_addr {%1%}"), get_ref());
+
+            case xil_storage_type_t::local_content:
+                return _F(_T("push local_content [%1%]"), get_identity());
+
+            case xil_storage_type_t::argument_content:
+                return _F(_T("push argument_content [%1%]"), get_identity());
+
+            case xil_storage_type_t::field_content:
+                return _F(_T("push field_content {%1%}"), get_ref());
+
+            case xil_storage_type_t::array_element_content:
+                return _F(_T("push array_element_content {%1%}"), get_ref());
+
             case xil_storage_type_t::object:
-                return _F(_T("push internal object %1%"), object_type);
+                return _F(_T("push internal object %1%"), get_object_type());
 
             case xil_storage_type_t::params:
                 return _T("push params");
 
-            case xil_storage_type_t::array_element:
-                return _F(_T("push array element %1% [%2%]"), dtype(), get_ref());
-
-            case xil_storage_type_t::array_element_addr:
-                return _F(_T("push array_element_addr {%1%}"), get_ref());
-
             case xil_storage_type_t::duplicate:
-                return _T("dup");
+                return _T("duplicate");
 
             case xil_storage_type_t::convert:
                 return _F(_T("convert %1%=>%2%"), dtype(), dtype2());

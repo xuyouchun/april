@@ -333,9 +333,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef xil_extra_t<push_xil_t> __super_t;
 
         x_push_object_xil_t(xil_storage_object_type_t object_type, ref_t ref)
-            : __super_t(xil_storage_type_t::object, xil_type_t::empty)
+            : __super_t(xil_storage_type_t::object)
         {
-            this->object_type = object_type;
+            this->set_object_type(object_type);
             this->set_ref(ref);
         }
     };
@@ -354,8 +354,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         typedef xil_extra_t<push_xil_t> __super_t;
 
         x_push_convert_xil_t(xil_type_t dtype1, xil_type_t dtype2)
-            : __super_t(xil_storage_type_t::convert, dtype1)
+            : __super_t(xil_storage_type_t::convert)
         {
+            this->set_dtype(dtype1);
             this->set_dtype2(dtype2);
         }
     };

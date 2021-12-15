@@ -280,25 +280,37 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         field           = 3,        // Field
 
-        constant        = 4,        // Constant
+        array_element   = 4,        // Array element
 
-        local_addr      = 5,        // Local address
+        __pop_end__     = 4,        // The follow types is only for push commands.
 
-        argument_addr   = 6,        // Argument address
+        constant        = 5,        // Constant
 
-        field_addr      = 7,        // Field address
+        local_addr      = 6,        // Local address
 
-        object          = 10,       // Internal object.
+        argument_addr   = 7,        // Argument address
 
-        params          = 11,       // Stack address of dynamic arguments
+        field_addr      = 8,        // Field address
 
-        array_element   = 12,       // Array element
+        array_element_addr = 9,     // Array element address
 
-        array_element_addr = 13,    // Array element address
+        local_content   = 10,       // Content of address storage in local variable.
 
-        duplicate       = 14,       // Duplicate top unit of the stack.
+        argument_content = 11,      // Content of address storage in argument variable.
 
-        convert         = 15,       // Convert top unit of the stack.
+        field_content   = 12,       // Content of address storage in field.
+
+        array_element_content = 13, // Content of address storage in array element.
+
+        __external__    = 15,       // External commands.
+
+        object          = 16,       // Push object.
+
+        params          = 17,       // Push params arguments (address of 1st argument).
+
+        duplicate       = 18,       // Push the same object at the top.
+
+        convert         = 19,       // Converts the object at the top to another type.
 
     __EnumEnd
 
@@ -717,28 +729,48 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Push xil.
     __BeginXil(push)
 
+        typedef xil_storage_object_type_t __object_type_t;
+        static const xil_storage_type_t __external = xil_storage_type_t::__external__;
+
         // Constructor.
         push_xil_t(xil_storage_type_t stype, xil_type_t dtype = xil_type_t::empty) _NE
-            : __super_t(xil_command_t::push, stype), __dtype((byte_t)dtype) { }
+            : __super_t(xil_command_t::push, stype >= __external? __external : stype)
+            , __dtype((byte_t)dtype)
+        {
+            external_type = stype > __external? (byte_t)stype - (byte_t)__external : 0;
+        }
 
         union
         {
             struct
             {
                 byte_t __dtype          : 4;        // xil_type_t
-                byte_t identity         : 4;
+                byte_t identity         : 4;        // argument identity
             };
 
-            xil_storage_object_type_t object_type;
+            struct                                  // for external type.
+            {
+                byte_t __data           : 4;        // same as __dtype.
+                byte_t external_type    : 4;        // external type.
+            };
         };
 
         byte_t __extra[0];
 
         // Returns storage type.
-        xil_storage_type_t stype() const _NE { return (xil_storage_type_t)hdata(); }
+        xil_storage_type_t stype() const _NE
+        {
+            xil_storage_type_t type = (xil_storage_type_t)hdata();
+
+            return type != __external? type :
+                (xil_storage_type_t)((byte_t)__external + external_type);
+        }
 
         // Returns data type.
         xil_type_t dtype() const _NE { return (xil_type_t)__dtype; }
+
+        // Sets data type.
+        void set_dtype(xil_type_t dtype) _NE { __dtype = (byte_t)dtype; }
 
         // Returns identity for local / param variables.
         uint16_t get_identity() const _NE
@@ -771,6 +803,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Sets the second type. used for push convert.
         void set_dtype2(xil_type_t dtype2) _NE { *(byte_t *)__extra = (byte_t)dtype2; }
+
+        // Gets object type. (for external command: push object)
+        __object_type_t get_object_type() const _NE { return (__object_type_t)__data; }
+
+        // Sets object type. (for external command: push object)
+        void set_object_type(__object_type_t object_type) { __data = (byte_t)object_type; }
 
         // Returns extra data.
         template<typename t> const t & get_extra() const _NE
@@ -816,11 +854,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             case xil_storage_type_t::duplicate:
             case xil_storage_type_t::params:
-                size -= 1;                              // __dtype, identity no use
-                break;
-
             case xil_storage_type_t::convert:
-                size += 1;
                 break;
 
             default:
@@ -857,7 +891,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Constructors.
         pop_xil_t(xil_storage_type_t stype, xil_type_t dtype)
-            : __super_t(xil_command_t::pop, stype), __dtype((byte_t)dtype) { }
+            : __super_t(xil_command_t::pop, stype), __dtype((byte_t)dtype)
+        {
+            _A(stype <= xil_storage_type_t::__pop_end__);
+        }
 
         // Constructors.
         pop_xil_t(ref_t struct_type_ref)
@@ -971,7 +1008,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Constructor.
         pick_xil_t(xil_storage_type_t stype, xil_type_t dtype)
-            : __super_t(xil_command_t::pick, stype), __dtype((byte_t)dtype) { }
+            : __super_t(xil_command_t::pick, stype), __dtype((byte_t)dtype)
+        {
+            _A(stype <= xil_storage_type_t::__pop_end__);
+        }
 
         byte_t     __dtype      : 4;
         byte_t     identity     : 4;

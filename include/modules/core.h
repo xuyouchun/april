@@ -629,11 +629,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         __TTypeItem(char_),
 
+        ptr_,
+
         string_,
 
         void_,
-
-        ptr_,
 
         mobject_,
 
@@ -2405,6 +2405,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         return type != nullptr && type->this_ttype() == ttype_t::struct_
                     && type->this_vtype() == vtype_t::mobject_;
+    }
+
+    // Returns whether it's a system value type.
+    X_ALWAYS_INLINE bool is_system_value_type(vtype_t vtype)
+    {
+        return vtype >= vtype_t::int8_ && vtype <= vtype_t::ptr_;
     }
 
     const vtype_t default_enum_underlying_vtype = vtype_t::int32_;
