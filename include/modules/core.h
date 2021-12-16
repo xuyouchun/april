@@ -1875,6 +1875,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_END
 
+    // Returns it's a ref or out param.
+    X_INLINE bool is_addr_param(param_type_t param_type) _NE
+    {
+        return param_type == param_type_t::ref || param_type == param_type_t::out;
+    }
+
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Argument eobject.
@@ -3185,7 +3191,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual size_t param_count() const = 0;
 
         // Returns type at specified index.
-        virtual type_t * param_type_at(size_t index) const = 0;
+        virtual typex_t param_type_at(size_t index) const = 0;
 
         // Returns vtype at specified index.
         vtype_t param_vtype_at(size_t index) const;
@@ -3281,7 +3287,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         }
 
         // Returns param type at specified index.
-        virtual type_t * param_type_at(size_t index) const override;
+        virtual typex_t param_type_at(size_t index) const override;
 
         // Returns the param at the specified index.
         param_t * param_at(size_t index) const
@@ -3342,7 +3348,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         type_collection_t args;
 
         // Returns param type of specified index.
-        virtual type_t * param_type_at(size_t index) const override;
+        virtual typex_t param_type_at(size_t index) const override;
 
         // Builds with generic args.
         void build(method_t * raw, type_collection_t & args);
@@ -3407,7 +3413,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual size_t param_count() const override;
 
         // Returns param type of specified index.
-        virtual type_t * param_type_at(size_t index) const override;
+        virtual typex_t param_type_at(size_t index) const override;
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() const override
@@ -4229,7 +4235,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual size_t param_count() const override;
 
         // Returns type at specified index. (for delegate type)
-        virtual type_t * param_type_at(size_t index) const override;
+        virtual typex_t param_type_at(size_t index) const override;
 
         // Returns fullname of the type.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
@@ -4245,9 +4251,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns whether is is partial specialization.
         bool is_partial_specialization() const { return al::any_of_empty(args); }
-
-    private:
-
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -4887,6 +4890,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns relation member.
         virtual member_t * get_relation_member() { return nullptr; }
 
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() = 0;
+
         // Write count.
         uint16_t write_count = 0;
 
@@ -4983,6 +4989,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Returns name of this variable.
         virtual name_t get_name() const override { return name; }
 
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() override { return true; }
+
         // Execute the variable.
         cvalue_t execute() override;
 
@@ -5017,6 +5026,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return param->name;
         }
+
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() override { return true; }
 
         // Converts to a string.
         X_TO_STRING
@@ -5055,6 +5067,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return field->name;
         }
+
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() override { return true; }
 
         // Execute the variable.
         virtual cvalue_t execute() override;
@@ -5096,6 +5111,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return property->name;
         }
+
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() override { return false; }
 
         // Returns whether this will call a method.
         virtual bool is_calling() _NE override { return true; }
@@ -5142,6 +5160,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return property->get_name();
         }
 
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() override { return false; }
+
         // Converts to a string.
         X_TO_STRING
     };
@@ -5173,6 +5194,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns name of the array index.
         virtual name_t get_name() const override;
+
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() override { return true; }
 
         // Converts to string.
         X_TO_STRING
@@ -5212,6 +5236,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             return event->name;
         }
 
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() override { return false; }
+
         // Converts to string.
         X_TO_STRING
     };
@@ -5240,6 +5267,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Returns name of the method.
         virtual name_t get_name() const override;
+
+        // Returns whether it's a left value.
+        virtual bool is_lvalue() override { return false; }
 
         // Converters to string.
         X_TO_STRING

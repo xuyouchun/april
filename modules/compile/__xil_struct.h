@@ -209,7 +209,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Pushes variable xil.
+    // Push variable xil.
     struct x_push_variable_xil_t : xil_extra_t<push_xil_t>
     {
         typedef xil_extra_t<push_xil_t> __super_t;
@@ -221,7 +221,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
-    // Pushes this xil. ( for ref object. )
+    //-------- ---------- ---------- ---------- ----------
+    // Push this, calling bottom.
+
+    // Push this xil. ( for ref object. )
     struct x_push_this_ref_xil_t : x_push_variable_xil_t
     {
         typedef x_push_variable_xil_t __super_t;
@@ -231,7 +234,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
-    // Pushes this xil. ( for val object. )
+    // Push this xil. ( for val object. )
     struct x_push_this_val_xil_t : x_push_variable_xil_t
     {
         typedef x_push_variable_xil_t __super_t;
@@ -241,7 +244,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
-    // Pushes local xil.
+    //-------- ---------- ---------- ---------- ----------
+    // Push variables.
+
+    // Push local xil.
     struct x_push_local_xil_t : x_push_variable_xil_t
     {
         typedef x_push_variable_xil_t __super_t;
@@ -251,17 +257,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
-    // Pushes local address xil.
-    struct x_push_local_addr_xil_t : x_push_variable_xil_t
-    {
-        typedef x_push_variable_xil_t __super_t;
-
-        x_push_local_addr_xil_t(msize_t identity)
-            : __super_t(xil_storage_type_t::local_addr, xil_type_t::ptr, identity)
-        { }
-    };
-
-    // Pushes argument xil.
+    // Push argument xil.
     struct x_push_argument_xil_t : x_push_variable_xil_t
     {
         typedef x_push_variable_xil_t __super_t;
@@ -271,27 +267,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
-    // Pushes calling bottom.
-    struct x_push_calling_bottom_xil_t : x_push_variable_xil_t
-    {
-        typedef x_push_variable_xil_t __super_t;
-
-        x_push_calling_bottom_xil_t()
-            : __super_t(xil_storage_type_t::argument, xil_type_t::ptr, XIL_CALLING_BOTTOM_IDENTITY)
-        { }
-    };
-
-    // Pushes argument address xil.
-    struct x_push_argument_addr_xil_t : x_push_variable_xil_t
-    {
-        typedef x_push_variable_xil_t __super_t;
-
-        x_push_argument_addr_xil_t(msize_t identity)
-            : __super_t(xil_storage_type_t::argument_addr, xil_type_t::ptr, identity)
-        { }
-    };
-
-    // Pushes field xil.
+    // Push field xil.
     struct x_push_field_xil_t : xil_extra_t<push_xil_t>
     {
         typedef xil_extra_t<push_xil_t> __super_t;
@@ -303,19 +279,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
-    // Pushes field address xil.
-    struct x_push_field_addr_xil_t : xil_extra_t<push_xil_t>
-    {
-        typedef xil_extra_t<push_xil_t> __super_t;
-
-        x_push_field_addr_xil_t(ref_t field_ref)
-            : __super_t(xil_storage_type_t::field_addr, xil_type_t::ptr)
-        {
-            this->set_ref(field_ref);
-        }
-    };
-
-    // Pushes array element xil.
+    // Push array element xil.
     struct x_push_array_element_xil_t : xil_extra_t<push_xil_t>
     {
         typedef xil_extra_t<push_xil_t> __super_t;
@@ -327,7 +291,104 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
-    // Pushes object xil.
+    //-------- ---------- ---------- ---------- ----------
+    // Push variable address.
+
+    // Push local address xil.
+    struct x_push_local_addr_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_local_addr_xil_t(msize_t identity)
+            : __super_t(xil_storage_type_t::local_addr, xil_type_t::ptr, identity)
+        { }
+    };
+
+
+    // Push argument address xil.
+    struct x_push_argument_addr_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_argument_addr_xil_t(msize_t identity)
+            : __super_t(xil_storage_type_t::argument_addr, xil_type_t::ptr, identity)
+        { }
+    };
+
+    // Push field address xil.
+    struct x_push_field_addr_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_field_addr_xil_t(ref_t field_ref)
+            : __super_t(xil_storage_type_t::field_addr, xil_type_t::ptr)
+        {
+            this->set_ref(field_ref);
+        }
+    };
+
+    // Push array element address xil.
+    struct x_push_array_element_addr_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_array_element_addr_xil_t(ref_t array_type_ref)
+            : __super_t(xil_storage_type_t::array_element_addr, xil_type_t::ptr)
+        {
+            this->set_ref(array_type_ref);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Push content.
+
+    // Push content from address in local variable.
+    struct x_push_local_content_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_local_content_xil_t(xil_type_t dtype, msize_t identity)
+            : __super_t(xil_storage_type_t::local_content, dtype, identity)
+        { }
+    };
+
+    // Push content from address in argument.
+    struct x_push_argument_content_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_argument_content_xil_t(xil_type_t dtype, msize_t identity)
+            : __super_t(xil_storage_type_t::argument_content, dtype, identity)
+        { }
+    };
+
+    // Push content from address in field.
+    struct x_push_field_content_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_field_content_xil_t(ref_t field_ref, xil_type_t dtype)
+            : __super_t(xil_storage_type_t::field_content, dtype)
+        {
+            this->set_ref(field_ref);
+        }
+    };
+
+    // Push content from address in array element.
+    struct x_push_array_element_content_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_array_element_content_xil_t(xil_type_t dtype, ref_t array_type_ref)
+            : __super_t(xil_storage_type_t::array_element_content, dtype)
+        {
+            this->set_ref(array_type_ref);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Push object xil.
     struct x_push_object_xil_t : xil_extra_t<push_xil_t>
     {
         typedef xil_extra_t<push_xil_t> __super_t;
@@ -340,7 +401,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
-    // Pushes duplicate xil.
+    // Push calling bottom.
+    struct x_push_calling_bottom_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_calling_bottom_xil_t()
+            : __super_t(xil_storage_type_t::argument, xil_type_t::ptr, XIL_CALLING_BOTTOM_IDENTITY)
+        { }
+    };
+
+    // Push duplicate xil.
     struct x_push_duplicate_xil_t : xil_extra_t<push_xil_t>
     {
         typedef xil_extra_t<push_xil_t> __super_t;
@@ -348,7 +419,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         x_push_duplicate_xil_t() : __super_t(xil_storage_type_t::duplicate) { }
     };
 
-    // Pushes convert xil.
+    // Push convert xil.
     struct x_push_convert_xil_t : xil_extra_t<push_xil_t>
     {
         typedef xil_extra_t<push_xil_t> __super_t;
@@ -361,7 +432,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
-    // Pushes params address xil.
+    // Push params address xil.
     struct x_push_params_xil_t : xil_extra_t<push_xil_t>
     {
         typedef xil_extra_t<push_xil_t> __super_t;
@@ -430,52 +501,39 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
-    // Pop local xil.
-    struct x_pop_local_xil_t : xil_extra_t<pop_xil_t>
+    //-------- ---------- ---------- ---------- ----------
+    // Pop.
+
+    // Pop variable xil.
+    struct x_pop_variable_xil_t : xil_extra_t<pop_xil_t>
     {
         typedef xil_extra_t<pop_xil_t> __super_t;
 
-        x_pop_local_xil_t(xil_type_t xtype, msize_t identity)
-            : __super_t(xil_storage_type_t::local, xtype)
+        x_pop_variable_xil_t(xil_storage_type_t storage_type, xil_type_t xtype, msize_t identity)
+            : __super_t(storage_type, xtype)
         {
             this->set_identity(identity);
         }
     };
 
-    // Pick local xil.
-    struct x_pick_local_xil_t : xil_extra_t<pick_xil_t>
+    // Pop local xil.
+    struct x_pop_local_xil_t : x_pop_variable_xil_t
     {
-        typedef xil_extra_t<pick_xil_t> __super_t;
+        typedef x_pop_variable_xil_t __super_t;
 
-        x_pick_local_xil_t(xil_type_t xtype, msize_t identity)
-            : __super_t(xil_storage_type_t::local, xtype)
-        {
-            this->set_identity(identity);
-        }
+        x_pop_local_xil_t(xil_type_t xtype, msize_t identity)
+            : __super_t(xil_storage_type_t::local, xtype, identity)
+        { }
     };
 
     // Pop argument xil.
-    struct x_pop_argument_xil_t : xil_extra_t<pop_xil_t>
+    struct x_pop_argument_xil_t : x_pop_variable_xil_t
     {
-        typedef xil_extra_t<pop_xil_t> __super_t;
+        typedef x_pop_variable_xil_t __super_t;
 
         x_pop_argument_xil_t(xil_type_t xtype, msize_t identity)
-            : __super_t(xil_storage_type_t::argument, xtype)
-        {
-            this->set_identity(identity);
-        }
-    };
-
-    // Pick argument xil.
-    struct x_pick_argument_xil_t : xil_extra_t<pick_xil_t>
-    {
-        typedef xil_extra_t<pick_xil_t> __super_t;
-
-        x_pick_argument_xil_t(xil_type_t xtype, msize_t identity)
-            : __super_t(xil_storage_type_t::argument, xtype)
-        {
-            this->set_identity(identity);
-        }
+            : __super_t(xil_storage_type_t::argument, xtype, identity)
+        { }
     };
 
     // Pop field xil.
@@ -490,6 +548,88 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     };
 
+    //-------- ---------- ---------- ---------- ----------
+    // Pop variable address.
+
+    // Pop local address xil.
+    struct x_pop_local_addr_xil_t : x_pop_variable_xil_t
+    {
+        typedef x_pop_variable_xil_t __super_t;
+
+        x_pop_local_addr_xil_t(xil_type_t xtype, msize_t identity)
+            : __super_t(xil_storage_type_t::local_addr, xtype, identity)
+        { }
+    };
+
+    // Pop argument address xil.
+    struct x_pop_argument_addr_xil_t : x_pop_variable_xil_t
+    {
+        typedef x_pop_variable_xil_t __super_t;
+
+        x_pop_argument_addr_xil_t(xil_type_t xtype, msize_t identity)
+            : __super_t(xil_storage_type_t::argument_addr, xtype, identity)
+        { }
+    };
+
+    // Pop field address xil.
+    struct x_pop_field_addr_xil_t : xil_extra_t<pop_xil_t>
+    {
+        typedef xil_extra_t<pop_xil_t> __super_t;
+
+        x_pop_field_addr_xil_t(xil_type_t xtype, ref_t field_ref)
+            : __super_t(xil_storage_type_t::field_addr, xtype)
+        {
+            this->set_ref(field_ref);
+        }
+    };
+
+    // Push array element address xil.
+    struct x_pop_array_element_addr_xil_t : xil_extra_t<pop_xil_t>
+    {
+        typedef xil_extra_t<pop_xil_t> __super_t;
+
+        x_pop_array_element_addr_xil_t(xil_type_t xtype, ref_t array_type_ref)
+            : __super_t(xil_storage_type_t::array_element_addr, xtype)
+        {
+            this->set_ref(array_type_ref);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Pick.
+
+    // Pick variable xil.
+    struct x_pick_variable_xil_t : xil_extra_t<pick_xil_t>
+    {
+        typedef xil_extra_t<pick_xil_t> __super_t;
+
+        x_pick_variable_xil_t(xil_storage_type_t storage_type, xil_type_t xtype, msize_t identity)
+            : __super_t(storage_type, xtype)
+        {
+            this->set_identity(identity);
+        }
+    };
+
+    // Pick local xil.
+    struct x_pick_local_xil_t : x_pick_variable_xil_t
+    {
+        typedef x_pick_variable_xil_t __super_t;
+
+        x_pick_local_xil_t(xil_type_t xtype, msize_t identity)
+            : __super_t(xil_storage_type_t::local, xtype, identity)
+        { }
+    };
+
+    // Pick argument xil.
+    struct x_pick_argument_xil_t : x_pick_variable_xil_t
+    {
+        typedef x_pick_variable_xil_t __super_t;
+
+        x_pick_argument_xil_t(xil_type_t xtype, msize_t identity)
+            : __super_t(xil_storage_type_t::argument, xtype, identity)
+        { }
+    };
+
     // Pick field xil.
     struct x_pick_field_xil_t : xil_extra_t<pick_xil_t>
     {
@@ -501,6 +641,55 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             this->set_ref(field_ref);
         }
     };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Pick variable address.
+
+    // Pick local address xil.
+    struct x_pick_local_addr_xil_t : x_pick_variable_xil_t
+    {
+        typedef x_pick_variable_xil_t __super_t;
+
+        x_pick_local_addr_xil_t(xil_type_t xtype, msize_t identity)
+            : __super_t(xil_storage_type_t::local_addr, xtype, identity)
+        { }
+    };
+
+    // Pick argument address xil.
+    struct x_pick_argument_addr_xil_t : x_pick_variable_xil_t
+    {
+        typedef x_pick_variable_xil_t __super_t;
+
+        x_pick_argument_addr_xil_t(xil_type_t xtype, msize_t identity)
+            : __super_t(xil_storage_type_t::argument_addr, xtype, identity)
+        { }
+    };
+
+    // Pick field address xil.
+    struct x_pick_field_addr_xil_t : xil_extra_t<pick_xil_t>
+    {
+        typedef xil_extra_t<pick_xil_t> __super_t;
+
+        x_pick_field_addr_xil_t(xil_type_t xtype, ref_t field_ref)
+            : __super_t(xil_storage_type_t::field_addr, xtype)
+        {
+            this->set_ref(field_ref);
+        }
+    };
+
+    // Pick array element address xil.
+    struct x_pick_array_element_addr_xil_t : xil_extra_t<pick_xil_t>
+    {
+        typedef xil_extra_t<pick_xil_t> __super_t;
+
+        x_pick_array_element_addr_xil_t(xil_type_t xtype, ref_t array_type_ref)
+            : __super_t(xil_storage_type_t::array_element_addr, xtype)
+        {
+            this->set_ref(array_type_ref);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
 
     // Jmp xil.
     struct x_jmp_xil_t : xil_extra_t<jmp_xil_t>

@@ -341,33 +341,41 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Storage type.
     X_ENUM_INFO(xil_storage_type_t)
 
-        X_C(empty,          _T("empty"))
+        X_C(empty,              _T("empty"))
 
-        X_C(local,          _T("local"))
+        X_C(local,              _T("local"))
 
-        X_C(argument,       _T("argument"))
+        X_C(argument,           _T("argument"))
 
-        X_C(field,          _T("field"))
+        X_C(field,              _T("field"))
 
-        X_C(constant,       _T("constant"))
+        X_C(array_element,      _T("array_element"))
 
-        X_C(local_addr,     _T("local_addr"))
+        X_C(local_addr,         _T("local_addr"))
 
-        X_C(argument_addr,  _T("argument_addr"))
+        X_C(argument_addr,      _T("argument_addr"))
 
-        X_C(field_addr,     _T("field_addr"))
-
-        X_C(array_element,  _T("array_element"))
+        X_C(field_addr,         _T("field_addr"))
 
         X_C(array_element_addr, _T("array_element_addr"))
 
-        X_C(object,         _T("object"))
+        X_C(constant,           _T("constant"))
 
-        X_C(params,         _T("params"))
+        X_C(local_content,      _T("local_content"))
 
-        X_C(duplicate,      _T("duplicate"))
+        X_C(argument_content,   _T("argument_content"))
 
-        X_C(convert,        _T("convert"))
+        X_C(field_content,      _T("field_content"))
+
+        X_C(array_element_content, _T("array_element_content"))
+
+        X_C(object,             _T("object"))
+
+        X_C(params,             _T("params"))
+
+        X_C(duplicate,          _T("duplicate"))
+
+        X_C(convert,            _T("convert"))
 
     X_ENUM_INFO_END
 
@@ -509,7 +517,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return _F(_T("push field %1% [%2%]"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
-                return _F(_T("push array element %1% [%2%]"), dtype(), get_ref());
+                return _F(_T("push array_element %1% [%2%]"), dtype(), get_ref());
 
             case xil_storage_type_t::constant:
                 return _F(_T("push constant (%1%)%2%"),
@@ -574,7 +582,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return _F(_T("pop field %1% {%2%}"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
-                return _F(_T("pop array element %1% {%2%}"), dtype(), get_ref());
+                return _F(_T("pop array_element %1% {%2%}"), dtype(), get_ref());
+
+            case xil_storage_type_t::local_addr:
+                return _F(_T("pop local_addr %1% [%2%]"), dtype(), get_identity());
+
+            case xil_storage_type_t::argument_addr:
+                return _F(_T("pop argument_addr %1% [%2%]"), dtype(), get_identity());
+
+            case xil_storage_type_t::field_addr:
+                return _F(_T("pop field_addr %1% {%2%}"), dtype(), get_ref());
+
+            case xil_storage_type_t::array_element_addr:
+                return _F(_T("pop array_element_addr %1% {%2%}"), dtype(), get_ref());
 
             case xil_storage_type_t::empty:
                 return _F(_T("pop %1%"), dtype() != xil_type_t::empty?
@@ -604,7 +624,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 return _F(_T("pick field %1% {%2%}"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
-                return _F(_T("pick array element %1% {%2%}"), dtype(), get_ref());
+                return _F(_T("pick array_element %1% {%2%}"), dtype(), get_ref());
+
+            case xil_storage_type_t::local_addr:
+                return _F(_T("pick local_addr %1% [%2%]"), dtype(), get_identity());
+
+            case xil_storage_type_t::argument_addr:
+                return _F(_T("pick argument_addr %1% [%2%]"), dtype(), get_identity());
+
+            case xil_storage_type_t::field_addr:
+                return _F(_T("pick field_addr %1% {%2%}"), dtype(), get_ref());
+
+            case xil_storage_type_t::array_element_addr:
+                return _F(_T("pick array_element_addr %1% {%2%}"), dtype(), get_ref());
+
 
             default:
                 return _T("pick ?");

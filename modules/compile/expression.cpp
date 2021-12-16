@@ -11,11 +11,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Compiles constant value.
     void __compile_cvalue(__cctx_t & ctx, xil_pool_t & pool, cvalue_t cvalue,
         xil_type_t dtype = xil_type_t::empty);
 
+    // Pre call a method.
     static void __pre_call_method(__cctx_t & ctx, xil_pool_t & pool,
         expression_t * exp, method_base_t * method);
+
+    // Compiles variable.
+    static void __compile_variable(__cctx_t & ctx, xil_pool_t & pool, variable_t * variable,
+                                xil_type_t dtype, expression_t * owner_exp = nullptr);
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -910,16 +916,62 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         );
     }
 
+    // Picks variable.
+    static variable_t * __pick_var(variable_expression_t * var_exp)
+    {
+        variable_t * var = var_exp->get_variable();
+        if (var == nullptr)
+            __Failed("variable '%1%' connot determined", var_exp->to_string());
+
+        return var;
+    }
+
+    // Picks variable.
+    static variable_t * __pick_var(expression_t * exp)
+    {
+        variable_expression_t * var_exp = as<variable_expression_t *>(exp);
+        if (var_exp == nullptr || !var_exp->is_variable_expression())
+            __Failed("assign left expression should be a variable/index: found '%1%'", exp);
+
+        return __pick_var(var_exp);
+    }
+
     // Compile argument.
     static void __compile_argument(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
         param_types_t * param_types, int index)
     {
         _A(exp != nullptr);
 
-        type_t * atype = param_types != nullptr?
-            param_types->param_type_at(index) : exp->get_type();
+        param_type_t param_type = param_type_t::default_;
+        type_t * atype;
+
+        if (param_types != nullptr)
+        {
+            typex_t typex = param_types->param_type_at(index);
+            atype = (type_t *)typex;
+            param_type = (param_type_t)typex;
+        }
+        else
+        {
+            atype = exp->get_type();
+        }
 
         _A(atype != nullptr);
+
+        // Ref or out argument.
+        if (__is_addr(param_type))
+        {
+            variable_t * variable = __pick_var(exp);
+            if (!variable->is_lvalue())
+                __Failed("variable '%1%' cannot used as ref or out argument", variable);
+
+            if (__is_addr(variable))
+                __compile_variable(ctx, pool, variable, xil_type_t::ptr, exp);
+            else
+                __push_variable_address(ctx, pool, variable);
+
+            return;
+        }
 
         if (is_custom_struct(atype))
         {
@@ -977,26 +1029,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     enum class __assign_to_type_t { default_, pop, pick };
-
-    // Picks variable.
-    static variable_t * __pick_var(variable_expression_t * var_exp)
-    {
-        variable_t * var = var_exp->get_variable();
-        if (var == nullptr)
-            __Failed("variable '%1%' connot determined", var_exp->to_string());
-
-        return var;
-    }
-
-    // Picks variable.
-    static variable_t * __pick_var(expression_t * exp)
-    {
-        variable_expression_t * var_exp = as<variable_expression_t *>(exp);
-        if (var_exp == nullptr || !var_exp->is_variable_expression())
-            __Failed("assign left expression should be a variable/index: found '%1%'", exp);
-
-        return __pick_var(var_exp);
-    }
 
     // Returns array element type.
     static type_t * __array_element_type_of(__cctx_t & ctx, index_expression_t * exp)
@@ -1070,9 +1102,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __compile_assign_t { this_exp, var, exp, custom_struct };
     }
 
-    // Compiles variable.
-    static void __compile_variable(__cctx_t & ctx, xil_pool_t & pool, variable_t * variable,
-                                xil_type_t dtype, expression_t * owner_exp = nullptr);
 
     // Compiles assign to expression.
     static void __compile_assign_to(__cctx_t & ctx, xil_pool_t & pool, __compile_assign_t & ca,
@@ -1400,21 +1429,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (param->ptype == param_type_t::extends)
         {
             pool.append<x_push_params_xil_t>();
+            return;
         }
-        else
+
+        msize_t index = variable->param->index;
+        if (!__is_static(ctx.statement_ctx.method))
+            index++;
+
+        type_t * type = variable->get_type();
+
+        // TODO: when member point, int, long ... types also should be ptr type.
+        if (__is_addr(variable))
         {
-            msize_t index = variable->param->index;
-            if (!__is_static(ctx.statement_ctx.method))
-                index++;
-
-            type_t * type = variable->get_type();
-
-            // TODO: when member point, int, long ... types also should be ptr type.
-            if (is_custom_struct(type))
-                pool.append<x_push_argument_addr_xil_t>(index);
+            if (dtype == xil_type_t::ptr)
+                pool.append<x_push_argument_xil_t>(xil_type_t::ptr, index);
             else
-                pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
+                pool.append<x_push_argument_content_xil_t>(__to_xil_type(ctx, variable), index);
+
+            return;
         }
+
+        if (is_custom_struct(type))
+            pool.append<x_push_argument_addr_xil_t>(index);
+        else
+            pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
     }
 
     // Compiles field variable.

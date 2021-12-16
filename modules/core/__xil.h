@@ -282,17 +282,17 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         array_element   = 4,        // Array element
 
-        __pop_end__     = 4,        // The follow types is only for push commands.
+        local_addr      = 5,        // Local address
 
-        constant        = 5,        // Constant
+        argument_addr   = 6,        // Argument address
 
-        local_addr      = 6,        // Local address
+        field_addr      = 7,        // Field address
 
-        argument_addr   = 7,        // Argument address
+        array_element_addr = 8,     // Array element address
 
-        field_addr      = 8,        // Field address
+        __pop_end__     = 8,        // The follow types is only for push commands.
 
-        array_element_addr = 9,     // Array element address
+        constant        = 9,        // Constant
 
         local_content   = 10,       // Content of address storage in local variable.
 

@@ -778,6 +778,39 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
     };
 
     //-------- ---------- ---------- ---------- ----------
+    // Push argument content.
+
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<_cv, xil_storage_type_t::argument_content, _xt1, _xt2>
+        : public __command_base_t<_cv>
+    {
+        typedef __push_command_t    __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
+
+    public:
+        __push_command_t(__offset_t offset)
+            : __real_offset(offset + __stack_stub_size) { }
+
+        __PushCommand_ToString(argument, _xt1, _xt2, __real_offset - __stack_stub_size)
+
+        __BeginExecute(ctx)
+
+            ctx.stack.push(static_cast<__value2_t>(
+                *(__value1_t *)__Argument(void *, __This->__real_offset)
+            ));
+
+        __EndExecute()
+
+    private:
+        __offset_t __real_offset;
+    };
+
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, argument_content, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
+    //-------- ---------- ---------- ---------- ----------
     // Push field commands.
 
     static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
@@ -1714,6 +1747,50 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             #undef __CaseArguments
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Push Argument content
+
+            #define __CaseArgumentContent(_xt1, _xt2)                                   \
+                case __V(xil_storage_type_t::argument_content, xil_type_t::_xt1, xil_type_t::_xt2): \
+                    return __command_manager.template get_command<                      \
+                        __StCmd(push, argument_content, _xt1, _xt2),                    \
+                        xil_storage_type_t::argument_content, xil_type_t::_xt1, xil_type_t::_xt2 \
+                    >(__offset_of_argument(ctx, xil.get_identity()));
+
+
+            #define __CaseArgumentContents(_xt2)                                        \
+                __CaseArgumentContent(int8,    _xt2)                                    \
+                __CaseArgumentContent(uint8,   _xt2)                                    \
+                __CaseArgumentContent(int16,   _xt2)                                    \
+                __CaseArgumentContent(uint16,  _xt2)                                    \
+                __CaseArgumentContent(int32,   _xt2)                                    \
+                __CaseArgumentContent(uint32,  _xt2)                                    \
+                __CaseArgumentContent(int64,   _xt2)                                    \
+                __CaseArgumentContent(uint64,  _xt2)                                    \
+                __CaseArgumentContent(float_,  _xt2)                                    \
+                __CaseArgumentContent(double_, _xt2)                                    \
+                __CaseArgumentContent(char_,   _xt2)                                    \
+                __CaseArgumentContent(bool_,   _xt2)
+
+            __CaseArgumentContents(int8)
+            __CaseArgumentContents(uint8)
+            __CaseArgumentContents(int16)
+            __CaseArgumentContents(uint16)
+            __CaseArgumentContents(int32)
+            __CaseArgumentContents(uint32)
+            __CaseArgumentContents(int64)
+            __CaseArgumentContents(uint64)
+            __CaseArgumentContents(float_)
+            __CaseArgumentContents(double_)
+            __CaseArgumentContents(char_)
+            __CaseArgumentContents(bool_)
+            __CaseArgumentContent(object,  object)
+            __CaseArgumentContent(string,  string)
+            __CaseArgumentContent(ptr,     ptr)
+
+            #undef __CaseArgumentContent
+            #undef __CaseArgumentContents
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Push Field
 
             #define __CaseField(_xt1, _xt2)                                             \
@@ -1943,22 +2020,53 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         typedef __vnum_t<_xt2>      __value2_t;
 
     public:
-        __pop_command_t(__offset_t offset) : __offset(offset) { }
+        __pop_command_t(__offset_t offset) : __real_offset(offset + __stack_stub_size) { }
 
-        __PopCommand_ToString(argument, _xt1, _xt2, __This->__offset)
+        __PopCommand_ToString(argument, _xt1, _xt2, __This->__real_offset - __stack_stub_size)
 
         __BeginExecute(ctx)
 
-            __Argument(__value1_t, __This->__offset + __stack_stub_size) =
+            __Argument(__value1_t, __This->__real_offset) =
                 static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
 
         __EndExecute()
 
     private:
-        __offset_t __offset;
+        __offset_t __real_offset;
     };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, argument, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
+    //-------- ---------- ---------- ---------- ----------
+    // Pop argument_addr commands
+
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __pop_command_t<_cv, xil_storage_type_t::argument_addr, _xt1, _xt2>
+        : public __command_base_t<_cv>
+    {
+        typedef __pop_command_t     __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
+
+    public:
+        __pop_command_t(__offset_t offset) : __real_offset(offset + __stack_stub_size) { }
+
+        __PopCommand_ToString(argument, _xt1, _xt2, __This->__real_offset - __stack_stub_size)
+
+        __BeginExecute(ctx)
+
+            *(__value1_t *)__Argument(void *, __This->__real_offset) =
+                static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
+            
+        __EndExecute()
+
+    private:
+        __offset_t __real_offset;
+    };
+
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, argument_addr, _xt1, _xt2)
     __EachXilTypePairs()
     #undef __CaseXilTypePair
 
@@ -2302,7 +2410,50 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
             #undef __CaseArgument
             #undef __CaseArguments
-            
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Pop Argument addr
+
+            #define __CaseArgument(_xt1, _xt2)                                          \
+                case __V(xil_storage_type_t::argument_addr, xil_type_t::_xt1, xil_type_t::_xt2): \
+                    return __command_manager.template get_command<                      \
+                        __StCmd(pop, argument, _xt1, _xt2),                             \
+                        xil_storage_type_t::argument_addr, xil_type_t::_xt1, xil_type_t::_xt2 \
+                    >(ctx.params_layout.offset_of(xil.get_identity()));
+
+            #define __CaseArguments(_xt2)                                               \
+                __CaseArgument(int8,    _xt2)                                           \
+                __CaseArgument(uint8,   _xt2)                                           \
+                __CaseArgument(int16,   _xt2)                                           \
+                __CaseArgument(uint16,  _xt2)                                           \
+                __CaseArgument(int32,   _xt2)                                           \
+                __CaseArgument(uint32,  _xt2)                                           \
+                __CaseArgument(int64,   _xt2)                                           \
+                __CaseArgument(uint64,  _xt2)                                           \
+                __CaseArgument(float_,  _xt2)                                           \
+                __CaseArgument(double_, _xt2)                                           \
+                __CaseArgument(char_,   _xt2)                                           \
+                __CaseArgument(bool_,   _xt2)
+
+            __CaseArguments(int8)
+            __CaseArguments(uint8)
+            __CaseArguments(int16)
+            __CaseArguments(uint16)
+            __CaseArguments(int32)
+            __CaseArguments(uint32)
+            __CaseArguments(int64)
+            __CaseArguments(uint64)
+            __CaseArguments(float_)
+            __CaseArguments(double_)
+            __CaseArguments(char_)
+            __CaseArguments(bool_)
+            __CaseArgument(object,  object)
+            __CaseArgument(string,  string)
+            __CaseArgument(ptr,     ptr)
+
+            #undef __CaseArgument
+            #undef __CaseArguments
+
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pop Field
 

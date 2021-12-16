@@ -140,7 +140,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Writes assign xil for param variable.
     void xil::write_assign_xil(__sctx_t & sctx, xil_pool_t & pool, param_variable_t * param_var,
-                            xil_type_t dtype, bool pick)
+                                        xil_type_t dtype, bool pick)
     { 
         _A(param_var != nullptr);
         _A(param_var->param != nullptr);
@@ -156,20 +156,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (call_type_of_method(sctx.method) != xil_call_type_t::static_)
             index++;
 
-        #define __Append(name, xil_type)                                    \
-            pool.append<x_##name##_argument_xil_t>(                         \
-                xil_type_t::xil_type, index                                 \
-            )
+        #define __Append(name, xil_type)                                                \
+            if (__is_addr(param_var))                                                   \
+                pool.append<x_##name##_argument_addr_xil_t>(xil_type_t::xil_type, index); \
+            else                                                                        \
+                pool.append<x_##name##_argument_xil_t>(xil_type_t::xil_type, index);
 
-        #define __Write(xil_type)                                           \
-            if (pick)                                                       \
-                __Append(pick, xil_type);                                   \
-            else                                                            \
-                __Append(pop, xil_type);
+        #define __Write(xil_type)                                                       \
+            if (pick)                                                                   \
+                __Append(pick, xil_type)                                                \
+            else                                                                        \
+                __Append(pop, xil_type)
 
-        #define __Case(type, xil_type)                                      \
-            case vtype_t::type:                                             \
-                __Write(xil_type)                                           \
+        #define __Case(type, xil_type)                                                  \
+            case vtype_t::type:                                                         \
+                __Write(xil_type)                                                       \
                 break;
 
         switch (type->this_gtype())

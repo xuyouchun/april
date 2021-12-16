@@ -127,6 +127,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns whether it's ref or out argument.
+    X_INLINE bool __is_addr(param_type_t param_type)
+    {
+        return is_addr_param(param_type);
+    }
+
+    X_INLINE bool __is_addr(param_variable_t * var)
+    {
+        _A(var != nullptr);
+        return __is_addr(var->param->ptype);
+    }
+
+    X_INLINE bool __is_addr(variable_t * var)
+    {
+        _A(var != nullptr);
+        return var->this_type() == variable_type_t::param && __is_addr((param_variable_t *)var);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Pre append custom struct for assign.
     // If expression is new_expression_t, only put address of this variable.
     // Otherwise, append object_copy xil.

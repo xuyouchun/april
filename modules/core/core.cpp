@@ -1570,12 +1570,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Returns param type of specified index.
-    type_t * method_t::param_type_at(size_t index) const
+    typex_t method_t::param_type_at(size_t index) const
     {
         param_t * param = param_at(index);
         _A(param != nullptr);
 
-        return param->get_type();
+        return typex_t(param);
     }
 
     // Compiles method.
@@ -1769,7 +1769,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // impl_method_t
 
     // Returns param type of specified index.
-    type_t * impl_method_t::param_type_at(size_t index) const
+    typex_t impl_method_t::param_type_at(size_t index) const
     {
         return __super_t::param_type_at(index);
     }
@@ -1848,7 +1848,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns param type of specified index.
-    type_t * generic_method_t::param_type_at(size_t index) const
+    typex_t generic_method_t::param_type_at(size_t index) const
     {
         return __template()->param_type_at(index);
     }
@@ -3932,7 +3932,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     type_t * generic_type_t::type_at(size_t index) const _NE
     {
         if (index >= argument_count())
-            return nullptr;
+            throw _ECF(argument_error, _T("index out of range"));
 
         return args[index];
     }
@@ -3950,9 +3950,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     }
 
     // Returns type at specified index. (for delegate type)
-    type_t * generic_type_t::param_type_at(size_t index) const
+    typex_t generic_type_t::param_type_at(size_t index) const
     {
-        return type_at(index);
+        if (index >= argument_count())
+            throw _ECF(argument_error, _T("index out of range"));
+
+        return args[index];
     }
 
     // Commits it.
