@@ -399,6 +399,10 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Returns param type of param index.
         rt_type_t * type_at(int index);
 
+        // Returns param type of param index.
+        rt_type_t * type_at(int index, msize_t * out_offset,
+                                       param_type_t * out_param_type = nullptr);
+
         // Commits it.
         void commit();
 
@@ -410,9 +414,9 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         // Field variable item.
         struct __item_t
         {
-            rt_type_t * type;
-            param_type_t param_type;
-            msize_t offset;
+            rt_type_t *     type;
+            param_type_t    param_type;
+            msize_t         offset;
         };
 
         typedef svector_t<__item_t, 32> __items_t;

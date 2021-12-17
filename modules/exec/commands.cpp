@@ -522,13 +522,24 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         return __unit_size_of(__size_of(analyzer, type_ref));
     }
 
-    // Converts type_ref to xil_type_t
-    xil_type_t __to_dtype(__context_t & ctx, rt_type_t * type)
+    // Returns xil_type of rt_type.
+    static xil_type_t __xil_type_of(__context_t & ctx, rt_type_t * type)
     {
         _A(type != nullptr);
 
         vtype_t vtype = type->get_vtype(ctx.env);
         return to_xil_type(vtype);
+    }
+
+    static xil_type_t __xil_type_of_argument(__context_t & ctx, uint16_t identity)
+    {
+        param_type_t param_type;
+        rt_type_t * type = ctx.params_layout.type_at(identity, nullptr, &param_type);
+
+        if (is_addr_param(param_type))
+            return xil_type_t::ptr;
+
+        return __xil_type_of(ctx, type);
     }
 
     // Fetches the data type of specified xil.
@@ -544,25 +555,20 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
         {
             case xil_storage_type_t::field:
             case xil_storage_type_t::field_addr: {
-
                 rt_field_base_t * rt_field = ctx.get_field(xil.get_ref());
                 _A(rt_field != nullptr);
-
-                return __to_dtype(ctx, rt_field->get_field_type(ctx));
+                return __xil_type_of(ctx, rt_field->get_field_type(ctx));
             }
 
             case xil_storage_type_t::constant: {
-
                 ref_t type_ref = xil.get_ref();
-                return __to_dtype(ctx, ctx.get_type(type_ref));
+                return __xil_type_of(ctx, ctx.get_type(type_ref));
             }
 
             case xil_storage_type_t::argument:
             case xil_storage_type_t::argument_addr: {
-
                 int index = xil.get_identity();
-                rt_type_t * type = ctx.params_layout.type_at(index);
-                return __to_dtype(ctx, type);
+                return __xil_type_of_argument(ctx, xil.get_identity());
             }
 
             default:
@@ -1424,17 +1430,15 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    static xil_type_t __xil_type_of(__context_t & ctx, rt_type_t * type)
-    {
-        _A(type != nullptr);
-
-        vtype_t vtype = type->get_vtype(ctx.env);
-        return to_xil_type(vtype);
-    }
-
+    /*
+        need_content_type: used when it's ref/out argument.
+            when pop a value from stack to an argument variable, should use content type.
+            when push address into stack, should use ptr type.
+    */
     template<typename _xil_t>
     void __analyze_xil_types(__context_t & ctx, const _xil_t & xil,
-                            xil_type_t * out_dtype1, xil_type_t * out_dtype2)
+                            xil_type_t * out_dtype1, xil_type_t * out_dtype2,
+                            bool need_content_type)
     {
         xil_storage_type_t stype = xil.stype();
 
@@ -1457,7 +1461,11 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 }
                 else
                 {
-                    *out_dtype1 = __xil_type_of(ctx, ctx.params_layout.type_at(xil.get_identity()));
+                    if (need_content_type)
+                        *out_dtype1 = __xil_type_of(ctx, ctx.params_layout.type_at(identity));
+                    else
+                        *out_dtype1 = __xil_type_of_argument(ctx, xil.get_identity());
+
                     *out_dtype2 = __fetch_dtype(ctx, xil);
                 }
             }   break;
@@ -1586,7 +1594,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
                 break;
 
             default:
-                __analyze_xil_types(ctx, xil, &xt1, &xt2);
+                __analyze_xil_types(ctx, xil, &xt1, &xt2, false);
                 break;
         }
 
@@ -2319,7 +2327,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             (((uint32_t)(_s) << 16) | ((uint32_t)(_d1) << 12) | ((uint32_t)(_d2)) << 8)
 
         xil_type_t dtype1, dtype2;
-        __analyze_xil_types(ctx, xil, &dtype1, &dtype2);
+        __analyze_xil_types(ctx, xil, &dtype1, &dtype2, true);
 
         xil_storage_type_t stype = xil.stype();
 
@@ -2414,45 +2422,45 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pop Argument addr
 
-            #define __CaseArgument(_xt1, _xt2)                                          \
+            #define __CaseArgumentAddr(_xt1, _xt2)                                      \
                 case __V(xil_storage_type_t::argument_addr, xil_type_t::_xt1, xil_type_t::_xt2): \
                     return __command_manager.template get_command<                      \
                         __StCmd(pop, argument, _xt1, _xt2),                             \
                         xil_storage_type_t::argument_addr, xil_type_t::_xt1, xil_type_t::_xt2 \
                     >(ctx.params_layout.offset_of(xil.get_identity()));
 
-            #define __CaseArguments(_xt2)                                               \
-                __CaseArgument(int8,    _xt2)                                           \
-                __CaseArgument(uint8,   _xt2)                                           \
-                __CaseArgument(int16,   _xt2)                                           \
-                __CaseArgument(uint16,  _xt2)                                           \
-                __CaseArgument(int32,   _xt2)                                           \
-                __CaseArgument(uint32,  _xt2)                                           \
-                __CaseArgument(int64,   _xt2)                                           \
-                __CaseArgument(uint64,  _xt2)                                           \
-                __CaseArgument(float_,  _xt2)                                           \
-                __CaseArgument(double_, _xt2)                                           \
-                __CaseArgument(char_,   _xt2)                                           \
-                __CaseArgument(bool_,   _xt2)
+            #define __CaseArgumentAddrs(_xt2)                                           \
+                __CaseArgumentAddr(int8,    _xt2)                                       \
+                __CaseArgumentAddr(uint8,   _xt2)                                       \
+                __CaseArgumentAddr(int16,   _xt2)                                       \
+                __CaseArgumentAddr(uint16,  _xt2)                                       \
+                __CaseArgumentAddr(int32,   _xt2)                                       \
+                __CaseArgumentAddr(uint32,  _xt2)                                       \
+                __CaseArgumentAddr(int64,   _xt2)                                       \
+                __CaseArgumentAddr(uint64,  _xt2)                                       \
+                __CaseArgumentAddr(float_,  _xt2)                                       \
+                __CaseArgumentAddr(double_, _xt2)                                       \
+                __CaseArgumentAddr(char_,   _xt2)                                       \
+                __CaseArgumentAddr(bool_,   _xt2)
 
-            __CaseArguments(int8)
-            __CaseArguments(uint8)
-            __CaseArguments(int16)
-            __CaseArguments(uint16)
-            __CaseArguments(int32)
-            __CaseArguments(uint32)
-            __CaseArguments(int64)
-            __CaseArguments(uint64)
-            __CaseArguments(float_)
-            __CaseArguments(double_)
-            __CaseArguments(char_)
-            __CaseArguments(bool_)
-            __CaseArgument(object,  object)
-            __CaseArgument(string,  string)
-            __CaseArgument(ptr,     ptr)
+            __CaseArgumentAddrs(int8)
+            __CaseArgumentAddrs(uint8)
+            __CaseArgumentAddrs(int16)
+            __CaseArgumentAddrs(uint16)
+            __CaseArgumentAddrs(int32)
+            __CaseArgumentAddrs(uint32)
+            __CaseArgumentAddrs(int64)
+            __CaseArgumentAddrs(uint64)
+            __CaseArgumentAddrs(float_)
+            __CaseArgumentAddrs(double_)
+            __CaseArgumentAddrs(char_)
+            __CaseArgumentAddrs(bool_)
+            __CaseArgumentAddr(object,  object)
+            __CaseArgumentAddr(string,  string)
+            __CaseArgumentAddr(ptr,     ptr)
 
-            #undef __CaseArgument
-            #undef __CaseArguments
+            #undef __CaseArgumentAddr
+            #undef __CaseArgumentAddrs
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Pop Field
@@ -2846,7 +2854,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
             (((uint32_t)(_s) << 16) | ((uint32_t)(_d1) << 12) | ((uint32_t)(_d2)) << 8)
 
         xil_type_t dtype1, dtype2;
-        __analyze_xil_types(ctx, xil, &dtype1, &dtype2);
+        __analyze_xil_types(ctx, xil, &dtype1, &dtype2, true);
 
         xil_storage_type_t stype = xil.stype();
 

@@ -244,6 +244,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
     };
 
+    // Push this xil. ( for ref object. )
+    struct x_push_this_content_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_this_content_xil_t(xil_type_t xtype)
+            : __super_t(xil_storage_type_t::argument_content, xtype, 0)
+        { }
+    };
+
     //-------- ---------- ---------- ---------- ----------
     // Push variables.
 

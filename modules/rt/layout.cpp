@@ -801,6 +801,24 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
         return __items[index].type;
     }
 
+    // Returns param type of index.
+    rt_type_t * params_layout_t::type_at(int index, msize_t * out_offset,
+                                                    param_type_t * out_param_type)
+    {
+        if (index >= __items.size())
+            throw _ED(__e_t::argument_index_out_of_range);
+
+        __item_t & it = __items[index];
+
+        if (out_offset != nullptr)
+            *out_offset = it.offset;
+
+        if (out_param_type != nullptr)
+            *out_param_type = it.param_type;
+
+        return it.type;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
 } } }

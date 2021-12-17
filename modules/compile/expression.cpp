@@ -2824,9 +2824,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             vtype_t vtype = method->host_type->this_vtype();
 
             if (is_system_value_type(vtype))
-                _P(_T("----------- ha"));
+            {
+                if (dtype == xil_type_t::empty)
+                    dtype = to_xil_type(vtype);
+
+                pool.append<x_push_this_content_xil_t>(dtype);
+            }
             else
+            {
                 pool.append<x_push_this_ref_xil_t>();
+            }
         }
     }
 
