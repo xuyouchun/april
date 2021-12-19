@@ -84,6 +84,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         virtual token_t * next() override;
 
         X_TO_STRING_IMPL(_T("cs_token_enumerator_t"))
+
+    private:
+        token_t * __next_token = nullptr;
     };
 
     typedef ttoken_reader_t<cs_token_enumerator_t> cs_token_reader_t;

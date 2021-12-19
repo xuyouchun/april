@@ -169,7 +169,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         };
 
         e.each(std::bind(set_is_invisible, _2, true),
-            w_t::comment
+            w_t::comment, w_t::empty
         );
     }
 

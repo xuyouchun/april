@@ -9,6 +9,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // Cs Token values.
     X_ENUM_INFO(cs_token_value_t)
 
+        __C(empty, _T("empty"))
+
         // keywords: a...
         __K(abstract)    __K(as)       __K(add)
 

@@ -53,6 +53,11 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // Returns the next token.
     token_t * cs_token_enumerator_t::next()
     {
+        token_t * next_token;
+
+        if (__next_token != nullptr)
+            return next_token = __next_token, __next_token = nullptr, next_token;
+
         if (!__skip_whitespace())
             return nullptr;
 
@@ -282,14 +287,18 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 switch (*__p)
                 {
                     case _T('>'):
-                        if (*++__p == _T('='))                   // >>=
+                        if (*++__p == _T('='))                  // >>=
                         {
                             __p++;
                             return __Nw(right_shift_assign);
                         }
                         else                                    // >>
                         {
-                            return __Nw(right_shift);
+                            // Maybe > > (two right angles) or >> (right shift)
+                            token_t * token = __Nws(__Wt(right_shift), __Wt(right_angle));
+                            __next_token = __Nws(__Wt(empty), __Wt(right_angle));
+
+                            return token;
                         }
 
                     case _T('='):

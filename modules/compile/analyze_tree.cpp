@@ -181,7 +181,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    const unsigned long __StackBufferMaxStep = 256;
+    const arch_uint_t __StackBufferMaxStep = 256;
 
     // Stack normal buffer.
     struct __stack_normal_buffer_t
@@ -194,19 +194,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     struct __stack_branch_switched_buffer_t
     {
         analyze_node_t * from;
-        unsigned long step;
+        arch_uint_t      step;
         analyze_node_t * to;
 
         //int16_t affinity;
         //int16_t hstep;
         analyze_node_t ** path;
-        analyze_node_t * entrance;
+        analyze_node_t *  entrance;
     };
 
     // Returns whether it is branch switched.
     __AlwaysInline bool __branch_switched(void ** stack)
     {
-        return (unsigned long)stack[1] < __StackBufferMaxStep;
+        return (arch_uint_t)stack[1] < __StackBufferMaxStep;
     }
 
     // Returns next stack ndoe.
@@ -2191,9 +2191,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     analyze_tree_build_context_t * context, itor_t begin, itor_t end)
     {
         std::transform(begin, end, units, [](void ** stack) {
+            const analyze_node_t * node = __next_stack_node(stack);
             return __stack_unit_t (
-                __next_stack_node(stack), __stack_step(stack), /*__stack_affinity(stack),*/
-                /*__stack_hstep(stack),*/ __stack_path(stack), __stack_entrance(stack)
+                node, __stack_step(stack), /*__stack_affinity(stack),*/
+                /*__stack_hstep(stack),*/ __stack_path(stack), __stack_entrance(stack),
+                node->key.value
             );
         });
     }
@@ -2209,6 +2211,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             if (__stack_step(*it) == 0)
                 normal_count++;
+
             count++;
         }
 
@@ -2371,7 +2374,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // analyze_normal_path_node_t
 
     // Enters a specified key, returns the path node.
-    analyze_path_node_t * analyze_normal_path_node_t::enter(const __node_key_t & key)
+    __AlwaysInline analyze_path_node_t * analyze_normal_path_node_t::enter(
+                                                        const __node_key_t & key)
     {
         __ensure_init();
 
@@ -2492,7 +2496,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __append_subnodes(ctx, node);
         }
 
-        for (auto & it : ctx.nodes_map)
+        for (auto && it : ctx.nodes_map)
         {
             __node_key_t key = it.first;
             __build_node_info_t & info = it.second;
@@ -2589,7 +2593,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             buffer = __analyze_node_heap.acquire(__BufferSize(__stack_branch_switched_buffer_t));
             __stack_branch_switched_buffer_t & s = *(__stack_branch_switched_buffer_t *)buffer;
             s.from  = *branch_stack[0];
-            s.step  = (unsigned long)(size - 2);
+            s.step  = (arch_uint_t)(size - 2);
             s.to    = *branch_stack[size - 1];
             s.path  = context->to_stack_path(branch_stack.begin() + 1, branch_stack.end());
             s.entrance = this->entrance;
@@ -2846,8 +2850,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Matches the next token.
     void analyze_context_t::go(const __node_key_t * keys, __tag_t * tag, __node_value_t * out_value)
     {
-        if (__is_invisible(keys[0]) && keys[1] == __empty_node_key)
-            return;
+        // if (__is_invisible(keys[0]) && keys[1] == __empty_node_key)
+        //     return;
 
         if (keys[0] != __end_node_key) // Normal node: stack grow
         {
@@ -2936,7 +2940,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __stack_grow(grow_args, stack_node);
 
         // check end nodes
-        auto current_node = (analyze_normal_node_t *)(*stack_node)->node;
+        auto * current_node = (analyze_normal_node_t *)(*stack_node)->node;
         __node_unit_t end_unit = current_node->get_end_unit();
         if (end_unit != nullptr)
         {
@@ -3134,8 +3138,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         for (const __node_key_t * p_key = push_args.keys; *p_key != __empty_node_key; p_key++)
         {
             const __node_key_t & key = *p_key;
-            auto dst = (analyze_normal_path_node_t *)src->enter(key);
 
+            auto * dst = (analyze_normal_path_node_t *)src->enter(key);
             if (dst != nullptr)
             {
                 const __path_node_stacks_t * stacks = dst->stacks_of(src);
@@ -3144,6 +3148,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 const __path_node_stack_t * stack = stacks->stack_of(value.node);
                 if (stack != nullptr)
                     stack_items.push_back(__stack_item_t { stack, dst });
+            }
+            else
+            {
+                if (__is_invisible(key))
+                {
+                    __path_node_stack_t stack(value.node, 1);
+                    stack.normal_count = 1;
+
+                    __stack_normal_buffer_t buffer = {
+                        const_cast<analyze_node_t *>(value.node),
+                        const_cast<analyze_node_t *>(value.node)
+                    };
+
+                    stack.units[0] = __stack_unit_t(value.node, 0, &buffer, nullptr, key.value);
+                    stack_items.push_back(__stack_item_t { &stack, src });
+                }
             }
         }
 
@@ -3172,7 +3192,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // branch_switched stacks
         for (__stack_item_t & stack_item : stack_items)
         {
-            for (const __stack_unit_t & unit : stack_item.stack->all(__stack_type_t::branch_switched))
+            for (const __stack_unit_t & unit :
+                                    stack_item.stack->all(__stack_type_t::branch_switched))
             {
                 _A(unit.step > 0);
 
@@ -3197,7 +3218,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 (*new_leaf)->weight = (*stack_node)->weight + node->weight;
 
                 __set_merge_identity(new_leaf);
-                push_args.append_new_stack_node(new_leaf);
+                push_args.append_new_stack_node(new_leaf, unit.node_value);
                 args.found = true;
             }
         }
@@ -3220,7 +3241,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     value.weight += node->weight;
                     __set_merge_identity(next_stack_node);
 
-                    push_args.append_new_stack_node(next_stack_node);
+                    push_args.append_new_stack_node(next_stack_node, unit.node_value);
                     next_stack_node = nullptr;
                 }
                 else
@@ -3233,7 +3254,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
                     __stack_node_t * new_leaf = __new_stack_node(value);
                     stack_node->append_sibling(new_leaf);
-                    push_args.append_new_stack_node(new_leaf);
+                    push_args.append_new_stack_node(new_leaf, unit.node_value);
 
                     __set_merge_identity(new_leaf);
                 }
@@ -3718,13 +3739,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Appends a new stack node.
-    void analyze_context_t::__stack_push_args_t::append_new_stack_node(__stack_node_t * leaf)
+    __AlwaysInline void analyze_context_t::__stack_push_args_t::append_new_stack_node(
+                                    __stack_node_t * leaf, __node_value_t node_value)
     {
         new_stack_nodes.push_back(leaf);
         if (out_value != nullptr)
         {
-            __node_value_t value = (*leaf)->node->key.value;
-            auto action = __owner->__assign_key_action_factory.new_obj(out_value, value);
+            auto action = __owner->__assign_key_action_factory.new_obj(out_value, node_value);
             __owner->__append_node_action(leaf, action);
         }
     }
@@ -3937,11 +3958,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Pushes token.
     void __analyzer_t::__push_token(token_t * token, __tag_t * tag)
     {
-        if (token->value != unknown_token_value)
+        if (token->value != unknown_token_value)    // single token
         {
             __push(__node_key_t(__node_type_t::token, token->value), tag);
         }
-        else
+        else        // multi-tokens
         {
             _A(token->data != nullptr);
 
@@ -3974,7 +3995,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Pushes an ast node.
     void __analyzer_t::__push_ast_node(ast_node_t * node, __tag_t * tag)
     {
-        
+        // Empty.
     }
 
     // Pushes with key and tag.

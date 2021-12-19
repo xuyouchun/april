@@ -262,6 +262,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return get_token_property(value)->is_expression_box;
         }
 
+        // Returns whether it's invisible
+        bool is_invisible(token_value_t value)
+        {
+            return get_token_property(value)->is_invisible;
+        }
+
         // Returns operator by token value.
         operator_t get_operator(token_value_t value)
         {

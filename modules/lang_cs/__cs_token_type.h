@@ -9,6 +9,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // Word Types
     X_ENUM_(cs_token_value_t, sizeof(int16_t))
 
+        empty,
+
         //-------- ---------- ---------- ---------- ----------
         __keyword_begin,
 

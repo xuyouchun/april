@@ -32,7 +32,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyze_node_key_t() = default;
 
         // Constructor.
-        analyze_node_key_t(__node_type_t type, __node_value_t value = (__node_value_t)0)
+        constexpr analyze_node_key_t(__node_type_t type, __node_value_t value = (__node_value_t)0)
             : value(value), type(type), __reserved(0) { }
 
         __node_value_t   value  : sizeof(__node_value_t) * 8;
@@ -63,8 +63,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     typedef analyze_node_key_t __node_key_t;
-    const __node_key_t __empty_node_key(__node_type_t::empty);
-    const __node_key_t __end_node_key(__node_type_t::end);
+    constexpr __node_key_t __empty_node_key(__node_type_t::empty);
+    constexpr __node_key_t __end_node_key(__node_type_t::end);
+    constexpr __node_key_t __empty_token(__node_type_t::token, empty_token_value);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1220,9 +1221,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Constructor.
         analyze_path_node_stack_unit_t() = default;
         analyze_path_node_stack_unit_t(const analyze_node_t * node, int16_t step,
-                /*int16_t affinity, __hstep_t hstep,*/ void * path, const analyze_node_t * entrance)
+                /*int16_t affinity, __hstep_t hstep,*/ void * path, const analyze_node_t * entrance,
+                __node_value_t node_value)
             : node(node), step(step)/*, affinity(affinity), hstep(hstep)*/
-            , path(path), entrance(entrance)
+            , path(path), entrance(entrance), node_value(node_value)
         { }
 
         // Node.
@@ -1234,6 +1236,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         void * path;
         const analyze_node_t * entrance;
+
+        __node_value_t node_value;
 
         // Converts to a string.
         operator string_t() const
@@ -1259,6 +1263,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Branch switched path node stack type.
         branch_switched,
 
+        // All path node stack types, used for enumerate all items.
         all,
 
     X_ENUM_END
@@ -1761,7 +1766,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __stack_node_vector_t new_stack_nodes;
 
             // Appends a new stack node.
-            void append_new_stack_node(__stack_node_t * leaf);
+            void append_new_stack_node(__stack_node_t * leaf, __node_value_t node_value);
         };
 
         //-------- ---------- ---------- ---------- ----------

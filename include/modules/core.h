@@ -477,6 +477,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     typedef element_value_t token_value_t;
     typedef element_value_t ast_value_t;
 
+    const token_value_t   empty_token_value   =  0;
     const token_value_t   unknown_token_value = -1;
     const element_value_t document_ast_value  = -2;
     const element_value_t module_ast_value    = -3;

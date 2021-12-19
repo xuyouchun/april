@@ -139,6 +139,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         token_t * op_token = args.token;
         const operator_property_t * property = args.property;
 
+        if (property == nullptr)
+            throw _Ef(unknown_token_property, _str(op_token));
+
         __expression_t ** expressions = args.expressions;
 
         switch (property->arity)
@@ -211,15 +214,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         _A(token != nullptr);
 
-        if (__context->is_operator(token->value))
+        token_value_t token_value = token->value;
+
+        if (__context->is_operator(token_value))
         {
             __push_operator(token);
         }
-        else if (__context->is_expression_box(token->value))
+        else if (__context->is_expression_box(token_value))
         {
             __push_expression_box(token);
         }
-        else
+        else if (!__context->is_invisible(token_value))
         {
             __lang_expression_build_context_t ctx(__context);
             lang_expression_build_args_t args(token, nullptr, nullptr, 0);

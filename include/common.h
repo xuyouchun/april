@@ -127,6 +127,9 @@ namespace __root_ns = ::X_ROOT_NS;
 // Print an formated string, the first argument is a format string.
 #define _PF(s, args...)     _P(sprintf(_T("") s, ##args))
 
+// Print current calling stack.
+#define _PS()               __root_ns::arch::print_stack();
+
 // Default value for the specified type.
 #define X_DEFAULT(type)     (__root_ns::def_value<type>())
 

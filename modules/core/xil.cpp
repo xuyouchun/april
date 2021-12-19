@@ -98,6 +98,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         X_C(minus,          _T("minus"))
 
+        X_C(positive,       _T("positive"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -112,6 +114,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_C(bit_not,        _T("bit_not"))
 
         X_C(bit_xor,        _T("bit_xor"))
+
+        X_C(left_shift,     _T("left_shift"))
+
+        X_C(right_shift,    _T("right_shift"))
 
     X_ENUM_INFO_END
 
