@@ -2845,40 +2845,47 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __leafs.clear();
         __leafs.push_back(current_node);
+
+        __clear_actions();
     }
 
     // Matches the next token.
-    void analyze_context_t::go(const __node_key_t * keys, __tag_t * tag, __node_value_t * out_value)
+    void analyze_context_t::go(const __node_key_t * keys, __tag_t * tag,
+                                                            __node_value_t * out_value)
     {
-        // if (__is_invisible(keys[0]) && keys[1] == __empty_node_key)
-        //     return;
-
         if (keys[0] != __end_node_key) // Normal node: stack grow
         {
             __stack_push_args_t args(this, keys, tag, out_value);
-            __leafs.walk([this, &args](__stack_node_t * stack_node) {
-                return __stack_push(args, stack_node), false;
-            });
 
-            __append_leafs(args.new_stack_nodes);
+            for (__stack_node_t * stack_node : __leafs)
+            {
+                __stack_push(args, stack_node);
+            }
+
+            if (!args.new_stack_nodes.empty())
+            {
+#if __EnableTrace >= 2
+                std::wcout << _T("TREE  1: ") << al::_detail(__stack_root) << std::endl;
+                std::wcout << _T("LEAFS 1: ") << __leafs << std::endl;
+#endif
+                __leafs.clear();
+                __append_leafs(args.new_stack_nodes);
+                __merge_leafs();
+
+                if (args.new_stack_nodes.size() == 0)
+                    throw _EF(__e_t::format_error, _T("format error"));
 
 #if __EnableTrace >= 2
-            std::wcout << _T("TREE  1: ") << al::_detail(__stack_root) << std::endl;
-            std::wcout << _T("LEAFS 1: ") << __leafs << std::endl;
+                std::wcout << _T("TREE  2: ") << al::_detail(__stack_root) << std::endl;
+                std::wcout << _T("LEAFS 2: ") << __leafs << std::endl;
 #endif
-
-            __merge_leafs();
-
-            if (__leafs.size() == 0)
+                if (__leafs.size() == 1)
+                    __execute_actions();
+            }
+            else    // format error.
+            {
                 throw _EF(__e_t::format_error, _T("format error"));
-
-#if __EnableTrace >= 2
-            std::wcout << _T("TREE  2: ") << al::_detail(__stack_root) << std::endl;
-            std::wcout << _T("LEAFS 2: ") << __leafs << std::endl;
-#endif
-
-            if (__leafs.size() == 1)
-                __execute_actions();
+            }
         }
         else  // End node: close stack
         {
@@ -3264,6 +3271,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    // Save current state.
+    analyze_state_t analyze_context_t::keep_state()
+    {
+        analyze_state_t state;
+
+        state.__tree_state.store(__stack_root);
+
+        return std::move(state);
+    }
+
+    // Restore state.
+    void analyze_context_t::restore(const analyze_state_t & state)
+    {
+        al::walk_tree(__stack_root, [&](__stack_node_t * node) {
+            __stack_node_factory.release(node);
+        });
+
+        __leafs.clear();
+
+        __stack_root = state.__tree_state.restore([&]() {
+            return __stack_node_factory.new_obj();
+        });
+    }
+
     // Record stack units.
     __AlwaysInline size_t analyze_context_t::__stack_push_task_t::record_stack_unit(
                                                         const __stack_unit_t & unit)
@@ -3583,8 +3614,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 leaf = leaf->parent;
             }
 
-            __assign_key_action_factory.clear();
-            __raise_matched_event_action_factory.clear();
+            __clear_actions();
         }
     }
 
@@ -3698,6 +3728,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         const token_property_t * token_property = __token_property_cache.get_property(value);
         return token_property->is_invisible;
+    }
+
+    // Clear actions.
+    void analyze_context_t::__clear_actions()
+    {
+        __assign_key_action_factory.clear();
+        __raise_matched_event_action_factory.clear();
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -3920,20 +3957,51 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Do analyzer.
     void __analyzer_t::analyze()
     {
-        try
+        std::stack<__state_t> __states;
+
+        while (!__try_analyze())
         {
-            __analyze();
-        }
-        catch (const logic_error_t<__e_t> & e)
-        {
-            __process_error(e);
+            __stack_node_t * root = __context.current_analyze_tree();
+            _A(root != nullptr);
+
+            size_t position = __reader->position();
+            if (position > 0)
+            {
+                __try_analyze(position - 1);
+
+                auto leafs = get_leafs(root);
+                _PP(leafs.size());
+            }
+
+            break;
         }
     }
 
-    // Do analyzer.
-    void __analyzer_t::__analyze()
+    // Try to do analyzing, return true when succeed.
+    bool __analyzer_t::__try_analyze(size_t break_point)
     {
-        while ((__element = __reader->next())->type != analyzer_element_type_t::__unknown__)
+        try
+        {
+            __analyze(break_point);
+        }
+        catch (const logic_error_t<__e_t> & e)
+        {
+            if (e.code != __e_t::format_error)
+                throw e;
+
+            return false;
+
+            // __process_format_error(e);
+        }
+
+        return true;
+    }
+
+    // Do analyzer.
+    void __analyzer_t::__analyze(size_t break_point)
+    {
+        while (__reader->position() != break_point &&
+            (__element = __reader->next())->type != analyzer_element_type_t::__unknown__)
         {
             switch (__element->type)
             {
@@ -3999,37 +4067,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Pushes with key and tag.
-    void __analyzer_t::__push(__node_key_t key, __tag_t * tag)
+    __AlwaysInline void __analyzer_t::__push(__node_key_t key, __tag_t * tag)
     {
         __node_key_t keys[] = { key, __empty_node_key };
         __push(keys, tag);
     }
 
     // Pushes with keys and tag.
-    void __analyzer_t::__push(const __node_key_t * keys, __tag_t * tag,
+    __AlwaysInline void __analyzer_t::__push(const __node_key_t * keys, __tag_t * tag,
                                                 __node_value_t * out_value)
     {
         __context.go(keys, tag, out_value);
     }
 
     // Pushes end.
-    void __analyzer_t::__push_end(__tag_t * tag)
+    __AlwaysInline void __analyzer_t::__push_end(__tag_t * tag)
     {
         __push(__end_node_key, tag);
-    }
-
-    // Process analyze errors.
-    void __analyzer_t::__process_error(const logic_error_t<__e_t> & e)
-    {
-        switch (e.code)
-        {
-            case __e_t::format_error:
-                __process_format_error(e);
-                break;
-
-            default:
-                throw e;
-        }
     }
 
     // Returns format error line.
@@ -4089,6 +4143,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         throw e;
+    }
+
+    // Save current state.
+    __analyzer_t::__state_t & __analyzer_t::__keep_state()
+    {
+        __states.push(__state_t {
+            __reader->position(),
+            __context.keep_state()
+        });
+
+        return __states.top();
+    }
+
+    // Set current state.
+    void __analyzer_t::__restore(const __state_t & state)
+    {
+        __reader->set_position(state.position);
+        __context.restore(state.analyze_state);
     }
 
     ////////// ////////// ////////// ////////// //////////

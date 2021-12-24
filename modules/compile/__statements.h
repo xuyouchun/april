@@ -10,9 +10,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         using namespace core;
 
-        template<typename t, size_t init_size = 2>
-        using __vector_t = al::svector_t<t, init_size>;
-
         typedef statement_compile_context_t __context_t;
         typedef statement_exit_point_type_t __exit_point_type_t;
     }

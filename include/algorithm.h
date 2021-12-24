@@ -255,7 +255,7 @@ namespace X_ROOT_NS { namespace algorithm {
             {
                 proc(key0, it0, it);
                 it0 = it;
-                key0 = key;
+                key0 = std::move(key);
             }
         }
 

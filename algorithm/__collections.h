@@ -10,6 +10,7 @@ namespace X_ROOT_NS { namespace algorithm {
         namespace __ns = algorithm;
     }
 
+
     ////////// ////////// ////////// ////////// //////////
     // heap_t
 
@@ -521,6 +522,310 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Small vector for storing a few element.
+    // It used the stack size to store elements, until it's no enought, then move to the heap.
+    // Avoids allocates memory from the heap at first.
+
+    template<typename t, size_t init_size = 10>
+    class svector_t : private memory_base_t
+    {
+        typedef svector_t<t, init_size> __self_t;
+
+    public:
+        typedef t           value_type;
+        typedef t *         iterator;
+        typedef const t *   const_iterator;
+
+        // Constructor, with specified memory management.
+        svector_t(memory_t * memory = nullptr)
+            : memory_base_t(memory), __p(__array)
+        { }
+
+        // Constructor with specified memory management and initialized elements.
+        svector_t(std::initializer_list<t> il, memory_t * memory = nullptr)
+            : memory_base_t(memory), __p(__array)
+        {
+            std::copy(il.begin(), il.end(), std::back_inserter(*this));
+        }
+
+        // Constructor, with a initialize list.
+        template<typename _itor_t> svector_t(_itor_t begin, _itor_t end)
+        {
+            for (; begin != end; begin++)
+            {
+                push_back(*begin);
+            }
+        }
+
+        // Move constructor.
+        svector_t(__self_t && v)
+        {
+            if (v.__is_in_array())            
+            {
+                std::copy(v.__array, v.__array + array_size(v.__array), __array);
+                __p = __array + (v.__p - v.__array);
+            }
+            else
+            {
+                __buffer_start = v.__buffer_start;
+                __buffer_size = v.__buffer_size;
+                __p = v.__p;
+            }
+
+            v.__p = nullptr;
+            v.__buffer_start = nullptr;
+        }
+
+        __self_t operator = (__self_t && v)
+        {
+            new ((void *)this) __self_t(std::forward<__self_t>(v));
+            return *this;
+        }
+
+        // Copy constructor.
+        svector_t(const __self_t & v) : memory_base_t(v.__memory)
+        {
+            if (v.__is_in_array())            
+            {
+                std::copy(v.__array, v.__array + array_size(v.__array), __array);
+                __p = __array + (v.__p - v.__array);
+            }
+            else
+            {
+                __buffer_size = v.__buffer_size;
+                __buffer_start = this->__alloc_objs<t>(__buffer_size);
+                __p = __buffer_start + v.size();
+                std::copy(v.__buffer_start, v.__buffer_start + v.__buffer_size, __buffer_start);
+            }
+        }
+
+        // Pop the last value.
+        void pop_back()
+        {
+            if (empty())
+                throw _EC(invalid_operation, _T("vector is empty"));
+
+            truncate(size() - 1);
+        }
+
+        // Pushes the value to the back.
+        template<typename _value_t>
+        t & push_back(_value_t && value)
+        {
+            if (__p >= __array && __p < __array + init_size)
+            {
+                *__p = value;
+            }
+            else if (__p == __array + init_size)
+            {
+                size_t buffer_size = init_size * 2;
+                t * buffer_start = this->__alloc_objs<t>(buffer_size);
+
+                std::copy(__array, __array + init_size, buffer_start);
+
+                __buffer_start = buffer_start;
+                __buffer_size = buffer_size;
+
+                __p = __buffer_start + init_size;
+                *__p = value;
+            }
+            else
+            {
+                if (__p - __buffer_start >= __buffer_size)
+                {
+                    size_t old_buffer_size = __buffer_size;
+                    __buffer_size = old_buffer_size * 2;
+
+                    t * new_buffer = this->__alloc_objs<t>(__buffer_size);
+                    std::copy(__buffer_start, __p, new_buffer);
+
+                    this->__free(__buffer_start);
+                    __buffer_start = new_buffer;
+                    __p = __buffer_start + old_buffer_size;
+                }
+
+                *__p = value;
+            }
+
+            return *__p++;
+        }
+
+        // Pushes the value to the front.
+        template<typename _values_t>
+        void push_front(const _values_t & values)
+        {
+            insert(values, 0);
+        }
+
+        // Pushes the value to the front.
+        template<typename _values_t>
+        void insert(const _values_t & values, size_t index)
+        {
+            if (index > size())
+                throw _EC(invalid_operation, _T("index is too large"));
+
+            size_t value_size = __ns::size(values);
+
+            if (__is_in_array())
+            {
+                t * p = __p + value_size;
+                if (p <= __array + init_size)
+                {
+                    std::move_backward(__array + index, __p, __p + value_size);
+                    std::copy(std::begin(values), std::end(values), __array + index);
+                    __p += value_size;
+                }
+                else
+                {
+                    size_t size = this->size(), new_size = size + value_size;
+                    size_t buffer_size = _alignd(size, new_size);
+                    t * buffer_start = this->__alloc_objs<t>(buffer_size);
+
+                    std::copy(__array, __array + index, buffer_start);
+                    std::copy(std::begin(values), std::end(values), buffer_start + index);
+                    std::copy(__array + index, __array + size, buffer_start + index + value_size);
+
+                    __buffer_start = buffer_start;
+                    __buffer_size  = buffer_size;
+                    __p = __buffer_start + new_size;
+                }
+            }
+            else
+            {
+                size_t size = this->size(), new_size = size + value_size;
+                if (new_size <= __buffer_size)
+                {
+                    std::move_backward(__buffer_start + index, __p, __p + value_size);
+                    std::copy(std::begin(values), std::end(values), __buffer_start + index);
+                    __p += value_size;
+                }
+                else
+                {
+                    __buffer_size = _alignd(size, new_size);
+                    t * new_buffer = this->__alloc_objs<t>(__buffer_size);
+
+                    std::copy(__buffer_start, __buffer_start + index, new_buffer);
+                    std::copy(std::begin(values), std::end(values), new_buffer + index);
+                    std::copy(__buffer_start + index, __buffer_start + size,
+                                                    new_buffer + index + value_size);
+                    this->__free(__buffer_start);
+
+                    __buffer_start = new_buffer;
+                    __p = __buffer_start + new_size;
+                }
+            }
+        }
+
+        // Truncates the vector to the specified size.
+        void truncate(size_t new_size)
+        {
+            if (new_size < size())
+            {
+                if (__is_in_array())
+                    __p = __array + new_size;
+                else
+                    __p = __buffer_start + new_size;
+            }
+        }
+
+        // Returns the element at the specified index.
+        t & operator[](size_t index) const
+        {
+            if (__is_in_array())
+                return (t &)__array[index];
+
+            return __buffer_start[index];
+        }
+
+        // The iterator at the begin.
+        t * begin() const
+        {
+            if (__is_in_array())
+                return (t *)__array;
+
+            return __buffer_start;
+        }
+
+        // The const iterator at the begin.
+        const t * cbegin() const
+        {
+            return begin();
+        }
+
+        // The iterator at the end.
+        t * end() const
+        {
+            return __p;
+        }
+
+        // The iterator at the end.
+        const t * cend() const
+        {
+            return end();
+        }
+
+        // Returns element count.
+        size_t size() const
+        {
+            if (__is_in_array())
+                return __p - __array;
+
+            return __p - __buffer_start;
+        }
+
+        // Whether the vector is empty.
+        bool empty() const
+        {
+            return size() == 0;
+        }
+
+        // Removes all elements.
+        void clear()
+        {
+            if (__is_in_array())
+                __p = __array;
+            else
+                __p = __buffer_start;
+        }
+
+        // Convert to string.
+        operator string_t() const
+        {
+            return join_str(begin(), end(), _T(", "));
+        }
+
+        // Destructor, free buffer if allocated on heap.
+        ~svector_t()
+        {
+            if (__buffer_start && !__is_in_array())
+            {
+                this->__free(__buffer_start);
+            }
+        }
+
+    private:
+        union
+        {
+            t __array[init_size + 1];
+
+            struct
+            {
+                t * __buffer_start;
+                size_t __buffer_size;
+            };
+        };
+
+        t * __p;
+
+        // Whether the data is on heap.
+        bool __is_in_array() const
+        {
+            return __p >= __array && __p <= __array + init_size;
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     // A tree that use a linked-list to store a tree.
     // Using a linked-list to store child nodes (first-child).
 
@@ -562,7 +867,7 @@ namespace X_ROOT_NS { namespace algorithm {
         __self_t * append_child(memory_t * memory, _value_t && value)
         {
             __self_t * node = append_child(memory);
-            node->value = value;
+            node->value = std::forward<_value_t>(value);
             return node;
         }
 
@@ -724,10 +1029,28 @@ namespace X_ROOT_NS { namespace algorithm {
             return size;
         }
 
-        // Returns all childs.
-        range_t<__self_t **> children() const
+        // Enumerator each child nodes.
+        template<typename _f_t>
+        void each_child(_f_t callback) const
         {
-            return range_t<__self_t **>(first_child, (__self_t **)nullptr);
+            const __self_t * node = first_child;
+            while (node != nullptr)
+            {
+                callback(node);
+                node = node->next_sibling;
+            }
+        }
+
+        // Enumerator each child nodes.
+        template<typename _f_t>
+        void each_child(_f_t callback)
+        {
+            __self_t * node = first_child;
+            while (node != nullptr)
+            {
+                callback(node);
+                node = node->next_sibling;
+            }
         }
 
         // Write the tree to a stream.
@@ -772,10 +1095,11 @@ namespace X_ROOT_NS { namespace algorithm {
     };
 
     // Creates a new lr_tree.
-    template<typename value_t, typename _value_t>
-    lr_tree_node_t<value_t> * new_lr_tree_root(memory_t * memory, _value_t value)
+    template<typename _value_t, typename value_t = std::remove_reference_t<_value_t>>
+    lr_tree_node_t<value_t> * new_lr_tree_root(memory_t * memory, _value_t && value)
     {
         typedef lr_tree_node_t<value_t> node_t;
+
         node_t * node = memory_t::new_obj<node_t>(memory);
         node->first_child  = nullptr;
         node->next_sibling = nullptr;
@@ -783,6 +1107,33 @@ namespace X_ROOT_NS { namespace algorithm {
         node->value        = std::forward<_value_t>(value);
 
         return node;
+    }
+
+    // Walk all nodes of a tree.
+    template<typename _node_t, typename _f_t>
+    void walk_tree(_node_t && root, _f_t callback)
+    {
+        if (root == nullptr)
+            return;
+
+        root->each_child([&](auto && node) {
+            callback(node);
+            walk_tree(node, callback);
+        });
+    }
+
+    template<typename _node_t, typename __node_t = std::remove_reference_t<_node_t>>
+    svector_t<__node_t> get_leafs(_node_t && root)
+    {
+        svector_t<__node_t> vector;
+
+        walk_tree(root, [&](auto && node) {
+
+            if (node->is_leaf())
+                vector.push_back(node);
+        });
+
+        return std::move(vector);
     }
 
     // lr_tree wrapper for writing the tree to a stream.
@@ -836,6 +1187,136 @@ namespace X_ROOT_NS { namespace algorithm {
             stream << node->value;
         return stream;
     }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // A datastruct to store a lr_tree.
+    template<typename _value_t>
+    class lr_tree_state_t : public object_t
+    {
+        typedef lr_tree_state_t     __self_t;
+        typedef object_t            __super_t;
+
+        template<typename _t>
+        using __vector_t = svector_t<_t, 8>;
+
+        typedef lr_tree_node_t<_value_t> __node_t;
+
+    public:
+        lr_tree_state_t() = default;
+
+        // Save a tree to data.
+        void store(const __node_t * tree)
+        {
+            __data.clear();
+            __node_counts.clear();
+
+            if (tree == nullptr)
+                return;
+
+            std::queue<const __node_t *> queue;
+            queue.push(tree);
+
+            while (!queue.empty())
+            {
+                const __node_t * node = queue_pop(queue);
+                __data.push_back(node->value);
+
+                uint8_t count = 0;
+                node->each_child([&](const __node_t * child) {
+                    queue.push(child);
+                    count++;
+                });
+
+                __node_counts.push_back(count);
+            }
+        }
+
+        typedef std::function<void *()> create_function_t;
+
+        // Restore a tree from saved data, prototype of creator is "void * ()".
+        __node_t * restore(create_function_t creator) const
+        {
+            __memory_adapter_t adapter(creator);
+
+            return restore((memory_t *)&adapter);
+        }
+
+        // Restore a tree from saved data.
+        __node_t * restore(memory_t * memory = nullptr) const
+        {
+            if (__data.empty())
+                return nullptr;
+
+            size_t data_index = 0;
+            __node_t * root = new_lr_tree_root(memory, __data[data_index++]);
+
+            std::queue<__node_t *> queue;
+            queue.push(root);
+
+            for (size_t index = 0, count = __node_counts.size(); index < count; index++)
+            {
+                uint8_t child_count = __node_counts[index];
+                
+                if (queue.empty())
+                    throw _EC(invalid_operation, _T("restore lr_tree failed, queue empty"));
+
+                __node_t * node = queue_pop(queue), * last_node = nullptr;
+
+                for (int k = 0; k < child_count; k++)
+                {
+                    if (data_index >= __data.size())
+                        throw _EC(invalid_operation, _T("restore lr_tree failed, nodes empty"));
+
+                    if (last_node == nullptr)
+                        last_node = node->append_child(memory, __data[data_index]);
+                    else
+                        last_node = last_node->append_sibling(memory, __data[data_index]);
+
+                    data_index++;
+                    queue.push(last_node);
+                }
+            }
+
+            return root;
+        }
+
+    private:
+        __vector_t<_value_t>    __data;
+        __vector_t<uint8_t>     __node_counts;
+
+        // Adapter to convert a creator to memory_t interface.
+        class __memory_adapter_t : public object_t, public memory_t
+        {
+        public:
+            __memory_adapter_t(create_function_t creator) : __creator(creator) { }
+
+            virtual void * alloc(size_t size, memory_flag_t flag) override
+            {
+                if (size != sizeof(__node_t))
+                    throw _EC(invalid_operation, _T("unexpected object size"));
+
+                return __creator();
+            }
+
+            virtual void free(void * obj) override
+            {
+                throw _unimplemented_error(this, _T("free"));
+            }
+
+            virtual void * realloc(void * obj, size_t size, memory_flag_t flag) override
+            {
+                throw _unimplemented_error(this, _T("realloc"));
+            }
+
+            X_TO_STRING_IMPL(_T("__memory_adapter_t"))
+
+        private:
+            create_function_t __creator;
+        };
+    };
+
+
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -905,14 +1386,14 @@ namespace X_ROOT_NS { namespace algorithm {
         // Removes all elements.
         void clear()
         {
-            if (__buffer)
-            {
-                __free(__buffer);
-                __buffer = nullptr;
+            __count = 0;
+        }
 
-                __size = 0;
-                __count = 0;
-            }
+        // Truncate to specified size.
+        void truncate(size_t size)
+        {
+            if (size < __count)
+                __count = size;
         }
 
         // Returns all elements.
@@ -983,273 +1464,6 @@ namespace X_ROOT_NS { namespace algorithm {
 
         return stream;
     }
-
-    ////////// ////////// ////////// ////////// //////////
-
-    // Small vector for storing a few element.
-    // It used the stack size to store elements, until it's no enought, then move to the heap.
-    // Avoids allocates memory from the heap at first.
-
-    template<typename t, size_t init_size = 10>
-    class svector_t : private memory_base_t
-    {
-        typedef svector_t<t, init_size> __self_t;
-
-    public:
-        typedef t   value_type;
-        typedef t * iterator;
-
-        // Constructor, with specified memory management.
-        svector_t(memory_t * memory = nullptr)
-            : memory_base_t(memory), __p(__array)
-        { }
-
-        // Constructor with specified memory management and initialized elements.
-        svector_t(std::initializer_list<t> il, memory_t * memory = nullptr)
-            : memory_base_t(memory), __p(__array)
-        {
-            std::copy(il.begin(), il.end(), std::back_inserter(*this));
-        }
-
-        // Move constructor.
-        svector_t(__self_t && v)
-        {
-            if (v.__is_in_array())            
-            {
-                std::copy(v.__array, v.__array + array_size(v.__array), __array);
-                __p = __array + (v.__p - v.__array);
-            }
-            else
-            {
-                __buffer_start = v.__buffer_start;
-                __buffer_size = v.__buffer_size;
-                __p = v.__p;
-            }
-
-            v.__p = nullptr;
-            v.__buffer_start = nullptr;
-        }
-
-        // Copy constructor.
-        svector_t(const __self_t & v) : memory_base_t(v.__memory)
-        {
-            if (v.__is_in_array())            
-            {
-                std::copy(v.__array, v.__array + array_size(v.__array), __array);
-                __p = __array + (v.__p - v.__array);
-            }
-            else
-            {
-                __buffer_size = v.__buffer_size;
-                __buffer_start = this->__alloc_objs<t>(__buffer_size);
-                __p = __buffer_start + v.size();
-                std::copy(v.__buffer_start, v.__buffer_start + v.__buffer_size, __buffer_start);
-            }
-        }
-
-        // Pushes the value to the back.
-        template<typename _value_t>
-        t & push_back(_value_t && value)
-        {
-            if (__p >= __array && __p < __array + init_size)
-            {
-                *__p = value;
-            }
-            else if (__p == __array + init_size)
-            {
-                size_t buffer_size = init_size * 2;
-                t * buffer_start = this->__alloc_objs<t>(buffer_size);
-
-                std::copy(__array, __array + init_size, buffer_start);
-
-                __buffer_start = buffer_start;
-                __buffer_size = buffer_size;
-
-                __p = __buffer_start + init_size;
-                *__p = value;
-            }
-            else
-            {
-                if (__p - __buffer_start >= __buffer_size)
-                {
-                    size_t old_buffer_size = __buffer_size;
-                    __buffer_size = old_buffer_size * 2;
-
-                    t * new_buffer = this->__alloc_objs<t>(__buffer_size);
-                    std::copy(__buffer_start, __p, new_buffer);
-
-                    this->__free(__buffer_start);
-                    __buffer_start = new_buffer;
-                    __p = __buffer_start + old_buffer_size;
-                }
-
-                *__p = value;
-            }
-
-            return *__p++;
-        }
-
-        // Pushes the value to the front.
-        template<typename _values_t>
-        void push_front(const _values_t & values)
-        {
-            insert(values, 0);
-        }
-
-        // Pushes the value to the front.
-        template<typename _values_t>
-        void insert(const _values_t & values, size_t index)
-        {
-            if (index > size())
-                throw _EC(invalid_operation, _T("index is too large"));
-
-            size_t value_size = __ns::size(values);
-
-            if (__is_in_array())
-            {
-                t * p = __p + value_size;
-                if (p <= __array + init_size)
-                {
-                    std::move_backward(__array + index, __p, __p + value_size);
-                    std::copy(std::begin(values), std::end(values), __array + index);
-                    __p += value_size;
-                }
-                else
-                {
-                    size_t size = this->size(), new_size = size + value_size;
-                    size_t buffer_size = _alignd(size, new_size);
-                    t * buffer_start = this->__alloc_objs<t>(buffer_size);
-
-                    std::copy(__array, __array + index, buffer_start);
-                    std::copy(std::begin(values), std::end(values), buffer_start + index);
-                    std::copy(__array + index, __array + size, buffer_start + index + value_size);
-
-                    __buffer_start = buffer_start;
-                    __buffer_size  = buffer_size;
-                    __p = __buffer_start + new_size;
-                }
-            }
-            else
-            {
-                size_t size = this->size(), new_size = size + value_size;
-                if (new_size <= __buffer_size)
-                {
-                    std::move_backward(__buffer_start + index, __p, __p + value_size);
-                    std::copy(std::begin(values), std::end(values), __buffer_start + index);
-                    __p += value_size;
-                }
-                else
-                {
-                    __buffer_size = _alignd(size, new_size);
-                    t * new_buffer = this->__alloc_objs<t>(__buffer_size);
-
-                    std::copy(__buffer_start, __buffer_start + index, new_buffer);
-                    std::copy(std::begin(values), std::end(values), new_buffer + index);
-                    std::copy(__buffer_start + index, __buffer_start + size,
-                                                    new_buffer + index + value_size);
-                    this->__free(__buffer_start);
-
-                    __buffer_start = new_buffer;
-                    __p = __buffer_start + new_size;
-                }
-            }
-        }
-
-        // Truncates the vector to the specified size.
-        void truncate(size_t new_size)
-        {
-            if (new_size < size())
-            {
-                if (__is_in_array())
-                    __p = __array + new_size;
-                else
-                    __p = __buffer_start + new_size;
-            }
-        }
-
-        // Returns the element at the specified index.
-        t & operator[](size_t index) const
-        {
-            if (__is_in_array())
-                return (t &)__array[index];
-
-            return __buffer_start[index];
-        }
-
-        // The iterator at the begin.
-        t * begin() const
-        {
-            if (__is_in_array())
-                return (t *)__array;
-
-            return __buffer_start;
-        }
-
-        // The iterator at the end.
-        t * end() const
-        {
-            return __p;
-        }
-
-        // Returns element count.
-        size_t size() const
-        {
-            if (__is_in_array())
-                return __p - __array;
-
-            return __p - __buffer_start;
-        }
-
-        // Whether the vector is empty.
-        bool empty() const
-        {
-            return size() == 0;
-        }
-
-        // Removes all elements.
-        void clear()
-        {
-            if (__is_in_array())
-                __p = __array;
-            else
-                __p = __buffer_start;
-        }
-
-        // Convert to string.
-        operator string_t() const
-        {
-            return join_str(begin(), end(), _T(", "));
-        }
-
-        // Destructor, free buffer if allocated on heap.
-        ~svector_t()
-        {
-            if (__buffer_start && !__is_in_array())
-            {
-                this->__free(__buffer_start);
-            }
-        }
-
-    private:
-        union
-        {
-            t __array[init_size + 1];
-
-            struct
-            {
-                t * __buffer_start;
-                size_t __buffer_size;
-            };
-        };
-
-        t * __p;
-
-        // Whether the data is on heap.
-        bool __is_in_array() const
-        {
-            return __p >= __array && __p <= __array + init_size;
-        }
-    };
 
     ////////// ////////// ////////// ////////// //////////
 

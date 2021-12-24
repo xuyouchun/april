@@ -1712,6 +1712,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef al::walk_list_t<__stack_node_t *> __leafs_t;
 
+    class analyze_state_t : public object_t
+    {
+        friend class analyze_context_t;
+
+    public:
+        analyze_state_t() = default;
+
+    private:
+        lr_tree_state_t<__stack_node_value_t> __tree_state;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Context for analyze.
     class analyze_context_t : public object_t
     {
@@ -1724,6 +1737,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Matches the next token.
         void go(const __node_key_t * keys, __tag_t * tag, __node_value_t * out_value = nullptr);
+
+        // Save current state.
+        analyze_state_t keep_state();
+
+        // Restore state.
+        void restore(const analyze_state_t & state);
+
+        // Returns current analyze tree.
+        __stack_node_t * current_analyze_tree() { return __stack_root; }
 
         X_TO_STRING_IMPL(_T("analyze_context_t"))
 
@@ -1968,6 +1990,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns whether it's invisible, e.g. comments.
         bool __is_invisible(token_value_t value);
+
+        // Clear actions.
+        void __clear_actions();
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2098,6 +2123,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns next element from specified tag.
         __tag_t * next(__tag_t * tag, __model_t model = __model_t::normal);
+
+        // Returns current position.
+        size_t position() const { return __index; }
+
+        // Sets current position.
+        void set_position(size_t position) { __index = position; }
 
         // Returns tag count.
         size_t tag_count() const { return __items.size(); }
@@ -2322,10 +2353,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyze_context_t           __context;          // Context.
         analyzer_element_t        * __element;          // Current element.
 
+        static const size_t __empty_break_point = max_value<size_t>();
+
         typedef logic_error_t<analyze_tree_error_t> __error_t;
 
-        // Do analyzer.
-        void __analyze();
+        // Try to do analyzing, return true when succeed.
+        bool __try_analyze(size_t break_point = __empty_break_point);
+
+        // Do analyzing.
+        void __analyze(size_t break_point = __empty_break_point);
 
         // Pushes a token.
         void __push_token(token_t * token, __tag_t * tag);
@@ -2346,14 +2382,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Pushes end.
         void __push_end(__tag_t * tag);
 
-        // Process analyze errors.
-        void __process_error(const __error_t & e);
-
         // Process format errors.
         void __process_format_error(const __error_t & e);
 
         // Returns possible value count.
         static size_t __possible_value_count(const token_value_t * possible_values);
+
+        // Analyze state.
+        struct __state_t
+        {
+            size_t position;
+            analyze_state_t analyze_state;
+        };
+
+        std::stack<__state_t> __states;
+
+        // Save current state.
+        __state_t & __keep_state();
+
+        // Set current state.
+        void __restore(const __state_t & state);
     };
 
     ////////// ////////// ////////// ////////// //////////
