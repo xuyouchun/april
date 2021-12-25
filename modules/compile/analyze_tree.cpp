@@ -2670,19 +2670,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
-
-    // Callback action type.
-    X_ENUM_INFO(analyze_callback_action_t)
-
-        // Branch matched.
-        X_C(branch_matched)
-
-        // Analyze end.
-        X_C(analyze_end)
-
-    X_ENUM_INFO_END
-
-    ////////// ////////// ////////// ////////// //////////
     // __stack_node_value_t
 
     // Converts an action to string.
@@ -2753,8 +2740,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Execute the matched event action.
     void __stack_node_raise_matched_event_action_t::execute()
     {
-        __matched_item_t it(__branch_ref, __begin_tag);
-        __context.__do_branch_matched_callback(it, __end_tag);
+        __node_value_t value = __branch_ref->branch_value;
+
+        if (value == 0)
+            return;
+
+        __context.__append_matched_items(__branch_ref, value, __begin_tag, __end_tag);
     }
 
     // Returns next action index.
@@ -2830,15 +2821,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Constructor.
     analyze_context_t::analyze_context_t(lang_t * lang, analyze_tree_t * tree,
-                                         analyze_callback_t * callback)
-        : __lang(lang), __callback(callback), __tree(tree)
+                                         analyzer_element_reader_t * reader)
+        : __lang(lang), __tree(tree), __reader(reader)
         , __sn_heap(_T("analyze_context")), __leaves(&__sn_heap)
         , __service_helper(lang), __token_property_cache(&__service_helper)
         , __raise_matched_event_action_factory(&__sn_heap)
     {
         _A(lang != nullptr);
         _A(tree != nullptr);
-        _A(callback != nullptr);
+        _A(reader != nullptr);
 
         __reset();
     }
@@ -2941,8 +2932,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (__leaves.size() > 0)
                 __execute_actions();
 
-            __do_branch_matched_callback(__matched_item_t(__tree->root, nullptr), nullptr);
-            __do_end_callback();
+            // Root branch matched.
+            __append_matched_items(__tree->root, __root_node_value);
         }
     }
 
@@ -3712,37 +3703,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __stack_node_factory.new_obj(std::forward<stack_node_value_t>(value));
     }
 
-    // Execute callback when matched or completed.
-    __AlwaysInline void analyze_context_t::__do_callback(analyze_callback_args_t & args)
+    // Appends matched items.
+    __AlwaysInline void analyze_context_t::__append_matched_items(
+        const analyze_node_t * node, __node_value_t value, __tag_t * begin_tag, __tag_t * end_tag)
     {
-        if (__callback != nullptr)
-        {
-            (*__callback)(args);
-        }
-    }
-
-    // Execute end callback.
-    void analyze_context_t::__do_end_callback()
-    {
-        typedef analyze_end_analyze_callback_args_t args_t;
-        typedef analyze_end_analyze_callback_data_t data_t;
-
-        args_t args(analyze_callback_action_t::analyze_end, data_t());
-        __do_callback(args);
-    }
-
-    // Execute branch matched callback.
-    __AlwaysInline void analyze_context_t::__do_branch_matched_callback(
-                        const __matched_item_t & matched_item, __tag_t * tag)
-    {
-        typedef branch_matched_analyze_callback_args_t args_t;
-        typedef branch_matched_analyze_callback_data_t data_t;
-
-        if (matched_item.value() >= 0)
-        {
-            args_t args(analyze_callback_action_t::branch_matched, data_t(tag, matched_item));
-            __do_callback(args);
-        }
+        __matched_items.push_back(analyze_matched_item_t {
+            node, value,
+            begin_tag? begin_tag : __reader->begin_tag(),
+            end_tag? end_tag : __reader->end_tag()
+        });
     }
 
     // Returns whether it's invisible, e.g. comments.
@@ -3977,7 +3946,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Do analyzer.
-    void __analyzer_t::analyze()
+    analyzer_result_t __analyzer_t::analyze()
     {
         __state_t origin_state = __keep_state();
 
@@ -4004,6 +3973,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 }
             }
         }
+
+        return analyzer_result_t { std::move(__context.__matched_items) };
     }
 
     // Try to do analyzing, return true when succeed.
@@ -4217,12 +4188,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // analyzer_t
 
     // Do analyze
-    void analyzer_t::analyze(analyzer_element_reader_t * reader, analyze_callback_t * callback)
+    analyzer_result_t analyzer_t::analyze(analyzer_element_reader_t * reader)
     {
         _A(reader != nullptr);
-        _A(callback != nullptr);
-
-        __analyzer_t(__lang, __tree, reader, callback).analyze();
+        return __analyzer_t(__lang, __tree, reader).analyze();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4283,77 +4252,33 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Analyze callback.
-    class __analyze_callback_t : public object_t, public analyze_callback_t
-    {
-    public:
-
-        // Constructors.
-        __analyze_callback_t(compile_context_t & context, lang_t * lang,
-                analyzer_element_reader_t & reader)
-            : __ast_factory(*context.new_obj<ast_context_t>(context, lang), reader)
-            , __reader(reader)
-        { }
-
-        // On call back.
-        virtual void on_call(void * sender, analyze_callback_args_t & args) override
-        {
-            switch (args.action)
-            {
-                case analyze_callback_action_t::branch_matched: {
-
-                    typedef branch_matched_analyze_callback_args_t __args_t;
-                    typedef branch_matched_analyze_callback_data_t __data_t;
-
-                    __data_t & data = ((__args_t &)args).data;
-
-                    const __matched_item_t & item = data.matched_item;
-                    __ast_factory.on_branch_matched(
-                        item.node, item.branch_value,
-                        item.tag? item.tag : __reader.begin_tag(),
-                        data.end_tag? data.end_tag : __reader.end_tag()
-                    );
-
-                }   break;
-
-                case analyze_callback_action_t::analyze_end: {
-                    __ast_factory.on_end();
-                }   break;
-
-                default:
-                    throw _ECF(not_supported, _T("action %1% not supported"), args.action);
-            }
-        }
-
-        // Returns analyze result.
-        ast_node_t * get_result()
-        {
-            return __ast_factory.get_result();
-        }
-
-        X_TO_STRING_IMPL(_T("__analyze_callback_t"))
-
-    private:
-        ast_factory_t __ast_factory;
-        analyzer_element_reader_t & __reader;
-    };
-
-    ////////// ////////// ////////// ////////// //////////
-
     // Analyzes ast node.
     ast_node_t * __analyze_ast(__token_reader_context_t & context, code_section_t ** & p_section)
     {
+        // Analyze
         analyzer_element_reader_t reader(context, p_section);
 
-        global_context_t & global_context = context.compile_context.global_context;
+        compile_context_t & compile_context = context.compile_context;
+        global_context_t & global_context = compile_context.global_context;
+
         analyzer_t * analyzer = __get_analyzer(global_context, (*p_section)->lang);
-
         lang_t * lang = context.compile_context.global_context.lang_of((*p_section)->lang);
-        __analyze_callback_t callback(context.compile_context, lang, reader);
 
-        analyzer->analyze(&reader, &callback);
+        analyzer_result_t result = analyzer->analyze(&reader);
 
-        return callback.get_result();
+        // Match
+        ast_context_t * ast_context = compile_context.new_obj<ast_context_t>(
+                                                        compile_context, lang);
+        ast_factory_t factory(*ast_context, reader);
+
+        for (analyze_matched_item_t & it : result.matched_items)
+        {
+            factory.on_branch_matched(it);
+        }
+
+        factory.on_end();
+
+        return factory.get_result();
     }
 
     // Analyzes ast node.

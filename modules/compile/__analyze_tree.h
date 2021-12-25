@@ -1384,42 +1384,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Analyze matched item.
-    struct analyze_matched_item_t
-    {
-        // Constructor
-        analyze_matched_item_t(const analyze_branch_ref_node_t * branch_ref, __tag_t * tag = nullptr)
-            : node(branch_ref), tag(tag), branch_value(branch_ref->branch_value)
-        { }
-
-        // Constructor.
-        analyze_matched_item_t(const analyze_branch_node_t * branch, __tag_t * tag = nullptr)
-            : node(branch), tag(tag), branch_value(branch->key.value)
-        { }
-
-        const analyze_node_t *  node;               // Analyze node.
-        __node_value_t          branch_value;       // Branch value.
-        __tag_t *               tag;                // Tag
-
-        // Returns node value.
-        __node_value_t value() const
-        {
-            return branch_value;
-        }
-
-        // Converts to a string.
-        operator string_t() const
-        {
-            return sprintf(_T("%1%(%2%)"), _str(node), _str(tag));
-        }
-    };
-
-    typedef analyze_matched_item_t __matched_item_t;
-
-    typedef al::svector_t<__matched_item_t, 2> matched_item_vector_t;
-
-    //-------- ---------- ---------- ---------- ----------
-
     // Analyze path node.
     class analyze_path_node_t : public object_t
                               , protected al::initializer_t, public no_copy_ctor_t
@@ -1672,53 +1636,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Callback action type.
-    X_ENUM(analyze_callback_action_t)
-
-        // Branch matched.
-        branch_matched,
-
-        // Analyze end.
-        analyze_end,
-
-    X_ENUM_END
-
-    //-------- ---------- ---------- ---------- ----------
-
-    typedef callback_args_t<analyze_callback_action_t> analyze_callback_args_t;
-
-    template<typename data_t>
-    using tanalyze_callback_args_t = tcallback_args_t<analyze_callback_action_t, data_t>;
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Branch matched callback data.
-    struct branch_matched_analyze_callback_data_t
+    // Analyze matched data.
+    struct analyze_matched_item_t
     {
-        friend class analyze_normal_path_node_t;
+        const analyze_node_t *  node;
+        __node_value_t          value;
 
-        // Constructor.
-        branch_matched_analyze_callback_data_t(
-                    __tag_t * end_tag, const __matched_item_t & matched_item)
-            : end_tag(end_tag), matched_item(matched_item) { }
-
-        __tag_t * end_tag; 
-        const __matched_item_t & matched_item;
+        __tag_t * begin_tag, * end_tag;
     };
-
-    typedef tanalyze_callback_args_t<branch_matched_analyze_callback_data_t>
-            branch_matched_analyze_callback_args_t;
-
-    //-------- ---------- ---------- ---------- ----------
-
-    struct analyze_end_analyze_callback_data_t { };
-
-    typedef tanalyze_callback_args_t<analyze_end_analyze_callback_data_t>
-            analyze_end_analyze_callback_args_t;
-
-    //-------- ---------- ---------- ---------- ----------
-
-    typedef callback_t<analyze_callback_args_t> analyze_callback_t;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1737,15 +1662,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    class analyzer_element_reader_t;
+
+    typedef std::vector<analyze_matched_item_t> analyze_matched_items_t;
+
     // Context for analyze.
     class analyze_context_t : public object_t
     {
         friend class __stack_node_raise_matched_event_action_t;
+        friend class __analyzer_t;
 
     public:
 
         // Constructor.
-        analyze_context_t(lang_t * lang, analyze_tree_t * tree, analyze_callback_t * callback);
+        analyze_context_t(lang_t * lang, analyze_tree_t * tree, analyzer_element_reader_t * reader);
 
         // Matches the next token.
         void go(const __node_key_t * keys, __tag_t * tag, __node_value_t * out_value = nullptr);
@@ -1762,6 +1692,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns current analyze tree.
         __stack_node_t * current_analyze_tree() { return __stack_root; }
 
+        // Returns all matched actions.
+        auto all_matched_items() { return _range(__matched_items); }
+
         X_TO_STRING_IMPL(_T("analyze_context_t"))
 
     private:
@@ -1769,9 +1702,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         lang_service_helper_t __service_helper;         // Service helper
         token_property_cache_t<token_property_t> __token_property_cache;
 
-        analyze_callback_t * __callback;                // Analyze callback.
+        analyzer_element_reader_t * __reader;           // Reader.
         analyze_tree_t * __tree;                        // Analyzze tree.
-
         __stack_node_t * __stack_root = nullptr;        // Stack root.
         al::xheap_t __sn_heap;                          // A heap, memory management.
 
@@ -1781,6 +1713,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         al::heap_t<__stack_node_raise_matched_event_action_t> __raise_matched_event_action_factory;
 
         __leaves_t __leaves;                            // Leaves
+        analyze_matched_items_t __matched_items;        // Matched items.
 
         typedef al::svector_t<__stack_node_t *, 2> __stack_node_vector_t;
 
@@ -1918,15 +1851,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Reset.
         void __reset();
 
-        // Execute callback when matched or completed.
-        void __do_callback(analyze_callback_args_t & args);
-
-        // Execute end callback.
-        void __do_end_callback();
-
-        // Execute branch matched callback.
-        void __do_branch_matched_callback(const __matched_item_t & matched_item, __tag_t * tag);
-
         // When pushes a node to stack.
         void __stack_push(__stack_push_args_t & args, __stack_node_t * stack_node);
 
@@ -2003,6 +1927,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Appends leaves in container.
         template<typename container_t> void __append_leaves(container_t & container);
 
+        // Appends matched items.
+        void __append_matched_items(const analyze_node_t * node, __node_value_t value,
+                                    __tag_t * begin_tag = nullptr, __tag_t * end_tag = nullptr);
+
         // Returns whether it's invisible, e.g. comments.
         bool __is_invisible(token_value_t value);
 
@@ -2039,8 +1967,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
-
-    class analyzer_element_reader_t;
 
     // Analyzer element.
     struct analyzer_element_t
@@ -2339,24 +2265,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    struct analyzer_result_t
+    {
+        // All matched datas.
+        analyze_matched_items_t matched_items;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Aanlyzer.
     class __analyzer_t : public object_t
     {
     public:
 
         // Constructor.
-        __analyzer_t(lang_t * lang, analyze_tree_t * tree,
-            analyzer_element_reader_t * reader, analyze_callback_t * callback)
-            : __lang(lang), __tree(tree), __reader(reader), __callback(callback)
-            , __context(lang, tree, callback)
+        __analyzer_t(lang_t * lang, analyze_tree_t * tree, analyzer_element_reader_t * reader)
+            : __lang(lang), __tree(tree), __reader(reader)
+            , __context(lang, tree, reader)
         {
             _A(lang != nullptr);
             _A(tree != nullptr);
             _A(reader != nullptr);
-            _A(callback != nullptr);
         }
 
-        void analyze();
+        analyzer_result_t analyze();
 
         X_TO_STRING_IMPL(_T("__analyzer_t"))
 
@@ -2364,7 +2296,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         lang_t                    * __lang;             // Language.
         analyze_tree_t            * __tree;             // Tree.
         analyzer_element_reader_t * __reader;           // Reader.
-        analyze_callback_t        * __callback;         // Callback.
         analyze_context_t           __context;          // Context.
         analyzer_element_t        * __element;          // Current element.
 
@@ -2438,7 +2369,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Analyze with reader.
-        void analyze(analyzer_element_reader_t * reader, analyze_callback_t * callback);
+        analyzer_result_t analyze(analyzer_element_reader_t * reader);
 
         static const int32_t __cache_key__ = 1;
 
@@ -2481,8 +2412,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // When branch matched.
-        void on_branch_matched(const analyze_node_t * node, __node_value_t value,
-                                    __tag_t * from_tag, __tag_t * end_tag);
+        void on_branch_matched(analyze_matched_item_t & item);
+
         // When matched end.
         void on_end();
 

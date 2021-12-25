@@ -54,24 +54,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // When branch matched.
-    void ast_factory_t::on_branch_matched(const analyze_node_t * node,
-            __node_value_t value, __tag_t * from_tag, __tag_t * end_tag)
+    void ast_factory_t::on_branch_matched(analyze_matched_item_t & item)
     {
-        __elements_t elements(__reader, from_tag, end_tag);
-        lang_ast_build_args_t args(value, elements);
+        __elements_t elements(__reader, item.begin_tag, item.end_tag);
+        lang_ast_build_args_t args(item.value, elements);
 
         ast_node_t * ast_node = __build_ast(args);
 
         if (ast_node != nullptr)
-        {
-            __reader.append_ast(from_tag, end_tag, ast_node, node);
-        }
+            __reader.append_ast(item.begin_tag, item.end_tag, ast_node, item.node);
     }
 
     // Analyze end notifiy.
     void ast_factory_t::on_end()
     {
-
+        // Empty.
     }
 
     // Builds ast nodes.
