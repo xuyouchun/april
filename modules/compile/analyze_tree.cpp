@@ -2388,6 +2388,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return nullptr;
     }
 
+    // Returns all subnode keys.
+    svector_t<__node_key_t> analyze_normal_path_node_t::all_subnode_keys()
+    {
+        std::set<__node_key_t> key_set;
+        svector_t<__node_key_t> keys;
+
+        each_subnodes([&](__node_key_t key, auto &&) {
+
+            if (key_set.insert(key).second)
+                keys.push_back(key);
+        });
+
+        return std::move(keys);
+    }
+
     // Returns a string of descripts sub nodes.
     string_t analyze_normal_path_node_t::all_subnodes_string()
     {
@@ -2396,7 +2411,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         stringstream_t ss;
 
         int index = 0;
-        for (auto it : __subnode_map)
+        for (auto && it : __subnode_map)
         {
             if (index++ > 0)
                 ss << _T(", ");
@@ -2817,7 +2832,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     analyze_context_t::analyze_context_t(lang_t * lang, analyze_tree_t * tree,
                                          analyze_callback_t * callback)
         : __lang(lang), __callback(callback), __tree(tree)
-        , __sn_heap(_T("analyze_context")), __leafs(&__sn_heap)
+        , __sn_heap(_T("analyze_context")), __leaves(&__sn_heap)
         , __service_helper(lang), __token_property_cache(&__service_helper)
         , __raise_matched_event_action_factory(&__sn_heap)
     {
@@ -2826,6 +2841,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(callback != nullptr);
 
         __reset();
+    }
+
+    // Reset state.
+    void analyze_context_t::reset()
+    {
+        this->__reset();
     }
 
     // Resets
@@ -2843,8 +2864,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __set_merge_identity(current_node);
 
-        __leafs.clear();
-        __leafs.push_back(current_node);
+        __leaves.clear();
+        __leaves.push_back(current_node);
 
         __clear_actions();
     }
@@ -2857,7 +2878,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             __stack_push_args_t args(this, keys, tag, out_value);
 
-            for (__stack_node_t * stack_node : __leafs)
+            for (__stack_node_t * stack_node : __leaves)
             {
                 __stack_push(args, stack_node);
             }
@@ -2866,20 +2887,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             {
 #if __EnableTrace >= 2
                 std::wcout << _T("TREE  1: ") << al::_detail(__stack_root) << std::endl;
-                std::wcout << _T("LEAFS 1: ") << __leafs << std::endl;
+                std::wcout << _T("LEAFS 1: ") << __leaves << std::endl;
 #endif
-                __leafs.clear();
-                __append_leafs(args.new_stack_nodes);
-                __merge_leafs();
+                __leaves.clear();
+                __append_leaves(args.new_stack_nodes);
+                __merge_leaves();
 
                 if (args.new_stack_nodes.size() == 0)
                     throw _EF(__e_t::format_error, _T("format error"));
 
 #if __EnableTrace >= 2
                 std::wcout << _T("TREE  2: ") << al::_detail(__stack_root) << std::endl;
-                std::wcout << _T("LEAFS 2: ") << __leafs << std::endl;
+                std::wcout << _T("LEAFS 2: ") << __leaves << std::endl;
 #endif
-                if (__leafs.size() == 1)
+                if (__leaves.size() == 1)
                     __execute_actions();
             }
             else    // format error.
@@ -2891,33 +2912,33 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
 #if __EnableTrace >= 2
             std::wcout << _T("TREE  3: ") << al::_detail(__stack_root) << std::endl;
-            std::wcout << _T("LEAFS 3: ") << __leafs << std::endl;
+            std::wcout << _T("LEAFS 3: ") << __leaves << std::endl;
 #endif
 
             __stack_pop_args_t args(tag);
-            __leafs.walk([this, &args](__stack_node_t * stack_node) {
+            __leaves.walk([this, &args](__stack_node_t * stack_node) {
                 return __stack_pop(args, stack_node), false;
             });
 
 
-            __append_leafs(args.new_stack_nodes);
+            __append_leaves(args.new_stack_nodes);
 
 #if __EnableTrace >= 2
             std::wcout << _T("TREE  4: ") << al::_detail(__stack_root) << std::endl;
-            std::wcout << _T("LEAFS 4: ") << __leafs << std::endl;
+            std::wcout << _T("LEAFS 4: ") << __leaves << std::endl;
 #endif
 
-            __pick_final_leafs();
+            __pick_final_leaves();
 
 #if __EnableTrace >= 2
             std::wcout << _T("TREE  5: ") << al::_detail(__stack_root) << std::endl;
-            std::wcout << _T("LEAFS 5: ") << __leafs << std::endl;
+            std::wcout << _T("LEAFS 5: ") << __leaves << std::endl;
 #endif
 
-            if (__leafs.size() >= 2)
+            if (__leaves.size() >= 2)
                 throw _EF(__e_t::format_error, _T("conflict"));
 
-            if (__leafs.size() > 0)
+            if (__leaves.size() > 0)
                 __execute_actions();
 
             __do_branch_matched_callback(__matched_item_t(__tree->root, nullptr), nullptr);
@@ -3288,11 +3309,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __stack_node_factory.release(node);
         });
 
-        __leafs.clear();
-
         __stack_root = state.__tree_state.restore([&]() {
             return __stack_node_factory.new_obj();
         });
+
+        __leaves.clear();
+        al::pick_leaves(__stack_root, __leaves);
     }
 
     // Record stack units.
@@ -3464,9 +3486,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Prints leaf identities.
-    static void __print_leaf_identities(__leafs_t & leafs)
+    static void __print_leaf_identities(__leaves_t & leaves)
     {
-        for (__stack_node_t * n : leafs)
+        for (__stack_node_t * n : leaves)
         {
             __print_identity(n);
         }
@@ -3474,31 +3496,31 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     #define __I(n)   ((*(n))->merge_identity)
 
-    // Sorts leafs.
-    __AlwaysInline void __sort_leafs(__leafs_t & leafs)
+    // Sorts leaves.
+    __AlwaysInline void __sort_leaves(__leaves_t & leaves)
     {
-        leafs.sort([](__stack_node_t * n1, __stack_node_t * n2) {
+        leaves.sort([](__stack_node_t * n1, __stack_node_t * n2) {
             return __I(n1) == __I(n2)? __leaf_less(n1, n2) : __I(n1) < __I(n2);
         });
     }
 
-    // Merges leafs.
-    __AlwaysInline void analyze_context_t::__merge_leafs()
+    // Merges leaves.
+    __AlwaysInline void analyze_context_t::__merge_leaves()
     {
-        if (__leafs.size() <= 1)
+        if (__leaves.size() <= 1)
             return;
 
-        __sort_leafs(__leafs);
+        __sort_leaves(__leaves);
 
-        //__print_leaf_identities(__leafs);
+        //__print_leaf_identities(__leaves);
 
-        __merge_identity_t last = __I(__leafs[0]);
-        __leafs.walk([&last, this](__stack_node_t * n) {
+        __merge_identity_t last = __I(__leaves[0]);
+        __leaves.walk([&last, this](__stack_node_t * n) {
             return (__I(n) == last)?  (__remove_leaf(n), false) : (last = __I(n), true);
         }, 1);
 
         //_P(_T("|"));
-        //__print_leaf_identities(__leafs);
+        //__print_leaf_identities(__leaves);
     }
 
     // Prints actions.
@@ -3512,25 +3534,25 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    // Picks final leafs.
-    void analyze_context_t::__pick_final_leafs()
+    // Picks final leaves.
+    void analyze_context_t::__pick_final_leaves()
     {
-        //_P(_T("__pick_final_leafs"));
+        //_P(_T("__pick_final_leaves"));
 
-        if (__leafs.size() <= 1)
+        if (__leaves.size() <= 1)
             return;
 
-        __sort_leafs(__leafs);
+        __sort_leaves(__leaves);
 
         /*
-        for (const __stack_node_t * node : __leafs)
+        for (const __stack_node_t * node : __leaves)
         {
             _P(_T("=============="));
             __print_actions((*node)->action);
         }
         */
 
-        __leafs.walk([this](__stack_node_t * n) {
+        __leaves.walk([this](__stack_node_t * n) {
             return __remove_leaf(n), false;
         }, 1);
     }
@@ -3605,7 +3627,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Executes actions.
     void analyze_context_t::__execute_actions()
     {
-        __stack_node_t * leaf = __leafs[0];
+        __stack_node_t * leaf = __leaves[0];
         if (__execute_actions(leaf))
         {
             while (leaf != nullptr)
@@ -3643,18 +3665,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    // Append leafs.
+    // Append leaves.
     template<typename itor_t>
-    __AlwaysInline void analyze_context_t::__append_leafs(itor_t begin, itor_t end)
+    __AlwaysInline void analyze_context_t::__append_leaves(itor_t begin, itor_t end)
     {
-        std::copy(begin, end, std::back_inserter(__leafs));
+        std::copy(begin, end, std::back_inserter(__leaves));
     }
 
-    // Append leafs.
+    // Append leaves.
     template<typename container_t>
-    __AlwaysInline void analyze_context_t::__append_leafs(container_t & container)
+    __AlwaysInline void analyze_context_t::__append_leaves(container_t & container)
     {
-        __append_leafs(container.begin(), container.end());
+        __append_leaves(container.begin(), container.end());
     }
 
     // Removes leaf unitl prediacte function.
@@ -3710,7 +3732,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Execute branch matched callback.
-    void analyze_context_t::__do_branch_matched_callback(
+    __AlwaysInline void analyze_context_t::__do_branch_matched_callback(
                         const __matched_item_t & matched_item, __tag_t * tag)
     {
         typedef branch_matched_analyze_callback_args_t args_t;
@@ -3957,23 +3979,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Do analyzer.
     void __analyzer_t::analyze()
     {
-        std::stack<__state_t> __states;
+        __state_t origin_state = __keep_state();
 
-        while (!__try_analyze())
+        if (!__try_analyze())
         {
-            __stack_node_t * root = __context.current_analyze_tree();
-            _A(root != nullptr);
-
             size_t position = __reader->position();
+            _PP(position);
+
             if (position > 0)
             {
+                __restore(origin_state);
                 __try_analyze(position - 1);
+                _PP(__reader->position());
 
-                auto leafs = get_leafs(root);
-                _PP(leafs.size());
+                __state_t state = __keep_state();
+
+                __stack_node_t * root = __context.current_analyze_tree();
+                _A(root != nullptr);
+
+                auto keys = __all_subnode_keys(root);
+                for (auto && key : keys)
+                {
+                    _PP(key);
+                }
             }
-
-            break;
         }
     }
 
@@ -4020,7 +4049,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
-        __push_end(&__element->tag);
+        if (__reader->position() != break_point)
+            __push_end(&__element->tag);
     }
 
     // Pushes token.
@@ -4161,6 +4191,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __reader->set_position(state.position);
         __context.restore(state.analyze_state);
+    }
+
+    // Returns all subnode keys.
+    std::set<__node_key_t> __analyzer_t::__all_subnode_keys(__stack_node_t * root)
+    {
+        auto leaves = pick_leaves(root);
+        _A(leaves.size() > 0);
+
+        std::set<__node_key_t> keys;
+        for (__stack_node_t * leaf : leaves)
+        {
+            analyze_normal_path_node_t * path_node = (*leaf)->current;
+            path_node->each_subnodes([&](__node_key_t key, auto &&) {
+                
+                if (key != __end_node_key)
+                    keys.insert(key);
+            });
+        }
+
+        return std::move(keys);
     }
 
     ////////// ////////// ////////// ////////// //////////

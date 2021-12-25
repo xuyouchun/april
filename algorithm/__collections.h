@@ -1122,16 +1122,29 @@ namespace X_ROOT_NS { namespace algorithm {
         });
     }
 
-    template<typename _node_t, typename __node_t = std::remove_reference_t<_node_t>>
-    svector_t<__node_t> get_leafs(_node_t && root)
+    // Pick leaves of a tree.
+    template<
+        typename _node_t, typename _container_t,
+        typename __node_t = std::remove_reference_t<_node_t>
+    >
+    void pick_leaves(_node_t && root, _container_t & container)
     {
-        svector_t<__node_t> vector;
-
         walk_tree(root, [&](auto && node) {
 
             if (node->is_leaf())
-                vector.push_back(node);
+                container.push_back(node);
         });
+    }
+
+    template<
+        typename _node_t,
+        typename __node_t = std::remove_reference_t<_node_t>
+    >
+    svector_t<__node_t> pick_leaves(_node_t && root)
+    {
+        svector_t<__node_t> vector;
+
+        pick_leaves(std::forward<_node_t>(root), vector);
 
         return std::move(vector);
     }

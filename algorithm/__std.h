@@ -382,15 +382,10 @@ namespace X_ROOT_NS { namespace algorithm {
 
         explicit append_iterator_t(_container_t & x) : __container(std::addressof(x)) {}
 
-        append_iterator_t & operator = (const typename container_type::value_type & value)
+        template<typename _value_t>
+        append_iterator_t & operator = (_value_t && value)
         {
-            __container->append(value);
-            return *this;
-        }
-
-        append_iterator_t & operator = (typename container_type::value_type && value)
-        {
-            __container->append(std::move(value));
+            __container->append(std::forward<_value_t>(value));
             return *this;
         }
 

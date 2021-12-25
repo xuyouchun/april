@@ -1543,6 +1543,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __path_node_type_t::normal;
         }
 
+        // Enumerate all subnodes.
+        template<typename _f_t> void each_subnodes(_f_t f)
+        {
+            for (auto && it : __subnode_map)
+            {
+                f(it.first, it.second); // __node_key_t, analyze_path_node_t *
+            }
+        }
+
+        // Returns all subnode keys.
+        svector_t<__node_key_t> all_subnode_keys();
+
         // Returns a string descripts all sub nodes.
         string_t all_subnodes_string();
 
@@ -1710,7 +1722,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    typedef al::walk_list_t<__stack_node_t *> __leafs_t;
+    typedef al::walk_list_t<__stack_node_t *> __leaves_t;
 
     class analyze_state_t : public object_t
     {
@@ -1744,6 +1756,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Restore state.
         void restore(const analyze_state_t & state);
 
+        // Reset state.
+        void reset();
+
         // Returns current analyze tree.
         __stack_node_t * current_analyze_tree() { return __stack_root; }
 
@@ -1765,7 +1780,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         al::heap_t<__stack_node_assign_key_action_t> __assign_key_action_factory;
         al::heap_t<__stack_node_raise_matched_event_action_t> __raise_matched_event_action_factory;
 
-        __leafs_t __leafs;                              // Leafs
+        __leaves_t __leaves;                            // Leaves
 
         typedef al::svector_t<__stack_node_t *, 2> __stack_node_vector_t;
 
@@ -1932,11 +1947,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __stack_node_action_t * next_action, int weight
                     /*, __hstep_t hstep, __affinity_t affinity*/);
 
-        // Merge leafs.
-        void __merge_leafs();
+        // Merge leaves.
+        void __merge_leaves();
 
-        // Pick final leafs when completed.
-        void __pick_final_leafs();
+        // Pick final leaves when completed.
+        void __pick_final_leaves();
 
         // Stack pop.
         void __stack_pop(__stack_pop_args_t & args, __stack_node_t * stack_node);
@@ -1983,10 +1998,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __stack_node_t * __new_stack_node(stack_node_value_t && value);
 
         // Appends leaf sequence.
-        template<typename itor_t> void __append_leafs(itor_t begin, itor_t end);
+        template<typename itor_t> void __append_leaves(itor_t begin, itor_t end);
 
-        // Appends leafs in container.
-        template<typename container_t> void __append_leafs(container_t & container);
+        // Appends leaves in container.
+        template<typename container_t> void __append_leaves(container_t & container);
 
         // Returns whether it's invisible, e.g. comments.
         bool __is_invisible(token_value_t value);
@@ -2402,6 +2417,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Set current state.
         void __restore(const __state_t & state);
+
+        // Returns all subnode keys.
+        std::set<__node_key_t> __all_subnode_keys(__stack_node_t * root);
     };
 
     ////////// ////////// ////////// ////////// //////////
