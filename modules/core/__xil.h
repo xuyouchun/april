@@ -904,10 +904,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             set_ref(struct_type_ref);
         }
 
-        byte_t     __dtype      : 4;
-        byte_t     identity     : 4;
+        byte_t  __dtype      : 4;
+        byte_t  identity     : 4;
 
-        byte_t __extra[0];
+        byte_t  __extra[0];
 
         // Returns storage type. local / param.
         xil_storage_type_t stype() const { return (xil_storage_type_t)hdata(); }
@@ -1013,8 +1013,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             _A(stype <= xil_storage_type_t::__pop_end__);
         }
 
-        byte_t     __dtype      : 4;
-        byte_t     identity     : 4;
+        byte_t  __dtype      : 4;
+        byte_t  identity     : 4;
 
         byte_t __extra[0];
 

@@ -30,8 +30,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         statement_compile_context_t & sctx = ctx.statement_ctx;
 
-        bool value1_effective = is_effective(value1());
-        bool value2_effective = is_effective(value2());
+        bool value1_effective = is_effective(ctx, value1());
+        bool value2_effective = is_effective(ctx, value2());
 
         cvalue_t condition_value = execute_expression(this->condition());
 

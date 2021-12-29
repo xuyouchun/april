@@ -33,7 +33,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         token_tag_t(const token_tag_t & tag) : index(tag.index) { }
         explicit token_tag_t(int32_t index) : index(index) { }
 
-        const token_index_t index;
+        token_index_t index;
 
         // Returns difference of two tags.
         token_index_t operator - (const token_tag_t & tag) const
@@ -103,7 +103,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Optimize basic algorithm.
         optimize_basic_algorighm,
 
+        // Remove unnecessary expressions.
+        remove_unnecessary_expressions,
+
     X_ENUM_END
+
+    // Returns whether it can be optimized.
+    template<typename _ctx_t> bool is_optimize(_ctx_t & ctx, compile_optimize_code_t code)
+    {
+        return ((method_compile_context_t &)ctx).controller->optimize((int)code);
+    }
 
     ////////// ////////// ////////// ////////// //////////
 

@@ -104,7 +104,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (!is_nan(cvalue) && cvalue.value_type != cvalue_type_t::__default__)
         {
-            if (is_effective(expression))
+            if (is_effective(ctx, expression))
                 __compile_cvalue(ctx, pool, cvalue, dtype);
 
             return true;
@@ -499,15 +499,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns whether it's effective.
-    static bool __is_this_effective(expression_t * exp)
+    static bool __is_this_effective(__cctx_t & ctx, expression_t * exp)
     {
-        if (is_effective(exp->parent))
+        if (is_effective(ctx, exp->parent))
             return true;
 
         if (__is_member_expression(exp->parent))
         {
             binary_expression_t * binary_exp = (binary_expression_t *)exp->parent;
-            return is_effective(binary_exp->exp2());
+            return is_effective(ctx, binary_exp->exp2());
         }
 
         return false;
@@ -1110,7 +1110,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         expression_t * exp = ca.exp;
         bool pick = (assign_type == __assign_to_type_t::default_)?
-            is_effective(exp->parent->parent) : (assign_type == __assign_to_type_t::pick);
+            is_effective(ctx, exp->parent->parent) : (assign_type == __assign_to_type_t::pick);
 
         variable_t * var = ca.var;
         switch (var->this_type())
@@ -1324,7 +1324,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (__Is(right))
         {
-            if (is_effective(exp->parent->parent))
+            if (is_effective(ctx, exp->parent->parent))
                 exp->compile(ctx, pool);
 
             exp->compile(ctx, pool);
@@ -1500,7 +1500,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 local_variable_t * variable = ctx.define_temp_local(ret_type);
                 __compile_local_variable(ctx, pool, variable);
 
-                if (is_effective(exp->parent))
+                if (is_effective(ctx, exp->parent))
                     pool.append<x_push_duplicate_xil_t>();
             }
         }
@@ -1521,7 +1521,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     static void __post_call_method(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
                                                                 method_base_t * method)
     {
-
+        // Empty.
     }
 
     // Returns whether it's effective, for the whole expression.
@@ -1725,6 +1725,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
+    void __post_compile_expression(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+                                                                      xil_type_t dtype)
+    {
+        xil_type_t xil_type = __xil_type(exp);
+
+        if (xil_type != xil_type_t::empty && xil_type != xil_type_t::__unknown__)
+        {
+            if (exp->parent == nullptr && !__is_effective(exp->get_behaviour()))
+                pool.append<x_pop_empty_xil_t>(__xil_type(exp));
+            else
+                __try_append_convert_xil(pool, exp->get_vtype(), dtype);
+        }
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Executes binary expression.
@@ -1753,16 +1767,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Basic data types.
-        if (!is_effective(this))
+        if (!is_effective(ctx, this))
         {
             exp1->compile(ctx, pool);
             exp2->compile(ctx, pool);
         }
         else
         {
-            #define __Case(op_)                                 \
-                case operator_t::op_:                           \
-                    __compile_##op_(ctx, pool, exp1, exp2);     \
+            #define __Case(op_)                                                         \
+                case operator_t::op_:                                                   \
+                    __compile_##op_(ctx, pool, exp1, exp2);                             \
                     break;
 
             switch (op())
@@ -1810,7 +1824,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             #undef __Case
 
-            __try_append_convert_xil(pool, this->get_vtype(), dtype);
+            __post_compile_expression(ctx, pool, this, dtype);
         }
     }
 
@@ -1842,10 +1856,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             type_t * param_type = param->get_type();
 
             if (!is_type_compatible(exp_type, param_type))
+            {
                 __Failed("operator overload method '%1%(%2%)' argument type error: "
                          "cannot assign %1%(%2%) to param %3%(%4%)",
                     exp, exp_type, param, param_type
                 );
+            }
         }
     }
 
@@ -1928,15 +1944,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return;
         }
 
-        if (!is_effective(this))
+        if (!is_effective(ctx, this))
         {
             exp->compile(ctx, pool);
         }
         else
         {
-            #define __Case(op_)                                 \
-                case operator_t::op_:                           \
-                    __compile_##op_(ctx, pool, exp);            \
+            #define __Case(op_)                                                         \
+                case operator_t::op_:                                                   \
+                    __compile_##op_(ctx, pool, exp);                                    \
                     break;
 
             switch (op())
@@ -1957,7 +1973,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             #undef __Case
 
-            __try_append_convert_xil(pool, this->get_vtype(), dtype);
+            __post_compile_expression(ctx, pool, this, dtype);
         }
     }
 
@@ -1993,13 +2009,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles name expression.
     void __sys_t<name_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-        if (!__is_this_effective(this))
+        if (!__is_this_effective(ctx, this))
             return;
 
         switch (this->expression_type)
         {
             case name_expression_type_t::variable:
                 __compile_variable(ctx, pool, this->variable, dtype, this);
+                __post_compile_expression(ctx, pool, this, dtype);
                 break;
 
             case name_expression_type_t::type:
@@ -2026,13 +2043,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void __sys_t<name_unit_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                                   xil_type_t dtype)
     {
-        if (!__is_this_effective(this))
+        if (!__is_this_effective(ctx, this))
             return;
 
         switch (this->expression_type)
         {
             case name_expression_type_t::variable:
                 __compile_variable(ctx, pool, this->variable, dtype, this);
+                __post_compile_expression(ctx, pool, this, dtype);
                 break;
 
             case name_expression_type_t::type:
@@ -2044,7 +2062,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 X_UNEXPECTED();
         }
     }
-
 
     ////////// ////////// ////////// ////////// //////////
     // cvalue_expression_t
@@ -2165,11 +2182,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compile constant value.
     void __sys_t<cvalue_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-        if (!__is_this_effective(this))
+        if (!__is_this_effective(ctx, this))
             return;
 
         cvalue_t cvalue = *this->value;
         __compile_cvalue(ctx, pool, cvalue, dtype);
+
+        __post_compile_expression(ctx, pool, this, dtype);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2247,7 +2266,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         _A(method != nullptr);
 
         xil_call_type_t call_type = call_type_of_method(method);
-        bool effective = is_effective(this);
+        bool effective = is_effective(ctx, this);
 
         if (effective)
         {
@@ -2423,7 +2442,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         */
 
-        exp->compile(ctx, pool, __xil_type(type_name));
+        if (is_effective(ctx, this))
+        {
+            exp->compile(ctx, pool, __xil_type(type_name));
+            __post_compile_expression(ctx, pool, this, dtype);
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2458,7 +2481,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (namex == nullptr)
             __Failed("index main expression missing");
 
-        if (is_effective(this->parent))
+        if (is_effective(ctx, this->parent))
         {
             variable_t * variable = __pick_var((variable_expression_t *)this);
             switch (variable->this_type())
@@ -2580,7 +2603,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         pool.append<x_new_xil_t>(type_ref);
 
-        bool is_parent_effective = is_effective(this->parent);
+        bool is_parent_effective = is_effective(ctx, this->parent);
         if (this->constructor != nullptr && is_parent_effective)
         {
             pool.append<x_push_duplicate_xil_t>();
@@ -2620,7 +2643,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 local_variable_t * variable = ctx.define_temp_local(type);
                 __compile_local_variable(ctx, pool, variable);
 
-                if (is_effective(this->parent))
+                if (is_effective(ctx, this->parent))
                     pool.append<x_push_duplicate_xil_t>();
             }
         }
@@ -2664,7 +2687,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (element_type == nullptr)
             __Failed("index element type underterminded");
 
-        bool this_effective = __is_this_effective(this);
+        bool this_effective = __is_this_effective(ctx, this);
 
         // lengths
         if (this->lengths() != nullptr)
@@ -2742,7 +2765,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (is_void_type(type))
             return;
 
-        if (!is_effective(this->parent))
+        if (!is_effective(ctx, this->parent))
             return;
 
         switch (type->this_gtype())
@@ -2811,7 +2834,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles this expression.
     void __sys_t<this_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-        if (!__is_this_effective(this))
+        if (!__is_this_effective(ctx, this))
             return;
 
         if (__is_left_member(this->parent, this))
@@ -2835,6 +2858,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 pool.append<x_push_this_ref_xil_t>();
             }
         }
+
+        __post_compile_expression(ctx, pool, this, dtype);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2849,7 +2874,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Compiles base expression.
     void __sys_t<base_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-        if (__is_this_effective(this))
+        if (__is_this_effective(ctx, this))
             pool.append<x_push_this_ref_xil_t>();
     }
 

@@ -246,6 +246,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             case vtype_t::string_:
                 return xil_type_t::string;
 
+            case vtype_t::void_:
+                return xil_type_t::empty;
+
+            case vtype_t::__default__:
+                return xil_type_t::empty;
+
             default:
                 return xil_type_t::__unknown__;
         }

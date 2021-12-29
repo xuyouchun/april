@@ -1658,6 +1658,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         lr_tree_state_t<__stack_node_value_t> __tree_state;
+        size_t __matched_item_count;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2008,21 +2009,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns whether two elements are node equals.
         bool operator != (const analyzer_element_t & other) const;
 
+        // Returns code unit.
+        code_unit_t * code_unit() const;
+
         // Converts to a string.
-        operator string_t() const
-        {
-            switch (type)
-            {
-                case analyzer_element_type_t::token:
-                    return (string_t)*token;
-
-                case analyzer_element_type_t::ast_node:
-                    return (string_t)*ast_node;
-
-                default:
-                    return _T("");
-            }
-        }
+        operator string_t() const;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2063,7 +2054,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyzer_element_t & element_at(__tag_t * tag, __model_t model = __model_t::normal);
 
         // Returns next element from specified tag.
-        __tag_t * next(__tag_t * tag, __model_t model = __model_t::normal);
+        __tag_t * next_tag(__tag_t * tag, __model_t model = __model_t::normal);
 
         // Returns current position.
         size_t position() const { return __index; }
@@ -2089,6 +2080,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns size of elements.
         size_t size() const { return __items.size(); }
+
+        // Insert token.
+        analyzer_element_t * insert(size_t index, token_t * token);
 
         // Append an ast node.
         void append_ast(__tag_t * from_tag, __tag_t * end_tag,
@@ -2191,7 +2185,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Moves to next iterator.
         __self_t & operator ++()
         {
-            __tag = __elements.next(__tag);
+            __tag = __elements.next_tag(__tag);
             return *this;
         }
 
@@ -2245,9 +2239,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Returns the next element of the tag.
-        tag_t * next(tag_t * tag) const
+        tag_t * next_tag(tag_t * tag) const
         {
-            return __reader.next(tag, __model);
+            return __reader.next_tag(tag, __model);
         }
 
         // Returns begin iterator.
@@ -2279,8 +2273,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        __analyzer_t(lang_t * lang, analyze_tree_t * tree, analyzer_element_reader_t * reader)
-            : __lang(lang), __tree(tree), __reader(reader)
+        __analyzer_t(compile_context_t & compile_context, lang_t * lang,
+                    analyze_tree_t * tree, analyzer_element_reader_t * reader)
+            : __compile_context(compile_context), __lang(lang), __tree(tree), __reader(reader)
             , __context(lang, tree, reader)
         {
             _A(lang != nullptr);
@@ -2293,6 +2288,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_TO_STRING_IMPL(_T("__analyzer_t"))
 
     private:
+        compile_context_t         & __compile_context;  // Compile context.
         lang_t                    * __lang;             // Language.
         analyze_tree_t            * __tree;             // Tree.
         analyzer_element_reader_t * __reader;           // Reader.
@@ -2300,6 +2296,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyzer_element_t        * __element;          // Current element.
 
         static const size_t __empty_break_point = max_value<size_t>();
+        static const analyzer_element_type_t __end = analyzer_element_type_t::__unknown__;
 
         typedef logic_error_t<analyze_tree_error_t> __error_t;
 
@@ -2308,6 +2305,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Do analyzing.
         void __analyze(size_t break_point = __empty_break_point);
+
+        // Push element.
+        void __push_element(analyzer_element_t * element);
+
+        // Detect a long match distance when format error, 
+        int __detect(__node_key_t key, int max_steps);
 
         // Pushes a token.
         void __push_token(token_t * token, __tag_t * tag);
@@ -2369,7 +2372,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Analyze with reader.
-        analyzer_result_t analyze(analyzer_element_reader_t * reader);
+        analyzer_result_t analyze(compile_context_t & compile_context,
+                                  analyzer_element_reader_t * reader);
 
         static const int32_t __cache_key__ = 1;
 
@@ -2411,11 +2415,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             );
         }
 
-        // When branch matched.
-        void on_branch_matched(analyze_matched_item_t & item);
-
-        // When matched end.
-        void on_end();
+        // Do ast node match.
+        void match(const analyze_matched_items_t & items);
 
         // Returns build result.
         ast_node_t * get_result();

@@ -89,6 +89,38 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     X_ENUM_INFO_END
 
+    // Returns code unit.
+    code_unit_t * analyzer_element_t::code_unit() const
+    {
+        switch (type)
+        {
+            case analyzer_element_type_t::token:
+                return ((code_element_t *)token)->code_unit;
+
+            case analyzer_element_type_t::ast_node:
+                return ((code_element_t *)ast_node)->code_unit;
+
+            default:
+                return nullptr;
+        }
+    }
+
+    // Converts to a string.
+    analyzer_element_t::operator string_t() const
+    {
+        switch (type)
+        {
+            case analyzer_element_type_t::token:
+                return (string_t)*token;
+
+            case analyzer_element_type_t::ast_node:
+                return (string_t)*ast_node;
+
+            default:
+                return _T("");
+        }
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns whether it is an unknown value.
@@ -2858,6 +2890,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __leaves.clear();
         __leaves.push_back(current_node);
 
+        __matched_items.clear();
         __clear_actions();
     }
 
@@ -3045,13 +3078,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             //_P(_T("__NewAction: %1% -> %2%"), (*parent)->child_tag, push_args.tag);
 
-            #define __NewAction()  __new_raise_matched_event_action(            \
-                (const analyze_branch_ref_node_t *)ref_unit.node,               \
-                (*parent)->child_tag, push_args.tag, next_action                \
+            #define __NewAction()  __new_raise_matched_event_action(                    \
+                (const analyze_branch_ref_node_t *)ref_unit.node,                       \
+                (*parent)->child_tag, push_args.tag, next_action                        \
             )
 
             __stack_node_action_t * current_action = nullptr;
-            #define __CurrentAction()       \
+            #define __CurrentAction()                                                   \
                 (current_action? current_action : (current_action = __NewAction()))
 
             #define __Action() __CurrentAction()
@@ -3289,6 +3322,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyze_state_t state;
 
         state.__tree_state.store(__stack_root);
+        state.__matched_item_count = __matched_items.size();
 
         return std::move(state);
     }
@@ -3306,6 +3340,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         __leaves.clear();
         al::pick_leaves(__stack_root, __leaves);
+
+        _A(state.__matched_item_count <= __matched_items.size());
+        __matched_items.resize(state.__matched_item_count);
     }
 
     // Record stack units.
@@ -3871,7 +3908,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns next tag of specified tag.
-    X_ALWAYS_INLINE_METHOD __tag_t * analyzer_element_reader_t::next(__tag_t * tag, __model_t model)
+    X_ALWAYS_INLINE_METHOD __tag_t * analyzer_element_reader_t::next_tag(
+                                                __tag_t * tag, __model_t model)
     {
         __item_t & item = __items[tag->index];
 
@@ -3879,6 +3917,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return item.flag->end_tag;
 
         return __items[tag->index + 1].get_tag();
+    }
+
+    // Insert token.
+    analyzer_element_t * analyzer_element_reader_t::insert(size_t index, token_t * token)
+    {
+        _A(token != nullptr);
+
+        analyzer_element_t * element = __items.insert(index, token, index);
+
+        index++;
+        for (size_t size = __items.size(); index < size; index++)
+        {
+            __items[index].tag.index = index;
+        }
+
+        return element;
     }
 
     // Reads next element.
@@ -3948,30 +4002,58 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Do analyzer.
     analyzer_result_t __analyzer_t::analyze()
     {
-        __state_t origin_state = __keep_state();
+        __state_t last_state = __keep_state();
 
-        if (!__try_analyze())
+        while (!__try_analyze())
         {
-            size_t position = __reader->position();
-            _PP(position);
+            // Current element that cause the format error.
+            analyzer_element_t * element = __element;
 
-            if (position > 0)
+            // Restore to the last state and find the last step before format error.
+            size_t position = __reader->position() - 1;
+            __restore(last_state);
+            __try_analyze(position);
+
+            __state_t state = __keep_state();
+
+            // Find the long match distance if insert some element.
+            __stack_node_t * root = __context.current_analyze_tree();
+            _A(root != nullptr);
+
+            auto keys = __all_subnode_keys(root);
+            __node_key_t the_key;
+            int max_step = -1;
+
+            for (auto && key : keys)
             {
-                __restore(origin_state);
-                __try_analyze(position - 1);
-                _PP(__reader->position());
-
-                __state_t state = __keep_state();
-
-                __stack_node_t * root = __context.current_analyze_tree();
-                _A(root != nullptr);
-
-                auto keys = __all_subnode_keys(root);
-                for (auto && key : keys)
+                int step = __detect(key, 8);
+                if (step > max_step)
                 {
-                    _PP(key);
+                    max_step = step;
+                    the_key  = key;
                 }
+
+                __restore(state);
             }
+
+            // Insert the best element and continue parse process.
+            if (max_step > 0)
+            {
+                code_unit_t * cu = element? element->code_unit() : nullptr;
+
+                token_t * token = __compile_context.new_obj<token_t>(
+                    (token_value_t)the_key.value, cu? cu->s : _T("?"), 0
+                );
+
+                _PF(_T("insert %1% at index %2%"), token->value, position);
+                __reader->insert(position, token);
+            }
+            else
+            {
+                X_UNEXPECTED();
+            }
+
+            last_state = std::move(state);
         }
 
         return analyzer_result_t { std::move(__context.__matched_items) };
@@ -4000,28 +4082,60 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Do analyzer.
     void __analyzer_t::__analyze(size_t break_point)
     {
-        while (__reader->position() != break_point &&
-            (__element = __reader->next())->type != analyzer_element_type_t::__unknown__)
+        while (__reader->position() != break_point
+            && (__element = __reader->next())->type != __end)
         {
-            switch (__element->type)
-            {
-                case analyzer_element_type_t::token:
-                    __push_token(__element->token, &__element->tag);
-                    break;
-
-                case analyzer_element_type_t::ast_node:
-                    __push_ast_node(__element->ast_node, &__element->tag);
-                    break;
-
-                default:
-                    throw _E(analyze_tree_error_t::unknown_element_type,
-                        sprintf(_T("unknown element type: %1%"), __element->type)
-                    );
-            }
+            __push_element(__element);
         }
 
         if (__reader->position() != break_point)
             __push_end(&__element->tag);
+    }
+
+    // Push element.
+    __AlwaysInline void __analyzer_t::__push_element(analyzer_element_t * element)
+    {
+        switch (element->type)
+        {
+            case analyzer_element_type_t::token:
+                // _P(_T("----- push_token"), _str(element->token), element->token->value);
+                __push_token(element->token, &__element->tag);
+                break;
+
+            case analyzer_element_type_t::ast_node:
+                __push_ast_node(element->ast_node, &__element->tag);
+                break;
+
+            default:
+                throw _E(analyze_tree_error_t::unknown_element_type,
+                    sprintf(_T("unknown element type: %1%"), element->type)
+                );
+        }
+    }
+
+    // Detect a long match distance when format error, 
+    int __analyzer_t::__detect(__node_key_t key, int max_steps)
+    {
+        int steps = 0;
+
+        try
+        {
+            __push(key, nullptr);
+            steps++;
+
+            analyzer_element_t * element;
+            for (; steps < max_steps && (element = __reader->next())->type != __end; steps++)
+            {
+                __push_element(element);
+            }
+        }
+        catch (const logic_error_t<__e_t> & e)
+        {
+            if (e.code != __e_t::format_error)
+                throw e;
+        }
+
+        return steps;
     }
 
     // Pushes token.
@@ -4188,10 +4302,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // analyzer_t
 
     // Do analyze
-    analyzer_result_t analyzer_t::analyze(analyzer_element_reader_t * reader)
+    analyzer_result_t analyzer_t::analyze(compile_context_t & compile_context,
+                                                analyzer_element_reader_t * reader)
     {
         _A(reader != nullptr);
-        return __analyzer_t(__lang, __tree, reader).analyze();
+        return __analyzer_t(compile_context, __lang, __tree, reader).analyze();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4264,19 +4379,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyzer_t * analyzer = __get_analyzer(global_context, (*p_section)->lang);
         lang_t * lang = context.compile_context.global_context.lang_of((*p_section)->lang);
 
-        analyzer_result_t result = analyzer->analyze(&reader);
+        analyzer_result_t result = analyzer->analyze(compile_context, &reader);
 
         // Match
         ast_context_t * ast_context = compile_context.new_obj<ast_context_t>(
                                                         compile_context, lang);
         ast_factory_t factory(*ast_context, reader);
-
-        for (analyze_matched_item_t & it : result.matched_items)
-        {
-            factory.on_branch_matched(it);
-        }
-
-        factory.on_end();
+        factory.match(result.matched_items);
 
         return factory.get_result();
     }

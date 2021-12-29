@@ -4227,7 +4227,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         bool any_type_def_param() const _NE;
 
         // Returns type at specified index.
-        type_t * type_at(size_t index) const _NE;
+        type_t * type_at(size_t index) const;
 
         // Returns type of specified name.
         type_t * type_at(name_t name) const;
@@ -8102,7 +8102,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     ////////// ////////// ////////// ////////// //////////
-
 
 } } }  // namespace X_ROOT_NS::modules::core
 

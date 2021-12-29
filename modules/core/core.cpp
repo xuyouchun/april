@@ -3929,7 +3929,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // generic_type_t
 
     // Returns type at specified index.
-    type_t * generic_type_t::type_at(size_t index) const _NE
+    type_t * generic_type_t::type_at(size_t index) const
     {
         if (index >= argument_count())
             throw _ECF(argument_error, _T("index out of range"));

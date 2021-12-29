@@ -630,12 +630,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-    // Returns whether it can be optimized.
-    template<typename _ctx_t> bool is_optimize(_ctx_t & ctx, compile_optimize_code_t code)
-    {
-        return ((method_compile_context_t &)ctx).controller->optimize((int)code);
-    }
-
     // Returns whether the following statements are unreached.
     X_INLINE bool unreached(statement_exit_type_t exit_type)
     {

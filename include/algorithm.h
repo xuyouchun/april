@@ -438,6 +438,57 @@ namespace X_ROOT_NS { namespace algorithm {
                         break;
                 }
             } 
+
+            X_ALWAYS_INLINE static void copy_backward(void * dst, const void * src) _NE
+            {
+                switch (_size)
+                {
+                    case 0:
+                        break;
+
+                    case 1:
+                        *(uint8_t *)dst = *(const uint8_t *)src;
+                        break;
+
+                    case 2:
+                        *(uint16_t *)dst = *(const uint16_t *)src;
+                        break;
+
+                    case 3:
+                        *(uint8_t *)((uint16_t *)dst + 1) =
+                                        *(const uint8_t *)((const uint16_t *)src + 1);
+                        *(uint16_t *)dst = *(const uint16_t *)src;
+                        break;
+
+                    case 4:
+                        *(uint32_t *)dst = *(const uint32_t *)src;
+                        break;
+
+                    case 5:
+                        *(uint8_t *)((uint32_t *)dst + 1) =
+                                        *(const uint8_t *)((const uint32_t *)src + 1);
+                        *(uint32_t *)dst = *(const uint32_t *)src;
+                        break;
+
+                    case 6:
+                        *(uint16_t *)((uint32_t *)dst + 1) =
+                                        *(const uint16_t *)((const uint32_t *)src + 1);
+                        *(uint32_t *)dst = *(const uint32_t *)src;
+                        break;
+
+                    case 7:
+                        *(uint8_t *)(((uint16_t *)((uint32_t *)dst + 1)) + 1) =
+                            *(const uint8_t *)((const uint16_t *)((const uint32_t *)src + 1) + 1);
+                        *(uint16_t *)((uint32_t *)dst + 1) =
+                                        *(const uint16_t *)((const uint32_t *)src + 1);
+                        *(uint32_t *)dst = *(const uint32_t *)src;
+                        break;
+
+                    case 8:
+                        *(uint64_t *)dst = *(const uint64_t *)src;
+                        break;
+                }
+            } 
         };
 
         template<size_t _size> // _large is _size > sizeof(uint64_t)
@@ -451,13 +502,28 @@ namespace X_ROOT_NS { namespace algorithm {
                     (uint64_t *)dst + 1, (const uint64_t *)src + 1
                 );
             }
+
+            X_ALWAYS_INLINE static void copy_backward(void * dst, const void * src) _NE
+            {
+                __quick_copy_t<sizeof(uint64_t)>::copy_backward(
+                    (byte_t *)dst + _size - 1,
+                    (const byte_t *)src + _size - 1
+                );
+
+                __quick_copy_t<_size - sizeof(uint64_t)>::copy_backward(
+                    (uint64_t *)dst, (const uint64_t *)src
+                );
+            }
         };
     }
 
-    template<size_t _size>
+    template<size_t _size, bool _backward = false>
     X_ALWAYS_INLINE void quick_copy(void * dst, const void * src) _NE
     {
-        __quick_copy_t<_size>::copy(dst, src);
+        if (_backward)
+            __quick_copy_t<_size>::copy_backward(dst, src);
+        else
+            __quick_copy_t<_size>::copy(dst, src);
     }
 
     void quick_copy(void * dst, const void * src, size_t size) _NE;

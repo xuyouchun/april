@@ -293,6 +293,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Xil will not generated when it is not effective.
     bool is_effective(expression_t * exp);
 
+    // Returns whether the expression is effective.
+    // Xil will not generated when it is not effective.
+    // Always returns true when "remove_unnecessary_expressions" switch is on.
+    template<typename _ctx_t>
+    bool is_effective(_ctx_t & ctx, expression_t * exp)
+    {
+        if (!is_optimize(ctx, compile_optimize_code_t::remove_unnecessary_expressions))
+            return true;
+
+        return is_effective(exp);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     #undef __SystemExpressionT

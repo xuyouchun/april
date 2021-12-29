@@ -82,32 +82,17 @@ namespace X_ROOT_NS { namespace algorithm {
             , __row_size(row_size? row_size : max(1024 / sizeof(obj_t), 1))
         { }
 
-        // Deallocator
-        virtual ~heap_t() override
-        {
-            auto range = _rrange(__pool);
-            obj_creator_t::destory(range);
-
-            for (auto it = __pool.begin(); it != __pool.end(); it++)
-            {
-                this->__free(*it);
-            }
-        }
-
-        X_TO_STRING_IMPL(_T("heap_t"))
-
-    public:
-
-        // Creates an object with give arguments.
+        // Creates an object with given arguments.
         template<typename ... args_t>
         obj_t * new_obj(args_t && ... args)
         {
             obj_t * hole = __current_hole();
             obj_creator_t::new_obj(hole, std::forward<args_t>(args) ...);
+
             return hole;
         }
 
-        // Creates object array with give arguments.
+        // Creates object array with given arguments.
         template<typename output_itor_t, typename ... args_t>
         size_t new_objs(size_t count, output_itor_t output_itor, args_t && ... args)
         {
@@ -121,11 +106,28 @@ namespace X_ROOT_NS { namespace algorithm {
             return index;
         }
 
+        // Creates an object with given arguments at specified index. 
+        template<typename ... _args_t>
+        obj_t * insert(size_t index, _args_t && ... args)
+        {
+            size_t size = this->size();
+
+            if (index == size)
+                return new_obj(std::forward<_args_t>(args) ...);
+
+            if (index > size)
+                throw _EC(invalid_operation, _T("index larger than heap size"));
+
+            obj_t * hole = __move_next(index);
+            obj_creator_t::new_obj(hole, std::forward<_args_t>(args) ...);
+
+            return hole;
+        }
+
         // Returns the object count in the heap.
         size_t size() const
         {
-            size_t pool_size = __pool.size();
-            return !pool_size? 0 : (pool_size - 1) * __row_size + __current_col;
+            return __size;
         }
 
         // Returns the object at the specified idnex.
@@ -147,9 +149,26 @@ namespace X_ROOT_NS { namespace algorithm {
         void clear()
         {
             __current_row_ptr = nullptr;
+
             __current_col = 0;
             __current_row = -1;
+
+            __size = 0;
         }
+
+        // Deallocator
+        virtual ~heap_t() override
+        {
+            auto range = _rrange(__pool);
+            obj_creator_t::destory(range);
+
+            for (auto it = __pool.begin(); it != __pool.end(); it++)
+            {
+                this->__free(*it);
+            }
+        }
+
+        X_TO_STRING_IMPL(_T("heap_t"))
 
         // Iterator of elements
         template<typename _self_t>
@@ -194,11 +213,11 @@ namespace X_ROOT_NS { namespace algorithm {
         iterator end()   const { return iterator(this, size()); }
 
     private:
-
         obj_pool_t  __pool;
         obj_t *     __current_row_ptr = nullptr;
         const int   __row_size;
         int __current_col = 0, __current_row = -1;
+        size_t      __size = 0;
 
         // Current hole for creating a new object.
         obj_t * __current_hole()
@@ -218,9 +237,48 @@ namespace X_ROOT_NS { namespace algorithm {
                 __current_col = 0;
             }
 
+            __size++;
             return __current_row_ptr + (__current_col++);
         }
 
+        // Move all objects to next from specified index.
+        obj_t * __move_next(size_t index)
+        {
+            obj_t * hole = __current_hole();    // Append a new hole at last.
+
+            int from_row = index / __row_size, from_col = index % __row_size;
+            int row = __current_row, col = __current_col - 1;
+
+            #define __H(_row, _col) (__pool[_row] + _col)
+            #define __Copy(_dst_row, _dst_col, _src_row, _src_col, _count)              \
+                quick_copy(                                                             \
+                    __H(_dst_row, _dst_col), __H(_src_row, _src_col),                   \
+                    (_count) * sizeof(obj_t)                                            \
+                )
+
+            if (row > from_row)
+            {
+                __Copy(row, 1, row, 0, col);
+
+                for (row--; row > from_row; row--)
+                {
+                    __Copy(row + 1, 0, row, __row_size - 1, 1);
+                    __Copy(row, 1, row, 0, __row_size - 1);
+                }
+
+                __Copy(row + 1, 0, row, __row_size - 1, 1);
+                __Copy(row, from_col + 1, row, from_col, __row_size - from_col - 1);
+            }
+            else
+            {
+                __Copy(from_row, from_col + 1, from_row, from_col, col - from_col);
+            }
+
+            return __H(from_row, from_col);
+
+            #undef __Copy
+            #undef __H
+        }
     };
 
     ////////// ////////// ////////// ////////// //////////

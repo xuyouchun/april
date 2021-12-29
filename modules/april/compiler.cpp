@@ -590,6 +590,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
             __Case(auto_determine_constant_variables,   2)
             __Case(compute_constant_values,             1)
             __Case(optimize_basic_algorighm,            2)
+            __Case(remove_unnecessary_expressions,      1)
 
             default:
                 return optimize_level >= 1;
