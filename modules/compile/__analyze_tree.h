@@ -38,7 +38,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __node_value_t   value  : sizeof(__node_value_t) * 8;
         __node_type_t    type   : sizeof(__node_type_t)  * 8;
 
-        #define __RESERVED_INT_SIZE \
+        #define __RESERVED_INT_SIZE                                                     \
             (sizeof(__underlying_t) - sizeof(__node_value_t) - sizeof(__node_type_t))
 
         __underlying_t __reserved  : __RESERVED_INT_SIZE * 8;
@@ -154,14 +154,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     class analyze_node_t;
     class analyze_end_node_t;
-    //typedef int16_t __hstep_t;
 
     // Analyze node unit.
     struct analyze_node_unit_t : compare_operators_t<analyze_node_unit_t, analyze_node_t *>
     {
         // Constructor.
-        analyze_node_unit_t(analyze_node_t * node/*, __hstep_t hstep = 0*/)
-            : node(node) /*, hstep(hstep)*/
+        analyze_node_unit_t(analyze_node_t * node)
+            : node(node)
         { }
 
         // Constructor.
@@ -171,7 +170,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Analyze node.
         analyze_node_t * node;
-        //__hstep_t hstep;
 
         // Returns analyze node.
         operator analyze_node_t * () const { return node; }
@@ -187,7 +185,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyze_node_unit_t & operator = (std::nullptr_t)
         {
             node = nullptr;
-            //hstep = 0;
 
             return *this;
         }
@@ -221,7 +218,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void append(const __node_unit_t & u);
 
         // Appends a node.
-        void append(analyze_node_t * node/*, __hstep_t hstep = 0*/);
+        void append(analyze_node_t * node);
 
         // Appends nodes.
         void append(analyze_nodes_t & nodes);
@@ -1221,9 +1218,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Constructor.
         analyze_path_node_stack_unit_t() = default;
         analyze_path_node_stack_unit_t(const analyze_node_t * node, int16_t step,
-                /*int16_t affinity, __hstep_t hstep,*/ void * path, const analyze_node_t * entrance,
-                __node_value_t node_value)
-            : node(node), step(step)/*, affinity(affinity), hstep(hstep)*/
+                void * path, const analyze_node_t * entrance, __node_value_t node_value)
+            : node(node), step(step)
             , path(path), entrance(entrance), node_value(node_value)
         { }
 
@@ -1231,8 +1227,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const analyze_node_t * node;
 
         int16_t step;
-        //int16_t affinity;
-        //__hstep_t hstep;
 
         void * path;
         const analyze_node_t * entrance;
@@ -1242,7 +1236,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Converts to a string.
         operator string_t() const
         {
-            //return sprintf(_T("%1% %2%"), _str(node), hstep);
             return _str(node);
         }
     };
@@ -1666,6 +1659,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class analyzer_element_reader_t;
 
     typedef std::vector<analyze_matched_item_t> analyze_matched_items_t;
+    typedef svector_t<__node_key_t> node_keys_t;
 
     // Context for analyze.
     class analyze_context_t : public object_t
@@ -1695,6 +1689,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns all matched actions.
         auto all_matched_items() { return _range(__matched_items); }
+
+        // Detect next possible keys.
+        node_keys_t detect_next_keys();
 
         X_TO_STRING_IMPL(_T("analyze_context_t"))
 
@@ -1869,8 +1866,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Check end node.
         void __check_end_node(__check_end_node_args_t & args, __stack_node_t * parent,
                     __stack_node_t * current, __node_unit_t end_unit,
-                    __stack_node_action_t * next_action, int weight
-                    /*, __hstep_t hstep, __affinity_t affinity*/);
+                    __stack_node_action_t * next_action, int weight);
 
         // Merge leaves.
         void __merge_leaves();
@@ -1937,6 +1933,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Clear actions.
         void __clear_actions();
+
+        // Check end nodes in detecting next keys model.
+        void __detect_check_end_node(node_keys_t & out_keys,
+                __stack_node_t * parent, __stack_node_t * current, __node_unit_t end_unit);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2351,9 +2351,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Set current state.
         void __restore(const __state_t & state);
-
-        // Returns all subnode keys.
-        std::set<__node_key_t> __all_subnode_keys(__stack_node_t * root);
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -773,6 +773,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return _int(op) < _int(operator_t::__user_defined__);
     }
 
+    // Returns string description of a operator.
+    const string_t get_system_operator_string(operator_t op);
+
     //-------- ---------- ---------- ---------- ----------
 
     // Operator director

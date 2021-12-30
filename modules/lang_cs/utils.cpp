@@ -177,6 +177,32 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    const operator_property_t * get_operator_property(cs_token_value_t value)
+    {
+        const __cs_token_property_t * property = get_token_property(value);
+        operator_t op = property->op;
+
+        return is_system_operator(op)?
+            get_system_operator_property(op) : (const operator_property_t *)property;
+    }
+
+    const string_t get_token_string(cs_token_value_t value)
+    {
+        const __cs_token_property_t * property = get_token_property(value);
+
+        if (property->is_operator)
+        {
+            operator_t op = property->op;
+
+            if (is_system_operator(op))
+                return get_system_operator_string(op);
+        }
+
+        return _str(value);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
 
 } } }  // X_ROOT_NS::modules::lang_cs
 

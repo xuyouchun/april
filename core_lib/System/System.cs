@@ -141,7 +141,7 @@ public interface ITuple<TItems ...>
 ////////// ////////// ////////// ////////// //////////
 
 [__internal__]
-public class Tuple<TItems ...> : ITuple<TItems ...>
+public struct Tuple<TItems ...> : ITuple<TItems ...>
 {
     public Tuple(TItems ... items)
     {

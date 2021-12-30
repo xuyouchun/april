@@ -34,9 +34,11 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         // lang_token_property_service_t
         virtual const token_property_t * get_token_property(token_value_t value) override;
 
+        // Returns string description of a token.
+        virtual const string_t get_token_string(token_value_t value) override;
+
         // lang_operator_property_service_t
-        virtual const operator_property_t * get_operator_property(
-                                                        token_value_t token_value) override;
+        virtual const operator_property_t * get_operator_property(token_value_t value) override;
 
         // lang_expression_build_service_t
         virtual const expression_box_property_t * get_expression_box_property(

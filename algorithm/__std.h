@@ -367,6 +367,36 @@ namespace X_ROOT_NS { namespace algorithm {
         std::for_each(std::begin(container), std::end(container), func);
     }
 
+    // Distinct elements from container.
+    template<typename _container_t, typename _output_iterator_t>
+    void distinct(_container_t && container, _output_iterator_t output_iterator)
+    {
+        typedef std::remove_reference_t<decltype(*std::begin(container))> element_t;
+        std::set<element_t> set;
+
+        for (auto && it : container)
+        {
+            if (set.insert(it).second)
+            {
+                *output_iterator = it;
+                ++output_iterator;
+            }
+        }
+    }
+
+    // Distinct elements from container.
+    template<typename _container_t,
+        typename _output_container_t = std::remove_reference_t<_container_t>
+    >
+    _output_container_t distinct(_container_t && container)
+    {
+        _output_container_t new_container;
+
+        distinct(std::forward<_container_t>(container), std::back_inserter(new_container));
+
+        return std::move(new_container);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Append inserter

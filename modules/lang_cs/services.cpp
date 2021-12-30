@@ -18,6 +18,12 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         return get_token_property((cs_token_value_t)value);
     }
 
+    // Returns a string description of a token.
+    X_INLINE const string_t __get_token_string(token_value_t value)
+    {
+        return get_token_string((cs_token_value_t)value);
+    }
+
     // Returns node value.
     X_INLINE analyze_node_value_t __get_node_value(
                                 const string_t & name, analyze_node_type_t node_type)
@@ -37,6 +43,12 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     const token_property_t * cs_lang_service_t::get_token_property(token_value_t value)
     {
         return __get_token_property(value);
+    }
+
+    // Returns string description of a token.
+    const string_t cs_lang_service_t::get_token_string(token_value_t value)
+    {
+        return __get_token_string(value);
     }
 
     // Operator property service

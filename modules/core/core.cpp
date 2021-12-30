@@ -242,6 +242,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     X_ENUM_INFO_END
 
+    // Returns string description of a operator.
+    const string_t get_system_operator_string(operator_t op)
+    {
+        return _str(op);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // log_level_t
 

@@ -571,6 +571,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         : public tlang_service_t<lang_service_type_t::token_property>
     {
         virtual const token_property_t * get_token_property(token_value_t token_value) = 0;
+
+        virtual const string_t get_token_string(token_value_t token_value) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
