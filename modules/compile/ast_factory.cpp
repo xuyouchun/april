@@ -8,7 +8,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     typedef ast_build_error_code_t e_t;
     typedef token_tag_t __tag_t;
-    typedef lang_ast_build_elements_t<__tag_t> __elements_t;
+    typedef lang_ast_build_elements_t __elements_t;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -86,9 +86,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Returns node flag.
-    static const char_t * __get_node_flag(analyzer_element_t & element)
+    static const char_t * __get_node_flag(analyze_element_t & element)
     {
         const analyze_node_t * node = element.matched_node;
+
         if (node == nullptr)
             return _T("");
 
@@ -102,18 +103,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (node == nullptr)
             return nullptr;
 
-        for (analyzer_element_t & element : __args.elements)
+        analyze_element_t * element;
+        while ((element = __args.elements.next()) != nullptr)
         {
-            switch (element.type)
+            switch (element->type)
             {
-                case analyzer_element_type_t::token: {
+                case analyze_element_type_t::token: {
                     ast_builder_apply_token_args_t args;
-                    this->apply_token(element.token, args);
+                    this->apply_token(element->token, args);
                 }   break;
 
-                case analyzer_element_type_t::ast_node: {
-                    ast_builder_apply_ast_args_t args { __get_node_flag(element) };
-                    this->apply_ast(element.ast_node, args);
+                case analyze_element_type_t::ast_node: {
+                    ast_builder_apply_ast_args_t args { __get_node_flag(*element) };
+                    this->apply_ast(element->ast_node, args);
                 } break;
 
                 default:

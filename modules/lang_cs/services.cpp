@@ -51,6 +51,12 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         return __get_token_string(value);
     }
 
+    // Returns string description of branch.
+    const string_t cs_lang_service_t::get_branch_string(analyze_node_value_t value)
+    {
+        return _title((cs_branch_type_t)value);
+    }
+
     // Operator property service
     const operator_property_t * cs_lang_service_t::get_operator_property(token_value_t value)
     {
@@ -120,15 +126,17 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         return __get_node_value(name, node_type);
     }
 
+    #define __Builder(name)   AstBuilderName(name)(context, args).build()
+    #define __BuilderCase_(name, builder_name)                                          \
+                            case cs_branch_type_t::name: return __Builder(builder_name);
+    #define __BuilderCase(name) __BuilderCase_(name, name)
+
     // Ast build service
     ast_node_t * cs_lang_service_t::build_ast(ast_context_t & context,
                                                         lang_ast_build_args_t & args)
     {
-        #define __Build(name)   AstBuilderName(name)(context, args).build()
-        #define __Case_(name, builder_name)  case type_t::name: return __Build(builder_name);
-        #define __Case(name)    __Case_(name, name)
-
-        typedef cs_branch_type_t type_t;
+        #define __Case      __BuilderCase
+        #define __Case_     __BuilderCase_
 
         switch ((cs_branch_type_t)args.node_value)
         {
@@ -222,6 +230,74 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
             default:
                 return nullptr;
+        }
+
+        #undef __Case_
+        #undef __Case
+    }
+
+    // Detect missing element when compile format error.
+    detect_missing_element_result cs_lang_service_t::detect_missing_element(
+                ast_context_t & ast_context, analyzer_element_reader_t & reader,
+                const analyze_node_keys_t & possible_keys)
+    {
+        std::set<analyze_node_key_t> keys;
+        al::copy(possible_keys, al::inserter(keys));
+
+        typedef cs_branch_type_t branch_t;
+        static branch_t prefer_branches[] = { branch_t::_expression, branch_t::_single_expression };
+
+        for (branch_t branch : prefer_branches)
+        {
+            analyze_node_key_t key(analyze_node_type_t::branch_ref, (analyze_node_value_t)branch);
+            if (al::contains(keys, key))
+                return __build_ast_node(ast_context, branch);
+        }
+
+        return detect_missing_element_result::empty;
+    }
+
+    // A fake expression ast_node.
+    class __fake_expression_ast_node_t
+        : public tsingle_ast_node_t<(element_value_t)cs_branch_type_t::_expression>
+        , public expression_ast_t
+    {
+        typedef tsingle_ast_node_t<(element_value_t)cs_branch_type_t::_expression> __super_t;
+
+    public:
+        __fake_expression_ast_node_t() : __value(0), __expression(&__value) { }
+
+        virtual expression_t * to_eobject() override
+        {
+            return &__expression;
+        }
+
+    private:
+        cvalue_t __value;
+        cvalue_expression_t __expression;
+    };
+
+    // Creates a new ast node of specified branch value.
+    detect_missing_element_result cs_lang_service_t::__build_ast_node(
+                                    ast_context_t & context, cs_branch_type_t branch)
+    { 
+        array_ast_build_elements_t elements;
+        lang_ast_build_args_t args((analyze_node_value_t)branch, elements);
+
+        switch ((cs_branch_type_t)branch)
+        {
+            case cs_branch_type_t::_expression: {
+                static __fake_expression_ast_node_t node;
+                return detect_missing_element_result(&node, _T("expression"));
+            }   break;
+
+            default: {
+                ast_node_t * node = this->build_ast(context, args);
+                _A(node != nullptr);
+                return detect_missing_element_result(
+                    node, get_branch_string((analyze_node_value_t)branch)
+                );
+            }   break;
         }
     }
 

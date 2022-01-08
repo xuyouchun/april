@@ -46,8 +46,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __pos_arr.push_back(__code);
 
         const char_t * p = __code;
-        const char_t * p_end = p + __length < p?
-                (const char_t *)max_value<size_t>() : p + __length;
+        const char_t * p_end = (__length == __empty_length)?
+                (const char_t *)max_value<arch_uint_t>() : p + __length;
 
         for (; *p && p < p_end; p++)
         {

@@ -399,35 +399,66 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Append inserter
-    template <typename _container_t>
-    class append_iterator_t : public std::iterator<std::output_iterator_tag,
-                                                        void, void, void, void>
+    namespace
     {
-    protected:
-        _container_t * __container;
-
-    public:
-        typedef _container_t container_type;
-
-        explicit append_iterator_t(_container_t & x) : __container(std::addressof(x)) {}
-
-        template<typename _value_t>
-        append_iterator_t & operator = (_value_t && value)
+        // Append inserter
+        template <typename _container_t, typename _inserter_t>
+        class __insert_iterator_t : public std::iterator<std::output_iterator_tag,
+                                                            void, void, void, void>
         {
-            __container->append(std::forward<_value_t>(value));
-            return *this;
-        }
+            typedef __insert_iterator_t __self_t;
 
-        append_iterator_t & operator*()     { return *this; }
-        append_iterator_t & operator++()    { return *this; }
-        append_iterator_t   operator++(int) { return *this; }
-    };
+        protected:
+            _container_t & __container;
+
+        public:
+            typedef _container_t container_type;
+
+            explicit __insert_iterator_t(_container_t & x) : __container(x) { }
+
+            template<typename _value_t>
+            __self_t & operator = (_value_t && value)
+            {
+                _inserter_t::insert(__container, std::forward<_value_t>(value));
+                return *this;
+            }
+
+            __self_t & operator*()     { return *this; }
+            __self_t & operator++()    { return *this; }
+            __self_t   operator++(int) { return *this; }
+        };
+
+        template<typename _container_t>
+        struct __append_inserter_t
+        {
+            template<typename _value_t>
+            X_ALWAYS_INLINE static void insert(_container_t & container, _value_t && value)
+            {
+                container.append(std::forward<_value_t>(value));
+            }
+        };
+ 
+        template<typename _container_t>
+        struct __inserter_t
+        {
+            template<typename _value_t>
+            X_ALWAYS_INLINE static void insert(_container_t & container, _value_t && value)
+            {
+                container.insert(std::forward<_value_t>(value));
+            }
+        };
+    }
 
     template <typename _container_t>
-    inline append_iterator_t<_container_t> append_inserter(_container_t && container)
+    X_INLINE auto append_inserter(_container_t && container)
     {
-        return append_iterator_t<_container_t>(container);
+        return __insert_iterator_t<_container_t, __append_inserter_t<_container_t>>(container);
+    }
+
+    template <typename _container_t>
+    X_INLINE auto inserter(_container_t && container)
+    {
+        return __insert_iterator_t<_container_t, __inserter_t<_container_t>>(container);
     }
 
     ////////// ////////// ////////// ////////// //////////

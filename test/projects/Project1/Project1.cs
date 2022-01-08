@@ -8,7 +8,7 @@ class Project1
     [EntryPoint, Trace]
     public static void Main()
     {
-        int a, b = 10
+        int a = 1, b = 10 + 20 + ;
     }
 }
 

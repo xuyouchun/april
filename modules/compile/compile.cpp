@@ -39,6 +39,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    X_ENUM_INFO(log_info_type_t)
+
+        X_C(message,        _T("message"))
+
+        X_C(flag,           _T("flag"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Compile optimize codes.
     X_ENUM_INFO(compile_optimize_code_t)
 
@@ -58,8 +68,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 _T("Auto compute constant values while compiling."))
 
         // Optimize basic algorithm.
-        X_D(optimize_basic_algorighm,
-                _T("Optimize basic algorithm"))
+        X_D(optimize_basic_algorighm, _T("Optimize basic algorithm"))
 
     X_ENUM_INFO_END
 
@@ -84,6 +93,68 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_C(end,            _T("end"))
 
     X_ENUM_INFO_END
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Analyze element types
+    X_ENUM_INFO(analyze_element_type_t)
+
+        X_C(empty,      _T("empty"))
+
+        // A token.
+        X_C(token,      _T("token"))
+
+        // A ast node.
+        X_C(ast_node,   _T("ast_node"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Returns code unit.
+    code_unit_t * analyze_element_t::code_unit() const
+    {
+        code_element_t * element = this->code_element();
+
+        if (element != nullptr)
+            return element->code_unit;
+
+        return nullptr;
+    }
+
+    // Returns code element.
+    code_element_t * analyze_element_t::code_element() const
+    {
+        switch (type)
+        {
+            case analyze_element_type_t::token:
+                return token;
+
+            case analyze_element_type_t::ast_node:
+                return ast_node;
+
+            default:
+                return nullptr;
+        }
+    }
+
+    // Converts to a string.
+    analyze_element_t::operator string_t() const
+    {
+        switch (type)
+        {
+            case analyze_element_type_t::token:
+                return (string_t)*token;
+
+            case analyze_element_type_t::ast_node:
+                return (string_t)*ast_node;
+
+            default:
+                return _T("");
+        }
+    }
+
+    const analyze_element_t analyze_element_t::empty;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -337,6 +408,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Statement analyze service.
         X_C(statement_analyze)
 
+        // Build ast service.
+        X_C(ast_build)
+
+        // Analyze service.
+        X_C(analyze)
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -571,6 +648,78 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return __compiler->__compile_project(__bctx, __context, cproject, this);
         }
     };
+
+    ////////// ////////// ////////// ////////// //////////
+    // console_logger_t
+
+    void console_logger_t::log(code_element_t * element, log_level_t level,
+                            const string_t & name, const string_t & message)
+    {
+        __color_t color = __get_console_color(level, name);
+
+        if (level >= log_level_t::warning)
+        {
+            {
+                X_SET_CONSOLE_COLOR_(color);
+                print(sprintf(_T("%1%"), level));
+            }
+
+            stringstream_t ss;
+            ss << _T(" ") << name.c_str() << _T(": ") << message.c_str();
+
+            code_unit_t * cu;
+
+            if (element != nullptr && (cu = element->code_unit) != nullptr)
+            {
+                const code_file_t * file = cu->file;
+
+                if ((file = cu->file) != nullptr)
+                {
+                    codepos_helper_t h(file->get_source_code());
+                    codepos_t pos = h.pos_of(cu->s);
+
+                    string_t msg = _F(_T("\r\n%1%:%2%:%3%"), file->get_file_path(),
+                                                                pos.line, pos.col);
+                    ss << msg.c_str();
+                }
+            }
+
+            _P(ss.str());
+        }
+        else
+        {
+            X_SET_CONSOLE_COLOR_(color);
+            _P(message);
+        }
+    }
+
+    console_logger_t::__color_t
+    console_logger_t::__get_console_color(log_level_t level, const string_t & name)
+    {
+        switch (level)
+        {
+            case log_level_t::error:
+                return __color_t::light_red;
+
+            case log_level_t::warning:
+                return __color_t::yellow;
+
+            case log_level_t::info:
+                #define __Cmp(_code)                                                \
+                    (al::stricmp(name.c_str(), _title(log_info_type_t::_code))      \
+                                                            == cmp_t::equals)
+
+                if (__Cmp(flag))
+                    return __color_t::light_green;
+
+                return __color_t::gray;
+
+                #undef __Cmp
+
+            default:
+                return __color_t::gray;
+        }
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -848,6 +997,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return it != __id_name_map.end()? it->second : string_t(_T(""));
     }
 
+    const detect_missing_element_result detect_missing_element_result::empty(
+        analyze_element_t::empty, empty_str
+    );
+
     ////////// ////////// ////////// ////////// //////////
     // lang_service_helper_t
 
@@ -859,10 +1012,38 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return __RequireService(token_read)->create_token_reader(context);
     }
 
-    // Token property service
+    // Token property service, get property of token.
     const token_property_t * lang_service_helper_t::get_token_property(token_value_t value)
     {
         return __RequireService(token_property)->get_token_property(value);
+    }
+
+    // Token property service, get string description of token.
+    const string_t lang_service_helper_t::get_token_string(token_value_t value)
+    {
+        return __RequireService(token_property)->get_token_string(value);
+    }
+
+    // Token property service, get string description of branch.
+    const string_t lang_service_helper_t::get_branch_string(analyze_node_value_t value)
+    {
+        return __RequireService(token_property)->get_branch_string(value);
+    }
+
+    // Token property service, get string description of node.
+    const string_t lang_service_helper_t::get_element_string(const analyze_element_t & element)
+    {
+        switch (element.type)
+        {
+            case analyze_element_type_t::token:
+                return get_token_string(element.token->value);
+
+            case analyze_element_type_t::ast_node:
+                return get_branch_string(element.ast_node->value());
+
+            default:
+                return _T("?");
+        }
     }
 
     // Operator property service
@@ -903,6 +1084,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                                                             lang_ast_build_args_t & args)
     {
         return __RequireService(ast_build)->build_ast(context, args);
+    }
+
+    // Detect which element is missing.
+    detect_missing_element_result lang_service_helper_t::detect_missing_element(
+                ast_context_t & ast_context, analyzer_element_reader_t & reader,
+                const analyze_node_keys_t & possible_keys)
+    {
+        return __RequireService(analyze)->detect_missing_element(ast_context,
+                                                                 reader, possible_keys);
     }
 
     ////////// ////////// ////////// ////////// //////////

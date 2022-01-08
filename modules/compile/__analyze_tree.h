@@ -18,54 +18,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     //-------- ---------- ---------- ---------- ----------
 
-    typedef analyze_node_value_t __node_value_t;
-    typedef uint_type_t<sizeof(__node_value_t) + sizeof(__node_type_t)>
-                                        __analyze_node_key_underlying_t;
+    typedef analyze_node_value_t    __node_value_t;
+    typedef analyze_node_key_t      __node_key_t;
+    typedef analyze_node_keys_t     __node_keys_t;
 
-    // Analyze node key.
-    struct analyze_node_key_t
-        : public compare_operators_t<analyze_node_key_t, __analyze_node_key_underlying_t>
-    {
-        typedef __analyze_node_key_underlying_t __underlying_t;
-
-        // Constructor.
-        analyze_node_key_t() = default;
-
-        // Constructor.
-        constexpr analyze_node_key_t(__node_type_t type, __node_value_t value = (__node_value_t)0)
-            : value(value), type(type), __reserved(0) { }
-
-        __node_value_t   value  : sizeof(__node_value_t) * 8;
-        __node_type_t    type   : sizeof(__node_type_t)  * 8;
-
-        #define __RESERVED_INT_SIZE                                                     \
-            (sizeof(__underlying_t) - sizeof(__node_value_t) - sizeof(__node_type_t))
-
-        __underlying_t __reserved  : __RESERVED_INT_SIZE * 8;
-
-        #undef __RESERVED_INT_SIZE
-
-        // Returns underlying value.
-        operator __underlying_t() const { return *(__underlying_t *)this; }
-
-        // Converts to a string.
-        explicit operator string_t() const
-        {
-            return sprintf(_T("%1%:%2%"), _title(type), value);
-        }
-    };
-
-    // Writes a key to a stream.
-    template<typename stream_t>
-    stream_t & operator << (stream_t & stream, const analyze_node_key_t & key)
-    {
-        return stream << ((string_t)key).c_str();
-    }
-
-    typedef analyze_node_key_t __node_key_t;
-    constexpr __node_key_t __empty_node_key(__node_type_t::empty);
-    constexpr __node_key_t __end_node_key(__node_type_t::end);
-    constexpr __node_key_t __empty_token(__node_type_t::token, empty_token_value);
+    constexpr __node_key_t __empty_node_key = analyze_empty_node_key;
+    constexpr __node_key_t __end_node_key   = analyze_end_node_key;
+    constexpr __node_key_t __empty_token    = analyze_empty_token;
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1636,6 +1595,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __node_value_t          value;
 
         __tag_t * begin_tag, * end_tag;
+
+        operator string_t() const
+        {
+            return _str(node);
+        }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1659,7 +1623,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     class analyzer_element_reader_t;
 
     typedef std::vector<analyze_matched_item_t> analyze_matched_items_t;
-    typedef svector_t<__node_key_t> node_keys_t;
 
     // Context for analyze.
     class analyze_context_t : public object_t
@@ -1691,7 +1654,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         auto all_matched_items() { return _range(__matched_items); }
 
         // Detect next possible keys.
-        node_keys_t detect_next_keys();
+        __node_keys_t detect_next_keys();
 
         X_TO_STRING_IMPL(_T("analyze_context_t"))
 
@@ -1935,7 +1898,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __clear_actions();
 
         // Check end nodes in detecting next keys model.
-        void __detect_check_end_node(node_keys_t & out_keys,
+        void __detect_check_end_node(__node_keys_t & out_keys,
                 __stack_node_t * parent, __stack_node_t * current, __node_unit_t end_unit);
     };
 
@@ -1956,67 +1919,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Analyze element types.
-    X_ENUM(analyzer_element_type_t)
-
-        // A token
-        token,
-
-        // A ast node.
-        ast_node,
-
-    X_ENUM_END
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Analyzer element.
-    struct analyzer_element_t
-    {
-        // Constructor.
-        analyzer_element_t() = delete;
-        analyzer_element_t(const analyzer_element_t &) = default;
-
-        // Constructor with type and index.
-        analyzer_element_t(analyzer_element_type_t type, token_index_t index = 0)
-            : type(type), tag(index)
-        { }
-
-        // Constructor with token and index.
-        analyzer_element_t(token_t * token, token_index_t index = 0)
-            : type(analyzer_element_type_t::token)
-            , token(token), tag(index)
-        { }
-
-        // Constructor with ast node and index.
-        analyzer_element_t(ast_node_t * ast_node, token_index_t index = 0)
-            : type(analyzer_element_type_t::ast_node)
-            , ast_node(ast_node), tag(index)
-        { }
-
-        analyzer_element_type_t type;               // Element type.
-        __tag_t tag;                                // Element tag.
-        const analyze_node_t * matched_node;        // Matched node.
-
-        union
-        {
-            token_t * token;
-            ast_node_t * ast_node;
-        };
-
-        // Returns whether two elements are equals.
-        bool operator == (const analyzer_element_t & other) const;
-
-        // Returns whether two elements are node equals.
-        bool operator != (const analyzer_element_t & other) const;
-
-        // Returns code unit.
-        code_unit_t * code_unit() const;
-
-        // Converts to a string.
-        operator string_t() const;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
+   //-------- ---------- ---------- ---------- ----------
 
     // Analyze element read models.
     X_ENUM(analyzer_element_read_model_t)
@@ -2042,16 +1945,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         analyzer_element_reader_t(__token_reader_context_t & context, code_section_t ** &p_section);
 
         // Returns next eleent.
-        analyzer_element_t * next();
+        analyze_element_t * next();
 
         // Returns element at specified tag.
-        analyzer_element_t & operator[](__tag_t * tag)
+        analyze_element_t & operator[](__tag_t * tag)
         {
             return element_at(tag, __model_t::normal);
         }
 
         // Returns element at specified tag.
-        analyzer_element_t & element_at(__tag_t * tag, __model_t model = __model_t::normal);
+        analyze_element_t & element_at(__tag_t * tag, __model_t model = __model_t::normal);
 
         // Returns next element from specified tag.
         __tag_t * next_tag(__tag_t * tag, __model_t model = __model_t::normal);
@@ -2082,7 +1985,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         size_t size() const { return __items.size(); }
 
         // Insert token.
-        analyzer_element_t * insert(size_t index, token_t * token);
+        analyze_element_t * insert(size_t index, token_t * token);
+
+        // Insert element.
+        analyze_element_t * insert(size_t index, const analyze_element_t & element);
 
         // Append an ast node.
         void append_ast(__tag_t * from_tag, __tag_t * end_tag,
@@ -2106,7 +2012,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             __tag_t * end_tag;              // The end tag.
             ast_node_t * ast_node;          // The ast node.
-            analyzer_element_t element;     // Element.
+            analyze_element_t element;      // Element.
 
             __ast_flag_t * next = nullptr;  // Next flag.
 
@@ -2116,9 +2022,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         //-------- ---------- ---------- ---------- ----------
 
         // Aanlyze element.
-        struct __item_t : analyzer_element_t
+        struct __item_t : analyze_element_t
         {
-            using analyzer_element_t::analyzer_element_t;
+            typedef analyze_element_t __super_t;
+
+            using __super_t::__super_t;
+
+            __item_t(const analyze_element_t & element) : __super_t(element) { }
 
             __ast_flag_t * flag = nullptr;
 
@@ -2151,49 +2061,38 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Returns the end element.
-        analyzer_element_t * __end_element()
+        analyze_element_t * __end_element()
         {
-            return __items.new_obj(analyzer_element_type_t::__unknown__, __items.size());
+            return __items.new_obj(analyze_element_type_t::__unknown__, __items.size());
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<typename tag_t> class lang_ast_build_elements_t;
+    class lang_ast_build_elements_t;
 
     // Builder element iterator.
-    template<typename tag_t>
     class lang_ast_builder_element_iterator_t
     {
-        typedef analyzer_element_t __element_t;
-        typedef lang_ast_builder_element_iterator_t<tag_t> __self_t;
-        typedef lang_ast_build_elements_t<tag_t> __elements_t;
+        typedef analyze_element_t __element_t;
+        typedef lang_ast_builder_element_iterator_t __self_t;
+        typedef lang_ast_build_elements_t __elements_t;
 
     public:
 
         // Constructor.
-        lang_ast_builder_element_iterator_t(const __elements_t & elements, tag_t * tag)
+        lang_ast_builder_element_iterator_t(const __elements_t & elements, token_tag_t * tag)
             : __elements(elements), __tag(tag)
         { }
 
         // Returns element.
-        __element_t & operator *() const
-        {
-            return __elements.get(__tag);
-        }
+        __element_t & operator * () const;
 
         // Moves to next iterator.
-        __self_t & operator ++()
-        {
-            __tag = __elements.next_tag(__tag);
-            return *this;
-        }
+        __self_t & operator ++ ();
 
         // Moves to next iterator.
-        __self_t operator ++(int) const
-        {
-            return __self_t(__elements, __elements.next());
-        }
+        __self_t operator ++ (int);
 
         // Returns whether two iterators are equals.
         bool operator == (const __self_t & other) const
@@ -2209,53 +2108,86 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         const __elements_t & __elements;
-        tag_t * __tag;
+        token_tag_t * __tag;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
     // Ast build elements.
-    template<typename tag_t>
-    class lang_ast_build_elements_t
+    class lang_ast_build_elements_t : public ast_build_elements_t
     {
-        typedef analyzer_element_t __element_t;
-        typedef lang_ast_build_elements_t<tag_t> __self_t;
-        typedef lang_ast_builder_element_iterator_t<tag_t> __itor_t;
+        typedef analyze_element_t __element_t;
+        typedef lang_ast_build_elements_t __self_t;
+        typedef lang_ast_builder_element_iterator_t __itor_t;
         typedef analyzer_element_read_model_t __model_t;
 
     public:
 
         // Constructor.
         lang_ast_build_elements_t(analyzer_element_reader_t & reader,
-                tag_t * from_tag, tag_t * end_tag, __model_t model = __model_t::normal)
-            : __reader(reader), __end(*this, end_tag)
-            , __from_tag(from_tag), __end_tag(end_tag), __model(model)
+                token_tag_t * from_tag, token_tag_t * to_tag,
+                __model_t model = __model_t::normal)
+            : __reader(reader), __begin(*this, from_tag), __end(*this, to_tag), __current(__begin)
+            , __model(model)
         { }
 
         // Returns element by the tag.
-        __element_t & get(tag_t * tag) const
+        __element_t & get(token_tag_t * tag) const
         {
             return __reader.element_at(tag, __model);
         }
 
         // Returns the next element of the tag.
-        tag_t * next_tag(tag_t * tag) const
+        token_tag_t * next_tag(token_tag_t * tag) const
         {
             return __reader.next_tag(tag, __model);
         }
 
         // Returns begin iterator.
-        __itor_t begin() const { return __itor_t(*this, __from_tag); }
+        __itor_t begin() const { return __begin; }
 
         // Returns end iterator.
         const __itor_t end() const { return __end; }
 
+        // Reads next element.
+        virtual analyze_element_t * next() override
+        {
+            if (__current == __end)
+                return nullptr;
+
+            return std::addressof(*__current++);
+        }
+
     private:
         analyzer_element_reader_t & __reader;
-        tag_t * __from_tag, * __end_tag;
-        const __itor_t __end;
+        const __itor_t __begin, __end;
+        __itor_t __current;
         __model_t __model;
     };
+
+    // Returns element.
+    X_INLINE analyze_element_t & lang_ast_builder_element_iterator_t::operator * () const
+    {
+        return __elements.get(__tag);
+    }
+
+    // Moves to next iterator.
+    X_INLINE lang_ast_builder_element_iterator_t &
+        lang_ast_builder_element_iterator_t::operator ++ ()
+    {
+        __tag = __elements.next_tag(__tag);
+        return *this;
+    }
+
+    // Moves to next iterator.
+    X_INLINE lang_ast_builder_element_iterator_t
+        lang_ast_builder_element_iterator_t::operator ++ (int)
+    {
+        lang_ast_builder_element_iterator_t this_ = *this;
+        __tag = __elements.next_tag(__tag);
+
+        return this_;
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -2273,9 +2205,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        __analyzer_t(compile_context_t & compile_context, lang_t * lang,
+        __analyzer_t(ast_context_t & ast_context, lang_t * lang,
                     analyze_tree_t * tree, analyzer_element_reader_t * reader)
-            : __compile_context(compile_context), __lang(lang), __tree(tree), __reader(reader)
+            : __ast_context(ast_context)
+            , __compile_context(ast_context.compile_context)
+            , __lang(lang), __tree(tree), __reader(reader)
             , __context(lang, tree, reader)
         {
             _A(lang != nullptr);
@@ -2288,15 +2222,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_TO_STRING_IMPL(_T("__analyzer_t"))
 
     private:
+        ast_context_t             & __ast_context;      // Ast context.
         compile_context_t         & __compile_context;  // Compile context.
         lang_t                    * __lang;             // Language.
         analyze_tree_t            * __tree;             // Tree.
         analyzer_element_reader_t * __reader;           // Reader.
         analyze_context_t           __context;          // Context.
-        analyzer_element_t        * __element;          // Current element.
+        analyze_element_t         * __element;          // Current element.
 
         static const size_t __empty_break_point = max_value<size_t>();
-        static const analyzer_element_type_t __end = analyzer_element_type_t::__unknown__;
+        static const analyze_element_type_t __end = analyze_element_type_t::__unknown__;
 
         typedef logic_error_t<analyze_tree_error_t> __error_t;
 
@@ -2306,8 +2241,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Do analyzing.
         void __analyze(size_t break_point = __empty_break_point);
 
+        // Try specified keys, returns possible keys and the best matched key.
+        __node_keys_t __try_missing_keys(__node_keys_t & keys, __node_key_t * out_best_key);
+
+        // Create a new element from specified node key.
+        analyze_element_t __element_from_key(__node_key_t key, code_unit_t * cu);
+
         // Push element.
-        void __push_element(analyzer_element_t * element);
+        void __push_element(analyze_element_t * element);
 
         // Detect a long match distance when format error, 
         int __detect(__node_key_t key, int max_steps);
@@ -2369,7 +2310,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Analyze with reader.
-        analyzer_result_t analyze(compile_context_t & compile_context,
+        analyzer_result_t analyze(ast_context_t & ast_context,
                                   analyzer_element_reader_t * reader);
 
         static const int32_t __cache_key__ = 1;
@@ -2470,7 +2411,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         X_TO_STRING_IMPL(_T("ast_builder_t"))
 
     protected:
-        typedef analyzer_element_t              __element_t;
+        typedef analyze_element_t               __element_t;
         typedef ast_builder_completed_args_t    __completed_args_t;
         typedef ast_builder_apply_token_args_t  __apply_token_args_t;
         typedef ast_builder_apply_ast_args_t    __apply_ast_args_t;

@@ -56,6 +56,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
             case t::ast_build:
                 return __get_service<lang_ast_build_service_t>();
 
+            case t::analyze:
+                return __get_service<lang_analyze_service_t>();
+
             default:
                 return nullptr;
         }

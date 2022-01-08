@@ -17,10 +17,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-    #define __SimpleAst(name)                                   \
-                                                                \
-        __Ast(name)                                             \
-            /* nothing */                                       \
+    #define __SimpleAst(name)                                                           \
+                                                                                        \
+        __Ast(name)                                                                     \
+            /* nothing */                                                               \
         __EndAst(name)
 
     #define __Using(name)   using __AstName(name)::__AstName(name)

@@ -1234,7 +1234,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Returns node value.
-        virtual __value_t value() const override final
+        virtual __value_t value() const override
         {
             return (__value_t)node_data_t::value;
         }

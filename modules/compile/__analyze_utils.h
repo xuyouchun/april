@@ -30,7 +30,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     public:
 
         // Constructor.
-        codepos_helper_t(const char_t * code, size_t length = max_value<size_t>())
+        codepos_helper_t(const char_t * code, size_t length = __empty_length)
             : __code(code), __length(length)
         {
             _A(code != nullptr);
@@ -47,6 +47,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         std::vector<const char_t *> __pos_arr;
 
         void __ensure_initialized();
+
+        static const size_t __empty_length = max_value<size_t>();
     };
 
     ////////// ////////// ////////// ////////// //////////

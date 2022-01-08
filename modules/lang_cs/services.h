@@ -2,6 +2,7 @@
 #define __LANG_CS_SERVICES_H__
 
 #include <modules/lang_cs.h>
+#include "cs_analyze_tree.h"
 
 namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
@@ -21,6 +22,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         , public lang_token_read_service_t
         , public lang_statement_analyze_service_t
         , public lang_ast_build_service_t
+        , public lang_analyze_service_t
     {
     public:
         cs_lang_service_t(cs_lang_t * lang) : __lang(lang)
@@ -36,6 +38,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         // Returns string description of a token.
         virtual const string_t get_token_string(token_value_t value) override;
+
+        // Returns string description of branch.
+        virtual const string_t get_branch_string(analyze_node_value_t value) override;
 
         // lang_operator_property_service_t
         virtual const operator_property_t * get_operator_property(token_value_t value) override;
@@ -57,10 +62,18 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         virtual ast_node_t * build_ast(ast_context_t & context,
                                                     lang_ast_build_args_t & args) override;
 
+        // Detect missing element when compile format error.
+        virtual detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
+            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys) override;
+
         X_TO_STRING_IMPL(_T("cs_lang_service_t"))
 
     private:
         cs_lang_t * __lang;
+
+        // Creates a new ast node of specified branch value.
+        detect_missing_element_result __build_ast_node(ast_context_t & ast_context,
+                                                       cs_branch_type_t branch);
     };
 
     ////////// ////////// ////////// ////////// //////////

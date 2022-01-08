@@ -15,7 +15,12 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns node value.
     analyze_node_value_t get_node_value(const string_t & name, analyze_node_type_t node_type);
+
+    // Returns node name.
+    const string_t get_node_name(analyze_node_key_t node_key);
+
     const char_t * get_analyze_tree_pattern();
 
     ////////// ////////// ////////// ////////// //////////
@@ -45,6 +50,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         _fields_item,
 
         _single_expression,
+
+        _expression,
 
         _function_name_expression,
 

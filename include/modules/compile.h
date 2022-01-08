@@ -85,6 +85,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Log info types.
+    X_ENUM(log_info_type_t)
+
+        message,
+
+        flag,
+
+    X_ENUM_END
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Compile optimize codes.
     X_ENUM(compile_optimize_code_t)
 
@@ -480,6 +491,161 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Analyze node types.
+    X_ENUM(analyze_node_type_t)
+
+        // Empty node.
+        empty,
+        
+        // Token node.
+        token,
+        
+        // Branch node.
+        branch,
+        
+        // Branch ref node.
+        branch_ref,
+        
+        // End node.
+        end,
+
+    X_ENUM_END
+
+    typedef element_value_t analyze_node_value_t;
+
+    //-------- ---------- ---------- ---------- ----------
+
+    typedef uint_type_t<sizeof(analyze_node_value_t) + sizeof(analyze_node_type_t)>
+                                        __analyze_node_key_underlying_t;
+
+    // Analyze node key.
+    struct analyze_node_key_t
+        : public compare_operators_t<analyze_node_key_t, __analyze_node_key_underlying_t>
+    {
+        typedef __analyze_node_key_underlying_t __underlying_t;
+        typedef analyze_node_type_t             __node_type_t;
+        typedef analyze_node_value_t            __node_value_t;
+
+        // Constructor.
+        analyze_node_key_t() = default;
+
+        // Constructor.
+        constexpr analyze_node_key_t(__node_type_t type, __node_value_t value = (__node_value_t)0)
+            : value(value), type(type), __reserved(0) { }
+
+        __node_value_t   value  : sizeof(__node_value_t) * 8;
+        __node_type_t    type   : sizeof(__node_type_t)  * 8;
+
+        #define __RESERVED_INT_SIZE                                                     \
+            (sizeof(__underlying_t) - sizeof(__node_value_t) - sizeof(__node_type_t))
+
+        __underlying_t __reserved  : __RESERVED_INT_SIZE * 8;
+
+        #undef __RESERVED_INT_SIZE
+
+        // Returns underlying value.
+        operator __underlying_t() const _NE { return *(__underlying_t *)this; }
+
+        // Converts to a string.
+        explicit operator string_t() const
+        {
+            return sprintf(_T("%1%:%2%"), _title(type), value);
+        }
+    };
+
+    // Writes a key to a stream.
+    template<typename stream_t>
+    stream_t & operator << (stream_t & stream, const analyze_node_key_t & key)
+    {
+        return stream << ((string_t)key).c_str();
+    }
+
+    constexpr analyze_node_key_t analyze_empty_node_key(analyze_node_type_t::empty);
+    constexpr analyze_node_key_t analyze_end_node_key(analyze_node_type_t::end);
+    constexpr analyze_node_key_t analyze_empty_token(analyze_node_type_t::token, empty_token_value);
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Analyze element types.
+    X_ENUM(analyze_element_type_t)
+
+        empty = __default__,
+
+        // A token
+        token,
+
+        // A ast node.
+        ast_node,
+
+    X_ENUM_END
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Analyzer element.
+    struct analyze_element_t
+    {
+        // Constructor.
+        analyze_element_t() : type(analyze_element_type_t::empty), tag(0), token(nullptr) { }
+
+        // Constructor.
+        analyze_element_t(const analyze_element_t &) = default;
+
+        // Constructor with type and index.
+        analyze_element_t(analyze_element_type_t type, token_index_t index = 0)
+            : type(type), tag(index)
+        { }
+
+        // Constructor with token and index.
+        analyze_element_t(token_t * token, token_index_t index = 0)
+            : type(analyze_element_type_t::token)
+            , token(token), tag(index)
+        { }
+
+        // Constructor with ast node and index.
+        analyze_element_t(ast_node_t * ast_node, token_index_t index = 0)
+            : type(analyze_element_type_t::ast_node)
+            , ast_node(ast_node), tag(index)
+        { }
+
+        analyze_element_type_t type;                    // Element type.
+        token_tag_t tag;                                // Element tag.
+        const analyze_node_t * matched_node = nullptr;  // Matched node.
+
+        union
+        {
+            token_t * token;
+            ast_node_t * ast_node;
+        };
+
+        // Returns whether two elements are equals.
+        bool operator == (const analyze_element_t & other) const;
+
+        // Returns whether two elements are node equals.
+        bool operator != (const analyze_element_t & other) const;
+
+        // Returns whether it is empty.
+        bool is_empty() const { return type == analyze_element_type_t::empty; }
+
+        // Returns code unit.
+        code_unit_t * code_unit() const;
+
+        // Returns code element.
+        code_element_t * code_element() const;
+
+        // Converts to a string.
+        operator string_t() const;
+
+        // Converts to code_unit_t *.
+        operator code_unit_t * () const { return code_unit(); }
+
+        // Converts to code_element_t *.
+        operator code_element_t * () const { return code_element(); }
+
+        static const analyze_element_t empty;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Language service types.
     X_ENUM(lang_service_type_t)
 
@@ -500,6 +666,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // A service for building ast.
         ast_build,
+
+        // A service for analyze tree.
+        analyze,
 
     X_ENUM_END
 
@@ -570,9 +739,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     X_INTERFACE lang_token_property_service_t
         : public tlang_service_t<lang_service_type_t::token_property>
     {
-        virtual const token_property_t * get_token_property(token_value_t token_value) = 0;
+        virtual const token_property_t * get_token_property(token_value_t value) = 0;
 
-        virtual const string_t get_token_string(token_value_t token_value) = 0;
+        virtual const string_t get_token_string(token_value_t value) = 0;
+
+        virtual const string_t get_branch_string(analyze_node_value_t value) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -582,6 +753,44 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         : public tlang_service_t<lang_service_type_t::operator_property>
     {
         virtual const operator_property_t * get_operator_property(token_value_t token_value) = 0;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    class analyzer_element_reader_t;
+    class ast_context_t;
+
+    typedef svector_t<analyze_node_key_t> analyze_node_keys_t;
+
+    // The result of detect missing elements.
+    struct detect_missing_element_result
+    {
+        detect_missing_element_result(analyze_element_t element, const string_t & title)
+            : missing_element(element), title(title)
+        { }
+
+        detect_missing_element_result(ast_node_t * node, const string_t & title)
+            : missing_element(node), title(title)
+        { }
+
+        detect_missing_element_result(token_t * token, const string_t & title)
+            : missing_element(token), title(title)
+        { }
+
+        analyze_element_t   missing_element;
+        string_t            title;
+
+        bool is_empty() const { return missing_element.is_empty(); }
+
+        static const detect_missing_element_result empty;
+    };
+
+    // Interface for analyze tree.
+    X_INTERFACE lang_analyze_service_t
+        : public tlang_service_t<lang_service_type_t::analyze>
+    {
+        virtual detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
+            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -661,30 +870,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Analyze node types.
-    X_ENUM(analyze_node_type_t)
-
-        // Empty node.
-        empty,
-        
-        // Token node.
-        token,
-        
-        // Branch node.
-        branch,
-        
-        // Branch ref node.
-        branch_ref,
-        
-        // End node.
-        end,
-
-    X_ENUM_END
-
-    typedef element_value_t analyze_node_value_t;
-
-    //-------- ---------- ---------- ---------- ----------
-
     // Interface for statement analyze service.
     X_INTERFACE lang_statement_analyze_service_t
         : public tlang_service_t<lang_service_type_t::statement_analyze>
@@ -699,17 +884,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    struct analyzer_element_t;
+    struct analyze_element_t;
 
-    template<typename __tag_t = token_tag_t>
-    class lang_ast_build_elements_t;
+    X_INTERFACE ast_build_elements_t
+    {
+        // Read next element.
+        virtual analyze_element_t * next() = 0;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
     // Arguments for building ast.
     class lang_ast_build_args_t
     {
-        typedef lang_ast_build_elements_t<> __elements_t;
+        typedef ast_build_elements_t __elements_t;
 
     public:
 
@@ -719,12 +907,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         { }
 
         const analyze_node_value_t node_value;      // Node value
-        const __elements_t & elements;              // Elements.
+        __elements_t & elements;                    // Elements.
     };
 
     //-------- ---------- ---------- ---------- ----------
-
-    class ast_context_t;
 
     // Interface for build ast.
     X_INTERFACE lang_ast_build_service_t
@@ -1103,12 +1289,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // A logger for outputing to console.
     class console_logger_t : public logger_t
     {
+        typedef lib::console_color_t __color_t;
+
     public:
         virtual void log(code_element_t * element, log_level_t level,
-                            const string_t & name, const string_t & message) override
-        {
-            _PF(_T("[%1%] %2%:%3%"), level, name, message);
-        }
+                            const string_t & name, const string_t & message) override;
+
+    private:
+        __color_t __get_console_color(log_level_t level, const string_t & name);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1144,6 +1332,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         compile_context_t & compile_context;    // Compile context.
         lang_t * const lang;                    // Language.
         logger_t & logger;                      // Logger.
+
+        operator compile_context_t & () { return compile_context; }
+        operator global_context_t & ()  { return compile_context.global_context; }
 
         X_TO_STRING_IMPL(_T("ast_context_t"))
 
@@ -1390,16 +1581,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         lang_t * const lang;
 
         // Returns language service.
-        template<typename _lang_service_t>
-        _lang_service_t * get_service()
+        template<typename _lang_service_t> _lang_service_t * get_service()
         {
             lang_service_type_t service_type = _lang_service_t::service_type;
             return (_lang_service_t *)__service_map[service_type];
         }
 
         // Returns language service, raise exceptions if not exists.
-        template<typename _lang_service_t>
-        _lang_service_t * require_service()
+        template<typename _lang_service_t> _lang_service_t * require_service()
         {
             _lang_service_t * service = get_service<_lang_service_t>();
             if (service == nullptr)
@@ -1415,8 +1604,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Token read service
         token_reader_t * create_token_reader(token_reader_context_t & context);
 
-        // Token property service
+        // Token property service, get property of token.
         const token_property_t * get_token_property(token_value_t value);
+
+        // Token property service, get string description of token.
+        const string_t get_token_string(token_value_t value);
+
+        // Token property service, get string description of branch.
+        const string_t get_branch_string(analyze_node_value_t value);
+
+        // Token property service, get string description of node.
+        const string_t get_element_string(const analyze_element_t & element);
 
         // Operator property service
         const operator_property_t * get_operator_property(token_value_t value);
@@ -1437,6 +1635,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Ast build service
         ast_node_t * build_ast(ast_context_t & context, lang_ast_build_args_t & args);
+
+        // Detect which element is missing.
+        detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
+            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys);
 
     private:
         al::auto_cache_t<lang_service_type_t, lang_service_t *> __service_map;

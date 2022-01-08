@@ -1,5 +1,6 @@
 
 #include "cs_analyze_tree.h"
+#include "utils.h"
 
 namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
@@ -23,6 +24,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 return __NodeKeyOfName(cs_token_value_t, name);
 
             case __node_type_t::branch:
+            case __node_type_t::branch_ref:
                 return __NodeKeyOfName(cs_branch_type_t, name);
 
             default:
@@ -30,6 +32,23 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         }
 
         #undef __NodeKeyOfName
+    }
+
+    // Returns node name.
+    const string_t get_node_name(analyze_node_key_t node_key)
+    {
+        switch (node_key.type)
+        {
+            case __node_type_t::token:
+                return get_token_string((cs_token_value_t)node_key.value);
+
+            case __node_type_t::branch:
+            case __node_type_t::branch_ref:
+                return _title((cs_branch_type_t)node_key.value);
+
+            default:
+                return _T("?");
+        }
     }
 
     // Returns pattern.
@@ -43,25 +62,26 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // Cs Branch type.
     X_BRANCH_ENUM_INFO(cs_branch_type_t)
 
-        X_C(_attribute_group,           _T("_attribute_group"))
-        X_C(_attribute_group_item,      _T("_attribute_group.__item"))
+        X_C(_attribute_group,           _T("_attribute group"), _T("attributes"))
+        X_C(_attribute_group_item,      _T("_attribute_group.__item"), _T("attribute"))
         X_C(_attribute_group_assign,    _T("_attribute_group.__assign"))
         X_C(_attribute_type_name,       _T("_attribute_type_name"))
 
-        X_C(_decorate_complex,          _T("decorate.__complex"))
-        X_C(_defination_st_item,        _T("defination_st.__item"))
+        X_C(_decorate_complex,          _T("_decorate.__complex"))
+        X_C(_defination_st_item,        _T("_defination_st.__item"))
         X_C(_fake_method,               _T("_fake_method"))
 
-        X_C(_enum_fields,               _T("_enum_fields"))
-        X_C(_enum_fields_item,          _T("_enum_fields.__item"))
+        X_C(_enum_fields,               _T("_enum_fields"), _T("enum fields"))
+        X_C(_enum_fields_item,          _T("_enum_fields.__item"), _T("enum field"))
 
-        X_C(_fields,                    _T("_fields"))
-        X_C(_fields_item,               _T("_fields.__item"))
+        X_C(_fields,                    _T("_fields"), _T("field"))
+        X_C(_fields_item,               _T("_fields.__item"), _T("field"))
 
-        X_C(_single_expression,         _T("_single_expression"))
-        X_C(_function_name_expression,  _T("_function_name_expression"))
+        X_C(_expression,                _T("_expression"), _T("expression"))
+        X_C(_single_expression,         _T("_single_expression"), _T("expression"))
+        X_C(_function_name_expression,  _T("_function_name_expression"), _T("function name"))
 
-        X_C(_operator,                  _T("_operator"))
+        X_C(_operator,                  _T("_operator"), _T("operator"))
 
     X_BRANCH_ENUM_INFO_END
 

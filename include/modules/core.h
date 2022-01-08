@@ -487,13 +487,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Token in source codes.
     struct token_t : code_element_t
     {
-        // Constructors.
+        // Constructor.
         token_t(token_value_t value, const char_t * s, int32_t length,
             token_data_t * data = nullptr, const code_file_t * file = nullptr)
             : code_element_t(&code_unit), code_unit(s, length, file), value(value), data(data)
         { } 
 
-        // Constructors.
+        // Constructor.
+        token_t(token_value_t value, const char_t * s, int32_t length, const code_file_t * file)
+            : token_t(value, s, length, nullptr, file)
+        { }
+
+        // Constructor.
+        token_t(token_value_t value, code_unit_t * cu)
+            : token_t(value, cu? cu->s : nullptr, cu? cu->length : 0, cu? cu->file : nullptr)
+        { }
+
+        // Constructor.
         token_t() = default; 
         token_t(const token_t &o) = default;
 
@@ -5869,6 +5879,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return _T("[single ast]");
         }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Multipy ast node with element value.
+    template<element_value_t _value>
+    class tsingle_ast_node_t : public single_ast_node_t
+    {
+    public:
+        using single_ast_node_t::single_ast_node_t;
+
+        // Returns the element value.
+        virtual element_value_t value() const { return _value; }
     };
 
     ////////// ////////// ////////// ////////// //////////

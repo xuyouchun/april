@@ -951,8 +951,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             type_t * ret_type = to_type(method->type_name);
 
-            #define __CplLogError(error_name, args ...)                             \
-                cpl_log_errorf(ctx.logger, method,                                  \
+            #define __CplLogError(error_name, args ...)                                 \
+                cpl_log_errorf(ctx.logger, method,                                      \
                     __e_t::entry_point_prototype_mistake__##error_name, ##args)
 
             if (ret_type != nullptr && !is_void_type(ret_type))
@@ -972,11 +972,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
             al::svector_t<const char_t *> not_allowed_keywords;
 
-            #define __CheckDecorate(name)                           \
-                do                                                  \
-                {                                                   \
-                    if (decorate.is_##name)                          \
-                        not_allowed_keywords.push_back(_S(name));   \
+            #define __CheckDecorate(name)                                               \
+                do                                                                      \
+                {                                                                       \
+                    if (decorate.is_##name)                                             \
+                        not_allowed_keywords.push_back(_S(name));                       \
                 } while (false)
 
             __CheckDecorate(sealed);

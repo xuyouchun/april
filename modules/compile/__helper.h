@@ -355,6 +355,52 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // A simple ast build element list.
+    class array_ast_build_elements_t : public ast_build_elements_t
+    {
+    public:
+
+        array_ast_build_elements_t() = default;
+
+        array_ast_build_elements_t(const std::initializer_list<analyze_element_t> & elements)
+        {
+            for (const analyze_element_t & element : elements)
+            {
+                __elements.push_back(element);
+            }
+        }
+
+        // Appends an element.
+        void append(const analyze_element_t & element)
+        {
+            __elements.push_back(element);
+        }
+
+        template<size_t _n>
+        void append_list(const analyze_element_t (&elements)[_n])
+        {
+            for (const analyze_element_t & element : elements)
+            {
+                __elements.push_back(element);
+            }
+        }
+        
+        // Reads next element.
+        virtual analyze_element_t * next() override
+        {
+            if (__index >= __elements.size())
+                return nullptr;
+
+            return std::addressof(__elements[__index++]);
+        }
+
+    private:
+        std::vector<analyze_element_t> __elements;
+        size_t __index = 0;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
 } } }  // namespace X_ROOT_NS::modules::compile
 
 #endif // __COMPILE_HELPER_H__

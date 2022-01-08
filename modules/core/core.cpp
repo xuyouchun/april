@@ -707,6 +707,15 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if (file != nullptr && (source_code = file->get_source_code()) != nullptr)
         {
             _A(start >= source_code);
+
+            if (*start == _T('\n'))
+            {
+                start--;
+
+                while (start >= source_code && *start == _T('\r'))
+                    start--;
+            }
+
             for (; start >= source_code; start--)
             {
                 if (al::is_lineend(*start))
@@ -717,7 +726,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             }
         }
 
-        for (; *end != '\0'; end++)
+        for (; *end != _T('\0'); end++)
         {
             if (al::is_lineend(*end))
             {

@@ -333,9 +333,10 @@ namespace X_ROOT_NS { namespace lib {
     };
 
     #define X_SET_CONSOLE_COLOR(_color)                                                 \
-        X_ROOT_NS::lib::console_style_guard_t __console_style_guard_##__COUNTER__(      \
-            X_ROOT_NS::lib::console_color_t::_color                                     \
-        )
+        X_SET_CONSOLE_COLOR_(X_ROOT_NS::lib::console_color_t::_color)
+
+    #define X_SET_CONSOLE_COLOR_(_color)                                                \
+        X_ROOT_NS::lib::console_style_guard_t __console_style_guard_##__COUNTER__(_color)
 
     #define _PFC(_color, _format, _args...)                                             \
         do {                                                                            \
