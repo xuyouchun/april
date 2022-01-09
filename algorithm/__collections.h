@@ -124,6 +124,17 @@ namespace X_ROOT_NS { namespace algorithm {
             return hole;
         }
 
+        // Deletes an object at specified index.
+        void delete_(size_t index)
+        {
+            size_t size = this->size();
+
+            if (index >= size)
+                throw _EC(invalid_operation, _T("index larger than heap size"));
+
+            __move_previous(index + 1);
+        }
+
         // Returns the object count in the heap.
         size_t size() const
         {
@@ -241,6 +252,13 @@ namespace X_ROOT_NS { namespace algorithm {
             return __current_row_ptr + (__current_col++);
         }
 
+        #define __H(_row, _col) (__pool[_row] + _col)
+        #define __Copy(_dst_row, _dst_col, _src_row, _src_col, _count)                  \
+            quick_copy(                                                                 \
+                __H(_dst_row, _dst_col), __H(_src_row, _src_col),                       \
+                (_count) * sizeof(obj_t)                                                \
+            )
+
         // Move all objects to next from specified index.
         obj_t * __move_next(size_t index)
         {
@@ -248,13 +266,6 @@ namespace X_ROOT_NS { namespace algorithm {
 
             int from_row = index / __row_size, from_col = index % __row_size;
             int row = __current_row, col = __current_col - 1;
-
-            #define __H(_row, _col) (__pool[_row] + _col)
-            #define __Copy(_dst_row, _dst_col, _src_row, _src_col, _count)              \
-                quick_copy(                                                             \
-                    __H(_dst_row, _dst_col), __H(_src_row, _src_col),                   \
-                    (_count) * sizeof(obj_t)                                            \
-                )
 
             if (row > from_row)
             {
@@ -275,11 +286,50 @@ namespace X_ROOT_NS { namespace algorithm {
             }
 
             return __H(from_row, from_col);
-
-            #undef __Copy
-            #undef __H
         }
+
+        // Move all objects to previous from specified index.
+        void __move_previous(size_t index)
+        {
+            int from_row = index / __row_size, from_col = index % __row_size;
+            int row = __current_row, col = __current_col - 1;
+
+            if (row > from_row)
+            {
+                __Copy(from_row, from_col - 1, from_row, from_col, __row_size - from_col);
+
+                for (size_t row1 = from_row + 1; row1 < row; row1++)
+                {
+                    __Copy(row1 - 1, __row_size - 1, row1, 0, 1);
+                    __Copy(row1, 0, row1, 1, __row_size - 1);
+                }
+
+                __Copy(row, 0, row, 1, col);
+            }
+            else
+            {
+                __Copy(from_row, from_col - 1, from_row, from_col, col - from_col + 1);
+            }
+
+            __size--;
+            if (__current_col == 0)
+            {
+                __current_col = __row_size - 1;
+                __current_row--;
+
+                __current_row_ptr = __pool[__current_row];
+            }
+            else
+            {
+                __current_col--;
+            }
+        }
+
+        #undef __Copy
+        #undef __H
+
     };
+
 
     ////////// ////////// ////////// ////////// //////////
     // heap_t for array

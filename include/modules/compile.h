@@ -1297,6 +1297,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     private:
         __color_t __get_console_color(log_level_t level, const string_t & name);
+        std::set<size_t> __logged_lines;
+        size_t __last_invisibled_line = __empty_line;
+
+        static const size_t __empty_line = max_value<size_t>();
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -177,9 +177,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             : s(s), length(length), file(file)
         { }
 
-        const char_t *  s;          // Code position
-        int32_t         length;     // Code length
-        const code_file_t * file;    // Code file
+        const char_t *  s;              // Code position
+        int32_t         length;         // Code length
+        const code_file_t * file;       // Code file
 
         // Returns current line.
         string_t current_line() const;

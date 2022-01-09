@@ -3814,6 +3814,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return item;
     }
 
+    // Returns element at specified tag.
+    X_ALWAYS_INLINE_METHOD analyze_element_t * analyzer_element_reader_t::element_at(size_t index)
+    {
+        while (index >= __items.size())
+        {
+            if (!__read_next_element())
+                return __end_element();
+        }
+
+        return std::addressof(__items[index]);
+    }
+
     // Returns next element at specifed tag.
     X_ALWAYS_INLINE_METHOD analyze_element_t * analyzer_element_reader_t::next()
     {
@@ -3823,9 +3835,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return __end_element();
         }
 
-        __item_t & item = __items[__index++];
-        __Trace(_T("\n==== >>>> "), (string_t)item);
-        return &item;
+        return std::addressof(__items[__index++]);
+    }
+
+    // Reached the end of this reader.
+    bool analyzer_element_reader_t::at_end()
+    {
+        return element_at(__index)->type == analyze_element_type_t::__unknown__;
     }
 
     // Returns next tag of specified tag.
@@ -3860,6 +3876,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         return element1;
+    }
+
+    // Delete element.
+    void analyzer_element_reader_t::delete_(size_t index)
+    {
+        __items.delete_(index);
+
+        for (size_t size = __items.size(); index < size; index++)
+        {
+            __items[index].tag.index = index;
+        }
     }
 
     // Reads next element.
@@ -3926,6 +3953,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    #define __KeepStateGuard() __state_keep_guard_t __state_keep_guard_##__COUNTER__(this)
+
     // Do analyzer.
     analyzer_result_t __analyzer_t::analyze()
     {
@@ -3933,62 +3962,44 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         while (!__try_analyze())
         {
-            lang_service_helper_t h(__lang);
-
             // Restore to the last state and find the last step before format error.
-            size_t position = __reader->position() - 1;
-            __restore(last_state);
-            __try_analyze(position);
+            size_t position = __reader->position();
 
-            __state_t state = __keep_state();
+            #define __BeginAction(_position_offset)                                     \
+                if (position >= -_position_offset)                                      \
+                {                                                                       \
+                    __restore(last_state);                                              \
+                    __analyze(position + _position_offset);                             \
+                    __state_t state = __keep_state();                                   \
+                    if (
 
-            // Current element that cause the format error.
-            analyze_element_t * element = __element;
-            code_unit_t * cu = element? element->code_unit() : nullptr;
+            #define __EndAction()                                                       \
+                    )                                                                   \
+                    {                                                                   \
+                        last_state = std::move(state);                                  \
+                        continue;                                                       \
+                    }                                                                   \
+                }
 
-            // Find the long match distance if insert some element.
-            __node_keys_t keys = __context.detect_next_keys();
-            __node_key_t  best_key;
-            __node_keys_t possible_keys = __try_missing_keys(keys, &best_key);
+            // Try insert missing elements or delete current element.
+            __BeginAction(-1)
+                __try_insert_missing_elements()
+            __EndAction()
 
-            detect_missing_element_result result = h.detect_missing_element(
-                __ast_context, *__reader, possible_keys);
+            // Try delete previous element.
+            __BeginAction(-2)
+                __try_delete_unexpected_elements(5)
+            __EndAction()
 
-            analyze_element_t missing_element = result.missing_element;
-            if (missing_element.is_empty())
-                missing_element = __element_from_key(best_key, cu);
+            // Try delete current element.
+            __BeginAction(-1)
+                __try_delete_unexpected_elements(5)
+            __EndAction()
 
-            if (!missing_element.is_empty())
-            {
-                // Insert the best element and continue parse process.
-                _A(cu != nullptr);  // TODO: how to do when nullptr.
-                code_unit_t this_cu(cu->s + cu->length, 0, cu->file);
+            X_UNEXPECTED();
 
-                string_t title = result.title;
-                if (title.empty())
-                    title  = h.get_element_string(missing_element);
-
-                xlogger_t logger(__ast_context.logger);
-                logger.log_error(missing_element, __e_t::format_error,
-                                            _F(_T("missing \"%1%\" here"), title));
-
-                string_t flag_msg;
-                string_t line = __format_line(&this_cu, flag_msg);
-
-                if (!line.empty())
-                    logger.log_info(missing_element, log_info_type_t::message, line);
-
-                if (!flag_msg.empty())
-                    logger.log_info(missing_element, log_info_type_t::flag, flag_msg);
-
-                __reader->insert(position, missing_element);
-            }
-            else
-            {
-                X_UNEXPECTED();
-            }
-
-            last_state = std::move(state);
+            #undef __EndAction
+            #undef __BeginAction
         }
 
         return analyzer_result_t { std::move(__context.__matched_items) };
@@ -4010,6 +4021,81 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         return true;
+    }
+
+    // Try add missing elements when parsing error.
+    bool __analyzer_t::__try_insert_missing_elements()
+    {
+        lang_service_helper_t h(__lang);
+
+        __state_t state = __keep_state();
+        size_t position = __reader->position();
+
+        // Current element that cause the format error.
+        analyze_element_t * element = __element;
+        code_unit_t * cu = element? element->code_unit() : nullptr;
+
+        // Find the long match distance if insert some element.
+        __node_keys_t keys = __context.detect_next_keys();
+        __node_key_t  best_key;
+        __node_keys_t possible_keys = __try_missing_keys(keys, &best_key);
+
+        detect_missing_element_result result = h.detect_missing_element(
+            __ast_context, *__reader, possible_keys);
+
+        analyze_element_t missing_element = result.missing_element;
+        if (missing_element.is_empty())
+        {
+            if (best_key == __empty_node_key)
+                goto __return_false;
+
+            missing_element = __element_from_key(best_key, cu);
+        }
+
+        if (!missing_element.is_empty())
+        {
+            // Insert the best element and continue parse process.
+            _A(cu != nullptr);  // TODO: how to do when nullptr.
+            code_unit_t this_cu(cu->s + cu->length, 0, cu->file);
+
+            string_t title = result.title;
+            if (title.empty())
+                title = h.get_element_string(missing_element);
+
+            __log_format_error(_F(_T("missing \"%1%\" here"), title), missing_element, &this_cu);
+
+            __reader->insert(position, missing_element);
+            return true;
+        }
+
+    __return_false:
+        __restore(state);
+        return false;
+    }
+
+    // Try delete unexpected elements when parsing error.
+    bool __analyzer_t::__try_delete_unexpected_elements(int min_steps)
+    {
+        lang_service_helper_t h(__lang);
+
+        __KeepStateGuard();
+        size_t position = __reader->position();
+
+        // Current element that cause the format error.
+        analyze_element_t * unexpected_element = __reader->next();
+
+        int step = __detect(__empty_node_key, min_steps);
+        if (step >= min_steps || __reader->at_end())
+        {
+            __log_format_error(
+                _F(_T("unexpected token \"%1%\""), _str(unexpected_element)), *unexpected_element
+            );
+
+            __reader->delete_(position);
+            return true;
+        }
+
+        return false;
     }
 
     // Do analyzer.
@@ -4111,11 +4197,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         try
         {
-            __push(key, nullptr);
-            steps++;
+            if (key != __empty_node_key)
+            {
+                __push(key, nullptr);
+                steps++;
+            }
 
             analyze_element_t * element;
-            for (; steps < max_steps && (element = __reader->next())->type != __end; steps++)
+            for (; steps <= max_steps && (element = __reader->next())->type != __end; steps++)
             {
                 __push_element(element);
             }
@@ -4249,14 +4338,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Save current state.
-    __analyzer_t::__state_t & __analyzer_t::__keep_state()
+    __analyzer_t::__state_t __analyzer_t::__keep_state()
     {
-        __states.push(__state_t {
+        return __state_t {
             __reader->position(),
             __context.keep_state()
-        });
-
-        return __states.top();
+        };
     }
 
     // Set current state.
@@ -4264,6 +4351,27 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __reader->set_position(state.position);
         __context.restore(state.analyze_state);
+    }
+
+    // Log format error.
+    void __analyzer_t::__log_format_error(const string_t & error, analyze_element_t & element,
+                                          code_unit_t * cu)
+    {
+        xlogger_t logger(__ast_context.logger);
+
+        if (cu == nullptr)
+            cu = element.code_unit();
+
+        logger.log_error(element, __e_t::format_error, error);
+
+        string_t flag_msg;
+        string_t line = __format_line(cu, flag_msg);
+
+        if (!line.empty())
+            logger.log_info(element, log_info_type_t::message, line);
+
+        if (!flag_msg.empty())
+            logger.log_info(element, log_info_type_t::flag, flag_msg);
     }
 
     ////////// ////////// ////////// ////////// //////////

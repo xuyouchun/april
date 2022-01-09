@@ -1947,6 +1947,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Returns next eleent.
         analyze_element_t * next();
 
+        // Reached the end of this reader.
+        bool at_end();
+
         // Returns element at specified tag.
         analyze_element_t & operator[](__tag_t * tag)
         {
@@ -1955,6 +1958,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Returns element at specified tag.
         analyze_element_t & element_at(__tag_t * tag, __model_t model = __model_t::normal);
+
+        // Returns element at specifed index.
+        analyze_element_t * operator[](size_t index)
+        {
+            return element_at(index);
+        }
+
+        // Returns element at specified index.
+        analyze_element_t * element_at(size_t index);
 
         // Returns next element from specified tag.
         __tag_t * next_tag(__tag_t * tag, __model_t model = __model_t::normal);
@@ -1989,6 +2001,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Insert element.
         analyze_element_t * insert(size_t index, const analyze_element_t & element);
+
+        // Delete element.
+        void delete_(size_t index);
 
         // Append an ast node.
         void append_ast(__tag_t * from_tag, __tag_t * end_tag,
@@ -2241,6 +2256,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Do analyzing.
         void __analyze(size_t break_point = __empty_break_point);
 
+        // Try add missing elements when parsing error.
+        bool __try_insert_missing_elements();
+
+        // Try delete unexpected elements when parsing error.
+        bool __try_delete_unexpected_elements(int min_steps);
+
         // Try specified keys, returns possible keys and the best matched key.
         __node_keys_t __try_missing_keys(__node_keys_t & keys, __node_key_t * out_best_key);
 
@@ -2285,13 +2306,36 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             analyze_state_t analyze_state;
         };
 
-        std::stack<__state_t> __states;
-
         // Save current state.
-        __state_t & __keep_state();
+        __state_t __keep_state();
 
         // Set current state.
         void __restore(const __state_t & state);
+
+        // Log format error.
+        void __log_format_error(const string_t & error, analyze_element_t & element,
+                        code_unit_t * cu = nullptr);
+
+        //-------- ---------- ---------- ---------- ----------
+
+        class __state_keep_guard_t
+        {
+        public:
+            __state_keep_guard_t(__analyzer_t * analyzer)
+                : __analyzer(analyzer)
+            {
+                __state = analyzer->__keep_state();
+            }
+
+            ~__state_keep_guard_t()
+            {
+                __analyzer->__restore(__state);
+            }
+
+        private:
+            __analyzer_t * __analyzer;
+            __state_t __state;
+        };
     };
 
     ////////// ////////// ////////// ////////// //////////

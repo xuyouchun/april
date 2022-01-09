@@ -657,32 +657,48 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         __color_t color = __get_console_color(level, name);
 
+        string_t msg;
+        code_unit_t * cu;
+
+        if (element != nullptr && (cu = element->code_unit) != nullptr)
+        {
+            const code_file_t * file = cu->file;
+
+            if ((file = cu->file) != nullptr)
+            {
+                codepos_helper_t h(file->get_source_code());
+                codepos_t pos = h.pos_of(cu->s);
+
+                // Avoid to report errors at the same lines.
+                if (!__logged_lines.insert(pos.line).second)
+                {
+                    // Also output when it is info.
+                    if (level >= log_level_t::warning || pos.line == __last_invisibled_line)
+                    {
+                        __last_invisibled_line = pos.line;
+                        return;
+                    }
+                }
+                else
+                {
+                    __last_invisibled_line = __empty_line;
+                }
+
+                msg = _F(_T("\r\n%1%:%2%:%3%"), file->get_file_path(), pos.line, pos.col);
+            }
+        }
+
         if (level >= log_level_t::warning)
         {
             {
                 X_SET_CONSOLE_COLOR_(color);
-                print(sprintf(_T("%1%"), level));
+                print(sprintf(_T("#%1%"), level));
             }
 
             stringstream_t ss;
+
             ss << _T(" ") << name.c_str() << _T(": ") << message.c_str();
-
-            code_unit_t * cu;
-
-            if (element != nullptr && (cu = element->code_unit) != nullptr)
-            {
-                const code_file_t * file = cu->file;
-
-                if ((file = cu->file) != nullptr)
-                {
-                    codepos_helper_t h(file->get_source_code());
-                    codepos_t pos = h.pos_of(cu->s);
-
-                    string_t msg = _F(_T("\r\n%1%:%2%:%3%"), file->get_file_path(),
-                                                                pos.line, pos.col);
-                    ss << msg.c_str();
-                }
-            }
+            ss << msg.c_str();
 
             _P(ss.str());
         }
