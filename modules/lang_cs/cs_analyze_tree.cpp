@@ -67,8 +67,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         X_C(_attribute_group_assign,    _T("_attribute_group.__assign"))
         X_C(_attribute_type_name,       _T("_attribute_type_name"))
 
-        X_C(_decorate_complex,          _T("_decorate.__complex"))
-        X_C(_defination_st_item,        _T("_defination_st.__item"))
+        X_C(_decorate_complex,          _T("decorate.__complex"))
+        X_C(_defination_st_item,        _T("defination_st.__item"))
         X_C(_fake_method,               _T("_fake_method"))
 
         X_C(_enum_fields,               _T("_enum_fields"), _T("enum fields"))

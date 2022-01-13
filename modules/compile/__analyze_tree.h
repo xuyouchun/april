@@ -2257,10 +2257,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __analyze(size_t break_point = __empty_break_point);
 
         // Try add missing elements when parsing error.
-        bool __try_insert_missing_elements();
+        bool __try_insert_missing_elements(analyze_element_t * replaced_element = nullptr);
 
         // Try delete unexpected elements when parsing error.
         bool __try_delete_unexpected_elements(int min_steps);
+
+        // Try delete unexpected elements and insert missing elements when parsing error.
+        bool __try_replace_unexpected_elements(int min_steps);
 
         // Try specified keys, returns possible keys and the best matched key.
         __node_keys_t __try_missing_keys(__node_keys_t & keys, __node_key_t * out_best_key);
@@ -2272,7 +2275,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __push_element(analyze_element_t * element);
 
         // Detect a long match distance when format error, 
-        int __detect(__node_key_t key, int max_steps);
+        int __detect(__node_key_t key, int max_steps, bool * out_reach_end = nullptr);
 
         // Pushes a token.
         void __push_token(token_t * token, __tag_t * tag);
@@ -2310,7 +2313,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __state_t __keep_state();
 
         // Set current state.
-        void __restore(const __state_t & state);
+        void __restore_state(const __state_t & state);
 
         // Log format error.
         void __log_format_error(const string_t & error, analyze_element_t & element,
@@ -2329,7 +2332,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             ~__state_keep_guard_t()
             {
-                __analyzer->__restore(__state);
+                __analyzer->__restore_state(__state);
             }
 
         private:

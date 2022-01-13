@@ -790,7 +790,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         : public tlang_service_t<lang_service_type_t::analyze>
     {
         virtual detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
-            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys) = 0;
+            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys,
+            code_unit_t * cu) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1642,7 +1643,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Detect which element is missing.
         detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
-            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys);
+            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys,
+            code_unit_t * cu);
 
     private:
         al::auto_cache_t<lang_service_type_t, lang_service_t *> __service_map;

@@ -3968,7 +3968,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             #define __BeginAction(_position_offset)                                     \
                 if (position >= -_position_offset)                                      \
                 {                                                                       \
-                    __restore(last_state);                                              \
+                    __restore_state(last_state);                                        \
                     __analyze(position + _position_offset);                             \
                     __state_t state = __keep_state();                                   \
                     if (
@@ -3981,23 +3981,29 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     }                                                                   \
                 }
 
-            // Try insert missing elements or delete current element.
-            __BeginAction(-1)
-                __try_insert_missing_elements()
-            __EndAction()
+            #define __Action(_position_offset, _action_expr)                            \
+                __BeginAction(_position_offset)                                         \
+                    _action_expr                                                        \
+                __EndAction()
 
-            // Try delete previous element.
-            __BeginAction(-2)
-                __try_delete_unexpected_elements(5)
-            __EndAction()
+            // Try insert missing elements or delete current element.
+            __Action(-1, __try_insert_missing_elements())
 
             // Try delete current element.
-            __BeginAction(-1)
-                __try_delete_unexpected_elements(5)
-            __EndAction()
+            __Action(-1, __try_delete_unexpected_elements(32))
+
+            // Try delete previous element.
+            __Action(-2, __try_delete_unexpected_elements(32))
+
+            // Try delete current element and insert missing elements.
+            __Action(-1, __try_replace_unexpected_elements(32))
+
+            // Try delete previous element and insert missing elements.
+            __Action(-2, __try_replace_unexpected_elements(32))
 
             X_UNEXPECTED();
 
+            #undef __Action
             #undef __EndAction
             #undef __BeginAction
         }
@@ -4024,7 +4030,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Try add missing elements when parsing error.
-    bool __analyzer_t::__try_insert_missing_elements()
+    bool __analyzer_t::__try_insert_missing_elements(analyze_element_t * replaced_element)
     {
         lang_service_helper_t h(__lang);
 
@@ -4033,7 +4039,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Current element that cause the format error.
         analyze_element_t * element = __element;
-        code_unit_t * cu = element? element->code_unit() : nullptr;
+
+        code_unit_t cu, * this_cu = nullptr;
+        if (replaced_element != nullptr)  // replace
+        {
+            this_cu = replaced_element->code_unit();
+        }
+        else
+        {
+            if (element != nullptr)
+            {
+                code_unit_t * cu0 = element->code_unit();
+                new (&cu) code_unit_t(cu0->s + cu0->length, 0, cu0->file);
+                this_cu = &cu;
+            }
+        }
 
         // Find the long match distance if insert some element.
         __node_keys_t keys = __context.detect_next_keys();
@@ -4041,7 +4061,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __node_keys_t possible_keys = __try_missing_keys(keys, &best_key);
 
         detect_missing_element_result result = h.detect_missing_element(
-            __ast_context, *__reader, possible_keys);
+            __ast_context, *__reader, possible_keys, this_cu
+        );
 
         analyze_element_t missing_element = result.missing_element;
         if (missing_element.is_empty())
@@ -4049,27 +4070,38 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (best_key == __empty_node_key)
                 goto __return_false;
 
-            missing_element = __element_from_key(best_key, cu);
+            missing_element = __element_from_key(best_key, this_cu);
         }
 
         if (!missing_element.is_empty())
         {
             // Insert the best element and continue parse process.
-            _A(cu != nullptr);  // TODO: how to do when nullptr.
-            code_unit_t this_cu(cu->s + cu->length, 0, cu->file);
+            #define __IsWhitespace(_offset)                                             \
+                ((_offset == 0 || *(this_cu->s + _offset - 1)) &&                       \
+                    (*(this_cu->s + _offset) == _T(' ')))
+
+            // Move to next byte when exists enough whitespaces.
+            if (__IsWhitespace(0) && __IsWhitespace(1) && __IsWhitespace(2))
+                this_cu->s++;
+
+            #undef __IsWhitespace
 
             string_t title = result.title;
             if (title.empty())
                 title = h.get_element_string(missing_element);
 
-            __log_format_error(_F(_T("missing \"%1%\" here"), title), missing_element, &this_cu);
+            string_t message = _F(_T("%1% \"%2%\" here"),
+                replaced_element? _T("expected") : _T("missing"), title
+            );
+
+            __log_format_error(message, missing_element, this_cu);
 
             __reader->insert(position, missing_element);
             return true;
         }
 
     __return_false:
-        __restore(state);
+        __restore_state(state);
         return false;
     }
 
@@ -4084,8 +4116,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Current element that cause the format error.
         analyze_element_t * unexpected_element = __reader->next();
 
-        int step = __detect(__empty_node_key, min_steps);
-        if (step >= min_steps || __reader->at_end())
+        bool reach_end;
+        int step = __detect(__empty_node_key, min_steps, &reach_end);
+
+        if (step >= min_steps || reach_end)
         {
             __log_format_error(
                 _F(_T("unexpected token \"%1%\""), _str(unexpected_element)), *unexpected_element
@@ -4095,6 +4129,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return true;
         }
 
+        return false;
+    }
+
+    // Try delete unexpected elements and insert missing elements when parsing error.
+    bool __analyzer_t::__try_replace_unexpected_elements(int min_steps)
+    {
+        __state_t state = __keep_state();
+
+        size_t position = __reader->position();
+
+        // Current element that cause the format error.
+        analyze_element_t * unexpected_element = __reader->next();
+
+        if (__try_insert_missing_elements(unexpected_element))
+            return true;
+
+        __restore_state(state);
         return false;
     }
 
@@ -4128,7 +4179,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 continue;
 
             int step = __detect(key, 32);
-            // _P(key, h.get_token_string(key.value), step);
             if (step > 1)
             {
                 possible_keys.push_back(key);
@@ -4139,7 +4189,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 }
             }
 
-            __restore(state);
+            __restore_state(state);
         }
 
         al::assign(out_best_key, the_key);
@@ -4191,7 +4241,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Detect a long match distance when format error, 
-    int __analyzer_t::__detect(__node_key_t key, int max_steps)
+    int __analyzer_t::__detect(__node_key_t key, int max_steps, bool * out_reach_end)
     {
         int steps = 0;
 
@@ -4203,11 +4253,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 steps++;
             }
 
-            analyze_element_t * element;
+            analyze_element_t * element = nullptr;
             for (; steps <= max_steps && (element = __reader->next())->type != __end; steps++)
             {
                 __push_element(element);
             }
+
+            if (out_reach_end != nullptr)
+                *out_reach_end = (element != nullptr && element->type == __end);
         }
         catch (const logic_error_t<__e_t> & e)
         {
@@ -4347,7 +4400,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Set current state.
-    void __analyzer_t::__restore(const __state_t & state)
+    void __analyzer_t::__restore_state(const __state_t & state)
     {
         __reader->set_position(state.position);
         __context.restore(state.analyze_state);

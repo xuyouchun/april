@@ -567,7 +567,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         if (__expressions.expression_count() == 1)
         {
-            expression_t * exp = __expressions.expression_at(0);
+            expression_t * exp = __expressions. expression_at(0);
             return exp->parent = nullptr, exp;
         }
 
@@ -1365,6 +1365,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 {
                     walk_expression(this->__context, context, exp);
                     type_t * type = exp->get_type();
+
                     if (type == nullptr)
                         this->__log(this, __c_t::invalid_expression, exp);
                 }
@@ -2756,8 +2757,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             else
                 var_item->variable->type_name->type = type;
 
+            /*
             _PF(_T("%1% %2% (%3%)"), var_item->variable->type_name->type, var_item->name,
                                                                 var_item->expression);
+            */
         }
 
         if (__statement.constant)

@@ -64,7 +64,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
         // Detect missing element when compile format error.
         virtual detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
-            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys) override;
+            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys,
+            code_unit_t * cu) override;
 
         X_TO_STRING_IMPL(_T("cs_lang_service_t"))
 

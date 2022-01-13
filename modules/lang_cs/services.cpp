@@ -239,19 +239,43 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // Detect missing element when compile format error.
     detect_missing_element_result cs_lang_service_t::detect_missing_element(
                 ast_context_t & ast_context, analyzer_element_reader_t & reader,
-                const analyze_node_keys_t & possible_keys)
+                const analyze_node_keys_t & possible_keys, code_unit_t * cu)
     {
         std::set<analyze_node_key_t> keys;
         al::copy(possible_keys, al::inserter(keys));
 
-        typedef cs_branch_type_t branch_t;
-        static branch_t prefer_branches[] = { branch_t::_expression, branch_t::_single_expression };
-
-        for (branch_t branch : prefer_branches)
+        // Nodes.
         {
-            analyze_node_key_t key(analyze_node_type_t::branch_ref, (analyze_node_value_t)branch);
-            if (al::contains(keys, key))
-                return __build_ast_node(ast_context, branch);
+            typedef cs_branch_type_t t;
+            static t prefer_branches[] = { t::_expression, t::_single_expression };
+
+            for (t branch : prefer_branches)
+            {
+                analyze_node_key_t key(analyze_node_type_t::branch_ref, (analyze_node_value_t)branch);
+                if (al::contains(keys, key))
+                    return __build_ast_node(ast_context, branch);
+            }
+        }
+
+        // Tokens.
+        {
+            typedef cs_token_value_t t;
+            static t prefer_tokens[] = { t::comma, t::semicolon };
+
+            for (t token : prefer_tokens)
+            {
+                analyze_node_key_t key(analyze_node_type_t::token, (analyze_node_value_t)token);
+
+                if (al::contains(keys, key))
+                {
+                    token_value_t token_value = (token_value_t)key.value;
+                    token_t * token = ast_context.compile_context.new_obj<token_t>(
+                        token_value, cu
+                    );
+
+                    return detect_missing_element_result(token, get_token_string(token_value));
+                }
+            }
         }
 
         return detect_missing_element_result::empty;

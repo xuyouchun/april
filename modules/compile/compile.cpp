@@ -692,7 +692,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             {
                 X_SET_CONSOLE_COLOR_(color);
-                print(sprintf(_T("#%1%"), level));
+                print(sprintf(_T("* %1%"), level));
             }
 
             stringstream_t ss;
@@ -1105,10 +1105,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Detect which element is missing.
     detect_missing_element_result lang_service_helper_t::detect_missing_element(
                 ast_context_t & ast_context, analyzer_element_reader_t & reader,
-                const analyze_node_keys_t & possible_keys)
+                const analyze_node_keys_t & possible_keys, code_unit_t * cu)
     {
         return __RequireService(analyze)->detect_missing_element(ast_context,
-                                                                 reader, possible_keys);
+                                             reader, possible_keys, cu);
     }
 
     ////////// ////////// ////////// ////////// //////////
