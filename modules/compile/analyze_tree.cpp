@@ -3989,17 +3989,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // Try insert missing elements or delete current element.
             __Action(-1, __try_insert_missing_elements())
 
-            // Try delete current element.
-            __Action(-1, __try_delete_unexpected_elements(32))
-
-            // Try delete previous element.
-            __Action(-2, __try_delete_unexpected_elements(32))
-
             // Try delete current element and insert missing elements.
             __Action(-1, __try_replace_unexpected_elements(32))
 
             // Try delete previous element and insert missing elements.
             __Action(-2, __try_replace_unexpected_elements(32))
+
+            // Try delete current element.
+            __Action(-1, __try_delete_unexpected_elements(32))
+
+            // Try delete previous element.
+            __Action(-2, __try_delete_unexpected_elements(32))
 
             X_UNEXPECTED();
 

@@ -260,7 +260,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
         // Tokens.
         {
             typedef cs_token_value_t t;
-            static t prefer_tokens[] = { t::comma, t::semicolon };
+            static t prefer_tokens[] = { t::semicolon, t::comma };
 
             for (t token : prefer_tokens)
             {
