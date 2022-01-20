@@ -627,7 +627,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         bool is_empty() const { return type == analyze_element_type_t::empty; }
 
         // Returns code unit.
-        code_unit_t * code_unit() const;
+        const code_unit_t * code_unit() const;
 
         // Returns code element.
         code_element_t * code_element() const;
@@ -636,7 +636,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         operator string_t() const;
 
         // Converts to code_unit_t *.
-        operator code_unit_t * () const { return code_unit(); }
+        operator const code_unit_t * () const { return code_unit(); }
 
         // Converts to code_element_t *.
         operator code_element_t * () const { return code_element(); }
@@ -791,7 +791,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         virtual detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
             analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys,
-            code_unit_t * cu) = 0;
+            const code_unit_t * cu) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1644,7 +1644,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Detect which element is missing.
         detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
             analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys,
-            code_unit_t * cu);
+            const code_unit_t * cu);
 
     private:
         al::auto_cache_t<lang_service_type_t, lang_service_t *> __service_map;

@@ -489,34 +489,35 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // module
 
     // Walk this node.
-    void __module_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool __module_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
-                __super_t::on_walk(context, step, tag);
-                break;
+                return __super_t::on_walk(context, step, tag);
 
             case walk_step_t::post_confirm: {
                 eobject_commit_context_t ctx(context.logger);
                 __module->commit(ctx);
                 context.commit_types();
                 context.delay(this, (int)walk_step_t::end, tag);
-            }   break;
+                return true;
+            }
 
             case walk_step_t::end:
                 context.commit_types();
-                break;
+                return true;
 
-            default: break;
+            default: return true;
         }
     }
 
     // Walk this node.
-    void __module_ast_node_t::do_walk(ast_walk_context_t & context, int step, void * tag)
+    bool __module_ast_node_t::do_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::do_walk(context, step, tag);
+        bool r = __super_t::do_walk(context, step, tag);
         context.delay(this, (int)walk_step_t::post_confirm, tag);
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -548,9 +549,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void mname_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool mname_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -575,9 +576,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walk this node.
-    void expressions_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool expressions_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -596,9 +597,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -709,30 +710,33 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void general_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool general_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
-                __super_t::on_walk(context, step, tag);
-                this->__delay(context, walk_step_t::confirm);
-                break;
+                if (__super_t::on_walk(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::confirm);
+                    return true;
+                }
+
+                return false;
 
             case walk_step_t::confirm:
-                __walk_confirm(context);
-                break;
+                return __walk_confirm(context);
 
-            default: break;
+            default: return true;
         }
     }
 
     // Walks confirm step.
-    void general_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
+    bool general_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
         if (__type_name.type == nullptr)
-        {
             __type_name.type = __ascertain_type(context, &__type_name);
-        }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -757,11 +761,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void name_unit_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool name_unit_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__name_unit.name, this, __c_t::name_empty, _T("type name unit"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -782,27 +786,30 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void array_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool array_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 this->__check_empty(__type_name.element_type_name, this,
                                     __c_t::type_name_missing, _T("array"));
-                __super_t::on_walk(context, step, tag);
-                this->__delay(context, walk_step_t::confirm);
-                break;
+                if (__super_t::on_walk(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::confirm);
+                    return true;
+                }
+
+                return false;
 
             case walk_step_t::confirm:
-                __walk_confirm(context);
-                break;
+                return __walk_confirm(context);
 
-            default: break;
+            default: return true;
         }
     }
 
     // Walks confirm step.
-    void array_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
+    bool array_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
         array_type_name_t * type_name = &__type_name;
 
@@ -810,6 +817,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             type_name->type = __ascertain_type(context, type_name);
         }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -825,9 +834,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void uncertain_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool uncertain_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -858,11 +867,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_def_param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_def_param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__type_def_param.name, _T("typedef param"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -881,9 +890,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_def_params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_def_params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -911,7 +920,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_def_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_def_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push(to_eobject());
 
@@ -940,8 +949,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->__log(this, __c_t::unexpected_type_def_attribute);
         }
 
-        __super_t::on_walk(context, step, tag);
+        bool r = __super_t::on_walk(context, step, tag);
         context.pop();
+
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -960,11 +971,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_of_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_of_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__type_of.type_name, this, __c_t::type_name_missing, _T("typeof"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -996,9 +1007,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void argument_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool argument_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        if (!__super_t::on_walk(context, step, tag))
+            return false;
 
         this->__check_empty(__argument.expression, this, __c_t::argument_missing);
 
@@ -1011,6 +1023,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->__log(this, __c_t::argument_type_error, _title(__argument.atype));
             }
         }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1023,9 +1037,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void arguments_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool arguments_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     // Returns this eobject.
@@ -1038,9 +1052,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // cvalue
 
     // Walks this node.
-    void cvalue_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool cvalue_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     // Returns this eobject.
@@ -1111,9 +1125,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         )
 
     // Walks this node.
-    void decorate_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool decorate_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     // Sets access.
@@ -1204,9 +1218,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void statements_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool statements_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1225,26 +1239,29 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void method_body_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool method_body_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __body.variable_region = context.current_region();
-                __super_t::on_walk(context, step, tag);
-                this->__delay(context, walk_step_t::post_analysis);
-                break;
+                if (__super_t::on_walk(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::post_analysis);
+                    return true;
+                }
+
+                return false;
 
             case walk_step_t::post_analysis:
-                __walk_post_analysis(context);
-                break;
+                return __walk_post_analysis(context);
 
-            default: break;
+            default: return true;
         }
     }
 
     // Walks post analysis step.
-    void method_body_ast_node_t::__walk_post_analysis(ast_walk_context_t & context)
+    bool method_body_ast_node_t::__walk_post_analysis(ast_walk_context_t & context)
     {
         typedef statement_exit_type_t       __exit_type_t;
         typedef enum_t<__exit_type_t>       __e_exit_type_t;
@@ -1270,6 +1287,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->__log(this, __c_t::method_no_return, method);
             }
         }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1297,7 +1316,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         name_unit_t * name_unit = node->to_eobject();
 
         auto exp = __new_wexp<name_unit_expression_t>(name_unit->name, name_unit->args);
-        exp->code_unit = code_unit;
+        exp->code_unit = this->code_unit;
         __es.push_back(__el_t(exp));
 
         if (node != nullptr)
@@ -1326,18 +1345,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         this->append_child(nodes, node);
     }
 
+    template<typename _es_t>
+    string_t __join_es(const _es_t & es)
+    {
+        return al::join_str(
+            std::begin(es), std::end(es), _T(""), [](auto && it) { return _str(it); }
+        );
+    }
+
     // Commits this node.
     void expression_ast_node_t::on_commit()
     {
-        // TODO: why parse twice?
-
-        /*
         // Prints this expression.
-        string_t expression_str = al::join_str(std::begin(__es), std::end(__es), _T(""),
-            [](auto && it) { return _str(it); });
-
-        // _PP( expression_str );
-        */
+        // _PP( __join_es(__es) );
 
         __expression = __parse_expression(__es);
     }
@@ -1349,15 +1369,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void expression_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool expression_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 if (is_top_expression(__expression))
                     this->__delay(context, walk_step_t::analysis);
-                __super_t::on_walk(context, step, tag);
-                break;
+                return __super_t::on_walk(context, step, tag);
 
             case walk_step_t::analysis: {
                 expression_t * exp = this->to_eobject();
@@ -1369,9 +1388,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     if (type == nullptr)
                         this->__log(this, __c_t::invalid_expression, exp);
                 }
-            }   break;
 
-            default: break;
+                return true;
+            }
+
+            default: return true;
         }
     }
 
@@ -1392,9 +1413,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void statement_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool statement_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1420,7 +1441,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void import_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool import_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         import_t * import = to_eobject();
 
@@ -1481,7 +1502,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1507,7 +1528,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void using_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool using_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if (!__using_namespace.ns)
         {
@@ -1526,7 +1547,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1549,11 +1570,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void namespace_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool namespace_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push(this->to_eobject());
-        __super_t::on_walk(context, step, tag);
+        bool r = __super_t::on_walk(context, step, tag);
         context.pop();
+
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1721,26 +1744,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
-            case walk_step_t::default_:
+            case walk_step_t::default_: {
                 context.push(this->to_eobject());
-                __walk_default(context, step, tag);
+                bool r = __walk_default(context, step, tag);
                 context.pop();
-                break;
+                return r;
+            }
 
             case walk_step_t::analysis:
-                __walk_analysis(context, (method_t *)tag);
-                break;
+                return __walk_analysis(context, (method_t *)tag);
 
-            default: break;
+            default: return true;
         }
     }
 
     // Walks default step.
-    void type_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
+    bool type_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
     {
         general_type_t * type = (general_type_t *)to_eobject();
         mname_operate_context_t mctx = to_mname_operate_context();
@@ -1820,6 +1843,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         this->__delay(context, walk_step_t::analysis, new_default_constructor);
+
+        return true;
     }
 
     class type_ast_node_t::__fields_init_stub_t : public object_t
@@ -2148,7 +2173,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     };
 
     // Walks analysis step.
-    void type_ast_node_t::__walk_analysis(ast_walk_context_t & context, void * tag)
+    bool type_ast_node_t::__walk_analysis(ast_walk_context_t & context, void * tag)
     {
         object_t * tag_obj = (object_t *)tag;
         method_t * new_default_constructor = nullptr;
@@ -2171,12 +2196,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
         else
         {
-            __walk_analysis_init_fields(context);
+            return __walk_analysis_init_fields(context);
         }
+
+        return true;
     }
 
     // Walks init fields.
-    void type_ast_node_t::__walk_analysis_init_fields(ast_walk_context_t & context)
+    bool type_ast_node_t::__walk_analysis_init_fields(ast_walk_context_t & context)
     {
         general_type_t * type = (general_type_t *)to_eobject();
 
@@ -2230,6 +2257,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             if (!stub.continue_())
                 this->__delay(context, walk_step_t::analysis, __new_obj<stub_t>(stub));
         }
+
+        return true;
     }
 
     // Appends default constructor.
@@ -2278,11 +2307,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void generic_param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool generic_param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__param.name, _T("template param"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2301,9 +2330,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void generic_params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool generic_params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2335,9 +2364,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void generic_constraint_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool generic_constraint_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2356,9 +2385,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void generic_constraints_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool generic_constraints_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2383,11 +2412,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void generic_arg_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool generic_arg_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__arg.type_name, this, __c_t::type_name_missing, _T("generic argument"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2406,7 +2435,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void generic_args_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool generic_args_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if (__args.empty())
             this->__log(this, __c_t::type_name_missing, _T("generic arguments"));
@@ -2414,7 +2443,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         if (__is_partial_specialization(__args))
             this->__log(this, __c_t::partial_specialization_not_supported);
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2447,7 +2476,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool param_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
@@ -2456,8 +2485,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 this->__check_empty(__param.type_name, this, __c_t::type_name_missing, _T("param"));
 
                 this->__delay(context, walk_step_t::pre_analysis);
-                __super_t::on_walk(context, step, tag);
-                break;
+                return __super_t::on_walk(context, step, tag);
 
             case walk_step_t::pre_analysis:
                 if (__param.default_value != nullptr)
@@ -2480,9 +2508,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     }
                 }
 
-                break;
+                return true;
 
-            default: break;
+            default: return true;
         }
     }
 
@@ -2502,9 +2530,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool params_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2527,28 +2555,26 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void attribute_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool attribute_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 context.current_module()->register_commit(this->to_eobject());
                 this->__delay(context, walk_step_t::post_confirm);
-                __super_t::on_walk(context, step, tag);
-                break;
+                return __super_t::on_walk(context, step, tag);
 
             case walk_step_t::post_confirm:
                 if (__is_compile_time_attribute(&__attr))
                     __get_compile_time_attribute()->type_name = __attr.type_name;
 
                 this->__delay(context, walk_step_t::analysis);
-                break;
+                return true;
 
             case walk_step_t::analysis:
-                __analyze_attribute_constructor();
-                break;
+                return __analyze_attribute_constructor();
 
-            default: break;
+            default: return true;
         }
     }
 
@@ -2559,13 +2585,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Analyze attribute constructor.
-    void attribute_ast_node_t::__analyze_attribute_constructor()
+    bool attribute_ast_node_t::__analyze_attribute_constructor()
     {
         type_name_t * type_name = __attr.type_name;
         type_t * type;
 
         if (type_name == nullptr || (type = type_name->type) == nullptr)
-            return;
+            return true;
 
         method_t * method = find_constructor(this->__context, type, __attr.arguments);
         if (method == nullptr)
@@ -2574,7 +2600,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 to_arg_types_str(this->__context, __attr.arguments)
             );
 
-            return;
+            return true;
         }
 
         if (__attr.arguments != nullptr)
@@ -2597,6 +2623,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         this->to_eobject()->constructor = method;
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2615,9 +2643,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void attributes_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool attributes_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2636,11 +2664,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void expression_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool expression_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.expression, this, __c_t::expression_missing,
                                                           _T("statement"));
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2659,11 +2687,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_def_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_def_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.type_def, this, __c_t::statement_missing);
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2690,21 +2718,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void defination_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool defination_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __super_t::on_walk(context, step, tag);
-                __walk_default(context);
-                this->__delay(context, walk_step_t::analysis);
-                break;
+                if (__walk_default(context))
+                {
+                    this->__delay(context, walk_step_t::analysis);
+                    return true;
+                }
+
+                return false;
 
             case walk_step_t::analysis:
-                __walk_analysis(context);
-                break;
+                return __walk_analysis(context);
 
-            default: break;
+            default: return true;
         }
     }
 
@@ -2715,7 +2746,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks default step.
-    void defination_st_ast_node_t::__walk_default(ast_walk_context_t & context)
+    bool defination_st_ast_node_t::__walk_default(ast_walk_context_t & context)
     {
         this->__check_empty(__statement.type_name, this, __c_t::type_name_missing,
                                                         _T("variable defination"));
@@ -2738,10 +2769,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 );
             }
         }
+
+        return true;
     }
 
     // Walks analysis step.
-    void defination_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    bool defination_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         for (defination_statement_item_t * var_item : __statement.items)
         {
@@ -2773,6 +2806,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     __Log(constant_variable_required_constant_value, var_item->name);
             }
         }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2785,9 +2820,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void break_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool break_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2800,9 +2835,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node. 
-    void continue_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool continue_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2821,9 +2856,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void throw_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool throw_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2848,11 +2883,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void goto_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool goto_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__statement.label, _T("label"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2871,25 +2906,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Wallks this node.
-    void return_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool return_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
-                __super_t::on_walk(context, step, tag);
-                this->__delay(context, walk_step_t::post_analysis);
-                break;
+                if (__super_t::on_walk(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::post_analysis);
+                    return true;
+                }
+
+                return false;
 
             case walk_step_t::post_analysis:
-                __walk_post_analysis(context);
-                break;
+                return __walk_post_analysis(context);
 
-            default: break;
+            default: return true;
         }
     }
 
     // Walks post analysis step.
-    void return_st_ast_node_t::__walk_post_analysis(ast_walk_context_t & context)
+    bool return_st_ast_node_t::__walk_post_analysis(ast_walk_context_t & context)
     {
         method_t * method = context.current_method();
         _A(method != nullptr);
@@ -2915,6 +2953,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     this->__log(this, __c_t::method_incompatible_return_value, method);
             }
         }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2934,12 +2974,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void do_while_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool do_while_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.condition, this, __c_t::condition_missing, _T("do while"));
         this->__check_empty(__statement.body, this, __c_t::body_missing, _T("do while"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2959,12 +2999,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void loop_until_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool loop_until_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.condition, this, __c_t::condition_missing, _T("loop until"));
         this->__check_empty(__statement.body, this, __c_t::body_missing, _T("loop until"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2984,12 +3024,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void while_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool while_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.condition, this, __c_t::condition_missing, _T("while"));
         this->__check_empty(__statement.body, this, __c_t::body_missing, _T("while"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3016,19 +3056,21 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void for_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool for_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.body, this, __c_t::body_missing, _T("while"));
 
         if (__statement.defination_initialize != nullptr)
         {
             context.push_new_region();
-            __super_t::on_walk(context, step, tag);
+            bool r = __super_t::on_walk(context, step, tag);
             context.pop();
+
+            return r;
         }
         else
         {
-            __super_t::on_walk(context, step, tag);
+            return __super_t::on_walk(context, step, tag);
         }
     }
 
@@ -3056,13 +3098,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void for_each_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool for_each_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__statement.variable, _T("variable"));
         this->__check_empty(__statement.iterator, this, __c_t::iterator_missing, "for each");
         this->__check_empty(__statement.body, this, __c_t::body_missing, _T("for each"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3086,9 +3128,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void if_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool if_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3108,11 +3150,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void switch_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool switch_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__statement.expression, this, __c_t::expression_missing, _T("switch"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3122,7 +3164,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     void case_ast_node_t::append_default(__el_t * el)
     {
         auto * exp_node = to_fake_ast<(__value_t)__cvalue_t::expression>(
-            (expression_t *)nullptr, __get_memory(), el->code_unit
+            (expression_t *)nullptr, __get_memory(), el->get_code_unit()
         );
 
         this->append_child(constants, exp_node);
@@ -3142,11 +3184,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void case_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool case_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__case.constants, this, __c_t::expression_missing, _T("case"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3168,14 +3210,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void try_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool try_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if (__statement.catches.empty() && __statement.finally_statement == nullptr)
         {
             this->__log(this, __c_t::catch_or_finally_missing);
         }
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3202,7 +3244,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void catch_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool catch_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if (__catch.type_name == nullptr && !__catch.name.empty())
         {
@@ -3214,7 +3256,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             __catch.variable = vd.define_local(__catch.type_name, __catch.name);
         }
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3227,9 +3269,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void empty_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool empty_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3248,15 +3290,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void statement_group_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool statement_group_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push_new_region();
 
         __statement_group.variable_region = context.current_region();
-
-        __super_t::on_walk(context, step, tag);
+        bool r = __super_t::on_walk(context, step, tag);
 
         context.pop();
+
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3275,9 +3318,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_name_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_name_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3297,9 +3340,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void type_cast_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool type_cast_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3321,7 +3364,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void function_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool function_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__expression.namex, _T("function"));
 
@@ -3330,7 +3373,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             this->__log(this->child_at(generic_args), __c_t::function_generic_args_redundance);
         }
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3351,11 +3394,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void index_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool index_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__expression.namex(), _T("index"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3375,18 +3418,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void new_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool new_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__expression.type_name, this, __c_t::type_name_missing,
                                                             _T("object creation"));
-        __super_t::on_walk(context, step, tag);
-
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 this->__delay(context, walk_step_t::analysis);
-                __super_t::on_walk(context, step, tag);
-                break;
+                return __super_t::on_walk(context, step, tag);
 
             case walk_step_t::analysis: {
                 type_t * type = to_type(__expression.type_name);
@@ -3404,9 +3444,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     }
                 }
 
-            }   break;
+                return true;
 
-            default: break;
+            }
+
+            default: return true;
         }
     }
 
@@ -3430,37 +3472,38 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     const array_length_t unkown_array_length = -1;
 
     // Walks this eobject.
-    void new_array_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool new_array_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 __walk_default(context);
 
-                __super_t::on_walk(context, step, tag);
+                if (__super_t::on_walk(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::confirm);
 
-                this->__delay(context, walk_step_t::confirm);
+                    if (__expression.initializer() != nullptr)
+                        this->__delay(context, walk_step_t::analysis);
 
-                if (__expression.initializer() != nullptr)
-                    this->__delay(context, walk_step_t::analysis);
+                    return true;
+                }
 
-                break;
+                return false;
 
             case walk_step_t::confirm:
-                __walk_confirm(context);
-                break;
+                return __walk_confirm(context);
 
             case walk_step_t::analysis:
-                __walk_analysis(context);
-                break;
+                return __walk_analysis(context);
 
             default:
-                break;
+                return true;
         }
     }
 
     // Walks default step.
-    void new_array_ast_node_t::__walk_default(ast_walk_context_t & context)
+    bool new_array_ast_node_t::__walk_default(ast_walk_context_t & context)
     {
         this->__check_empty(__expression.type_name, this, __c_t::type_name_missing,
                                                             _T("array creation"));
@@ -3485,19 +3528,22 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 }
             }
         }
+
+        return true;
     }
 
     // Walks confirm step.
-    void new_array_ast_node_t::__walk_confirm(ast_walk_context_t & context)
+    bool new_array_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
         // To ensure the array type be pushed into xpool before execute xpool_t::commit_types().
         // Then used by some expressions, like (new int[10]).Length;
         // Otherwise, An error of 'type not found' will be occued.
         __expression.to_array_type();
+        return true;
     }
 
     // Walks analysis step.
-    void new_array_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    bool new_array_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         array_initializer_t * initializer = __expression.initializer();
         if (initializer != nullptr)
@@ -3507,6 +3553,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 return true;
             });
         }
+
+        return true;
     }
 
     // Returns length of specified dimension.
@@ -3562,7 +3610,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void array_initializer_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool array_initializer_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         try
         {
@@ -3573,7 +3621,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             this->__log(this, __c_t::array_initializer_error, _str(e));
         }
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3592,9 +3640,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void array_lengths_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool array_lengths_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3613,12 +3661,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void default_value_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool default_value_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_empty(__expression.type_name, this, __c_t::type_name_missing,
                                                         _T("default value"));
 
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3646,18 +3694,23 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void field_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool field_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push(this->to_eobject());
-        __super_t::on_walk(context, step, tag);
+        bool r = __super_t::on_walk(context, step, tag);
         context.pop();
 
-        this->__check_empty(__field.type_name, this, __c_t::type_name_missing,
-                _F(_T("field %1%"), _str(__field.name)));
-        this->__check_empty(__field.name, this, __c_t::name_empty, _T("field"));
+        if (r)
+        {
+            this->__check_empty(__field.type_name, this, __c_t::type_name_missing,
+                    _F(_T("field %1%"), _str(__field.name)));
+            this->__check_empty(__field.name, this, __c_t::name_empty, _T("field"));
 
-        variable_defination_t vd(this->__context, context, &__field);
-        vd.define_field(&__field);
+            variable_defination_t vd(this->__context, context, &__field);
+            vd.define_field(&__field);
+        }
+
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3725,16 +3778,17 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void method_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool method_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
-            case walk_step_t::default_:
+            case walk_step_t::default_: {
                 context.push(this->to_eobject());
 
                 __super_t::on_walk(context, step, tag);
-                __walk_default(context);
-                this->__delay(context, walk_step_t::analysis);
+                bool r = __walk_default(context);
+                if (r)
+                    this->__delay(context, walk_step_t::analysis);
 
                 context.pop();
 
@@ -3744,18 +3798,18 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     vd.define_method(&__method);
                 }
 
-                break;
+                return r;
+            }
 
             case walk_step_t::analysis:
-                __walk_analysis(context);
-                break;
+                return __walk_analysis(context);
 
-            default: break;
+            default: return true;
         }
     }
 
     // Walks the default step.
-    void method_ast_node_t::__walk_default(ast_walk_context_t & context)
+    bool method_ast_node_t::__walk_default(ast_walk_context_t & context)
     {
         type_t * type = context.current_type();
         if (type != nullptr && __method.name == type->get_name()
@@ -3830,10 +3884,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     break;
             }
         }
+
+        return true;
     }
 
     // Walks the analysis step.
-    void method_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    bool method_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         // Construct, static constructor, destructor.
         switch (__method.trait)
@@ -3856,7 +3912,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Operator overload, checks prototype.
         if (__op_property == nullptr)
-            return;
+            return true;
 
         if (!__method.is_static() || !__method.is_public())
             this->__log(this, __c_t::operator_overload_prototype_error);
@@ -3886,6 +3942,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             this->__log(this, __c_t::operator_overload_cannot_return_void);
         }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3930,7 +3988,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walk this node.
-    void property_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool property_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         if (!__property.name.empty())
         {
@@ -3983,6 +4041,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         context.push(this->to_eobject());
         __super_t::on_walk(context, step, tag);
         context.pop();
+
+        return true;
     }
 
     // Generates ignored method bodies.
@@ -4104,7 +4164,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Walks this node.
-    void event_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool event_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(__event.name, _T("event"));
 
@@ -4125,6 +4185,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         context.push(this->to_eobject());
         __super_t::on_walk(context, step, tag);
         context.pop();
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////

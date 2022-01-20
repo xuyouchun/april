@@ -8,8 +8,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     {
         using namespace core;
 
-        template<typename obj_t>
-        using __w_t = code_element_wrapper_t<obj_t>;
+        template<typename _obj_t> class __w_t : public _obj_t
+        {
+            typedef _obj_t __super_t;
+
+        public:
+            using __super_t::__super_t;
+        };
 
         template<typename exp_t>
         using __wexp_t = __w_t<system_expression_t<exp_t>>;
@@ -1332,10 +1337,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         using __super_t::__super_t;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Walks this node.
-        virtual void do_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool do_walk(ast_walk_context_t & context, int step, void * tag) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1359,7 +1364,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Commits this node.
         virtual void on_commit() override;
@@ -1412,7 +1417,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         expressions_t __expressions;
@@ -1446,7 +1451,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual type_name_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1678,13 +1683,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual type_name_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<general_type_name_t> __type_name;
 
         // Walks confirm step.
-        void __walk_confirm(ast_walk_context_t & context);
+        bool __walk_confirm(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1718,7 +1723,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual name_unit_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<name_unit_t> __name_unit;
@@ -1757,13 +1762,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual type_name_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<array_type_name_t> __type_name;
 
         // Walks the confirm step.
-        void __walk_confirm(ast_walk_context_t & context);
+        bool __walk_confirm(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1790,7 +1795,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual type_name_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         // __w_t<type_name_t> __type_name;
@@ -1828,7 +1833,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual type_def_param_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<type_def_param_t> __type_def_param;
@@ -1863,7 +1868,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual type_def_params_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         type_def_params_t __type_def_params;
@@ -1910,7 +1915,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual type_def_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         type_def_t __type_def;
@@ -1945,7 +1950,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __wexp_t<type_of_expression_t> __type_of;
@@ -1989,7 +1994,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual argument_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         argument_t __argument;
@@ -2021,7 +2026,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual void on_commit() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Returns this eobject.
         virtual arguments_t * to_eobject() override;
@@ -2071,7 +2076,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual param_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         param_t __param;
@@ -2106,7 +2111,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual params_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         params_t __params;
@@ -2147,7 +2152,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual generic_param_t * to_eobject() override;
 
         // Wallks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         generic_param_t __param;
@@ -2182,7 +2187,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual generic_params_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         generic_params_t __generic_params;
@@ -2223,7 +2228,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual generic_constraint_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
        generic_constraint_t __generic_constraint;
@@ -2258,7 +2263,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual generic_constraints_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
        generic_constraints_t __generic_constraints;
@@ -2296,7 +2301,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual generic_arg_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         generic_arg_t       __arg;
@@ -2331,7 +2336,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual generic_args_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         generic_args_t __args;
@@ -2369,7 +2374,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual attribute_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         attribute_t __attr;
@@ -2378,7 +2383,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         attribute_t * __get_compile_time_attribute();
 
         // Analyze attribute constructor.
-        void __analyze_attribute_constructor();
+        bool __analyze_attribute_constructor();
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2410,7 +2415,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual attributes_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         attributes_t __attributes;
@@ -2433,7 +2438,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         using __cvalue_ast_node_t::__cvalue_ast_node_t; 
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Returns this eobject.
         virtual cvalue_t * to_eobject() override;
@@ -2465,7 +2470,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         using __decorate_ast_node_t::__decorate_ast_node_t;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Set access.
         void set_access(access_value_t value, __el_t * el);
@@ -2536,7 +2541,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statements_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         statements_t __statements;
@@ -2571,13 +2576,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual method_body_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         method_body_t __body;
 
         // Walks post analysis step.
-        void __walk_post_analysis(ast_walk_context_t & context);
+        bool __walk_post_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2627,7 +2632,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __es_t __es;
@@ -2663,7 +2668,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2701,7 +2706,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual import_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         import_t __import;
@@ -2739,7 +2744,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual using_namespace_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         using_namespace_t __using_namespace;
@@ -2783,7 +2788,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual namespace_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         namespace_t __namespace;
@@ -2854,7 +2859,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         general_type_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         class __fields_init_stub_t;
@@ -2864,16 +2869,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __w_t<general_type_t> __type;
 
         // Walks default step.
-        void __walk_default(ast_walk_context_t & context, int step, void * tag);
+        bool __walk_default(ast_walk_context_t & context, int step, void * tag);
 
         // Appends default constructors.
         method_t * __append_default_constructor(ast_walk_context_t & context);
 
         // Walks analysis step.
-        void __walk_analysis(ast_walk_context_t & context, void * tag);
+        bool __walk_analysis(ast_walk_context_t & context, void * tag);
 
         // Walks init fields.
-        void __walk_analysis_init_fields(ast_walk_context_t & context);
+        bool __walk_analysis_init_fields(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2905,7 +2910,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<expression_statement_t> __statement;
@@ -2940,7 +2945,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<type_def_statement_t> __statement;
@@ -2978,7 +2983,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Set constant.
         void set_constant(bool constant);
@@ -2987,10 +2992,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __w_t<defination_statement_t> __statement;
 
         // Walks default step.
-        void __walk_default(ast_walk_context_t & context);
+        bool __walk_default(ast_walk_context_t & context);
 
         // Walks analysis step.
-        void __walk_analysis(ast_walk_context_t & context);
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3013,7 +3018,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<break_statement_t> __statement;
@@ -3040,7 +3045,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<continue_statement_t> __statement;
@@ -3075,7 +3080,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<throw_statement_t> __statement;
@@ -3108,7 +3113,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<goto_statement_t> __statement;
@@ -3143,13 +3148,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<return_statement_t> __statement;
 
         // Walks post analysis step.
-        void __walk_post_analysis(ast_walk_context_t & context);
+        bool __walk_post_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3183,7 +3188,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<do_while_statement_t> __statement;
@@ -3221,7 +3226,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<loop_until_statement_t> __statement;
@@ -3259,7 +3264,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<while_statement_t> __statement;
@@ -3303,7 +3308,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<for_statement_t> __statement;
@@ -3346,7 +3351,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<for_each_statement_t> __statement;
@@ -3387,7 +3392,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<if_statement_t> __statement;
@@ -3425,7 +3430,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<switch_statement_t> __statement;
@@ -3466,7 +3471,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual case_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<case_t> __case;
@@ -3507,7 +3512,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walk this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<try_statement_t> __statement;
@@ -3548,7 +3553,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual catch_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __el_t * __variable_el;
@@ -3576,7 +3581,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<empty_statement_t> __statement;
@@ -3611,7 +3616,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual statement_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<statement_group_t> __statement_group;
@@ -3646,7 +3651,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __wexp_t<type_name_expression_t> __expression;
@@ -3684,7 +3689,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __wexp_t<type_cast_expression_t> __expression;
@@ -3725,7 +3730,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __wexp_t<function_expression_t> __expression;
@@ -3763,7 +3768,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __wexp_t<index_expression_t> __expression;
@@ -3801,7 +3806,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __wexp_t<new_expression_t> __expression;
@@ -3842,20 +3847,20 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __wexp_t<new_array_expression_t> __expression;
         array_length_t __get_length(dimension_t dimension);
 
         // Walks default step.
-        void __walk_default(ast_walk_context_t & context);
+        bool __walk_default(ast_walk_context_t & context);
 
         // Walks confirm step.
-        void __walk_confirm(ast_walk_context_t & context);
+        bool __walk_confirm(ast_walk_context_t & context);
 
         // Walks analysis step.
-        void __walk_analysis(ast_walk_context_t & context);
+        bool __walk_analysis(ast_walk_context_t & context);
 
     };
 
@@ -3888,7 +3893,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual array_initializer_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         array_initializer_t __initializer;
@@ -3923,7 +3928,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual array_lengths_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         array_lengths_t __lengths;
@@ -3959,7 +3964,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual expression_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __wexp_t<default_value_expression_t> __expression;
@@ -4006,7 +4011,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual field_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<field_t> __field;
@@ -4074,14 +4079,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual method_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<method_t> __method;
         const operator_property_t * __op_property = nullptr;
 
-        void __walk_default(ast_walk_context_t & context);
-        void __walk_analysis(ast_walk_context_t & context);
+        bool __walk_default(ast_walk_context_t & context);
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4134,7 +4139,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual property_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<property_t> __property;
@@ -4193,7 +4198,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         virtual event_t * to_eobject() override;
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
         __w_t<event_t> __event;
@@ -4217,9 +4222,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             : __utils_t(context) { }
 
         // Walks this node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override
         {
-            __super_t::on_walk(context, step, tag);
+            return __super_t::on_walk(context, step, tag);
         }
 
         // Returns eobject count.

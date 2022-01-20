@@ -112,12 +112,12 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Returns code unit.
-    code_unit_t * analyze_element_t::code_unit() const
+    const code_unit_t * analyze_element_t::code_unit() const
     {
         code_element_t * element = this->code_element();
 
         if (element != nullptr)
-            return element->code_unit;
+            return element->get_code_unit();
 
         return nullptr;
     }
@@ -658,9 +658,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __color_t color = __get_console_color(level, name);
 
         string_t msg;
-        code_unit_t * cu;
+        const code_unit_t * cu;
 
-        if (element != nullptr && (cu = element->code_unit) != nullptr)
+        if (element != nullptr && (cu = element->get_code_unit()) != nullptr)
         {
             const code_file_t * file = cu->file;
 
@@ -1105,7 +1105,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Detect which element is missing.
     detect_missing_element_result lang_service_helper_t::detect_missing_element(
                 ast_context_t & ast_context, analyzer_element_reader_t & reader,
-                const analyze_node_keys_t & possible_keys, code_unit_t * cu)
+                const analyze_node_keys_t & possible_keys, const code_unit_t * cu)
     {
         return __RequireService(analyze)->detect_missing_element(ast_context,
                                              reader, possible_keys, cu);

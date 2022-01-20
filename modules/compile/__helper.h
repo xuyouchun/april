@@ -44,7 +44,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             // Constructor.
             __fake_ast_node_t() = default;
-            __fake_ast_node_t(__etype_t && eobject, code_unit_t * code_unit = nullptr)
+            __fake_ast_node_t(__etype_t && eobject, const code_unit_t * code_unit = nullptr)
                 : __eobject(eobject)
             {
                 this->code_unit = code_unit;
@@ -90,7 +90,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
             // Constructors.
             __fake_ast_node_t() = default;
-            __fake_ast_node_t(__etype_t * eobject, code_unit_t * code_unit = nullptr)
+            __fake_ast_node_t(__etype_t * eobject, const code_unit_t * code_unit = nullptr)
                 : __eobject(eobject)
             {
                 this->code_unit = code_unit;
@@ -134,7 +134,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             // Constructors.
             __fake_asts_node_t() = default;
             __fake_asts_node_t(
-                std::initializer_list<etype_t> il, code_unit_t * code_unit = nullptr)
+                std::initializer_list<etype_t> il, const code_unit_t * code_unit = nullptr)
                 : __eobjects(il)
             {
                 this->code_unit = code_unit;
@@ -172,7 +172,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Converts to fake ast node.
     template<ast_value_t _value, typename _etype_t>
     auto to_fake_ast(_etype_t && eobject, memory_t * memory,
-                                    code_unit_t * code_unit = nullptr)
+                                          const code_unit_t * code_unit = nullptr)
     {
         typedef std::remove_reference_t<_etype_t> etype_t;
         return memory_t::new_obj<fake_ast_node_t<etype_t, _value>>(
@@ -275,7 +275,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Converts to a fake ast node.
         template<ast_value_t _value, typename _etype_t>
-        auto __to_ast(_etype_t && eobject, code_unit_t * code_unit = nullptr)
+        auto __to_ast(_etype_t && eobject, const code_unit_t * code_unit = nullptr)
         {
             typedef std::remove_reference_t<_etype_t> etype_t;
 

@@ -132,6 +132,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             }
         }
 
+        // Returns code position information.
+        virtual const code_unit_t * get_code_unit() override
+        {
+            code_element_t * element = operator code_element_t *();
+            return element != nullptr? element->get_code_unit() : nullptr;
+        }
+
     private:
         union
         {
@@ -206,6 +213,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         void __log(_code_t code, const string_t & name, __code_element_t element = nullptr)
         {
             code_element_t * e = (code_element_t *)element;
+
             if (e != nullptr)
                 e = (code_element_t *)__element;
 

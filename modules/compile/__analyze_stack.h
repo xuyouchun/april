@@ -147,26 +147,28 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // A base class of expression.
-    template<typename base_exp_t>
-    class __exp_base_t : public base_exp_t, public __expression_ex_t
+    template<typename _base_exp_t>
+    class __exp_base_t : public _base_exp_t
+                       , public __expression_ex_t
     {
-    public:
+        typedef _base_exp_t __super_t;
 
+    public:
         // Constructor.
-        template<typename ... args_t>
-        __exp_base_t(lang_t * lang, token_t * op_token, args_t ... args)
-            : base_exp_t(args ...), __expression_ex_t(lang, op_token)
+        template<typename ... _args_t>
+        __exp_base_t(lang_t * lang, token_t * op_token, _args_t ... args)
+            : __super_t(std::forward<_args_t>(args) ...), __expression_ex_t(lang, op_token)
         { }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
     // A base class of expression.
-    template<typename base_exp_t>
-    class __exp_t : public __exp_base_t<base_exp_t>
+    template<typename _base_exp_t>
+    class __exp_t : public __exp_base_t<_base_exp_t>
     {
     public:
-        using __exp_base_t<base_exp_t>::__exp_base_t;
+        using __exp_base_t<_base_exp_t>::__exp_base_t;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -213,16 +215,19 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Creates a system expression.
-    template<typename ... args_t>
+    template<typename ... _args_t>
     expression_t * to_sys_exp(memory_t * memory, lang_t * lang, token_t * op_token,
-                                                                args_t && ... args)
+                                                                _args_t && ... args)
     {
         typedef std::remove_pointer_t<
-            decltype(core::to_exp(memory, std::forward<args_t>(args) ...))
+            decltype(core::to_exp(memory, std::forward<_args_t>(args) ...))
         > base_exp_t;
 
         typedef __exp_t<system_expression_t<base_exp_t>> exp_t;
-        return memory_t::new_obj<exp_t>(memory, lang, op_token, std::forward<args_t>(args) ...);
+
+        return memory_t::new_obj<exp_t>(memory,
+            lang, op_token, std::forward<_args_t>(args) ...
+        );
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -299,10 +304,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
 
         // Converts to a system expression.
-        template<typename ... args_t>
-        expression_t * to_exp(token_t * op_token, args_t && ... args)
+        template<typename ... _args_t>
+        expression_t * to_exp(token_t * op_token, _args_t && ... args)
         {
-            return to_sys_exp(memory, lang, op_token, std::forward<args_t>(args) ...);
+            return to_sys_exp(memory, lang, op_token, std::forward<_args_t>(args) ...);
         }
 
         // Returns token property by token value.
@@ -340,7 +345,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         lang_token_property_service_t * __token_property_service = nullptr;
         lang_operator_property_service_t * __operator_property_service = nullptr;
 
-        template<typename value_t> using __cache_t = al::auto_cache_t<token_value_t, value_t>;
+        template<typename _value_t> using __cache_t = al::auto_cache_t<token_value_t, _value_t>;
 
         __cache_t<const token_property_t *> __token_properties;
         __cache_t<const operator_property_t *> __operator_properties;
@@ -350,8 +355,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         const operator_property_t * __get_operator_property(token_value_t value);
 
         // Checks return value.
-        template<typename ret_t, typename value_t>
-        ret_t __check_ret(ret_t ret, __e_t error, value_t value)
+        template<typename _ret_t, typename _value_t>
+        _ret_t __check_ret(_ret_t ret, __e_t error, _value_t value)
         {
             if (ret == nullptr)
                 throw _E(error, sprintf(_title(error), value));
@@ -445,14 +450,14 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         //-------- ---------- ---------- ---------- ----------
 
         // Stack.
-        template<typename t>
-        struct __stack_t : public std::stack<t>
+        template<typename _t>
+        struct __stack_t : public std::stack<_t>
         {
-            t pop_back()
+            _t pop_back()
             {
                 if (this->size() > 0)
                 {
-                    t top = this->top();
+                    _t top = this->top();
                     this->pop();
 
                     return std::move(top);
@@ -531,10 +536,10 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     namespace
     {
         // Simple elements.
-        template<typename itor_t>
+        template<typename _itor_t>
         class __simple_elements_t : public analyze_stack_elements_t
         {
-            typedef itor_t __itor_t;
+            typedef _itor_t __itor_t;
 
         public:
 
@@ -561,8 +566,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     //-------- ---------- ---------- ---------- ----------
 
     // Parse expression with specified expressions.
-    template<typename itor_t>
-    expression_t * parse_expression(memory_t * memory, lang_t * lang, itor_t begin, itor_t end)
+    template<typename _itor_t>
+    expression_t * parse_expression(memory_t * memory, lang_t * lang, _itor_t begin, _itor_t end)
     {
         _A(lang != nullptr);
 
@@ -570,7 +575,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return nullptr;
 
         analyze_stack_context_t context(memory, lang);
-        __simple_elements_t<itor_t> elements(begin, end);
+        __simple_elements_t<_itor_t> elements(begin, end);
 
         analyze_stack_t stack(&context, &elements);
         return stack.analyze();

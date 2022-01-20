@@ -161,7 +161,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         }
     }
 
-
     ////////// ////////// ////////// ////////// //////////
 
     // Analyze.

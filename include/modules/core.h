@@ -204,29 +204,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
 
     // Code element with code unit.
-    class code_element_t
+    X_INTERFACE code_element_t
     {
-    public:
-        code_element_t() = default;
-        code_element_t(code_unit_t * unit) : code_unit(unit) { }
-
-        code_unit_t * code_unit = nullptr;
+        // Returns code position information.
+        virtual const code_unit_t * get_code_unit() = 0;
     };
 
     // Combines code elements, its code unit will combined.
     code_element_t * combine(memory_t * memory, code_element_t * from, code_element_t * to);
-
-    ////////// ////////// ////////// ////////// //////////
-
-    // Code element wrapper, append code_unit to an object.
-    template<typename obj_t>
-    class code_element_wrapper_t : public obj_t, public code_element_t
-    {
-        typedef obj_t __super_t;
-
-    public:
-        using __super_t::__super_t;
-    };
 
     ////////// ////////// ////////// ////////// //////////
     // logger_t
@@ -267,83 +252,83 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         logger_t & logger;
 
         // Log error
-        template<typename code_t>
-        void log_error(code_element_t * element, code_t code, const string_t & message)
+        template<typename _code_t>
+        void log_error(code_element_t * element, _code_t code, const string_t & message)
         {
             logger.log(element, log_level_t::error, _title(code), message);
         }
 
         // Log error with format.
-        template<typename code_t, typename ... args_t>
-        void log_errorf(code_element_t * element, code_t code, args_t && ... args)
+        template<typename _code_t, typename ... _args_t>
+        void log_errorf(code_element_t * element, _code_t code, _args_t && ... args)
         {
-            log_error(element, code, _F(_desc(code), std::forward<args_t>(args) ...));
+            log_error(element, code, _F(_desc(code), std::forward<_args_t>(args) ...));
         }
 
         // Log warning
-        template<typename code_t>
-        void log_warning(code_element_t * element, code_t code, const string_t & message)
+        template<typename _code_t>
+        void log_warning(code_element_t * element, _code_t code, const string_t & message)
         {
             logger.log(element, log_level_t::warning, _title(code), message);
         }
 
         // Log warning with format.
-        template<typename code_t, typename ... args_t>
-        void log_warningf(code_element_t * element, code_t code, args_t && ... args)
+        template<typename _code_t, typename ... _args_t>
+        void log_warningf(code_element_t * element, _code_t code, _args_t && ... args)
         {
-            log_warning(element, code, _F(_desc(code), std::forward<args_t>(args) ...));
+            log_warning(element, code, _F(_desc(code), std::forward<_args_t>(args) ...));
         }
 
         // Log info
-        template<typename code_t>
-        void log_info(code_element_t * element, code_t code, const string_t & message)
+        template<typename _code_t>
+        void log_info(code_element_t * element, _code_t code, const string_t & message)
         {
             logger.log(element, log_level_t::info, _title(code), message);
         }
 
         // Log info with format.
-        template<typename code_t, typename ... args_t>
-        void log_infof(code_element_t * element, code_t code, args_t && ... args)
+        template<typename _code_t, typename ... _args_t>
+        void log_infof(code_element_t * element, _code_t code, _args_t && ... args)
         {
-            log_info(element, code, _F(_desc(code), std::forward<args_t>(args) ...));
+            log_info(element, code, _F(_desc(code), std::forward<_args_t>(args) ...));
         }
 
         // Log message.
-        template<typename code_t>
-        void log(code_element_t * element, code_t code, const string_t & message)
+        template<typename _code_t>
+        void log(code_element_t * element, _code_t code, const string_t & message)
         {
             __log(element, code, message);
         }
 
         // Log message.
-        template<typename code_t>
-        void log(code_element_t * element, log_level_t level, code_t code, const string_t & message)
+        template<typename _code_t>
+        void log(code_element_t * element, log_level_t level, _code_t code, const string_t & message)
         {
             logger.log(element, level, _title(code), message);
         }
 
         // Log message with format.
-        template<typename code_t, typename ... args_t>
-        void logf(code_element_t * element, code_t code, args_t && ... args)
+        template<typename _code_t, typename ... _args_t>
+        void logf(code_element_t * element, _code_t code, _args_t && ... args)
         {
-            __log(element, code, _F(_desc(code), std::forward<args_t>(args) ...));
+            __log(element, code, _F(_desc(code), std::forward<_args_t>(args) ...));
         }
 
         // Log message with format.
-        template<typename code_t, typename ... args_t>
-        void logf(code_element_t * element, log_level_t level, code_t code, args_t && ... args)
+        template<typename _code_t, typename ... _args_t>
+        void logf(code_element_t * element, log_level_t level, _code_t code, _args_t && ... args)
         {
             logger.log(element, level, _title(code),
-                _F(_desc(code), std::forward<args_t>(args) ...)
+                _F(_desc(code), std::forward<_args_t>(args) ...)
             );
         }
 
     private:
-        template<typename code_t>
-        void __log(code_element_t * element, code_t code, const string_t & message)
+        template<typename _code_t>
+        void __log(code_element_t * element, _code_t code, const string_t & message)
         {
-            #define __Code(_code_) ((code_t)_code_)
-            typedef code_t  c_t;
+            #define __Code(_code_) ((_code_t)_code_)
+            typedef _code_t  c_t;
 
             _A(__Code(code) > __Code(c_t::__info__) && __Code(code) < __Code(c_t::__the_end__));
 
@@ -490,7 +475,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Constructor.
         token_t(token_value_t value, const char_t * s, int32_t length,
             token_data_t * data = nullptr, const code_file_t * file = nullptr)
-            : code_element_t(&code_unit), code_unit(s, length, file), value(value), data(data)
+            : code_unit(s, length, file), value(value), data(data)
         { } 
 
         // Constructor.
@@ -499,7 +484,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         { }
 
         // Constructor.
-        token_t(token_value_t value, code_unit_t * cu)
+        token_t(token_value_t value, const code_unit_t * cu)
             : token_t(value, cu? cu->s : nullptr, cu? cu->length : 0, cu? cu->file : nullptr)
         { }
 
@@ -522,6 +507,12 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         // Converts to code_unit_t *.
         operator code_unit_t * () { return &code_unit; }
         operator const code_unit_t * () const { return &code_unit; }
+
+        // Returns code position information.
+        virtual const code_unit_t * get_code_unit() override
+        {
+            return &code_unit;
+        }
     };
 
     ostream_t & operator << (ostream_t & stream, const token_t & w);
@@ -5560,8 +5551,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
     // ast_walk_context_t
 
-    class ast_node_t;
-
     // Ast walk context.
     class ast_walk_context_t : public object_t, public no_copy_ctor_t
     {
@@ -5805,7 +5794,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void set_child(size_t index, ast_node_t * node) = 0;
 
         // On walk the ast node.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag);
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag);
 
         // On commit it.
         virtual void on_commit() { }
@@ -5821,6 +5810,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         {
             return this->to_string();
         }
+
+        // Returns code position information.
+        virtual const code_unit_t * get_code_unit() override
+        {
+            return code_unit;
+        }
+
+        const code_unit_t * code_unit = nullptr;
 
         // Parent node.
         ast_node_t * parent = nullptr;
@@ -5968,7 +5965,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void on_commit() override;
 
         // On walk it.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -5997,10 +5994,10 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual void on_commit() override;
 
         // On walk it.
-        virtual void on_walk(ast_walk_context_t & context, int step, void * tag) override;
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Walk it.
-        virtual void do_walk(ast_walk_context_t & context, int step, void * tag);
+        virtual bool do_walk(ast_walk_context_t & context, int step, void * tag);
 
         // Returns module.
         module_t * get_module() { return __module; }
@@ -6243,7 +6240,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Expression.
-    class expression_t : public eobject_t
+    class expression_t : public eobject_t, public code_element_t
     {
         typedef eobject_t __super_t;
 
@@ -6260,13 +6257,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         virtual expression_t * expression_at(size_t index) const = 0;
 
         // Converts to a string.
-        virtual const string_t to_string() const override
-        {
-            auto w = std::bind(al::_wrap_index<size_t>, std::placeholders::_1);
-            return al::join_str(w(0), w(expression_count()), _T(", "),
-                [this](size_t index) { return _str(expression_at(index)); }
-            );
-        }
+        virtual const string_t to_string() const override;
 
         // Returns expression at specified index.
         expression_t * operator[](size_t index) const
@@ -6311,8 +6302,14 @@ namespace X_ROOT_NS { namespace modules { namespace core {
             throw _unimplemented_error(this, _T("get_behaviour"));
         }
 
+        // Returns code position information.
+        virtual const code_unit_t * get_code_unit() override;
+
         // Parent expression.
         expression_t * parent = nullptr;
+
+        // Code position information.
+        const code_unit_t * code_unit = nullptr;
 
         // Whether it is walked.
         bool walked = false;

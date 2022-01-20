@@ -32,7 +32,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Returns format error line.
-    static string_t __format_line(code_unit_t * cu, string_t & out_flag_msg);
+    static string_t __format_line(const code_unit_t * cu, string_t & out_flag_msg);
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -4040,7 +4040,9 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         // Current element that cause the format error.
         analyze_element_t * element = __element;
 
-        code_unit_t cu, * this_cu = nullptr;
+        code_unit_t cu;
+        const code_unit_t * this_cu = nullptr;
+
         if (replaced_element != nullptr)  // replace
         {
             this_cu = replaced_element->code_unit();
@@ -4049,7 +4051,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         {
             if (element != nullptr)
             {
-                code_unit_t * cu0 = element->code_unit();
+                const code_unit_t * cu0 = element->code_unit();
                 new (&cu) code_unit_t(cu0->s + cu0->length, 0, cu0->file);
                 this_cu = &cu;
             }
@@ -4075,17 +4077,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         if (!missing_element.is_empty())
         {
-            // Insert the best element and continue parse process.
-            #define __IsWhitespace(_offset)                                             \
-                ((_offset == 0 || *(this_cu->s + _offset - 1)) &&                       \
-                    (*(this_cu->s + _offset) == _T(' ')))
-
-            // Move to next byte when exists enough whitespaces.
-            if (__IsWhitespace(0) && __IsWhitespace(1) && __IsWhitespace(2))
-                this_cu->s++;
-
-            #undef __IsWhitespace
-
             string_t title = result.title;
             if (title.empty())
                 title = h.get_element_string(missing_element);
@@ -4197,7 +4188,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Create a new element from specified node key.
-    analyze_element_t __analyzer_t::__element_from_key(__node_key_t key, code_unit_t * cu)
+    analyze_element_t __analyzer_t::__element_from_key(__node_key_t key, const code_unit_t * cu)
     {
         switch (key.type)
         {
@@ -4335,7 +4326,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     }
 
     // Returns format error line.
-    static string_t __format_line(code_unit_t * cu, string_t & out_flag_msg)
+    static string_t __format_line(const code_unit_t * cu, string_t & out_flag_msg)
     {
         _A(cu != nullptr);
 
@@ -4408,7 +4399,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     // Log format error.
     void __analyzer_t::__log_format_error(const string_t & error, analyze_element_t & element,
-                                          code_unit_t * cu)
+                                          const code_unit_t * cu)
     {
         xlogger_t logger(__ast_context.logger);
 

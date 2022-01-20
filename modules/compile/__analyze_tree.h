@@ -2269,7 +2269,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __node_keys_t __try_missing_keys(__node_keys_t & keys, __node_key_t * out_best_key);
 
         // Create a new element from specified node key.
-        analyze_element_t __element_from_key(__node_key_t key, code_unit_t * cu);
+        analyze_element_t __element_from_key(__node_key_t key, const code_unit_t * cu);
 
         // Push element.
         void __push_element(analyze_element_t * element);
@@ -2317,7 +2317,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         // Log format error.
         void __log_format_error(const string_t & error, analyze_element_t & element,
-                        code_unit_t * cu = nullptr);
+                        const code_unit_t * cu = nullptr);
 
         //-------- ---------- ---------- ---------- ----------
 

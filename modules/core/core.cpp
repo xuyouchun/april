@@ -743,15 +743,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Code element.
     class __code_element_t : public code_element_t
     {
+        typedef code_element_t __super_t;
+
     public:
 
         // Constructor.
         __code_element_t(const char_t * s, int32_t length, const code_file_t * file)
-            : __unit(s, length, file), code_element_t(&__unit)
+            : __unit(s, length, file)
         { }
 
+        // Returns code position information.
+        virtual const code_unit_t * get_code_unit() override
+        {
+            return &__unit;
+        }
+
     private:
-        code_unit_t __unit;
+        const code_unit_t __unit;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -762,18 +770,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         if (from == nullptr || to == nullptr)
             return from != nullptr? from : to;
 
-        if (from->code_unit == nullptr || to->code_unit == nullptr)
-            return from->code_unit != nullptr? from : to;
+        const code_unit_t * from_cu = from->get_code_unit();
+        const code_unit_t * to_cu   = to->get_code_unit();
 
-        _A(from->code_unit->file == to->code_unit->file);
+        if (from_cu == nullptr || to_cu == nullptr)
+            return from_cu != nullptr? from : to;
 
-        if (to->code_unit->s < from->code_unit->s)
+        _A(from_cu->file == to_cu->file);
+
+        if (to_cu->s < from_cu->s)
             return from;
 
         return memory_t::new_obj<__code_element_t>(memory,
-            from->code_unit->s,
-            to->code_unit->s - from->code_unit->s + to->code_unit->length,
-            from->code_unit->file
+            from_cu->s, to_cu->s - from_cu->s + to_cu->length, from_cu->file
         );
     }
 
@@ -5719,16 +5728,20 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // ast_node_t
 
     // On walk the ast node.
-    void ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        bool r = true;
+
         for (size_t index = 0, count = child_count(); index < count; index++)
         {
             ast_node_t * child = child_at(index);
-            if (child != nullptr)
+            if (child != nullptr && !child->on_walk(context, 0, nullptr))
             {
-                child->on_walk(context, 0, nullptr);
+                r = false;
             }
         }
+
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -5787,11 +5800,13 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // document_ast_node_t
 
     // On walk document ast node.
-    void document_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool document_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         context.push_new_document();
-        __super_t::on_walk(context, step, tag);
+        bool r = __super_t::on_walk(context, step, tag);
         context.pop();
+
+        return r;
     }
 
     // On commit document ast node.
@@ -5804,17 +5819,19 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // module_ast_node_t
 
     // On walk module ast node.
-    void module_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool module_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         __module = context.push_new_module();
-        do_walk(context, step, tag);
+        bool r = do_walk(context, step, tag);
         context.pop();
+
+        return r;
     }
 
     // Do walk module ast node.
-    void module_ast_node_t::do_walk(ast_walk_context_t & context, int step, void * tag)
+    bool module_ast_node_t::do_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     // Commits ast node.
@@ -5963,6 +5980,28 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         X_C(execute,        _T("execute"))
 
     X_ENUM_INFO_END
+
+    ////////// ////////// ////////// ////////// //////////
+    // expression_t
+
+    // Converts to a string.
+    const string_t expression_t::to_string() const
+    {
+        auto w = std::bind(al::_wrap_index<size_t>, std::placeholders::_1);
+        return al::join_str(w(0), w(expression_count()), _T(", "),
+            [this](size_t index) { return _str(expression_at(index)); }
+        );
+    }
+
+    // Returns code position information.
+    const code_unit_t * expression_t::get_code_unit()
+    {
+        if (code_unit != nullptr)
+            return code_unit;
+
+        // TODO: auto execute
+        return code_unit;
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // name_expression_t

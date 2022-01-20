@@ -31,10 +31,10 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Walks this node.
-    void _attribute_group_assign_ast_node_t::on_walk(ast_walk_context_t & context,
+    bool _attribute_group_assign_ast_node_t::on_walk(ast_walk_context_t & context,
                                                             int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -43,7 +43,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // Commits this node.
     void _attribute_group_ast_node_t::on_commit()
     {
-
+        // Empty.
     }
 
     // Returns eobject count.
@@ -59,7 +59,7 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Walks this node.
-    void _attribute_group_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool _attribute_group_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         return __super_t::on_walk(context, step, tag);
     }
@@ -68,34 +68,32 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     // _attribute_group_item
 
     // Attribute group item ast node.
-    void _attribute_group_item_ast_node_t::on_walk(ast_walk_context_t & context, int step,
+    bool _attribute_group_item_ast_node_t::on_walk(ast_walk_context_t & context, int step,
                                                                                  void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
 
     // Walks this node.
-    void _attribute_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool _attribute_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 this->__delay(context, walk_step_t::confirm);
-                __super_t::on_walk(context, step, tag);
-                break;
+                return __super_t::on_walk(context, step, tag);
 
             case walk_step_t::confirm:
-                __walk_confirm(context);
-                break;
+                return __walk_confirm(context);
 
-            default: break;
+            default: return true;
         }
     }
 
     // Walks confirm step.
-    void _attribute_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
+    bool _attribute_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
         typedef ascertain_type_error_t e_t;
 
@@ -119,6 +117,8 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
                 }
             }
         }
+
+        return true;
     }
 
     // Ascertains type.
@@ -160,9 +160,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Walks this node.
-    void _defination_st_item_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool _defination_st_item_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -189,9 +189,9 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     }
 
     // Walks this node.
-    void _fields_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool _fields_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        __super_t::on_walk(context, step, tag);
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
