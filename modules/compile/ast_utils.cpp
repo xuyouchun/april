@@ -1052,7 +1052,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                 if (!__walk_type(name_exp))
                 {
                     code_element_t * element = as<code_element_t *>(name_exp);
-                    _PP((void *)element);
                     ast_log(__cctx, name_exp, __c_t::variable_undefined, name);
                 }
             }

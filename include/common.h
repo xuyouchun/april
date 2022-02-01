@@ -1242,7 +1242,7 @@ namespace X_ROOT_NS {
 
     #else
 
-    #define X_ASSERT(x, args...)
+    #define X_ASSERT(x, args...)    do { } while (0)
 
     #endif
 

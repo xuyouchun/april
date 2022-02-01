@@ -208,10 +208,30 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     {
         // Returns code position information.
         virtual const code_unit_t * get_code_unit() = 0;
+
+        // Returns code position information.
+        operator const code_unit_t * ()
+        {
+            return get_code_unit();
+        }
     };
 
     // Combines code elements, its code unit will combined.
-    code_element_t * combine(memory_t * memory, code_element_t * from, code_element_t * to);
+    code_element_t * combine_code_element(memory_t * memory, code_element_t * from,
+                                                             code_element_t * to);
+    // Combines code units.
+    typedef al::svector_t<const code_unit_t *> code_units_t;
+    code_unit_t * combine_code_units(memory_t * memory, const code_units_t & code_units);
+
+    // Combines code units.
+    template<typename ... _code_units_t>
+    code_unit_t * combine_all_code_units(memory_t * memory, _code_units_t && ... code_units)
+    {
+        al::svector_t<const code_unit_t *> cus;
+        al::pick_elements(std::back_inserter(cus), std::forward<_code_units_t>(code_units) ...);
+
+        return combine_code_units(memory, cus);
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // logger_t

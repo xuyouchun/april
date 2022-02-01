@@ -412,7 +412,8 @@ namespace X_ROOT_NS { namespace algorithm {
             _container_t & __container;
 
         public:
-            typedef _container_t container_type;
+            typedef std::remove_reference_t<_container_t> container_type;
+            typedef typename container_type::value_type   value_type;
 
             explicit __insert_iterator_t(_container_t & x) : __container(x) { }
 
@@ -481,6 +482,36 @@ namespace X_ROOT_NS { namespace algorithm {
     };
 
     template<typename _t> byte_t empty_output_iterator_t<_t>::__temp_value[sizeof(_t)];
+
+    ////////// ////////// ////////// ////////// //////////
+
+    namespace
+    {
+        template<
+            typename _iterator_t,
+            bool _is_pointer = std::is_pointer<_iterator_t>::value  // When true
+        >
+        struct __element_type_of_iterator_t
+        {
+            typedef std::remove_pointer_t<_iterator_t> value_type_t;
+        };
+
+        template<typename _iterator_t>
+        struct __element_type_of_iterator_t<_iterator_t, false>
+        {
+            typedef typename _iterator_t::container_type::value_type value_type_t;
+        };
+    }
+
+    template<typename _iterator_t>
+    using iterator_element_t = typename __element_type_of_iterator_t<
+        std::remove_reference_t<_iterator_t>
+    >::value_type_t;
+
+    template<typename _container_t>
+    using container_element_t = iterator_element_t<
+        decltype(std::begin(*(std::remove_reference_t<_container_t> *)nullptr))
+    >;
 
     ////////// ////////// ////////// ////////// //////////
 

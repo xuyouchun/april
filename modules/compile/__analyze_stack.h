@@ -225,9 +225,13 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
         typedef __exp_t<system_expression_t<base_exp_t>> exp_t;
 
-        return memory_t::new_obj<exp_t>(memory,
+        exp_t * exp = memory_t::new_obj<exp_t>(memory,
             lang, op_token, std::forward<_args_t>(args) ...
         );
+
+        exp->code_unit = combine_all_code_units(memory, op_token, std::forward<_args_t>(args) ...);
+
+        return exp;
     }
 
     ////////// ////////// ////////// ////////// //////////

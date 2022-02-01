@@ -907,6 +907,87 @@ namespace X_ROOT_NS { namespace algorithm {
 #include <algorithm/__collections.h>
 #include <algorithm/__numeric.h>
 
+namespace X_ROOT_NS { namespace algorithm {
+
+    ////////// ////////// ////////// ////////// //////////
+
+    namespace
+    {
+        enum class __convertiable_t { yes, manual, no };
+
+        template<typename _from_t, typename _to_t>
+        constexpr __convertiable_t __convertible_of()
+        {
+            typedef std::remove_reference_t<_from_t> from_t;
+            typedef std::remove_reference_t<_to_t>   to_t;
+
+            if (std::is_convertible<from_t, to_t>())
+                return __convertiable_t::yes;
+
+            if (std::is_pointer<from_t>() &&
+                std::is_convertible<std::remove_pointer_t<from_t>, to_t>())
+                return __convertiable_t::manual;
+
+            return __convertiable_t::no;
+        }
+
+        template<__convertiable_t> struct __pick_elements_insert_t
+        {
+            template<typename _output_iterator_t, typename _element_t, typename _element0_t>
+            static void insert(_output_iterator_t && output, _element0_t && element) { }
+        };
+
+        template<> struct __pick_elements_insert_t<__convertiable_t::yes>
+        {
+            template<typename _output_iterator_t, typename _element_t, typename _element0_t>
+            static void insert(_output_iterator_t && output, _element0_t && element)
+            {
+                *output++ = (_element_t)element;
+            }
+        };
+
+        template<> struct __pick_elements_insert_t<__convertiable_t::manual>
+        {
+            template<typename _output_iterator_t, typename _element_t, typename _element0_t>
+            static void insert(_output_iterator_t && output, _element0_t && element)
+            {
+                if (element != nullptr)
+                    *output++ = (_element_t)*element;
+                else
+                    *output++ = _D(_element_t);
+            }
+        };
+    }
+
+    template<
+        typename _output_iterator_t,
+        typename _element_t = iterator_element_t<_output_iterator_t>
+    >
+    void pick_elements(_output_iterator_t && output) { }
+
+    template<
+        typename _output_iterator_t,
+        typename _element_t = iterator_element_t<_output_iterator_t>,
+        typename _element0_t, typename ... _rests_t
+    >
+    void pick_elements(_output_iterator_t && output, _element0_t && element, _rests_t && ... rests)
+    {
+        constexpr __convertiable_t convertiable = __convertible_of<decltype(element), _element_t>();
+        __pick_elements_insert_t<convertiable>::template insert<_output_iterator_t, _element_t>(
+            std::forward<_output_iterator_t>(output), std::forward<_element0_t>(element)
+        );
+
+        pick_elements<_output_iterator_t, _element_t>(
+            std::forward<_output_iterator_t>(output), std::forward<_rests_t>(rests) ...
+        );
+    }
+
+
+    ////////// ////////// ////////// ////////// //////////
+
+} }  // X_ROOT_NS::algorithm
+
+
 namespace al = ::X_ROOT_NS::algorithm;
 
 #endif  // __ALGORITHM_H__

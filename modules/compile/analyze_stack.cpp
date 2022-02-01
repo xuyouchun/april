@@ -394,7 +394,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     // Pushes a name.
     void analyze_stack_t::__push_name(token_t * token, const name_t & name)
     {
-        __push_expression(__context->to_exp(nullptr, name));
+        expression_t * exp = __context->to_exp(nullptr, name);
+        __push_expression(exp);
+
+        if (token != nullptr)
+            exp->code_unit = (const code_unit_t *)*token;
     }
 
     // Pushes an expression box.

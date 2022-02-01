@@ -765,7 +765,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Combines code elements.
-    code_element_t * combine(memory_t * memory, code_element_t * from, code_element_t * to)
+    code_element_t * combine_code_element(memory_t * memory, code_element_t * from,
+                                                             code_element_t * to)
     {
         if (from == nullptr || to == nullptr)
             return from != nullptr? from : to;
@@ -784,6 +785,41 @@ namespace X_ROOT_NS { namespace modules { namespace core {
         return memory_t::new_obj<__code_element_t>(memory,
             from_cu->s, to_cu->s - from_cu->s + to_cu->length, from_cu->file
         );
+    }
+
+    // Combines code units.
+    code_unit_t * combine_code_units(memory_t * memory, const code_units_t & code_units)
+    {
+        const char_t * from = nullptr, * to = nullptr;
+        const code_file_t * file = nullptr;
+
+        for (const code_unit_t * cu : code_units)
+        {
+            if (cu == nullptr)
+                continue;
+
+            if (cu->file != nullptr)
+            {
+                if (file == nullptr)
+                    file = cu->file;
+                else
+                    _A(cu->file == file);
+            }
+
+            if (cu->s != nullptr)
+            {
+                if (to == nullptr || cu->s + cu->length > to)
+                    to = cu->s + cu->length;
+
+                if (from == nullptr || cu->s < from)
+                    from = cu->s;
+            }
+        }
+
+        if (from != nullptr)
+            return memory_t::new_obj<code_unit_t>(memory, from, to - from, file);
+
+        return nullptr;
     }
 
     ////////// ////////// ////////// ////////// //////////

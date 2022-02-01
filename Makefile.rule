@@ -28,7 +28,7 @@ LDFLAGS      ?= $(GLOBAL_LDFLAGS) $(EXTERN_LDFLAGS)
 LIBS         ?= $(GLOBAL_LIBS) $(EXTERN_LIBS)
 INCLUDES     ?= $(addprefix -I, $(INC_PATH)) -I$(BASE_PATH) \
                  -I$(OS_PATH) -I$(ARCH_PATH) -I$(GLOBAL_PATH)
-CPPFLAGS     ?= -O$(OPTIMIZE) -std=c++14 $(GLOBAL_CPPFLAGS) $(EXTERN_CPPFLAGS) $(INCLUDES) 
+CPPFLAGS     ?= -O$(OPTIMIZE) -std=c++2a $(GLOBAL_CPPFLAGS) $(EXTERN_CPPFLAGS) $(INCLUDES) 
 
 __CPP_FILES  ?= $(wildcard *.cpp)
 SRC_FILES    ?= $(__CPP_FILES)
