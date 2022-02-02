@@ -347,23 +347,23 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     ////////// ////////// ////////// ////////// //////////
     // metadatas
 
-    #define __DefineEntityIOFunctions                                   \
+    #define __DefineEntityIOFunctions                                                   \
         __mt_field_t __mt_fields_t<__Mt::tidx>::fields[] = {
 
 
-    #define __EndDefineEntityIOFunctions                                \
-        };                                                              \
-                                                                        \
-        size_t __mt_fields_t<__Mt::tidx>::field_count(__lv_t lv)        \
-        {                                                               \
-            return __field_count(fields, lv);                           \
+    #define __EndDefineEntityIOFunctions                                                \
+        };                                                                              \
+                                                                                        \
+        size_t __mt_fields_t<__Mt::tidx>::field_count(__lv_t lv)                        \
+        {                                                                               \
+            return __field_count(fields, lv);                                           \
         }
 
-    #define __MtMember(mt_t, member)                                    \
-        __mt_field_t                                                    \
-        {                                                               \
-            (uint16_t)(size_t)(&((const mt_t *)nullptr)->member),       \
-            (uint16_t)(sizeof(((const mt_t *)nullptr)->member))         \
+    #define __MtMember(mt_t, member)                                                    \
+        __mt_field_t                                                                    \
+        {                                                                               \
+            (uint16_t)offsetof(mt_t, member),                                           \
+            (uint16_t)(sizeof(((const mt_t *)nullptr)->member))                         \
         }
 
     #define __M(member)         __MtMember(__Mt, member)

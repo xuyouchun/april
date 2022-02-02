@@ -250,7 +250,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     // Metadata field offset and size.
     struct __mt_field_t { uint16_t offset, size; };
     template<__tidx_t tidx> struct __mt_fields_t { };
-
     template<__tidx_t tidx> struct mt_t { };
 
     // Base class of metadata.

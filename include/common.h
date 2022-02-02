@@ -248,8 +248,8 @@ namespace X_ROOT_NS {
     template<typename t> constexpr __rr_t<t> def_value()
     {
         typedef __rr_t<t> rr_t;
-        return __def_t<t, std::is_pointer<rr_t>::value,
-                   std::is_integral<rr_t>::value || std::is_floating_point<rr_t>::value
+        return __def_t<t, std::is_pointer_v<rr_t>,
+                   std::is_integral_v<rr_t> || std::is_floating_point_v<rr_t>
                >::value;
     }
 
@@ -321,7 +321,7 @@ namespace X_ROOT_NS {
 
         #define __X_INT_VALUE_INFO(type_name)                                           \
             template<> struct __int_type_info_t<sizeof(type_name),                      \
-                    std::is_signed<type_name>::value>                                   \
+                    std::is_signed_v<type_name>>                                        \
             {                                                                           \
                 typedef type_name type;                                                 \
             };
@@ -781,8 +781,8 @@ namespace X_ROOT_NS {
         template<typename t>
         constexpr __value_limit_family_t __value_limit_family() _NE
         {
-            return std::is_enum<t>::value? __value_limit_family_t::enum_
-                : std::is_arithmetic<t>::value?  __value_limit_family_t::numeric
+            return std::is_enum_v<t>? __value_limit_family_t::enum_
+                : std::is_arithmetic_v<t>?  __value_limit_family_t::numeric
                 : __value_limit_family_t::unknown;
         }
 
@@ -1908,12 +1908,12 @@ namespace X_ROOT_NS {
         static memory_flag_t __revise_memory_flag(memory_flag_t flag = memory_flag_t::__default__)
         {
             static_assert(
-                std::is_base_of<object_t, obj_t>::value ||
-                std::is_trivially_destructible<obj_t>::value,
+                std::is_base_of_v<object_t, obj_t> ||
+                std::is_trivially_destructible_v<obj_t>,
                 "not an object class, it's destructor will not be executed"
             );
 
-            if (std::is_base_of<object_t, obj_t>::value)
+            if (std::is_base_of_v<object_t, obj_t>)
                 enum_add_flag(flag, memory_flag_t::is_object);
             else
                 enum_remove_flag(flag, memory_flag_t::is_object);
@@ -2370,11 +2370,11 @@ namespace X_ROOT_NS {
             > _t;
 
             // An enum value
-            if (std::is_enum<_t>::value)
+            if (std::is_enum_v<_t>)
                 return __object_type_t::enum_;
 
             // A string
-            if (std::is_same<_t, string_t>::value)
+            if (std::is_same_v<_t, string_t>)
                 return __object_type_t::string;
 
             // An object. ( inherited by object_t. )
@@ -2386,15 +2386,15 @@ namespace X_ROOT_NS {
                 return __object_type_t::string_like;
 
             // Char array
-            if (std::is_same<t, wchar_t *>::value || std::is_same<t, const wchar_t *>::value)
+            if (std::is_same_v<t, wchar_t *> || std::is_same_v<t, const wchar_t *>)
                 return __object_type_t::char_array;
 
             // Pointer.
-            if (std::is_pointer<t>::value)
+            if (std::is_pointer_v<t>)
                 return __object_type_t::pointer;
 
             // Arithmetic
-            if (std::is_arithmetic<_t>::value)
+            if (std::is_arithmetic_v<_t>)
                 return __object_type_t::numeric;
 
             // Unknown
@@ -3070,7 +3070,7 @@ namespace X_ROOT_NS {
         }
 
         // Max/min values of specified bits. for signed values.
-        template<typename _t, size_t _bits, bool _signed = std::is_signed<_t>::value>
+        template<typename _t, size_t _bits, bool _signed = std::is_signed_v<_t>>
         struct __limit_of_bits_t
         {
             // Returns the max value of specified bits.
