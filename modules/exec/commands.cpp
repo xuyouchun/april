@@ -6,7 +6,7 @@
 #include "parser.h"
 #include <lib.h>
 
-namespace X_ROOT_NS { namespace modules { namespace exec {
+namespace X_ROOT_NS::modules::exec {
 
     #define __AlwaysInline  X_ALWAYS_INLINE
 
@@ -6599,4 +6599,4 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #undef __PrintCurrent
 
-} } }
+}   // namespace X_ROOT_NS::modules::exec

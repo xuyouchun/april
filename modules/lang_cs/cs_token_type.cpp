@@ -1,7 +1,7 @@
 
 #include <lang_cs.h>
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     #define __K(name)        X_C(k_##name, _S(name))
     #define __C(name, desc)  X_C(name, desc)
@@ -143,5 +143,5 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::lang_cs
+}   // namespace X_ROOT_NS::modules::lang_cs
 

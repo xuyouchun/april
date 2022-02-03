@@ -2,7 +2,7 @@
 #include <april.h>
 #include <lib.h>
 
-namespace X_ROOT_NS { namespace modules { namespace april {
+namespace X_ROOT_NS::modules::april {
 
     typedef april_error_code_t __e_t;
 
@@ -434,7 +434,7 @@ Use \"april help [command]\" for more information about a command.          \n\
 
     ////////// ////////// ////////// ////////// /////////
 
-} } }  // X_ROOT_NS::modules::april
+}  // X_ROOT_NS::modules::april
 
 
 ////////// ////////// ////////// ////////// /////////

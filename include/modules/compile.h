@@ -7,7 +7,7 @@
 #include <lib.h>
 
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     namespace
     {
@@ -1341,6 +1341,8 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         operator compile_context_t & () { return compile_context; }
         operator global_context_t & ()  { return compile_context.global_context; }
 
+        memory_t * get_memory() { return compile_context.global_context.get_memory(); }
+
         X_TO_STRING_IMPL(_T("ast_context_t"))
 
     private:
@@ -1740,7 +1742,16 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::compile
+    // Returns format error line.
+    string_t format_code_line(const code_unit_t * cu, string_t & out_flag_msg);
+
+    // Output code description for compile.
+    void output_code_description(logger_t & logger, code_element_t * ce,
+                                                    const code_unit_t * cu = nullptr);
+
+    ////////// ////////// ////////// ////////// //////////
+
+}   // X_ROOT_NS::modules::compile
 
 #include <modules/compile/__analyze_utils.h>
 #include <modules/compile/__expression.h>

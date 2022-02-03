@@ -2,7 +2,7 @@
 #include <compile.h>
 #include "utils.h"
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     using namespace core;
     using namespace xilx;
@@ -1724,5 +1724,5 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::compile
+}   // namespace X_ROOT_NS::modules::compile
 

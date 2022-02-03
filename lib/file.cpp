@@ -3,7 +3,7 @@
 #include <boost/filesystem/fstream.hpp>
 #include <algorithm.h>
 
-namespace X_ROOT_NS { namespace lib {
+namespace X_ROOT_NS::lib {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -402,4 +402,5 @@ namespace X_ROOT_NS { namespace lib {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }
+}   // namespace X_ROOT_NS::lib
+

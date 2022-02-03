@@ -1,7 +1,7 @@
 #ifndef __CORE_ASSEMBLY_LAYOUT_H__
 #define __CORE_ASSEMBLY_LAYOUT_H__
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
     // assembly_error_code_t
@@ -1900,7 +1900,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #undef __DefineMt
     #undef __EndDefineMt
 
-} } }
+}   // namespace X_ROOT_NS::modules::core
 
 #endif  // __CORE_ASSEMBLY_LAYOUT_H__
 

@@ -1,7 +1,7 @@
 
 #include "cs_analyze_tree.h"
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     namespace
     {
@@ -331,5 +331,6 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
     #undef __EndAst
     #undef __SimpleAst
 
-} } }  // namespace X_ROOT_NS::modules::lang_cs
+}   // namespace X_ROOT_NS::modules::lang_cs
+
 

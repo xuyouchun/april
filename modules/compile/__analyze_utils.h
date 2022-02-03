@@ -1,7 +1,7 @@
 #ifndef __COMPILE_ANALYZE_UTILS_H__
 #define __COMPILE_ANALYZE_UTILS_H__
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     namespace
     {
@@ -140,7 +140,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         return walk(p, [](itor_t & p) { return al::is_word(*p); });
     }
 
-} } }  // X_ROOT_NS::modules::compile
+}   // X_ROOT_NS::modules::compile
 
 
 #endif  // __COMPILE_ANALYZE_UTILS_H__

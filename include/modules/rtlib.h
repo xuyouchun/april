@@ -6,7 +6,7 @@
 #include <jc.h>
 #include <rt.h>
 
-namespace X_ROOT_NS { namespace modules { namespace rtlib {
+namespace X_ROOT_NS::modules::rtlib {
 
     using namespace rt;
 
@@ -169,6 +169,6 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::rtlib
 
 #endif  // __RTLIB_H__

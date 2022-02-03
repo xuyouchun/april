@@ -1,7 +1,7 @@
 #ifndef __COMPILE_EXPRESSION_H__
 #define __COMPILE_EXPRESSION_H__
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     namespace
     {
@@ -344,6 +344,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::compile
 
 #endif // __COMPILE_EXPRESSION_H__

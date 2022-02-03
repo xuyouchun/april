@@ -3,7 +3,7 @@
 
 #include "services.h"
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     namespace
     {
@@ -58,6 +58,6 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::lang_cs
 
 #endif // __LANG_CS_EXPRESSIONS_H__

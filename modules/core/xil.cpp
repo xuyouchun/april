@@ -2,7 +2,7 @@
 #include <core.h>
 #include <lib.h>
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1104,5 +1104,5 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::core
 

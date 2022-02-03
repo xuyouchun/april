@@ -1,7 +1,7 @@
 #ifndef __COMPILE_ANALYZE_STACK_H__
 #define __COMPILE_ANALYZE_STACK_H__
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     namespace
     {
@@ -587,6 +587,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::compile
+}   // X_ROOT_NS::modules::compile
 
 #endif // __COMPILE_ANALYZE_STACK_H__

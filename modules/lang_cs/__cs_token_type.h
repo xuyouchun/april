@@ -2,7 +2,7 @@
 #ifndef __LANG_CS_WORD_TYPE_H__
 #define __LANG_CS_WORD_TYPE_H__
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -145,6 +145,6 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::lang_cs
+}   // X_ROOT_NS::modules::lang_cs
 
 #endif  // __LANG_CS_WORD_TYPE_H__

@@ -1,7 +1,7 @@
 #ifndef __RT_LAYOUT_H__
 #define __RT_LAYOUT_H__
 
-namespace X_ROOT_NS { namespace modules { namespace rt {
+namespace X_ROOT_NS::modules::rt {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -518,6 +518,6 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::rt
 
 #endif  // __RT_LAYOUT_H__

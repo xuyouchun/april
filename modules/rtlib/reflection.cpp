@@ -1,7 +1,7 @@
 #include <rtlib.h>
 #include <mm.h>
 
-namespace X_ROOT_NS { namespace modules { namespace rtlib {
+namespace X_ROOT_NS::modules::rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -51,8 +51,7 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
         ctx.return_(new rt_string_t(_T("AAAA"), 4));
     }
 
-
     ////////// ////////// ////////// ////////// //////////
 
+}   // namespace X_ROOT_NS::modules::rtlib
 
-} } }

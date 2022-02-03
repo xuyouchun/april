@@ -5,7 +5,7 @@
 #include <compile.h>
 #include <modules/lang_cs/__cs_token_type.h>
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -93,6 +93,6 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::lang_cs
+}   // X_ROOT_NS::modules::lang_cs
 
 #endif  // __LANG_CS_H__

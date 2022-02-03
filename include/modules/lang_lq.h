@@ -4,7 +4,7 @@
 
 #include <compile.h>
 
-namespace X_ROOT_NS { namespace modules { namespace lang_lq {
+namespace X_ROOT_NS::modules::lang_lq {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -61,6 +61,6 @@ namespace X_ROOT_NS { namespace modules { namespace lang_lq {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::lang_lq
+}   // X_ROOT_NS::modules::lang_lq
 
 #endif  // __LANG_LQ_H__

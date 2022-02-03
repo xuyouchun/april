@@ -1,7 +1,7 @@
 
 #include <core.h>
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     #define __Unexpected() X_UNEXPECTED()
 
@@ -1378,4 +1378,4 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::core

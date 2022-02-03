@@ -7,7 +7,7 @@
 #include <core.h>
 #include <rt.h>
 
-namespace X_ROOT_NS { namespace modules { namespace exec {
+namespace X_ROOT_NS::modules::exec {
 
     namespace
     {
@@ -1184,6 +1184,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     #undef __AlwaysInline
 
-} } }
+}   // namespace X_ROOT_NS::modules::exec
 
 #endif  // __EXEC_H__

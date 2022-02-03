@@ -1,7 +1,7 @@
 #ifndef __CORE_VTYPE_TRAITS_H__
 #define __CORE_VTYPE_TRAITS_H__
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     #define __VT(name)   vtype_t::name##_
 
@@ -851,6 +851,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::core
 
 #endif // __CORE_VTYPE_TRAITS_H__

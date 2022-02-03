@@ -1,7 +1,7 @@
 #ifndef __COMPILE_XIL_STRUCT_H__
 #define __COMPILE_XIL_STRUCT_H__
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -736,6 +736,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::compile
 
 #endif // __COMPILE_XIL_STRUCT_H__

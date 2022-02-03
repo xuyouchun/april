@@ -6,7 +6,7 @@
 #include <jc.h>
 #include <arch.h>
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     #define UNCERTERN_PARAM_COUNT   -1
 
@@ -217,8 +217,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     };
 
     // Combines code elements, its code unit will combined.
-    code_element_t * combine_code_element(memory_t * memory, code_element_t * from,
-                                                             code_element_t * to);
+    const code_unit_t * combine_code_unit(memory_t * memory, const code_unit_t * from,
+                                                       const code_unit_t * to);
     // Combines code units.
     typedef al::svector_t<const code_unit_t *> code_units_t;
     code_unit_t * combine_code_units(memory_t * memory, const code_units_t & code_units);
@@ -329,9 +329,9 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
         // Log message with format.
         template<typename _code_t, typename ... _args_t>
-        void logf(code_element_t * element, _code_t code, _args_t && ... args)
+        log_level_t logf(code_element_t * element, _code_t code, _args_t && ... args)
         {
-            __log(element, code, _F(_desc(code), std::forward<_args_t>(args) ...));
+            return __log(element, code, _F(_desc(code), std::forward<_args_t>(args) ...));
         }
 
         // Log message with format.
@@ -345,7 +345,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     private:
         template<typename _code_t>
-        void __log(code_element_t * element, _code_t code, const string_t & message)
+        log_level_t __log(code_element_t * element, _code_t code, const string_t & message)
         {
             #define __Code(_code_) ((_code_t)_code_)
             typedef _code_t  c_t;
@@ -366,6 +366,8 @@ namespace X_ROOT_NS { namespace modules { namespace core {
                 throw _ECF(argument_error, _T("argument %1% out of range"), __Code(code));
 
             logger.log(element, level, _title(code), message);
+
+            return level;
 
             #undef __Code
             #undef __Between
@@ -2743,11 +2745,11 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     typedef eobject_ast_t<using_namespace_t *> using_namespace_ast_t;
 
-} } }
+}   // namespace X_ROOT_NS::modules::core
 
 #include <modules/core/__xil.h>
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     // The body of a method.
     // Compisited by statements.
@@ -8146,7 +8148,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::core
+}   // namespace X_ROOT_NS::modules::core
 
 #include <modules/core/__utils.h>
 #include <modules/core/__assembly.h>

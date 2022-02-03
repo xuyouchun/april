@@ -3,7 +3,7 @@
 
 #include <exec.h>
 
-namespace X_ROOT_NS { namespace modules { namespace exec {
+namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -13,6 +13,6 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::exec
 
 #endif // __EXEC_PARSER_H__

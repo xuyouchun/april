@@ -1,7 +1,7 @@
 
 #include <core.h>
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     typedef assembly_error_code_t __e_t;
 
@@ -260,5 +260,5 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #undef __M
     #undef __EntityMember
 
-} } }
+}   // namespace X_ROOT_NS::modules::core
 

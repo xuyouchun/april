@@ -2,7 +2,7 @@
 #ifndef __JC_H__
 #define __JC_H__
 
-namespace X_ROOT_NS { namespace modules {
+namespace X_ROOT_NS::modules {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -61,6 +61,6 @@ namespace X_ROOT_NS { namespace modules {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }
+}   // namespace X_ROOT_NS::modules
 
 #endif  // __JC_H__

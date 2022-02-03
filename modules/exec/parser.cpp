@@ -3,7 +3,7 @@
 #include "utils.h"
 #include <lib.h>
 
-namespace X_ROOT_NS { namespace modules { namespace exec {
+namespace X_ROOT_NS::modules::exec {
 
     typedef exec_error_code_t __e_t;
     using namespace core;
@@ -313,5 +313,4 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
-
+}   // namespace X_ROOT_NS::modules::exec

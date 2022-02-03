@@ -2,7 +2,7 @@
 #ifndef __ALGORITHM_STD_H__
 #define __ALGORITHM_STD_H__
 
-namespace X_ROOT_NS { namespace algorithm {
+namespace X_ROOT_NS::algorithm {
 
     // Useful functions for std::algorithm.
 
@@ -397,6 +397,22 @@ namespace X_ROOT_NS { namespace algorithm {
         return std::move(new_container);
     }
 
+    // Returns first element of a container.
+    template<typename _container_t>
+    auto first_of(_container_t && container)
+    {
+        _A(!container.empty());
+        return container[0];
+    }
+
+    // Returns last element of a container.
+    template<typename _container_t>
+    auto last_of(_container_t && container)
+    {
+        _A(!container.empty());
+        return container[container.size() - 1];
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     namespace
@@ -515,6 +531,6 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }  // X_ROOT_NS::algorithm
+}   // X_ROOT_NS::algorithm
 
 #endif  // __ALGORITHM_STD_H__

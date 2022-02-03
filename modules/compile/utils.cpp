@@ -2,7 +2,7 @@
 #include "utils.h"
 #include <algorithm.h>
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     typedef compile_error_code_t         __e_t;
     typedef expression_compile_context_t __cctx_t;
@@ -204,4 +204,5 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::compile
+

@@ -1,6 +1,6 @@
 #include <exec.h>
 
-namespace X_ROOT_NS { namespace modules { namespace exec {
+namespace X_ROOT_NS::modules::exec {
 
     using namespace core;
     using namespace rt;
@@ -22,5 +22,5 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::exec
 

@@ -4,7 +4,7 @@
 #include <compile.h>
 #include <algorithm.h>
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     namespace
     {
@@ -164,6 +164,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::compile
 
 #endif // __COMPILE_UTILS_H__

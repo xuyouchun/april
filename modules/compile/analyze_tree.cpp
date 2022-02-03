@@ -4,8 +4,7 @@
 #include "utils.h"
 #include <boost/lexical_cast.hpp>
 
-
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     using namespace core;
 
@@ -28,11 +27,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     #endif
 
     #define __AlwaysInline  X_ALWAYS_INLINE
-
-    ////////// ////////// ////////// ////////// //////////
-
-    // Returns format error line.
-    static string_t __format_line(const code_unit_t * cu, string_t & out_flag_msg);
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -4325,30 +4319,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         __push(__end_node_key, tag);
     }
 
-    // Returns format error line.
-    static string_t __format_line(const code_unit_t * cu, string_t & out_flag_msg)
-    {
-        _A(cu != nullptr);
-
-        const code_file_t * file = cu->file;
-        string_t line;
-
-        if (file != nullptr)
-        {
-            codepos_helper_t h(file->get_source_code());
-            codepos_t pos = h.pos_of(cu->s);
-
-            auto pair = cu->current_line_pos();
-            line = string_t(pair.first, pair.second + 1);
-
-            out_flag_msg = _F(_T("%1%%2%"), string_t(cu->s - pair.first, ' '),
-                cu->length == 0? _T("^") : string_t(cu->length, _T('~'))
-            );
-        }
-
-        return line;
-    }
-
     // Process format error.
     void __analyzer_t::__process_format_error(const logic_error_t<__e_t> & e)
     {
@@ -4407,15 +4377,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             cu = element.code_unit();
 
         logger.log_error(element, __e_t::format_error, error);
-
-        string_t flag_msg;
-        string_t line = __format_line(cu, flag_msg);
-
-        if (!line.empty())
-            logger.log_info(element, log_info_type_t::message, line);
-
-        if (!flag_msg.empty())
-            logger.log_info(element, log_info_type_t::flag, flag_msg);
+        output_code_description(__ast_context.logger, element, cu);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4544,4 +4506,5 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::compile
+}   // X_ROOT_NS::modules::compile
+

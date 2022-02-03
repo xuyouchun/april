@@ -1,7 +1,7 @@
 
 #include <compile.h>
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     typedef common_log_code_t __c_t;
 
@@ -1050,10 +1050,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             else
             {
                 if (!__walk_type(name_exp))
-                {
-                    code_element_t * element = as<code_element_t *>(name_exp);
                     ast_log(__cctx, name_exp, __c_t::variable_undefined, name);
-                }
             }
         }
 
@@ -1912,5 +1909,5 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::compile
+}   // namespace X_ROOT_NS::modules::compile
 

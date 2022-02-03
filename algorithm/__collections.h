@@ -3,7 +3,7 @@
 #define __ALGORITHM_COLLECTION_H__
 
 
-namespace X_ROOT_NS { namespace algorithm {
+namespace X_ROOT_NS::algorithm {
 
     namespace
     {
@@ -2224,7 +2224,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }  // X_ROOT_NS::algorithm
+}  // X_ROOT_NS::algorithm
 
 
 #endif   //__ALGORITHM_COLLECTION_H__

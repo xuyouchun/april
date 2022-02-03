@@ -25,7 +25,7 @@
 #include <algorithm.h>
 #include <cmath>
 
-namespace X_ROOT_NS { namespace algorithm {
+namespace X_ROOT_NS::algorithm {
 
     #define __AlwaysInline  X_ALWAYS_INLINE
 
@@ -791,4 +791,5 @@ namespace X_ROOT_NS { namespace algorithm {
 
     #undef __AlwaysInline
 
-} }  // X_ROOT_NS::algorithm
+}   // X_ROOT_NS::algorithm
+

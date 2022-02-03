@@ -2,7 +2,7 @@
 #include <core.h>
 #include "expression_executor.h"
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     using namespace al;
 
@@ -765,25 +765,22 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     //-------- ---------- ---------- ---------- ----------
 
     // Combines code elements.
-    code_element_t * combine_code_element(memory_t * memory, code_element_t * from,
-                                                             code_element_t * to)
+    const code_unit_t * combine_code_unit(memory_t * memory, const code_unit_t * from,
+                                                       const code_unit_t * to)
     {
         if (from == nullptr || to == nullptr)
             return from != nullptr? from : to;
 
-        const code_unit_t * from_cu = from->get_code_unit();
-        const code_unit_t * to_cu   = to->get_code_unit();
+        if (from == nullptr || to == nullptr)
+            return from != nullptr? from : to;
 
-        if (from_cu == nullptr || to_cu == nullptr)
-            return from_cu != nullptr? from : to;
+        _A(from->file == to->file);
 
-        _A(from_cu->file == to_cu->file);
-
-        if (to_cu->s < from_cu->s)
+        if (to->s < from->s)
             return from;
 
-        return memory_t::new_obj<__code_element_t>(memory,
-            from_cu->s, to_cu->s - from_cu->s + to_cu->length, from_cu->file
+        return memory_t::new_obj<code_unit_t>(memory,
+            from->s, to->s - from->s + to->length, from->file
         );
     }
 
@@ -7402,6 +7399,6 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::core
+}   // namespace X_ROOT_NS::modules::core
 
 

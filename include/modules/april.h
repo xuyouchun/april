@@ -15,7 +15,7 @@
 
 #include <external/cmdline/cmdline.h>
 
-namespace X_ROOT_NS { namespace modules { namespace april {
+namespace X_ROOT_NS::modules::april {
 
     typedef cmdline::parser __cmdline_parser_t;
 
@@ -325,7 +325,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
     ////////// ////////// ////////// ////////// /////////
 
-} } }  // X_ROOT_NS::modules::april
+}   // X_ROOT_NS::modules::april
 
 
 #include <modules/april/__parser.h>

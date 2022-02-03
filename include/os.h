@@ -4,7 +4,7 @@
 
 #include <common.h>
 
-namespace X_ROOT_NS { namespace os {
+namespace X_ROOT_NS::os {
 
     ////////// ////////// ////////// ////////// //////////
     // Memory.
@@ -77,7 +77,7 @@ namespace X_ROOT_NS { namespace os {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }  // namespace X_ROOT_NS::os
+}   // namespace X_ROOT_NS::os
 
 
 #endif // __OS_H__

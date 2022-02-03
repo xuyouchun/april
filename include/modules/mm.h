@@ -5,7 +5,7 @@
 #include <core.h>
 #include <rt.h>
 
-namespace X_ROOT_NS { namespace modules { namespace mm {
+namespace X_ROOT_NS::modules::mm {
 
     namespace
     {
@@ -151,7 +151,7 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::mm
+}   // namespace X_ROOT_NS::modules::mm
 
 
 #endif // __MM_H__

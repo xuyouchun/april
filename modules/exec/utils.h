@@ -4,7 +4,7 @@
 
 #include <exec.h>
 
-namespace X_ROOT_NS { namespace modules { namespace exec {
+namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
     // exec_switch_manager_t
@@ -56,7 +56,7 @@ namespace X_ROOT_NS { namespace modules { namespace exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::exec
 
 #endif  // __EXEC_UTILS_H__
 

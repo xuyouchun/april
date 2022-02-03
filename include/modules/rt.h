@@ -4,7 +4,7 @@
 #include <core.h>
 #include <algorithm.h>
 
-namespace X_ROOT_NS { namespace modules { namespace rt {
+namespace X_ROOT_NS::modules::rt {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -2158,7 +2158,7 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::rt
 
 #include <modules/rt/__assembly_loader.h>
 #include <modules/rt/__layout.h>

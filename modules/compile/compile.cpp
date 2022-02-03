@@ -5,7 +5,7 @@
 #include "utils.h"
 #include "controller.h"
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     using namespace core;
 
@@ -676,7 +676,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
                     if (level >= log_level_t::warning || pos.line == __last_invisibled_line)
                     {
                         __last_invisibled_line = pos.line;
-                        return;
+                        // return;
                     }
                 }
                 else
@@ -1113,5 +1113,51 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::compile
+    // Returns format error line.
+    string_t format_code_line(const code_unit_t * cu, string_t & out_flag_msg)
+    {
+        _A(cu != nullptr);
+
+        const code_file_t * file = cu->file;
+        string_t line;
+
+        if (file != nullptr)
+        {
+            codepos_helper_t h(file->get_source_code());
+            codepos_t pos = h.pos_of(cu->s);
+
+            auto pair = cu->current_line_pos();
+            line = string_t(pair.first, pair.second + 1);
+
+            out_flag_msg = _F(_T("%1%%2%"), string_t(cu->s - pair.first, ' '),
+                cu->length == 0? _T("^") : string_t(cu->length, _T('~'))
+            );
+        }
+
+        return line;
+    }
+
+    // Output code description for compile.
+    void output_code_description(logger_t & logger, code_element_t * ce, const code_unit_t * cu)
+    {
+        _A(ce != nullptr);
+
+        if (cu == nullptr && (cu = ce->get_code_unit()) == nullptr)
+            return;
+
+        string_t flag_msg;
+        string_t line = format_code_line(cu, flag_msg);
+
+        xlogger_t xlogger(logger);
+
+        if (!line.empty())
+            xlogger.log_info(ce, log_info_type_t::message, line);
+
+        if (!flag_msg.empty())
+            xlogger.log_info(ce, log_info_type_t::flag, flag_msg);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+}   // X_ROOT_NS::modules::compile
 

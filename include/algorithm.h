@@ -4,7 +4,7 @@
 
 #include <common.h>
 
-namespace X_ROOT_NS { namespace algorithm {
+namespace X_ROOT_NS::algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -897,7 +897,7 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }  // X_ROOT_NS::algorithm
+}   // namespace X_ROOT_NS::algorithm
 
 
 #include <algorithm/__std.h>
@@ -907,7 +907,7 @@ namespace X_ROOT_NS { namespace algorithm {
 #include <algorithm/__collections.h>
 #include <algorithm/__numeric.h>
 
-namespace X_ROOT_NS { namespace algorithm {
+namespace X_ROOT_NS::algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -982,10 +982,9 @@ namespace X_ROOT_NS { namespace algorithm {
         );
     }
 
-
     ////////// ////////// ////////// ////////// //////////
 
-} }  // X_ROOT_NS::algorithm
+}  // namespace X_ROOT_NS::algorithm
 
 
 namespace al = ::X_ROOT_NS::algorithm;

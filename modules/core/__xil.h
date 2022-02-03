@@ -1,7 +1,7 @@
 #ifndef __CORE_XIL_H__
 #define __CORE_XIL_H__
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     #define __Enum(name)    X_ENUM_(name, sizeof(byte_t))
     #define __EnumEnd       X_ENUM_END
@@ -1801,7 +1801,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
     #undef __DefineMaxSize
     #undef __MaxSizeOf
 
-} } }
+}   //  namespace X_ROOT_NS::modules::core
 
 #endif  // __CORE_XIL_H__
 

@@ -4,7 +4,7 @@
 #define X_UNICODE_STR(s)        L##s
 #define X_CONVERT_TO_STR(s)     X_UNICODE_STR("") #s
 
-namespace X_ROOT_NS { namespace arch { namespace types {
+namespace X_ROOT_NS::arch::types {
 
     // Common Types
     typedef signed char          int8_t;
@@ -32,8 +32,7 @@ namespace X_ROOT_NS { namespace arch { namespace types {
     extern ostream_t & cerr;
     extern ostream_t & clog;
 
-} } }  // namespace X_ROOT_NS::arch::types
-
+}   // namespace X_ROOT_NS::arch::types
 
 #endif  // __ARCH_TYPES_H__
 

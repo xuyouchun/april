@@ -2,7 +2,7 @@
 #ifndef __COMPILE_STATEMENTS_H__
 #define __COMPILE_STATEMENTS_H__
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -674,6 +674,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::compile
+}   // namespace X_ROOT_NS::modules::compile
 
 #endif // __COMPILE_STATEMENTS_H__

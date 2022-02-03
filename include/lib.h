@@ -6,7 +6,7 @@
 #include <algorithm.h>
 #include <os.h>
 
-namespace X_ROOT_NS { namespace lib {
+namespace X_ROOT_NS::lib {
 
     namespace
     {
@@ -346,7 +346,7 @@ namespace X_ROOT_NS { namespace lib {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } // namespace X_ROOT_NS::lib
+}   // namespace X_ROOT_NS::lib
 
 #endif  // __LIB_H__
 

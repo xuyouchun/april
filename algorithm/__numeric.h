@@ -3,7 +3,7 @@
 #define __ALGORITHM_NUMERIC_H__
 
 
-namespace X_ROOT_NS { namespace algorithm {
+namespace X_ROOT_NS::algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -37,6 +37,6 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }  // X_ROOT_NS::algorithm
+}  // X_ROOT_NS::algorithm
 
 #endif  // __ALGORITHM_NUMERIC_H__

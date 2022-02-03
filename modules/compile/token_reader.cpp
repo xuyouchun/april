@@ -3,7 +3,7 @@
 #include <algorithm.h>
 #include "utils.h"
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     using namespace core;
 
@@ -411,4 +411,5 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::compile
+}   // X_ROOT_NS::modules::compile
+

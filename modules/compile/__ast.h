@@ -1,8 +1,7 @@
 #ifndef __COMPILE_AST_H__
 #define __COMPILE_AST_H__
 
-
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     namespace
     {
@@ -906,9 +905,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             template<typename _code_element_t, typename ... _args_t>
             void __log(_code_element_t * element, _args_t && ... args)
             {
-                xlogger_t(__context.logger).logf(
-                    as<code_element_t *>(element), std::forward<_args_t>(args) ...
-                );
+                ast_log(__context, element, std::forward<_args_t>(args) ...); 
             }
 
             // Validates name.
@@ -4245,7 +4242,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     #undef __EmptyAst
     #undef __ArrayNodeT
 
-} } }  // namespace X_ROOT_NS::modules::compile
+}   // namespace X_ROOT_NS::modules::compile
 
 
 #endif // __COMPILE_AST_H__

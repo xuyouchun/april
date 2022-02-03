@@ -1,7 +1,7 @@
 #ifndef __APRIL_UTIL_H__
 #define __APRIL_UTIL_H__
 
-namespace X_ROOT_NS { namespace modules { namespace april {
+namespace X_ROOT_NS::modules::april {
 
     namespace
     {
@@ -74,7 +74,7 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
     ////////// ////////// ////////// ////////// /////////
 
-} } }  // X_ROOT_NS::modules::april
+}   // X_ROOT_NS::modules::april
 
 #endif // __APRIL_UTIL_H__
 

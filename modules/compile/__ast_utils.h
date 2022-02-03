@@ -1,7 +1,7 @@
 #ifndef __COMPILE_AST_UTILS_H__
 #define __COMPILE_AST_UTILS_H__
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     namespace
     {
@@ -56,10 +56,24 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
     type_t * pick_type_from_current_context(expression_t * expression);
 
     // Logs message.
-    template<typename _code_element_t, typename ... args_t>
-    void ast_log(ast_context_t & cctx, _code_element_t * element, args_t && ... args)
+    template<typename _code_element_t, typename ... _args_t>
+    void ast_log(logger_t & logger, _code_element_t * element, _args_t && ... args)
     {
-        xlogger_t(cctx.logger).logf(as<code_element_t *>(element), std::forward<args_t>(args) ...);
+        code_element_t * ce = as<code_element_t *>(element);
+
+        log_level_t level = xlogger_t(logger).logf(
+            ce, std::forward<_args_t>(args) ...
+        );
+
+        if (ce != nullptr && al::in(level, log_level_t::error, log_level_t::warning))
+            output_code_description(logger, ce);
+    }
+
+    // Logs message.
+    template<typename _code_element_t, typename ... _args_t>
+    void ast_log(ast_context_t & cctx, _code_element_t * element, _args_t && ... args)
+    {
+        ast_log(cctx.logger, element, std::forward<_args_t>(args) ...);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -233,6 +247,6 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::compile
+}   // namespace X_ROOT_NS::modules::compile
 
 #endif  // __COMPILE_AST_UTILSH__

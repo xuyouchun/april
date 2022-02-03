@@ -5,7 +5,7 @@
 #include "ast.h"
 #include <algorithm.h>
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     namespace
     {
@@ -518,4 +518,5 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::lang_cs
+}   // namespace X_ROOT_NS::modules::lang_cs
+

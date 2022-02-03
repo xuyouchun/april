@@ -1,8 +1,7 @@
 
 #include "compile.h"
 
-
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     using namespace core;
 
@@ -104,8 +103,15 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
             return nullptr;
 
         analyze_element_t * element;
+        const code_unit_t * first = nullptr, * last = nullptr;
+
         while ((element = __args.elements.next()) != nullptr)
         {
+            if (first == nullptr)
+                first = last = element->code_unit();
+            else
+                last = element->code_unit();
+
             switch (element->type)
             {
                 case analyze_element_type_t::token: {
@@ -126,11 +132,11 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
         ast_builder_completed_args_t args { nullptr };
         this->completed(args);
 
+        node->code_unit = combine_code_unit(__context.get_memory(), first, last);
         return node;
     }
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
-
+}   // namespace X_ROOT_NS::modules::compile
 

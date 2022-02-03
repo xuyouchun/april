@@ -2,7 +2,7 @@
 #ifndef __COMPILE_HELPER_H__
 #define __COMPILE_HELPER_H__
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -401,7 +401,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::compile
+}   // namespace X_ROOT_NS::modules::compile
 
 #endif // __COMPILE_HELPER_H__
 

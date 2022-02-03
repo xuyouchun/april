@@ -2,7 +2,7 @@
 #include <mm.h>
 #include <cmath>
 
-namespace X_ROOT_NS { namespace modules { namespace rtlib {
+namespace X_ROOT_NS::modules::rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -84,5 +84,5 @@ namespace X_ROOT_NS { namespace modules { namespace rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::rtlib
 

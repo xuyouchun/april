@@ -5,8 +5,7 @@
 #include <algorithm.h>
 #include <lib.h>
 
-
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     namespace
     {
@@ -184,7 +183,7 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::compile
 
 
 #endif // __COMPILE_TOKEN_READER_H__

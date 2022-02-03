@@ -1,6 +1,6 @@
 #include <rt.h>
 
-namespace X_ROOT_NS { namespace modules { namespace rt {
+namespace X_ROOT_NS::modules::rt {
 
     #define __EmptyVTbl ((rt_vtable_t *)0x01)
 
@@ -2397,6 +2397,6 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     #undef __EmptyVTbl
 
-} } }
+}   // namespace X_ROOT_NS::modules::rt
 
 

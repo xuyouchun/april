@@ -5,7 +5,7 @@
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/typeof/typeof.hpp> 
 
-namespace X_ROOT_NS { namespace modules { namespace april {
+namespace X_ROOT_NS::modules::april {
 
     namespace
     {
@@ -135,6 +135,6 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
     ////////// ////////// ////////// ////////// /////////
 
-} } }  // X_ROOT_NS::modules::april
+}   // X_ROOT_NS::modules::april
 
 #endif  // __APRIL_PARSER_H__

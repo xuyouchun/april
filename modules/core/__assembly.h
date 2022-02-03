@@ -1,7 +1,7 @@
 #ifndef __CORE_ASSEMBLY_H__
 #define __CORE_ASSEMBLY_H__
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -256,7 +256,7 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::core
 
 #endif  // __CORE_ASSEMBLY_H__ 
 

@@ -2,7 +2,7 @@
 #ifndef __ALGORITHM_STRING_H__
 #define __ALGORITHM_STRING_H__
 
-namespace X_ROOT_NS { namespace algorithm {
+namespace X_ROOT_NS::algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -774,10 +774,9 @@ namespace X_ROOT_NS { namespace algorithm {
         return __regex_operations_t<c_t>(regex_t(regex)).match_one(s.begin(), s.end());
     }
 
-
     ////////// ////////// ////////// ////////// //////////
 
-} }  // X_ROOT_NS::algorithm
+}   // X_ROOT_NS::algorithm
 
 #endif  // __ALGORITHM_STRING_H__
 

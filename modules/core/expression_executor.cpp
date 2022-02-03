@@ -1,7 +1,7 @@
 
 #include "expression_executor.h"
 
-namespace X_ROOT_NS { namespace modules { namespace core {
+namespace X_ROOT_NS::modules::core {
 
     typedef expression_execute_error_code_t __e_t;
 
@@ -650,5 +650,4 @@ namespace X_ROOT_NS { namespace modules { namespace core {
 
     ////////// ////////// ////////// ////////// //////////
 
-
-} } }
+}   // namespace X_ROOT_NS::modules::core

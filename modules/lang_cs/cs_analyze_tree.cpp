@@ -2,7 +2,7 @@
 #include "cs_analyze_tree.h"
 #include "utils.h"
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     using namespace compile;
 
@@ -87,5 +87,5 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::lang_cs
+}   // X_ROOT_NS::modules::lang_cs
 

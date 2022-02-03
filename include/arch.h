@@ -4,7 +4,7 @@
 
 #include <common.h>
 
-namespace X_ROOT_NS { namespace arch {
+namespace X_ROOT_NS::arch {
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -13,7 +13,7 @@ namespace X_ROOT_NS { namespace arch {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }   // namespace X_ROOT_NS::arch
+}   // namespace X_ROOT_NS::arch
 
 
 #endif  // __ARCH_H__

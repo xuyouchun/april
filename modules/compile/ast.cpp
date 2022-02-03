@@ -1,7 +1,7 @@
 
 #include <compile.h>
 
-namespace X_ROOT_NS { namespace modules { namespace compile {
+namespace X_ROOT_NS::modules::compile {
 
     typedef common_log_code_t __c_t;
     typedef code_element_t    __el_t;
@@ -4191,5 +4191,5 @@ namespace X_ROOT_NS { namespace modules { namespace compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::compile
+}   // namespace X_ROOT_NS::modules::compile
 

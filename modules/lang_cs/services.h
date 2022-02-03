@@ -4,7 +4,7 @@
 #include <modules/lang_cs.h>
 #include "cs_analyze_tree.h"
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     namespace
     {
@@ -79,6 +79,6 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::lang_cs
+}   // namespace X_ROOT_NS::modules::lang_cs
 
 #endif //__LANG_CS_SERVICES_H__

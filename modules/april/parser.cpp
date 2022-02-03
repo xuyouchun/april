@@ -2,7 +2,7 @@
 #include <april.h>
 #include "util.h"
 
-namespace X_ROOT_NS { namespace modules { namespace april {
+namespace X_ROOT_NS::modules::april {
 
     using namespace boost::property_tree;
     typedef april_error_code_t __e_t;
@@ -200,6 +200,6 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // X_ROOT_NS::modules::compile
+}   // X_ROOT_NS::modules::compile
 
 

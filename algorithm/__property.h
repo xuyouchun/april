@@ -2,7 +2,7 @@
 #ifndef __ALGORITHM_PROPERTY_H__
 #define __ALGORITHM_PROPERTY_H__
 
-namespace X_ROOT_NS { namespace algorithm {
+namespace X_ROOT_NS::algorithm {
 
     template<typename _property_t> struct property_enumerator_t;
 
@@ -271,6 +271,6 @@ namespace X_ROOT_NS { namespace algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-} }  // X_ROOT_NS::algorithm
+}  // X_ROOT_NS::algorithm
 
 #endif  // __ALGORITHM_PROPERTY_H__

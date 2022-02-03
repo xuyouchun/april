@@ -1,7 +1,7 @@
 #ifndef __RT_ASSEMBLY_LOADER_H__
 #define __RT_ASSEMBLY_LOADER_H__
 
-namespace X_ROOT_NS { namespace modules { namespace rt {
+namespace X_ROOT_NS::modules::rt {
 
     namespace
     {
@@ -22,6 +22,6 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::rt
 
 #endif // __RT_ASSEMBLY_LOADER_H__

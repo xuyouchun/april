@@ -2,8 +2,7 @@
 #include <mm.h>
 #include <algorithm.h>
 
-
-namespace X_ROOT_NS { namespace modules { namespace mm {
+namespace X_ROOT_NS::modules::mm {
 
     using namespace rt;
 
@@ -216,6 +215,6 @@ namespace X_ROOT_NS { namespace modules { namespace mm {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }  // namespace X_ROOT_NS::modules::mm
+}   // namespace X_ROOT_NS::modules::mm
 
 

@@ -2,8 +2,7 @@
 #include <april.h>
 #include "util.h"
 
-
-namespace X_ROOT_NS { namespace modules { namespace april {
+namespace X_ROOT_NS::modules::april {
 
     ////////// ////////// ////////// ////////// /////////
 
@@ -37,5 +36,5 @@ namespace X_ROOT_NS { namespace modules { namespace april {
 
     ////////// ////////// ////////// ////////// /////////
 
-} } }  // X_ROOT_NS::modules::april
+}   // X_ROOT_NS::modules::april
 

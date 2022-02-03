@@ -19,13 +19,13 @@ const __nullptr_t nullptr;
 ////////// ////////// ////////// ////////// //////////
 
 
-namespace X_ROOT_NS { namespace compile {
+namespace X_ROOT_NS::compile {
 
 
 void test() {}
 
 
-} }  // namespace X_ROOT_NS::compile
+}   // namespace X_ROOT_NS::compile
 
 
 

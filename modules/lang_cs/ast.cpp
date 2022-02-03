@@ -1,7 +1,7 @@
 
 #include "ast.h"
 
-namespace X_ROOT_NS { namespace modules { namespace lang_cs {
+namespace X_ROOT_NS::modules::lang_cs {
 
     using namespace core;
     using namespace compile;
@@ -196,5 +196,5 @@ namespace X_ROOT_NS { namespace modules { namespace lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }   // namespace X_ROOT_NS::modules::lang_cs
+}   // namespace X_ROOT_NS::modules::lang_cs
 

@@ -1,6 +1,6 @@
 #include <rt.h>
 
-namespace X_ROOT_NS { namespace modules { namespace rt {
+namespace X_ROOT_NS::modules::rt {
 
     using namespace core;
 
@@ -753,5 +753,6 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::rt
+
 

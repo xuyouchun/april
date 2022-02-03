@@ -1,7 +1,7 @@
 
 #include <rt.h>
 
-namespace X_ROOT_NS { namespace modules { namespace rt {
+namespace X_ROOT_NS::modules::rt {
 
     typedef rt_error_code_t __e_t;
     using namespace rt;
@@ -821,5 +821,5 @@ namespace X_ROOT_NS { namespace modules { namespace rt {
 
     ////////// ////////// ////////// ////////// //////////
 
-} } }
+}   // namespace X_ROOT_NS::modules::rt
 
