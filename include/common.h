@@ -567,45 +567,28 @@ namespace X_ROOT_NS {
 
         //-------- ---------- ---------- ---------- ----------
 
-        // Converts numeric value type to string.
-        template<typename number_t> struct __value_to_string_t
-        {
-            static string_t to_string(const number_t & value) _NE
-            {
-                return std::to_wstring(value);
-            }
-        };
-
-        //-------- ---------- ---------- ---------- ----------
-
-        // Converts boolean value type to string.
-        template<> struct __value_to_string_t<bool>
-        {
-            static string_t to_string(const bool & value) _NE
-            {
-                return value? _T("true") : _T("false");
-            }
-        };
-
-        //-------- ---------- ---------- ---------- ----------
-
-        // Converts character value type to string.
-        template<> struct __value_to_string_t<char_t>
-        {
-            static string_t to_string(const char_t & value) _NE
-            {
-                const char_t s[] = { _T('\''), value, _T('\''), _T('\0') };
-                return string_t(s);
-            }
-        };
-
-        //-------- ---------- ---------- ---------- ----------
-
         // Converts numeric type to string.
         template<typename number_t>
         string_t __value_to_string(const number_t & value)
         {
-            return __value_to_string_t<number_t>::to_string(value);
+            // Bool type.
+            if constexpr (std::is_same_v<number_t, bool>)
+            {
+                return value? _T("true") : _T("false");
+            }
+
+            // Char type.
+            else if constexpr (std::is_same_v<number_t, char_t>)
+            {
+                const char_t s[] = { _T('\''), value, _T('\''), _T('\0') };
+                return string_t(s);
+            }
+
+            // Other types.
+            else
+            {
+                return std::to_wstring(value);
+            }
         }
 
         //-------- ---------- ---------- ---------- ----------
@@ -1180,26 +1163,37 @@ namespace X_ROOT_NS {
 
     X_ENUM(common_error_code_t)
 
+        // Invalid operation.
         invalid_operation,
 
+        // Not supported.
         not_supported,
 
+        // Conflict.
         conflict,
 
+        // Memory not enough.
         no_memory, 
 
+        // Overflow.
         overflow,
 
+        // Argument error.
         argument_error,
 
+        // Format error.
         format_error,
 
+        // Type convert error.
         convert_error,
 
+        // Not found.
         not_found,
 
+        // Unexpected.
         unexpected,
 
+        // Unimplemented.
         unimplemented,
 
     X_ENUM_END
