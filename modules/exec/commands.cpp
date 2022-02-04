@@ -224,7 +224,6 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-
     template<typename _command_template_t, typename ... _template_keys_t>
     class __command_manager_t : public object_t
     {

@@ -18,76 +18,76 @@ namespace X_ROOT_NS::algorithm {
 
     // Returns the max value of given values.
 
-    template<typename t>
-    X_INLINE constexpr decltype(auto) max(t && value)
+    template<typename _t>
+    X_INLINE constexpr _t max(_t && value)
     {
-        return std::forward<t>(value);
+        return value;
     }
 
-    template<typename t, typename t2>
-    X_INLINE constexpr auto max(t && value1, t2 && value2) -> decltype(value1 + value2)
+    template<typename _t, typename _t2>
+    X_INLINE constexpr auto max(_t && value1, _t2 && value2)
     {
         return value1 < value2? value2 : value1;
     }
 
-    template<typename t, typename ... rest_t>
-    X_INLINE constexpr decltype(auto) max(t value1, rest_t && ... rest)
+    template<typename _t, typename ... _rest_t>
+    X_INLINE constexpr auto max(_t value1, _rest_t && ... rest)
     {
-        return max(std::forward<t>(value1), max(std::forward<rest_t>(rest) ...));
+        return max(std::forward<_t>(value1), max(std::forward<_rest_t>(rest) ...));
     }
 
     //-------- ---------- ---------- ---------- ----------
 
     // Returns the min value of given values.
 
-    template<typename t>
-    X_INLINE constexpr decltype(auto) min(t && value)
+    template<typename _t>
+    X_INLINE constexpr auto min(_t && value)
     {
-        return std::forward<t>(value);
+        return value;
     }
 
-    template<typename t, typename t2>
-    X_INLINE constexpr auto min(t && value1, t2 && value2) -> decltype(value1 + value2)
+    template<typename _t, typename _t2>
+    X_INLINE constexpr auto min(_t && value1, _t2 && value2)
     {
         return value1 < value2? value1 : value2;
     }
 
-    template<typename t, typename ... rest_t>
-    X_INLINE constexpr decltype(auto) min(t && value1, rest_t && ... rest)
+    template<typename _t, typename ... _rest_t>
+    X_INLINE constexpr auto min(_t && value1, _rest_t && ... rest)
     {
-        return min(std::forward<t>(value1), min(std::forward<rest_t>(rest) ...));
+        return min(std::forward<_t>(value1), min(std::forward<_rest_t>(rest) ...));
     }
 
     ////////// ////////// ////////// ////////// //////////
 
     // Return the max size of give value types.
-    template<typename ... t>
-    X_INLINE constexpr auto max_size()
+    template<typename ... _t>
+    X_INLINE constexpr size_t max_size()
     {
-        return max(sizeof(t) ...);
+        return max(sizeof(_t) ...);
     }
 
     // Return the min size of give value types.
-    template<typename ... t>
-    X_INLINE constexpr auto min_size()
+    template<typename ... _t>
+    X_INLINE constexpr size_t min_size()
     {
-        return min(sizeof(t) ...);
+        return min(sizeof(_t) ...);
     }
 
     ////////// ////////// ////////// ////////// //////////
 
     // Detemines wheather a value in the given values.
 
-    template<typename t, typename t1>
-    X_INLINE bool in(t && value, t1 && value1)
+    template<typename _t, typename _t1>
+    X_INLINE bool in(_t && value, _t1 && value1)
     {
         return value == value1;
     }
 
-    template<typename t, typename t1, typename ... values_t>
-    X_INLINE bool in(t && value, t1 && value1, values_t && ... rest)
+    template<typename _t, typename _t1, typename ... _values_t>
+    X_INLINE bool in(_t && value, _t1 && value1, _values_t && ... rest)
     {
-        return value == value1 || in(std::forward<t>(value), std::forward<values_t>(rest) ...);
+        return value == value1 || in(std::forward<_t>(value), std::forward<_values_t>(rest) ...);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -103,16 +103,16 @@ namespace X_ROOT_NS::algorithm {
     // Compares given values.
     // Return -1(less), 1(greater), 0(equals).
 
-    template<typename t>
-    X_INLINE int cmp(const t & t1, const t & t2)
+    template<typename _t1, typename _t2>
+    X_INLINE int cmp(const _t1 & t1, const _t2 & t2)
     {
         return t1 < t2? -1 : t2 < t1? 1 : 0;
     }
 
-    template<typename t, typename ... rest_t>
-    X_INLINE int cmp(const t & t1, const t & t2, rest_t && ... rest)
+    template<typename _t1, typename _t2, typename ... _rest_t>
+    X_INLINE int cmp(const _t1 & t1, const _t2 & t2, _rest_t && ... rest)
     {
-        return t1 < t2? -1 : t2 < t1? 1 : cmp(std::forward<rest_t>(rest) ...);
+        return t1 < t2? -1 : t2 < t1? 1 : cmp(std::forward<_rest_t>(rest) ...);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -135,24 +135,24 @@ namespace X_ROOT_NS::algorithm {
         return max;
     }
 
-    template<typename container_t, typename cmp_t>
-    X_INLINE auto select(container_t & container, cmp_t cmp_func)
+    template<typename _container_t, typename _cmp_t>
+    X_INLINE auto select(_container_t && container, _cmp_t cmp_func)
     {
-        return select(container.begin(), container.end(), cmp_func);
+        return select(std::begin(container), std::end(container), cmp_func);
     }
 
     // Selects the min value from the given list.
-    template<typename itor_t>
-    X_INLINE itor_t select_min(itor_t begin, itor_t end)
+    template<typename _itor_t>
+    X_INLINE _itor_t select_min(_itor_t begin, _itor_t end)
     {
-        return select(begin, end, [](auto x, auto y) { return x < y; });
+        return select(begin, end, [](auto && x, auto && y) { return x < y; });
     }
 
     // Selects the min value from the given container.
-    template<typename container_t>
-    X_INLINE auto select_min(container_t & container)
+    template<typename _container_t>
+    X_INLINE auto select_min(_container_t && container)
     {
-        return select_min(container.begin(), container.end());
+        return select_min(std::begin(container), std::end(container));
     }
 
     // Selects the max value from the give list.
@@ -163,17 +163,17 @@ namespace X_ROOT_NS::algorithm {
     }
 
     // Selects the max value from the give container.
-    template<typename container_t>
-    X_INLINE auto select_max(container_t & container)
+    template<typename _container_t>
+    X_INLINE auto select_max(_container_t && container)
     {
-        return select_max(container.begin(), container.end());
+        return select_max(std::begin(container), std::end(container));
     }
 
     ////////// ////////// ////////// ////////// //////////
 
     // Splits the given list by specified predicate function.
     template<typename itor_t, typename pred_t, typename callback_t>
-    void split_if (itor_t begin, itor_t end, pred_t pred, callback_t callback)
+    void split_if(itor_t begin, itor_t end, pred_t pred, callback_t callback)
     {
         if (begin == end)
             return;
@@ -287,33 +287,33 @@ namespace X_ROOT_NS::algorithm {
 
     // Assigns values to the given list items.
 
-    template<typename t>
-    void assign_array(t * dst, const t & value, size_t length)
+    template<typename _t>
+    void assign_array(_t * dst, const _t & value, size_t length)
     {
         _A(dst != nullptr);
 
-        for (const t * dst_end = dst + length; dst < dst_end;)
+        for (const _t * dst_end = dst + length; dst < dst_end;)
         {
             *dst++ = value;
         }
     }
 
-    template<typename t, size_t size>
-    void assign_array(t (&arr)[size], const t & value)
+    template<typename _t, size_t _size>
+    void assign_array(_t (&arr)[_size], const _t & value)
     {
-        assign_array(arr, value, size);
+        assign_array(arr, value, _size);
     }
 
     // Sets the given list items to zero.
 
-    template<typename t>
-    void zero_array(t * dst, size_t length)
+    template<typename _t>
+    void zero_array(_t * dst, size_t length)
     {
-        assign_array(dst, def_value<t>(), length);
+        assign_array(dst, def_value<_t>(), length);
     }
 
-    template<typename t, size_t size>
-    void zero_array(t (&arr)[size])
+    template<typename _t, size_t size>
+    void zero_array(_t (&arr)[size])
     {
         zero_array(arr, size);
     }
@@ -374,10 +374,10 @@ namespace X_ROOT_NS::algorithm {
         __zero_bytes<size>(&bytes);
     }
 
-    template<typename t>
-    void zero_object(t & obj)
+    template<typename _t>
+    void zero_object(_t & obj)
     {
-        __zero_bytes<sizeof(t)>((byte_t *)&obj);
+        __zero_bytes<sizeof(_t)>((byte_t *)&obj);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -911,54 +911,6 @@ namespace X_ROOT_NS::algorithm {
 
     ////////// ////////// ////////// ////////// //////////
 
-    namespace
-    {
-        enum class __convertiable_t { yes, manual, no };
-
-        template<typename _from_t, typename _to_t>
-        constexpr __convertiable_t __convertible_of()
-        {
-            typedef std::remove_reference_t<_from_t> from_t;
-            typedef std::remove_reference_t<_to_t>   to_t;
-
-            if (std::is_convertible<from_t, to_t>())
-                return __convertiable_t::yes;
-
-            if (std::is_pointer<from_t>() &&
-                std::is_convertible<std::remove_pointer_t<from_t>, to_t>())
-                return __convertiable_t::manual;
-
-            return __convertiable_t::no;
-        }
-
-        template<__convertiable_t> struct __pick_elements_insert_t
-        {
-            template<typename _output_iterator_t, typename _element_t, typename _element0_t>
-            static void insert(_output_iterator_t && output, _element0_t && element) { }
-        };
-
-        template<> struct __pick_elements_insert_t<__convertiable_t::yes>
-        {
-            template<typename _output_iterator_t, typename _element_t, typename _element0_t>
-            static void insert(_output_iterator_t && output, _element0_t && element)
-            {
-                *output++ = (_element_t)element;
-            }
-        };
-
-        template<> struct __pick_elements_insert_t<__convertiable_t::manual>
-        {
-            template<typename _output_iterator_t, typename _element_t, typename _element0_t>
-            static void insert(_output_iterator_t && output, _element0_t && element)
-            {
-                if (element != nullptr)
-                    *output++ = (_element_t)*element;
-                else
-                    *output++ = _D(_element_t);
-            }
-        };
-    }
-
     template<
         typename _output_iterator_t,
         typename _element_t = iterator_element_t<_output_iterator_t>
@@ -972,10 +924,21 @@ namespace X_ROOT_NS::algorithm {
     >
     void pick_elements(_output_iterator_t && output, _element0_t && element, _rests_t && ... rests)
     {
-        constexpr __convertiable_t convertiable = __convertible_of<decltype(element), _element_t>();
-        __pick_elements_insert_t<convertiable>::template insert<_output_iterator_t, _element_t>(
-            std::forward<_output_iterator_t>(output), std::forward<_element0_t>(element)
-        );
+        typedef std::remove_reference_t<decltype(element)>  from_t;
+        typedef std::remove_reference_t<_element_t>         to_t;
+
+        if constexpr (std::is_convertible<from_t, to_t>())
+        {
+            *output++ = (_element_t)element;
+        }
+        else if constexpr (std::is_pointer<from_t>() &&
+            std::is_convertible<std::remove_pointer_t<from_t>, to_t>())
+        {
+            if (element != nullptr)
+                *output++ = (_element_t)*element;
+            else
+                *output++ = _D(_element_t);
+        }
 
         pick_elements<_output_iterator_t, _element_t>(
             std::forward<_output_iterator_t>(output), std::forward<_rests_t>(rests) ...
@@ -990,3 +953,4 @@ namespace X_ROOT_NS::algorithm {
 namespace al = ::X_ROOT_NS::algorithm;
 
 #endif  // __ALGORITHM_H__
+

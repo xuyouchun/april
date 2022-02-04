@@ -1270,8 +1270,10 @@ namespace X_ROOT_NS {
     template<typename t, typename t0> X_INLINE t must(t0 obj)
     {
         t obj1 = dynamic_cast<t>(obj);
+
         if (obj1 == nullptr)
             throw _E(common_error_code_t::convert_error);
+
         return obj1;
     }
 
@@ -1318,8 +1320,6 @@ namespace X_ROOT_NS {
         return __dynamic_cast_tie<0>(obj, out_objs ...);
     }
 
-
-
     ////////// ////////// ////////// ////////// //////////
 
     class memory_t;
@@ -1347,7 +1347,6 @@ namespace X_ROOT_NS {
 
     // An object clonable interface
     // Provide various implements for cloning an object.
-
     template<typename obj_t>
     X_INTERFACE clonable_t
     {
@@ -1359,7 +1358,6 @@ namespace X_ROOT_NS {
 
     // An object equals interface
     // Provide various implements for comparing two objects.
-
     template<typename obj_t>
     X_INTERFACE equals_t
     {
@@ -1371,7 +1369,6 @@ namespace X_ROOT_NS {
 
     // An object less interface
     // Provide various implements for comparing two objects.
-
     template<typename obj_t>
     X_INTERFACE less_t
     {
@@ -1383,7 +1380,6 @@ namespace X_ROOT_NS {
 
     // An key/value object interface.
     // Provides the ability for searching value by the spcified key.
-
     template<typename _key_t, typename _value_t>
     X_INTERFACE kv_object_t
     {
@@ -1595,7 +1591,7 @@ namespace X_ROOT_NS {
     ////////// ////////// ////////// ////////// //////////
 
     // Gives the ability of key/value storage for the object.
-    template<typename _key_t=string_t, typename _value_t=object_t *>
+    template<typename _key_t = string_t, typename _value_t = object_t *>
     class metadata_t
     {
         typedef std::remove_reference_t<std::remove_const_t<_key_t>> key_t;
@@ -1605,9 +1601,10 @@ namespace X_ROOT_NS {
         metadata_t() = default;
 
         // Adds a key/value pair metadata.
-        void add(key_t && key, value_t && value)
+        template<typename _value_t_>
+        void add(const _key_t & key, _value_t_ && value)
         {
-            __data[std::forward<_key_t>(key)] = std::forward<_value_t>(value);
+            __data[key] = std::forward<_value_t_>(value);
         }
 
         // Removes a key/value pair metadata.
@@ -1631,7 +1628,7 @@ namespace X_ROOT_NS {
         // Tries to get value for the specified key.
         // Returns true if found, the value is returned by out_value.
         // Returns false if not found.
-        bool try_get(const key_t & key, value_t ** out_value=nullptr)
+        bool try_get(const key_t & key, value_t ** out_value = nullptr)
         {
             auto it = __data.find(key);
             if (it != __data.end())
@@ -1816,7 +1813,7 @@ namespace X_ROOT_NS {
             memory_flag_t flag = __revise_memory_flag<obj_t>();
 
             void * buffer = (obj_t *)alloc(sizeof(obj_t), flag);
-            return new(buffer) obj_t(std::forward<args_t>(args) ...);
+            return new (buffer) obj_t(std::forward<args_t>(args) ...);
         }
 
         // Creates an object with specified size and arguments.
@@ -1826,7 +1823,7 @@ namespace X_ROOT_NS {
             memory_flag_t flag = __revise_memory_flag<obj_t>();
 
             void * buffer = (obj_t *)alloc(size, flag);
-            return new(buffer) obj_t(std::forward<args_t>(args) ...);
+            return new (buffer) obj_t(std::forward<args_t>(args) ...);
         }
 
         // Static member. 
@@ -1913,7 +1910,7 @@ namespace X_ROOT_NS {
                 "not an object class, it's destructor will not be executed"
             );
 
-            if (std::is_base_of_v<object_t, obj_t>)
+            if constexpr (std::is_base_of_v<object_t, obj_t>)
                 enum_add_flag(flag, memory_flag_t::is_object);
             else
                 enum_remove_flag(flag, memory_flag_t::is_object);
@@ -2354,218 +2351,78 @@ namespace X_ROOT_NS {
 
     namespace
     {
-        // Defines operations of convertion a object to string.
-
-        enum class __object_type_t {
-            unknown, string, object, string_like, enum_, pointer, numeric,
-            char_array,
-        };
-
-        // Determines the object types.
-        template<typename t>
-        constexpr X_INLINE __object_type_t __to_object_type() _NE
-        {
-            typedef std::remove_const_t<
-                std::remove_reference_t<std::remove_pointer_t<t>>
-            > _t;
-
-            // An enum value
-            if (std::is_enum_v<_t>)
-                return __object_type_t::enum_;
-
-            // A string
-            if (std::is_same_v<_t, string_t>)
-                return __object_type_t::string;
-
-            // An object. ( inherited by object_t. )
-            if (std::is_convertible<_t, object_t>())
-                return __object_type_t::object;
-
-            // Can converted to string.
-            if (std::is_convertible<_t, string_t>())
-                return __object_type_t::string_like;
-
-            // Char array
-            if (std::is_same_v<t, wchar_t *> || std::is_same_v<t, const wchar_t *>)
-                return __object_type_t::char_array;
-
-            // Pointer.
-            if (std::is_pointer_v<t>)
-                return __object_type_t::pointer;
-
-            // Arithmetic
-            if (std::is_arithmetic_v<_t>)
-                return __object_type_t::numeric;
-
-            // Unknown
-            return __object_type_t::unknown;
-        }
-
         //-------- ---------- ---------- ---------- ---------- 
 
-        // The description string for a null object.
-        const string_t __null_str = _T("<NULL>");
-
-        template<typename _obj_t, __object_type_t> struct __to_str_t
-        {
-            static const string_t to_str(const _obj_t & obj)
-            {
-                //static_assert(false, "cannot convert to string");
-                return _T("?");
-            }
-        };
-
-        //-------- ---------- ---------- ---------- ---------- 
-
-        // Converts an enum value to string.
         template<typename _obj_t>
-        struct __to_str_t<_obj_t, __object_type_t::enum_>
+        X_INLINE const string_t __str(const _obj_t & obj)
         {
-            static const string_t to_str(const _obj_t & obj) _NE
+            // An enum value
+            if constexpr (std::is_enum_v<_obj_t>)
             {
                 return _title(obj);
             }
-        };
 
-        //-------- ---------- ---------- ---------- ---------- 
-
-        // Converts an enum value (pointer) to string.
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t *, __object_type_t::enum_>
-        {
-            static const string_t to_str(const _obj_t * obj)
-            {
-                if (obj == nullptr)
-                    return __null_str;
-
-                return _title(*obj);
-            }
-        };
-
-        //-------- ---------- ---------- ---------- ---------- 
-
-        // Converts a string like object (operator string_t() defined) to string.
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t, __object_type_t::string_like>
-        {
-            static const string_t to_str(const _obj_t & obj)
-            {
-                return (string_t)obj;
-            }
-        };
-
-        //-------- ---------- ---------- ---------- ---------- 
-
-        // Converts a string like object (pointer, operator string_t() defined) to string.
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t *, __object_type_t::string_like>
-        {
-            static const string_t to_str(const _obj_t * obj)
-            {
-                if (obj == nullptr)
-                    return __null_str;
-
-                return (string_t)*obj;
-            }
-        };
-
-        //-------- ---------- ---------- ---------- ---------- 
-
-        // Returns the string object.
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t, __object_type_t::string>
-        {
-            static const string_t to_str(const _obj_t & obj)
+            // A string
+            else if constexpr (std::is_same_v<_obj_t, string_t>)
             {
                 return obj;
             }
-        };
 
-        //-------- ---------- ---------- ---------- ---------- 
-
-        // Returns the string object (pointer).
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t *, __object_type_t::string>
-        {
-            static const string_t to_str(const _obj_t * obj)
-            {
-                if (obj == nullptr)
-                    return __null_str;
-
-                return *obj;
-            }
-        };
-
-        //-------- ---------- ---------- ---------- ---------- 
-
-        // Convert an object to string.
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t, __object_type_t::object>
-        {
-            static const string_t to_str(const _obj_t & obj)
+            // An object. ( inherited by object_t. )
+            else if constexpr (std::is_convertible<_obj_t, object_t>())
             {
                 return obj.to_string();
             }
-        };
 
-        //-------- ---------- ---------- ---------- ---------- 
-
-        // Convert an object to string (pointer).
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t *, __object_type_t::object>
-        {
-            static const string_t to_str(const _obj_t * obj)
+            // Can convert to string.
+            else if constexpr (std::is_convertible<_obj_t, string_t>())
             {
-                if (obj == nullptr)
-                    return __null_str;
-
-                return obj->to_string();
+                return (const string_t)obj;
             }
-        };
 
-        // Convert a pointer to string.
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t *, __object_type_t::pointer>
-        {
-            static const string_t to_str(const _obj_t * obj)
+            // Char array
+            else if constexpr (std::is_same_v<_obj_t, wchar_t *>)
             {
-                stringstream_t ss;
-                ss << (void *)obj;
-
-                return ss.str();
+                return string_t(obj);
             }
-        };
 
-        // Convert a numeric to string..
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t, __object_type_t::numeric>
-        {
-            static const string_t to_str(const _obj_t & obj)
+            // Arithmetic
+            else if constexpr (std::is_arithmetic_v<_obj_t>)
             {
                 return std::to_wstring(obj);
             }
-        };
 
-        // Convert a char array to string..
-        template<typename _obj_t>
-        struct __to_str_t<_obj_t, __object_type_t::char_array>
-        {
-            static const string_t to_str(const char_t * p)
+            // Unknown
+            else
             {
-                if (p == nullptr)
-                    return __null_str;
-
-                return string_t(p);
+                return _T("?");
             }
-        };
+        }
 
+        //-------- ---------- ---------- ---------- ---------- 
     }
 
     // Converts an object to string.
     template<typename _obj_t>
     X_INLINE const string_t _str(const _obj_t & obj)
     {
-        return __to_str_t<_obj_t, __to_object_type<_obj_t>()>::to_str(obj);
+        // A pointer.
+        if constexpr (std::is_same_v<_obj_t, void *>)
+        {
+            stringstream_t ss;
+            ss << (const void *)obj;
+
+            return ss.str();
+        }
+        else if constexpr (std::is_pointer_v<_obj_t>)
+        {
+            static const string_t __null_str = _T("<NULL>");
+            return obj == nullptr? _T("<NULL>") : __str(*obj);;
+        }
+        else
+        {
+            return __str(obj);
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2583,16 +2440,8 @@ namespace X_ROOT_NS {
                 auto v = std::get<sizeof ... (_args_t) - _n>(tuple);
                 ss << _str(v).c_str();
 
-                __tuple_to_string_t<_n - 1, _args_t ...>::append_string(tuple, ss);
-            }
-        };
-
-        template<typename ... _args_t>
-        struct __tuple_to_string_t<0, _args_t ...>
-        {
-            static void append_string(const std::tuple<_args_t ...> & tuple, stringstream_t & ss)
-            {
-                // Do nothing.
+                if constexpr (_n > 1)
+                    __tuple_to_string_t<_n - 1, _args_t ...>::append_string(tuple, ss);
             }
         };
     }
