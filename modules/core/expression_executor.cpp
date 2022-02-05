@@ -97,7 +97,7 @@ namespace X_ROOT_NS::modules::core {
     struct __unitary_execute_super_t :
         __unitary_execute_t<
             _op,
-            enum_has_flag(_region, _flag)? _flag : __operate_region_t::none
+            bit_has_flag(_region, _flag)? _flag : __operate_region_t::none
         >
     { };
 
@@ -216,7 +216,7 @@ namespace X_ROOT_NS::modules::core {
             return cvalue_t::nan;
 
         typedef __operate_region_t g_t;
-        const __operate_region_t df = enum_xor(g_t::default_, g_t::float_);
+        const __operate_region_t df = bit_xor(g_t::default_, g_t::float_);
 
         switch (this->op())
         {
@@ -329,7 +329,7 @@ namespace X_ROOT_NS::modules::core {
     template<operator_t _op, __operate_region_t _flag, __operate_region_t _region>
     struct __binary_execute_super_t :
         __binary_execute_t<
-            _op, enum_has_flag(_region, _flag)? _flag : __operate_region_t::none
+            _op, bit_has_flag(_region, _flag)? _flag : __operate_region_t::none
         >
     { };
 
@@ -543,8 +543,8 @@ namespace X_ROOT_NS::modules::core {
 
         typedef __operate_region_t g_t;
         const __operate_region_t d   = g_t::default_;
-        const __operate_region_t df  = enum_xor(g_t::default_, g_t::float_);
-        const __operate_region_t dfc = enum_xor(g_t::default_, g_t::float_, g_t::char_);
+        const __operate_region_t df  = bit_xor(g_t::default_, g_t::float_);
+        const __operate_region_t dfc = bit_xor(g_t::default_, g_t::float_, g_t::char_);
 
         switch (this->op())
         {

@@ -1390,140 +1390,98 @@ namespace X_ROOT_NS {
     ////////// ////////// ////////// ////////// //////////
     // Enum operations
 
-    // Enum bit-or, no arguments, returns empty.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_or() _NE
-    {
-        return (enum_t)0;
-    }
-
-    // Enum bit-or, only one arguments, returns it.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_or(enum_t v) _NE
-    {
-        return v;
-    }
-
-    // Enum bit-or, two arguments, returns the bit-or result.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_or(enum_t v1, enum_t v2) _NE
-    {
-        typedef int_type_t<sizeof(enum_t)> t;
-        return (enum_t)((t)v1 | (t)v2);
-    }
-
     // Enum bit-or, more than two arguments, returns the bit-or result of all values.
-    template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_or(enum_t v1, enum_t v2, args_t ... args) _NE
+    template<typename _t = void, typename ... _args_t>
+    X_INLINE constexpr auto bit_or(_args_t ... args) _NE
     {
-        return enum_or(enum_or(v1, v2), args ...);
-    }
+        typedef pick_type_t<_t, _args_t ...> t;
 
-    //-------- ---------- ---------- ---------- ----------
+        if constexpr (std::is_enum_v<t>)
+        {
+            typedef std::underlying_type_t<t> underlying_t;
+            return (t)( (underlying_t)0  | ... | ((underlying_t)args) );
+        }
+        else
+        {
+            return ( (t)0 | ... | (t)args );
+        }
+    }
 
     // Add flags to the specified enum. equals bit-or operation.
-    template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_add_flag(enum_t & v, enum_t v1, args_t ... args) _NE
+    template<typename _t, typename ... _args_t>
+    X_INLINE _t bit_add_flag(_t & v, _args_t ... args) _NE
     {
-        return (v = enum_or(v, v1, args ...));
-    }
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Enum bit-and, no arguments, returns empty.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_and() _NE
-    {
-        return (enum_t)0;
-    }
-
-    // Enum bit-and, only one arguments, returns it.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_and(enum_t v) _NE
-    {
-        return v;
-    }
-
-    // Enum bit-and, two arguments, returns the bit-and result.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_and(enum_t v1, enum_t v2) _NE
-    {
-        typedef int_type_t<sizeof(enum_t)> t;
-        return (enum_t)((t)v1 & (t)v2);
+        return (v = bit_or(v, args ...));
     }
 
     // Enum bit-and, more than two arguments, returns the bit-and result of all values.
-    template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_and(enum_t v1, enum_t v2, args_t ... args) _NE
+    template<typename _t = void, typename ... _args_t>
+    X_INLINE constexpr auto bit_and(_args_t ... args) _NE
     {
-        return enum_and(enum_and(v1, v2), args ...);
-    }
+        typedef pick_type_t<_t, _args_t ...> t;
 
-    //-------- ---------- ---------- ---------- ----------
-
-    // Remove flag from the specified enum.
-    template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_remove_flag(enum_t & v, enum_t v1, args_t ... args) _NE
-    {
-        typedef int_type_t<sizeof(enum_t)> t;
-        return (v = enum_and(v, (enum_t)~(t)v1, (enum_t)~(t)args ...));
-    }
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Enum bit-xor, no arguments, returns empty.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_xor() _NE
-    {
-        return (enum_t)0;
-    }
-
-    // Enum bit-xor, only one arguments, returns it.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_xor(enum_t v) _NE
-    {
-        return v;
-    }
-
-    // Enum bit-xor, two arguments, returns the bit-xor result.
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_xor(enum_t v1, enum_t v2) _NE
-    {
-        typedef int_type_t<sizeof(enum_t)> t;
-        return (enum_t)((t)v1 ^ (t)v2);
+        if constexpr (std::is_enum_v<t>)
+        {
+            typedef std::underlying_type_t<t> underlying_t;
+            return (t)( (underlying_t)-1 & ... & ((underlying_t)args) );
+        }
+        else
+        {
+            return ( (t)-1 ^ ... ^ (t)args );
+        }
     }
 
     // Enum bit-xor, more than two arguments, returns the bit-xor result of all values.
-    template<typename enum_t, typename ... args_t>
-    X_INLINE constexpr enum_t enum_xor(enum_t v1, enum_t v2, args_t ... args) _NE
+    template<typename _t = void, typename ... _args_t>
+    X_INLINE constexpr auto bit_xor(_args_t ... args) _NE
     {
-        return enum_xor(enum_xor(v1, v2), args ...);
-    }
+        typedef pick_type_t<_t, _args_t ...> t;
 
-    //-------- ---------- ---------- ---------- ----------
+        if constexpr (std::is_enum_v<t>)
+        {
+            typedef std::underlying_type_t<t> underlying_t;
+            return (t)( (underlying_t)0  ^ ... ^ ((underlying_t)args) );
+        }
+        else
+        {
+            return ( (t)0 ^ ... ^ (t)args );
+        }
+    }
 
     // Enum bit-not
-    template<typename enum_t>
-    X_INLINE constexpr enum_t enum_not(enum_t v) _NE
+    template<typename _t>
+    X_INLINE constexpr auto bit_not(_t v) _NE
     {
-        typedef int_type_t<sizeof(enum_t)> t;
-        return (enum_t)(~(t)v);
+        if constexpr (std::is_enum_v<_t>)
+        {
+            typedef std::underlying_type_t<_t> underlying_t;
+            return (_t)(~(underlying_t)v);
+        }
+        else
+        {
+            return ~v;
+        }
     }
 
-    //-------- ---------- ---------- ---------- ----------
+    // Remove flag from the specified enum.
+    template<typename _t, typename ... _args_t>
+    X_INLINE _t bit_remove_flag(_t & v, _args_t ... args) _NE
+    {
+        return (v = bit_and(v, bit_not(args) ...));
+    }
 
     // Determines if the specivied value has the specified flag.
-    template<typename enum_t>
-    X_INLINE constexpr bool enum_has_flag(enum_t v, enum_t flag)
+    template<typename _t>
+    X_INLINE constexpr bool bit_has_flag(_t v, _t flag)
     {
-        return enum_and(v, flag) != (enum_t)0;
+        return bit_and(v, flag) != (_t)0;
     }
 
     // Determines if the specivied value matchs the specified flag.
-    template<typename enum_t>
-    X_INLINE constexpr bool enum_match_flag(enum_t v, enum_t flag) _NE
+    template<typename _t>
+    X_INLINE constexpr bool bit_match_flag(_t v, _t flag) _NE
     {
-        return enum_and(v, flag) == flag;
+        return bit_and(v, flag) == flag;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1905,9 +1863,9 @@ namespace X_ROOT_NS {
             );
 
             if constexpr (std::is_base_of_v<object_t, obj_t>)
-                enum_add_flag(flag, memory_flag_t::is_object);
+                bit_add_flag(flag, memory_flag_t::is_object);
             else
-                enum_remove_flag(flag, memory_flag_t::is_object);
+                bit_remove_flag(flag, memory_flag_t::is_object);
 
             return flag;
         }
@@ -2455,120 +2413,120 @@ namespace X_ROOT_NS {
     template<typename _enum_t> struct enum_t
     {
         typedef enum_t<_enum_t> __self_t;
-        typedef int_type_t<sizeof(_enum_t)> __underly_t;
+        typedef std::underlying_type_t<_enum_t> __underly_t;
 
         // Constructors.
-        enum_t() = default;
-        enum_t(_enum_t value) _NE : value(value) { }
-        enum_t(int value) _NE : value( (_enum_t)value ) { }
+        constexpr enum_t() = default;
+        constexpr enum_t(_enum_t value) _NE : value(value) { }
+        constexpr enum_t(int value) _NE : value( (_enum_t)value ) { }
 
         // Enum value.
         _enum_t value = (_enum_t)0;
 
         // Converts to an enum value.
-        operator _enum_t() const _NE { return value; }
+        constexpr operator _enum_t() const _NE { return value; }
 
         // Converts to an enum value.
-        _enum_t operator * () const _NE { return value; }
+        constexpr _enum_t operator * () const _NE { return value; }
 
         // Converts to a bool value.
-        operator bool() const _NE { return value != (_enum_t)0; }
+        constexpr operator bool() const _NE { return value != (_enum_t)0; }
 
         // Assigns a value.
-        __self_t operator = (_enum_t v) _NE
+        constexpr __self_t operator = (_enum_t v) _NE
         {
             this->value = v;
         }
 
         // Assigns a value.
-        __self_t operator = (__self_t v) _NE
+        constexpr __self_t operator = (__self_t v) _NE
         {
             this->value = v.value;
         }
 
         // Equals.
-        bool operator == (_enum_t v) const _NE
+        constexpr bool operator == (_enum_t v) const _NE
         {
             return value == v;
         }
 
         // Equals to a number.
-        bool operator == (int v) const _NE
+        constexpr bool operator == (int v) const _NE
         {
             return value == (_enum_t)v;
         }
 
         // Not equals.
-        bool operator != (_enum_t v) const _NE
+        constexpr bool operator != (_enum_t v) const _NE
         {
             return value != v;
         }
 
         // Not equals to a number.
-        bool operator != (int v) const _NE
+        constexpr bool operator != (int v) const _NE
         {
             return value != (_enum_t)v;
         }
 
         // Bit or & assign.
-        __self_t operator |= (_enum_t v) _NE
+        constexpr __self_t operator |= (_enum_t v) _NE
         {
-            return this->value = enum_or(this->value, v), *this;
+            return this->value = bit_or(this->value, v), *this;
         }
 
         // Bit or.
-        __self_t operator | (_enum_t v) const _NE
+        constexpr __self_t operator | (_enum_t v) const _NE
         {
-            return __self_t( enum_or(this->value, v) );
+            return __self_t( bit_or(this->value, v) );
         }
 
         // Bit and & assign.
-        __self_t operator &= (_enum_t v) _NE
+        constexpr __self_t operator &= (_enum_t v) _NE
         {
-            return this->value = enum_and(this->value, v), *this;
+            return this->value = bit_and(this->value, v), *this;
         }
 
         // Bit and
-        __self_t operator & (_enum_t v) const _NE
+        constexpr __self_t operator & (_enum_t v) const _NE
         {
-            return __self_t( enum_and(this->value, v) );
+            return __self_t( bit_and(this->value, v) );
         }
 
         // Bit xor && assign.
-        __self_t operator ^= (_enum_t v) _NE
+        constexpr __self_t operator ^= (_enum_t v) _NE
         {
-            return this->value = enum_xor(this->value, v), *this;
+            return this->value = bit_xor(this->value, v), *this;
         }
 
         // Bit xor.
-        __self_t operator ^ (_enum_t v) const _NE
+        constexpr __self_t operator ^ (_enum_t v) const _NE
         {
-            return __self_t( enum_xor(this->value, v) );
+            return __self_t( bit_xor(this->value, v) );
         }
 
         // Bit not.
-        __self_t operator ~ () _NE
+        constexpr __self_t operator ~ () _NE
         {
             return this->value = ~this->value, *this;
         }
 
         // Returns whether has a flag.
         template<typename ... _enums_t>
-        bool has(_enum_t v, _enums_t ... vs) const _NE
+        constexpr bool has(_enum_t v, _enums_t ... vs) const _NE
         {
-            return enum_has_flag(this->value, enum_or(v, vs...));
+            return bit_has_flag(this->value, bit_or(v, vs...));
         }
 
         // Returns whether it is composed by specified flags.
         template<typename ... _enums_t>
-        bool has_only(_enum_t v, _enums_t ... vs) const _NE
+        constexpr bool has_only(_enum_t v, _enums_t ... vs) const _NE
         {
             return (__underly_t)this->value != 0
-                && ((__underly_t)this->value & ~(__underly_t)enum_or(v, vs...)) == 0;
+                && ((__underly_t)this->value & ~(__underly_t)bit_or(v, vs...)) == 0;
         }
 
         // Returns whether it is composed by specified flags.
-        bool has_only(_enum_t v) _NE
+        constexpr bool has_only(_enum_t v) _NE
         {
             return (__underly_t)this->value != 0
                 && ((__underly_t)this->value & ~(__underly_t)v) == 0;
@@ -2576,20 +2534,20 @@ namespace X_ROOT_NS {
 
         // Removes a flag.
         template<typename ... _enums_t>
-        __self_t remove(_enum_t v, _enums_t ... vs) _NE
+        constexpr __self_t remove(_enum_t v, _enums_t ... vs) _NE
         {
-            return enum_remove_flag(this->value, enum_or(v, vs...));
+            return bit_remove_flag(this->value, bit_or(v, vs...));
         }
 
         // Adds a flag.
         template<typename ... _enums_t>
-        __self_t add(_enum_t v, _enums_t ... vs) _NE
+        constexpr __self_t add(_enum_t v, _enums_t ... vs) _NE
         {
-            return this->value = enum_or(this->value, v, vs...), *this;
+            return this->value = bit_or(this->value, v, vs...), *this;
         }
 
         // Clears flags.
-        __self_t clear() _NE
+        constexpr __self_t clear() _NE
         {
             return this->value = (_enum_t)0, *this;
         }

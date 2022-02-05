@@ -18,7 +18,7 @@ namespace X_ROOT_NS::modules::compile {
     typedef statement_region_property_t     __region_property_t;
     typedef method_xil_block_type_t         __block_type_t;
 
-    #define __FreeExitFlags     enum_or(__exit_type_t::break_,                  \
+    #define __FreeExitFlags     bit_or(__exit_type_t::break_,                   \
             __exit_type_t::return_, __exit_type_t::goto_, __exit_type_t::throw_ \
         )
 
@@ -218,7 +218,7 @@ namespace X_ROOT_NS::modules::compile {
     class __x_statement_region_t : public statement_region_t
     {
         typedef statement_region_t __super_t;
-        static const __exit_point_mask_t mask = enum_xor<__exit_point_mask_t>(_masks ...);
+        static const __exit_point_mask_t mask = bit_xor<__exit_point_mask_t>(_masks ...);
 
     public:
         using __super_t::__super_t;
@@ -271,7 +271,7 @@ namespace X_ROOT_NS::modules::compile {
         // Returns whether specified type is supported.
         bool __is_supported(__exit_point_type_t type)
         {
-            return enum_has_flag(mask, __e_mask(type));
+            return bit_has_flag(mask, __e_mask(type));
         }
     };
 
@@ -309,7 +309,7 @@ namespace X_ROOT_NS::modules::compile {
             __exit_point_type_t point_type = __exit_point_type_t::none)
     {
         return __find_protected_region(ctx.current_region(), point_type,
-            enum_or(__region_property_t::protected_block, __region_property_t::with_finally)
+            bit_or(__region_property_t::protected_block, __region_property_t::with_finally)
         ) != nullptr;
     }
 
@@ -1400,7 +1400,7 @@ namespace X_ROOT_NS::modules::compile {
             return statement_exit_type_t::none;
 
         __e_exit_type_t type;
-        const __exit_type_t until = enum_or(__exit_type_t::return_,
+        const __exit_type_t until = bit_or(__exit_type_t::return_,
             __exit_type_t::throw_, __exit_type_t::dead_cycle, __exit_type_t::break_
         );
 
@@ -1437,7 +1437,7 @@ namespace X_ROOT_NS::modules::compile {
 
             it_start = it;
 
-            const __exit_type_t until = enum_or(__exit_type_t::return_,
+            const __exit_type_t until = bit_or(__exit_type_t::return_,
                 __exit_type_t::throw_, __exit_type_t::dead_cycle, __exit_type_t::break_
             );
 
@@ -1554,7 +1554,7 @@ namespace X_ROOT_NS::modules::compile {
     typedef __block_statement_region_t<__block_type_t::finally_, false> __finally_statement_region_t;
 
     typedef __x_statement_region_t<
-        enum_or(__region_property_t::protected_block, __region_property_t::with_finally)
+        bit_or(__region_property_t::protected_block, __region_property_t::with_finally)
     > __try_with_finally_statement_region_t;
 
     // Compiles this statement.

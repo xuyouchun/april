@@ -9,9 +9,9 @@ namespace X_ROOT_NS::algorithm {
     void __char_property_t::init(enumerator_t & e)
     {
         typedef flag_t f_t;
-        set_flag(e, 'A', 'Z', enum_or(f_t::upper, f_t::word));
-        set_flag(e, 'a', 'z', enum_or(f_t::lower, f_t::word));
-        set_flag(e, '0', '9', enum_or(f_t::digit, f_t::word, f_t::xdigit));
+        set_flag(e, 'A', 'Z', bit_or(f_t::upper, f_t::word));
+        set_flag(e, 'a', 'z', bit_or(f_t::lower, f_t::word));
+        set_flag(e, '0', '9', bit_or(f_t::digit, f_t::word, f_t::xdigit));
         set_flag(e, 'A', 'F', f_t::xdigit);
         set_flag(e, 'a', 'f', f_t::xdigit);
         set_flag(e, '0', '7', f_t::odigit);

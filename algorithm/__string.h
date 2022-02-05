@@ -157,7 +157,7 @@ namespace X_ROOT_NS::algorithm {
     // Returns wheather a character is a word or digit.
     X_INLINE bool is_word_or_digit(char_t c)
     {
-        return __char_has_flag(c, enum_or(__char_flag_t::word, __char_flag_t::digit));
+        return __char_has_flag(c, bit_or(__char_flag_t::word, __char_flag_t::digit));
     }
 
     // Returns wheather a character is a line end.

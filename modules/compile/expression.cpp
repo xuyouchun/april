@@ -1317,7 +1317,7 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_inc(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
                                                                 __inc_t flag)
     {
-        #define __Is(v) enum_has_flag(flag, __inc_t::v)
+        #define __Is(v) bit_has_flag(flag, __inc_t::v)
 
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp);
         variable_t * var = ca.var;
@@ -1356,25 +1356,25 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles left increment.
     static void __compile_left_increment(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
     {
-        __compile_inc(ctx, pool, exp, enum_or(__inc_t::left, __inc_t::increment));
+        __compile_inc(ctx, pool, exp, bit_or(__inc_t::left, __inc_t::increment));
     }
 
     // Compiles left decrement.
     static void __compile_left_decrement(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
     {
-        __compile_inc(ctx, pool, exp, enum_or(__inc_t::left, __inc_t::decrement));
+        __compile_inc(ctx, pool, exp, bit_or(__inc_t::left, __inc_t::decrement));
     }
 
     // Compiles right increment.
     static void __compile_right_increment(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
     {
-        __compile_inc(ctx, pool, exp, enum_or(__inc_t::right, __inc_t::increment));
+        __compile_inc(ctx, pool, exp, bit_or(__inc_t::right, __inc_t::increment));
     }
 
     // Compiles right decrement.
     static void __compile_right_decrement(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
     {
-        __compile_inc(ctx, pool, exp, enum_or(__inc_t::right, __inc_t::decrement));
+        __compile_inc(ctx, pool, exp, bit_or(__inc_t::right, __inc_t::decrement));
     }
 
     ////////// ////////// ////////// ////////// //////////

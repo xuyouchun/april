@@ -636,7 +636,7 @@ namespace X_ROOT_NS::modules::compile {
         typedef statement_exit_type_t       __exit_type_t;
         typedef enum_t<__exit_type_t>       __e_exit_type_t;
 
-        const __exit_type_t until = enum_or(
+        const __exit_type_t until = bit_or(
             __exit_type_t::return_, __exit_type_t::throw_, __exit_type_t::dead_cycle,
             __exit_type_t::break_, __exit_type_t::continue_
         );

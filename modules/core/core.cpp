@@ -3067,10 +3067,10 @@ namespace X_ROOT_NS::modules::core {
     // Returns members descripted by args.
     member_t * __general_type_like_base_t::get_member(analyze_member_args_t & args)
     {
-        if (enum_has_flag(args.member_type, member_type_t::field))
+        if (bit_has_flag(args.member_type, member_type_t::field))
             __FindMemberAndRet(fields, args.name);
 
-        if (enum_has_flag(args.member_type, member_type_t::property))
+        if (bit_has_flag(args.member_type, member_type_t::property))
         {
             if (args.name != name_t::null)       // Normal property
                 __FindMemberAndRet(properties, args.name);
@@ -3081,20 +3081,20 @@ namespace X_ROOT_NS::modules::core {
                 return property;
         }
 
-        if (enum_has_flag(args.member_type, member_type_t::event))
+        if (bit_has_flag(args.member_type, member_type_t::event))
             __FindMemberAndRet(events, args.name);
 
-        if (enum_has_flag(args.member_type, member_type_t::type_def))
+        if (bit_has_flag(args.member_type, member_type_t::type_def))
             __FindMemberAndRet(type_defs, args.name);
 
-        if (enum_has_flag(args.member_type, member_type_t::type))
+        if (bit_has_flag(args.member_type, member_type_t::type))
         {
             type_t * type = nest_types.get(args.name, args.generic_args_count);
             if (type != nullptr)
                 return type;
         }
 
-        if (enum_has_flag(args.member_type, member_type_t::method))
+        if (bit_has_flag(args.member_type, member_type_t::method))
         {
             method_t * method = __analyze_method(methods, args);
             if (method != nullptr)
@@ -3117,7 +3117,7 @@ namespace X_ROOT_NS::modules::core {
     // Returns memeber descripted by args.
     void __general_type_like_base_t::get_members(analyze_members_args_t & args)
     {
-        if (enum_has_flag(args.member_type, member_type_t::field))
+        if (bit_has_flag(args.member_type, member_type_t::field))
         {
             if (args.name == name_t::null)
             {
@@ -3131,7 +3131,7 @@ namespace X_ROOT_NS::modules::core {
             }
         }
 
-        if (enum_has_flag(args.member_type, member_type_t::property))
+        if (bit_has_flag(args.member_type, member_type_t::property))
         {
             if (args.name == name_t::null)
             {
@@ -3148,7 +3148,7 @@ namespace X_ROOT_NS::modules::core {
             }
         }
 
-        if (enum_has_flag(args.member_type, member_type_t::method))
+        if (bit_has_flag(args.member_type, member_type_t::method))
         {
             __analyze_methods(methods, args);
         }
@@ -5538,14 +5538,14 @@ namespace X_ROOT_NS::modules::core {
     // Type ast walk context layer.
     typedef __x_ast_walk_context_layer_t<
         type_t, __layer_state_t::type,
-        __region_layer_t<enum_or(variable_type_t::field, variable_type_t::property,
+        __region_layer_t<bit_or(variable_type_t::field, variable_type_t::property,
                                                          variable_type_t::method)>
     > __type_ast_walk_context_layer_t;
 
     // Method ast walk context layer.
     typedef __x_ast_walk_context_layer_t<
         method_t, __layer_state_t::method,
-        __region_layer_t<enum_or(variable_type_t::param, variable_type_t::local)>
+        __region_layer_t<bit_or(variable_type_t::param, variable_type_t::local)>
     > __method_ast_walk_context_layer_t;
 
     // Property ast walk context layer.

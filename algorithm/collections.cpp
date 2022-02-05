@@ -28,7 +28,7 @@ namespace X_ROOT_NS::algorithm {
         if (new_size > __large_object_size)
         {
             byte_t * bytes = new byte_t[new_size];
-            if (enum_has_flag(flag, memory_flag_t::is_object))
+            if (bit_has_flag(flag, memory_flag_t::is_object))
             {
                 __large_objs.push_back((object_t *)bytes);
             }
@@ -52,7 +52,7 @@ namespace X_ROOT_NS::algorithm {
         __row_t & r = *rc.current_row;
         byte_t * placeholder;
 
-        if (enum_has_flag(flag, memory_flag_t::is_object))
+        if (bit_has_flag(flag, memory_flag_t::is_object))
         {
             placeholder = r.buffer + r.object_count * new_size;
             r.object_count++;

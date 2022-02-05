@@ -395,7 +395,7 @@ namespace X_ROOT_NS {
         if (!bytes)
             throw _E(common_error_code_t::no_memory);
 
-        if (enum_has_flag(flag, memory_flag_t::is_object))
+        if (bit_has_flag(flag, memory_flag_t::is_object))
             __objects.insert((object_t *)bytes);
 
         return bytes;

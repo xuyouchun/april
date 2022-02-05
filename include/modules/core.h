@@ -5378,7 +5378,7 @@ namespace X_ROOT_NS::modules::core {
         // Determined by __mask.
         bool __is_supported(variable_type_t type) const
         {
-            return enum_has_flag(__mask, type);
+            return bit_has_flag(__mask, type);
         }
 
         // Returns whether the variable type is supported.

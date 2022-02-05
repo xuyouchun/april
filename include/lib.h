@@ -201,7 +201,7 @@ namespace X_ROOT_NS::lib {
         recurve         =   1 << 2,
 
         // Default options.
-        default_        =   enum_or(files, directories),
+        default_        =   bit_or(files, directories),
 
     X_ENUM_END
 
@@ -224,16 +224,16 @@ namespace X_ROOT_NS::lib {
                 auto p = *it;
                 if (__bf::is_directory(p))
                 {
-                    if (enum_has_flag(options, option_t::directories) && !callback(p))
+                    if (bit_has_flag(options, option_t::directories) && !callback(p))
                         return false;
 
-                    if (enum_has_flag(options, option_t::recurve)
+                    if (bit_has_flag(options, option_t::recurve)
                                             && !__each(p, callback, filter, options))
                         return false;
                 }
                 else
                 {
-                    if (enum_has_flag(options, option_t::files)
+                    if (bit_has_flag(options, option_t::files)
                         && (!filter || al::regex_is_match(filename(p.path()), *filter))
                         && !callback(p))
                         return false;

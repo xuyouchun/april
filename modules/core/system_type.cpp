@@ -967,7 +967,7 @@ namespace X_ROOT_NS::modules::core {
             decorate_value_t decorate = method->decorate?
                     *(decorate_value_t *)method->decorate : decorate_value_t::default_value;
 
-            if (!decorate.is_static || !enum_has_flag(decorate.access, access_value_t::public_))
+            if (!decorate.is_static || !bit_has_flag(decorate.access, access_value_t::public_))
                 __CplLogError(should_be_public_static);
 
             al::svector_t<const char_t *> not_allowed_keywords;

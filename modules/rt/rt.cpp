@@ -627,7 +627,7 @@ namespace X_ROOT_NS::modules::rt {
     ref_t rt_general_type_t::search_method(analyzer_env_t & env,
                     method_prototype_t & prototype, search_method_options_t options)
     {
-        bool only_virtual = enum_has_flag(options, search_method_options_t::only_virtual);
+        bool only_virtual = bit_has_flag(options, search_method_options_t::only_virtual);
         ref_t ret = ref_t::null;
 
         typedef rt_mt_t<__tidx_t::method> mt_t;
