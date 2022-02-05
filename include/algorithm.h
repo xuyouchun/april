@@ -19,19 +19,19 @@ namespace X_ROOT_NS::algorithm {
     // Returns the max value of given values.
 
     template<typename _t>
-    X_INLINE constexpr _t max(_t && value)
+    X_INLINE constexpr _t max(_t && value) _NE
     {
         return value;
     }
 
     template<typename _t, typename _t2>
-    X_INLINE constexpr auto max(_t && value1, _t2 && value2)
+    X_INLINE constexpr auto max(_t && value1, _t2 && value2) _NE
     {
         return value1 < value2? value2 : value1;
     }
 
     template<typename _t, typename ... _rest_t>
-    X_INLINE constexpr auto max(_t value1, _rest_t && ... rest)
+    X_INLINE constexpr auto max(_t value1, _rest_t && ... rest) _NE
     {
         return max(std::forward<_t>(value1), max(std::forward<_rest_t>(rest) ...));
     }
@@ -41,19 +41,19 @@ namespace X_ROOT_NS::algorithm {
     // Returns the min value of given values.
 
     template<typename _t>
-    X_INLINE constexpr auto min(_t && value)
+    X_INLINE constexpr auto min(_t && value) _NE
     {
         return value;
     }
 
     template<typename _t, typename _t2>
-    X_INLINE constexpr auto min(_t && value1, _t2 && value2)
+    X_INLINE constexpr auto min(_t && value1, _t2 && value2) _NE
     {
         return value1 < value2? value1 : value2;
     }
 
     template<typename _t, typename ... _rest_t>
-    X_INLINE constexpr auto min(_t && value1, _rest_t && ... rest)
+    X_INLINE constexpr auto min(_t && value1, _rest_t && ... rest) _NE
     {
         return min(std::forward<_t>(value1), min(std::forward<_rest_t>(rest) ...));
     }
@@ -62,14 +62,14 @@ namespace X_ROOT_NS::algorithm {
 
     // Return the max size of give value types.
     template<typename ... _t>
-    X_INLINE constexpr size_t max_size()
+    X_INLINE constexpr size_t max_size() _NE
     {
         return max(sizeof(_t) ...);
     }
 
     // Return the min size of give value types.
     template<typename ... _t>
-    X_INLINE constexpr size_t min_size()
+    X_INLINE constexpr size_t min_size() _NE
     {
         return min(sizeof(_t) ...);
     }
@@ -79,13 +79,13 @@ namespace X_ROOT_NS::algorithm {
     // Detemines wheather a value in the given values.
 
     template<typename _t, typename _t1>
-    X_INLINE bool in(_t && value, _t1 && value1)
+    X_INLINE bool in(_t && value, _t1 && value1) _NE
     {
         return value == value1;
     }
 
     template<typename _t, typename _t1, typename ... _values_t>
-    X_INLINE bool in(_t && value, _t1 && value1, _values_t && ... rest)
+    X_INLINE bool in(_t && value, _t1 && value1, _values_t && ... rest) _NE
     {
         return value == value1 || in(std::forward<_t>(value), std::forward<_values_t>(rest) ...);
     }
@@ -93,7 +93,7 @@ namespace X_ROOT_NS::algorithm {
     ////////// ////////// ////////// ////////// //////////
 
     template<typename _t>
-    X_INLINE _t * nvl(_t * obj, _t * obj2)
+    X_INLINE _t * nvl(_t * obj, _t * obj2) _NE
     {
         return obj != nullptr? obj : obj2;
     }
