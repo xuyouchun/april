@@ -124,9 +124,9 @@ namespace X_ROOT_NS::algorithm {
 
         switch (size)
         {
-            #define __Case(_size)                           \
-                case _size:                                 \
-                    al::quick_zero<_size>(p1);              \
+            #define __Case(_size)                                                       \
+                case _size:                                                             \
+                    al::quick_zero<_size>(p1);                                          \
                     break;
 
             __Case(1)

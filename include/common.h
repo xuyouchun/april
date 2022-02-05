@@ -2413,7 +2413,7 @@ namespace X_ROOT_NS {
     template<typename _enum_t> struct enum_t
     {
         typedef enum_t<_enum_t> __self_t;
-        typedef std::underlying_type_t<_enum_t> __underly_t;
+        typedef std::underlying_type_t<_enum_t> __underlying_t;
 
         // Constructors.
         constexpr enum_t() = default;
@@ -2521,15 +2521,15 @@ namespace X_ROOT_NS {
         template<typename ... _enums_t>
         constexpr bool has_only(_enum_t v, _enums_t ... vs) const _NE
         {
-            return (__underly_t)this->value != 0
-                && ((__underly_t)this->value & ~(__underly_t)bit_or(v, vs...)) == 0;
+            return (__underlying_t)this->value != 0
+                && ((__underlying_t)this->value & ~(__underlying_t)bit_or(v, vs...)) == 0;
         }
 
         // Returns whether it is composed by specified flags.
         constexpr bool has_only(_enum_t v) _NE
         {
-            return (__underly_t)this->value != 0
-                && ((__underly_t)this->value & ~(__underly_t)v) == 0;
+            return (__underlying_t)this->value != 0
+                && ((__underlying_t)this->value & ~(__underlying_t)v) == 0;
         }
 
         // Removes a flag.
@@ -2569,7 +2569,7 @@ namespace X_ROOT_NS {
         struct __enum_flags_t
         {
             typedef __enum_flags_t<_enum_t> __self_t;
-            typedef int_type_t<sizeof(_enum_t)> __underly_t;
+            typedef int_type_t<sizeof(_enum_t)> __underlying_t;
 
             // Constructors.
             __enum_flags_t(_enum_t value) _NE : value(value) { }
@@ -2580,7 +2580,7 @@ namespace X_ROOT_NS {
             // Converts to string.
             operator string_t() const _NE
             {
-                __underly_t v = (__underly_t)value;
+                __underlying_t v = (__underlying_t)value;
                 if (v == 0)
                     return _title(value);
 
@@ -2588,7 +2588,7 @@ namespace X_ROOT_NS {
 
                 for (int index = 0; v != 0; index++)
                 {
-                    __underly_t v0 = v & (v - 1);
+                    __underlying_t v0 = v & (v - 1);
 
                     if (index > 0)
                         ss << _T(",");
