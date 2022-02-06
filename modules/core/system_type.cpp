@@ -938,7 +938,7 @@ namespace X_ROOT_NS::modules::core {
             method_t * method = as<method_t *>(bind_object);
             if (method != nullptr)
             {
-                assembly_t * assembly = get_assembly(method);
+                assembly_t * assembly = method->get_assembly();
                 _A(assembly != nullptr);
 
                 __validate_entry_point(ctx, method);

@@ -1501,6 +1501,8 @@ namespace X_ROOT_NS::modules::core {
 
     X_ENUM_END
 
+    constexpr access_value_t empty_access_value = access_value_t::__default__;
+
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Decorates for types and members.
@@ -1557,6 +1559,9 @@ namespace X_ROOT_NS::modules::core {
 
         X_TO_STRING
     };
+
+    // Returns access value from decorate_t;
+    access_value_t to_access_value(const decorate_t * decorate);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -2168,15 +2173,18 @@ namespace X_ROOT_NS::modules::core {
         // Returns family.
         virtual member_family_t this_family() const { return member_family_t::general; }
 
+        // Returns access value of specified member.
+        access_value_t get_access_value();
+
+        // Get assembly of a member.
+        assembly_t * get_assembly();
+
         // Converts to string.
         operator string_t() const { return _T("type member"); }
 
         // Converts to string.
         virtual const string_t to_string() const override { return (string_t)*this; }
     };
-
-    // Get assembly of a member.
-    assembly_t * get_assembly(member_t * member);
 
     //-------- ---------- ---------- ---------- ----------
     // __named_base_t
@@ -2402,6 +2410,9 @@ namespace X_ROOT_NS::modules::core {
     {
         return type != nullptr && type->this_gtype() == gtype_t::generic;
     }
+
+    // Returns general type if it's a generic type, otherwise, returns itself.
+    type_t * to_general(type_t * type);
 
     // Returns whether a type is a generic param.
     X_ALWAYS_INLINE bool is_generic_param(type_t * type)
@@ -3238,10 +3249,13 @@ namespace X_ROOT_NS::modules::core {
         // Returns the method of interface defination.
         virtual type_t * get_owner_type() const = 0;
 
+        // Returns host type of this method.
+        virtual type_t * get_host_type() const = 0;
+
         // Returns method trait.
         virtual method_trait_t get_trait() const = 0;
 
-        // Returns the type of this type.
+        // Returns the return type of this method.
         virtual type_t * get_type() const = 0;
 
         // Returns Decorates.
@@ -3330,6 +3344,12 @@ namespace X_ROOT_NS::modules::core {
         virtual type_t * get_owner_type() const override
         {
             return owner_type_name? owner_type_name->type : nullptr;
+        }
+
+        // Returns host type of this method.
+        virtual type_t * get_host_type() const override
+        {
+            return host_type;
         }
 
         // Returns method decorate.
@@ -3428,6 +3448,12 @@ namespace X_ROOT_NS::modules::core {
         virtual type_t * get_owner_type() const override
         {
             return __template()->get_owner_type();
+        }
+
+        // Returns host type of this method.
+        virtual type_t * get_host_type() const override
+        {
+            return host_type;
         }
 
         // Returns the return type.
@@ -8155,4 +8181,18 @@ namespace X_ROOT_NS::modules::core {
 #include <modules/core/__assembly_layout.h>
 #include <modules/core/__vtype_traits.h>
 
+namespace X_ROOT_NS::modules::core {
+
+    // Check whether the access is allowed.
+    bool check_access(type_t * from_type, member_t * to_member);
+
+    // Check whether the access is allowed.
+    bool check_access(type_t * from_type, method_base_t * to_method);
+
+    // Check whether the access is allowed.
+    bool check_access(type_t * from_type, type_t * host_type, access_value_t av);
+
+}   // namespace X_ROOT_NS::modules::core
+
 #endif // __CORE_H__
+

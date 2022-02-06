@@ -704,6 +704,9 @@ namespace X_ROOT_NS::modules::compile {
         // The evaluation of the constant value involves a circular definition.
         enum_field_circular_definition,
 
+        // Member is inaccessible to its protection level.
+        inaccessible_protection_level,
+
         __the_end__         = 10000,
 
     X_ENUM_END
@@ -2470,7 +2473,10 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Set access.
-        void set_access(access_value_t value, __el_t * el);
+        void set_access(access_value_t value, __el_t * el, bool reset = false);
+
+        // Get access.
+        void get_access();
 
         // Sets static decorate.
         void set_static(__el_t * el);
@@ -2498,6 +2504,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Sets extern decorate.
         void set_extern(__el_t * el);
+
+        // Get decorate value.
+        decorate_value_t get_decorate();
 
         // Commits this node.
         virtual void on_commit() override;
@@ -3731,6 +3740,12 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
         __wexp_t<function_expression_t> __expression;
+
+        // Walks default step.
+        bool __walk_default(ast_walk_context_t & context);
+
+        // Walks analysis step.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3858,7 +3873,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks analysis step.
         bool __walk_analysis(ast_walk_context_t & context);
-
     };
 
     ////////// ////////// ////////// ////////// //////////

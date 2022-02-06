@@ -473,6 +473,10 @@ namespace X_ROOT_NS::modules::compile {
         X_D(enum_field_circular_definition,
                 _T("The evaluation of the constant value for '%1%' involves a circular definition"))
 
+        // Member is inaccessible to its protection level.
+        X_D(inaccessible_protection_level,
+                _T("%1% is inaccessible to its protection level"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -1111,17 +1115,10 @@ namespace X_ROOT_NS::modules::compile {
         bool operator != (const __value_t & value) const { return !operator == (value); }
     };
 
-    // Bit field wrapper.
-    template<typename _getf_t, typename _setf_t>
-    auto __bit_field_wrap(_getf_t getf, _setf_t setf)
-    {
-        return __bit_field_wrap_t<_getf_t, _setf_t>(getf, setf);
-    }
-
-    #define __BitField(obj, field)                              \
-        __bit_field_wrap(                                       \
-                [this]() { return obj.field; },                 \
-                [this](auto value) { obj.field = value; }       \
+    #define __BitField(obj, field)                                                      \
+        __bit_field_wrap_t(                                                             \
+                [this]() { return obj.field; },                                         \
+                [this](auto value) { obj.field = value; }                               \
         )
 
     // Walks this node.
@@ -1131,9 +1128,15 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Sets access.
-    void decorate_ast_node_t::set_access(access_value_t value, __el_t * el)
+    void decorate_ast_node_t::set_access(access_value_t value, __el_t * el, bool reset)
     {
         this->__assign(__BitField(__decorate, access), value, el, _T("access"));
+    }
+
+    // Get access.
+    void decorate_ast_node_t::get_access()
+    {
+        return __decorate.access_value;
     }
 
     // Sets static.
@@ -1188,6 +1191,12 @@ namespace X_ROOT_NS::modules::compile {
     void decorate_ast_node_t::set_extern(__el_t * el)
     {
         this->__assign(__BitField(__decorate, is_extern), true, el, _T("extern"));
+    }
+
+    // Get decorate value.
+    decorate_value_t decorate_ast_node_t::get_decorate()
+    {
+        return (decorate_value_t)__decorate;
     }
 
     // Commits this node.
@@ -3366,6 +3375,25 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool function_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        switch ((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                this->__delay(context, walk_step_t::analysis);
+                __walk_default(context);
+
+                return __super_t::on_walk(context, step, tag);
+
+            case walk_step_t::analysis:
+                return __walk_analysis(context);
+
+            default:
+                return true;
+        }
+    }
+
+    // Walks default step.
+    bool function_ast_node_t::__walk_default(ast_walk_context_t & context)
+    {
         this->__check_name_empty(__expression.namex, _T("function"));
 
         if (__expression.generic_args != nullptr && __expression.get_name() == name_t::null)
@@ -3373,7 +3401,28 @@ namespace X_ROOT_NS::modules::compile {
             this->__log(this->child_at(generic_args), __c_t::function_generic_args_redundance);
         }
 
-        return __super_t::on_walk(context, step, tag);
+        return true;
+    }
+
+    // Walks analysis step.
+    bool function_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        // Check permissions.
+
+        function_expression_t * exp = &__expression;
+        if (exp->get_ftype() != function_expression_type_t::method)
+            return true;
+
+        method_base_t * method = exp->get_method();
+        if (method == nullptr)
+            return true;
+
+        if (!check_access(context.current_method()->host_type, method))
+        {
+            this->__log(this->child_at(namex), __c_t::inaccessible_protection_level, this);
+        }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -101,7 +101,8 @@ namespace X_ROOT_NS::modules::compile {
 
     X_INLINE bool __is_extern(__sctx_t & ctx, member_t * member)
     {
-        return get_assembly(member) != ctx.get_assembly();
+        _A(member != nullptr);
+        return member->get_assembly() != ctx.get_assembly();
     }
 
     X_INLINE bool __is_extern(__cctx_t & ctx, member_t * member)

@@ -1056,7 +1056,7 @@ namespace X_ROOT_NS::modules::core {
     // decorate_value_t
 
     const decorate_value_t decorate_value_t::default_value{};
-    const decorate_t decorate_t::default_value{};
+    const decorate_t decorate_t::default_value { };
 
     // Converts decorate_value_t to a string.
     decorate_value_t::operator string_t() const
@@ -1089,6 +1089,12 @@ namespace X_ROOT_NS::modules::core {
     X_DEFINE_TO_STRING(decorate_t)
     {
         return _str(*(decorate_value_t *)this);
+    }
+
+    // Returns access value from decorate_t;
+    access_value_t to_access_value(const decorate_t * decorate)
+    {
+        return decorate == nullptr? empty_access_value : decorate->access;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1309,16 +1315,32 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
     // member_t
 
-    // Returns assembly of a member.
-    assembly_t * get_assembly(member_t * member)
+    // Returns access value of specified member.
+    access_value_t member_t::get_access_value()
     {
-        _A(member != nullptr);
+        access_value_t av = to_access_value(decorate);
 
+        if (av != empty_access_value)
+            return av;
+
+        if (al::in(this_type(), member_type_t::type, member_type_t::type_def)
+            && host_type == nullptr)
+        {
+            return access_value_t::internal;
+        }
+
+        return access_value_t::private_;
+    }
+
+    // Returns assembly of a member.
+    assembly_t * member_t::get_assembly()
+    {
         type_t * type;
-        if (member->this_type() == member_type_t::type)
-            type = (type_t *)member;
+
+        if (this->this_type() == member_type_t::type)
+            type = (type_t *)this;
         else
-            type = member->host_type;
+            type = this->host_type;
 
         switch (type->this_gtype())
         {
@@ -2699,6 +2721,15 @@ namespace X_ROOT_NS::modules::core {
     bool is_ptr_type(type_t * type)
     {
         return __is_vtype(type, vtype_t::ptr_);
+    }
+
+    // Returns general type if it's a generic type, otherwise, returns itself.
+    type_t * to_general(type_t * type)
+    {
+        if (type == nullptr || type->this_gtype() != gtype_t::generic)
+            return type;
+
+        return ((generic_type_t *)type)->template_;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -7373,7 +7404,7 @@ namespace X_ROOT_NS::modules::core {
     assembly_t * statement_compile_context_t::get_assembly()
     {
         if (__assembly == nullptr)
-            __assembly = __ns::get_assembly(method);
+            __assembly = method->get_assembly();
 
         return __assembly;
     }
@@ -7395,6 +7426,107 @@ namespace X_ROOT_NS::modules::core {
             throw _ED(compile_error_code_t::label_not_found, label);
 
         return xil_pool().index_of(label_xil);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Check whether the access is allowed.
+    bool check_access(type_t * from_type, member_t * to_member)
+    {
+        _A(from_type != nullptr);
+        _A(to_member != nullptr);
+
+        type_t * host_type = to_member->host_type;
+        _A(host_type != nullptr);
+
+        return check_access(from_type, host_type, to_member->get_access_value());
+    }
+
+    // Check whether the access is allowed.
+    bool check_access(type_t * from_type, method_base_t * to_method)
+    {
+        _A(from_type != nullptr);
+        _A(to_method != nullptr);
+
+        type_t * host_type = to_method->get_host_type();
+        _A(host_type != nullptr);
+
+        return check_access(from_type, host_type, to_access_value(to_method->get_decorate()));
+    }
+
+    // Check member access permission.
+    bool __check_member_access(type_t * from_type, type_t * host_type, access_value_t av,
+                                                                    bool cross_assembly)
+    {
+        if (cross_assembly) // Cross assembly.
+        {
+            if (av == access_value_t::public_)
+                return true;
+
+            if (is_super_type(from_type, host_type) && al::in(av, access_value_t::protected_,
+                access_value_t::protected_or_internal))
+                return true;
+
+            return false;
+        }
+        else    // Inner assembly.
+        {
+            if (al::in(av, access_value_t::public_, access_value_t::internal))
+                return true;
+
+            if (is_super_type(from_type, host_type) && al::in(av, access_value_t::protected_,
+                access_value_t::protected_or_internal, access_value_t::protected_and_internal))
+                return true;
+
+            return false;
+        }
+    }
+
+    // Check type access permission.
+    bool __check_type_access(type_t * from_type, type_t * type, bool cross_assembly)
+    {
+        type_t * host_type = to_general(type->host_type);
+
+        if (host_type != nullptr)   // Nest type
+        {
+            if (!__check_type_access(from_type, host_type, cross_assembly))
+                return false;
+
+            access_value_t av = type->get_access_value();
+            return __check_member_access(from_type, host_type, av, cross_assembly);
+        }
+        else
+        {
+            access_value_t av = type->get_access_value();
+
+            if (cross_assembly)
+                return av == access_value_t::public_;
+
+            return true;
+        }
+    }
+
+    // Check whether the access is allowed.
+    bool check_access(type_t * from_type, type_t * host_type, access_value_t av)
+    {
+        _A(from_type != nullptr);
+        _A(host_type != nullptr);
+
+        from_type = to_general(from_type);
+        _A(from_type != nullptr);
+
+        host_type = to_general(host_type);
+        _A(host_type != nullptr);
+
+        // Inner type or nest type.
+        if (from_type == host_type || from_type->host_type == host_type)
+            return true;
+
+        bool cross_assembly = (host_type->get_assembly() != from_type->get_assembly());
+        if (!__check_type_access(from_type, host_type, cross_assembly))
+            return false;
+
+        return __check_member_access(from_type, host_type, av, cross_assembly);
     }
 
     ////////// ////////// ////////// ////////// //////////

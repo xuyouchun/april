@@ -103,7 +103,7 @@ namespace X_ROOT_NS::modules::core {
         // Returns whether it is references from other assembly.
         bool __is_extern(member_t * member)
         {
-            assembly_t * assembly = get_assembly(member);
+            assembly_t * assembly = member->get_assembly();
             return assembly != nullptr && assembly != &__assembly;
         }
 
