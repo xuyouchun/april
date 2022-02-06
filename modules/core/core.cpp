@@ -1849,7 +1849,7 @@ namespace X_ROOT_NS::modules::core {
             X_UNEXPECTED();
         };
 
-        __type_transform_t<decltype(type_at)> transformer(type_at);
+        __type_transform_t transformer(type_at);
 
         _A(raw != nullptr);
         _A(raw->generic_param_count() == args.size());

@@ -2410,7 +2410,8 @@ namespace X_ROOT_NS {
     ////////// ////////// ////////// ////////// //////////
 
     // Enumerator wrapper for normal operations.
-    template<typename _enum_t> struct enum_t
+    template<typename _enum_t> requires std::is_enum_v<_enum_t>
+    struct enum_t
     {
         typedef enum_t<_enum_t> __self_t;
         typedef std::underlying_type_t<_enum_t> __underlying_t;
