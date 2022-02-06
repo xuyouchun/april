@@ -742,14 +742,18 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __ApplyToken(_decorate_complex, token, args)
     {
+        _P(_T("decorate complex"));
+
         switch (token->value)
         {
-            case __TokenValue(bit_and):
-                __This->access_value = access_value_t::protected_and_internal;
+            case __TokenValue(k_internal):      // internal protected
+                __This->access_value = access_value_t::protected_or_internal;
+                _P(_T("protected internal"));
                 break;
 
-            case __TokenValue(bit_or):
-                __This->access_value = access_value_t::protected_or_internal;
+            case __TokenValue(k_private):       // private protected
+                __This->access_value = access_value_t::protected_and_internal;
+                _P(_T("private protected"));
                 break;
         }
     }

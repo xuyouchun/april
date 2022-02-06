@@ -100,8 +100,8 @@ $mname: name ( . name ) * ;
 # Decorates of type or members.
 $decorate: 
     (
-       public | private | protected | internal
-      |  ($__complex: protected (&|\|)? internal | internal (&|\|)? protected)
+      ($__complex: protected internal | internal protected | private protected | protected private)
+      | public | private | protected | internal
       | static | sealed | abstract | readonly | const | new | abstract | override | virtual | extern
     )*
 ;

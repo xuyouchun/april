@@ -2473,10 +2473,10 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
         // Set access.
-        void set_access(access_value_t value, __el_t * el, bool reset = false);
+        void set_access(access_value_t value, __el_t * el);
 
         // Get access.
-        void get_access();
+        access_value_t get_access();
 
         // Sets static decorate.
         void set_static(__el_t * el);

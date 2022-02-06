@@ -1128,69 +1128,69 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Sets access.
-    void decorate_ast_node_t::set_access(access_value_t value, __el_t * el, bool reset)
+    void decorate_ast_node_t::set_access(access_value_t value, __el_t * el)
     {
-        this->__assign(__BitField(__decorate, access), value, el, _T("access"));
+        this->__assign(__BitField(__decorate, access), value, el, _T("access"), true);
     }
 
     // Get access.
-    void decorate_ast_node_t::get_access()
+    access_value_t decorate_ast_node_t::get_access()
     {
-        return __decorate.access_value;
+        return __decorate.access;
     }
 
     // Sets static.
     void decorate_ast_node_t::set_static(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_static), true, el, _T("static"));
+        this->__assign(__BitField(__decorate, is_static), true, el, _T("static"), true);
     }
 
     // Sets sealed.
     void decorate_ast_node_t::set_sealed(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_sealed), true, el, _T("sealed"));
+        this->__assign(__BitField(__decorate, is_sealed), true, el, _T("sealed"), true);
     }
 
     // Sets override.
     void decorate_ast_node_t::set_override(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_override), true, el, _T("override"));
+        this->__assign(__BitField(__decorate, is_override), true, el, _T("override"), true);
     }
 
     // Sets virtual.
     void decorate_ast_node_t::set_virtual(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_virtual), true, el, _T("virtual"));
+        this->__assign(__BitField(__decorate, is_virtual), true, el, _T("virtual"), true);
     }
 
     // Sets abstract.
     void decorate_ast_node_t::set_abstract(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_abstract), true, el, _T("abstract"));
+        this->__assign(__BitField(__decorate, is_abstract), true, el, _T("abstract"), true);
     }
 
     // Sets new.
     void decorate_ast_node_t::set_new(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_new), true, el, _T("new"));
+        this->__assign(__BitField(__decorate, is_new), true, el, _T("new"), true);
     }
 
     // Sets readonly.
     void decorate_ast_node_t::set_readonly(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_readonly), true, el, _T("readonly"));
+        this->__assign(__BitField(__decorate, is_readonly), true, el, _T("readonly"), true);
     }
 
     // Sets constant.
     void decorate_ast_node_t::set_const(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_const), true, el, _T("const"));
+        this->__assign(__BitField(__decorate, is_const), true, el, _T("const"), true);
     }
 
     // Sets extern.
     void decorate_ast_node_t::set_extern(__el_t * el)
     {
-        this->__assign(__BitField(__decorate, is_extern), true, el, _T("extern"));
+        this->__assign(__BitField(__decorate, is_extern), true, el, _T("extern"), true);
     }
 
     // Get decorate value.
