@@ -2726,10 +2726,20 @@ namespace X_ROOT_NS::modules::core {
     // Returns general type if it's a generic type, otherwise, returns itself.
     type_t * to_general(type_t * type)
     {
-        if (type == nullptr || type->this_gtype() != gtype_t::generic)
-            return type;
+        if (type == nullptr)
+            return nullptr;
 
-        return ((generic_type_t *)type)->template_;
+        switch (type->this_gtype())
+        {
+            case gtype_t::generic:
+                return ((generic_type_t *)type)->template_;
+
+            case gtype_t::array:
+                return __XPool.get_array_type();
+
+            default:
+                return type;
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -7458,24 +7468,26 @@ namespace X_ROOT_NS::modules::core {
     bool __check_member_access(type_t * from_type, type_t * host_type, access_value_t av,
                                                                     bool cross_assembly)
     {
+        typedef access_value_t t;
+
         if (cross_assembly) // Cross assembly.
         {
-            if (av == access_value_t::public_)
+            if (av == t::public_)
                 return true;
 
-            if (is_super_type(from_type, host_type) && al::in(av, access_value_t::protected_,
-                access_value_t::protected_or_internal))
+            if (is_super_type(from_type, host_type) &&
+                al::in(av, t::protected_, t::protected_or_internal))
                 return true;
 
             return false;
         }
         else    // Inner assembly.
         {
-            if (al::in(av, access_value_t::public_, access_value_t::internal))
+            if (al::in(av, t::public_, t::internal, t::protected_or_internal))
                 return true;
 
-            if (is_super_type(from_type, host_type) && al::in(av, access_value_t::protected_,
-                access_value_t::protected_or_internal, access_value_t::protected_and_internal))
+            if (is_super_type(from_type, host_type) && al::in(av, t::protected_,
+                t::protected_and_internal))
                 return true;
 
             return false;
@@ -7506,27 +7518,133 @@ namespace X_ROOT_NS::modules::core {
         }
     }
 
+    // Check type access permission.
+    bool __check_type_access(assembly_t * from_assembly, type_t * type, bool cross_assembly)
+    {
+        type_t * host_type = to_general(type->host_type);
+
+        if (host_type != nullptr)   // Nest type
+        {
+            if (!__check_type_access(from_assembly, host_type, cross_assembly))
+                return false;
+
+            access_value_t av = type->get_access_value();
+
+            if (cross_assembly)
+                return av == access_value_t::public_;
+
+            return al::in(av, access_value_t::public_, access_value_t::internal);
+        }
+        else
+        {
+            access_value_t av = type->get_access_value();
+
+            if (cross_assembly)
+                return av == access_value_t::public_;
+
+            return true;
+        }
+    }
+
+    type_t * __to_general_with_check(type_t * type)
+    {
+        _A(type != nullptr);
+
+        type = to_general(type);
+        _A(type != nullptr);
+
+        return type;
+    }
+
     // Check whether the access is allowed.
     bool check_access(type_t * from_type, type_t * host_type, access_value_t av)
     {
-        _A(from_type != nullptr);
-        _A(host_type != nullptr);
-
-        from_type = to_general(from_type);
-        _A(from_type != nullptr);
-
-        host_type = to_general(host_type);
-        _A(host_type != nullptr);
+        from_type = __to_general_with_check(from_type);
+        host_type = __to_general_with_check(host_type);
 
         // Inner type or nest type.
-        if (from_type == host_type || from_type->host_type == host_type)
-            return true;
+        {
+            type_t * host_type1 = from_type;
 
+            do
+            {
+                if (host_type1 == host_type)
+                    return true;
+
+            } while (to_general((host_type1 = host_type1->host_type)) != nullptr);
+        }
+
+        // Others.
         bool cross_assembly = (host_type->get_assembly() != from_type->get_assembly());
         if (!__check_type_access(from_type, host_type, cross_assembly))
             return false;
 
         return __check_member_access(from_type, host_type, av, cross_assembly);
+    }
+
+    // Check whether the access is allowed.
+    bool check_access(type_t * from_type, type_t * to_type)
+    {
+        from_type = __to_general_with_check(from_type);
+        to_type = __to_general_with_check(to_type);
+
+        if (to_type->this_gtype() != gtype_t::general)
+            return true;
+
+        bool cross_assembly = (to_type->get_assembly() != from_type->get_assembly());
+        return __check_type_access(from_type, to_type, cross_assembly);
+    }
+
+    // Check whether the access is allowed.
+    bool check_access(assembly_t * from_assembly, type_t * host_type)
+    {
+        _A(from_assembly != nullptr);
+        host_type = __to_general_with_check(host_type);
+
+        bool cross_assembly = (host_type->get_assembly() != from_assembly);
+        return __check_type_access(from_assembly, host_type, cross_assembly);
+    }
+
+    // Check whether the access is allowed.
+    bool __check_member_access(assembly_t * from_assembly, type_t * host_type, access_value_t av)
+    {
+        bool cross_assembly = (host_type->get_assembly() != from_assembly);
+
+        if (!cross_assembly)
+            return true;
+
+        return av == access_value_t::public_;
+    }
+
+    // Check whether the access is allowed.
+    bool check_access(assembly_t * from_assembly, member_t * to_member)
+    {
+        _A(from_assembly != nullptr);
+        _A(to_member != nullptr);
+
+        type_t * host_type = to_member->host_type;
+        _A(host_type != nullptr);
+
+        if (!__check_member_access(from_assembly, host_type, to_member->get_access_value()))
+            return false;
+
+        return check_access(from_assembly, host_type);
+    }
+
+    // Check whether the access is allowed.
+    bool check_access(assembly_t * from_assembly, method_base_t * to_method)
+    {
+        _A(from_assembly != nullptr);
+        _A(to_method != nullptr);
+
+        type_t * host_type = to_method->get_host_type();
+        _A(host_type != nullptr);
+
+        access_value_t av = to_access_value(to_method->get_decorate());
+        if (!__check_member_access(from_assembly, host_type, av))
+            return false;
+
+        return check_access(from_assembly, host_type);
     }
 
     ////////// ////////// ////////// ////////// //////////

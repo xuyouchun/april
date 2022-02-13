@@ -5659,6 +5659,12 @@ namespace X_ROOT_NS::modules::core {
             return __xheap.new_obj<t>(std::forward<args_t>(args) ...);
         }
 
+        // Returns current assembly.
+        assembly_t * current_assembly()
+        {
+            return &assembly;
+        }
+
         // Returns current module.
         module_t * current_module()
         {
@@ -8191,6 +8197,18 @@ namespace X_ROOT_NS::modules::core {
 
     // Check whether the access is allowed.
     bool check_access(type_t * from_type, type_t * host_type, access_value_t av);
+
+    // Check whether the access is allowed.
+    bool check_access(type_t * from_type, type_t * to_type);
+
+    // Check whether the access is allowed.
+    bool check_access(assembly_t * from_assembly, type_t * host_type);
+
+    // Check whether the access is allowed.
+    bool check_access(assembly_t * from_assembly, member_t * to_member);
+
+    // Check whether the access is allowed.
+    bool check_access(assembly_t * from_assembly, method_base_t * to_method);
 
 }   // namespace X_ROOT_NS::modules::core
 

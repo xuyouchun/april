@@ -4076,8 +4076,6 @@ namespace X_ROOT_NS::modules::compile {
 
         while (!__try_analyze())
         {
-            X_UNEXPECTED();
-
             // Restore to the last state and find the last step before format error.
             size_t position = __reader->position();
 

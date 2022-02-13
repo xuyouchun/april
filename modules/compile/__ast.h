@@ -1029,6 +1029,45 @@ namespace X_ROOT_NS::modules::compile {
 
                 return exp->execute();
             }
+
+            // Check whether has permission to access a member or type.
+            template<typename _member_t>
+            bool __check_access(ast_walk_context_t & wctx, _member_t * member)
+            {
+                _A(member != nullptr);
+
+                type_t * current_type = wctx.current_type();
+                if (current_type != nullptr)
+                    return check_access(current_type, member);
+
+                assembly_t * current_assembly = wctx.current_assembly();
+                _A(current_assembly != nullptr);
+                return check_access(current_assembly, member);
+            }
+
+            // Check whether has permission to access a member or type.
+            template<typename _member_t, typename _code_element_t, typename _element_t>
+            bool __check_access(ast_walk_context_t & wctx, _member_t * member,
+                        _code_element_t * code_element, _element_t && element)
+            {
+                if (!__check_access(wctx, member))
+                {
+                    this->__log(code_element,
+                        common_log_code_t::inaccessible_protection_level, element
+                    );
+                    return false;
+                }
+
+                return true;
+            }
+
+            // Check whether has permission to access a member or type.
+            template<typename _member_t, typename _code_element_t>
+            bool __check_access(ast_walk_context_t & wctx, _member_t * member,
+                        _code_element_t * code_element)
+            {
+                return __check_access(wctx, member, code_element, code_element);
+            }
         };
     }
 
@@ -1690,6 +1729,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks confirm step.
         bool __walk_confirm(ast_walk_context_t & context);
+
+        // Walks analysis step.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -728,7 +728,16 @@ namespace X_ROOT_NS::modules::compile {
                 return false;
 
             case walk_step_t::confirm:
-                return __walk_confirm(context);
+                if (__walk_confirm(context))
+                {
+                    this->__delay(context, walk_step_t::analysis);
+                    return true;
+                }
+
+                return false;
+
+            case walk_step_t::analysis:
+                return __walk_analysis(context);
 
             default: return true;
         }
@@ -739,6 +748,17 @@ namespace X_ROOT_NS::modules::compile {
     {
         if (__type_name.type == nullptr)
             __type_name.type = __ascertain_type(context, &__type_name);
+
+        return true;
+    }
+
+    // Walks analysis step.
+    bool general_type_name_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        type_t * type = __type_name.type;
+
+        if (type != nullptr)
+            this->__check_access(context, type, this, __type_name);
 
         return true;
     }
@@ -3417,11 +3437,7 @@ namespace X_ROOT_NS::modules::compile {
         if (method == nullptr)
             return true;
 
-        if (!check_access(context.current_method()->host_type, method))
-        {
-            this->__log(this->child_at(namex), __c_t::inaccessible_protection_level, this);
-        }
-
+        this->__check_access(context, method, this->child_at(namex));
         return true;
     }
 

@@ -1462,6 +1462,9 @@ namespace X_ROOT_NS::modules::compile {
                     throw _EC(unexpected);
             }
 
+            if (!check_access(__wctx.current_method()->host_type, member))
+                ast_log(__cctx, name_exp, __c_t::inaccessible_protection_level, name_exp);
+
             return __exp2_walked_t::yes;
         }
 
