@@ -5,20 +5,18 @@ using System.Diagnostics;
 
 class Project1
 {
-    [EntryPoint, Trace]
+    [EntryPoint]
     public static void Main()
     {
-        int a = 1, b = 2;
-        int r = a + b + c;
-
-        Console.WriteLine(r);
+        Console.WriteLine("----------------- ha");
     }
+}
 
-    /*
-    private static int __GetValue(int a, int b, int c)
+class MyClass : Base
+{
+    private protected void Method()
     {
-        return a + b + c;
+        GetValue();
     }
-    */
 }
 

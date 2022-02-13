@@ -889,6 +889,7 @@ namespace X_ROOT_NS::modules::compile {
                 current->subnodes.append(node);
             else
                 last->nodes.append(node);
+
             last = node;
             node->branch = current;
         };
@@ -921,7 +922,10 @@ namespace X_ROOT_NS::modules::compile {
                         subname = __join_branch_name(branch_name, subname);
                         auto node = __read_branch(ctx, branch_name, subname, level + 1, true);
                         __build_context->add_branch(node);
-                        append_node(__new_node<analyze_branch_ref_node_t>(node->key.value, subname));
+
+                        append_node(__new_node<analyze_branch_ref_node_t>(
+                            node->key.value, subname, _T(""), 0
+                        ));
                     }
                     else
                     {
@@ -978,6 +982,7 @@ namespace X_ROOT_NS::modules::compile {
                     {
                         string_t tag;
                         string_t name = __read_token(tag);
+
                         if (name.length() == 0)
                             throw __F(_T("format error: token name empty"));
 
@@ -1057,6 +1062,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             __p++;
             string_t subname = __read_name();
+
             if (subname.length() == 0)
                 throw __F(__format_error(_T("format error: sub branch name empty")));
 
@@ -2641,9 +2647,13 @@ namespace X_ROOT_NS::modules::compile {
     {
         //return _str(node);
         if (node == nullptr)
-            return _T("<NULL>");
+            return _T("");
+
+        if (node->weight == 0)
+            return _str(node);
 
         return _F(_T("%1% %2%"), _str(node), node->weight);
+
         //return _F(_T("%1%(%2%)"), _str(node), (void *)node);
         //return _F("%1% %2% %3%", _str(node), node? node->index : 0, step);
         //return _F("%1% %2% %3%", _str(node), holes, affinity);
@@ -2804,6 +2814,17 @@ namespace X_ROOT_NS::modules::compile {
     {
         if (keys[0] != __end_node_key) // Normal node: stack grow
         {
+
+#if __EnableTrace >= 2
+
+            if (!disable_trace)
+            {
+                std::wcout << _T("push token: ")
+                    << __service_helper.get_token_string(keys[0]).c_str()
+                    << std::endl;
+            }
+#endif
+
             __stack_push_args_t args(this, keys, tag, out_value);
 
             for (__stack_node_t * stack_node : __leaves)
@@ -2813,20 +2834,29 @@ namespace X_ROOT_NS::modules::compile {
 
             if (!args.new_stack_nodes.empty())
             {
-#if __EnableTrace >= 2
-                std::wcout << _T("TREE  1: ") << al::_detail(__stack_root) << std::endl;
-                std::wcout << _T("LEAFS 1: ") << __leaves << std::endl;
-#endif
                 __leaves.clear();
                 __append_leaves(args.new_stack_nodes);
-                __merge_leaves();
-
-                if (args.new_stack_nodes.size() == 0)
-                    throw _EF(__e_t::format_error, _T("format error"));
 
 #if __EnableTrace >= 2
-                std::wcout << _T("TREE  2: ") << al::_detail(__stack_root) << std::endl;
-                std::wcout << _T("LEAFS 2: ") << __leaves << std::endl;
+
+                if (!disable_trace)
+                {
+                    std::wcout << _T("TREE  1: ") << al::_detail(__stack_root) << std::endl;
+                    std::wcout << _T("LEAFS 1: ") << __leaves << std::endl;
+                }
+#endif
+                if (__leaves.size() == 0)
+                    throw _EF(__e_t::format_error, _T("format error"));
+
+                __merge_leaves();
+
+#if __EnableTrace >= 2
+
+                if (!disable_trace)
+                {
+                    std::wcout << _T("TREE  2: ") << al::_detail(__stack_root) << std::endl;
+                    std::wcout << _T("LEAFS 2: ") << __leaves << std::endl << std::endl;
+                }
 #endif
                 if (__leaves.size() == 1)
                     __execute_actions();
@@ -2839,8 +2869,12 @@ namespace X_ROOT_NS::modules::compile {
         else  // End node: close stack
         {
 #if __EnableTrace >= 2
-            std::wcout << _T("TREE  3: ") << al::_detail(__stack_root) << std::endl;
-            std::wcout << _T("LEAFS 3: ") << __leaves << std::endl;
+
+            if (!disable_trace)
+            {
+                std::wcout << _T("TREE  3: ") << al::_detail(__stack_root) << std::endl;
+                std::wcout << _T("LEAFS 3: ") << __leaves << std::endl << std::endl;
+            }
 #endif
 
             __stack_pop_args_t args(tag);
@@ -2852,15 +2886,23 @@ namespace X_ROOT_NS::modules::compile {
             __append_leaves(args.new_stack_nodes);
 
 #if __EnableTrace >= 2
-            std::wcout << _T("TREE  4: ") << al::_detail(__stack_root) << std::endl;
-            std::wcout << _T("LEAFS 4: ") << __leaves << std::endl;
+
+            if (!disable_trace)
+            {
+                std::wcout << _T("TREE  4: ") << al::_detail(__stack_root) << std::endl;
+                std::wcout << _T("LEAFS 4: ") << __leaves << std::endl;
+            }
 #endif
 
             __pick_final_leaves();
 
 #if __EnableTrace >= 2
-            std::wcout << _T("TREE  5: ") << al::_detail(__stack_root) << std::endl;
-            std::wcout << _T("LEAFS 5: ") << __leaves << std::endl;
+
+            if (!disable_trace)
+            {
+                std::wcout << _T("TREE  5: ") << al::_detail(__stack_root) << std::endl;
+                std::wcout << _T("LEAFS 5: ") << __leaves << std::endl;
+            }
 #endif
 
             if (__leaves.size() >= 2)
@@ -2901,12 +2943,13 @@ namespace X_ROOT_NS::modules::compile {
     __AlwaysInline void analyze_context_t::__stack_push(__stack_push_args_t & args,
                                                         __stack_node_t * stack_node)
     {
+        auto * current_node = (analyze_normal_node_t *)(*stack_node)->node;
+
         __stack_push_task_t task(args);
         __stack_grow_args_t grow_args(task);
         __stack_grow(grow_args, stack_node);
 
         // check end nodes
-        auto * current_node = (analyze_normal_node_t *)(*stack_node)->node;
         __node_unit_t end_unit = current_node->get_end_unit();
 
         if (end_unit != nullptr)
@@ -2990,7 +3033,8 @@ namespace X_ROOT_NS::modules::compile {
 
             #define __NewAction()  __new_raise_matched_event_action(                    \
                 (const analyze_branch_ref_node_t *)ref_unit.node,                       \
-                (*parent)->child_tag, push_args.tag, next_action                        \
+                (*parent)->child_tag, push_args.tag, (*current)->begin_node,            \
+                next_action                                                             \
             )
 
             __stack_node_action_t * current_action = nullptr;
@@ -3334,6 +3378,21 @@ namespace X_ROOT_NS::modules::compile {
         return ret_action;
     }
 
+    // List all actions of a leaf.
+    template<typename _output_iterator_t>
+    __AlwaysInline void __list_match_actions(__stack_node_t * leaf, _output_iterator_t itor)
+    {
+        __stack_node_action_t * action = (*leaf)->action;
+
+        while (action != nullptr)
+        {
+            if (action->action_type() == __stack_node_action_type_t::raise_matched_event)
+                *itor++ = (__stack_node_raise_matched_event_action_t *)action;
+
+            action = action->next;
+        }
+    }
+
     #define __LessReturn(v1, v2)                                                        \
         do                                                                              \
         {                                                                               \
@@ -3347,23 +3406,62 @@ namespace X_ROOT_NS::modules::compile {
         typedef __stack_node_action_type_t atype_t;
         typedef __stack_node_raise_matched_event_action_t action_t;
 
-        //_PF(_T("__leaf_less: %1%, %2%"), leaf1, leaf2);
-        //_PF(_T("__leaf_less height: %1%, %2%"), leaf1->height(), leaf2->height());
-
-        // begin node index
-        /*_PF(_T("begin node: %1%(%2%,%3%), %4%(%5%,%6%)"),
-            _str((*leaf1)->begin_node), (*leaf1)->begin_node->index, (void *)(*leaf1)->begin_node,
-            _str((*leaf1)->begin_node), (*leaf2)->begin_node->index, (void *)(*leaf2)->begin_node
-        );*/
+        // _PF(_T("__leaf_less: %1%, %2%"), leaf1, leaf2);
+        // _PF(_T("__leaf_less height: %1%, %2%"), leaf1->height(), leaf2->height());
 
         // weight
         int weight1 = (*leaf1)->weight, weight2 = (*leaf2)->weight;
-        //_P(_T("weight : "), weight1, weight2);
+        // _P(_T("weight : "), weight1, weight2);
         __LessReturn(weight2, weight1);
+
+        // branch node index.
+        {
+            al::svector_t<action_t *, 8> actions1 = { nullptr }, actions2 = { nullptr };
+            __list_match_actions(leaf1, std::back_inserter(actions1));
+            __list_match_actions(leaf2, std::back_inserter(actions2));
+
+            action_t ** p_action1 = actions1.end();
+            action_t ** p_action2 = actions2.end();
+
+            for (action_t ** p_action1 = actions1.end() - 1, ** p_action2 = actions2.end() - 1;
+                ; --p_action1, --p_action2)
+            {
+                action_t * action1 = *p_action1, * action2 = *p_action2;
+                if (action1 == nullptr)
+                {
+                    if (action2 != nullptr)
+                        break;
+
+                    return false;
+                }
+
+                if (action2 == nullptr)
+                    return true;
+
+                __node_index_t index1 = action1->begin_node->index;
+                __node_index_t index2 = action2->begin_node->index;;
+
+                // _P(_T("action1:"), action1, index1);
+                // _P(_T("action2:"), action2, index2);
+
+                __LessReturn(index1, index2);
+            }
+        }
+
+        /*
+        // begin node index
+        const analyze_node_t * begin_node1 = (*leaf1)->begin_node;
+        const analyze_node_t * begin_node2 = (*leaf2)->begin_node;
+
+        // _PF(_T("begin node: %1%(%2%,%3%), %4%(%5%,%6%)"),
+        //     _str(begin_node1), begin_node1->index, (void *)begin_node1,
+        //     _str(begin_node2), begin_node2->index, (void *)begin_node2
+        // );
 
         int begin_index1 = (*leaf1)->begin_node->index;
         int begin_index2 = (*leaf2)->begin_node->index;
         __LessReturn(begin_index1, begin_index2);
+        */
 
         // leaf affinity
         //_PF(_T("affinity: %1%, %2%"), (*leaf1)->affinity, (*leaf2)->affinity);
@@ -3372,25 +3470,25 @@ namespace X_ROOT_NS::modules::compile {
         // action back track
         int back_track1 = __leaf_action_back_track(leaf1);
         int back_track2 = __leaf_action_back_track(leaf2);
-        //_PF(_T("back track: %1%, %2%"), back_track1, back_track2);
+        _PF(_T("back track: %1%, %2%"), back_track1, back_track2);
         __LessReturn(back_track1, back_track2);
 
         // action index
-        int action_index1 = __leaf_action_index(leaf1);
-        int action_index2 = __leaf_action_index(leaf2);
+        // int action_index1 = __leaf_action_index(leaf1);
+        // int action_index2 = __leaf_action_index(leaf2);
         //_PF(_T("action index: %1%, %2%"), index1, index2);
-        __LessReturn(action_index1, action_index2);
+        // __LessReturn(action_index1, action_index2);
 
         // leaf holes
         //_PF(_T("holes: %1%, %2%"), (*leaf1)->holes, (*leaf2)->holes);
         //__LessReturn((*leaf1)->holes, (*leaf2)->holes);
 
         // action value
-        action_t * action1 = __leaf_first_action(leaf1), * action2 = __leaf_first_action(leaf2);
-        __node_value_t value1 = action1? action1->get_value() : __unknown_node_value;
-        __node_value_t value2 = action2? action2->get_value() : __unknown_node_value;
+        // action_t * action1 = __leaf_first_action(leaf1), * action2 = __leaf_first_action(leaf2);
+        // __node_value_t value1 = action1? action1->get_value() : __unknown_node_value;
+        // __node_value_t value2 = action2? action2->get_value() : __unknown_node_value;
         //_PF(_T("action value: %1%, %2%"), value1, value2);
-        __LessReturn(value2, value1);
+        // __LessReturn(value2, value1);
 
         return (void *)leaf1 < (void *)leaf2;
     };
@@ -3439,15 +3537,23 @@ namespace X_ROOT_NS::modules::compile {
 
         __sort_leaves(__leaves);
 
-        //__print_leaf_identities(__leaves);
+#if __EnableTrace >= 3
+        if (!disable_trace)
+            __print_leaf_identities(__leaves);
+#endif
 
         __merge_identity_t last = __I(__leaves[0]);
         __leaves.walk([&last, this](__stack_node_t * n) {
             return (__I(n) == last)?  (__remove_leaf(n), false) : (last = __I(n), true);
         }, 1);
 
-        //_P(_T("|"));
-        //__print_leaf_identities(__leaves);
+#if __EnableTrace >= 3
+        if (!disable_trace)
+        {
+            _P(_T("|"));
+            __print_leaf_identities(__leaves);
+        }
+#endif
     }
 
     // Prints actions.
@@ -3529,7 +3635,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             (*leaf)->action = __new_raise_matched_event_action(
                 (const analyze_branch_ref_node_t *)(*leaf)->node, (*parent)->child_tag,
-                args.end_tag, (*stack_node)->action
+                args.end_tag, (*leaf)->begin_node, (*stack_node)->action
             );
 
             __do_stack_pop(args, leaf);
@@ -3574,7 +3680,9 @@ namespace X_ROOT_NS::modules::compile {
         {
             __execute_action(action->next);
 
-            __Trace(_T("ACTION:"), _str(action));
+            if (!disable_trace)
+                __Trace(_T("ACTION:"), _str(action));
+
             action->execute();
         }
     }
@@ -3705,12 +3813,13 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Creates a new raise matched event action.
-    __stack_node_raise_matched_event_action_t * analyze_context_t::__new_raise_matched_event_action(
+    __AlwaysInline __stack_node_raise_matched_event_action_t *
+    analyze_context_t::__new_raise_matched_event_action(
             const analyze_branch_ref_node_t * branch_ref, __tag_t * begin_tag, __tag_t * end_tag,
-            __stack_node_action_t * next_action)
+            const analyze_node_t * begin_node, __stack_node_action_t * next_action)
     {
         auto action = __raise_matched_event_action_factory.new_obj(
-            *this, branch_ref, begin_tag, end_tag
+            *this, branch_ref, begin_tag, end_tag, begin_node
         );
 
         action->next = next_action;
@@ -3949,13 +4058,26 @@ namespace X_ROOT_NS::modules::compile {
 
     #define __KeepStateGuard() __state_keep_guard_t __state_keep_guard_##__COUNTER__(this)
 
+    static bool __is_core_lib(code_section_t * cs)
+    {
+        const code_file_t * cf;
+        if (cs == nullptr || (cf = cs->file()) == nullptr)
+            return false;
+
+        auto index = cf->get_file_path().find(_T("/core_lib/"));
+        return index != string_t::npos;
+    }
+
     // Do analyzer.
     analyzer_result_t __analyzer_t::analyze()
     {
+        __context.disable_trace = __is_core_lib(__reader->current_code_section());
         __state_t last_state = __keep_state();
 
         while (!__try_analyze())
         {
+            X_UNEXPECTED();
+
             // Restore to the last state and find the last step before format error.
             size_t position = __reader->position();
 
@@ -4385,7 +4507,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Do analyze
     analyzer_result_t analyzer_t::analyze(ast_context_t & ast_context,
-                                                analyzer_element_reader_t * reader)
+                                        analyzer_element_reader_t * reader)
     {
         _A(reader != nullptr);
         return __analyzer_t(ast_context, __lang, __tree, reader).analyze();

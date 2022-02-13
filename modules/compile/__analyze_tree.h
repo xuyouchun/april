@@ -729,9 +729,11 @@ namespace X_ROOT_NS::modules::compile {
 
         // Constructor.
         __stack_node_raise_matched_event_action_t(analyze_context_t & context,
-                const analyze_branch_ref_node_t * branch_ref, __tag_t * begin_tag, __tag_t * end_tag)
+                const analyze_branch_ref_node_t * branch_ref,
+                __tag_t * begin_tag, __tag_t * end_tag,
+                const analyze_node_t * begin_node)
             : __context(context), __branch_ref(branch_ref)
-            , __begin_tag(begin_tag), __end_tag(end_tag)
+            , __begin_tag(begin_tag), __end_tag(end_tag), begin_node(begin_node)
         { }
 
         // Executes the action.
@@ -758,7 +760,7 @@ namespace X_ROOT_NS::modules::compile {
         virtual __stack_node_action_t * clone(memory_t * memory) const override
         {
             return memory_t::new_obj<__stack_node_raise_matched_event_action_t>(memory,
-                __context, __branch_ref, __begin_tag, __end_tag
+                __context, __branch_ref, __begin_tag, __end_tag, begin_node
             );
         }
 
@@ -779,11 +781,16 @@ namespace X_ROOT_NS::modules::compile {
         // Returns the end index.
         int end_index()   const { return __end_tag? __end_tag->index : -1; }
 
+        // Returns branch node index.
+        __node_index_t branch_index() const { return __branch_ref->index; }
+
         // Returns action index.
         int action_index() const;
 
         // Returns back track.
         int back_track() const;
+
+        const analyze_node_t * const begin_node;
 
     private:
         analyze_context_t & __context;
@@ -1657,6 +1664,9 @@ namespace X_ROOT_NS::modules::compile {
 
         X_TO_STRING_IMPL(_T("analyze_context_t"))
 
+        // Disable trace in trace model.
+        bool disable_trace = false;
+
     private:
         lang_t * __lang;                                // Language.
         lang_service_helper_t __service_helper;         // Service helper
@@ -1864,6 +1874,7 @@ namespace X_ROOT_NS::modules::compile {
         __stack_node_raise_matched_event_action_t * __new_raise_matched_event_action(
                 const analyze_branch_ref_node_t * branch_ref,
                 __tag_t * begin_tag, __tag_t * end_tag,
+                const analyze_node_t * begin_node,
                 __stack_node_action_t * next_action = nullptr);
 
         // Removes leaf unitl prediacte function.
@@ -2010,6 +2021,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Returns root ast node.
         ast_node_t * get_root_ast();
+
+        // Returns current code section.
+        code_section_t * current_code_section() { return __section; }
 
     private:
 
@@ -2356,8 +2370,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // Analyze with reader.
-        analyzer_result_t analyze(ast_context_t & ast_context,
-                                  analyzer_element_reader_t * reader);
+        analyzer_result_t analyze(ast_context_t & ast_context, analyzer_element_reader_t * reader);
 
         static const int32_t __cache_key__ = 1;
 
