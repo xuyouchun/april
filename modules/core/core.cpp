@@ -2735,7 +2735,7 @@ namespace X_ROOT_NS::modules::core {
                 return ((generic_type_t *)type)->template_;
 
             case gtype_t::array:
-                return __XPool.get_array_type();
+                return to_general(((array_type_t *)type)->base_type);
 
             default:
                 return type;
