@@ -128,9 +128,10 @@ namespace X_ROOT_NS::modules::lang_cs {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Attribute type name ast node.
-    class _attribute_type_name_ast_node_t : public type_name_ast_node_t
+    class _attribute_type_name_ast_node_t
+        : public type_name_ast_node_base_t<type_name_ast_node_t>
     {
-        typedef type_name_ast_node_t __super_t;
+        typedef type_name_ast_node_base_t<type_name_ast_node_t> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -145,6 +146,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // Ascertains type.
         ascertain_type_error_t __ascertain_type(ast_walk_context_t & context,
+                                                general_type_name_t * type_name);
+
+        // Try resolve type with postfix 'Attribute'.
+        bool __try_resolve_with_postfix(ast_walk_context_t & context,
                                                 general_type_name_t * type_name);
     };
 

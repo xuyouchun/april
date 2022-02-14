@@ -896,7 +896,7 @@ namespace X_ROOT_NS::modules::core {
        __internal_attribute_type_impls_t __impls;
     };
 
-    const char_t __internal_attribute_type_impl_t::type_name[] = _T("__internal__");
+    const char_t __internal_attribute_type_impl_t::type_name[] = _T("InternalAttribute");
 
     ////////// ////////// ////////// ////////// //////////
 

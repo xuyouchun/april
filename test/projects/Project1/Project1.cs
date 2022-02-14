@@ -8,15 +8,25 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        Console.WriteLine("----------------- ha");
+        Delegate<Base> func = GetObj;
+
+        Base obj = func();
+        var r = obj.GetValue();
+
+        Console.WriteLine(r);
+    }
+
+    static Base GetObj()
+    {
+        return new Base();
     }
 }
 
 class MyClass : Base
 {
-    private protected void Method()
+    private int Value
     {
-        GetValue();
+        get { return 10; }
     }
 }
 

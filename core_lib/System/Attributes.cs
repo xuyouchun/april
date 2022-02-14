@@ -6,7 +6,7 @@
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public class Attribute
 {
     // Empty.
@@ -30,7 +30,7 @@ class __955825bf_d13a_4d1c_90d5_478e62ceaab6__ : Attribute
 };
 
 [__955825bf_d13a_4d1c_90d5_478e62ceaab6__, AttributeUsage]
-class __internal__ : Attribute
+class InternalAttribute : Attribute
 {
     // Empty.
 }

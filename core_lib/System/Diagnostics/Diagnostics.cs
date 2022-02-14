@@ -8,7 +8,7 @@
 namespace Diagnostics
 {
     // Trace Attribute.
-    [__internal__, AttributeUsage]
+    [Internal, AttributeUsage]
     public class TraceAttribute : Attribute
     {
         public TraceAttribute()

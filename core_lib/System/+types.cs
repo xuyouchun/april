@@ -6,7 +6,7 @@
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Void
 {
 
@@ -14,7 +14,7 @@ public struct Void
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Int8
 {
 
@@ -22,7 +22,7 @@ public struct Int8
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct UInt8
 {
 
@@ -30,7 +30,7 @@ public struct UInt8
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Int16
 {
 
@@ -38,7 +38,7 @@ public struct Int16
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct UInt16
 {
 
@@ -46,7 +46,7 @@ public struct UInt16
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Int32
 {
 
@@ -54,7 +54,7 @@ public struct Int32
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct UInt32
 {
 
@@ -62,7 +62,7 @@ public struct UInt32
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Int64
 {
 
@@ -70,7 +70,7 @@ public struct Int64
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct UInt64
 {
 
@@ -78,7 +78,7 @@ public struct UInt64
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct String
 {
 
@@ -86,7 +86,7 @@ public struct String
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Boolean
 {
     public override String ToString()
@@ -97,7 +97,7 @@ public struct Boolean
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Char
 {
 
@@ -105,7 +105,7 @@ public struct Char
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Single
 {
 
@@ -113,7 +113,7 @@ public struct Single
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Double
 {
 
@@ -121,7 +121,7 @@ public struct Double
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Ptr
 {
 

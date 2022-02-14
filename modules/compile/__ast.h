@@ -1627,7 +1627,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Base class of typename ast node.
     template<typename _super_t>
-    class __type_name_ast_node_base_t : public _super_t
+    class type_name_ast_node_base_t : public _super_t
     {
         typedef _super_t __super_t;
 
@@ -1701,10 +1701,10 @@ namespace X_ROOT_NS::modules::compile {
 
     // General type name ast node.
     class general_type_name_ast_node_t
-            : public __type_name_ast_node_base_t<__general_type_name_ast_node_t>
+            : public type_name_ast_node_base_t<__general_type_name_ast_node_t>
             , public type_name_ast_t
     {
-        typedef __type_name_ast_node_base_t<__general_type_name_ast_node_t> __super_t;
+        typedef type_name_ast_node_base_t<__general_type_name_ast_node_t> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -1789,10 +1789,10 @@ namespace X_ROOT_NS::modules::compile {
 
     // Array typename ast node.
     class array_type_name_ast_node_t
-            : public __type_name_ast_node_base_t<__array_type_name_ast_node_t>
+            : public type_name_ast_node_base_t<__array_type_name_ast_node_t>
             , public type_name_ast_t
     {
-        typedef __type_name_ast_node_base_t<__array_type_name_ast_node_t> __super_t;
+        typedef type_name_ast_node_base_t<__array_type_name_ast_node_t> __super_t;
 
     public:
         using __super_t::__super_t;
@@ -1822,10 +1822,10 @@ namespace X_ROOT_NS::modules::compile {
 
     // Uncertain type name ast node.
     class uncertain_type_name_ast_node_t
-            : public __type_name_ast_node_base_t<__uncertain_type_name_ast_node_t>
+            : public type_name_ast_node_base_t<__uncertain_type_name_ast_node_t>
             , public type_name_ast_t
     {
-        typedef __type_name_ast_node_base_t<__uncertain_type_name_ast_node_t> __super_t;
+        typedef type_name_ast_node_base_t<__uncertain_type_name_ast_node_t> __super_t;
 
     public:
         using __super_t::__super_t;

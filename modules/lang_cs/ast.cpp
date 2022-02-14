@@ -100,21 +100,12 @@ namespace X_ROOT_NS::modules::lang_cs {
         general_type_name_t * type_name = as<general_type_name_t *>(to_eobject());
         if (type_name != nullptr)
         {
-            e_t error_code = __ascertain_type(context, type_name);
-            if (error_code == e_t::unknown_type)
-            {
-                name_unit_t * unit;
-                if (type_name->units.size() > 0 && 
-                    (unit = type_name->units[type_name->units.size() - 1]) != nullptr)
-                {
-                    name_t old_name = unit->name;
-                    unit->name = __to_name(_F(_T("%s%s"), _str(old_name), _T("Attribute")));
+            e_t e;
 
-                    if (__ascertain_type(context, type_name) == e_t::unknown_type)
-                    {
-                        unit->name = old_name;
-                    }
-                }
+            if (!__try_resolve_with_postfix(context, type_name) &&
+                (e = __ascertain_type(context, type_name)) != ascertain_type_error_t::__default__)
+            {
+                this->__log(e, type_name);
             }
         }
 
@@ -128,12 +119,37 @@ namespace X_ROOT_NS::modules::lang_cs {
         try
         {
             type_t * type = ascertain_type(this->__context, context, type_name);
+            type_name->type = type;
+
             return ascertain_type_error_t::__default__;
         }
         catch (const logic_error_t<ascertain_type_error_t> & e)
         {
             return e.code;
         }
+    }
+
+    // Try resolve type with postfix 'Attribute'.
+    bool _attribute_type_name_ast_node_t::__try_resolve_with_postfix(
+            ast_walk_context_t & context, general_type_name_t * type_name)
+    {
+        name_unit_t * unit;
+        if (type_name->units.size() > 0 && 
+            (unit = type_name->units[type_name->units.size() - 1]) != nullptr)
+        {
+            name_t old_name = unit->name;
+            unit->name = __to_name(_F(_T("%s%s"), _str(old_name), _T("Attribute")));
+
+            if (__ascertain_type(context, type_name) == ascertain_type_error_t::unknown_type)
+            {
+                unit->name = old_name;
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -8,7 +8,7 @@ using Reflection;
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public class Object
 {
     // Returns the object type.
@@ -34,7 +34,7 @@ public class Base
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public sealed class Type
 {
     public String Name
@@ -106,7 +106,7 @@ public sealed class Type
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public class Array : Object
 {
     // Returns rank of array.
@@ -124,7 +124,7 @@ public class Array : Object
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public class Array<T> : Array
 {
     public Array(Int32 length)
@@ -135,7 +135,7 @@ public class Array<T> : Array
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public interface ITuple<TItems ...>
 {
     Int32 Count { get; }
@@ -147,7 +147,7 @@ public interface ITuple<TItems ...>
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public struct Tuple<TItems ...> : ITuple<TItems ...>
 {
     public Tuple(TItems ... items)
@@ -160,7 +160,7 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
 
 ////////// ////////// ////////// ////////// //////////
 
-[__internal__]
+[Internal]
 public class Enum
 {
 
@@ -169,7 +169,7 @@ public class Enum
 ////////// ////////// ////////// ////////// //////////
 
 // Delegate<TReturn, TArgs ...>
-[__internal__]
+[Internal]
 public struct Delegate<TReturn, TArgs ...>
 {
     // Constructor.
@@ -194,7 +194,7 @@ public struct Delegate<TReturn, TArgs ...>
 };
 
 // MulticastDelegate<TReturn, TArgs ...>
-[__internal__]
+[Internal]
 public sealed class MulticastDelegate<TReturn, TArgs ...>
 {
     public using Delegate = Delegate<TReturn, TArgs ...>;
@@ -210,7 +210,7 @@ public sealed class MulticastDelegate<TReturn, TArgs ...>
 ////////// ////////// ////////// ////////// //////////
 
 // Exception.
-[__internal__]
+[Internal]
 public class Exception
 {
     // Default constructor.
@@ -251,7 +251,7 @@ public class Exception
 ////////// ////////// ////////// ////////// //////////
 
 // NullException.
-[__internal__]
+[Internal]
 public class NullReferenceException : Exception
 {
     // Default constructor.
