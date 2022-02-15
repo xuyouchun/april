@@ -77,7 +77,8 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
 
     // Walks this node.
-    bool _attribute_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    bool _attribute_type_name_ast_node_t::on_walk(ast_walk_context_t & context, int step,
+                                                                                void * tag)
     {
         switch ((walk_step_t)step)
         {
@@ -103,7 +104,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             e_t e;
 
             if (!__try_resolve_with_postfix(context, type_name) &&
-                (e = __ascertain_type(context, type_name)) != ascertain_type_error_t::__default__)
+                (e = __ascertain_type(context, type_name)) != e_t::__default__)
             {
                 this->__log(e, type_name);
             }
@@ -125,6 +126,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         }
         catch (const logic_error_t<ascertain_type_error_t> & e)
         {
+            type_name->type = unknown_type_t::instance();
             return e.code;
         }
     }

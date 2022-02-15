@@ -4167,19 +4167,47 @@ namespace X_ROOT_NS::modules::core {
     // Returns memeber descripted by args.
     void null_type_t::get_members(analyze_members_args_t & args)
     {
-        
+        // Empty.
     }
 
     // Returns all members.
     void null_type_t::get_all_members(members_t & out_members)
     {
-
+        // Empty.
     }
 
     // The null type sigleton instance.
     null_type_t * null_type_t::instance()
     {
         static null_type_t __instance;
+        return &__instance;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // unknown_type_t
+
+    // Returns members descripted by args.
+    member_t * unknown_type_t::get_member(analyze_member_args_t & args)
+    {
+        return nullptr;
+    }
+
+    // Returns memeber descripted by args.
+    void unknown_type_t::get_members(analyze_members_args_t & args)
+    {
+        // Empty.
+    }
+
+    // Returns all members.
+    void unknown_type_t::get_all_members(members_t & out_members)
+    {
+        // Empty.
+    }
+
+    // The unknown type sigleton instance.
+    unknown_type_t * unknown_type_t::instance()
+    {
+        static unknown_type_t __instance;
         return &__instance;
     }
 

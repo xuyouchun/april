@@ -2102,6 +2102,8 @@ namespace X_ROOT_NS::modules::core {
         
         null,           // Null type.
 
+        unknown,        // Unknown type.
+
         uncertain,      // Uncertaind type.
 
     X_ENUM_END
@@ -2451,6 +2453,18 @@ namespace X_ROOT_NS::modules::core {
                     && type->this_vtype() == vtype_t::mobject_;
     }
 
+    // Returns whether it's a null type.
+    X_ALWAYS_INLINE bool is_null(type_t * type)
+    {
+        return type != nullptr && type->this_gtype() == gtype_t::null;
+    }
+
+    // Returns whether it's a unknown type.
+    X_ALWAYS_INLINE bool is_unknown(type_t * type)
+    {
+        return type != nullptr && type->this_gtype() == gtype_t::unknown;
+    }
+
     // Returns whether it's a system value type.
     X_ALWAYS_INLINE bool is_system_value_type(vtype_t vtype)
     {
@@ -2541,6 +2555,48 @@ namespace X_ROOT_NS::modules::core {
         // Signle instance of null type.
         static null_type_t * instance();
     };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Unknown type, use as an error type..
+    class unknown_type_t : public __named_type_t
+    {
+        typedef type_t __super_t;
+
+    public:
+        // Returns gtype, ttype, vtype.
+        virtual gtype_t this_gtype() override final { return gtype_t::unknown; }
+        virtual ttype_t this_ttype() override final { return ttype_t::__unknown__; }
+        virtual vtype_t this_vtype() override final { return vtype_t::__unknown__; }
+        virtual mtype_t this_mtype() override final { return mtype_t::__unknown__; }
+
+        // Returns member descripted by specified args.
+        virtual member_t * get_member(analyze_member_args_t & args) override;
+
+        // Returns members descripted by specified args.
+        virtual void get_members(analyze_members_args_t & args) override;
+
+        // Returns all members.
+        virtual void get_all_members(members_t & out_members) override;
+
+        // Enum all super types, Applies each item for callback function.
+        virtual void each_super_type(each_super_type_callback_t callback) override { }
+
+        // Converts to full name.
+        virtual const string_t to_full_name() const override { return (string_t)*this; }
+
+        // Converts to short name.
+        virtual const string_t to_short_name() const override { return (string_t)*this; }
+
+        // Converts to identity of this type.
+        virtual const string_t to_identity() const override { return _T("<unknown>"); }
+
+        // Signle instance of null type.
+        static unknown_type_t * instance();
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
 
     ////////// ////////// ////////// ////////// //////////
     // generic_param_t

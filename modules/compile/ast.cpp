@@ -2619,7 +2619,7 @@ namespace X_ROOT_NS::modules::compile {
         type_name_t * type_name = __attr.type_name;
         type_t * type;
 
-        if (type_name == nullptr || (type = type_name->type) == nullptr)
+        if (type_name == nullptr || (type = type_name->type) == nullptr || is_unknown(type))
             return true;
 
         method_t * method = find_constructor(this->__context, type, __attr.arguments);

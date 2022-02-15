@@ -24,14 +24,6 @@ public class Object
     }
 };
 
-public class Base
-{
-    public Int32 GetValue()
-    {
-        return 100;
-    }
-};
-
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
