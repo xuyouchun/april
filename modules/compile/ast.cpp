@@ -327,6 +327,10 @@ namespace X_ROOT_NS::modules::compile {
         // Member not found.
         X_D(member_not_found, _T("member \"%1%\" undefined in type \"%2%\""))
 
+        // Member defination duplicated.
+        X_D(member_defination_duplicated,
+                    _T("Type '%1%' already defines a member '%2%' with same prototype"))
+
         // Method not found.
         X_D(method_not_found, _T("method \"%1%\" undefined in type \"%2%\""))
 
@@ -420,12 +424,13 @@ namespace X_ROOT_NS::modules::compile {
 
         // One of the parameters must be the containing type.
         X_D(unitary_operator_overload_wrong_containing_type,
-                _T("The parameter of unitary operator '%1%' overloaded must be the containing type"))
+                _T("The parameter of unitary operator '%1%' overloaded must be the ")
+                _T("containing type"))
 
         // The parameter must be the containing type.
         X_D(binary_operator_overload_wrong_containing_type,
-                _T("One of the parameters of binary operator '%1%' overloaded must be the containing type"))
-
+                _T("One of the parameters of binary operator '%1%' overloaded must be the ")
+                _T("containing type"))
 
         // User-defined operators cannot return void.
         X_D(operator_overload_cannot_return_void, _T("User-defined operators cannot return void"))
@@ -1864,10 +1869,13 @@ namespace X_ROOT_NS::modules::compile {
             {
                 // struct type do not need a default constructor.
                 method_t * constructor = *it;
-                if (type->this_ttype() == ttype_t::struct_ && constructor->param_count() == 0)
-                    this->__log(this, __c_t::do_not_need_default_constructor, type);
-                else
-                    new_default_constructor = __append_default_constructor(context);
+                if (type->this_ttype() == ttype_t::struct_)
+                {
+                    if (constructor->param_count() == 0)
+                        this->__log(this, __c_t::do_not_need_default_constructor, type);
+                    else
+                        new_default_constructor = __append_default_constructor(context);
+                }
             }
         }
 
@@ -3428,7 +3436,6 @@ namespace X_ROOT_NS::modules::compile {
     bool function_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         // Check permissions.
-
         function_expression_t * exp = &__expression;
         if (exp->get_ftype() != function_expression_type_t::method)
             return true;
@@ -3784,6 +3791,8 @@ namespace X_ROOT_NS::modules::compile {
     // Sets name.
     void method_ast_node_t::set_name(name_t name, __el_t * el)
     {
+        __name_el = el;
+
         if (__op_property != nullptr)
         {
             __log(el, __c_t::duplicate, _T("method name / operator overload"), name);
@@ -3974,6 +3983,9 @@ namespace X_ROOT_NS::modules::compile {
             default:
                 break;
         }
+
+        // Check duplicated.
+        this->__check_duplicate(context.current_type(), &__method, __name_el);
 
         // Operator overload, checks prototype.
         if (__op_property == nullptr)

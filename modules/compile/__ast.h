@@ -572,6 +572,9 @@ namespace X_ROOT_NS::modules::compile {
         // Member not found.
         member_not_found,
 
+        // Member defination duplicated.
+        member_defination_duplicated,
+
         // Method not found.
         method_not_found,
 
@@ -1067,6 +1070,25 @@ namespace X_ROOT_NS::modules::compile {
                         _code_element_t * code_element)
             {
                 return __check_access(wctx, member, code_element, code_element);
+            }
+
+            // Check duplicated.
+            template<typename _code_element_t>
+            member_t * __check_duplicate(type_t * type, member_t * member,
+                                                _code_element_t * code_element)
+            {
+                _A(type != nullptr);
+                _A(member != nullptr);
+
+                member_t * member1 = type->check_duplicate(member);
+                if (member1 == nullptr)
+                    return nullptr;
+
+                this->__log(code_element == nullptr? (_code_element_t *)this : code_element,
+                    common_log_code_t::member_defination_duplicated, type, member
+                );
+
+                return member1;
             }
         };
     }
@@ -4137,6 +4159,7 @@ namespace X_ROOT_NS::modules::compile {
     private:
         __w_t<method_t> __method;
         const operator_property_t * __op_property = nullptr;
+        __el_t * __name_el = nullptr;
 
         bool __walk_default(ast_walk_context_t & context);
         bool __walk_analysis(ast_walk_context_t & context);

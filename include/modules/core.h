@@ -2281,6 +2281,7 @@ namespace X_ROOT_NS::modules::core {
         size_t              generic_args_count = 0; // Generic argument count when fetch nest types.
 
         bool                exact_match     = false;    // Whether exact match the member.
+        bool                include_base_types = true;  // Whether include base types.
 
         // Returns name of member, if name is null, returns name from context
         // (constructor, destructor, static_constructor ...).
@@ -2329,6 +2330,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns all members.
         virtual void get_all_members(members_t & out_members) = 0;
+
+        // Checks whether it's duplicate.
+        virtual member_t * check_duplicate(member_t * member) = 0;
 
         // Enum all super types.
         typedef std::function<void (type_t *)> each_super_type_callback_t;
@@ -2500,6 +2504,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
 
+        // Checks whether it's duplicate.
+        virtual member_t * check_duplicate(member_t * member) override;
+
         // Enum all super types, Applies each item for callback function.
         virtual void each_super_type(each_super_type_callback_t callback) override { }
 
@@ -2540,6 +2547,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
 
+        // Checks whether it's duplicate.
+        virtual member_t * check_duplicate(member_t * member) override;
+
         // Enum all super types, Applies each item for callback function.
         virtual void each_super_type(each_super_type_callback_t callback) override { }
 
@@ -2578,6 +2588,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
+
+        // Checks whether it's duplicate.
+        virtual member_t * check_duplicate(member_t * member) override;
 
         // Enum all super types, Applies each item for callback function.
         virtual void each_super_type(each_super_type_callback_t callback) override { }
@@ -2645,6 +2658,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
+
+        // Checks whether it's duplicate.
+        virtual member_t * check_duplicate(member_t * member) override;
 
         // Enum all super types, Applies each item for callback function.
         virtual void each_super_type(each_super_type_callback_t callback) override { }
@@ -3809,6 +3825,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
 
+        // Checks whether it's duplicate.
+        virtual member_t * check_duplicate(member_t * member) override;
+
         // Enum all super types, Applies elements by calling callback function.
         virtual void each_super_type(each_super_type_callback_t callback) override { }
 
@@ -3905,7 +3924,10 @@ namespace X_ROOT_NS::modules::core {
             _A(member != nullptr);
 
             __super_t::push_back(member);
-            __member_map[member->get_name()] = member;
+
+            name_t name = member->get_name();
+            __member_map[name] = member;
+            __members_map.insert(std::make_pair(name, member));
 
             return member;
         }
@@ -3920,8 +3942,23 @@ namespace X_ROOT_NS::modules::core {
             return it->second;
         }
 
+        // Enumerate all member with specified name.
+        template<typename _f_t>
+        _member_t each(name_t name, _f_t f)
+        {
+            for (auto it = __members_map.lower_bound(name),
+                      it_end = __members_map.upper_bound(name); it != it_end; ++it)
+            {
+                if(!f(it->second))
+                    return it->second;
+            }
+
+            return nullptr;
+        }
+
     private:
-        std::map<name_t, _member_t> __member_map;
+        std::map<name_t, _member_t>         __member_map;
+        std::multimap<name_t, _member_t>  __members_map;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -3943,13 +3980,16 @@ namespace X_ROOT_NS::modules::core {
 
         // Enumerate all nest types with specified name.
         template<typename _f_t>
-        void each(name_t name, _f_t f)
+        type_t * each(name_t name, _f_t f)
         {
             for (auto it = __type_map.lower_bound(name), it_end = __type_map.upper_bound(name);
-                it != it_end; it++)
+                it != it_end; ++it)
             {
-                f(it->second);
+                if(!f(it->second))
+                    return it->second;
             }
+
+            return nullptr;
         }
 
         // Enumerate all nest types with specified name and generic param count.
@@ -3957,7 +3997,7 @@ namespace X_ROOT_NS::modules::core {
         {
             __key_t key(name, generic_param_count);
             for (auto it = __types_map.lower_bound(key), it_end = __types_map.upper_bound(key);
-                it != it_end; it++)
+                it != it_end; ++it)
             {
                 return it->second;
             }
@@ -4007,37 +4047,51 @@ namespace X_ROOT_NS::modules::core {
 
         // Search methods by name, generic param count and it's owner type.
         // Applies them by calling function f.
-        template<typename f_t>
-        void each(name_t name, int generic_param_count, type_t * owner_type, f_t f)
+        template<typename _f_t>
+        method_t * each(name_t name, int generic_param_count, type_t * owner_type, _f_t f)
         {
             __key_t key(name, generic_param_count, owner_type);
             for (auto it = __method_map.lower_bound(key), it_end = __method_map.upper_bound(key);
-                it != it_end; it++)
+                it != it_end; ++it)
             {
-                f(it->second);
+                if(!f(it->second))
+                    return it->second;
             }
+
+            return nullptr;
         }
 
         // Search methods by name, generic param count.
         // Applies them by calling function f.
-        template<typename f_t>
-        void each(name_t name, int generic_param_count, f_t f)
+        template<typename _f_t>
+        method_t * each(name_t name, int generic_param_count, _f_t f)
         {
-            each(name, generic_param_count, (type_t *)nullptr, f);
+            return each(name, generic_param_count, (type_t *)nullptr, f);
+        }
+
+        // Search methods by name.
+        // Applies them by calling function f.
+        template<typename _f_t>
+        method_t * each(name_t name, _f_t f)
+        {
+            return each(name, __unknown_size, f);
         }
 
         // Search methods by trait.
         // Applies them calling function f.
-        template<typename f_t>
-        void each(method_trait_t trait, f_t f)
+        template<typename _f_t>
+        method_t * each(method_trait_t trait, _f_t f)
         {
             __ensure_init_trait_method_map();
 
             for (auto it = __trait_method_map.lower_bound(trait),
-                it_end = __trait_method_map.upper_bound(trait); it != it_end; it++)
+                it_end = __trait_method_map.upper_bound(trait); it != it_end; ++it)
             {
-                f(it->second);
+                if(!f(it->second))
+                    return it->second;
             }
+
+            return nullptr;
         }
 
     private:
@@ -4098,6 +4152,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
+
+        // Checks whether it's duplicate.
+        virtual member_t * check_duplicate(member_t * member) override;
 
         // Commits
         virtual void commit(eobject_commit_context_t & ctx) override;
@@ -4440,6 +4497,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
+
+        // Checks whether it's duplicate.
+        virtual member_t * check_duplicate(member_t * member) override;
 
         // Enum super types by applying each elements for callback function.
         virtual void each_super_type(each_super_type_callback_t callback) override;
@@ -7026,7 +7086,7 @@ namespace X_ROOT_NS::modules::core {
         template<typename exp_itor_t>
         void append(exp_itor_t begin, exp_itor_t end)
         {
-            for (exp_itor_t it = begin; it != end; it++)
+            for (exp_itor_t it = begin; it != end; ++it)
             {
                 append(*it);
             }

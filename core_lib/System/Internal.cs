@@ -45,9 +45,6 @@ internal static class Internal
     public static extern Void Console_WriteString(String value);
 
     [Internal]
-    public static extern Void Console_WriteStringLine(String value);
-
-    [Internal]
     public static extern Void Console_WriteChar(Char value);
 
     [Internal]

@@ -168,9 +168,12 @@ namespace X_ROOT_NS::modules::core {
             virtual vtype_t this_vtype() override final { return vtype_t::__unknown__; }
             virtual mtype_t this_mtype() override final { return mtype_t::__unknown__; }
 
-            virtual member_t * get_member(analyze_member_args_t & args) override { return nullptr; }
+            virtual member_t * get_member(analyze_member_args_t & args) override
+                                                                    { return nullptr; }
             virtual void get_members(analyze_members_args_t & args) override { }
             virtual void get_all_members(members_t & out_members) override { }
+            virtual member_t * check_duplicate(member_t * member) override
+                                                                    { return nullptr; }
 
             virtual void each_super_type(each_super_type_callback_t callback) override { }
 

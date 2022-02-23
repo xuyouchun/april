@@ -2084,13 +2084,19 @@ namespace X_ROOT_NS::modules::core {
     // Returns memeber descripted by args.
     void type_def_param_t::get_members(analyze_members_args_t & args)
     {
-        
+        // Empty.
     }
 
     // Returns all members.
     void type_def_param_t::get_all_members(members_t & out_members)
     {
+        // Empty.
+    }
 
+    // Checks whether it's duplicate.
+    member_t * type_def_param_t::check_duplicate(member_t * member)
+    {
+        return nullptr;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2381,7 +2387,6 @@ namespace X_ROOT_NS::modules::core {
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
-    // generic_arg_type_t
 
     // Generic argument type
     X_ENUM_INFO(generic_arg_type_t)
@@ -2800,7 +2805,8 @@ namespace X_ROOT_NS::modules::core {
             {
                 __methods.each(__args.name, __unknown_size, [this](method_t * method) {
                     if (method->generic_param_count() > 0)
-                        __analyze(method);
+                        return __analyze(method);
+                    return true;
                 });
             }
         }
@@ -2841,7 +2847,7 @@ namespace X_ROOT_NS::modules::core {
         struct mi_t { method_t * method; size_t ga_index = __empty_size; };
 
         mi_t __equaled_method { nullptr };
-        typedef al::svector_t<mi_t, 5> __methods_vector_t;
+        typedef al::svector_t<mi_t, 16> __methods_vector_t;
         __methods_vector_t __matched_methods;
         //__methods_vector_t __not_matched_methods;
 
@@ -2853,7 +2859,7 @@ namespace X_ROOT_NS::modules::core {
         al::svector_t<__arg_types_data_t, 8> __arg_types_list;
 
         // Analyze method.
-        void __analyze(method_t * method)
+        bool __analyze(method_t * method)
         {
             __member_compare_t compare_result = __compare_method(
                 method, __args.generic_args, __args.atypes, *__next_arg_types()
@@ -2879,6 +2885,8 @@ namespace X_ROOT_NS::modules::core {
                 default:
                     X_UNEXPECTED();
             }
+
+            return true;
         }
 
         // Pick method. revises ga_index to a really type.
@@ -3147,10 +3155,13 @@ namespace X_ROOT_NS::modules::core {
                 return nullptr;
         }
 
-        type_t * base_type = get_base_type();
+        if (args.include_base_types)
+        {
+            type_t * base_type = get_base_type();
 
-        if (base_type != nullptr)
-            return base_type->get_member(args);
+            if (base_type != nullptr)
+                return base_type->get_member(args);
+        }
 
         return nullptr;
     }
@@ -3203,6 +3214,159 @@ namespace X_ROOT_NS::modules::core {
         al::copy(fields,     std::back_inserter(out_members));
         al::copy(events,     std::back_inserter(out_members));
         al::copy(nest_types, std::back_inserter(out_members));
+    }
+
+    template<typename _members_t, typename _f_t,
+        typename _member_t = std::remove_pointer_t<typename _members_t::value_type>
+    >
+    _member_t * __search_member_(_members_t & members, name_t name, _f_t f)
+    {
+        return members.each(name, [f](_member_t * member1) {
+            return !f(member1);
+        });
+    }
+
+    template<typename _members_t, typename _f_t,
+        typename _member_t = std::remove_pointer_t<typename _members_t::value_type>
+    >
+    _member_t * __search_member(_members_t & members, name_t name, _member_t * member, _f_t f)
+    {
+        return __search_member_(members, name, [member, f](_member_t * member1) {
+            return member != member1 && f(member1);
+        });
+    }
+
+    bool __is_params_equals(params_t * params1, params_t * params2)
+    {
+        if (params1 == nullptr)
+            return params2 == nullptr || params2->empty();
+
+        if (params2 == nullptr)
+            return params1 == nullptr || params1->empty();
+
+        if (params1->size() != params2->size())
+            return false;
+
+        for (size_t size = params1->size(), index = 0; index < size; index++)
+        {
+            param_t * p1 = (*params1)[index], * p2 = (*params2)[index];
+            _A(p1 != nullptr && p2 != nullptr);
+
+            type_t * type1 = p1->get_type(), * type2 = p2->get_type();
+            _A(type1 != nullptr && type2 != nullptr);
+
+            if (type1 != type2)
+                return false;
+
+            if (p1->ptype != p2->ptype)
+                return false;
+        }
+
+        return true;
+    }
+
+    bool __is_params_equals(params_t * params1, generic_params_t * gparams1,
+        params_t * params2, generic_params_t * gparams2)
+    {
+        #define __Size(_arg)    ((_arg) == nullptr? 0 : (_arg)->size())
+
+        size_t params1_size = __Size(params1), params2_size = __Size(params2);
+        if (params1_size != params2_size)
+            return false;
+
+        size_t gparams1_size = __Size(gparams1), gparams2_size = __Size(gparams2);
+        if (gparams1_size != gparams2_size)
+            return false;
+
+        if (params1_size == 0)
+            return true;
+
+        for (size_t index = 0; index < params1_size; index++)
+        {
+            param_t * p1 = (*params1)[index], * p2 = (*params2)[index];
+            _A(p1 != nullptr && p2 != nullptr);
+
+            type_t * type1 = p1->get_type(), * type2 = p2->get_type();
+            _A(type1 != nullptr && type2 != nullptr);
+
+            if (type1->this_gtype() == gtype_t::generic_param)
+            {
+                if (type1->this_gtype() != gtype_t::generic_param ||
+                    ((generic_param_t *)type1)->index != ((generic_param_t *)type2)->index)
+                    return false;
+            }
+            else
+            {
+                if (type1 != type2)
+                    return false;
+            }
+        }
+
+        return true;
+
+        #undef __Size
+    }
+
+    // Checks whether it's duplicate.
+    member_t * __general_type_like_base_t::check_duplicate(member_t * member)
+    {
+        _A(member != nullptr);
+
+        name_t name = member->get_name();
+
+        #define __Search(_members)                                                      \
+            __search_member(_members, name, member, [](auto) { return true; })
+
+        #define __SearchRet(_members)                                                   \
+            do {                                                                        \
+                if (auto member1 = __Search(_members); member1 != nullptr)              \
+                    return member1;                                                     \
+            } while (0)
+        
+        // Any member cannot duplicate with fields and events.
+        __SearchRet(fields);
+        __SearchRet(events);
+        __SearchRet(nest_types);
+        __SearchRet(type_defs);
+
+        // Check property
+        switch (member->this_type())
+        {
+            case member_type_t::field:
+            case member_type_t::event:
+            case member_type_t::type:
+            case member_type_t::type_def:
+                __SearchRet(methods);
+                __SearchRet(properties);
+                return nullptr;
+
+            case member_type_t::method:
+                __SearchRet(properties);
+                
+                // Check method duplicate.
+                return __search_member(methods, name, (method_t *)member,
+                                                                [&](method_t * method) {
+                    return __is_params_equals(
+                        ((method_t *)member)->params, ((method_t *)member)->generic_params,
+                        method->params, method->generic_params
+                    );
+                });
+
+            case member_type_t::property:
+                __SearchRet(methods);
+
+                // Check property duplicate.
+                return __search_member(properties, name, (property_t *)member,
+                                                            [&](property_t * property) {
+                    return __is_params_equals(((property_t *)member)->params, property->params);
+                });
+
+            default:
+                return nullptr;
+        }
+
+        #undef __Search
+        #undef __SearchRet
     }
 
     // Returns vsize.
@@ -4148,6 +4312,12 @@ namespace X_ROOT_NS::modules::core {
         // Empty.
     }
 
+    // Checks whether it's duplicate.
+    member_t * uncertain_type_t::check_duplicate(member_t * member)
+    {
+        return nullptr;
+    }
+
     // The uncertain type sigleton instance.
     uncertain_type_t * uncertain_type_t::instance()
     {
@@ -4176,6 +4346,12 @@ namespace X_ROOT_NS::modules::core {
         // Empty.
     }
 
+    // Checks whether it's duplicate.
+    member_t * null_type_t::check_duplicate(member_t * member)
+    {
+        return nullptr;
+    }
+
     // The null type sigleton instance.
     null_type_t * null_type_t::instance()
     {
@@ -4202,6 +4378,12 @@ namespace X_ROOT_NS::modules::core {
     void unknown_type_t::get_all_members(members_t & out_members)
     {
         // Empty.
+    }
+
+    // Checks whether it's duplicate.
+    member_t * unknown_type_t::check_duplicate(member_t * member)
+    {
+        return nullptr;
     }
 
     // The unknown type sigleton instance.
@@ -4241,13 +4423,19 @@ namespace X_ROOT_NS::modules::core {
     // Returns memeber descripted by args.
     void generic_param_t::get_members(analyze_members_args_t & args)
     {
-        
+        // Empty.
     }
 
     // Returns all members.
     void generic_param_t::get_all_members(members_t & out_members)
     {
+        // Empty.
+    }
 
+    // Checks whether it's duplicate.
+    member_t * generic_param_t::check_duplicate(member_t * member)
+    {
+        return nullptr;
     }
 
     const string_t generic_param_t::to_identity() const
@@ -4277,6 +4465,12 @@ namespace X_ROOT_NS::modules::core {
     void array_type_t::get_all_members(members_t & out_members)
     {
         base_type->get_all_members(out_members);
+    }
+
+    // Checks whether it's duplicate.
+    member_t * array_type_t::check_duplicate(member_t * member)
+    {
+        return base_type->check_duplicate(member);
     }
 
     // Enum all super types.
