@@ -575,6 +575,9 @@ namespace X_ROOT_NS::modules::compile {
         // Member defination duplicated.
         member_defination_duplicated,
 
+        // Member names cannot be the same as their enclosing type.
+        member_same_as_enclosing_type,
+
         // Method not found.
         method_not_found,
 
@@ -1080,13 +1083,25 @@ namespace X_ROOT_NS::modules::compile {
                 _A(type != nullptr);
                 _A(member != nullptr);
 
+                code_element_t * ce = dynamic_cast<code_element_t *>(code_element);
+                if (ce == nullptr)
+                    ce = (code_element_t *)this;
+
+                if (member->get_name() == type->get_name())
+                {
+                    if (member->this_type() != member_type_t::method ||
+                        !is_constructor_or_destructor((method_t *)member))
+                    {
+                        this->__log(ce, common_log_code_t::member_same_as_enclosing_type);
+                        return type;
+                    }
+                }
+
                 member_t * member1 = type->check_duplicate(member);
                 if (member1 == nullptr)
                     return nullptr;
 
-                this->__log(code_element == nullptr? (_code_element_t *)this : code_element,
-                    common_log_code_t::member_defination_duplicated, type, member
-                );
+                this->__log(ce, common_log_code_t::member_defination_duplicated, type, member1);
 
                 return member1;
             }
@@ -1982,7 +1997,14 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        type_def_t __type_def;
+        type_def_t  __type_def;
+        __el_t *    __name_el = nullptr;
+
+        // Walks default step.
+        bool __walk_default(ast_walk_context_t & context, int step, void * tag);
+
+        // Walks analysis step.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4089,7 +4111,14 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<field_t> __field;
+        __w_t<field_t>  __field;
+        __el_t *        __name_el = nullptr;
+
+        // Walks default step.
+        bool __walk_default(ast_walk_context_t & context, int step, void * tag);
+
+        // Walks analysis step.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4161,7 +4190,10 @@ namespace X_ROOT_NS::modules::compile {
         const operator_property_t * __op_property = nullptr;
         __el_t * __name_el = nullptr;
 
+        // Walks default step.
         bool __walk_default(ast_walk_context_t & context);
+
+        // Walks analysis step.
         bool __walk_analysis(ast_walk_context_t & context);
     };
 
@@ -4219,6 +4251,13 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
         __w_t<property_t> __property;
+        __el_t * __name_el = nullptr;
+
+        // Walks default step.
+        bool __walk_default(ast_walk_context_t & context, int step, void * tag);
+
+        // Walks analysis step.
+        bool __walk_analysis(ast_walk_context_t & context);
 
         // Gets get/set method name.
         name_t __to_method_name(const char_t * prefix);
@@ -4278,6 +4317,13 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
         __w_t<event_t> __event;
+        __el_t *       __name_el = nullptr;
+
+        // Walks default step.
+        bool __walk_default(ast_walk_context_t & context, int step, void * tag);
+
+        // Walks analysis step.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

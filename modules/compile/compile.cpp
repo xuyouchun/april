@@ -1113,6 +1113,27 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    static string_t __to_prefix_space(const char_t * s, size_t length)
+    {
+        stringstream_t ss;
+
+        for (const char_t * s_end = s + length; s < s_end; s++)
+        {
+            switch (*s)
+            {
+                case _T('\t'):
+                    ss << *s;
+                    break;
+
+                default:
+                    ss << _T(' ');
+                    break;
+            }
+        }
+
+        return ss.str();
+    }
+
     // Returns format error line.
     string_t format_code_line(const code_unit_t * cu, string_t & out_flag_msg)
     {
@@ -1129,7 +1150,7 @@ namespace X_ROOT_NS::modules::compile {
             auto pair = cu->current_line_pos();
             line = string_t(pair.first, pair.second + 1);
 
-            out_flag_msg = _F(_T("%1%%2%"), string_t(cu->s - pair.first, ' '),
+            out_flag_msg = _F(_T("%1%%2%"), __to_prefix_space(pair.first, cu->s - pair.first),
                 cu->length == 0? _T("^") : string_t(cu->length, _T('~'))
             );
         }

@@ -3363,6 +3363,9 @@ namespace X_ROOT_NS::modules::core {
         // Method inline type, inline, noinline or default.
         method_inline_type_t inline_type    = method_inline_type_t::default_;
 
+        // Relation property or event.
+        member_t * relation_member = nullptr;
+
         // Returns name.
         virtual name_t get_name() const override { return name; }
 
@@ -3440,12 +3443,14 @@ namespace X_ROOT_NS::modules::core {
         local_variables_t __local_variables;
     };
 
-    // Returns whether the method is a constructor.
-    X_INLINE bool is_ctor(method_t * method)
+    // Returns whether the method is a constructor or static constructor or destructor.
+    X_INLINE bool is_constructor_or_destructor(method_t * method)
     {
         _A(method != nullptr);
 
-        return method->trait == method_trait_t::constructor;
+        return method->trait == method_trait_t::constructor
+            || method->trait == method_trait_t::static_constructor
+            || method->trait == method_trait_t::destructor;
     }
 
     //-------- ---------- ---------- ---------- ----------

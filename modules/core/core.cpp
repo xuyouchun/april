@@ -2121,9 +2121,9 @@ namespace X_ROOT_NS::modules::core {
     type_def_t::operator string_t() const
     {
         if (param_count() == 0)
-            return _F(_T("typedef %1% %2%"), _str(type_name), _str(name));
+            return _F(_T("using %1% = %2%"), _str(name), _str(type_name));
 
-        return _F(_T("typedef %1% %2%<%3%>"), _str(type_name), _str(name), _str(params));
+        return _F(_T("using %1% = %2%<%3%>"), _str(name), _str(type_name), _str(params));
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3231,8 +3231,17 @@ namespace X_ROOT_NS::modules::core {
     >
     _member_t * __search_member(_members_t & members, name_t name, _member_t * member, _f_t f)
     {
-        return __search_member_(members, name, [member, f](_member_t * member1) {
-            return member != member1 && f(member1);
+        bool found_self = false;
+        return __search_member_(members, name, [member, f, &found_self](_member_t * member1) {
+
+            if (member == member1)
+            {
+                found_self = true;
+                return false;
+            }
+
+            return !found_self && f(member1);
+
         });
     }
 

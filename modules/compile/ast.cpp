@@ -329,7 +329,11 @@ namespace X_ROOT_NS::modules::compile {
 
         // Member defination duplicated.
         X_D(member_defination_duplicated,
-                    _T("Type '%1%' already defines a member '%2%' with same prototype"))
+                            _T("Type '%1%' already defines a member '%2%' with the same name"))
+
+        // Member names cannot be the same as their enclosing type.
+        X_D(member_same_as_enclosing_type,
+                            _T("Member names cannot be the same as their enclosing type."))
 
         // Method not found.
         X_D(method_not_found, _T("method \"%1%\" undefined in type \"%2%\""))
@@ -930,6 +934,7 @@ namespace X_ROOT_NS::modules::compile {
     // Sets name.
     void type_def_ast_node_t::set_name(name_t name, __el_t * el)
     {
+        this->__name_el = el;
         this->__assign_name(__type_def.name, name, el, _T("typedef"));
     }
 
@@ -950,6 +955,27 @@ namespace X_ROOT_NS::modules::compile {
 
     // Walks this node.
     bool type_def_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        switch ((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                if (__walk_default(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::analysis);
+                    return true;
+                }
+
+                return false;
+
+            case walk_step_t::analysis:
+                return __walk_analysis(context);
+
+            default: return true;
+        }
+    }
+
+    // Walks default step.
+    bool type_def_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
     {
         context.push(to_eobject());
 
@@ -982,6 +1008,13 @@ namespace X_ROOT_NS::modules::compile {
         context.pop();
 
         return r;
+    }
+
+    // Walks analysis step.
+    bool type_def_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        this->__check_duplicate(context.current_type(), &__type_def, __name_el);
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3747,6 +3780,7 @@ namespace X_ROOT_NS::modules::compile {
     // Sets name.
     void field_ast_node_t::set_name(name_t name, __el_t * el)
     {
+        this->__name_el = el;
         this->__assign_name(__field.name, name, el, _T("field"));
     }
 
@@ -3768,6 +3802,27 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool field_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        switch ((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                if (__walk_default(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::analysis);
+                    return true;
+                }
+
+                return false;
+
+            case walk_step_t::analysis:
+                return __walk_analysis(context);
+
+            default: return true;
+        }
+    }
+
+    // Walks default step.
+    bool field_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
+    {
         context.push(this->to_eobject());
         bool r = __super_t::on_walk(context, step, tag);
         context.pop();
@@ -3783,6 +3838,13 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         return r;
+    }
+
+    // Walks analysis step.
+    bool field_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        this->__check_duplicate(context.current_type(), &__field, __name_el);
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3985,7 +4047,8 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // Check duplicated.
-        this->__check_duplicate(context.current_type(), &__method, __name_el);
+        if (__method.relation_member == nullptr)
+            this->__check_duplicate(context.current_type(), &__method, __name_el);
 
         // Operator overload, checks prototype.
         if (__op_property == nullptr)
@@ -4029,6 +4092,8 @@ namespace X_ROOT_NS::modules::compile {
     // Sets name.
     void property_ast_node_t::set_name(name_t name, __el_t * el)
     {
+        __name_el = el;
+
         this->__assign_name(__property.name, name, el, _T("property"));
     }
 
@@ -4067,6 +4132,27 @@ namespace X_ROOT_NS::modules::compile {
     // Walk this node.
     bool property_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        switch ((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                if (__walk_default(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::analysis);
+                    return true;
+                }
+
+                return false;
+
+            case walk_step_t::analysis:
+                return __walk_analysis(context);
+
+            default: return true;
+        }
+    }
+
+    // Walks default step.
+    bool property_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
+    {
         if (!__property.name.empty())
         {
             if (__property.params != nullptr)
@@ -4084,6 +4170,8 @@ namespace X_ROOT_NS::modules::compile {
             __property.get_method->type_name = __property.type_name;
             __property.get_method->decorate  = __property.decorate;
             __property.get_method->params    = __property.params;
+            __property.get_method->relation_member = &__property;
+
             __append_member(this->__context, context, __property.get_method);
         }
 
@@ -4095,6 +4183,7 @@ namespace X_ROOT_NS::modules::compile {
             __property.set_method->name      = __to_method_name(_T("set"));
             __property.set_method->type_name = xpool.to_type_name(xpool.get_void_type());
             __property.set_method->decorate  = __property.decorate;
+            __property.set_method->relation_member = &__property;
 
             params_t * params = __new_obj<params_t>();
 
@@ -4119,6 +4208,13 @@ namespace X_ROOT_NS::modules::compile {
         __super_t::on_walk(context, step, tag);
         context.pop();
 
+        return true;
+    }
+
+    // Walks analysis step.
+    bool property_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        this->__check_duplicate(context.current_type(), &__property, __name_el);
         return true;
     }
 
@@ -4220,6 +4316,7 @@ namespace X_ROOT_NS::modules::compile {
     // Sets name.
     void event_ast_node_t::set_name(name_t name, __el_t * el)
     {
+        __name_el = el;
         this->__assign_name(__event.name, name, el, _T("event"));
     }
 
@@ -4243,12 +4340,34 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool event_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        switch ((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                if (__walk_default(context, step, tag))
+                {
+                    this->__delay(context, walk_step_t::analysis);
+                    return true;
+                }
+
+                return false;
+
+            case walk_step_t::analysis:
+                return __walk_analysis(context);
+
+            default: return true;
+        }
+    }
+
+    // Walks default step.
+    bool event_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
+    {
         this->__check_name_empty(__event.name, _T("event"));
 
         if (__event.add_method != nullptr)
         {
             __event.add_method->name = __to_name(_F(_T("add_%1%"), __event.name));
             __event.add_method->type_name = __event.type_name;
+            __event.add_method->relation_member = &__event;
             __append_member(this->__context, context, __event.add_method);
         }
 
@@ -4256,6 +4375,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             __event.remove_method->name = __to_name(_F(_T("remove_%1%"), __event.name));
             __event.remove_method->type_name = __event.type_name;
+            __event.remove_method->relation_member = &__event;
             __append_member(this->__context, context, __event.remove_method);
         }
 
@@ -4263,6 +4383,13 @@ namespace X_ROOT_NS::modules::compile {
         __super_t::on_walk(context, step, tag);
         context.pop();
 
+        return true;
+    }
+
+    // Walks analysis step.
+    bool event_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        this->__check_duplicate(context.current_type(), &__event, __name_el);
         return true;
     }
 
