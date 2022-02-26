@@ -2281,7 +2281,6 @@ namespace X_ROOT_NS::modules::core {
         size_t              generic_args_count = 0; // Generic argument count when fetch nest types.
 
         bool                exact_match     = false;    // Whether exact match the member.
-        bool                include_base_types = true;  // Whether include base types.
 
         // Returns name of member, if name is null, returns name from context
         // (constructor, destructor, static_constructor ...).
@@ -2325,6 +2324,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns members descripted by args.
         virtual member_t * get_member(analyze_member_args_t & args) = 0;
 
+        // Returns members descripted by args.
+        member_t * get_member(analyze_member_args_t & args, bool include_base_types);
+
         // Returns memeber descripted by args.
         virtual void get_members(analyze_members_args_t & args) = 0;
 
@@ -2335,8 +2337,8 @@ namespace X_ROOT_NS::modules::core {
         virtual member_t * check_duplicate(member_t * member) = 0;
 
         // Enum all super types.
-        typedef std::function<void (type_t *)> each_super_type_callback_t;
-        virtual void each_super_type(each_super_type_callback_t callback) = 0;
+        typedef std::function<bool (type_t *)> each_super_type_callback_t;
+        virtual type_t * each_super_type(each_super_type_callback_t callback) { return nullptr; }
 
         // Return this type of member.
         virtual member_type_t this_type() override final
@@ -2507,9 +2509,6 @@ namespace X_ROOT_NS::modules::core {
         // Checks whether it's duplicate.
         virtual member_t * check_duplicate(member_t * member) override;
 
-        // Enum all super types, Applies each item for callback function.
-        virtual void each_super_type(each_super_type_callback_t callback) override { }
-
         // Converts to full name.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
 
@@ -2550,9 +2549,6 @@ namespace X_ROOT_NS::modules::core {
         // Checks whether it's duplicate.
         virtual member_t * check_duplicate(member_t * member) override;
 
-        // Enum all super types, Applies each item for callback function.
-        virtual void each_super_type(each_super_type_callback_t callback) override { }
-
         // Converts to full name.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
 
@@ -2591,9 +2587,6 @@ namespace X_ROOT_NS::modules::core {
 
         // Checks whether it's duplicate.
         virtual member_t * check_duplicate(member_t * member) override;
-
-        // Enum all super types, Applies each item for callback function.
-        virtual void each_super_type(each_super_type_callback_t callback) override { }
 
         // Converts to full name.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
@@ -2661,9 +2654,6 @@ namespace X_ROOT_NS::modules::core {
 
         // Checks whether it's duplicate.
         virtual member_t * check_duplicate(member_t * member) override;
-
-        // Enum all super types, Applies each item for callback function.
-        virtual void each_super_type(each_super_type_callback_t callback) override { }
 
         // Converts to full name.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
@@ -3833,9 +3823,6 @@ namespace X_ROOT_NS::modules::core {
         // Checks whether it's duplicate.
         virtual member_t * check_duplicate(member_t * member) override;
 
-        // Enum all super types, Applies elements by calling callback function.
-        virtual void each_super_type(each_super_type_callback_t callback) override { }
-
         // Converts to string.
         virtual const string_t to_string() const override { return (string_t)*this; }
 
@@ -4133,6 +4120,8 @@ namespace X_ROOT_NS::modules::core {
             , fields(this), events(this), nest_types(this), type_defs(this)
         { }
 
+        using __super_t::get_member;
+
         typedef __vector_t<type_name_t *>     super_type_name_list_t;
         typedef __list_t<method_t *, 5>       method_list_t;
         typedef __list_t<property_t *, 5>     property_list_t;
@@ -4177,7 +4166,7 @@ namespace X_ROOT_NS::modules::core {
         virtual type_t * get_base_type() override;
 
         // Enum all super types. Applies each types for calling callback method.
-        virtual void each_super_type(each_super_type_callback_t callback) override;
+        virtual type_t * each_super_type(each_super_type_callback_t callback) override;
 
         // Returns underlying type of enum type.
         vtype_t get_underlying_vtype();
@@ -4507,7 +4496,7 @@ namespace X_ROOT_NS::modules::core {
         virtual member_t * check_duplicate(member_t * member) override;
 
         // Enum super types by applying each elements for callback function.
-        virtual void each_super_type(each_super_type_callback_t callback) override;
+        virtual type_t * each_super_type(each_super_type_callback_t callback) override;
 
         // Commits it.
         virtual void commit(eobject_commit_context_t & ctx) override;

@@ -896,6 +896,7 @@ namespace X_ROOT_NS::modules::compile {
         // Walks expression.
         void walk(expression_t * exp)
         {
+            _A(exp != nullptr);
             __walk(exp);
         }
 
@@ -1088,7 +1089,7 @@ namespace X_ROOT_NS::modules::compile {
 
                 analyze_member_args_t args(member_type_t::property, name_t::null, &atypes);
 
-                member_t * member = body_type->get_member(args);
+                member_t * member = body_type->get_member(args, true);
                 if (member == nullptr)
                 {
                     ast_log(__cctx, index_exp, __c_t::property_index_undetermind, index_exp);
@@ -1349,7 +1350,7 @@ namespace X_ROOT_NS::modules::compile {
                 member_type_t::method, name_exp->name, &atypes, nullptr, return_type
             );
 
-            return (method_t *)type->get_member(args1);
+            return (method_t *)type->get_member(args1, true);
         }
 
         bool __try_get_member(type_t * type, name_expression_t * name_exp, member_t ** out_member)
@@ -1368,7 +1369,7 @@ namespace X_ROOT_NS::modules::compile {
 
             try
             {
-                *out_member = type->get_member(args);
+                *out_member = type->get_member(args, true);
 
                 if (*out_member == nullptr)
                 {
@@ -1571,7 +1572,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             try
             {
-                *out_method = (method_t *)type->get_member(args);
+                *out_method = (method_t *)type->get_member(args, true);
             }
             catch (const logic_error_t<common_error_code_t> & e)
             {
@@ -1719,7 +1720,7 @@ namespace X_ROOT_NS::modules::compile {
         analyze_member_args_t args(member_type_t::method, name, atypes, generic_args);
         args.method_trait = trait;
 
-        return (method_t *)type->get_member(args);
+        return (method_t *)type->get_member(args, true);
     }
 
     // Finds method.

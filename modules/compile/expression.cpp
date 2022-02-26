@@ -246,7 +246,7 @@ namespace X_ROOT_NS::modules::compile {
 
         analyze_member_args_t args(member_type_t::method, name_t::null, &atypes);
         args.method_trait = method_trait_t::constructor;
-        method_t * constructor = (method_t *)delegate_type->get_member(args);
+        method_t * constructor = (method_t *)delegate_type->get_member(args, true);
         _A(constructor != nullptr);
 
         ref_t constructor_method_ref = __search_method_ref(ctx, constructor);
@@ -2344,7 +2344,7 @@ namespace X_ROOT_NS::modules::compile {
         __compile_variable(ctx, pool, variable, xil_type_t::ptr, this);
 
         analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
-        method_t * method = (method_t *)gtype->get_member(args);
+        method_t * method = (method_t *)gtype->get_member(args, true);
         _A(method != nullptr);
 
         __compile_arguments(ctx, pool, this->arguments(), method);
@@ -2378,7 +2378,7 @@ namespace X_ROOT_NS::modules::compile {
             __Failed("delegate type error, should be System.Deletate<...>, but not %1%", gtype);
 
         analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
-        method_t * method = (method_t *)gtype->get_member(args);
+        method_t * method = (method_t *)gtype->get_member(args, true);
         _A(method != nullptr);
 
         __pre_call_method(ctx, pool, namex, method);

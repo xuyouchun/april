@@ -647,6 +647,9 @@ namespace X_ROOT_NS::modules::compile {
         // No base type.
         no_base_type,
 
+        // Circular base type dependency.
+        circle_base_type_dependency,
+
         // Expected array length.
         expected_array_length,
 
@@ -2959,6 +2962,7 @@ namespace X_ROOT_NS::modules::compile {
         class __general_fields_init_stub_t;
 
         __w_t<general_type_t> __type;
+        __el_t * __name_el = nullptr;
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context, int step, void * tag);
@@ -2971,6 +2975,12 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks init fields.
         bool __walk_analysis_init_fields(ast_walk_context_t & context);
+
+        // Check circle base types.
+        type_t * __check_circle_base_types();
+
+        // Check circle base types.
+        bool __check_circle_base_types(std::set<type_t *> & types, type_t * super_type);
     };
 
     ////////// ////////// ////////// ////////// //////////

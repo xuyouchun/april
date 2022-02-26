@@ -135,7 +135,7 @@ namespace X_ROOT_NS::algorithm {
         return map[key];
     }
 
-    // Inserts a key/value pair inot the map.
+    // Inserts a key/value pair into the map.
     template<typename _map_t, typename _key_t, typename _value_t>
     bool map_insert(_map_t && map, _key_t && key, _value_t && value)
     {
@@ -143,6 +143,13 @@ namespace X_ROOT_NS::algorithm {
         typedef typename map_t::value_type pair_t;
 
         return map.insert(pair_t(std::forward<_key_t>(key), std::forward<_value_t>(value))).second;
+    }
+
+    // Inserts item into the set.
+    template<typename _set_t, typename _item_t>
+    bool set_insert(_set_t && set, _item_t && item)
+    {
+        return set.insert(std::forward<_item_t>(item)).second;
     }
 
     // Pop an element from the queue.

@@ -175,8 +175,6 @@ namespace X_ROOT_NS::modules::core {
             virtual member_t * check_duplicate(member_t * member) override
                                                                     { return nullptr; }
 
-            virtual void each_super_type(each_super_type_callback_t callback) override { }
-
             virtual const string_t to_full_name() const override { return (string_t)*this; }
             virtual const string_t to_short_name() const override { return (string_t)*this; }
             virtual name_t get_name() const override { return name_t::null; }

@@ -394,9 +394,9 @@ namespace X_ROOT_NS::modules::compile {
                                 _T("static constructor method %1% should no params"))
 
         // Constructor method not found.
-        X_D(constructor_method_not_found,
-                                _T("constructor method %1%(%2%) not found"))
+        X_D(constructor_method_not_found, _T("constructor method %1%(%2%) not found"))
 
+        // Costom struct type should not define a default constructor.
         X_D(do_not_need_default_constructor,
                         _T("custom struct type %1% should not define a default constructor"))
 
@@ -406,6 +406,10 @@ namespace X_ROOT_NS::modules::compile {
 
         // No base type.
         X_D(no_base_type, _T("type '%1%' has no base type"))
+
+        // Circular base type dependency.
+        X_D(circle_base_type_dependency,
+                                _T("Circular base type dependency involving '%1% and '%2%'"))
 
         // Expected array length.
         X_D(expected_array_length, _T("expected array length"))
@@ -1773,6 +1777,7 @@ namespace X_ROOT_NS::modules::compile {
     // Sets name.
     void type_ast_node_t::set_name(const name_t & name, __el_t * el)
     {
+        __name_el = el;
         this->__assign_name(__type.name, name, el, _T("type name"));
     }
 
@@ -2245,18 +2250,32 @@ namespace X_ROOT_NS::modules::compile {
     // Walks analysis step.
     bool type_ast_node_t::__walk_analysis(ast_walk_context_t & context, void * tag)
     {
+        // Check circle base types.
+        if (tag == nullptr)
+        {
+            type_t * circle_type = __check_circle_base_types();
+            if (circle_type != nullptr)
+            {
+                this->__log(__name_el, __c_t::circle_base_type_dependency,
+                    __type.to_full_name(), circle_type->to_full_name()
+                );
+            }
+        }
+
         object_t * tag_obj = (object_t *)tag;
         method_t * new_default_constructor = nullptr;
         __fields_init_stub_t * fields_init_stub = nullptr;
 
         dynamic_cast_tie(tag_obj, &new_default_constructor, &fields_init_stub);
 
+        // Revise constructor.
         if (new_default_constructor != nullptr)
         {
             __method_utils_t(__context, context).revise_constructor(*new_default_constructor,
                                                                     nullptr);
         }
 
+        // Init field constant values.
         if (fields_init_stub != nullptr)
         {
             if (!fields_init_stub->continue_())
@@ -2347,6 +2366,59 @@ namespace X_ROOT_NS::modules::compile {
         __type.methods.push_back(method);
 
         return method;
+    }
+
+    // Check circle base types.
+    type_t * type_ast_node_t::__check_circle_base_types()
+    {
+        return __type.each_super_type([this](type_t * super_type) {
+
+            std::set<type_t *> walked_types;
+            return !__check_circle_base_types(walked_types, super_type);
+
+        });
+    }
+
+    // Check circle base types.
+    bool type_ast_node_t::__check_circle_base_types(std::set<type_t *> & walked_types,
+                                                    type_t * super_type)
+    {
+        super_type = to_general(super_type);
+
+        if (!walked_types.insert(super_type).second)
+            return false;
+
+        if (super_type == &__type)
+            return true;
+
+        // Super types.
+        type_t * circle_type = super_type->each_super_type([&, this](type_t * super_type1) {
+
+            if (__check_circle_base_types(walked_types, super_type1))
+                return false;
+
+            return true;
+
+        });
+
+        if (circle_type != nullptr)
+            return true;
+
+        /*
+        // Nest types.
+        if (super_type->this_gtype() == gtype_t::general)
+        {
+            general_type_t * general_type = (general_type_t *)super_type;
+            for (type_t * nest_type : general_type->nest_types)
+            {
+                _PP(nest_type);
+                if (__check_circle_base_types(walked_types, nest_type))
+                    return true;
+            }
+        }
+        */
+
+        return false;
     }
 
     ////////// ////////// ////////// ////////// //////////

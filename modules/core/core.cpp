@@ -2425,8 +2425,11 @@ namespace X_ROOT_NS::modules::core {
     void __collect_super_types(type_t * type, std::set<type_t *> & super_types)
     {
         type->each_super_type([&super_types](type_t * super_type) {
+
             if (super_types.insert(super_type).second)
                 __collect_super_types(super_type, super_types);
+
+            return true;
         });
     }
 
@@ -3155,14 +3158,6 @@ namespace X_ROOT_NS::modules::core {
                 return nullptr;
         }
 
-        if (args.include_base_types)
-        {
-            type_t * base_type = get_base_type();
-
-            if (base_type != nullptr)
-                return base_type->get_member(args);
-        }
-
         return nullptr;
     }
 
@@ -3486,13 +3481,19 @@ namespace X_ROOT_NS::modules::core {
     }
 
     // Enum super types by applies all super types for calling callback function.
-    void __general_type_like_base_t::each_super_type(each_super_type_callback_t callback)
+    type_t * __general_type_like_base_t::each_super_type(each_super_type_callback_t callback)
     {
         for (type_name_t * super_type_name : super_type_names)
         {
-            if (super_type_name->type != nullptr)
-                callback(super_type_name->type);
+            type_t * type = super_type_name->type;
+            if (type != nullptr)
+            {
+                if (!callback(type))
+                    return type;
+            }
         }
+
+        return nullptr;
     }
 
     // Commits it.
@@ -4301,6 +4302,35 @@ namespace X_ROOT_NS::modules::core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Returns members descripted by args.
+    static member_t * __get_member(std::set<type_t *> walked_types, type_t * type,
+                                                        analyze_member_args_t & args)
+    {
+        if (type == nullptr || !al::set_insert(walked_types, type))
+            return nullptr;
+
+        member_t * member = type->get_member(args);
+        if (member != nullptr)
+            return member;
+
+        return __get_member(walked_types, type->get_base_type(), args);
+    }
+
+    // Returns members descripted by args.
+    member_t * type_t::get_member(analyze_member_args_t & args, bool include_base_types)
+    {
+        _A(type != nullptr);
+
+        member_t * member = this->get_member(args);
+        if (member != nullptr || !include_base_types)
+            return member;
+
+        std::set<type_t *> walked_types = { this };
+        return __get_member(walked_types, this->get_base_type(), args);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // uncertain_type_t
 
     // Returns members descripted by args.
@@ -4483,9 +4513,12 @@ namespace X_ROOT_NS::modules::core {
     }
 
     // Enum all super types.
-    void array_type_t::each_super_type(each_super_type_callback_t callback)
+    type_t * array_type_t::each_super_type(each_super_type_callback_t callback)
     {
-        callback(base_type);
+        if (!callback(base_type))
+            return base_type;
+
+        return nullptr;
     }
 
     // Commits it.
@@ -7732,6 +7765,9 @@ namespace X_ROOT_NS::modules::core {
 
         if (host_type != nullptr)   // Nest type
         {
+            if (host_type == from_type)
+                return true;
+
             if (!__check_type_access(from_type, host_type, cross_assembly))
                 return false;
 
