@@ -190,6 +190,19 @@ namespace X_ROOT_NS::modules::compile {
 
     X_ENUM_INFO(common_log_code_t)
 
+        // Hides inherit virtual member..
+        X_D(hides_inherit_virtual_member, _T("'%1%' hides inherited member '%2%', ")
+                    _T("to make the current member override that implemenation, ")
+                    _T("add the override keyword, otherwise add the new keyword"))
+
+        // Missing 'new'
+        X_D(hides_inherit_member, _T("'%1%' hides inherited member '%2%', ")
+                    _T("use the new keyword if hiding is intended"))
+
+        // The member does not hide an accessible member. The new keyword is not required.
+        X_D(not_hides_inherit_member, _T("The member '%1%' does not hide an accessible member. ")
+                                _T("The new keyword is not required."))
+
         // Duplicated.
         X_D(duplicate,  _T("duplicate %1% \"%2%\""))
 
@@ -490,6 +503,74 @@ namespace X_ROOT_NS::modules::compile {
         X_D(inaccessible_protection_level,
                 _T("%1% is inaccessible to its protection level"))
 
+        // Cannot change access modifiers when overriding inherited member.
+        X_D(access_modifier_changed,
+                _T("%1%: cannot change access modifiers when overriding '%2%' inherited ")
+                _T("member '%2%'"))
+
+        // Cannot change return types when override inherited members.
+        X_D(return_type_changed,
+                _T("%1%: return type must be '%2%' to match overridden member '%3%'"))
+
+        // Virtual or abstract members cannot be private.
+        X_D(virtual_member_cannot_be_private,
+                _T("%1%: virtual or abstract members cannot be private"))
+
+        // A static member cannot be marked as override, virtual, or abstract.
+        X_D(static_member_cannot_be_virtual,
+                _T("A static member '%1%' cannot be marked as override, virtual, or abstract"))
+
+        // A member marked as override cannot be marked as new or virtual
+        X_D(override_member_cannot_be_new,
+                _T("A member '%1%' marked as override cannot be marked as new or virtual"))
+
+        // member is abstract but it is contained in non-abstract type.
+        X_D(abstract_member_on_non_abstract_type,
+                _T("'%1%' is abstract but it is contained in non-abstract type '%2%'"))
+
+        // The modifier is not valid for this item.
+        X_D(modifier_not_valid,
+                _T("The modifier '%1%' is not valid for this item"))
+
+        // The modifier is not valid for interface members.
+        X_D(modifier_not_valid_for_interface_members,
+                _T("The modifier '%1%' is not valid for interface members"))
+
+        // Extern members should be marked as static.
+        X_D(extern_member_should_be_static,
+                _T("Extern member '%1%' should be marked as static"))
+
+        // Extern method cannot declare a body.
+        X_D(extern_method_cannot_declare_body,
+                _T("Extern method '%1%' cannot declare a body"))
+
+        // Abstract method cannot declare a body.
+        X_D(abstract_method_cannot_declare_body,
+                _T("'%1%': cannot declare a body because it's marked as abstract"))
+
+        // Cannot be sealed because it is not an override member.
+        X_D(sealed_member_but_not_override,
+                _T("'%1%': cannot be sealed because it is not an override member."))
+
+        // No suitable member found to override       
+        X_D(no_suitable_member_to_override,
+                _T("'%1%': no suitable member found to override"))
+
+        // cannot override inherited member because it is sealed.
+        X_D(cannot_override_because_sealed,
+                _T("'%1%': cannot override inherited member '%2%' because it is sealed"))
+
+        // Return type changed when override inherit members.
+        X_D(override_member_return_type_changed, _T("'%1%': return type must be '%2%' to match overridden member '%3%'"))
+
+        // Interface method cannot declare a body.
+        X_D(interface_members_cannot_have_defination,
+                _T("'%1%': interface members cannot have a defination"))
+
+        // Interfaces cannot contain instance fields.
+        X_D(interfaces_cannot_contain_instance_fields,
+                _T("interfaces cannot contain instance fields"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -500,6 +581,328 @@ namespace X_ROOT_NS::modules::compile {
     {
         general_type_name_t * type_name = as<general_type_name_t *>(attr->type_name);
         return type_name && type_name->equals(JC_COMPILE_ATTRIBUTE_NAME);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // __utils_t
+
+    // Check member duplicate or format correct.
+    template<typename _code_element_t>
+    bool __utils_t::__check_duplicate(type_t * type, member_t * member,
+                    _code_element_t * code_element, member_t ** out_duplicated_base_member)
+    {
+        _A(type != nullptr);
+        _A(member != nullptr);
+
+        typedef common_log_code_t c_t;
+
+        code_element_t * ce = dynamic_cast<code_element_t *>(code_element);
+        if (ce == nullptr)
+            ce = (code_element_t *)this;
+
+        al::assign(out_duplicated_base_member, nullptr);
+
+        // Same as type name.
+        if (member->get_name() == type->get_name())
+        {
+            if (member->this_type() != member_type_t::method ||
+                !is_constructor_or_destructor((method_t *)member))
+            {
+                this->__log(ce, c_t::member_same_as_enclosing_type);
+                return false;
+            }
+        }
+
+        // Check duplicate with self class.
+        {
+            member_t * member1 = type->check_duplicate(member);
+            if (member1 != nullptr)
+            {
+                this->__log(ce, c_t::member_defination_duplicated, type, member1);
+                return false;
+            }
+        }
+
+        // Check duplicate with base class.
+        type_t * base_type = type->get_base_type();
+        if (base_type != nullptr)
+        {
+            member_t * member1 = base_type->check_duplicate(member, true);
+            al::assign(out_duplicated_base_member, member1);
+
+            if (member1 != nullptr && member1->host_type != type && !is_private(member))
+            {
+                if (member1->this_type() == member1->this_type()
+                    && is_virtual_or_abstract_or_override(member1))
+                {
+                    if (!member->is_override() && !member->is_new())
+                    {
+                        // Missing override or new keywords.
+                        this->__log(ce, c_t::hides_inherit_virtual_member,
+                            member->to_prototype(), member1->to_prototype()
+                        );
+                    }
+                    else if (!is_same_access(member, member1))
+                    {
+                        // Access right changed.
+                        this->__log(ce, c_t::access_modifier_changed,
+                            member->to_prototype(), member1->get_access_value(),
+                            member1->to_prototype());
+
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (!member->is_new())
+                    {
+                        // Missing new keyword.
+                        this->__log(ce, c_t::hides_inherit_member,
+                            member->to_prototype(), member1->to_prototype()
+                        );
+                    }
+                }
+            }
+            else if (member->is_new())
+            {
+                // new keyword is not required.
+                this->__log(ce, c_t::not_hides_inherit_member, member->to_prototype());
+            }
+        }
+
+        return true;
+
+        #undef __Return
+    }
+
+    // Check member decorate corrected.
+    template<typename _member_t, typename _code_element_t>
+    bool __utils_t::__check_modifier(type_t * type, _member_t * member, member_t * base_member,
+                                     _code_element_t * code_element)
+    {
+        typedef common_log_code_t c_t;
+        typedef member_type_t m_t;
+
+        code_element_t * ce = dynamic_cast<code_element_t *>(code_element);
+        if (ce == nullptr)
+            ce = (code_element_t *)this;
+
+        member_type_t member_type = member->this_type();
+
+        // Interfaces.
+        if (type->this_ttype() == ttype_t::interface_)
+        {
+            // Interfaces cannot contain instance fields.
+            if (al::in(member_type, m_t::field))
+            {
+                this->__log(ce, c_t::interfaces_cannot_contain_instance_fields);
+                return false;
+            }
+
+            // Modifier not valid for interface members.
+            const char_t * modifier = 
+                member->is_virtual()?   _T("virtual") :
+                member->is_static()?    _T("static") :
+                member->is_abstract()?  _T("abstract") :
+                member->is_sealed()?    _T("sealed") :
+                member->is_const()?     _T("const") :
+                member->is_readonly()?  _T("readonly") :
+                member->is_extern()?    _T("extern") :
+                member->has_access_modifier()? _T("access modifier") : nullptr
+            ;
+
+            if (modifier != nullptr)
+            {
+                this->__log(ce, c_t::modifier_not_valid_for_interface_members, modifier);
+                return false;
+            }
+
+            // Interface methods cannot have defination.
+            if (member_type == m_t::method)
+            {
+                method_t * method = (method_t *)member;
+                if (method->body != nullptr)
+                {
+                    this->__log(ce, c_t::interface_members_cannot_have_defination);
+                    return false;
+                }
+            }
+
+            // Interface properties cannot have defination.
+            if (member_type == m_t::property)
+            {
+                property_t * property = (property_t *)member;
+
+                if (property->get_method != nullptr && property->get_method->body != nullptr)
+                {
+                    this->__log(property->get_method, c_t::interface_members_cannot_have_defination,
+                        property->get_method);
+
+                    return false;
+                }
+
+                if (property->set_method != nullptr && property->set_method->body != nullptr)
+                {
+                    this->__log(property->set_method, c_t::interface_members_cannot_have_defination,
+                        property->set_method);
+
+                    return false;
+                }
+            }
+        }
+
+        // Check virtual members.
+        else if (al::in(member_type, m_t::property, m_t::method, m_t::event))
+        {
+            if (is_virtual_or_abstract_or_override(member))
+            {
+                // Private member cannot be virtual, abstract or override.
+                if (is_private(member))
+                {
+                    this->__log(ce, c_t::virtual_member_cannot_be_private, member->to_prototype());
+                    return false;
+                }
+
+                // Static member cannot be virtual, abstract or override.
+                if (member->is_static())
+                {
+                    this->__log(ce, c_t::static_member_cannot_be_virtual, member->to_prototype());
+                    return false;
+                }
+            }
+
+            if (member->is_override())
+            {
+                // Override member cannot be new, virtual.
+                if (member->is_virtual() || member->is_new())
+                {
+                    this->__log(ce, c_t::override_member_cannot_be_new, member->to_prototype());
+                    return false;
+                }
+
+                // No suitable member to override.
+                if (base_member == nullptr || !is_virtual_or_abstract_or_override(base_member))
+                {
+                    this->__log(ce, c_t::no_suitable_member_to_override, member->to_prototype());
+                    return false;
+                }
+
+                if (base_member != nullptr)
+                {
+                    // Cannot override because it is sealed.
+                    if (base_member->is_sealed())
+                    {
+                        this->__log(ce, c_t::cannot_override_because_sealed, member->to_prototype(),
+                            base_member->to_prototype());
+                        return false;
+                    }
+
+                    // Return type changed.
+                    if (base_member->get_type() != member->get_type())
+                    {
+                        this->__log(ce, c_t::return_type_changed, member->to_prototype(),
+                            base_member->get_type(), base_member->to_prototype());
+                        return false;
+                    }
+                }
+            }
+
+            // Member is abstract but in non-abstract type.
+            if (member->is_abstract() && !type->is_abstract())
+            {
+                this->__log(ce, c_t::abstract_member_on_non_abstract_type, member->to_prototype(),
+                    type->to_prototype());
+
+                return false;
+            }
+
+            // Sealed member but not override.
+            if (member->is_sealed() && !member->is_override())
+            {
+                this->__log(ce, c_t::sealed_member_but_not_override, member->to_prototype());
+                return false;
+            }
+
+            // Other modifiers.
+            const char_t * modifier = 
+                member->is_readonly()?  _T("readonly") :
+                member->is_const()?     _T("const") : nullptr;
+
+            if (modifier != nullptr)
+            {
+                this->__log(ce, c_t::modifier_not_valid, modifier);
+                return false;
+            }
+
+            // Extern method.
+            if (member->is_extern())
+            {
+                if (member_type != m_t::method)
+                {
+                    this->__log(ce, c_t::modifier_not_valid, modifier);
+                    return false;
+                }
+
+                if (!member->is_static())
+                {
+                    this->__log(ce, c_t::extern_member_should_be_static, member->to_prototype());
+                    return false;
+                }
+
+                method_t * method = (method_t *)member;
+                if (method->body != nullptr)
+                {
+                    this->__log(ce, c_t::extern_method_cannot_declare_body, member->to_prototype());
+                    return false;
+                }
+            }
+        }
+        else    // Field, typedef
+        {
+            const char_t * modifier = 
+                member->is_virtual()?   _T("virtual") :
+                member->is_abstract()?  _T("abstract") :
+                member->is_override()?  _T("override") :
+                member->is_extern() ?   _T("extern") :
+                member->is_sealed() ?   _T("sealed") : nullptr;
+
+            if (modifier != nullptr)
+            {
+                this->__log(ce, c_t::modifier_not_valid, modifier);
+                return false;
+            }
+
+            if (member_type == member_type_t::type_def)
+            {
+                const char_t * modifier1 =
+                    member->is_const()?     _T("const") :
+                    member->is_readonly()?  _T("readonly") :
+                    member->is_static()?    _T("static") : nullptr;
+
+                if (modifier1 != nullptr)
+                {
+                    this->__log(ce, c_t::modifier_not_valid, modifier1);
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    // Check member duplicate and decorate corrected.
+    template<typename _member_t, typename _code_element_t>
+    bool __utils_t::__check_member(type_t * type, _member_t * member,
+                                                    _code_element_t * code_element)
+    {
+        member_t * base_member = nullptr;
+        if (!__check_duplicate(type, member, code_element, &base_member))
+            return false;
+
+        if (!__check_modifier(type, member, base_member, code_element))
+            return false;
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1017,7 +1420,7 @@ namespace X_ROOT_NS::modules::compile {
     // Walks analysis step.
     bool type_def_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        this->__check_duplicate(context.current_type(), &__type_def, __name_el);
+        this->__check_member(context.current_type(), &__type_def, __name_el);
         return true;
     }
 
@@ -3915,7 +4318,7 @@ namespace X_ROOT_NS::modules::compile {
     // Walks analysis step.
     bool field_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        this->__check_duplicate(context.current_type(), &__field, __name_el);
+        this->__check_member(context.current_type(), &__field, __name_el);
         return true;
     }
 
@@ -4120,7 +4523,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // Check duplicated.
         if (__method.relation_member == nullptr)
-            this->__check_duplicate(context.current_type(), &__method, __name_el);
+            this->__check_member(context.current_type(), &__method, __name_el);
 
         // Operator overload, checks prototype.
         if (__op_property == nullptr)
@@ -4236,6 +4639,26 @@ namespace X_ROOT_NS::modules::compile {
                 this->__log(this, __c_t::name_empty, _T("property"));
         }
 
+        this->__append_default_methods(context);
+
+        variable_region_t * region = context.current_region();
+
+        variable_defination_t vd(this->__context, context, &__property);
+        vd.define_property(&__property);
+
+        context.push(this->to_eobject());
+        __super_t::on_walk(context, step, tag);
+        context.pop();
+
+        return true;
+    }
+
+    // Append default methods for get/set methods.
+    void property_ast_node_t::__append_default_methods(ast_walk_context_t & context)
+    {
+        type_t * type = context.current_type();
+        _A(type != nullptr);
+
         if (__property.get_method != nullptr)
         {
             __property.get_method->name      = __to_method_name(_T("get"));
@@ -4269,24 +4692,14 @@ namespace X_ROOT_NS::modules::compile {
             __append_member(this->__context, context, __property.set_method);
         }
 
-        __generate_ignored_method_bodies(context, value_param);
-
-        variable_region_t * region = context.current_region();
-
-        variable_defination_t vd(this->__context, context, &__property);
-        vd.define_property(&__property);
-
-        context.push(this->to_eobject());
-        __super_t::on_walk(context, step, tag);
-        context.pop();
-
-        return true;
+        if (type->this_ttype() != ttype_t::interface_ && !__property.is_abstract())
+            __generate_ignored_method_bodies(context, value_param);
     }
 
     // Walks analysis step.
     bool property_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        this->__check_duplicate(context.current_type(), &__property, __name_el);
+        this->__check_member(context.current_type(), &__property, __name_el);
         return true;
     }
 
@@ -4294,13 +4707,13 @@ namespace X_ROOT_NS::modules::compile {
     void property_ast_node_t::__generate_ignored_method_bodies(ast_walk_context_t & context,
                                                                param_t * value_param)
     {
-        #define __AccessorEmpty(name)                                           \
+        #define __AccessorEmpty(name)                                                   \
             (__property.name##_method == nullptr)
 
-        #define __BodyEmpty(name)                                               \
+        #define __BodyEmpty(name)                                                       \
             (__property.name##_method->body == nullptr)
 
-        #define __BodyIgnored(name)                                             \
+        #define __BodyIgnored(name)                                                     \
             (!__AccessorEmpty(name) && __BodyEmpty(name))
 
         if (__AccessorEmpty(get) && __AccessorEmpty(set))
@@ -4461,7 +4874,7 @@ namespace X_ROOT_NS::modules::compile {
     // Walks analysis step.
     bool event_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        this->__check_duplicate(context.current_type(), &__event, __name_el);
+        this->__check_member(context.current_type(), &__event, __name_el);
         return true;
     }
 

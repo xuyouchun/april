@@ -98,6 +98,9 @@ namespace __root_ns = ::X_ROOT_NS;
 // Format a string with specified arguments.
 #define _F(format, args...) __root_ns::sprintf(format, ##args)
 
+// Format a string with specified arguments, same as _F(_T("") format, args...)
+#define _FT(format, args...) _F(_T("") format, ##args)
+
 // Defines an exception by specified error code, the exception type depended on the error code.
 #define _E(code, args...)   X_ERROR(code, ##args)
 

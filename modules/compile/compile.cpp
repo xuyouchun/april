@@ -653,7 +653,7 @@ namespace X_ROOT_NS::modules::compile {
     // console_logger_t
 
     void console_logger_t::log(code_element_t * element, log_level_t level,
-                            const string_t & name, const string_t & message)
+                            const string_t & name, int code, const string_t & message)
     {
         __color_t color = __get_console_color(level, name);
 
@@ -696,8 +696,19 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             stringstream_t ss;
+            ss << _T(" ");
 
-            ss << _T(" ") << name.c_str() << _T(": ") << message.c_str();
+            const lang_info_t * lang_info;
+            if (__lang != nullptr && (lang_info = __lang->get_info()) != nullptr)
+            {
+                for (char_t c : lang_info->simple_name)
+                {
+                    ss << (char_t)std::toupper(c);
+                }
+            }
+
+            ss.fill('0');
+            ss << std::setw(4) << code << _T(": ") << message.c_str();
             ss << msg.c_str();
 
             _P(ss.str());

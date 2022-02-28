@@ -5,7 +5,7 @@ namespace Reflection
 	////////// ////////// ////////// ////////// //////////
 
     [Internal]
-	public class ReflectionInfo
+	public abstract class ReflectionInfo
 	{
 		public String Name
 		{
@@ -106,11 +106,6 @@ namespace Reflection
     [Internal]
 	public sealed class Parameter : ReflectionInfo
 	{
-		public String Name
-		{
-			get { return null; }
-		}
-
 		public Method Type
 		{
 			get { return null; }
@@ -122,10 +117,7 @@ namespace Reflection
     [Internal]
 	public sealed class GenericParameter : ReflectionInfo
 	{
-		public String Name
-		{
-			get { return null; }
-		}
+
 	}
 
 	////////// ////////// ////////// ////////// //////////

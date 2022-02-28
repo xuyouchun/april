@@ -8,25 +8,39 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        Delegate<Base> func = GetObj;
-
-        Base obj = func();
-        var r = obj.GetValue();
+        /*
+        BaseClass obj = new MyClass();
+        int r = obj.GetValue();
 
         Console.WriteLine(r);
-    }
-
-    static Base GetObj()
-    {
-        return new Base();
+        */
     }
 }
 
-class MyClass : Base
+interface IMyInterface
 {
-    private int Value
-    {
-        get { return 10; }
-    }
+    int GetValue { get; }
 }
 
+class BaseClass
+{
+    public virtual int GetValue(int b) { return 0; }
+}
+
+class MyClass : BaseClass
+{
+    /*
+    public sealed override int GetValue(int b)
+    {
+        return 2;
+    }
+    */
+}
+
+class MyClass2 : MyClass
+{
+    public override long GetValue(int b)
+    {
+        return 2;
+    }
+}

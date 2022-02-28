@@ -24,7 +24,9 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
 
     // Constructor.
-    cs_lang_t::cs_lang_t(const lang_create_args_t & args) : __lang_id(args.lang_id)
+    cs_lang_t::cs_lang_t(const lang_create_args_t & args)
+        : __lang_id(args.lang_id)
+        , __lang_info({ _T("csharp"), __default_name__ })
     {
         __service = memory_t::new_obj<cs_lang_service_t>(
             &__pool, this
@@ -75,6 +77,12 @@ namespace X_ROOT_NS::modules::lang_cs {
     lang_id_t cs_lang_t::get_id()
     {
         return __lang_id;
+    }
+
+    // Returns language information.
+    const lang_info_t * cs_lang_t::get_info()
+    {
+        return &__lang_info;
     }
 
     const char_t * const cs_lang_t::__default_name__ = _T("cs");

@@ -24,13 +24,23 @@ public class Object
     }
 };
 
-public class Base
+/*
+public class MyClass : Base
 {
     public Int32 GetValue()
     {
-        return 100;
+        return 123;
     }
-};
+
+    class Base
+    {
+        public Int32 GetBaseValue()
+        {
+            return 10;
+        }
+    }
+}
+*/
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -98,7 +108,7 @@ public sealed class Type
     }
 
     // Converts to string.
-    public String ToString()
+    public override String ToString()
     {
         return "Type";
     }
@@ -262,5 +272,4 @@ public class NullReferenceException : Exception
 };
 
 ////////// ////////// ////////// ////////// //////////
-
 

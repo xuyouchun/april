@@ -1315,6 +1315,15 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
     // member_t
 
+    // Returns a prototype name.
+    string_t member_t::to_prototype() const
+    {
+        if (host_type == nullptr)
+            return get_name();
+
+        return _FT("%1%.%2%", host_type->to_short_name(), this->get_name());
+    }
+
     // Returns access value of specified member.
     access_value_t member_t::get_access_value()
     {
@@ -1352,6 +1361,15 @@ namespace X_ROOT_NS::modules::core {
         }
     }
 
+    // Returns whether the two members has the same access.
+    bool is_same_access(member_t * member1, member_t * member2)
+    {
+        _A(member1 != nullptr);
+        _A(member2 != nullptr);
+
+        return member1->get_access_value() == member2->get_access_value();
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // param_t
 
@@ -1371,6 +1389,18 @@ namespace X_ROOT_NS::modules::core {
             return _F(_T("%1% %2%"), type_name, name);
 
         return _F(_T("%1% %2% %3%"), ptype, type_name, name);
+    }
+
+    // Append to a string stream.
+    void param_t::append_to(stringstream_t & ss, bool include_name)
+    {
+        if (ptype != param_type_t::__default__)
+            ss << _str(ptype);
+
+        ss << _str(type_name);
+
+        if (include_name)
+            ss << _T(" ") << _str(name);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1648,6 +1678,20 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Returns a prototype name.
+    string_t method_t::to_prototype() const
+    {
+        stringstream_t ss;
+
+        if (host_type != nullptr)
+            ss << host_type->to_short_name().c_str() << _T(".");
+
+        ss << _str(name);
+        __append_params(ss, false);
+
+        return ss.str();
+    }
+
     // Returns param type of specified index.
     typex_t method_t::param_type_at(size_t index) const
     {
@@ -1739,16 +1783,32 @@ namespace X_ROOT_NS::modules::core {
             ss << _str(type_name) << _T(" ");
 
         ss << _str(name);
+        __append_params(ss, true);
 
+        return ss.str();
+    }
+
+    // Append generic params and params.
+    void method_t::__append_params(stringstream_t & ss, bool include_param_name) const
+    {
         if (generic_param_count() > 0)
             ss << _T("<") << _str(generic_params) << _T(">");
 
         ss << _T("(");
-        if (param_count() > 0)
-            ss << _str(params);
-        ss << _T(")");
 
-        return ss.str();
+        if (param_count() > 0)
+        {
+            int index = 0;
+            for (param_t * param : *params)
+            {
+                if (index++ > 0)
+                    ss << _T(", ");
+
+                param->append_to(ss, include_param_name);
+            }
+        }
+
+        ss << _T(")");
     }
 
     // Gets the general method of a method.
@@ -2017,12 +2077,6 @@ namespace X_ROOT_NS::modules::core {
         }
     }
 
-    // Returns type of this field.
-    type_t * field_t::get_type()
-    {
-        return type_name? type_name->type : nullptr;
-    }
-
     // Returns vtype of this field.
     vtype_t field_t::get_vtype()
     {
@@ -2093,12 +2147,6 @@ namespace X_ROOT_NS::modules::core {
         // Empty.
     }
 
-    // Checks whether it's duplicate.
-    member_t * type_def_param_t::check_duplicate(member_t * member)
-    {
-        return nullptr;
-    }
-
     ////////// ////////// ////////// ////////// //////////
     // type_def_t
 
@@ -2106,15 +2154,6 @@ namespace X_ROOT_NS::modules::core {
     type_def_param_t * type_def_t::find_param(const name_t & name)
     {
         return __find_param(params, name);
-    }
-
-    // Returns type of typedef.
-    type_t * type_def_t::get_type() const
-    {
-        if (type_name == nullptr)
-            return nullptr;
-
-        return type_name->type;
     }
 
     // Converts to a string.
@@ -4330,6 +4369,33 @@ namespace X_ROOT_NS::modules::core {
         return __get_member(walked_types, this->get_base_type(), args);
     }
 
+    // Checks whether it's duplicate.
+    static member_t * __check_duplicate(std::set<type_t *> walked_types, type_t * type,
+                                        member_t * member)
+    {
+        if (type == nullptr || !al::set_insert(walked_types, type))
+            return nullptr;
+
+        member_t * member1 = type->check_duplicate(member);
+        if (member1 != nullptr)
+            return member1;
+
+        return __check_duplicate(walked_types, type->get_base_type(), member);
+    }
+
+    // Checks whether it's duplicate.
+    member_t * type_t::check_duplicate(member_t * member, bool include_base_types)
+    {
+        _A(type != nullptr);
+
+        member_t * member1 = this->check_duplicate(member);
+        if (member1 != nullptr || !include_base_types)
+            return member1;
+
+        std::set<type_t *> walked_types = { this };
+        return __check_duplicate(walked_types, this->get_base_type(), member);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // uncertain_type_t
 
@@ -4349,12 +4415,6 @@ namespace X_ROOT_NS::modules::core {
     void uncertain_type_t::get_all_members(members_t & out_members)
     {
         // Empty.
-    }
-
-    // Checks whether it's duplicate.
-    member_t * uncertain_type_t::check_duplicate(member_t * member)
-    {
-        return nullptr;
     }
 
     // The uncertain type sigleton instance.
@@ -4385,12 +4445,6 @@ namespace X_ROOT_NS::modules::core {
         // Empty.
     }
 
-    // Checks whether it's duplicate.
-    member_t * null_type_t::check_duplicate(member_t * member)
-    {
-        return nullptr;
-    }
-
     // The null type sigleton instance.
     null_type_t * null_type_t::instance()
     {
@@ -4417,12 +4471,6 @@ namespace X_ROOT_NS::modules::core {
     void unknown_type_t::get_all_members(members_t & out_members)
     {
         // Empty.
-    }
-
-    // Checks whether it's duplicate.
-    member_t * unknown_type_t::check_duplicate(member_t * member)
-    {
-        return nullptr;
     }
 
     // The unknown type sigleton instance.
@@ -4469,12 +4517,6 @@ namespace X_ROOT_NS::modules::core {
     void generic_param_t::get_all_members(members_t & out_members)
     {
         // Empty.
-    }
-
-    // Checks whether it's duplicate.
-    member_t * generic_param_t::check_duplicate(member_t * member)
-    {
-        return nullptr;
     }
 
     const string_t generic_param_t::to_identity() const

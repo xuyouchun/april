@@ -444,6 +444,15 @@ namespace X_ROOT_NS::modules::compile {
 
         __warning__         = 4000,
 
+        // Hides inherit virtual member.
+        hides_inherit_virtual_member,
+
+        // Hides inherit member.
+        hides_inherit_member,
+
+        // The member does not hide an accessible member. The new keyword is not required.
+        not_hides_inherit_member,
+
         __error__           = 7000,
 
         // Duplicated
@@ -715,6 +724,57 @@ namespace X_ROOT_NS::modules::compile {
 
         // Member is inaccessible to its protection level.
         inaccessible_protection_level,
+
+        // Cannot change access modifiers when overriding inherited member.
+        access_modifier_changed,
+
+        // Cannot change return types when override inherited members.
+        return_type_changed,
+
+        // Virtual or abstract members cannot be private
+        virtual_member_cannot_be_private,
+
+        // A static member cannot be marked as override, virtual, or abstract
+        static_member_cannot_be_virtual,
+
+        // A member marked as override cannot be marked as new or virtual
+        override_member_cannot_be_new,
+
+        // Member is abstract but it is contained in non-abstract type.
+        abstract_member_on_non_abstract_type,
+
+        // The modifier is not valid for this item.
+        modifier_not_valid,
+
+        // The modifier is not valid for interface members.
+        modifier_not_valid_for_interface_members,
+
+        // Extern members should be marked as static.
+        extern_member_should_be_static,
+
+        // Extern method cannot declare a body.
+        extern_method_cannot_declare_body,
+
+        // Abstract method cannot declare a body.
+        abstract_method_cannot_declare_body,
+
+        // Cannot be sealed because it is not an override member.
+        sealed_member_but_not_override,
+
+        // No suitable member found to override.
+        no_suitable_member_to_override,
+
+        // Cannot override inherited member because it is sealed.
+        cannot_override_because_sealed,
+
+        // Return type changed when override inherit members.
+        override_member_return_type_changed,
+
+        // Interface members cannot have defination.
+        interface_members_cannot_have_defination,
+
+        // Interfaces cannot contain instance fields.
+        interfaces_cannot_contain_instance_fields,
 
         __the_end__         = 10000,
 
@@ -1078,36 +1138,20 @@ namespace X_ROOT_NS::modules::compile {
                 return __check_access(wctx, member, code_element, code_element);
             }
 
-            // Check duplicated.
+            // Check member duplicate or format correct.
             template<typename _code_element_t>
-            member_t * __check_duplicate(type_t * type, member_t * member,
-                                                _code_element_t * code_element)
-            {
-                _A(type != nullptr);
-                _A(member != nullptr);
+            bool __check_duplicate(type_t * type, member_t * member,
+                _code_element_t * code_element, member_t ** out_duplicated_base_member = nullptr);
 
-                code_element_t * ce = dynamic_cast<code_element_t *>(code_element);
-                if (ce == nullptr)
-                    ce = (code_element_t *)this;
+            // Check member decorate corrected.
+            template<typename _member_t, typename _code_element_t>
+            bool __check_modifier(type_t * type, _member_t * member, member_t * base_member,
+                                                _code_element_t * code_element);
 
-                if (member->get_name() == type->get_name())
-                {
-                    if (member->this_type() != member_type_t::method ||
-                        !is_constructor_or_destructor((method_t *)member))
-                    {
-                        this->__log(ce, common_log_code_t::member_same_as_enclosing_type);
-                        return type;
-                    }
-                }
-
-                member_t * member1 = type->check_duplicate(member);
-                if (member1 == nullptr)
-                    return nullptr;
-
-                this->__log(ce, common_log_code_t::member_defination_duplicated, type, member1);
-
-                return member1;
-            }
+            // Check member duplicate and decorate corrected.
+            template<typename _member_t, typename _code_element_t>
+            bool __check_member(type_t * type, _member_t * member,
+                                                _code_element_t * code_element);
         };
     }
 
@@ -4265,6 +4309,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context, int step, void * tag);
+
+        // Append default methods for get/set methods.
+        void __append_default_methods(ast_walk_context_t & context);
 
         // Walks analysis step.
         bool __walk_analysis(ast_walk_context_t & context);

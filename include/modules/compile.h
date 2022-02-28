@@ -923,6 +923,15 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Language information.
+    struct lang_info_t
+    {
+        string_t    name;
+        string_t    simple_name;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Interface for language.
     X_INTERFACE lang_t
     {
@@ -931,6 +940,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Returns language id.
         virtual lang_id_t get_id() = 0;
+
+        // Returns language information.
+        virtual const lang_info_t * get_info() = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1130,13 +1142,14 @@ namespace X_ROOT_NS::modules::compile {
 
         // Constructor.
         compile_log_t(lang_t * lang, code_element_t * element, __level_t level,
-                            const string_t & name, const string_t & message)
+                            const string_t & name, int code, const string_t & message)
             : lang(lang), level(level), name(name), message(message), element(element)
         { }
 
         lang_t *        lang;           // Language.
         __level_t       level;          // Level
         string_t        name;           // Name
+        int             code;           // Code
         string_t        message;        // Message
         code_element_t * element;       // Element
 
@@ -1197,7 +1210,7 @@ namespace X_ROOT_NS::modules::compile {
         void log_error(lang_t * lang, code_element_t * element, code_t code,
                                                             const string_t & message)
         {
-            log(lang, element, __log_level_t::error, _title(code), message);
+            log(lang, element, __log_level_t::error, _title(code), (int)code, message);
         }
 
         // Logs warning message.
@@ -1205,7 +1218,7 @@ namespace X_ROOT_NS::modules::compile {
         void log_warning(lang_t * lang, code_element_t * element, code_t code,
                                                             const string_t & message)
         {
-            log(lang, element, __log_level_t::warning, _title(code), message);
+            log(lang, element, __log_level_t::warning, _title(code), (int)code, message);
         }
 
         // Logs info message.
@@ -1213,14 +1226,14 @@ namespace X_ROOT_NS::modules::compile {
         void log_info(lang_t * lang, code_element_t * element, code_t code,
                                                             const string_t & message)
         {
-            log(lang, element, __log_level_t::info, _title(code), message);
+            log(lang, element, __log_level_t::info, _title(code), (int)code, message);
         }
 
         // Log message.
         void log(lang_t * lang, code_element_t * element, __log_level_t level,
-                                const string_t & name, const string_t & message)
+                    const string_t & name, int code, const string_t & message)
         {
-            logs.append(new_obj<compile_log_t>(lang, element, level, name, message));
+            logs.append(new_obj<compile_log_t>(lang, element, level, name, code, message));
 
             if (level == __log_level_t::error)
                 __error_count++;
@@ -1231,7 +1244,7 @@ namespace X_ROOT_NS::modules::compile {
         void log(__log_level_t level, code_t code, args_t && ... args)
         {
             return log((lang_t *)nullptr, (code_element_t *)nullptr, level,
-                _title(code), _F(_desc(code), std::forward<args_t>(args) ...)
+                _title(code), (int)code, _F(_desc(code), std::forward<args_t>(args) ...)
             );
         }
 
@@ -1269,9 +1282,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Log message.
         virtual void log(code_element_t * element, log_level_t level,
-                            const string_t & name, const string_t & message) override
+                const string_t & name, int code, const string_t & message) override
         {
-            __compile_context.log(__lang, element, level, name, message);
+            __compile_context.log(__lang, element, level, name, code, message);
         }
 
         // Returns error count.
@@ -1293,13 +1306,16 @@ namespace X_ROOT_NS::modules::compile {
         typedef lib::console_color_t __color_t;
 
     public:
+        console_logger_t(lang_t * lang) : __lang(lang) { }
+
         virtual void log(code_element_t * element, log_level_t level,
-                            const string_t & name, const string_t & message) override;
+                const string_t & name, int code, const string_t & message) override;
 
     private:
         __color_t __get_console_color(log_level_t level, const string_t & name);
         std::set<size_t> __logged_lines;
         size_t __last_invisibled_line = __empty_line;
+        lang_t * __lang;
 
         static const size_t __empty_line = max_value<size_t>();
     };
@@ -1314,6 +1330,7 @@ namespace X_ROOT_NS::modules::compile {
         // Constructor.
         multipy_logger_t(compile_context_t & compile_context, lang_t * lang = nullptr)
             : __compile_logger(compile_context, lang)
+            , __console_logger(lang)
             , loggers_t({ &__compile_logger, &__console_logger })
         { }
 

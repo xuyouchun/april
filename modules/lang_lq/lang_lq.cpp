@@ -14,7 +14,9 @@ namespace X_ROOT_NS::modules::lang_lq {
     }*/
 
     // Constructor.
-    lq_lang_t::lq_lang_t(const lang_create_args_t & args) : __lang_id(args.lang_id)
+    lq_lang_t::lq_lang_t(const lang_create_args_t & args)
+        : __lang_id(args.lang_id)
+        , __lang_info({ _T("linq"), __default_name__ })
     {
 
     }
@@ -29,6 +31,12 @@ namespace X_ROOT_NS::modules::lang_lq {
     lang_id_t lq_lang_t::get_id()
     {
         return __lang_id;
+    }
+
+    // Returns language information.
+    const lang_info_t * lq_lang_t::get_info()
+    {
+        return &__lang_info;
     }
 
     const char_t * const lq_lang_t::__default_name__ = _T("lq");

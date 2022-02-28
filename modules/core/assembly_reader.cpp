@@ -148,7 +148,7 @@ namespace X_ROOT_NS::modules::core {
         {
         public:
             virtual void log(code_element_t * element, log_level_t level,
-                            const string_t & name, const string_t & message) override
+                            const string_t & name, int code, const string_t & message) override
             {
                 if (level == log_level_t::error)
                     throw _E(__e_t::format_error, message);

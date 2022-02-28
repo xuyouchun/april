@@ -31,14 +31,18 @@ namespace X_ROOT_NS::modules::lang_cs {
         // Returns language id.
         virtual lang_id_t get_id() override;
 
+        // Returns language information.
+        virtual const lang_info_t * get_info() override;
+
         static const char_t * const __default_name__;
 
         X_TO_STRING_IMPL(_T("cs_lang_t"))
 
     private:
-        object_t * __service;
-        pool_t __pool;
-        lang_id_t __lang_id;
+        object_t *  __service;
+        pool_t      __pool;
+        lang_id_t   __lang_id;
+        lang_info_t __lang_info;
 
         template<typename service_t> service_t * __get_service();
     };

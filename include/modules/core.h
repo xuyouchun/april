@@ -257,7 +257,7 @@ namespace X_ROOT_NS::modules::core {
     {
         // Log inforation / warning / error messages.
         virtual void log(code_element_t * element, log_level_t level,
-                                const string_t & name, const string_t & message) = 0;
+            const string_t & name, int code, const string_t & message) = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -275,7 +275,7 @@ namespace X_ROOT_NS::modules::core {
         template<typename _code_t>
         void log_error(code_element_t * element, _code_t code, const string_t & message)
         {
-            logger.log(element, log_level_t::error, _title(code), message);
+            logger.log(element, log_level_t::error, _title(code), (int)code, message);
         }
 
         // Log error with format.
@@ -303,7 +303,7 @@ namespace X_ROOT_NS::modules::core {
         template<typename _code_t>
         void log_info(code_element_t * element, _code_t code, const string_t & message)
         {
-            logger.log(element, log_level_t::info, _title(code), message);
+            logger.log(element, log_level_t::info, _title(code), (int)code, message);
         }
 
         // Log info with format.
@@ -324,7 +324,7 @@ namespace X_ROOT_NS::modules::core {
         template<typename _code_t>
         void log(code_element_t * element, log_level_t level, _code_t code, const string_t & message)
         {
-            logger.log(element, level, _title(code), message);
+            logger.log(element, level, _title(code), (int)code, message);
         }
 
         // Log message with format.
@@ -338,7 +338,7 @@ namespace X_ROOT_NS::modules::core {
         template<typename _code_t, typename ... _args_t>
         void logf(code_element_t * element, log_level_t level, _code_t code, _args_t && ... args)
         {
-            logger.log(element, level, _title(code),
+            logger.log(element, level, _title(code), (int)code,
                 _F(_desc(code), std::forward<_args_t>(args) ...)
             );
         }
@@ -365,7 +365,7 @@ namespace X_ROOT_NS::modules::core {
             else
                 throw _ECF(argument_error, _T("argument %1% out of range"), __Code(code));
 
-            logger.log(element, level, _title(code), message);
+            logger.log(element, level, _title(code), (int)code, message);
 
             return level;
 
@@ -430,11 +430,11 @@ namespace X_ROOT_NS::modules::core {
 
         // Log messages.
         virtual void log(code_element_t * element, log_level_t level,
-                                const string_t & name, const string_t & message)
+                                const string_t & name, int code, const string_t & message)
         {
             for (logger_t * logger : __loggers)
             {
-                logger->log(element, level, name, message);
+                logger->log(element, level, name, code, message);
             }
         }
 
@@ -1583,6 +1583,7 @@ namespace X_ROOT_NS::modules::core {
         bool is_const() const    _NE { return decorate && decorate->is_const; }
         bool is_readonly() const _NE { return decorate && decorate->is_readonly; }
         bool is_extern() const   _NE { return decorate && decorate->is_extern; }
+        bool has_access_modifier() const _NE { return access() != access_value_t::__default__; }
 
         // Protected model.
         access_value_t access() const _NE
@@ -1603,10 +1604,18 @@ namespace X_ROOT_NS::modules::core {
         #undef __DefineAccessMethod
     };
 
+    // Returns whether it's static and const.
     X_INLINE bool is_static_const(const with_decorate_object_t * obj)
     {
         _A(obj != nullptr);
         return obj->is_static() && obj->is_const();
+    }
+
+    // Returns whether it's virtual or abstract.
+    X_INLINE bool is_virtual_or_abstract_or_override(const with_decorate_object_t * obj)
+    {
+        _A(obj != nullptr);
+        return obj->is_virtual() || obj->is_abstract() || obj->is_override();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1977,6 +1986,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Converts to string.
         virtual const string_t to_string() const override { return (string_t)*this; }
+
+        // Append to a string stream.
+        void append_to(stringstream_t & ss, bool include_name);
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2169,11 +2181,17 @@ namespace X_ROOT_NS::modules::core {
         // Returns name.
         virtual name_t get_name() const = 0;
 
+        // Returns a prototype name.
+        virtual string_t to_prototype() const;
+
         // Sets a host type as the member owner.
         void set_owner(type_t * host_type) { this->host_type = host_type; }
 
         // Returns family.
         virtual member_family_t this_family() const { return member_family_t::general; }
+
+        // Returns type of this member.
+        virtual type_t * get_type() = 0;
 
         // Returns access value of specified member.
         access_value_t get_access_value();
@@ -2187,6 +2205,16 @@ namespace X_ROOT_NS::modules::core {
         // Converts to string.
         virtual const string_t to_string() const override { return (string_t)*this; }
     };
+
+    // Returns whether it's a private member.
+    X_INLINE bool is_private(member_t * member)
+    {
+        _A(member != nullptr);
+        return member->get_access_value() == access_value_t::private_;
+    }
+
+    // Returns whether the two members has the same access.
+    bool is_same_access(member_t * member1, member_t * member2);
 
     //-------- ---------- ---------- ---------- ----------
     // __named_base_t
@@ -2333,8 +2361,14 @@ namespace X_ROOT_NS::modules::core {
         // Returns all members.
         virtual void get_all_members(members_t & out_members) = 0;
 
+        // Returns type of this member.
+        virtual type_t * get_type() override { return this; }
+
         // Checks whether it's duplicate.
-        virtual member_t * check_duplicate(member_t * member) = 0;
+        virtual member_t * check_duplicate(member_t * member) { return nullptr; }
+
+        // Checks whether it's duplicate.
+        member_t * check_duplicate(member_t * member, bool include_base_types);
 
         // Enum all super types.
         typedef std::function<bool (type_t *)> each_super_type_callback_t;
@@ -2506,9 +2540,6 @@ namespace X_ROOT_NS::modules::core {
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
 
-        // Checks whether it's duplicate.
-        virtual member_t * check_duplicate(member_t * member) override;
-
         // Converts to full name.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
 
@@ -2546,9 +2577,6 @@ namespace X_ROOT_NS::modules::core {
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
 
-        // Checks whether it's duplicate.
-        virtual member_t * check_duplicate(member_t * member) override;
-
         // Converts to full name.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
 
@@ -2584,9 +2612,6 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
-
-        // Checks whether it's duplicate.
-        virtual member_t * check_duplicate(member_t * member) override;
 
         // Converts to full name.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
@@ -2651,9 +2676,6 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
-
-        // Checks whether it's duplicate.
-        virtual member_t * check_duplicate(member_t * member) override;
 
         // Converts to full name.
         virtual const string_t to_full_name() const override { return (string_t)*this; }
@@ -3309,19 +3331,19 @@ namespace X_ROOT_NS::modules::core {
         virtual member_family_t this_family() const = 0;
 
         // Returns the method of interface defination.
-        virtual type_t * get_owner_type() const = 0;
+        virtual type_t * get_owner_type() = 0;
 
         // Returns host type of this method.
-        virtual type_t * get_host_type() const = 0;
+        virtual type_t * get_host_type() = 0;
 
         // Returns method trait.
         virtual method_trait_t get_trait() const = 0;
 
         // Returns the return type of this method.
-        virtual type_t * get_type() const = 0;
+        virtual type_t * get_type() = 0;
 
         // Returns Decorates.
-        virtual decorate_t * get_decorate() const = 0;
+        virtual decorate_t * get_decorate() = 0;
 
         // Converts to a string.
         virtual const string_t to_string() const = 0;
@@ -3359,6 +3381,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns name.
         virtual name_t get_name() const override { return name; }
 
+        // Returns a prototype name.
+        virtual string_t to_prototype() const override;
+
         // Returns this family.
         virtual member_family_t this_family() const override
         {
@@ -3384,7 +3409,7 @@ namespace X_ROOT_NS::modules::core {
         virtual method_trait_t get_trait() const override { return trait; }
 
         // Returns return type of the method.
-        virtual type_t * get_type() const override { return to_type(type_name); }
+        virtual type_t * get_type() override { return to_type(type_name); }
 
         // Returns param count.
         virtual size_t param_count() const override
@@ -3406,19 +3431,19 @@ namespace X_ROOT_NS::modules::core {
         generic_param_t * find_param(const name_t & name);
 
         // Returns interface type defined the method.
-        virtual type_t * get_owner_type() const override
+        virtual type_t * get_owner_type() override
         {
             return owner_type_name? owner_type_name->type : nullptr;
         }
 
         // Returns host type of this method.
-        virtual type_t * get_host_type() const override
+        virtual type_t * get_host_type() override
         {
             return host_type;
         }
 
         // Returns method decorate.
-        virtual decorate_t * get_decorate() const override { return decorate; }
+        virtual decorate_t * get_decorate() override { return decorate; }
 
         // Compile the method to xil.
         void compile(method_compile_context_t & ctx);
@@ -3431,6 +3456,9 @@ namespace X_ROOT_NS::modules::core {
 
     private:
         local_variables_t __local_variables;
+
+        // Append generic params and params.
+        void __append_params(stringstream_t & ss, bool include_param_name) const;
     };
 
     // Returns whether the method is a constructor or static constructor or destructor.
@@ -3512,19 +3540,19 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Returns interface type that defined the method.
-        virtual type_t * get_owner_type() const override
+        virtual type_t * get_owner_type() override
         {
             return __template()->get_owner_type();
         }
 
         // Returns host type of this method.
-        virtual type_t * get_host_type() const override
+        virtual type_t * get_host_type() override
         {
             return host_type;
         }
 
         // Returns the return type.
-        virtual type_t * get_type() const override
+        virtual type_t * get_type() override
         {
             return __template()->get_type();
         }
@@ -3536,7 +3564,7 @@ namespace X_ROOT_NS::modules::core {
         virtual typex_t param_type_at(size_t index) const override;
 
         // Returns method decorate.
-        virtual decorate_t * get_decorate() const override
+        virtual decorate_t * get_decorate() override
         {
             return __template()->get_decorate();
         }
@@ -3603,6 +3631,9 @@ namespace X_ROOT_NS::modules::core {
             return member_family_t::general;
         }
 
+        // Returns type of this member.
+        virtual type_t * get_type() override { return to_type(type_name); }
+
         // Returns whether it's a index. ( name is empty )
         bool is_index() const { return name == name_t::null; }
 
@@ -3668,6 +3699,9 @@ namespace X_ROOT_NS::modules::core {
             return member_family_t::general;
         }
 
+        // Returns type of this member.
+        virtual type_t * get_type() override { return to_type(type_name); }
+
         // Converts to string.
         virtual const string_t to_string() const override { return (string_t)*this; }
         operator string_t() const;
@@ -3728,11 +3762,11 @@ namespace X_ROOT_NS::modules::core {
             return member_family_t::general;
         }
 
+        // Returns type of this member.
+        virtual type_t * get_type() override { return to_type(type_name); }
+
         // Returns the size.
         msize_t get_size();
-
-        // Returns type of this field.
-        type_t * get_type();
 
         // Returns type of this field.
         vtype_t get_vtype();
@@ -3820,9 +3854,6 @@ namespace X_ROOT_NS::modules::core {
         // Returns all members.
         virtual void get_all_members(members_t & out_members) override;
 
-        // Checks whether it's duplicate.
-        virtual member_t * check_duplicate(member_t * member) override;
-
         // Converts to string.
         virtual const string_t to_string() const override { return (string_t)*this; }
 
@@ -3859,6 +3890,9 @@ namespace X_ROOT_NS::modules::core {
             return member_type_t::type_def;
         }
 
+        // Returns type of this member.
+        virtual type_t * get_type() override { return to_type(type_name); }
+
         // Converts to a string.
         virtual const string_t to_string() const override { return (string_t)*this; }
 
@@ -3870,9 +3904,6 @@ namespace X_ROOT_NS::modules::core {
 
         // Find param by specified name.
         type_def_param_t * find_param(const name_t & name);
-
-        // Returns defined type.
-        type_t * get_type() const;
 
         // Converts to string.
         operator string_t() const;

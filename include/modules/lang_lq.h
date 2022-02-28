@@ -30,12 +30,16 @@ namespace X_ROOT_NS::modules::lang_lq {
         // Gets language id.
         virtual lang_id_t get_id() override;
 
+        // Returns language information.
+        virtual const lang_info_t * get_info() override;
+
         static const char_t * const __default_name__;
 
         X_TO_STRING_IMPL(_T("lq_lang_t"))
 
     private:
-        lang_id_t __lang_id;
+        lang_id_t   __lang_id;
+        lang_info_t __lang_info;
     };
 
     ////////// ////////// ////////// ////////// //////////
