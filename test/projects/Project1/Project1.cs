@@ -8,12 +8,10 @@ class Project1
     [EntryPoint]
     public static void Main()
     {
-        /*
         BaseClass obj = new MyClass();
-        int r = obj.GetValue();
+        int r = obj.GetValue(1);
 
         Console.WriteLine(r);
-        */
     }
 }
 
@@ -24,23 +22,15 @@ interface IMyInterface
 
 class BaseClass
 {
-    public virtual int GetValue(int b) { return 0; }
+    public int GetValue(int b) { return 100; }
 }
 
 class MyClass : BaseClass
 {
-    /*
     public sealed override int GetValue(int b)
     {
         return 2;
     }
-    */
 }
 
-class MyClass2 : MyClass
-{
-    public override long GetValue(int b)
-    {
-        return 2;
-    }
-}
+

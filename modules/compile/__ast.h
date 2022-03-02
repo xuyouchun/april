@@ -456,7 +456,7 @@ namespace X_ROOT_NS::modules::compile {
         __error__           = 7000,
 
         // Duplicated
-        duplicate                   = 7001,
+        duplicate           = 7001,
 
         // Name empty.
         name_empty,
@@ -765,7 +765,7 @@ namespace X_ROOT_NS::modules::compile {
         no_suitable_member_to_override,
 
         // Cannot override inherited member because it is sealed.
-        cannot_override_because_sealed,
+        cannot_override_sealed_members,
 
         // Return type changed when override inherit members.
         override_member_return_type_changed,
@@ -1141,11 +1141,11 @@ namespace X_ROOT_NS::modules::compile {
             // Check member duplicate or format correct.
             template<typename _code_element_t>
             bool __check_duplicate(type_t * type, member_t * member,
-                _code_element_t * code_element, member_t ** out_duplicated_base_member = nullptr);
+                                                _code_element_t * code_element);
 
             // Check member decorate corrected.
             template<typename _member_t, typename _code_element_t>
-            bool __check_modifier(type_t * type, _member_t * member, member_t * base_member,
+            bool __check_modifier(type_t * type, _member_t * member,
                                                 _code_element_t * code_element);
 
             // Check member duplicate and decorate corrected.

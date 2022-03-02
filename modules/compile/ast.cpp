@@ -557,7 +557,7 @@ namespace X_ROOT_NS::modules::compile {
                 _T("'%1%': no suitable member found to override"))
 
         // cannot override inherited member because it is sealed.
-        X_D(cannot_override_because_sealed,
+        X_D(cannot_override_sealed_members,
                 _T("'%1%': cannot override inherited member '%2%' because it is sealed"))
 
         // Return type changed when override inherit members.
@@ -589,7 +589,7 @@ namespace X_ROOT_NS::modules::compile {
     // Check member duplicate or format correct.
     template<typename _code_element_t>
     bool __utils_t::__check_duplicate(type_t * type, member_t * member,
-                    _code_element_t * code_element, member_t ** out_duplicated_base_member)
+                                                _code_element_t * code_element)
     {
         _A(type != nullptr);
         _A(member != nullptr);
@@ -599,8 +599,6 @@ namespace X_ROOT_NS::modules::compile {
         code_element_t * ce = dynamic_cast<code_element_t *>(code_element);
         if (ce == nullptr)
             ce = (code_element_t *)this;
-
-        al::assign(out_duplicated_base_member, nullptr);
 
         // Same as type name.
         if (member->get_name() == type->get_name())
@@ -623,53 +621,6 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
-        // Check duplicate with base class.
-        type_t * base_type = type->get_base_type();
-        if (base_type != nullptr)
-        {
-            member_t * member1 = base_type->check_duplicate(member, true);
-            al::assign(out_duplicated_base_member, member1);
-
-            if (member1 != nullptr && member1->host_type != type && !is_private(member))
-            {
-                if (member1->this_type() == member1->this_type()
-                    && is_virtual_or_abstract_or_override(member1))
-                {
-                    if (!member->is_override() && !member->is_new())
-                    {
-                        // Missing override or new keywords.
-                        this->__log(ce, c_t::hides_inherit_virtual_member,
-                            member->to_prototype(), member1->to_prototype()
-                        );
-                    }
-                    else if (!is_same_access(member, member1))
-                    {
-                        // Access right changed.
-                        this->__log(ce, c_t::access_modifier_changed,
-                            member->to_prototype(), member1->get_access_value(),
-                            member1->to_prototype());
-
-                        return false;
-                    }
-                }
-                else
-                {
-                    if (!member->is_new())
-                    {
-                        // Missing new keyword.
-                        this->__log(ce, c_t::hides_inherit_member,
-                            member->to_prototype(), member1->to_prototype()
-                        );
-                    }
-                }
-            }
-            else if (member->is_new())
-            {
-                // new keyword is not required.
-                this->__log(ce, c_t::not_hides_inherit_member, member->to_prototype());
-            }
-        }
-
         return true;
 
         #undef __Return
@@ -677,8 +628,8 @@ namespace X_ROOT_NS::modules::compile {
 
     // Check member decorate corrected.
     template<typename _member_t, typename _code_element_t>
-    bool __utils_t::__check_modifier(type_t * type, _member_t * member, member_t * base_member,
-                                     _code_element_t * code_element)
+    bool __utils_t::__check_modifier(type_t * type, _member_t * member,
+                                                _code_element_t * code_element)
     {
         typedef common_log_code_t c_t;
         typedef member_type_t m_t;
@@ -688,6 +639,16 @@ namespace X_ROOT_NS::modules::compile {
             ce = (code_element_t *)this;
 
         member_type_t member_type = member->this_type();
+
+        type_t * base_type = type->get_base_type();
+        member_t * base_member = nullptr;
+
+        if (base_type != nullptr)
+        {
+            member_t * base_member1 = base_type->check_duplicate(member, true);
+            if (base_member1 != nullptr && base_member1->host_type != type)
+                base_member = base_member1;
+        }
 
         // Interfaces.
         if (type->this_ttype() == ttype_t::interface_)
@@ -792,7 +753,7 @@ namespace X_ROOT_NS::modules::compile {
                     // Cannot override because it is sealed.
                     if (base_member->is_sealed())
                     {
-                        this->__log(ce, c_t::cannot_override_because_sealed, member->to_prototype(),
+                        this->__log(ce, c_t::cannot_override_sealed_members, member->to_prototype(),
                             base_member->to_prototype());
                         return false;
                     }
@@ -887,6 +848,49 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        // Check duplicate with base class.
+        if (base_member != nullptr && !is_private(base_member))
+        {
+            if (!is_private(member))
+            {
+                if (member->this_type() == base_member->this_type()
+                    && is_virtual_or_abstract_or_override(base_member))
+                {
+                    if (!member->is_override() && !member->is_new())
+                    {
+                        // Missing override or new keywords.
+                        this->__log(ce, c_t::hides_inherit_virtual_member,
+                            member->to_prototype(), base_member->to_prototype()
+                        );
+                    }
+                    else if (!is_same_access(member, base_member))
+                    {
+                        // Access right changed.
+                        this->__log(ce, c_t::access_modifier_changed,
+                            member->to_prototype(), base_member->get_access_value(),
+                            base_member->to_prototype());
+
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (!member->is_new())
+                    {
+                        // Missing new keyword.
+                        this->__log(ce, c_t::hides_inherit_member,
+                            member->to_prototype(), base_member->to_prototype()
+                        );
+                    }
+                }
+            }
+            else if (member->is_new())
+            {
+                // new keyword is not required.
+                this->__log(ce, c_t::not_hides_inherit_member, member->to_prototype());
+            }
+        }
+
         return true;
     }
 
@@ -895,11 +899,10 @@ namespace X_ROOT_NS::modules::compile {
     bool __utils_t::__check_member(type_t * type, _member_t * member,
                                                     _code_element_t * code_element)
     {
-        member_t * base_member = nullptr;
-        if (!__check_duplicate(type, member, code_element, &base_member))
+        if (!__check_duplicate(type, member, code_element))
             return false;
 
-        if (!__check_modifier(type, member, base_member, code_element))
+        if (!__check_modifier(type, member, code_element))
             return false;
 
         return true;
