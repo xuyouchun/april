@@ -863,9 +863,9 @@ namespace X_ROOT_NS::modules::compile {
                             member->to_prototype(), base_member->to_prototype()
                         );
                     }
-                    else if (!is_same_access(member, base_member))
+                    else if (!is_same_access_modifier(member, base_member))
                     {
-                        // Access right changed.
+                        // Access modifier changed.
                         this->__log(ce, c_t::access_modifier_changed,
                             member->to_prototype(), base_member->get_access_value(),
                             base_member->to_prototype());

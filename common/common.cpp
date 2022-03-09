@@ -7,6 +7,7 @@
 
 
 #include <common.h>
+#include <arch.h>
 
 namespace X_ROOT_NS {
 
@@ -231,24 +232,26 @@ namespace X_ROOT_NS {
     // Converts __error_base_t to string, with the poistion in which file and which line.
     const string_t __error_base_t::to_string() const
     {
-        string_t s = this->get_message();
+#if X_DEBUG
+        stringstream_t ss;
+
+        ss << this->get_message().c_str();
 
         if (file.length() > 0)
         {
-            std::basic_ostringstream<char_t> os;
-            os << s.c_str() << _T(", file: ") << file.c_str();
+            ss << _T(", file: ") << file.c_str();
 
             if (line != (size_t)-1)
             {
-                os << _T(", line: ") << line;
+                ss << _T(", line: ") << line;
             }
+        }
 
-            return os.str();
-        }
-        else
-        {
-            return s;
-        }
+        ss << std::endl << std::endl << _T("call stack:") << std::endl << call_stack.c_str();
+        return ss.str();
+#else
+        return this->get_message();
+#endif
     }
 
     // Gets the error message.
@@ -292,7 +295,7 @@ namespace X_ROOT_NS {
             typeid(*const_cast<object_t *>(obj)).name()
         );
 
-        return _error(common_error_code_t::unimplemented,
+        return _E(common_error_code_t::unimplemented,
             _F(_T("%1%.%2% const not implemented"), class_name, method)
         );
     }
@@ -303,9 +306,15 @@ namespace X_ROOT_NS {
     {
         string_t class_name = string_convert<char, char_t>(typeid(*obj).name());
 
-        return _error(common_error_code_t::unimplemented,
+        return _E(common_error_code_t::unimplemented,
             _F(_T("%1%.%2% not implemented"), class_name, method)
         );
+    }
+
+    // Returns current call stack.
+    X_NO_INLINE string_t to_call_stack_string()
+    {
+        return arch::call_stack(2);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -313,7 +322,7 @@ namespace X_ROOT_NS {
 
     // Raise assert error if the specified expression is false.
     void __raise_assert_error(const char_t * exp, const char_t * file, uint_t line,
-                                                            const char_t * reason)
+                                    string_t && call_stack, const char_t * reason)
     {
         string_t msg;
 
@@ -322,14 +331,14 @@ namespace X_ROOT_NS {
         else
             msg = sprintf(_T("Assert error: %1%"), exp);
 
-        throw assert_error_t(std::move(msg), file, line);
+        throw assert_error_t(std::move(msg), file, line, std::move(call_stack));
     }
 
     // Raise assert error if the specified expression is false.
     void __raise_assert_error(const char_t * exp, const char_t * file, uint_t line,
-                                                            const string_t & reason)
+                                    string_t && call_stack, const string_t & reason)
     {
-        return __raise_assert_error(exp, file, line, reason.c_str());
+        return __raise_assert_error(exp, file, line, std::move(call_stack), reason.c_str());
     }
 
     ////////// ////////// ////////// ////////// //////////

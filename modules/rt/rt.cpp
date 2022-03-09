@@ -323,11 +323,44 @@ namespace X_ROOT_NS::modules::rt {
         return __size;
     }
 
+    // Return count of virtual members.
+    msize_t rt_type_t::get_virtual_count(analyzer_env_t & env)
+    {
+        if (__virtual_count == unknown_msize)
+        {
+            msize_t count = on_caculate_virtual_count(env);
+            rt_type_t * base_type = this->get_base_type(env);
+
+            if (base_type != nullptr)
+                count += base_type->get_virtual_count(env);
+
+            __virtual_count = count;
+        }
+
+        return __virtual_count;
+    }
+
     // Analyzes runtime type.
     assembly_analyzer_t rt_type_t::__analyzer(analyzer_env_t & env,
                                               const generic_param_manager_t * gp_manager)
     {
         return assembly_analyzer_t(env, this->get_assembly(), gp_manager);
+    }
+
+    // When caculate virtual count.
+    msize_t rt_type_t::on_caculate_virtual_count(analyzer_env_t & env)
+    {
+        ttype_t ttype = get_ttype(env);
+
+        if (ttype != ttype_t::class_)
+            return 0;
+
+        msize_t count = 0;
+        this->each_method(env, [&count](ref_t, rt_method_t * method) {
+            return __is_virtual((decorate_t)(*method)->decorate)? (++count, true) : false;
+        });
+
+        return count;
     }
 
     // Returns whether it's a generic type.
@@ -776,11 +809,11 @@ namespace X_ROOT_NS::modules::rt {
                     );
 
                     rt_method_t * rt_method0 = rt_assembly0->get_method(ref_t(func.method_idx));
-
                     assembly_analyzer_t analyzer0(analyzer, rt_assembly0);
+
                     if (__compare_method(analyzer0, prototype, rt_method0))
                     {
-                        func = rt_vtable_function_t(assembly->index, method_ref.index);
+                        new (&func) rt_vtable_function_t(assembly->index, method_ref.index);
 
                         found = true;
                         break;
@@ -1529,7 +1562,7 @@ namespace X_ROOT_NS::modules::rt {
     rt_assembly_t * rt_assemblies_t::at(int index)
     {
         if (index < 0 || index >= __assembly_vector.size())
-            throw _EC(overflow);
+            throw _EC(overflow, _T("index overflow when reading rt_assembly_t object"));
 
         return __assembly_vector[index];
     }
@@ -2186,7 +2219,15 @@ namespace X_ROOT_NS::modules::rt {
 
         decorate_t decorate = (decorate_t)(*method)->decorate;
         if (__is_virtual(decorate))
-            return rt_type->get_method_offset(analyzer.env, method_ref);
+        {
+            int offset = rt_type->get_method_offset(analyzer.env, method_ref);
+
+            rt_type_t * base_type = rt_type->get_base_type(analyzer.env);
+            if (base_type != nullptr)
+                offset += base_type->get_virtual_count(analyzer.env);
+
+            return offset;
+        }
 
         if (decorate.is_override)
         {

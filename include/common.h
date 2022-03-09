@@ -111,7 +111,7 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _EF(code, format, args...)  X_ERROR(code, __root_ns::sprintf(format, ##args))
 
 // Defines a common exception with specified common error code and formated string.
-#define _ECF(code, format, args...) X_ERROR(__root_ns::common_error_code_t::code, \
+#define _ECF(code, format, args...) X_ERROR(__root_ns::common_error_code_t::code,       \
                                                 __root_ns::sprintf(format, ##args))
 
 // Defines an exception with specified error code, its error message depeneded on the description
@@ -131,7 +131,7 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _PF(s, args...)     _P(sprintf(_T("") s, ##args))
 
 // Print current calling stack.
-#define _PS()               __root_ns::arch::print_stack();
+#define _PS()               __root_ns::arch::print_call_stack();
 
 // Default value for the specified type.
 #define X_DEFAULT(type)     (__root_ns::def_value<type>())
@@ -152,16 +152,19 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _NE X_NOEXPECT
 
 // Throw an common unexpected exception.
-#define X_UNEXPECTED()      throw _EC(unexpected)
+#define X_UNEXPECTED(args...)      throw _EC(unexpected, ##args)
 
 // Throw an common unimplemented exception.
-#define X_UNIMPLEMENTED()   throw _EC(unimplemented)
+#define X_UNIMPLEMENTED(args...)   throw _EC(unimplemented, ##args)
+
+// Returns current call stack as string.
+#define X_CALL_STACK     to_call_stack_string()
 
 // Defines an interface.
 #define X_INTERFACE         struct
 
 // Defines a temporary variable name, composited with line number.
-#define X_TEMP_VAR          __temp_var_##__LINE__##__
+#define X_TEMP_VAR          __temp_var_##__COUNTER__##__
 
 // Gets a static array elements' count.
 #define X_ARRAY_SIZE(arr)   (sizeof(arr) / sizeof((arr)[0]))
@@ -1073,16 +1076,30 @@ namespace X_ROOT_NS {
     {
     public:
         template<typename message_t>
-        __error_base_t(message_t && message, const char_t * file=nullptr, size_t line=(size_t)-1)
-            : message(std::forward<message_t>(message)), file(file? file : _T("")), line(line) { }
+        __error_base_t(message_t && message
+#if X_DEBUG
+            , const char_t * file, size_t line
+            , string_t && call_stack
+#endif
+            ) _NE
+            : message(std::forward<message_t>(message))
+#if X_DEBUG
+            , file(file? file : _T("")), line(line)
+            , call_stack(call_stack)
+#endif
+        { }
 
         virtual const string_t & get_message() const override;
         virtual const string_t to_string() const override;
 
     public:
         const string_t message;
+
+#if X_DEBUG
         const string_t file;
         const size_t line;
+        const string_t call_stack;
+#endif
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1090,8 +1107,10 @@ namespace X_ROOT_NS {
     // Exception: assert_error_t
     class assert_error_t : public __error_base_t
     {
+        typedef __error_base_t __super_t;
+
     public:
-        using __error_base_t::__error_base_t;
+        using __super_t::__super_t;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1102,8 +1121,10 @@ namespace X_ROOT_NS {
     // Super class of logic exception
     class logic_error_base_t : public __error_base_t
     {
+        typedef __error_base_t __super_t;
+
     public:
-        using __error_base_t::__error_base_t;
+        using __super_t::__super_t;
 
     public:
         virtual int get_code() const = 0;
@@ -1124,10 +1145,16 @@ namespace X_ROOT_NS {
     {
     public:
         template<typename message_t>
-        logic_error_t(error_code_t code, message_t && message,
-                const char_t * file=nullptr, size_t line=(size_t)-1) _NE
-            : logic_error_base_t(std::forward<message_t>(message), file, line)
-            , code(code) { }
+        logic_error_t(error_code_t code, message_t && message
+#if X_DEBUG
+            , const char_t * file, size_t line, string_t && call_stack
+#endif
+        )
+            : logic_error_base_t(std::forward<message_t>(message)
+#if X_DEBUG
+            , file, line, std::move(call_stack)
+#endif
+            ) _NE, code(code) { }
 
     public:
         typedef error_code_t code_t;
@@ -1144,21 +1171,35 @@ namespace X_ROOT_NS {
     // Creates a logic exception with error code and message.
 
     template<typename error_code_t, typename message_t>
-    logic_error_t<error_code_t> _error(error_code_t code, message_t && message,
-            const char_t * file=nullptr, size_t line=(size_t)-1) _NE
+    logic_error_t<error_code_t> _error(error_code_t code, message_t && message
+#if X_DEBUG
+        , const char_t * file, size_t line, string_t && call_stack
+#endif
+    ) _NE
     {
-        return logic_error_t<error_code_t>(code, std::forward<message_t>(message), file, line);
+        return logic_error_t<error_code_t>(code, std::forward<message_t>(message)
+#if X_DEBUG
+            , file, line, std::move(call_stack)
+#endif
+        );
     }
 
     template<typename error_code_t>
-    logic_error_t<error_code_t> _error(error_code_t code, 
-            const char_t * file=nullptr, size_t line=(size_t)-1) _NE
+    logic_error_t<error_code_t> _error(error_code_t code
+#if X_DEBUG
+        , const char_t * file, size_t line, string_t && call_stack
+#endif
+    ) _NE
     {
         const char_t * desc = _desc(code);
         if (desc == nullptr or desc[0] == _T('\0'))
             desc = _title(code);
 
-        return _error(code, desc, file, line);
+        return _error(code, desc
+#if X_DEBUG
+            , file, line, std::move(call_stack)
+#endif
+        );
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -1209,13 +1250,16 @@ namespace X_ROOT_NS {
     logic_error_t<common_error_code_t> _unimplemented_error(object_t * obj,
                                                      const char_t * method) _NE;
 
+    // Returns current call stack.
+    string_t to_call_stack_string();
+
     //-------- ---------- ---------- ---------- ----------
     // A macro of _error function.
 
     #if X_DEBUG
 
     #define X_ERROR(code, args...)                                                      \
-        __root_ns::_error(code, ##args, _T(__FILE__), __LINE__)
+        __root_ns::_error(code, ##args, _T(__FILE__), __LINE__, X_CALL_STACK)
 
     #else
 
@@ -1233,7 +1277,7 @@ namespace X_ROOT_NS {
         do {                                                                            \
             if (!(x)) {                                                                 \
                 __root_ns::__raise_assert_error(_T("") #x,                              \
-                    _T(__FILE__), __LINE__, ##args);                                    \
+                    _T(__FILE__), __LINE__, X_CALL_STACK, ##args);                      \
             }                                                                           \
         } while (0)
 
@@ -1244,10 +1288,10 @@ namespace X_ROOT_NS {
     #endif
 
     void __raise_assert_error(const char_t * exp, const char_t * file, 
-                            uint_t line, const char_t * reason = nullptr);
+                    uint_t line, string_t && call_stack, const char_t * reason = nullptr);
 
     void __raise_assert_error(const char_t * exp, const char_t * file, 
-                            uint_t line, const string_t & reason);
+                    uint_t line, string_t && call_stack, const string_t & reason);
 
     ////////// ////////// ////////// ////////// //////////
 

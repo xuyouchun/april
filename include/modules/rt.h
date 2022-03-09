@@ -154,36 +154,33 @@ namespace X_ROOT_NS::modules::rt {
         rt_vtable_function_t() = default;
 
         // Constructor.
-        rt_vtable_function_t(uint32_t assembly_idx, uint32_t method_idx)
+        rt_vtable_function_t(uint32_t assembly_idx, uint32_t method_idx) _NE
         {
             this->assembly_idx = assembly_idx;
             this->method_idx   = method_idx;
 
-            this->__no_use = 0x03;
-
-            if (sizeof(__self_t) > (arch_uint_t)&((__self_t *)nullptr)->__placeholder)
-            {
-                *((byte_t *)this + sizeof(__self_t) - 1) = 0xFF;
-            }
+            this->__not_initialized = true;
         }
 
         // Constructor.
-        rt_vtable_function_t(void * method)
+        rt_vtable_function_t(void * method) _NE
         {
             this->method = method;
         }
 
         // Returns whether it's a method.
-        bool is_method() const { return ((*(byte_t *)this + sizeof(__self_t) - 1) & 0x01) == 0; }
+        X_ALWAYS_INLINE bool initialized() const _NE
+        {
+            return !this->__not_initialized;
+        }
 
         union
         {
             struct
             {
-                uint32_t    assembly_idx    : 10;
-                uint32_t    method_idx      : 20;
-                uint32_t    __no_use        : 2;
-                byte_t      __placeholder[0];
+                bool        __not_initialized   : 1;
+                uint32_t    assembly_idx        : 11;
+                uint32_t    method_idx          : 20;
             };
 
             struct
@@ -906,6 +903,9 @@ namespace X_ROOT_NS::modules::rt {
         // Gets size.
         msize_t get_size() { return __size; }
 
+        // Return count of virtual members.
+        msize_t get_virtual_count(analyzer_env_t & env);
+
         // Gets data type.
         virtual vtype_t get_vtype(analyzer_env_t & env) = 0;
 
@@ -923,11 +923,15 @@ namespace X_ROOT_NS::modules::rt {
         virtual msize_t on_caculate_layout(analyzer_env_t & env, msize_t base_size,
                                         storage_type_t * out_storage_type) = 0;
 
+        // When caculate virtual count.
+        virtual msize_t on_caculate_virtual_count(analyzer_env_t & env);
+
         // Analyze this type.
         assembly_analyzer_t __analyzer(analyzer_env_t & env,
                                        const generic_param_manager_t * gp_manager = nullptr);
 
         msize_t         __size = unknown_msize;
+        msize_t         __virtual_count = unknown_msize;
         storage_type_t  __storage_type;
     };
 

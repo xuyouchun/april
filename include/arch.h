@@ -9,7 +9,10 @@ namespace X_ROOT_NS::arch {
     ////////// ////////// ////////// ////////// //////////
 
     // Prints current execute stack.
-    void print_stack();
+    void print_call_stack(int trim = 1);
+
+    // Returns a string of current stack.
+    string_t call_stack(int trim = 1);
 
     ////////// ////////// ////////// ////////// //////////
 

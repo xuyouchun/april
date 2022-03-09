@@ -815,6 +815,20 @@ namespace X_ROOT_NS::algorithm {
         return (_incorp_t)(((__incorp_int_t)p & __incorp_mask));
     }
 
+    template<typename _incorp_t, typename _t>
+    X_INLINE void set_incorp_p(_t * & p, _t * p1) _NE
+    {
+        (__incorp_int_t &)p &= ~__incorp_mask;
+        (__incorp_int_t &)p |= (__incorp_int_t)p1;
+    }
+
+    template<typename _incorp_t, typename _t>
+    X_INLINE void set_incorp_v(_t * & p, _incorp_t v) _NE
+    {
+        (__incorp_int_t &)p &= __incorp_mask;
+        (__incorp_int_t &)p |= (__incorp_int_t)v;
+    }
+
     template<typename _p_t, typename _v_t>
     struct incorp_t
     {

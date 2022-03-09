@@ -3507,10 +3507,9 @@ namespace X_ROOT_NS::modules::exec {
             rt_vtable_t * vtbl = get_vtable(rt_type);
             rt_vfunction_t func = vtbl->functions[__This->__offset];
 
-            if (!func.is_method())
+            if (!func.initialized())
             {
                 rt_assembly_t * rt_assembly = ctx.env.assemblies.at(func.assembly_idx);
-
                 rt_method_t * rt_method = __assembly_analyzer(ctx, rt_assembly).get_method(
                     ref_t(func.method_idx)
                 );

@@ -1361,8 +1361,8 @@ namespace X_ROOT_NS::modules::core {
         }
     }
 
-    // Returns whether the two members has the same access.
-    bool is_same_access(member_t * member1, member_t * member2)
+    // Returns whether the two members has the same access modifier.
+    bool is_same_access_modifier(member_t * member1, member_t * member2)
     {
         _A(member1 != nullptr);
         _A(member2 != nullptr);
@@ -2743,9 +2743,6 @@ namespace X_ROOT_NS::modules::core {
     // Returns whether it's a specifed vtype.
     X_ALWAYS_INLINE static bool __is_vtype(type_t * type, vtype_t vtype)
     {
-        if (type == nullptr)
-            arch::print_stack();
-
         _A(type != nullptr);
 
         return type->this_gtype() == gtype_t::general
@@ -4359,8 +4356,6 @@ namespace X_ROOT_NS::modules::core {
     // Returns members descripted by args.
     member_t * type_t::get_member(analyze_member_args_t & args, bool include_base_types)
     {
-        _A(type != nullptr);
-
         member_t * member = this->get_member(args);
         if (member != nullptr || !include_base_types)
             return member;
@@ -4386,8 +4381,6 @@ namespace X_ROOT_NS::modules::core {
     // Checks whether it's duplicate.
     member_t * type_t::check_duplicate(member_t * member, bool include_base_types)
     {
-        _A(type != nullptr);
-
         member_t * member1 = this->check_duplicate(member);
         if (member1 != nullptr || !include_base_types)
             return member1;
@@ -7064,7 +7057,7 @@ namespace X_ROOT_NS::modules::core {
     expression_t * new_array_expression_t::length_at(dimension_t dimension) const
     {
         if (__lengths == nullptr || dimension >= __lengths->size())
-            throw _EC(overflow);
+            throw _EC(overflow, _T("overflow when reading array length at specified dimension"));
 
         return (*__lengths)[dimension];
     }
@@ -7073,7 +7066,7 @@ namespace X_ROOT_NS::modules::core {
     void new_array_expression_t::set_length(dimension_t dimension, expression_t * length)
     {
         if (__lengths == nullptr || dimension >= __lengths->size())
-            throw _EC(overflow);
+            throw _EC(overflow, _T("overflow when set array length of specified dimension"));
 
         length->parent = this;
         (*__lengths)[dimension] = length;

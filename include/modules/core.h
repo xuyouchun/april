@@ -2213,8 +2213,8 @@ namespace X_ROOT_NS::modules::core {
         return member->get_access_value() == access_value_t::private_;
     }
 
-    // Returns whether the two members has the same access.
-    bool is_same_access(member_t * member1, member_t * member2);
+    // Returns whether the two members has the same access modifier.
+    bool is_same_access_modifier(member_t * member1, member_t * member2);
 
     //-------- ---------- ---------- ---------- ----------
     // __named_base_t
