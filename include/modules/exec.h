@@ -21,13 +21,14 @@ namespace X_ROOT_NS::modules::exec {
     #define EXEC_EXECUTE_MODEL_MAUNAL   2
     #define EXEC_EXECUTE_MODEL_INLINE   3
 
-    #define EXEC_TRACE          0  // 0:none, 1:trace, 2:trace details, 3:trace more details
+    #define EXEC_TRACE          3  // 0:none, 1:trace, 2:trace details, 3:trace more details
     #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_VIRTUAL
 
     const size_t __default_stack_size = 1024 * 1024;
 
     ////////// ////////// ////////// ////////// //////////
 
+    class executor_env_t;
     class exec_method_t;
     class exec_method_block_manager_t;
 
@@ -846,20 +847,16 @@ namespace X_ROOT_NS::modules::exec {
     // Executing method.
     class exec_method_t : public object_t
     {
+        friend class __method_parser;
+
     public:
 
         // Constructor.
-        exec_method_t(command_t ** commands, uint16_t ref_objects, msize_t stack_unit_size) _NE
-            : commands(commands), ref_objects(ref_objects), stack_unit_size(stack_unit_size)
-        {
-            _A(commands != nullptr);
-        }
+        template<typename _rt_method_t>
+        exec_method_t(executor_env_t & env, _rt_method_t * method);
 
-        uint16_t ref_objects;
-        msize_t  stack_unit_size;
-
-        // Commands.
-        command_t ** commands;
+        // Initialize this executable method.
+        void initialize();
 
         // Block manager.
         exec_method_block_manager_t * block_manager = nullptr;
@@ -868,7 +865,10 @@ namespace X_ROOT_NS::modules::exec {
         string_t get_name() const;
 
         // Runtime method.
-        rt_method_base_t * rt_method = nullptr;
+        rt_method_base_t * method = nullptr;
+
+        // Returns commands.
+        command_t ** get_commands();
 
         // Finds block contains the specified point.
         template<method_xil_block_type_t _type, typename _f_t>
@@ -882,6 +882,29 @@ namespace X_ROOT_NS::modules::exec {
 
         // Converts to string.
         X_TO_STRING
+
+        // Deconstructor.
+        virtual ~exec_method_t() override;
+
+        uint16_t    ref_objects;
+        msize_t     stack_unit_size;
+        msize_t     this_offset;
+
+    private:
+        // Commands.
+        union
+        {
+            struct
+            {
+                bool    __commands_uninitialized : 1;
+            };
+
+            command_t ** __commands;
+            object_t *   __method_parser;
+        };
+
+        // Returns method parser.
+        object_t * __get_method_parser();
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -893,8 +916,6 @@ namespace X_ROOT_NS::modules::exec {
         command_t **        current;        // Current command.
         exec_method_t *     method;         // Method.
     };
-
-    class executor_env_t;
 
     // Context of command executing.
     class command_execute_context_t : public object_t, public no_copy_ctor_t
@@ -925,8 +946,10 @@ namespace X_ROOT_NS::modules::exec {
         __AlwaysInline void push_calling(exec_method_t * method) _NE
         {
             stack.push(__calling_stub_t { stack.lp(), this->current, method });
-            this->current = method->commands;
+            this->current = method->get_commands();
             stack.set_lp(stack.top());
+
+            stack.increase_top(method->stack_unit_size);
         }
 
         // Pushes calling context by commands.
@@ -964,7 +987,7 @@ namespace X_ROOT_NS::modules::exec {
 
             stack.increase_top(method->stack_unit_size - old_method->stack_unit_size);
 
-            this->current = method->commands;
+            this->current = method->get_commands();
         }
 
         // Returns whether stack is on head.
@@ -1146,9 +1169,9 @@ namespace X_ROOT_NS::modules::exec {
         // Gets exec_method_t from cache, returns nullptr if not found.
         exec_method_t * __from_cache(void * rt_method);
 
-        // Execute method of runtime method with template arguments.
-        exec_method_t * __parse_commands(rt_method_t * rt_method, rt_type_t * host_type = nullptr,
-                                         const generic_param_manager_t * gp_manager = nullptr);
+        // Returns execute method of runtime method / generic method.
+        template<typename _rt_method_t>
+        exec_method_t * __exec_method_of(_rt_method_t * method);
     };
 
     ////////// ////////// ////////// ////////// //////////

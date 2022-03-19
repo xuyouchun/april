@@ -73,13 +73,51 @@ namespace X_ROOT_NS::modules::exec {
     ////////// ////////// ////////// ////////// //////////
     // exec_method_t
 
+    // Constructor.
+    template<typename _rt_method_t>
+    exec_method_t::exec_method_t(executor_env_t & env, _rt_method_t * method)
+    {
+        _A(method != nullptr);
+
+        this->method = method;
+        __commands = nullptr;
+
+        __method_parser = new method_parser_t(this, env, method);
+        __commands_uninitialized = true;
+    }
+
+    // Initialize this executable method.
+    void exec_method_t::initialize()
+    {
+        method_parser_t * parser = (method_parser_t *)__get_method_parser();
+        parser->initialize();
+    }
+
     // Returns method name.
     string_t exec_method_t::get_name() const
     {
-        if (rt_method == nullptr)
-            return _T("");
+        _A(method != nullptr);
+        return method->get_name();
+    }
 
-        return rt_method->get_name();
+    // Returns commands.
+    command_t ** exec_method_t::get_commands()
+    {
+        if (__commands_uninitialized)
+        {
+            method_parser_t * parser = (method_parser_t *)__get_method_parser();
+            __commands = parser->parse_commands();
+
+            delete parser;
+        }
+
+        return __commands;
+    }
+
+    // Returns method parser.
+    object_t * exec_method_t::__get_method_parser()
+    {
+        return (object_t *)((arch_uint_t)__method_parser & ~0x01);
     }
 
     // Converts to string.
@@ -88,56 +126,53 @@ namespace X_ROOT_NS::modules::exec {
         return get_name();
     }
 
+    // Deconstructor.
+    exec_method_t::~exec_method_t()
+    {
+        if (__commands_uninitialized)
+            delete __get_method_parser();
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // executor_env_t
 
-    #define __CheckCache(_method)                                               \
-        do {                                                                    \
-            exec_method_t * method = __from_cache(_method);                     \
-            if (method != nullptr)                                               \
-                return method;                                                  \
-        } while (false);                                         
-
-    // Returns execute method of runtime method.
-    exec_method_t * executor_env_t::exec_method_of(rt_method_t * rt_method)
+    // Returns execute method of runtime method / generic method.
+    template<typename _rt_method_t>
+    exec_method_t * executor_env_t::__exec_method_of(_rt_method_t * method)
     {
-        _A(rt_method != nullptr);
+        exec_method_t * exec_method = __from_cache(method);
+        if (exec_method != nullptr)
+            return exec_method;
 
-        //_P(_T("exec_method_of: "), rt_method->get_name());
-
-        __CheckCache(rt_method);
-
-        exec_method_t * exec_method = __parse_commands(rt_method);
-        exec_method->rt_method = rt_method;
+        exec_method = memory_t::new_obj<exec_method_t>(memory, *this, method);
+        __method_map[(void *)method] = exec_method;
+        exec_method->initialize();
 
         return exec_method;
     }
 
-    // Returns execute method of runtime generic method.
-    exec_method_t * executor_env_t::exec_method_of(rt_generic_method_t * rt_generic_method)
+    // Returns execute method of runtime method.
+    exec_method_t * executor_env_t::exec_method_of(rt_method_t * method)
     {
-        _A(rt_generic_method != nullptr);
+        _A(method != nullptr);
+
+        //_P(_T("exec_method_of: "), method->get_name());
+
+        return __exec_method_of(method);
+    }
+
+    // Returns execute method of runtime generic method.
+    exec_method_t * executor_env_t::exec_method_of(rt_generic_method_t * generic_method)
+    {
+        _A(generic_method != nullptr);
 
         /*
         _PF(_T("exec_method_of: %1%.%2%"),
-            rt_generic_method->host_type->get_name(*this), rt_generic_method->get_name()
+            generic_method->host_type->get_name(*this), generic_method->get_name()
         );
         */
 
-        __CheckCache(rt_generic_method);
-
-        // Initializes generic param manager builder.
-        rt_method_t * template_ = rt_generic_method->template_;
-        assembly_analyzer_t analyzer = to_analyzer(*this, template_->get_host_type());
-
-        generic_param_manager_t gp_mgr(analyzer, rt_generic_method);
-
-        // Parses commands.
-        rt_type_t * host_type = rt_generic_method->get_host_type();
-        exec_method_t * exec_method = __parse_commands(template_, host_type, &gp_mgr);
-        exec_method->rt_method = rt_generic_method;
-
-        return exec_method;
+        return __exec_method_of(generic_method);
     }
 
     // Returns execute method of runtime method or generic method.
@@ -181,16 +216,6 @@ namespace X_ROOT_NS::modules::exec {
             return it->second;
 
         return nullptr;
-    }
-
-    // Execute method of runtime method with template arguments.
-    exec_method_t * executor_env_t::__parse_commands(rt_method_t * rt_method,
-                 rt_type_t * host_type, const generic_param_manager_t * gp_manager)
-    {
-        exec_method_t * exec_method = parse_commands(*this, rt_method, host_type, gp_manager);
-        __method_map[(void *)rt_method] = exec_method;
-
-        return exec_method;
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -718,7 +718,7 @@ namespace X_ROOT_NS::modules::rt {
 
     // Appends a param.
     void params_layout_t::append(ref_t type_ref, param_type_t param_type,
-                param_layout_type_t layout_type)
+                                                    param_layout_type_t layout_type)
     {
         if (param_type == param_type_t::extends)
         {

@@ -159,7 +159,7 @@ namespace X_ROOT_NS::modules::rt {
             this->assembly_idx = assembly_idx;
             this->method_idx   = method_idx;
 
-            this->__not_initialized = true;
+            this->__uninitialized = true;
         }
 
         // Constructor.
@@ -171,14 +171,14 @@ namespace X_ROOT_NS::modules::rt {
         // Returns whether it's a method.
         X_ALWAYS_INLINE bool initialized() const _NE
         {
-            return !this->__not_initialized;
+            return !this->__uninitialized;
         }
 
         union
         {
             struct
             {
-                bool        __not_initialized   : 1;
+                bool        __uninitialized     : 1;
                 uint32_t    assembly_idx        : 11;
                 uint32_t    method_idx          : 20;
             };
@@ -1929,7 +1929,7 @@ namespace X_ROOT_NS::modules::rt {
         msize_t get_field_offset(ref_t field_ref, rt_type_t * host_type = nullptr);
 
         // Gets virtual method offset.
-        int get_virtual_method_offset(assembly_analyzer_t & analyzer, ref_t method_ref);
+        int get_virtual_method_offset(ref_t method_ref);
 
         // Gets prototype of method ref.
         void get_prototype(ref_t method_ref, method_prototype_t * out_prototype);

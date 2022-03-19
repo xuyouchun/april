@@ -2209,10 +2209,9 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Gets virtual method offset.
-    int assembly_analyzer_t::get_virtual_method_offset(assembly_analyzer_t & analyzer,
-                                                       ref_t method_ref)
+    int assembly_analyzer_t::get_virtual_method_offset(ref_t method_ref)
     {
-        rt_method_t * method = analyzer.current->get_method(method_ref);
+        rt_method_t * method = current->get_method(method_ref);
         _A(method != nullptr);
 
         rt_type_t * rt_type = method->get_host_type();
@@ -2220,11 +2219,11 @@ namespace X_ROOT_NS::modules::rt {
         decorate_t decorate = (decorate_t)(*method)->decorate;
         if (__is_virtual(decorate))
         {
-            int offset = rt_type->get_method_offset(analyzer.env, method_ref);
+            int offset = rt_type->get_method_offset(env, method_ref);
 
-            rt_type_t * base_type = rt_type->get_base_type(analyzer.env);
+            rt_type_t * base_type = rt_type->get_base_type(env);
             if (base_type != nullptr)
-                offset += base_type->get_virtual_count(analyzer.env);
+                offset += base_type->get_virtual_count(env);
 
             return offset;
         }
@@ -2232,23 +2231,23 @@ namespace X_ROOT_NS::modules::rt {
         if (decorate.is_override)
         {
             method_prototype_t prototype;
-            analyzer.get_prototype(method_ref, &prototype);
+            get_prototype(method_ref, &prototype);
 
             do
             {
-                rt_type = rt_type->get_base_type(analyzer.env);
+                rt_type = rt_type->get_base_type(env);
                 if (rt_type == nullptr)
-                    throw _ED(__e_t::virtual_method_not_found, analyzer.current->get_name(method));
+                    throw _ED(__e_t::virtual_method_not_found, current->get_name(method));
 
-                assembly_analyzer_t analyzer0(analyzer, rt_type->get_assembly());
+                assembly_analyzer_t analyzer0(*this, rt_type->get_assembly());
                 method_ref = rt_type->search_method(analyzer0.env, prototype);
 
             } while (method_ref == ref_t::null);
 
-            return get_virtual_method_offset(analyzer, method_ref);
+            return get_virtual_method_offset( method_ref);
         }
 
-        throw _ED(rt_error_code_t::virtual_method_not_found, analyzer.current->get_name(method));
+        throw _ED(rt_error_code_t::virtual_method_not_found, current->get_name(method));
     }
 
     // Gets prototype of method.

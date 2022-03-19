@@ -194,7 +194,7 @@ namespace X_ROOT_NS::modules::exec {
     int __command_index(command_execute_context_t & ctx, command_t ** command)
     {
         exec_method_t * method = ctx.current_method();
-        return command - method->commands;
+        return command - method->get_commands();
     }
 
     // Returns current command index.
@@ -993,9 +993,13 @@ namespace X_ROOT_NS::modules::exec {
     public:
         __BeginExecute(ctx)
 
+            // _PP(ctx.stack.pick<rt_ref_t>());
+
             ctx.stack.push<rt_stack_unit_t>(
                 ctx.stack.pick<rt_stack_unit_t>()
             );
+
+            // _PP(ctx.stack.pick<rt_ref_t>());
 
         __EndExecute()
 
@@ -1488,12 +1492,17 @@ namespace X_ROOT_NS::modules::exec {
         }
     }
 
-    uint16_t __offset_of_argument(command_creating_context_t & ctx, uint16_t identity)
+    msize_t __offset_of_argument(command_creating_context_t & ctx, uint16_t identity)
     {
         if (identity == XIL_CALLING_BOTTOM_IDENTITY)
             return ctx.params_layout.unit_size() + 1;
 
         return ctx.params_layout.offset_of(identity);
+    }
+
+    msize_t __offset_of_this_argument(command_creating_context_t & ctx)
+    {
+        return __offset_of_argument(ctx, 0);
     }
 
     static command_t * __new_push_command(__context_t & ctx, const push_xil_t & xil)
@@ -3288,7 +3297,6 @@ namespace X_ROOT_NS::modules::exec {
 
             exec_method_t * method = __This->__get_method(ctx);
             ctx.push_calling(method);
-            ctx.stack.increase_top(method->stack_unit_size);
 
         __EndExecute()
 
@@ -3297,7 +3305,7 @@ namespace X_ROOT_NS::modules::exec {
             __pre_static_call(ctx, __This->get_type());
 
             exec_method_t * method = __This->__get_method(ctx);
-            ctx.current = method->commands;
+            ctx.current = method->get_commands();
         }
 
         #if EXEC_TRACE
@@ -3381,14 +3389,13 @@ namespace X_ROOT_NS::modules::exec {
 
             exec_method_t * method = __This->__get_method(ctx);
             ctx.push_calling(method);
-            ctx.stack.increase_top(method->stack_unit_size);
 
         __EndExecute()
 
         virtual void switch_to(command_execute_context_t & ctx) override
         {
             exec_method_t * method = __This->__get_method(ctx);
-            ctx.current = method->commands;
+            ctx.current = method->get_commands();
         }
 
         #if EXEC_TRACE
@@ -3497,15 +3504,16 @@ namespace X_ROOT_NS::modules::exec {
         typedef __command_base_t<__CallCmd(virtual_)>   __super_t;
 
     public:
-        __virtual_call_command_t(int offset) : __offset(offset) { }
+        __virtual_call_command_t(msize_t virtual_offset, msize_t this_offset)
+            : __virtual_offset(virtual_offset), __this_offset(this_offset) { }
 
         __BeginExecute(ctx)
 
-            rt_ref_t rt_ref = __Argument(rt_ref_t, 0);
-            rt_type_t * rt_type = __RtTypeOf(rt_ref);
+            rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - __this_offset);
+            rt_type_t * rt_type = __RtTypeOf(obj);
 
             rt_vtable_t * vtbl = get_vtable(rt_type);
-            rt_vfunction_t func = vtbl->functions[__This->__offset];
+            rt_vfunction_t func = vtbl->functions[__This->__virtual_offset];
 
             if (!func.initialized())
             {
@@ -3519,30 +3527,30 @@ namespace X_ROOT_NS::modules::exec {
 
             exec_method_t * method = (exec_method_t *)func.method;
             ctx.push_calling(method);
-            ctx.stack.increase_top(method->stack_unit_size);
 
         __EndExecute()
 
         #if EXEC_TRACE
 
         __BeginToString()
-            return _F(_T("call virtual %1%"), __This->__offset);
+            return _F(_T("call virtual [%1% %2%]"), __This->__virtual_offset, __This->__this_offset);
         __EndToString()
 
         #endif  // EXEC_TRACE
 
-        int __offset;
+        msize_t __virtual_offset, __this_offset;
     };
 
     struct __virtual_call_command_template_t
     {
         template<command_value_t _cv, typename ... args_t>
-        static auto new_command(memory_t * memory, int offset, __context_t & ctx)
+        static auto new_command(memory_t * memory, msize_t virtual_offset, msize_t this_offset,
+                                                                        __context_t & ctx)
         {
-            static_assert(_cv == __CallCmd(virtual_), "invaid command value");
+            static_assert(_cv == __CallCmd(virtual_), "invalid command value");
 
             typedef __virtual_call_command_t this_command_t;
-            return __new_command<this_command_t>(memory, offset);
+            return __new_command<this_command_t>(memory, virtual_offset, this_offset);
         }
     };
 
@@ -3551,15 +3559,20 @@ namespace X_ROOT_NS::modules::exec {
         ref_t method_ref = (ref_t)xil.method;
         _A((mt_member_extra_t)method_ref.extra == mt_member_extra_t::internal);
 
+        rt_method_t * method = ctx.get_method(method_ref);
+        _A(method != nullptr);
+
         static __command_manager_t<
             __virtual_call_command_template_t
-        >::with_args_t<int> __virtual_call_command_manager;
+        >::with_args_t<msize_t, msize_t> __virtual_call_command_manager;
 
-        rt_method_t * rt_method = ctx.get_method(method_ref);
-        int offset = ctx.get_virtual_method_offset(ctx, method_ref);
+        msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref);
+
+        exec_method_t * exec_method = ctx.env.exec_method_of(method);
+        msize_t this_offset = exec_method->this_offset;
 
         return __virtual_call_command_manager.template
-            get_command<__CallCmd(virtual_)>(offset, ctx);
+            get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, ctx);
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -3779,7 +3792,7 @@ namespace X_ROOT_NS::modules::exec {
             __delegate_command_template_t
         >::with_args_t<msize_t, xil_call_command_t> __delegate_command_manager;
 
-        uint16_t this_offset = __offset_of_argument(ctx, 0);
+        msize_t this_offset = __offset_of_argument(ctx, 0);
         return __delegate_command_manager.template get_command<_cv>(this_offset, xil.command);
     }
 
@@ -5308,7 +5321,10 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             __pre_new(ctx, __This->__type);
-            ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__This->__type));
+            rt_ref_t new_obj = ctx.heap->new_obj(__This->__type);
+            _PP(new_obj);
+            ctx.stack.push<rt_ref_t>(new_obj);
+            // ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__This->__type));
 
         __EndExecute()
 
