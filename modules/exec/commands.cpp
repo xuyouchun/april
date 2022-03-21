@@ -1035,7 +1035,7 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            if (!std::is_same<__value1_t, __value2_t>::value)
+            if constexpr (!std::is_same<__value1_t, __value2_t>::value)
             {
                 ctx.stack.push(static_cast<__value2_t>(
                     ctx.stack.pop<__value1_t>()
@@ -5321,10 +5321,7 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             __pre_new(ctx, __This->__type);
-            rt_ref_t new_obj = ctx.heap->new_obj(__This->__type);
-            _PP(new_obj);
-            ctx.stack.push<rt_ref_t>(new_obj);
-            // ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__This->__type));
+            ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__This->__type));
 
         __EndExecute()
 

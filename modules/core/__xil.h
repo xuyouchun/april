@@ -854,7 +854,10 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_storage_type_t::duplicate:
             case xil_storage_type_t::params:
+                break;
+
             case xil_storage_type_t::convert:
+                size += 1;
                 break;
 
             default:
