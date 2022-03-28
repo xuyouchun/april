@@ -5,46 +5,31 @@ using System.Diagnostics;
 
 class Project1
 {
-    [EntryPoint]
+    [EntryPoint, Trace]
     public static void Main()
     {
-        BaseClass obj1 = new MyClass1();
-        Console.WriteLine(obj1.GetValue());
-
-        BaseClass obj2 = new MyClass2();
-        Console.WriteLine(obj2.GetValue());
-        Console.WriteLine(obj2.GetValue());
+        MyClass obj = new MyClass();
+        int r = obj.GetValue1();
     }
 }
 
-interface IMyInterface
+interface IMyInterfaceBase
 {
-    int GetValue { get; }
+    int GetValue();
 }
 
-class BaseClass
+interface IMyInterface : IMyInterfaceBase
 {
-    public virtual int GetValue() { return 1; }
+    int GetValue1();
+    int GetValue2();
+    int GetValue3();
 }
 
-class MyClass1 : BaseClass
+class MyClass : IMyInterface
 {
-    public MyClass1()
-    {
-        Console.WriteLine("Call MyClass1");
-    }
-
-    public override int GetValue() { return 20; }
+    public int GetValue()  { return 0; }
+    public int GetValue1() { return 1; }
+    public int GetValue2() { return 2; }
+    public int GetValue3() { return 3; }
 }
-
-class MyClass2 : BaseClass
-{
-    public MyClass2()
-    {
-        Console.WriteLine("Call MyClass2");
-    }
-
-    public override int GetValue() { return 3; }
-}
-
 

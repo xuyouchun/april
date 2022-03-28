@@ -3093,6 +3093,7 @@ namespace X_ROOT_NS::modules::exec {
     #define __CallCmd(_call_type)                   __Cmd(call, _call_type)
 
     __DefineCmdValue_(__CallCmd(virtual_))
+    __DefineCmdValue_(__CallCmd(interface_))
 
     __DefineCmdValue_(__CallCmd_(instance, general))
     __DefineCmdValue_(__CallCmd_(instance, generic))
@@ -3554,6 +3555,51 @@ namespace X_ROOT_NS::modules::exec {
         }
     };
 
+    class __interface_call_command_t : public __command_base_t<__CallCmd(interface_)>
+    {
+        typedef __interface_call_command_t                __self_t;
+        typedef __command_base_t<__CallCmd(interface_)>   __super_t;
+
+    public:
+        __interface_call_command_t(rt_type_t * interface_type, msize_t virtual_offset,
+                                                               msize_t this_offset)
+            : __interface_type(interface_type), __virtual_offset(virtual_offset),
+                                                __this_offset(this_offset)
+        { }
+
+        __BeginExecute(ctx)
+
+            _P(_T("interface"));
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("call interface [%1% %2%]"), __This->__virtual_offset,
+                                                      __This->__this_offset);
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+        rt_type_t * __interface_type;
+        msize_t __virtual_offset, __this_offset;
+    };
+
+    struct __interface_call_command_template_t
+    {
+        template<command_value_t _cv, typename ... args_t>
+        static auto new_command(memory_t * memory, rt_type_t * interface_type,
+                                msize_t virtual_offset, msize_t this_offset, __context_t & ctx)
+        {
+            static_assert(_cv == __CallCmd(interface_), "invalid command value");
+
+            typedef __interface_call_command_t this_command_t;
+            return __new_command<this_command_t>(memory, interface_type,
+                                                         virtual_offset, this_offset);
+        }
+    };
+
     static command_t * __new_virtual_call_command(__context_t & ctx, const call_xil_t & xil)
     {
         ref_t method_ref = (ref_t)xil.method;
@@ -3562,17 +3608,35 @@ namespace X_ROOT_NS::modules::exec {
         rt_method_t * method = ctx.get_method(method_ref);
         _A(method != nullptr);
 
-        static __command_manager_t<
-            __virtual_call_command_template_t
-        >::with_args_t<msize_t, msize_t> __virtual_call_command_manager;
-
-        msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref);
-
         exec_method_t * exec_method = ctx.env.exec_method_of(method);
         msize_t this_offset = exec_method->this_offset;
 
-        return __virtual_call_command_manager.template
-            get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, ctx);
+        rt_type_t * host_type = method->get_host_type();
+        _A(host_type != nullptr);
+
+        // Interface virtual call.
+        if (host_type->get_ttype(ctx.env) == ttype_t::interface_)
+        {
+            static __command_manager_t<
+                __interface_call_command_template_t
+            >::with_args_t<rt_type_t *, msize_t> __interface_call_command_manager;
+
+            msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref);
+
+            return __interface_call_command_manager.template
+                get_command<__CallCmd(interface_)>(host_type, virtual_offset, this_offset, ctx);
+        }
+        else    // Normal virtual call.
+        {
+            static __command_manager_t<
+                __virtual_call_command_template_t
+            >::with_args_t<msize_t, msize_t> __virtual_call_command_manager;
+
+            msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref);
+
+            return __virtual_call_command_manager.template
+                get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, ctx);
+        }
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -6342,6 +6406,7 @@ namespace X_ROOT_NS::modules::exec {
             __Case( __instance_call_command_t<__CallCmd_(instance, generic), rt_generic_method_t> ) \
             __Case( __instance_call_command_t<__CallCmd_(instance, general), rt_method_t> ) \
             __Case( __virtual_call_command_t )                                          \
+            __Case( __interface_call_command_t )                                        \
             __Case( __delegate_call_command_t<__CallCmd(delegate_init) )                \
             __Case( __delegate_call_command_t<__CallCmd(delegate_invoke) )              \
                                                                                         \

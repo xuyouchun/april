@@ -1096,7 +1096,8 @@ namespace X_ROOT_NS::modules::core {
         if (m->is_static())
             return xil_call_type_t::static_;
 
-        if (m->is_virtual() || m->is_override() || m->is_abstract())
+        if (m->is_virtual() || m->is_override() || m->is_abstract()
+                            || is_interface(method->get_host_type()))
             return xil_call_type_t::virtual_;
 
         return xil_call_type_t::instance;

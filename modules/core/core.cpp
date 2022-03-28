@@ -1332,11 +1332,15 @@ namespace X_ROOT_NS::modules::core {
         if (av != empty_access_value)
             return av;
 
-        if (al::in(this_type(), member_type_t::type, member_type_t::type_def)
+        member_type_t mtype = this_type();
+        if (al::in(mtype, member_type_t::type, member_type_t::type_def)
             && host_type == nullptr)
         {
             return access_value_t::internal;
         }
+
+        if (is_interface(host_type))
+            return access_value_t::public_;
 
         return access_value_t::private_;
     }
@@ -4187,7 +4191,7 @@ namespace X_ROOT_NS::modules::core {
         if (get_base_type() == nullptr)
         {
             type_name_t * object_type_name = __XPool.get_object_type_name();
-            if (object_type_name->type != this)
+            if (object_type_name->type != this && this_ttype() != ttype_t::interface_)
             {
                 type_name_t * base_types[] = { object_type_name };
                 super_type_names.push_front(base_types);
@@ -7760,7 +7764,7 @@ namespace X_ROOT_NS::modules::core {
         type_t * host_type = to_method->get_host_type();
         _A(host_type != nullptr);
 
-        return check_access(from_type, host_type, to_access_value(to_method->get_decorate()));
+        return check_access(from_type, host_type, to_method->get_access_value());
     }
 
     // Check member access permission.
@@ -7942,7 +7946,7 @@ namespace X_ROOT_NS::modules::core {
         type_t * host_type = to_method->get_host_type();
         _A(host_type != nullptr);
 
-        access_value_t av = to_access_value(to_method->get_decorate());
+        access_value_t av = to_method->get_access_value();
         if (!__check_member_access(from_assembly, host_type, av))
             return false;
 

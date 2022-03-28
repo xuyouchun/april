@@ -104,6 +104,11 @@ namespace X_ROOT_NS::modules::rt {
             return nullptr;
         }
 
+        // Enum all super types.
+        virtual void each_super_type(analyzer_env_t & env, each_super_type_callback_t callback,
+                    const __gp_mgr_t * gp_manager) override
+        { }
+
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override
         {

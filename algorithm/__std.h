@@ -135,6 +135,19 @@ namespace X_ROOT_NS::algorithm {
         return map[key];
     }
 
+    // Gets the value from the map by the key, Auto creates when not found.
+    template<typename _map_t, typename _key_t>
+    auto & map_get(_map_t && map, _key_t && key)
+    {
+        auto it = map.find(key);
+        if (it != map.end())
+            return it->second;
+
+        typedef std::remove_reference_t<decltype(it->second)> value_t;
+        map[key] = value_t();
+        return map[key];
+    }
+
     // Inserts a key/value pair into the map.
     template<typename _map_t, typename _key_t, typename _value_t>
     bool map_insert(_map_t && map, _key_t && key, _value_t && value)

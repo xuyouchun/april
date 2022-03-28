@@ -24,6 +24,9 @@ namespace X_ROOT_NS::modules::rt {
         // Method not found.
         X_D(method_not_found,           _T("method '%1%' not found"))
 
+        // Cannot find member of interface.
+        X_D(interface_method_not_matched, _T("cannot find member '%1%' in type '%2%'"))
+
         // Field not found.
         X_D(field_not_found,            _T("field '%1%' not found"))
 
@@ -499,7 +502,7 @@ namespace X_ROOT_NS::modules::rt {
     // Pre calling static method.
     void rt_general_type_t::pre_static_call(analyzer_env_t & env)
     {
-
+        // Empty.
     }
 
     // Returns name of general type.
@@ -579,13 +582,35 @@ namespace X_ROOT_NS::modules::rt {
 
         assembly_analyzer_t analyzer = __analyzer(env, gp_manager);
         rt_type_t * base_type = analyzer.get_type((*super_type)->type);
-
         _A(base_type != nullptr);
 
         if (base_type->get_ttype(env) == ttype_t::class_)
             return base_type;
 
         return nullptr;
+    }
+
+    // Enum all super types.
+    void rt_general_type_t::each_super_type(analyzer_env_t & env,
+                    each_super_type_callback_t callback, const __gp_mgr_t * gp_manager)
+    {
+        ref_t super_types = mt->super_types;
+        if (super_types == ref_t::null)
+            return;
+
+        assembly_analyzer_t analyzer = __analyzer(env, gp_manager);
+
+        for (ref_t ref : super_types)
+        {
+            rt_super_type_t * super_type = assembly->get_super_type(ref);
+            _A(super_type != nullptr);
+
+            rt_type_t * type = analyzer.get_type((*super_type)->type);
+            _A(type != nullptr);
+
+            if (!callback(type))
+                break;
+        }
     }
 
     // Gets method offset.
@@ -770,25 +795,33 @@ namespace X_ROOT_NS::modules::rt {
         return host_type->is_generic_template();
     }
 
-    typedef al::svector_t<rt_vfunction_t, 32> rt_vfunctions_t;
-
-    // Builds virtual table.
-    static void __build_vtbl(assembly_analyzer_t & analyzer, rt_type_t * type,
-                                                             rt_vfunctions_t & vfuncs)
+    struct rt_interface_vfunction_t
     {
-        rt_type_t * base_type = type->get_base_type(analyzer.env);
+        rt_vfunction_t *    vfunction;
+        bool                is_owner;
 
+        operator rt_vfunction_t() const { return vfunction; }
+    };
+
+    typedef al::svector_t<rt_vfunction_t, 32> rt_vfunctions_t;
+    typedef al::svector_t<rt_interface_vfunction_t, 32> rt_interface_vfunctions_t;
+    typedef std::map<rt_type_t *, rt_interface_vfunctions_t> rt_interfaces_t;
+
+    // Builds virtual functions of virtual table.
+    static void __build_vfunctions(analyzer_env_t & env, rt_type_t * type, rt_vfunctions_t & vfuncs)
+    {
+        rt_type_t * base_type = type->get_base_type(env);
         if (base_type != nullptr)
-            __build_vtbl(analyzer, base_type, vfuncs);
+            __build_vfunctions(env, base_type, vfuncs);
 
         ref_t ret = ref_t::null;
 
         typedef rt_mt_t<__tidx_t::method> mt_t;
 
         rt_assembly_t * assembly = type->get_assembly();
-        assembly_analyzer_t base_analyzer(analyzer, assembly);
+        assembly_analyzer_t analyzer(env, assembly);
 
-        type->each_method(base_analyzer.env, [&](ref_t method_ref, rt_method_t * rt_method) {
+        type->each_method(env, [&](ref_t method_ref, rt_method_t * rt_method) {
 
             decorate_t decorate = (decorate_t)(*rt_method)->decorate;
 
@@ -804,12 +837,9 @@ namespace X_ROOT_NS::modules::rt {
                 bool found = false;
                 for (rt_vtable_function_t & func : vfuncs)
                 {
-                    rt_assembly_t * rt_assembly0 = base_analyzer.env.assemblies.at(
-                        func.assembly_idx
-                    );
-
+                    rt_assembly_t * rt_assembly0 = env.assemblies.at(func.assembly_idx);
                     rt_method_t * rt_method0 = rt_assembly0->get_method(ref_t(func.method_idx));
-                    assembly_analyzer_t analyzer0(analyzer, rt_assembly0);
+                    assembly_analyzer_t analyzer0(env, rt_assembly0);
 
                     if (__compare_method(analyzer0, prototype, rt_method0))
                     {
@@ -828,35 +858,175 @@ namespace X_ROOT_NS::modules::rt {
             }
             else
             {
-                return false;
+                return false;   // All virtual methods should be in front of the method list.
             }
 
             return true;
         });
+    }
 
-        if (vfuncs.size() == 0)
+    // Builds virtual functions for an interface method.
+    static void __build_interface(assembly_analyzer_t & analyzer, rt_type_t * type,
+        rt_interface_vfunctions_t & vfs, rt_type_t * interface_type,
+        ref_t interface_method_ref,  rt_method_t * interface_method)
+    {
+        analyzer_env_t & env = analyzer.env;
+
+        method_prototype_t prototype;
+        analyzer.get_prototype(interface_method_ref, &prototype);
+
+        rt_method_t * match_method = nullptr;
+        bool found = false, is_owner;
+
+        type->each_method(env, [&](ref_t method_ref, rt_method_t * method) {
+
+            rt_type_t * owner_type = method->get_owner_type();
+            if (owner_type != nullptr)
+            {
+                if (owner_type != interface_type)
+                    return true;
+            }
+            else if (__compare_method(analyzer, prototype, method))
+            {
+                _P(method->get_name(), _T("OK"));
+
+                // if (interface_type 
+
+                found = true;
+            }
+
+            return true;
+
+        });
+
+        if (!found)
         {
-            set_vtable(type, __EmptyVTbl);
-        }
-        else
-        {
-            rt_vtable_t * vtable = (rt_vtable_t *)memory_t::alloc(
-                analyzer.env.get_memory(),
-                sizeof(rt_vtable_t) + vfuncs.size() * sizeof(rt_vfunction_t)
+            throw _ED(__e_t::interface_method_not_matched,
+                _FT("%1%.%2%", interface_type->get_name(env), interface_method->get_name()),
+                type->get_name(env)
             );
-
-            al::copy(vfuncs, vtable->functions);
-            set_vtable(type, vtable);
         }
     }
+
+    // Builds virtual functions for interfaces.
+    static void __build_interfaces(analyzer_env_t & env, rt_type_t * type,
+                            rt_interfaces_t & interfaces, rt_type_t * interface_type)
+    {
+        interface_type->each_super_type(env, [&](rt_type_t * super_type) {
+
+            _A(super_type->get_ttype(env) == ttype_t::interface_);
+            __build_interfaces(env, type, interfaces, super_type);
+
+            return true;
+
+        });
+
+        rt_interface_vfunctions_t & vfs = al::map_get(interfaces, interface_type);
+
+        assembly_analyzer_t analyzer(env, interface_type->get_assembly());
+        interface_type->each_method(env, [&](ref_t method_ref, rt_method_t * method) {
+
+            __build_interface(analyzer, type, vfs, interface_type, method_ref, method);
+            return true;
+
+        });
+    }
+
+    // Builds virtual functions for interfaces.
+    static void __build_interfaces(analyzer_env_t & env, rt_type_t * type,
+                                                        rt_interfaces_t & interfaces)
+    {
+        rt_type_t * base_type = type->get_base_type(env);
+
+        if (base_type != nullptr)
+            __build_interfaces(env, base_type, interfaces);
+
+        type->each_super_type(env, [&](rt_type_t * super_type) {
+
+            if (super_type->get_ttype(env) != ttype_t::interface_)
+                return true;
+
+            __build_interfaces(env, type, interfaces, super_type);
+
+            return true;
+        });
+    }
+
+    // Builds virtual table.
+    void __build_vtbl(analyzer_env_t & env, rt_type_t * type)
+    {
+        rt_vfunctions_t vfuncs;
+        rt::__build_vfunctions(env, type, vfuncs);
+
+        rt_interfaces_t interfaces;
+        rt::__build_interfaces(env, type, interfaces);
+
+        // No virtual function & interfaces.
+        if (vfuncs.empty() && interfaces.empty())
+        {
+            set_vtable(type, __EmptyVTbl);
+            return;
+        }
+
+        // Builds virtual table.
+        size_t interface_vfunction_count = 0;
+        for (auto && it : interfaces)
+        {
+            rt_interface_vfunctions_t & funcs = it.second;
+            interface_vfunction_count += funcs.size();
+        }
+
+        // Alloc vtable object.
+        size_t vfunction_arr_pos = sizeof(rt_vtable_t);
+        size_t vtbl_interfaces_pos = vfunction_arr_pos + vfuncs.size() * sizeof(rt_vfunction_t);
+        size_t vtbl_interface_arr_pos = vtbl_interfaces_pos + sizeof(rt_vtable_interfaces_t);
+        size_t interface_function_arr_pos = vtbl_interface_arr_pos
+                                        + interfaces.size() * sizeof(rt_vtable_interface_t);
+        size_t size = interface_function_arr_pos + interface_vfunction_count
+                                        * sizeof(rt_vfunction_t);
+        rt_vtable_t * vtable = memory_t::new_obj<rt_vtable_t>(size, env.get_memory());
+        byte_t * ptr0 = (byte_t *)vtable;
+
+        // Copy vfunctions.
+        al::copy(vfuncs, vtable->functions);
+
+        // Copy interfaces.
+        {
+            vtable->interface_count = interfaces.size();
+            vtable->interfaces = (rt_vtable_interfaces_t *)(ptr0 + vtbl_interfaces_pos);
+
+            rt_vtable_interfaces_t * interfaces_ptr = vtable->interfaces;
+            interfaces_ptr->recently = interfaces_ptr->interfaces;
+
+            rt_vtable_interface_t * interface_arr = (rt_vtable_interface_t *)
+                                                        (ptr0 + vtbl_interface_arr_pos);
+            rt_vfunction_t * function_arr = (rt_vfunction_t *)(ptr0 + interface_function_arr_pos);
+
+            for (auto && it : interfaces)
+            {
+                interface_arr->interface_type = it.first;
+                interface_arr->functions = function_arr;
+
+                al::copy(it.second, function_arr);
+
+                function_arr += it.second.size();
+                interface_arr++;
+            }
+
+            // Sort by interface type for faster lookup.
+            std::sort(interface_arr, interface_arr,
+                [](auto & x, auto & y) { return x.interface_type < y.interface_type; }
+            );
+        }
+
+        set_vtable(type, vtable);
+    }
+
 
     // Builds virtual table.
     void rt_general_type_t::__build_vtbl(analyzer_env_t & env)
     {
-        assembly_analyzer_t analyzer = __analyzer(env);
-
-        al::svector_t<rt_vfunction_t, 32> vfuncs;
-        rt::__build_vtbl(analyzer, this, vfuncs);
+        rt::__build_vtbl(env, this);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -902,10 +1072,7 @@ namespace X_ROOT_NS::modules::rt {
     // Builds virtual table.
     void rt_generic_type_t::__build_vtbl(analyzer_env_t & env)
     {
-        assembly_analyzer_t analyzer = __analyzer(env);
-
-        al::svector_t<rt_vfunction_t, 32> vfuncs;
-        rt::__build_vtbl(analyzer, this, vfuncs);
+        rt::__build_vtbl(env, this);
     }
 
     // It's a tuple type?
@@ -1032,6 +1199,18 @@ namespace X_ROOT_NS::modules::rt {
         X_UNEXPECTED();
     }
 
+    // Enum all super types.
+    void rt_generic_type_t::each_super_type(analyzer_env_t & env,
+                    each_super_type_callback_t callback, const __gp_mgr_t * gp_manager)
+    {
+        _A(template_ != nullptr);
+
+        assembly_analyzer_t analyzer = __analyzer(env);
+        generic_param_manager_t gp_mgr(analyzer, this);
+
+        template_->each_super_type(env, callback, &gp_mgr);
+    }
+
     // Gets method offset.
     int rt_generic_type_t::get_method_offset(analyzer_env_t & env, ref_t method_ref)
     {
@@ -1101,7 +1280,7 @@ namespace X_ROOT_NS::modules::rt {
     // Enumerates all extend types.
     void rt_generic_type_t::each_extend_types(analyzer_env_t & env, rt_sid_t name, each_type_t f)
     {
-        _PP(_T("EACH"));
+        // Empty.
     }
 
     // Gets assembly.
@@ -1319,6 +1498,15 @@ namespace X_ROOT_NS::modules::rt {
         X_UNEXPECTED();
 
         return nullptr;
+    }
+
+    // Enum all super types.
+    void rt_array_type_t::each_super_type(analyzer_env_t & env,
+                    each_super_type_callback_t callback, const __gp_mgr_t * gp_manager)
+    {
+        // TODO: return ?
+
+        X_UNEXPECTED();
     }
 
     // Gets offset of method.
@@ -2180,6 +2368,14 @@ namespace X_ROOT_NS::modules::rt {
         return type->get_base_type(env, gp_manager);
     }
 
+    // Enum all super types.
+    void assembly_analyzer_t::each_super_type(rt_type_t * type, analyzer_env_t & env,
+                                                        each_super_type_callback_t callback)
+    {
+        _A(type != nullptr);
+        type->each_super_type(env, callback, gp_manager);
+    }
+
     // Gets type size.
     msize_t assembly_analyzer_t::get_type_size(ref_t type_ref)
     {
@@ -2215,6 +2411,10 @@ namespace X_ROOT_NS::modules::rt {
         _A(method != nullptr);
 
         rt_type_t * rt_type = method->get_host_type();
+
+        // All methods in interface types are all virtual members.
+        if (rt_type->get_ttype(env) == ttype_t::interface_)
+            return rt_type->get_method_offset(env, method_ref);
 
         decorate_t decorate = (decorate_t)(*method)->decorate;
         if (__is_virtual(decorate))

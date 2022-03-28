@@ -2486,6 +2486,12 @@ namespace X_ROOT_NS::modules::core {
         return type != nullptr && type->this_ttype() == ttype_t::enum_;
     }
 
+    // Returns whether a type is interface type.
+    X_ALWAYS_INLINE bool is_interface(type_t * type)
+    {
+        return type != nullptr && type->this_ttype() == ttype_t::interface_;
+    }
+
     // Returns whether it's a custom defined struct type.
     X_ALWAYS_INLINE bool is_custom_struct(type_t * type)
     {
@@ -3345,6 +3351,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns Decorates.
         virtual decorate_t * get_decorate() = 0;
 
+        // Returns access value.
+        virtual access_value_t get_access_value() = 0;
+
         // Converts to a string.
         virtual const string_t to_string() const = 0;
     };
@@ -3444,6 +3453,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() override { return decorate; }
+
+        // Returns access value.
+        virtual access_value_t get_access_value() override
+        {
+            return __named_member_t::get_access_value();
+        }
 
         // Compile the method to xil.
         void compile(method_compile_context_t & ctx);
@@ -3567,6 +3582,12 @@ namespace X_ROOT_NS::modules::core {
         virtual decorate_t * get_decorate() override
         {
             return __template()->get_decorate();
+        }
+
+        // Returns access value of specified member.
+        virtual access_value_t get_access_value() override
+        {
+            return __template()->get_access_value();
         }
 
         // Converts to string.

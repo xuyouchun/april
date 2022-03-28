@@ -57,6 +57,9 @@ namespace X_ROOT_NS::modules::rt {
         // Field not found.
         field_not_found,
 
+        // Cannot find member of interface.
+        interface_method_not_matched,
+
         // Local index out of range.
         local_index_out_of_range,
 
@@ -194,10 +197,30 @@ namespace X_ROOT_NS::modules::rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Virtual table interface item.
+    struct rt_vtable_interface_t
+    {
+        rt_type_t *         interface_type;
+        rt_vfunction_t *    functions;
+    };
+
+    // Virtual table interfaces.
+    struct rt_vtable_interfaces_t
+    {
+        rt_vtable_interface_t * recently;
+        rt_vtable_interface_t   interfaces[0];
+    };
+
     // Virtual table.
     struct rt_vtable_t
     {
+        rt_vtable_interfaces_t * interfaces;
+        msize_t                  interface_count;
+
         rt_vfunction_t  functions[0];
+
+        // rt_vtable_interfaces_t interfaces;
+        // rt_vfunction_t interface_functions[...];
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -837,6 +860,7 @@ namespace X_ROOT_NS::modules::rt {
     //-------- ---------- ---------- ---------- ----------
 
     struct method_prototype_t;
+    typedef std::function<bool (rt_type_t *)> each_super_type_callback_t;
 
     // Runtime type.
     class rt_type_t : public rt_member_t
@@ -862,6 +886,10 @@ namespace X_ROOT_NS::modules::rt {
         virtual rt_type_t * get_base_type(analyzer_env_t & env,
                                           const __gp_mgr_t * gp_manager = nullptr) = 0;
 
+        // Enum all super types.
+        virtual void each_super_type(analyzer_env_t & env,
+                each_super_type_callback_t callback, const __gp_mgr_t * gp_manager = nullptr) = 0;
+
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) = 0;
 
@@ -884,6 +912,7 @@ namespace X_ROOT_NS::modules::rt {
                     method_prototype_t & prototype,
                     search_method_options_t options = search_method_options_t::default_) = 0;
 
+        // Enumerates all extend types.
         typedef std::function<bool (ref_t, rt_type_t *)> each_type_t;
         virtual void each_extend_types(analyzer_env_t & env, rt_sid_t name, each_type_t f) { }
 
@@ -993,6 +1022,10 @@ namespace X_ROOT_NS::modules::rt {
         // Gets base type.
         virtual rt_type_t * get_base_type(analyzer_env_t & env,
                                           const __gp_mgr_t * gp_manager = nullptr) override final;
+
+        // Enum all super types.
+        virtual void each_super_type(analyzer_env_t & env,
+                each_super_type_callback_t callback, const __gp_mgr_t * gp_manager) override final;
 
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref)
@@ -1104,6 +1137,10 @@ namespace X_ROOT_NS::modules::rt {
         virtual rt_type_t * get_base_type(analyzer_env_t & env,
                                           const __gp_mgr_t * gp_manager = nullptr) override final;
 
+        // Enum all super types.
+        virtual void each_super_type(analyzer_env_t & env,
+                each_super_type_callback_t callback, const __gp_mgr_t * gp_manager) override final;
+
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override final;
 
@@ -1212,6 +1249,10 @@ namespace X_ROOT_NS::modules::rt {
         virtual rt_type_t * get_base_type(analyzer_env_t & env,
                               const __gp_mgr_t * gp_manager = nullptr) override final;
 
+        // Enum all super types.
+        virtual void each_super_type(analyzer_env_t & env,
+                each_super_type_callback_t callback, const __gp_mgr_t * gp_manager) override final;
+
         // Gets method offset.
         virtual int get_method_offset(analyzer_env_t & env, ref_t method_ref) override final;
 
@@ -1305,6 +1346,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets host type.
         rt_type_t *     get_host_type();
+
+        // Gets owner type (an interface type).
+        rt_type_t *     get_owner_type();
 
         // Gets name.
         virtual rt_sid_t get_name() override;
@@ -1921,6 +1965,10 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets base type.
         rt_type_t * get_base_type(rt_type_t * type);
+
+        // Enum all super types.
+        void each_super_type(rt_type_t * type, analyzer_env_t & env,
+                                               each_super_type_callback_t callback);
 
         // Gets type size.
         msize_t get_type_size(ref_t type_ref);

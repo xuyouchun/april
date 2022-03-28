@@ -2411,42 +2411,14 @@ namespace X_ROOT_NS::modules::compile {
     void __sys_t<type_cast_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                                     xil_type_t dtype)
     {
+        if (!is_effective(ctx, this))
+            return;
+
         expression_t * exp = this->expression();
         _A(exp != nullptr);
 
-        /*
-        variable_t * var;
-
-        if (dtype1 == xil_type_t::ptr
-            && exp->this_family() == expression_family_t::name
-            && (var = ((name_expression_t *)exp)->get_variable()) != nullptr)
-        {
-            switch (var->this_type())
-            {
-                case variable_type_t::param: {
-
-                    param_variable_t * param_var = (param_variable_t *)var;
-                    int param_index = param_var->param->index;
-
-                    method_t * method = ctx.statement_ctx.method;
-                    if (!method->get_decorate()->is_static)
-                        param_index++;
-
-                    _PP(param_index);
-
-                }   break;
-
-                default:
-                    X_UNEXPECTED();
-            }
-        }
-        */
-
-        if (is_effective(ctx, this))
-        {
-            exp->compile(ctx, pool, __xil_type(type_name));
-            __post_compile_expression(ctx, pool, this, dtype);
-        }
+        exp->compile(ctx, pool, __xil_type(type_name));
+        __post_compile_expression(ctx, pool, this, dtype);
     }
 
     ////////// ////////// ////////// ////////// //////////
