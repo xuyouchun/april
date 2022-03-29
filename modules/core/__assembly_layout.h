@@ -979,9 +979,9 @@ namespace X_ROOT_NS::modules::core {
     // Metadata: Event ref
     __DefineMt(event_ref, event_t *, (int)mt_member_extra_t::import)
 
-        ref_t       host;
-        ref_t       type;
-        res_t       name;
+        ref_t       host;                   // Host type
+        ref_t       type;                   // Property type
+        res_t       name;                   // Property name
 
     __EndDefineMt(event_ref)
 
@@ -1055,6 +1055,7 @@ namespace X_ROOT_NS::modules::core {
         __decorate_t    decorate;           // Decorate
 
         ref_t           type;               // Property type
+        ref_t           owner;              // Owner type
         ref_t           attributes;         // Property attributes
         ref_t           params;             // Property params, for index.
 
@@ -1073,6 +1074,7 @@ namespace X_ROOT_NS::modules::core {
         __decorate_t    decorate;           // Method decorate
 
         ref_t           type;               // Method type
+        ref_t           owner;              // Owner type
         ref_t           attributes;         // Method attributes
         ref_t           generic_params;     // Method generic params
         ref_t           params;             // Method params
@@ -1093,6 +1095,7 @@ namespace X_ROOT_NS::modules::core {
         __decorate_t    decorate;           // Event decorate
 
         ref_t           type;               // Event type
+        ref_t           owner;              // Owner type
         ref_t           attributes;         // Event attributes.
 
         ref_t           add_method;         // The add method

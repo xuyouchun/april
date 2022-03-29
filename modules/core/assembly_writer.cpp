@@ -309,7 +309,8 @@ namespace X_ROOT_NS::modules::core {
                                         __t::static_constructor, __t::destructor))
             __CheckEmptyV(method, method_type, "method", "type");
             mt->generic_params = __W->__commit_generic_params(method->generic_params);
-            mt->type = __W->__commit_type(method_type);
+            mt->type  = __W->__commit_type(method_type);
+            mt->owner = __W->__commit_type(to_type(method->owner_type_name));
 
             mt->attributes = __W->__commit_attributes(method->attributes);
             mt->params     = __W->__commit_params(method->params);
@@ -371,7 +372,8 @@ namespace X_ROOT_NS::modules::core {
 
             type_t * property_type = to_type(property->type_name);
             __CheckEmptyV(property, property_type, "property", "type");
-            mt->type = __W->__commit_type(property_type);
+            mt->type  = __W->__commit_type(property_type);
+            mt->owner = __W->__commit_type(to_type(property->owner_type_name));
 
             mt->attributes = __W->__commit_attributes(property->attributes);
             mt->params     = __W->__commit_params(property->params);
@@ -407,7 +409,8 @@ namespace X_ROOT_NS::modules::core {
 
             type_t * event_type = to_type(event->type_name);
             __CheckEmptyV(event, event_type, "event", "type");
-            mt->type = __W->__commit_type(event_type);
+            mt->type  = __W->__commit_type(event_type);
+            mt->owner = __W->__commit_type(to_type(event->owner_type_name));
 
             mt->attributes    = __W->__commit_attributes(event->attributes);
             mt->add_method    = __W->__commit_method(event->add_method);

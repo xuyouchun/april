@@ -46,31 +46,7 @@ namespace X_ROOT_NS::modules::rt {
         assembly_not_found,
 
         // Assembly format error.
-        assembly_format_error,
-
-        // Type not found.
-        type_not_found,
-
-        // Method not found.
-        method_not_found,
-
-        // Field not found.
-        field_not_found,
-
-        // Cannot find member of interface.
-        interface_method_not_matched,
-
-        // Local index out of range.
-        local_index_out_of_range,
-
-        // Argument index out of range.
-        argument_index_out_of_range,
-
-        // Virtual method not found.
-        virtual_method_not_found,
-
-        // Generic param index out of range.
-        generic_param_index_out_of_range,
+        assembly_error,
 
     X_ENUM_END
 
@@ -221,6 +197,29 @@ namespace X_ROOT_NS::modules::rt {
 
         // rt_vtable_interfaces_t interfaces;
         // rt_vfunction_t interface_functions[...];
+
+        X_ALWAYS_INLINE rt_vtable_interface_t * search_vtable_interface(rt_type_t * interface_type)
+        {
+            rt_vtable_interface_t * recently = interfaces->recently;
+            if (recently->interface_type == interface_type)
+                return recently;
+
+            for (rt_vtable_interface_t * vtable_interface = interfaces->interfaces; ;
+                vtable_interface++)
+            {
+                if (vtable_interface->interface_type == interface_type)
+                {
+                    interfaces->recently = vtable_interface;
+                    return vtable_interface;
+                }
+            }
+        }
+
+        X_ALWAYS_INLINE rt_vfunction_t search_vtable_interface_function(
+                                                rt_type_t * interface_type, int index)
+        {
+            return search_vtable_interface(interface_type)->functions[index];
+        }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1345,10 +1344,10 @@ namespace X_ROOT_NS::modules::rt {
         rt_assembly_t * get_assembly();
 
         // Gets host type.
-        rt_type_t *     get_host_type();
+        rt_type_t * get_host_type();
 
         // Gets owner type (an interface type).
-        rt_type_t *     get_owner_type();
+        rt_type_t * get_owner_type(analyzer_env_t & env);
 
         // Gets name.
         virtual rt_sid_t get_name() override;

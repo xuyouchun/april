@@ -587,7 +587,7 @@ namespace X_ROOT_NS::modules::core {
 
     // Metadata: Property.
     __DefineEntityIOFunctions
-        __M(name), __M(decorate), __M(type), __M(attributes),
+        __M(name), __M(decorate), __M(type), __M(owner), __M(attributes),
         __M(params), __M(get_method), __M(set_method), __V(1),
     __EndDefineEntityIOFunctions
 
@@ -599,7 +599,7 @@ namespace X_ROOT_NS::modules::core {
 
     // Metadata: Method.
     __DefineEntityIOFunctions
-        __M(name), __M(decorate), __M(type),
+        __M(name), __M(decorate), __M(type), __M(owner),
         __M(attributes), __M(generic_params), __M(params), __M(body), __M(trait), __V(1),
     __EndDefineEntityIOFunctions
 
@@ -611,7 +611,7 @@ namespace X_ROOT_NS::modules::core {
 
     // Metadata: Event.
     __DefineEntityIOFunctions
-        __M(name), __M(decorate), __M(type),
+        __M(name), __M(decorate), __M(type), __M(owner),
         __M(attributes), __M(add_method), __M(remove_method), __V(1),
     __EndDefineEntityIOFunctions
 

@@ -1,4 +1,5 @@
 #include <rt.h>
+#include "utils.h"
 
 namespace X_ROOT_NS::modules::rt {
 
@@ -8,10 +9,6 @@ namespace X_ROOT_NS::modules::rt {
     template<__tidx_t tidx> using __entity_t = rt_entity_t<tidx>;
 
     #define __AlwaysInline  X_ALWAYS_INLINE
-
-    ////////// ////////// ////////// ////////// //////////
-
-    #define __FormatError(s) _E(__e_t::assembly_format_error, s)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -282,9 +279,9 @@ namespace X_ROOT_NS::modules::rt {
             auto & mgr = __mt_manager<tidx>();
             if (index >= mgr.count())
             {
-                throw __FormatError(_F(_T("'%1%:%2%' ref index '%3%' overflow"),
+                throw __RtAssemblyErrorF("'%1%:%2%' ref index '%3%' overflow",
                     __assembly_name(), tidx, index
-                ));
+                );
             }
 
             return mgr[index];
@@ -297,10 +294,10 @@ namespace X_ROOT_NS::modules::rt {
         {
             auto & assembly_mgr = __mt_manager<__tidx_t::assembly>();
             if (assembly_mgr.count() == 0)
-                throw __FormatError(_T("no assembly information"));
+                throw __RtAssemblyError(_T("no assembly information"));
 
             if (assembly_mgr.count() >= 2)
-                throw __FormatError(_T("multiply assembly information"));
+                throw __RtAssemblyError(_T("multiply assembly information"));
 
             rt_mt_t<__tidx_t::assembly> & mt_assembly = assembly_mgr[0];
             __assembly.mt = &mt_assembly;

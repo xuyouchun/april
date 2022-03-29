@@ -1,5 +1,6 @@
 
 #include <rt.h>
+#include "utils.h"
 
 namespace X_ROOT_NS::modules::rt {
 
@@ -37,7 +38,7 @@ namespace X_ROOT_NS::modules::rt {
     rt_type_t * generic_param_manager_t::type_at(int index) const
     {
         if (index < 0 || index >= __atypes.size())
-            throw _ED(__e_t::generic_param_index_out_of_range);
+            throw __RtAssemblyError(_T("generic param index out of range"));
 
         return __atypes[index];
     }
@@ -679,7 +680,7 @@ namespace X_ROOT_NS::modules::rt {
     msize_t locals_layout_t::offset_of(int index)
     {
         if (index >= __items.size())
-            throw _ED(__e_t::local_index_out_of_range);
+            throw __RtAssemblyError(_T("local index out of range"));
 
         return __items[index].offset;
     }
@@ -688,7 +689,7 @@ namespace X_ROOT_NS::modules::rt {
     rt_type_t * locals_layout_t::type_at(int index)
     {
         if (index >= __items.size())
-            throw _ED(__e_t::local_index_out_of_range);
+            throw __RtAssemblyError(_T("local index out of range"));
 
         return __items[index].type;
     }
@@ -782,7 +783,7 @@ namespace X_ROOT_NS::modules::rt {
             if (index == __items.size())
                 return 0;
 
-            throw _ED(__e_t::argument_index_out_of_range);
+            throw __RtAssemblyError(_T("argument index out of range"));
         }
 
         return __current_offset - __items[index].offset;
@@ -801,7 +802,7 @@ namespace X_ROOT_NS::modules::rt {
     rt_type_t * params_layout_t::type_at(int index)
     {
         if (index >= __items.size())
-            throw _ED(__e_t::argument_index_out_of_range);
+            throw __RtAssemblyError(_T("argument index out of range"));
 
         return __items[index].type;
     }
@@ -811,7 +812,7 @@ namespace X_ROOT_NS::modules::rt {
                                                     param_type_t * out_param_type)
     {
         if (index >= __items.size())
-            throw _ED(__e_t::argument_index_out_of_range);
+            throw __RtAssemblyError(_T("argument index out of range"));
 
         __item_t & it = __items[index];
 

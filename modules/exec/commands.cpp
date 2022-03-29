@@ -3499,6 +3499,30 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    template<typename _fetch_t>
+    __AlwaysInline exec_method_t * __get_virtual_exec_method(command_execute_context_t & ctx,
+                msize_t this_offset, _fetch_t fetch_func)
+    {
+        rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - this_offset);
+        rt_type_t * rt_type = __RtTypeOf(obj);
+
+        rt_vtable_t * vtbl = get_vtable(rt_type);
+        rt_vfunction_t func = fetch_func(vtbl);
+
+        if (!func.initialized())
+        {
+            rt_assembly_t * rt_assembly = ctx.env.assemblies.at(func.assembly_idx);
+            rt_method_t * rt_method = __assembly_analyzer(ctx, rt_assembly).get_method(
+                ref_t(func.method_idx)
+            );
+
+            func.method = ctx.env.exec_method_of(rt_method);
+        }
+       
+        return (exec_method_t *)func.method;
+    }
+
+    // Normal virtual call command.
     class __virtual_call_command_t : public __command_base_t<__CallCmd(virtual_)>
     {
         typedef __virtual_call_command_t                __self_t;
@@ -3510,23 +3534,12 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - __this_offset);
-            rt_type_t * rt_type = __RtTypeOf(obj);
+            exec_method_t * method = __get_virtual_exec_method(ctx, __This->__this_offset,
+                [offset=__This->__virtual_offset](rt_vtable_t * vtbl) {
+                    return vtbl->functions[offset];
+                }
+            );
 
-            rt_vtable_t * vtbl = get_vtable(rt_type);
-            rt_vfunction_t func = vtbl->functions[__This->__virtual_offset];
-
-            if (!func.initialized())
-            {
-                rt_assembly_t * rt_assembly = ctx.env.assemblies.at(func.assembly_idx);
-                rt_method_t * rt_method = __assembly_analyzer(ctx, rt_assembly).get_method(
-                    ref_t(func.method_idx)
-                );
-
-                func.method = ctx.env.exec_method_of(rt_method);
-            }
-
-            exec_method_t * method = (exec_method_t *)func.method;
             ctx.push_calling(method);
 
         __EndExecute()
@@ -3555,6 +3568,7 @@ namespace X_ROOT_NS::modules::exec {
         }
     };
 
+    // Interface virtual call command.
     class __interface_call_command_t : public __command_base_t<__CallCmd(interface_)>
     {
         typedef __interface_call_command_t                __self_t;
@@ -3569,7 +3583,13 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            _P(_T("interface"));
+            exec_method_t * method = __get_virtual_exec_method(ctx, __This->__this_offset,
+                [o=__This->__virtual_offset, t=__This->__interface_type] (rt_vtable_t * vtbl) {
+                    return vtbl->search_vtable_interface_function(t, o); 
+                }
+            );
+
+            ctx.push_calling(method);
 
         __EndExecute()
 

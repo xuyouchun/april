@@ -1,4 +1,5 @@
 #include <rt.h>
+#include "utils.h"
 
 namespace X_ROOT_NS::modules::rt {
 
@@ -16,31 +17,7 @@ namespace X_ROOT_NS::modules::rt {
         X_D(assembly_not_found,         _T("assembly '%1%' not found"))
 
         // Assembly for mat error.
-        X_D(assembly_format_error,      _T("%1%"))
-
-        // Type not found.
-        X_D(type_not_found,             _T("type '%1%' not found"))
-
-        // Method not found.
-        X_D(method_not_found,           _T("method '%1%' not found"))
-
-        // Cannot find member of interface.
-        X_D(interface_method_not_matched, _T("cannot find member '%1%' in type '%2%'"))
-
-        // Field not found.
-        X_D(field_not_found,            _T("field '%1%' not found"))
-
-        // Local index out of range.
-        X_D(local_index_out_of_range,   _T("local variable index out of range"))
-
-        // Argument index out of range.
-        X_D(argument_index_out_of_range, _T("argument index out of range"))
-
-        // Virtual method not found.
-        X_D(virtual_method_not_found,   _T("virtual method '%1%' not found"))
-
-        // Generic param index out of range.
-        X_D(generic_param_index_out_of_range,   _T("generic param index out of range"))
+        X_D(assembly_error,             _T("%1%"))
 
     X_ENUM_INFO_END
 
@@ -640,13 +617,14 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Compares to methods.
-    static bool __compare_method(assembly_analyzer_t & analyzer, method_prototype_t & prototype,
+    static bool __compare_method(analyzer_env_t & env, method_prototype_t & prototype,
                                                                  rt_method_t * rt_method)
     {
-        rt_assembly_t * rt_assembly = analyzer.current;
+        rt_assembly_t * rt_assembly = rt_method->get_assembly();
+        assembly_analyzer_t analyzer(env, rt_assembly);
         mt_method_t & mt = *rt_method->mt;
 
-        if (rt_assembly->get_name(rt_method) != prototype.name)
+        if (rt_method->get_name() != prototype.name)
             return false;
 
         if (prototype.generic_param_count != mt.generic_params.count)
@@ -700,7 +678,7 @@ namespace X_ROOT_NS::modules::rt {
             rt_method_t * rt_method = analyzer.get_method(method_ref);
             _A(rt_method != nullptr);
 
-            if (__compare_method(analyzer, prototype, rt_method))
+            if (__compare_method(env, prototype, rt_method))
             {
                 ret = method_ref;
                 return false;
@@ -795,20 +773,26 @@ namespace X_ROOT_NS::modules::rt {
         return host_type->is_generic_template();
     }
 
-    struct rt_interface_vfunction_t
+    struct __rt_interface_vfunction_t
     {
-        rt_vfunction_t *    vfunction;
-        bool                is_owner;
+        rt_method_t * method;
 
-        operator rt_vfunction_t() const { return vfunction; }
+        uint32_t    assembly_index;
+        uint32_t    method_index;
+
+        operator rt_vtable_function_t() const
+        {
+            return rt_vtable_function_t(assembly_index, method_index);
+        }
     };
 
-    typedef al::svector_t<rt_vfunction_t, 32> rt_vfunctions_t;
-    typedef al::svector_t<rt_interface_vfunction_t, 32> rt_interface_vfunctions_t;
-    typedef std::map<rt_type_t *, rt_interface_vfunctions_t> rt_interfaces_t;
+    typedef al::svector_t<rt_vfunction_t, 32> __rt_vfunctions_t;
+    typedef al::svector_t<__rt_interface_vfunction_t, 32> __rt_interface_vfunctions_t;
+    typedef std::map<rt_type_t *, __rt_interface_vfunctions_t> __rt_interfaces_t;
 
     // Builds virtual functions of virtual table.
-    static void __build_vfunctions(analyzer_env_t & env, rt_type_t * type, rt_vfunctions_t & vfuncs)
+    static void __build_vfunctions(analyzer_env_t & env, rt_type_t * type,
+                                                        __rt_vfunctions_t & vfuncs)
     {
         rt_type_t * base_type = type->get_base_type(env);
         if (base_type != nullptr)
@@ -841,7 +825,7 @@ namespace X_ROOT_NS::modules::rt {
                     rt_method_t * rt_method0 = rt_assembly0->get_method(ref_t(func.method_idx));
                     assembly_analyzer_t analyzer0(env, rt_assembly0);
 
-                    if (__compare_method(analyzer0, prototype, rt_method0))
+                    if (__compare_method(env, prototype, rt_method0))
                     {
                         new (&func) rt_vtable_function_t(assembly->index, method_ref.index);
 
@@ -853,7 +837,7 @@ namespace X_ROOT_NS::modules::rt {
                 if (!found)
                 {
                     auto method_name = assembly->get_name(rt_method);
-                    throw _ED(__e_t::virtual_method_not_found, method_name);
+                    throw __RtAssemblyErrorF("virtual method '%1%' not found", method_name);
                 }
             }
             else
@@ -866,51 +850,71 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Builds virtual functions for an interface method.
-    static void __build_interface(assembly_analyzer_t & analyzer, rt_type_t * type,
-        rt_interface_vfunctions_t & vfs, rt_type_t * interface_type,
-        ref_t interface_method_ref,  rt_method_t * interface_method)
+    static bool __build_interface(assembly_analyzer_t & analyzer, rt_type_t * type,
+        __rt_interface_vfunctions_t & vfs, int index, rt_type_t * interface_type,
+        method_prototype_t & prototype)
     {
         analyzer_env_t & env = analyzer.env;
+        rt_method_t * matched_method = nullptr;
 
-        method_prototype_t prototype;
-        analyzer.get_prototype(interface_method_ref, &prototype);
+        rt_type_t * base_type = type->get_base_type(env);
+        if (base_type != nullptr)
+            __build_interface(analyzer, base_type, vfs, index, interface_type, prototype);
 
-        rt_method_t * match_method = nullptr;
-        bool found = false, is_owner;
+        if (index < vfs.size())
+            matched_method = vfs[index].method;
 
-        type->each_method(env, [&](ref_t method_ref, rt_method_t * method) {
+        bool found_new = false;
+        ref_t method_ref;
 
-            rt_type_t * owner_type = method->get_owner_type();
+        type->each_method(env, [&](ref_t method_ref0, rt_method_t * method) {
+
+            if (!__compare_method(env, prototype, method))
+                return true;
+
+            rt_type_t * owner_type = method->get_owner_type(env);
+
             if (owner_type != nullptr)
             {
                 if (owner_type != interface_type)
                     return true;
             }
-            else if (__compare_method(analyzer, prototype, method))
-            {
-                _P(method->get_name(), _T("OK"));
 
-                // if (interface_type 
+            matched_method = method;
+            method_ref = method_ref0;
+            found_new = true;
 
-                found = true;
-            }
-
-            return true;
+            return owner_type == nullptr;   // if owner_type is not nullptr, stop search.
 
         });
 
-        if (!found)
+        if (matched_method == nullptr)
+            return false;
+
+        if (found_new)
         {
-            throw _ED(__e_t::interface_method_not_matched,
-                _FT("%1%.%2%", interface_type->get_name(env), interface_method->get_name()),
-                type->get_name(env)
-            );
+            _A(index <= vfs.size());
+
+            uint32_t assembly_index = type->get_assembly()->index;
+            uint32_t method_index = method_ref.index;
+
+            #define __RtInterfaceVFunction() __rt_interface_vfunction_t {               \
+                matched_method, assembly_index, method_index }
+
+            if (index == vfs.size())
+                vfs.push_back(__RtInterfaceVFunction());
+            else
+                vfs[index] = __RtInterfaceVFunction();
+
+            #undef __RtInterfaceVFunction
         }
+
+        return true;
     }
 
     // Builds virtual functions for interfaces.
     static void __build_interfaces(analyzer_env_t & env, rt_type_t * type,
-                            rt_interfaces_t & interfaces, rt_type_t * interface_type)
+                            __rt_interfaces_t & interfaces, rt_type_t * interface_type)
     {
         interface_type->each_super_type(env, [&](rt_type_t * super_type) {
 
@@ -921,12 +925,23 @@ namespace X_ROOT_NS::modules::rt {
 
         });
 
-        rt_interface_vfunctions_t & vfs = al::map_get(interfaces, interface_type);
+        __rt_interface_vfunctions_t & vfs = al::map_get(interfaces, interface_type);
 
         assembly_analyzer_t analyzer(env, interface_type->get_assembly());
+        int index = 0;
+
         interface_type->each_method(env, [&](ref_t method_ref, rt_method_t * method) {
 
-            __build_interface(analyzer, type, vfs, interface_type, method_ref, method);
+            method_prototype_t prototype;
+            analyzer.get_prototype(method_ref, &prototype);
+
+            if (!__build_interface(analyzer, type, vfs, index++, interface_type, prototype))
+            {
+                throw __RtAssemblyErrorF("cannot find member '%1%.%2%' in type '%3%'",
+                    interface_type->get_name(env), method->get_name(), type->get_name(env)
+                );
+            }
+
             return true;
 
         });
@@ -934,7 +949,7 @@ namespace X_ROOT_NS::modules::rt {
 
     // Builds virtual functions for interfaces.
     static void __build_interfaces(analyzer_env_t & env, rt_type_t * type,
-                                                        rt_interfaces_t & interfaces)
+                                                __rt_interfaces_t & interfaces)
     {
         rt_type_t * base_type = type->get_base_type(env);
 
@@ -943,10 +958,8 @@ namespace X_ROOT_NS::modules::rt {
 
         type->each_super_type(env, [&](rt_type_t * super_type) {
 
-            if (super_type->get_ttype(env) != ttype_t::interface_)
-                return true;
-
-            __build_interfaces(env, type, interfaces, super_type);
+            if (super_type->get_ttype(env) == ttype_t::interface_)
+                __build_interfaces(env, type, interfaces, super_type);
 
             return true;
         });
@@ -955,10 +968,10 @@ namespace X_ROOT_NS::modules::rt {
     // Builds virtual table.
     void __build_vtbl(analyzer_env_t & env, rt_type_t * type)
     {
-        rt_vfunctions_t vfuncs;
+        __rt_vfunctions_t vfuncs;
         rt::__build_vfunctions(env, type, vfuncs);
 
-        rt_interfaces_t interfaces;
+        __rt_interfaces_t interfaces;
         rt::__build_interfaces(env, type, interfaces);
 
         // No virtual function & interfaces.
@@ -972,7 +985,7 @@ namespace X_ROOT_NS::modules::rt {
         size_t interface_vfunction_count = 0;
         for (auto && it : interfaces)
         {
-            rt_interface_vfunctions_t & funcs = it.second;
+            __rt_interface_vfunctions_t & funcs = it.second;
             interface_vfunction_count += funcs.size();
         }
 
@@ -1000,6 +1013,7 @@ namespace X_ROOT_NS::modules::rt {
 
             rt_vtable_interface_t * interface_arr = (rt_vtable_interface_t *)
                                                         (ptr0 + vtbl_interface_arr_pos);
+            rt_vtable_interface_t * interface_arr0 = interface_arr;
             rt_vfunction_t * function_arr = (rt_vfunction_t *)(ptr0 + interface_function_arr_pos);
 
             for (auto && it : interfaces)
@@ -1014,14 +1028,13 @@ namespace X_ROOT_NS::modules::rt {
             }
 
             // Sort by interface type for faster lookup.
-            std::sort(interface_arr, interface_arr,
+            std::sort(interface_arr0, interface_arr,
                 [](auto & x, auto & y) { return x.interface_type < y.interface_type; }
             );
         }
 
         set_vtable(type, vtable);
     }
-
 
     // Builds virtual table.
     void rt_general_type_t::__build_vtbl(analyzer_env_t & env)
@@ -1583,6 +1596,17 @@ namespace X_ROOT_NS::modules::rt {
         return host_type;
     }
 
+    // Gets owner type (an interface type).
+    rt_type_t * rt_method_t::get_owner_type(analyzer_env_t & env)
+    {
+        ref_t owner_type_ref = (*this)->owner;
+        if (owner_type_ref == ref_t::null)
+            return nullptr;
+
+        assembly_analyzer_t analyzer(env, get_assembly());
+        return analyzer.get_type(owner_type_ref);;
+    }
+
     // Gets name.
     rt_sid_t rt_method_t::get_name()
     {
@@ -1750,7 +1774,7 @@ namespace X_ROOT_NS::modules::rt {
     rt_assembly_t * rt_assemblies_t::at(int index)
     {
         if (index < 0 || index >= __assembly_vector.size())
-            throw _EC(overflow, _T("index overflow when reading rt_assembly_t object"));
+            throw __RtAssemblyError(_T("index overflow when reading rt_assembly_t object"));
 
         return __assembly_vector[index];
     }
@@ -1784,7 +1808,11 @@ namespace X_ROOT_NS::modules::rt {
         rt_general_type_t * type = core_assembly->get_type(ns, name, generic_param_count);
 
         if (type == nullptr)
-            throw _E(rt_error_code_t::type_not_found, join_type_name(ns, name, generic_param_count));
+        {
+            throw __RtAssemblyErrorF("type '%1%' not found",
+                    join_type_name(ns, name, generic_param_count)
+            );
+        }
 
         return type;
     }
@@ -1951,7 +1979,7 @@ namespace X_ROOT_NS::modules::rt {
         );
 
         if (ref_assembly == nullptr)
-            throw _ED(rt_error_code_t::assembly_not_found, join_assembly_name(package, name));
+            throw _ED(__e_t::assembly_not_found, join_assembly_name(package, name));
 
         return ref_assembly;
     }
@@ -2164,7 +2192,7 @@ namespace X_ROOT_NS::modules::rt {
 
             if (rt_method == nullptr)
             {
-                throw _ED(rt_error_code_t::method_not_found,
+                throw __RtAssemblyErrorF("method '%1%' not found",
                     __join_method_name(rt_assembly, rt_type, mt, params)
                 );
             }
@@ -2266,7 +2294,7 @@ namespace X_ROOT_NS::modules::rt {
 
             if (rt_field == nullptr)
             {
-                throw _ED(rt_error_code_t::field_not_found,
+                throw __RtAssemblyErrorF("field '%1%' not found",
                     __join_field_name(rt_assembly, rt_type, mt)
                 );
             }
@@ -2437,7 +2465,11 @@ namespace X_ROOT_NS::modules::rt {
             {
                 rt_type = rt_type->get_base_type(env);
                 if (rt_type == nullptr)
-                    throw _ED(__e_t::virtual_method_not_found, current->get_name(method));
+                {
+                    throw __RtAssemblyErrorF("virtual method '%1%' not found",
+                            current->get_name(method)
+                    );
+                }
 
                 assembly_analyzer_t analyzer0(*this, rt_type->get_assembly());
                 method_ref = rt_type->search_method(analyzer0.env, prototype);
@@ -2447,7 +2479,7 @@ namespace X_ROOT_NS::modules::rt {
             return get_virtual_method_offset( method_ref);
         }
 
-        throw _ED(rt_error_code_t::virtual_method_not_found, current->get_name(method));
+        throw __RtAssemblyErrorF("virtual method '%1%' not found", current->get_name(method));
     }
 
     // Gets prototype of method.
