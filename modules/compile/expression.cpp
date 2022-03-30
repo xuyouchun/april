@@ -1152,7 +1152,7 @@ namespace X_ROOT_NS::modules::compile {
                     __compile_argument(ctx, pool, exp2, method, 0);
 
                 ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
+                pool.append<x_method_call_xil_t>(call_type_of_method(method), method_ref);
 
             }   break;
 
@@ -1570,7 +1570,7 @@ namespace X_ROOT_NS::modules::compile {
         __compile_arguments(ctx, pool, arguments, method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
+        pool.append<x_method_call_xil_t>(call_type_of_method(method), method_ref);
 
         __try_pop_empty_for_method(ctx, pool, method, owner_exp);
     }

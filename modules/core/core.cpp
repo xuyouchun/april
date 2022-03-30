@@ -4348,7 +4348,7 @@ namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Returns members descripted by args.
+    // Returns members descripted by args. (for non-interface types)
     static member_t * __get_member(std::set<type_t *> walked_types, type_t * type,
                                                         analyze_member_args_t & args)
     {
@@ -4362,15 +4362,42 @@ namespace X_ROOT_NS::modules::core {
         return __get_member(walked_types, type->get_base_type(), args);
     }
 
+    // Returns members descripted by args. (for interface types)
+    static member_t * __get_member_for_interface(std::set<type_t *> walked_types, type_t * type,
+                                                        analyze_member_args_t & args)
+    {
+        if (type == nullptr || !al::set_insert(walked_types, type))
+            return nullptr;
+
+        member_t * member = type->get_member(args);
+        if (member != nullptr)
+            return member;
+
+        type->each_super_type([&](type_t * super_type) {
+            member = __get_member_for_interface(walked_types, super_type, args);
+            return member == nullptr;
+        });
+
+        return member;
+    }
+
     // Returns members descripted by args.
     member_t * type_t::get_member(analyze_member_args_t & args, bool include_base_types)
     {
-        member_t * member = this->get_member(args);
-        if (member != nullptr || !include_base_types)
-            return member;
+        if (is_interface(this))
+        {
+            std::set<type_t *> walked_types;
+            return __get_member_for_interface(walked_types, this, args);
+        }
+        else
+        {
+            member_t * member = this->get_member(args);
+            if (member != nullptr || !include_base_types)
+                return member;
 
-        std::set<type_t *> walked_types = { this };
-        return __get_member(walked_types, this->get_base_type(), args);
+            std::set<type_t *> walked_types = { this };
+            return __get_member(walked_types, this->get_base_type(), args);
+        }
     }
 
     // Checks whether it's duplicate.
