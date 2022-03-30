@@ -216,9 +216,9 @@ namespace X_ROOT_NS::modules::rt {
         }
 
         X_ALWAYS_INLINE rt_vfunction_t search_vtable_interface_function(
-                                                rt_type_t * interface_type, int index)
+                                        rt_type_t * interface_type, int offset)
         {
-            return search_vtable_interface(interface_type)->functions[index];
+            return search_vtable_interface(interface_type)->functions[offset];
         }
     };
 

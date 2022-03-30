@@ -3987,8 +3987,7 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Enumerate all member with specified name.
-        template<typename _f_t>
-        _member_t each(name_t name, _f_t f)
+        template<typename _f_t> _member_t each(name_t name, _f_t f)
         {
             for (auto it = __members_map.lower_bound(name),
                       it_end = __members_map.upper_bound(name); it != it_end; ++it)
@@ -4568,12 +4567,6 @@ namespace X_ROOT_NS::modules::core {
     private:
         type_t * __base_type;
     };
-
-    ////////// ////////// ////////// ////////// //////////
-    // system_types
-
-    // Gets system type by the name.
-    general_type_t * get_system_type(const string_t & type_name);
 
     ////////// ////////// ////////// ////////// //////////
     // namespace
@@ -8350,6 +8343,12 @@ namespace X_ROOT_NS::modules::core {
 #include <modules/core/__vtype_traits.h>
 
 namespace X_ROOT_NS::modules::core {
+
+    // Gets system type by the name.
+    general_type_t * get_system_type(const string_t & type_name);
+
+    // Returns owner type of member.
+    type_t * get_owner_type(member_t * member);
 
     // Check whether the access is allowed.
     bool check_access(type_t * from_type, member_t * to_member);

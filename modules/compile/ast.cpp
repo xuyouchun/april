@@ -4669,6 +4669,7 @@ namespace X_ROOT_NS::modules::compile {
             __property.get_method->decorate  = __property.decorate;
             __property.get_method->params    = __property.params;
             __property.get_method->relation_member = &__property;
+            __property.get_method->owner_type_name = __property.owner_type_name;
 
             __append_member(this->__context, context, __property.get_method);
         }
@@ -4682,6 +4683,7 @@ namespace X_ROOT_NS::modules::compile {
             __property.set_method->type_name = xpool.to_type_name(xpool.get_void_type());
             __property.set_method->decorate  = __property.decorate;
             __property.set_method->relation_member = &__property;
+            __property.set_method->owner_type_name = __property.owner_type_name;
 
             params_t * params = __new_obj<params_t>();
 
@@ -4856,6 +4858,7 @@ namespace X_ROOT_NS::modules::compile {
             __event.add_method->name = __to_name(_F(_T("add_%1%"), __event.name));
             __event.add_method->type_name = __event.type_name;
             __event.add_method->relation_member = &__event;
+            __event.add_method->owner_type_name = __event.owner_type_name;
             __append_member(this->__context, context, __event.add_method);
         }
 
@@ -4864,6 +4867,7 @@ namespace X_ROOT_NS::modules::compile {
             __event.remove_method->name = __to_name(_F(_T("remove_%1%"), __event.name));
             __event.remove_method->type_name = __event.type_name;
             __event.remove_method->relation_member = &__event;
+            __event.remove_method->owner_type_name = __event.owner_type_name;
             __append_member(this->__context, context, __event.remove_method);
         }
 

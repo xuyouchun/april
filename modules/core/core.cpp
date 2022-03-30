@@ -3256,7 +3256,7 @@ namespace X_ROOT_NS::modules::core {
     >
     _member_t * __search_member_(_members_t & members, name_t name, _f_t f)
     {
-        return members.each(name, [f](_member_t * member1) {
+        return members.each(name, [&f](_member_t * member1) {
             return !f(member1);
         });
     }
@@ -3264,16 +3264,20 @@ namespace X_ROOT_NS::modules::core {
     template<typename _members_t, typename _f_t,
         typename _member_t = std::remove_pointer_t<typename _members_t::value_type>
     >
-    _member_t * __search_member(_members_t & members, name_t name, _member_t * member, _f_t f)
+    _member_t * __search_member(_members_t & members, name_t name, _member_t * member,
+        type_t * owner_type, _f_t f)
     {
         bool found_self = false;
-        return __search_member_(members, name, [member, f, &found_self](_member_t * member1) {
-
+        return __search_member_(members, name,
+                                [member, &f, &found_self, owner_type](_member_t * member1) {
             if (member == member1)
             {
                 found_self = true;
                 return false;
             }
+
+            if (get_owner_type(member1) != owner_type)
+                return false;
 
             return !found_self && f(member1);
 
@@ -3357,9 +3361,10 @@ namespace X_ROOT_NS::modules::core {
         _A(member != nullptr);
 
         name_t name = member->get_name();
+        type_t * owner_type = get_owner_type(member);
 
         #define __Search(_members)                                                      \
-            __search_member(_members, name, member, [](auto) { return true; })
+            __search_member(_members, name, member, owner_type, [](auto) { return true; })
 
         #define __SearchRet(_members)                                                   \
             do {                                                                        \
@@ -3388,7 +3393,7 @@ namespace X_ROOT_NS::modules::core {
                 __SearchRet(properties);
                 
                 // Check method duplicate.
-                return __search_member(methods, name, (method_t *)member,
+                return __search_member(methods, name, (method_t *)member, owner_type,
                                                                 [&](method_t * method) {
                     return __is_params_equals(
                         ((method_t *)member)->params, ((method_t *)member)->generic_params,
@@ -3400,7 +3405,7 @@ namespace X_ROOT_NS::modules::core {
                 __SearchRet(methods);
 
                 // Check property duplicate.
-                return __search_member(properties, name, (property_t *)member,
+                return __search_member(properties, name, (property_t *)member, owner_type,
                                                             [&](property_t * property) {
                     return __is_params_equals(((property_t *)member)->params, property->params);
                 });
@@ -7742,6 +7747,32 @@ namespace X_ROOT_NS::modules::core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    type_name_t * __get_owner_type_name(member_t * member)
+    {
+        switch (member->this_type())
+        {
+            case member_type_t::property:
+                return ((property_t *)member)->owner_type_name;
+
+            case member_type_t::event:
+                return ((event_t *)member)->owner_type_name;
+
+            case member_type_t::method:
+                return ((method_t *)member)->owner_type_name;
+
+            default:
+                return nullptr;
+        }
+    }
+
+    // Returns owner type of member.
+    type_t * get_owner_type(member_t * member)
+    {
+        _A(member != nullptr);
+
+        return to_type(__get_owner_type_name(member));
+    }
 
     // Check whether the access is allowed.
     bool check_access(type_t * from_type, member_t * to_member)

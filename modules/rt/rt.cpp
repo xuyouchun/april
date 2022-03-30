@@ -91,10 +91,24 @@ namespace X_ROOT_NS::modules::rt {
         return decorate.is_virtual || (!decorate.is_override && decorate.is_abstract);
     }
 
+    // Returns whether a method is virtual.
+    static bool __is_virtual(rt_method_t * method)
+    {
+        _A(method != nullptr);
+        return __is_virtual((decorate_t)(*method)->decorate);
+    }
+
     // Returns whether a method is override.
     static bool __is_override(decorate_t decorate)
     {
         return decorate.is_override;
+    }
+
+    // Returns whether a method is override.
+    static bool __is_override(rt_method_t * method)
+    {
+        _A(method != nullptr);
+        return __is_override((decorate_t)(*method)->decorate);
     }
 
     static bool __is_tuple_type(rt_type_t * type)
@@ -912,14 +926,50 @@ namespace X_ROOT_NS::modules::rt {
         return true;
     }
 
+    // Builds virtual functions for an interface method.
+    // Returns stop means stop build.
+    static bool __build_interface_override(assembly_analyzer_t & analyzer, rt_type_t * type,
+        __rt_interface_vfunctions_t & vfs, int index, rt_type_t * interface_type,
+        method_prototype_t & prototype)
+    {
+        _A(index < vfs.size());
+
+        analyzer_env_t & env = analyzer.env;
+        bool stop_build = false;
+
+        type->each_method(env, [&](ref_t ref, rt_method_t * method) {
+
+            if ((*method)->owner != ref_t::null)
+                return true;
+
+            if (!__compare_method(env, prototype, method))
+                return true;
+
+            if (__is_override(method))
+            {
+                vfs[index] = __rt_interface_vfunction_t {
+                    method, (uint32_t)type->get_assembly()->index, ref.index
+                };
+            }
+            else
+            {
+                stop_build = true;
+            }
+
+            return false;
+        });
+
+        return stop_build;
+    }
+
     // Builds virtual functions for interfaces.
     static void __build_interfaces(analyzer_env_t & env, rt_type_t * type,
-                            __rt_interfaces_t & interfaces, rt_type_t * interface_type)
+            __rt_interfaces_t & interfaces, rt_type_t * interface_type, rt_type_t * raw_type)
     {
         interface_type->each_super_type(env, [&](rt_type_t * super_type) {
 
             _A(super_type->get_ttype(env) == ttype_t::interface_);
-            __build_interfaces(env, type, interfaces, super_type);
+            __build_interfaces(env, type, interfaces, super_type, raw_type);
 
             return true;
 
@@ -935,13 +985,28 @@ namespace X_ROOT_NS::modules::rt {
             method_prototype_t prototype;
             analyzer.get_prototype(method_ref, &prototype);
 
-            if (!__build_interface(analyzer, type, vfs, index++, interface_type, prototype))
+            if (!__build_interface(analyzer, type, vfs, index, interface_type, prototype))
             {
                 throw __RtAssemblyErrorF("cannot find member '%1%.%2%' in type '%3%'",
                     interface_type->get_name(env), method->get_name(), type->get_name(env)
                 );
             }
 
+            rt_method_t * method1 = vfs[index].method;
+            if (__is_virtual(method1) && (*method1)->owner == ref_t::null)
+            {
+                rt_type_t * type1 = raw_type;
+                while (type1 != type)
+                {
+                    if (!__build_interface_override(analyzer, type1, vfs, index,
+                                                            interface_type, prototype))
+                        break;
+
+                    type1 = type1->get_base_type(env);
+                }
+            }
+
+            index++;
             return true;
 
         });
@@ -949,17 +1014,17 @@ namespace X_ROOT_NS::modules::rt {
 
     // Builds virtual functions for interfaces.
     static void __build_interfaces(analyzer_env_t & env, rt_type_t * type,
-                                                __rt_interfaces_t & interfaces)
+                                __rt_interfaces_t & interfaces, rt_type_t * raw_type)
     {
         rt_type_t * base_type = type->get_base_type(env);
 
         if (base_type != nullptr)
-            __build_interfaces(env, base_type, interfaces);
+            __build_interfaces(env, base_type, interfaces, raw_type);
 
         type->each_super_type(env, [&](rt_type_t * super_type) {
 
             if (super_type->get_ttype(env) == ttype_t::interface_)
-                __build_interfaces(env, type, interfaces, super_type);
+                __build_interfaces(env, type, interfaces, super_type, raw_type);
 
             return true;
         });
@@ -972,7 +1037,7 @@ namespace X_ROOT_NS::modules::rt {
         rt::__build_vfunctions(env, type, vfuncs);
 
         __rt_interfaces_t interfaces;
-        rt::__build_interfaces(env, type, interfaces);
+        rt::__build_interfaces(env, type, interfaces, type);
 
         // No virtual function & interfaces.
         if (vfuncs.empty() && interfaces.empty())
