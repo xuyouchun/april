@@ -125,7 +125,11 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _P                  __root_ns::println
 
 // Print an expression, with the expression as prefix.
-#define _PP(s)              _P(_T("") #s ":", s)
+#if X_DEBUG
+    #define _PP(s)      _PF(_T("%1%: %2% [%3%:%4%]"), _T("") #s, s, _T(__FILE__), __LINE__)
+#else
+    #define _PP(s)      _PF(_T("%1%: %2%"), _T("") #s, s)
+#endif
 
 // Print an formated string, the first argument is a format string.
 #define _PF(s, args...)     _P(sprintf(_T("") s, ##args))

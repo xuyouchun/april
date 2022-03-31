@@ -3623,7 +3623,11 @@ namespace X_ROOT_NS::modules::exec {
     static command_t * __new_virtual_call_command(__context_t & ctx, const call_xil_t & xil)
     {
         ref_t method_ref = (ref_t)xil.method;
-        _A((mt_member_extra_t)method_ref.extra == mt_member_extra_t::internal);
+
+        _A(
+            (mt_member_extra_t)method_ref.extra == mt_member_extra_t::internal ||
+            (mt_member_extra_t)method_ref.extra == mt_member_extra_t::generic
+        );
 
         rt_method_t * method = ctx.get_method(method_ref);
         _A(method != nullptr);

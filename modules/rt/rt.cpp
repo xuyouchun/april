@@ -2081,7 +2081,7 @@ namespace X_ROOT_NS::modules::rt {
             }
 
             case mt_type_extra_t::generic: {
-                rt_mt_t<__tidx_t::generic_type> * mt = current->mt_of_generic(type_ref);
+                rt_mt_t<__tidx_t::generic_type> * mt = current->mt_of_generic_type(type_ref);
                 rt_general_type_t * template_ = _M(rt_general_type_t *, get_type(mt->template_));
                 rt_type_t * host_type = get_type(mt->host);
 
@@ -2220,7 +2220,14 @@ namespace X_ROOT_NS::modules::rt {
 
         if (__is_current(rt_assembly))
         {
-            rt_method = rt_assembly->get_method(method_ref);
+            switch ((mt_member_extra_t)method_ref.extra)
+            {
+                case mt_member_extra_t::generic:
+                    return rt_assembly->get_generic_method(method_ref, gp_manager)->template_;
+
+                default:
+                    return rt_assembly->get_method(method_ref);
+            }
         }
         else
         {
@@ -2500,7 +2507,14 @@ namespace X_ROOT_NS::modules::rt {
     // Gets virtual method offset.
     int assembly_analyzer_t::get_virtual_method_offset(ref_t method_ref)
     {
-        rt_method_t * method = current->get_method(method_ref);
+        rt_method_t * method;
+        if ((mt_member_extra_t)method_ref.extra == mt_member_extra_t::generic)
+        {
+            rt_mt_t<__tidx_t::generic_method> * mt = current->mt_of_generic_method(method_ref);
+            method_ref = mt->template_;
+        }
+
+        method = this->get_method(method_ref);
         _A(method != nullptr);
 
         rt_type_t * rt_type = method->get_host_type();
@@ -2530,11 +2544,7 @@ namespace X_ROOT_NS::modules::rt {
             {
                 rt_type = rt_type->get_base_type(env);
                 if (rt_type == nullptr)
-                {
-                    throw __RtAssemblyErrorF("virtual method '%1%' not found",
-                            current->get_name(method)
-                    );
-                }
+                    throw __RtAssemblyErrorF("virtual method '%1%' not found", method->get_name());
 
                 assembly_analyzer_t analyzer0(*this, rt_type->get_assembly());
                 method_ref = rt_type->search_method(analyzer0.env, prototype);
@@ -2544,7 +2554,7 @@ namespace X_ROOT_NS::modules::rt {
             return get_virtual_method_offset( method_ref);
         }
 
-        throw __RtAssemblyErrorF("virtual method '%1%' not found", current->get_name(method));
+        throw __RtAssemblyErrorF("virtual method '%1%' not found", method->get_name());
     }
 
     // Gets prototype of method.

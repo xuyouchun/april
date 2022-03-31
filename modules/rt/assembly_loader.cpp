@@ -250,17 +250,19 @@ namespace X_ROOT_NS::modules::rt {
         {
             typedef __entity_t<tidx> entity_t;
 
-            if (sizeof ... (args) == 0)
+            if constexpr (sizeof ... (args) == 0)
             {
                 if (mt.rt_object == nullptr)
                     mt.rt_object = rt_mt_t<tidx>::new_entity(__ctx, ref, &mt, &__assembly);
 
                 return mt.rt_object;
             }
-
-            return rt_mt_t<tidx>::new_entity(
-                __ctx, ref, &mt, &__assembly, std::forward<_args_t>(args) ...
-            );
+            else
+            {
+                return rt_mt_t<tidx>::new_entity(
+                    __ctx, ref, &mt, &__assembly, std::forward<_args_t>(args) ...
+                );
+            }
         }
 
         // Returns entity at ref.
@@ -495,7 +497,7 @@ namespace X_ROOT_NS::modules::rt {
         }
 
         // Gets generic type metadata.
-        virtual rt_mt_t<__tidx_t::generic_type> * mt_of_generic(ref_t ref) override
+        virtual rt_mt_t<__tidx_t::generic_type> * mt_of_generic_type(ref_t ref) override
         {
             return &__metadata_at<__tidx_t::generic_type>(ref);
         }
@@ -510,6 +512,12 @@ namespace X_ROOT_NS::modules::rt {
         virtual rt_mt_t<__tidx_t::position_field> * mt_of_position_field(ref_t ref) override
         {
             return &__metadata_at<__tidx_t::position_field>(ref);
+        }
+
+        // Gets generic method metadata.
+        virtual rt_mt_t<__tidx_t::generic_method> * mt_of_generic_method(ref_t ref) override
+        {
+            return &__metadata_at<__tidx_t::generic_method>(ref);
         }
 
         /*

@@ -1678,13 +1678,16 @@ namespace X_ROOT_NS::modules::rt {
         virtual rt_mt_t<__tidx_t::array_type> * mt_of_array(ref_t ref) = 0;
 
         // Gets generic type metadata.
-        virtual rt_mt_t<__tidx_t::generic_type> * mt_of_generic(ref_t ref) = 0;
+        virtual rt_mt_t<__tidx_t::generic_type> * mt_of_generic_type(ref_t ref) = 0;
 
         // Gets generic field metadata.
         virtual rt_mt_t<__tidx_t::generic_field> * mt_of_generic_field(ref_t ref) = 0;
 
         // Gets position field metadata.
         virtual rt_mt_t<__tidx_t::position_field> * mt_of_position_field(ref_t ref) = 0;
+
+        // Gets generic method metadata.
+        virtual rt_mt_t<__tidx_t::generic_method> * mt_of_generic_method(ref_t ref) = 0;
 
         // Gets method.
         virtual rt_method_t * get_method(ref_t ref) = 0;

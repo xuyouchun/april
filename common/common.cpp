@@ -239,12 +239,12 @@ namespace X_ROOT_NS {
 
         if (file.length() > 0)
         {
-            ss << _T(", file: ") << file.c_str();
+            ss << _T(" [") << file.c_str();
 
             if (line != (size_t)-1)
-            {
-                ss << _T(", line: ") << line;
-            }
+                ss << _T(":") << line;
+
+            ss << _T("]");
         }
 
         ss << std::endl << std::endl << _T("call stack:") << std::endl << call_stack.c_str();
