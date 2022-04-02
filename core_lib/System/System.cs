@@ -22,25 +22,7 @@ public class Object
     {
         return GetType().Name;
     }
-};
-
-/*
-public class MyClass : Base
-{
-    public Int32 GetValue()
-    {
-        return 123;
-    }
-
-    class Base
-    {
-        public Int32 GetBaseValue()
-        {
-            return 10;
-        }
-    }
 }
-*/
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -112,7 +94,7 @@ public sealed class Type
     {
         return "Type";
     }
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -130,7 +112,7 @@ public class Array : Object
     {
         return Internal.Array_GetLengthOfDimension(this, dimension);
     }
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -141,7 +123,7 @@ public class Array<T> : Array
     {
 
     }
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -153,7 +135,7 @@ public interface ITuple<TItems ...>
     Object Get(Int32 index);
 
     T Get<T>(Int32 index);
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -166,7 +148,7 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
     }
 
     public Int32 Count { get { return Internal.Tuple_GetCount(this); } }
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -174,7 +156,7 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
 public class Enum
 {
 
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -201,7 +183,7 @@ public struct Delegate<TReturn, TArgs ...>
         Internal.Delegate_Invoke(); 
         return default(TReturn);
     }
-};
+}
 
 // MulticastDelegate<TReturn, TArgs ...>
 [Internal]
@@ -215,7 +197,7 @@ public sealed class MulticastDelegate<TReturn, TArgs ...>
     {
         return default(TReturn);
     }
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
@@ -256,20 +238,46 @@ public class Exception
 
     // Inner exception that caused this exception.
     private Exception __innerException;
-};
+}
 
 ////////// ////////// ////////// ////////// //////////
 
-// NullException.
+// Base class of system exceptions.
 [Internal]
-public class NullReferenceException : Exception
+public class SystemException : Exception
+{
+    // Default constructor.
+    public SystemException() { }
+
+    // Constructor with message.
+    public SystemException(String message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// NullReferenceException.
+[Internal]
+public class NullReferenceException : SystemException
 {
     // Default constructor.
     public NullReferenceException() { }
 
     // Constructor with message.
     public NullReferenceException(String message) : base(message) { }
-};
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// InvalidCastException
+[Internal]
+public class InvalidCastException : SystemException
+{
+    // Default constructor.
+    public InvalidCastException() { }
+
+    // Constructor with message.
+    public InvalidCastException(String message) : base(message) { }
+}
 
 ////////// ////////// ////////// ////////// //////////
 

@@ -82,7 +82,9 @@ namespace X_ROOT_NS::modules::core {
     #define CoreType_GenericParameter   _T("Reflection.GenericParameter")
 
     // Exceptions.
+    #define CoreType_SystemException            _T("SystemException")
     #define CoreType_NullReferenceException     _T("NullReferenceException")
+    #define CoreType_InvalidCastException       _T("InvalidCastException")
 
     // Attributes.
     #define CoreType_TraceAttribute     _T("Diagnostics.TraceAttribute")
