@@ -1054,9 +1054,21 @@ namespace X_ROOT_NS::modules::rt {
             interface_vfunction_count += funcs.size();
         }
 
+        // Builds base types.
+        al::svector_t<rt_type_t *, 16> base_types;
+
+        {
+            rt_type_t * type1 = type;
+            while ((type1 = type1->get_base_type(env)) != nullptr)
+            {
+                base_types.push_back(type1);
+            }
+        }
+
         // Alloc vtable object.
         size_t vfunction_arr_pos = sizeof(rt_vtable_t);
-        size_t vtbl_interfaces_pos = vfunction_arr_pos + vfuncs.size() * sizeof(rt_vfunction_t);
+        size_t base_types_pos = vfunction_arr_pos + base_types.size() * sizeof(rt_type_t *);
+        size_t vtbl_interfaces_pos = base_types_pos + vfuncs.size() * sizeof(rt_vfunction_t);
         size_t vtbl_interface_arr_pos = vtbl_interfaces_pos + sizeof(rt_vtable_interfaces_t);
         size_t interface_function_arr_pos = vtbl_interface_arr_pos
                                         + interfaces.size() * sizeof(rt_vtable_interface_t);
@@ -1067,6 +1079,11 @@ namespace X_ROOT_NS::modules::rt {
 
         // Copy vfunctions.
         al::copy(vfuncs, vtable->functions);
+
+        // Copy base types.
+        vtable->base_types = (rt_type_t **)(ptr0 + base_types_pos);
+        vtable->base_type_count = base_types.size();
+        al::copy(base_types, vtable->base_types);
 
         // Copy interfaces.
         {

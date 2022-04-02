@@ -45,6 +45,16 @@ namespace X_ROOT_NS::modules::compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Cast xil.
+    struct x_cast_xil_t : xil_extra_t<cast_xil_t>
+    {
+        typedef xil_extra_t<cast_xil_t> __super_t;
+
+        using __super_t::__super_t;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Call xil.
     struct x_call_xil_t : xil_extra_t<call_xil_t>
     {

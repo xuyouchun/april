@@ -654,6 +654,9 @@ namespace X_ROOT_NS::modules::core {
             case operator_t::assign:
                 return vtype1;
 
+            case operator_t::is:
+                return vtype_t::bool_;
+
             default:
                 switch (__V(op, vtype1, vtype2))
                 {

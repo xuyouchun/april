@@ -784,6 +784,8 @@ namespace X_ROOT_NS::modules::core {
 
         member_point,                                                       // .
 
+        as,     is,                                                         // as, is
+
         __inner_end__,
 
         __user_defined__ = 1024,
@@ -2480,6 +2482,12 @@ namespace X_ROOT_NS::modules::core {
         return type != nullptr && type->this_ttype() == ttype_t::struct_;
     }
 
+    // Returns whether a type is a class type.
+    X_ALWAYS_INLINE bool is_class(type_t * type)
+    {
+        return type != nullptr && type->this_ttype() == ttype_t::class_;
+    }
+
     // Returns whether a type is enum type.
     X_ALWAYS_INLINE bool is_enum(type_t * type)
     {
@@ -2493,11 +2501,10 @@ namespace X_ROOT_NS::modules::core {
     }
 
     // Returns whether it's a custom defined struct type.
-    X_ALWAYS_INLINE bool is_custom_struct(type_t * type)
-    {
-        return type != nullptr && type->this_ttype() == ttype_t::struct_
-                    && type->this_vtype() == vtype_t::mobject_;
-    }
+    bool is_custom_struct(type_t * type);
+
+    // Returns whether it's a custom defined struct type or class type.
+    bool is_custom_class_or_struct(type_t * type);
 
     // Returns whether it's a null type.
     X_ALWAYS_INLINE bool is_null(type_t * type)
@@ -6432,7 +6439,7 @@ namespace X_ROOT_NS::modules::core {
 
         new_, new_array, default_value, type_of, type_name, type_cast,
 
-        this_, base, name_unit,
+        this_, base, name_unit, is, as,
 
     X_ENUM_END
 
@@ -6715,6 +6722,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns type.
         virtual type_t * get_type() const override;
 
+        // Returns type if this is type or type_def
+        type_t * get_actual_type() const;
+
         // Sets variable.
         void set(variable_t * variable);
 
@@ -6733,6 +6743,10 @@ namespace X_ROOT_NS::modules::core {
         // Converts to a string.
         virtual const string_t to_string() const override;
     };
+
+    // Returns type if specified expression is name_expression_t or name_unit_expression_t,
+    // and it is a type or type_def.
+    type_t * to_actual_type(expression_t * exp);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -6907,6 +6921,14 @@ namespace X_ROOT_NS::modules::core {
         // Returns type.
         virtual type_t * get_type() const override;
     };
+
+    // Returns whether the exp is null.
+    X_INLINE bool is_null(cvalue_expression_t * exp)
+    {
+        _A(exp != nullptr);
+
+        return exp->value == nullptr || is_null(*exp->value);
+    }
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -7778,23 +7800,17 @@ namespace X_ROOT_NS::modules::core {
         return memory_t::new_obj<exp_t>(memory, args ...);
     }
 
-    //-------- ---------- ---------- ---------- ----------
-
     // Cretates a new expression.
     X_INLINE cvalue_expression_t * to_exp(memory_t * memory, cvalue_t * value)
     {
         return memory_t::new_obj<cvalue_expression_t>(memory, value);
     }
 
-    //-------- ---------- ---------- ---------- ----------
-
     // Cretates a new expression.
     X_INLINE name_expression_t * to_exp(memory_t * memory, const name_t & name)
     {
         return __new_exp<name_expression_t>(memory, name);
     }
-
-    //-------- ---------- ---------- ---------- ----------
 
     // Cretates a new expression.
     X_INLINE unitary_expression_t * to_exp(memory_t * memory,
@@ -7803,16 +7819,12 @@ namespace X_ROOT_NS::modules::core {
         return __new_exp<unitary_expression_t>(memory, property, exp);
     }
 
-    //-------- ---------- ---------- ---------- ----------
-
     // Cretates a new expression.
     X_INLINE binary_expression_t * to_exp(memory_t * memory,
         const operator_property_t * property, expression_t * exp1, expression_t * exp2)
     {
         return __new_exp<binary_expression_t>(memory, property, exp1, exp2);
     }
-
-    //-------- ---------- ---------- ---------- ----------
 
     // Cretates a new operator expression.
     template<typename ... exps_t>
@@ -7823,8 +7835,6 @@ namespace X_ROOT_NS::modules::core {
             memory, property, std::forward<exps_t>(exps) ...
         );
     }
-
-    //-------- ---------- ---------- ---------- ----------
 
     // Cretates a new operator expression.
     template<typename ... exps_t>

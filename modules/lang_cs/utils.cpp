@@ -32,6 +32,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // type
         set_flag(e, w_t::__keyword_begin,  w_t::__keyword_end, __cs_token_flag_t::is_keyword);
+        set_flag(e, __cs_token_flag_t::is_keyword, w_t::k_as, w_t::k_is);
         set_flag(e, w_t::__bracket_begin,  w_t::__bracket_end, __cs_token_flag_t::is_bracket);
         set_flag(e, w_t::name,   __cs_token_flag_t::is_name);
         set_flag(e, w_t::cvalue, __cs_token_flag_t::is_value);
@@ -41,11 +42,12 @@ namespace X_ROOT_NS::modules::lang_cs {
         };
 
         e.each(std::bind(set_operator, _2, true), w_t::k_is, w_t::k_as);
-        e.each(w_t::__operator_begin, w_t::__operator_end,  std::bind(set_operator, _2, true));
+        e.each(w_t::__operator_begin, w_t::__operator_end, std::bind(set_operator, _2, true));
 
         // operator
 
         #define __Op(op_) e[w_t::op_].op = operator_t::op_;
+        #define __KOp(op_) e[w_t::k_##op_].op = operator_t::op_;
 
         __Op(add)   __Op(sub)   __Op(mul)   __Op(div)   __Op(mod)
 
@@ -71,15 +73,16 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         __Op(member_point)
 
-        #define __CsOp_(_name, _w)                                  \
-            e[w_t::_w].op   = (operator_t)cs_operator_t::_name;     \
+        __KOp(as)       __KOp(is)
+
+        #define __CsOp_(_name, _w)                                                      \
+            e[w_t::_w].op   = (operator_t)cs_operator_t::_name;                         \
             e[w_t::_w].name = _desc(cs_operator_t::_name);
 
         #define __CsOp(_name) __CsOp_(_name, _name)
 
         __CsOp(question_mark)   __CsOp(question_colon)
         __CsOp(comma)
-        __CsOp_(as, k_as)       __CsOp_(is, k_is)
 
         #define __Pri(_v) ((_v) << 8)
 
@@ -100,15 +103,12 @@ namespace X_ROOT_NS::modules::lang_cs {
             w_t::comma                                          // ,
         );
 
-        // TODO: as is
-
         // arity
         auto set_arity = [](__cs_token_property_t & p, operator_arity_t arity) {
             p.arity = arity;
         };
 
         e.each(std::bind(set_arity, _2, 2),
-            w_t::k_as,          w_t::k_is,                      // as is
             w_t::comma,                                         // ,
             w_t::question_mark, w_t::question_colon
         );
@@ -119,7 +119,6 @@ namespace X_ROOT_NS::modules::lang_cs {
         };
 
         e.each(std::bind(set_adhere, _2, 1),
-            w_t::k_as,          w_t::k_is,
             w_t::comma,
             w_t::question_mark, w_t::question_colon
         );

@@ -24,6 +24,8 @@ namespace X_ROOT_NS::modules::compile {
     // Returns vtype of expression.
     static vtype_t __vtype_of(expression_t * exp)
     {
+        _A(exp != nullptr);
+
         type_t * type = exp->get_type();
         if (type != nullptr)
             return type->this_vtype();
@@ -34,7 +36,17 @@ namespace X_ROOT_NS::modules::compile {
     // Returns vtype of expression.
     static bool __is_mobject(expression_t * exp)
     {
+        _A(exp != nullptr);
+
         return __vtype_of(exp) == vtype_t::mobject_;
+    }
+
+    // Returns vtype of a type.
+    static bool __is_mobject(type_t * type)
+    {
+        _A(type != nullptr);
+
+        return type->this_vtype() == vtype_t::mobject_;
     }
 
     // Converts multi-name to sid.
@@ -1163,14 +1175,28 @@ namespace X_ROOT_NS::modules::compile {
         template<size_t _exp_count>
         void __walk_op_expression(op_expression_t<_exp_count> * exp)
         {
-            // Check expression types.
-            bool has_mobject = al::any_of(exp->exps, [&](expression_t * exp) {
-                return __is_mobject(exp);
-            });
+            // Collect argument types.
+            atypes_t atypes;
+            bool exists_custom_type = false;
+            bool exists_null = false;
 
-            if (!has_mobject)
+            for (expression_t * exp : exp->exps)
+            {
+                type_t * arg_type = exp->get_type();
+                _A(arg_type != nullptr);
+
+                if (is_null(arg_type))
+                    exists_null = true;
+                else if (__is_mobject(arg_type))
+                    exists_custom_type = true;
+
+                atypes.push_back(arg_type);
+            }
+
+            if (!exists_custom_type)
                 return;
 
+            // Check operator.
             const operator_property_t * op_property = exp->op_property;
             _A(op_property != nullptr);
 
@@ -1188,14 +1214,9 @@ namespace X_ROOT_NS::modules::compile {
                     break;
             }
 
-            // Collect argument types.
-            atypes_t atypes;
-            for (expression_t * exp : exp->exps)
-            {
-                type_t * arg_type = exp->get_type();
-                _A(arg_type != nullptr);
-                atypes.push_back(arg_type);
-            }
+            // null types only support equal or not_equal operators.
+            if (exists_null && (op == operator_t::equal || op == operator_t::not_equal))
+                return;
 
             // Finds method.
             const char_t * op_name = exp->op_property->name;
@@ -1203,18 +1224,23 @@ namespace X_ROOT_NS::modules::compile {
 
             name_t name = __to_name(_F(_T("op_%1%"), op_name));
 
-            method_t * method = nullptr;
+            al::svector_t<method_t *> methods;
             for (atype_t atype : atypes)
             {
-                method = find_method(__cctx,
+                if (!__is_mobject(atype.type))
+                    continue;
+
+                method_t * method = find_method(__cctx,
                     atype.type, method_trait_t::default_, name, nullptr, &atypes
                 );
 
                 if (method != nullptr && method->is_static())
                     break;
+
+                methods.push_back(method);
             }
 
-            if (method == nullptr)
+            if (methods.empty())
             {
                 string_t s = al::join_str(atypes.begin(), atypes.end(), _T(", "));
                 ast_log(__cctx, exp, __c_t::operator_overload_not_defined, op_property->op, s);
@@ -1222,7 +1248,12 @@ namespace X_ROOT_NS::modules::compile {
                 return;
             }
 
-            exp->overload_method = method;
+            if (methods.size() > 1)
+            {
+                // TODO:
+            }
+
+            exp->overload_method = methods[0];
         }
 
         // Walks member.

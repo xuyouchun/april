@@ -190,36 +190,107 @@ namespace X_ROOT_NS::modules::rt {
     // Virtual table.
     struct rt_vtable_t
     {
+        rt_type_t             ** base_types;
         rt_vtable_interfaces_t * interfaces;
+        msize_t                  base_type_count;
         msize_t                  interface_count;
 
         rt_vfunction_t  functions[0];
 
+        // rt_type_t * base_types;
         // rt_vtable_interfaces_t interfaces;
         // rt_vfunction_t interface_functions[...];
 
+        // Search interface of specified type.
         X_ALWAYS_INLINE rt_vtable_interface_t * search_vtable_interface(rt_type_t * interface_type)
+        {
+            _A(interface_type != nullptr);
+
+            #if X_DEBUG
+
+            rt_vtable_interface_t * interface = __search_vtable_interface<true>(interface_type);
+            if (interface != nullptr)
+                return interface;
+
+            X_UNEXPECTED(_T("cannot find specified interface type"));
+
+            #else
+
+            return __search_vtable_interface<false>(interface_type);
+
+            #endif
+        }
+
+        // Try to search interface of specified type, returns null if not exists.
+        X_ALWAYS_INLINE rt_vtable_interface_t * try_search_vtable_interface(
+                                                                rt_type_t * interface_type)
+        {
+            _A(interface_type != nullptr);
+
+            return __search_vtable_interface<true>(interface_type);
+        }
+
+        // Search function address of interface methods.
+        X_ALWAYS_INLINE rt_vfunction_t search_vtable_interface_function(
+                                        rt_type_t * interface_type, int offset)
+        {
+            _A(interface_type != nullptr);
+            _A(offset >= 0);
+
+            return search_vtable_interface(interface_type)->functions[offset];
+        }
+
+        // Returns true if specified type is a base type.
+        X_ALWAYS_INLINE bool is_base_type(rt_type_t * base_type)
+        {
+            _A(base_type != nullptr);
+
+            for (rt_type_t ** p = base_types, ** p_end = p + base_type_count; p < p_end; ++p)
+            {
+                if (base_type == *p)
+                    return true;
+            }
+
+            return false;
+        }
+
+    private:
+
+        // Search interface of specified type.
+        template<bool _check_none>
+        X_ALWAYS_INLINE rt_vtable_interface_t * __search_vtable_interface(
+                                                                rt_type_t * interface_type)
         {
             rt_vtable_interface_t * recently = interfaces->recently;
             if (recently->interface_type == interface_type)
                 return recently;
 
-            for (rt_vtable_interface_t * vtable_interface = interfaces->interfaces; ;
-                vtable_interface++)
+            rt_vtable_interface_t * vtable_interface = interfaces->interfaces;
+            rt_vtable_interface_t * vtable_interface_end;
+
+            if constexpr (_check_none)
+                vtable_interface_end = vtable_interface + interface_count;
+
+            for ( ; ; )
             {
                 if (vtable_interface->interface_type == interface_type)
                 {
                     interfaces->recently = vtable_interface;
                     return vtable_interface;
                 }
+
+                ++vtable_interface;
+
+                if constexpr (_check_none)
+                {
+                    if (vtable_interface >= vtable_interface_end)
+                        break;
+                }
             }
+
+            return nullptr;
         }
 
-        X_ALWAYS_INLINE rt_vfunction_t search_vtable_interface_function(
-                                        rt_type_t * interface_type, int offset)
-        {
-            return search_vtable_interface(interface_type)->functions[offset];
-        }
     };
 
     //-------- ---------- ---------- ---------- ----------

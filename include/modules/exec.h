@@ -89,8 +89,8 @@ namespace X_ROOT_NS::modules::exec {
         // Stack operations.
         template<typename t, bool tiny> struct __stack_operation_t
         {
-            // Pushes a unit.
-            __AlwaysInline static void push(rt_stack_unit_t * top, t value) _NE
+            // Assign a unit.
+            __AlwaysInline static void assign(rt_stack_unit_t * top, t value) _NE
             {
                 *(t *)top = value;
             }
@@ -113,8 +113,8 @@ namespace X_ROOT_NS::modules::exec {
         {
             union __tmp_t { t value; rt_stack_unit_t unit; };
 
-            // Pushes a unit.
-            __AlwaysInline static void push(rt_stack_unit_t * top, t value) _NE
+            // Assign a unit.
+            __AlwaysInline static void assign(rt_stack_unit_t * top, t value) _NE
             {
                 __tmp_t tmp = { value };
                 *top = reinterpret_cast<rt_stack_unit_t>(tmp.unit);
@@ -167,7 +167,7 @@ namespace X_ROOT_NS::modules::exec {
         // Pushes a value.
         template<typename t> __AlwaysInline void push(const t & value) _NE
         {
-            __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::push(__top, value);
+            __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::assign(__top, value);
             __top += __alignf<t>() / sizeof(rt_stack_unit_t);
         }
 
@@ -224,6 +224,23 @@ namespace X_ROOT_NS::modules::exec {
 
         // The top unit.
         __AlwaysInline rt_stack_unit_t * top() _NE { return __top; }
+
+        // Replace top unit.
+        template<typename t> __AlwaysInline void replace(const t & value) _NE
+        {
+            __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::assign(
+                __top - __alignf<t>() / sizeof(rt_stack_unit_t), value
+            );
+        }
+
+        // Replace top unit to null.
+        __AlwaysInline void replace_to_null() _NE
+        {
+            typedef void * t;
+            __stack_operation_t<t, sizeof(t) < sizeof(rt_stack_unit_t)>::assign(
+                __top - __alignf<t>() / sizeof(t), (t)nullptr
+            );
+        }
 
         // Sets the top unit.
         __AlwaysInline void set_top(rt_stack_unit_t * top) _NE { __top = top; }

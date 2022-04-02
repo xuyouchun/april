@@ -240,6 +240,9 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(member_point,       _T("."),        _T("MemoberPoint"))
 
+        X_C(as,                 _T("as"),       _T("as"))
+        X_C(is,                 _T("is"),       _T("is"))
+
     X_ENUM_INFO_END
 
     // Returns string description of a operator.
@@ -334,62 +337,66 @@ namespace X_ROOT_NS::modules::core {
             #define __Pri(v) ((v) << 8)
 
             e.each(std::bind(set_priority, _2, __Pri(1)),
-                op_t::member_point                                    // .
+                op_t::member_point                                      // .
             );
 
             e.each(std::bind(set_priority, _2, __Pri(2)), 
-                op_t::minus,             op_t::positive,              // - +
-                op_t::left_increment,    op_t::left_decrement,        // --x ++x
-                op_t::right_increment,   op_t::right_decrement,       // x-- x++
-                op_t::logic_not,         op_t::bit_not                // ! ~
+                op_t::minus,             op_t::positive,                // - +
+                op_t::left_increment,    op_t::left_decrement,          // --x ++x
+                op_t::right_increment,   op_t::right_decrement,         // x-- x++
+                op_t::logic_not,         op_t::bit_not                  // ! ~
             );
 
             e.each(std::bind(set_priority, _2, __Pri(3)),
-                op_t::div,   op_t::mul,   op_t::mod                    // / * %
+                op_t::div,   op_t::mul,   op_t::mod                     // / * %
             );
 
             e.each(std::bind(set_priority, _2, __Pri(4)),
-                op_t::add,   op_t::sub                                // + -
+                op_t::add,   op_t::sub                                  // + -
             );
 
             e.each(std::bind(set_priority, _2, __Pri(5)),
-                op_t::left_shift,    op_t::right_shift                // << >>
+                op_t::left_shift,    op_t::right_shift                  // << >>
             );
 
             e.each(std::bind(set_priority, _2, __Pri(6)),
-                op_t::greater,   op_t::greater_equal,                 // > >=
-                op_t::less,      op_t::less_equal                     // < <=
+                op_t::greater,   op_t::greater_equal,                   // > >=
+                op_t::less,      op_t::less_equal                       // < <=
             );
 
             e.each(std::bind(set_priority, _2, __Pri(7)),
-                op_t::equal,     op_t::not_equal                      // == !=
+                op_t::equal,     op_t::not_equal                        // == !=
             );
 
             e.each(std::bind(set_priority, _2, __Pri(8)),
-                op_t::bit_and                                        // &
+                op_t::bit_and                                           // &
             );
 
             e.each(std::bind(set_priority, _2, __Pri(9)),
-                op_t::bit_xor                                        // ^
+                op_t::bit_xor                                           // ^
             );
 
             e.each(std::bind(set_priority, _2, __Pri(10)),
-                op_t::bit_or                                         // |
+                op_t::bit_or                                            // |
             );
 
             e.each(std::bind(set_priority, _2, __Pri(11)),
-                op_t::logic_and                                      // &&
+                op_t::logic_and                                         // &&
             );
 
             e.each(std::bind(set_priority, _2, __Pri(12)),
-                op_t::logic_or                                       // ||
+                op_t::logic_or                                          // ||
             );
 
             e.each(std::bind(set_priority, _2, __Pri(13)),
-                op_t::assign,                                        // =
-                op_t::add_assign,    op_t::sub_assign,                // += -=
+                op_t::as, op_t::is                                      // as, is
+            );
+
+            e.each(std::bind(set_priority, _2, __Pri(14)),
+                op_t::assign,                                           // =
+                op_t::add_assign,    op_t::sub_assign,                  // += -=
                 op_t::mul_assign,    op_t::div_assign,    op_t::mod_assign, // *= /= %=
-                op_t::left_shift_assign, op_t::right_shift_assign,    // <<= >>=
+                op_t::left_shift_assign, op_t::right_shift_assign,      // <<= >>=
                 op_t::bit_and_assign,op_t::bit_or_assign, op_t::bit_xor_assign // &= |= ^=
             );
 
@@ -424,7 +431,9 @@ namespace X_ROOT_NS::modules::core {
                 op_t::less,          op_t::less_equal,                  // < <=
                 op_t::equal,         op_t::not_equal,                   // == !=
 
-                op_t::logic_and,     op_t::logic_or                     // && ||
+                op_t::logic_and,     op_t::logic_or,                    // && ||
+
+                op_t::as,            op_t::is                           // as, is
             );
 
             // adhere
@@ -435,9 +444,9 @@ namespace X_ROOT_NS::modules::core {
             e.each(std::bind(set_adhere, _2, 1));
 
             e.each(std::bind(set_adhere, _2, 0),
-                op_t::left_increment, op_t::left_decrement,           // ++x --x
-                op_t::minus,          op_t::positive,                 // +x -x
-                op_t::bit_not,        op_t::logic_not                 // ~ !
+                op_t::left_increment, op_t::left_decrement,             // ++x --x
+                op_t::minus,          op_t::positive,                   // +x -x
+                op_t::bit_not,        op_t::logic_not                   // ~ !
             );
 
             // direct
@@ -478,7 +487,8 @@ namespace X_ROOT_NS::modules::core {
             );
 
             e.each(std::bind(set_overload, _2, operator_overload_model_t::no_check),
-                op_t::assign, op_t::member_point
+                op_t::assign, op_t::member_point, 
+                op_t::as,     op_t::is
             );
         }
     };
@@ -1380,10 +1390,7 @@ namespace X_ROOT_NS::modules::core {
     // Returns type of a param.
     type_t * param_t::get_type() const
     {
-        if (type_name != nullptr)
-            return type_name->type;
-
-        return nullptr;
+        return to_type(type_name);
     }
 
     // Converts param to string.
@@ -2788,6 +2795,23 @@ namespace X_ROOT_NS::modules::core {
             default:
                 return type;
         }
+    }
+
+    // Returns whether it's a custom defined struct type.
+    bool is_custom_struct(type_t * type)
+    {
+        return type != nullptr && type->this_ttype() == ttype_t::struct_
+                    && type->this_vtype() == vtype_t::mobject_;
+    }
+
+    // Returns whether it's a custom defined struct type or class type.
+    bool is_custom_class_or_struct(type_t * type)
+    {
+        ttype_t ttype;
+
+        return type != nullptr
+            && type->this_vtype() == vtype_t::mobject_
+            && ( (ttype = type->this_ttype()) == ttype_t::struct_ || ttype == ttype_t::class_ );
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -6490,6 +6514,20 @@ namespace X_ROOT_NS::modules::core {
         }
     }
 
+    // Returns type if this is type or type_def
+    type_t * name_expression_t::get_actual_type() const
+    {
+        switch (expression_type)
+        {
+            case name_expression_type_t::type:
+            case name_expression_type_t::type_def:
+                return get_type();
+
+            default:
+                return nullptr;
+        }
+    }
+
     // Sets variable to a name expression.
     void name_expression_t::set(variable_t * variable)
     {
@@ -6564,6 +6602,26 @@ namespace X_ROOT_NS::modules::core {
 
             default:
                 return _str(name);
+        }
+    }
+
+    // Returns type if specified expression is name_expression_t or name_unit_expression_t,
+    // and it is a type or type_def.
+    type_t * to_actual_type(expression_t * exp)
+    {
+        _A(exp != nullptr);
+
+        switch (exp->this_family())
+        {
+            case expression_family_t::name:
+            case expression_family_t::name_unit:
+                return ((name_expression_t *)exp)->get_actual_type();
+
+            case expression_family_t::type_name:
+                return ((type_name_expression_t *)exp)->get_type();
+
+            default:
+                return nullptr;
         }
     }
 
@@ -6655,10 +6713,7 @@ namespace X_ROOT_NS::modules::core {
     // Returns type of a type_cast expression.
     type_t * type_cast_expression_t::get_type() const
     {
-        if (type_name == nullptr)
-            return nullptr;
-
-        return type_name->type;
+        return to_type(type_name);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -7295,6 +7350,9 @@ namespace X_ROOT_NS::modules::core {
                 expression_t * e2 = exp2();
                 return e2 != nullptr? e2->get_type() : nullptr;
             }   break;
+
+            case operator_t::as:
+                return to_actual_type(exp2());
 
             case operator_t::assign:
                 return exp1()->get_type();

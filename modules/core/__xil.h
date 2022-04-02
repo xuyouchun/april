@@ -49,6 +49,9 @@ namespace X_ROOT_NS::modules::core {
         // Bit: & | ~
         bit             = 10,
 
+        // Cast: is as
+        cast            = 11,
+
         // Creates a object or a array.
         new_            = 12,
 
@@ -142,6 +145,19 @@ namespace X_ROOT_NS::modules::core {
         not_            = 3,        // !
 
     __EnumEnd
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Xil cast command.
+    X_ENUM(xil_cast_command_t)
+
+        empty           = 0,
+
+        as              = 1,
+
+        is              = 2,
+
+    X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -638,17 +654,17 @@ namespace X_ROOT_NS::modules::core {
     #define __XilSize(entity_t)  ((size_t)&((entity_t *)nullptr)->____end)
 
     // Begins a xil structure.
-    #define __BeginXil(name)                                        \
-        struct name##_xil_t : xil_base_t                            \
-        {                                                           \
-            typedef name##_xil_t __self_t;                          \
-            typedef xil_base_t   __super_t;                         \
+    #define __BeginXil(name)                                                            \
+        struct name##_xil_t : xil_base_t                                                \
+        {                                                                               \
+            typedef name##_xil_t __self_t;                                              \
+            typedef xil_base_t   __super_t;                                             \
             name##_xil_t() = default;
 
     //   ...
 
     // Ends a xil structure.
-    #define __EndXil                                                \
+    #define __EndXil                                                                    \
         };
 
     ////////// ////////// ////////// ////////// //////////
@@ -656,17 +672,17 @@ namespace X_ROOT_NS::modules::core {
     template<typename _xil_t> struct __max_size_of_t { };
 
     // Defines max size of a type.
-    #define __DefineMaxSize(_type_t, _max)              \
-        template<> struct __max_size_of_t<_type_t>      \
-    {                                                   \
-        static constexpr size_t value()                 \
-        {                                               \
-            return _max;                                \
-        }                                               \
+    #define __DefineMaxSize(_type_t, _max)                                              \
+        template<> struct __max_size_of_t<_type_t>                                      \
+    {                                                                                   \
+        static constexpr size_t value()                                                 \
+        {                                                                               \
+            return _max;                                                                \
+        }                                                                               \
     };
 
     // Defines max size of a type.
-    #define __MaxSizeOf(_type_t)                        \
+    #define __MaxSizeOf(_type_t)                                                        \
         (__max_size_of_t<_type_t>::value())
 
     // Returns size of a xil type.
@@ -1241,7 +1257,7 @@ namespace X_ROOT_NS::modules::core {
         return stream.write((const byte_t *)&xil, size_of(xil)), stream;
     }
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
 
     /* cmp:
         xil_command_t::cmp  : 4;
@@ -1292,7 +1308,58 @@ namespace X_ROOT_NS::modules::core {
         return stream.write((const byte_t *)&xil, size_of(xil)), stream;
     }
 
-    //-------- ---------- ---------- ---------- ----------
+    ////////// ////////// ////////// ////////// //////////
+
+    /* cast:
+        xil_command_t::cast  : 4;
+        xil_cast_command_t   : 4;
+        ref_t type_ref;
+    */
+
+    // Compare xil.
+    __BeginXil(cast)
+
+        // Constructor.
+        cast_xil_t(xil_cast_command_t cmd, ref_t type_ref)
+            : __super_t(xil_command_t::cast, cmd)
+        {
+            set_type_ref(type_ref);
+        }
+
+        __ref_t     __type_ref;
+
+        // Returns type_ref.
+        ref_t type_ref() const _NE { return *(ref_t *)&__type_ref; }
+
+        // Sets type_ref.
+        void set_type_ref(ref_t ref) _NE { *(ref_t *)&__type_ref = ref; }
+
+        // Command.
+        xil_cast_command_t cmd() const { return (xil_cast_command_t)this->hdata(); }
+
+        // Converts to a string.
+        operator string_t() const;
+
+    __EndXil
+
+    // Returns size of a cast_xil_t.
+    constexpr size_t size_of(const cast_xil_t & xil)
+    {
+        return sizeof(cast_xil_t);
+    }
+
+    // Defines max size of cast_xil_t.
+    __DefineMaxSize(cast_xil_t, sizeof(cast_xil_t));
+
+    // Writes a cmp_xil_t to a stream.
+    template<typename stream_t>
+    stream_t & operator << (stream_t & stream, const cast_xil_t & xil)
+    {
+        __trace_write_xil(xil);
+        return stream.write((const byte_t *)&xil, size_of(xil)), stream;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
 
     /* call:
         xil_command_t::call     : 4;
@@ -1317,11 +1384,15 @@ namespace X_ROOT_NS::modules::core {
             // Call method ref.
             __ref_t method;
 
+            // Command.
             xil_call_command_t command;
         };
 
         // Call type.
         xil_call_type_t call_type() const { return (xil_call_type_t)hdata(); }
+
+        // Method ref.
+        ref_t method_ref() const { return *(ref_t *)&method; }
 
         // Converts to a string.
         operator string_t() const;

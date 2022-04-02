@@ -124,6 +124,11 @@ namespace X_ROOT_NS::modules::compile {
             property = get_system_operator_property(property->op);
 
         int arity = property->arity, adhere = property->adhere;
+        if (!(arity >= 1 && arity <= 2))
+        {
+            _P(property->name, property->arity, (int)property->op);
+        }
+
         _A(arity >= 1 && arity <= 2);
         _A(adhere >= 0 && adhere <= arity);
 

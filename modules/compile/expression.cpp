@@ -1307,6 +1307,50 @@ namespace X_ROOT_NS::modules::compile {
         __compile_assign_to(ctx, pool, ca, exp2);
     }
 
+    // Returns type if specified expression is name_expression_t or name_unit_expression_t,
+    // and it is a type or type_def.
+    static type_t * __to_actual_type(expression_t * exp)
+    {
+        _A(exp != nullptr);
+
+        if (type_t * type = to_actual_type(exp); type != nullptr)
+            return type;
+
+        __Failed("%1% is not a type", exp);
+    }
+
+    // Compiles as expression.
+    static void __compile_as(__cctx_t & ctx, xil_pool_t & pool,
+                                expression_t * exp1, expression_t * exp2)
+    {
+        if (!is_effective(ctx, exp1->parent))
+            return;
+
+        exp1->compile(ctx, pool);
+
+        type_t * type = __to_actual_type(exp2);
+        ref_t type_ref = __ref_of(ctx, type);
+        _A(type_ref != ref_t::null);
+
+        pool.append<x_cast_xil_t>(xil_cast_command_t::as, type_ref);
+    }
+
+    // Compiles is expression.
+    static void __compile_is(__cctx_t & ctx, xil_pool_t & pool,
+                                expression_t * exp1, expression_t * exp2)
+    {
+        if (!is_effective(ctx, exp1->parent))
+            return;
+
+        exp1->compile(ctx, pool);
+
+        type_t * type = __to_actual_type(exp2);
+        ref_t type_ref = __ref_of(ctx, type);
+        _A(type_ref != ref_t::null);
+
+        pool.append<x_cast_xil_t>(xil_cast_command_t::is, type_ref);
+    }
+
     // Increment type.
     enum class __inc_t
     {
@@ -1817,6 +1861,9 @@ namespace X_ROOT_NS::modules::compile {
 
                 __Case(member_point)
                 __Case(assign)
+
+                __Case(as)
+                __Case(is)
 
                 default:
                     throw _ECF(not_supported, _T("unknown operator \"%1%\""), op());

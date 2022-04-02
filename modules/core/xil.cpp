@@ -159,6 +159,19 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Xil cast command.
+    X_ENUM_INFO(xil_cast_command_t)
+
+        X_C(empty,          _T("empty"))
+
+        X_C(as,             _T("as"))
+
+        X_C(is,             _T("is"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Xil type.
     X_ENUM_INFO(xil_type_t)
 
@@ -693,12 +706,21 @@ namespace X_ROOT_NS::modules::core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // cast_xil_t
+
+    // Converts cast xil to a string.
+    cast_xil_t::operator string_t() const
+    {
+        return _F(_T("%1% {%2%}"), cmd(), type_ref());
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // call_xil_t
 
     // Converts call xil to a string.
     call_xil_t::operator string_t() const
     {
-        return _F(_T("call %1% {%2%}"), call_type(), *(ref_t *)&method);
+        return _F(_T("call %1% {%2%}"), call_type(), method_ref());
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -909,6 +931,9 @@ namespace X_ROOT_NS::modules::core {
             case xil_command_t::bit:
                 return _str(*(const bit_xil_t *)xil);
 
+            case xil_command_t::cast:
+                return _str(*(const cast_xil_t *)xil);
+
             case xil_command_t::new_:
                 return _str(*(const new_xil_t *)xil);
 
@@ -962,6 +987,9 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_command_t::bit:
                 return size_of(*(const bit_xil_t *)xil);
+
+            case xil_command_t::cast:
+                return size_of(*(const cast_xil_t *)xil);
 
             case xil_command_t::new_:
                 return size_of(*(const new_xil_t *)xil);

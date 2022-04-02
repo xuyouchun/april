@@ -36,7 +36,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // keywords: i...
         __K(if)          __K(implicit) __K(in)        __K(int)      __K(interface)
-        __K(internal)    __K(is)    __K(import)
+        __K(internal)    __K(import)   __K(is)
         
         // keywords: l...
         __K(lock)        __K(long)
@@ -82,16 +82,19 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(left_increment,  _T("`++"))  __C(left_decrement,  _T("`--"))  // ++ --
         __C(right_increment, _T("++"))   __C(right_decrement, _T("--"))   // ++ --
 
+        // shift
         __C(left_shift, _T("<<"))   __C(right_shift,_T(">>"))
         __C(left_shift_assign, _T("<<=")) __C(right_shift_assign, _T(">>=")) // << >> <<= >>=
 
+        // logic
         __C(bit_and, _T("&"))       __C(bit_or, _T("|"))    __C(bit_not, _T("~"))
         __C(bit_xor, _T("^"))                                       // & | ~ ^
 
+        // bit
         __C(bit_and_assign, _T("&="))   __C(bit_or_assign,  _T("|="))
         __C(bit_xor_assign, _T("^="))   __C(assign, _T("="))        // &= |= ^=
 
-        //
+        // compare
         __C(greater, _T("`>"))      __C(greater_equal, _T(">="))    // > >=
         __C(less,  _T("`<"))        __C(less_equal,  _T("<="))      // < <=
         __C(equal, _T("=="))        __C(not_equal,   _T("!="))      // == !=
@@ -129,12 +132,6 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // :
         X_C(question_colon, _T("question_colon"),   _T("QuestionColon"))
-
-        // as
-        X_C(as,             _T("as"),               _T("As"))
-
-        // is
-        X_C(is,             _T("is"),               _T("Is"))
 
         // ,
         X_C(comma,          _T("comma"),            _T("Comma"))

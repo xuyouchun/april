@@ -93,25 +93,25 @@ namespace X_ROOT_NS::modules::compile {
         if (is_custom_struct(type))     // custom struct 
             X_UNEXPECTED();
 
-        #define __Append(name, xil_type)                                        \
-            pool.append<x_##name##_local_xil_t>(                                \
-                xil_type, local->identity                                       \
+        #define __Append(name, xil_type)                                                \
+            pool.append<x_##name##_local_xil_t>(                                        \
+                xil_type, local->identity                                               \
             )
 
-        #define __Write(xil_type)                                               \
-            do {                                                                \
-                if (pick)                                                       \
-                    __Append(pick, xil_type);                                   \
-                else                                                            \
-                    __Append(pop, xil_type);                                    \
+        #define __Write(xil_type)                                                       \
+            do {                                                                        \
+                if (pick)                                                               \
+                    __Append(pick, xil_type);                                           \
+                else                                                                    \
+                    __Append(pop, xil_type);                                            \
             } while (false)
             
         switch (type->this_gtype())
         {
             case gtype_t::general: {
 
-                if (dtype == xil_type_t::empty)
-                    dtype = to_xil_type(((general_type_t *)type)->vtype);
+                if (dtype == xil_type_t::empty || dtype == xil_type_t::__unknown__)
+                    dtype = to_xil_type(((general_type_t *)type)->this_vtype());
 
                 __Write(dtype);
 

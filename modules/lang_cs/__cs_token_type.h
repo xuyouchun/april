@@ -15,7 +15,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __keyword_begin,
 
         // keywords: a...
-        k_abstract,     k_as,       k_add,
+        k_abstract,      k_add,
         
         // keywords: b...
         k_base,         k_bool,     k_break,    k_byte,
@@ -39,7 +39,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // keywords: i...
         k_if,           k_implicit, k_in,       k_int,      k_interface,
-        k_internal,     k_is,       k_import,
+        k_internal,     k_import,
         
         // keywords: l...
         k_lock,         k_long,
@@ -87,7 +87,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         bit_and_assign, bit_or_assign, bit_xor_assign,                      // &= |= ^=
         assign,                                                             // =
 
-        //
+        // compare
         greater,        greater_equal,  less,   less_equal,     // > >= < <=
         equal,          not_equal,                              // == !=
 
@@ -96,6 +96,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // others
         member_point,                           // .
+        k_as,           k_is,                   // as, is
         question_mark,  question_colon,         // ? :
         comma,          double_colon,           // , ::
 
@@ -131,12 +132,6 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // :
         question_colon,
-
-        // as
-        as,
-        
-        // is
-        is,
 
         // ,
         comma,

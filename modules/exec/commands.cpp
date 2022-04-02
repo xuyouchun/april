@@ -2578,7 +2578,7 @@ namespace X_ROOT_NS::modules::exec {
 
             default:
                 _PF(_T("pop %1% %2% %3%"), stype, dtype1, dtype2);
-                X_UNEXPECTED();
+                X_UNEXPECTED(_T("unknown pop data types"));
         }
 
         X_UNEXPECTED();
@@ -3112,6 +3112,7 @@ namespace X_ROOT_NS::modules::exec {
     class __internal_call_command_t : public __command_base_t<__CallCmd(internal)>
     {
         typedef __internal_call_command_t   __self_t;
+
     public:
         __internal_call_command_t(__libfunc_t func, int param_unit_size, int ret_unit_size
     #if EXEC_TRACE
@@ -4511,6 +4512,135 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    #define __CastIsCmd             __Cmd(cast, is)
+    #define __CastAsCmd             __Cmd(cast, as)
+
+    __DefineCmdValue_(__CastIsCmd)
+    __DefineCmdValue_(__CastAsCmd)
+
+    template<bool _to_type_is_interface>
+    bool __cast_test(rt_type_t * from_type, rt_type_t * to_type)
+    {
+        rt_vtable_t * vtbl = get_vtable(from_type);
+        if constexpr (_to_type_is_interface)
+        {
+            return vtbl->try_search_vtable_interface(to_type);
+        }
+        else
+        {
+            if (from_type == to_type)
+                return true;
+
+            return vtbl->is_base_type(to_type);
+        }
+    }
+
+    template<command_value_t _cv, xil_cast_command_t _cast_cmd, bool _is_interface>
+    class __cast_command_t : public __command_base_t<_cv>
+    {
+        typedef __cast_command_t        __self_t;
+        typedef __command_base_t<_cv>   __super_t;
+
+    public:
+        #if EXEC_TRACE
+        __cast_command_t(rt_type_t * type, rt_sid_t type_name)
+            : __type(type), __type_name(type_name) { }
+        #else
+        __cast_command_t(rt_type_t * type): __type(type) { }
+        #endif
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("%1% %2%"), _cast_cmd, __This->__type_name);
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            if constexpr (_cast_cmd == xil_cast_command_t::is)
+            {
+                rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+                rt_type_t * rt_type = __RtTypeOf(obj);
+
+                ctx.stack.push(__cast_test<_is_interface>(rt_type, __type));
+            }
+            else if constexpr (_cast_cmd == xil_cast_command_t::as)
+            {
+                rt_ref_t obj = ctx.stack.pick<rt_ref_t>();
+                rt_type_t * rt_type = __RtTypeOf(obj);
+
+                if (!__cast_test<_is_interface>(rt_type, __type))
+                    ctx.stack.replace_to_null();
+            }
+
+        __EndExecute()
+
+    private:
+        rt_type_t *     __type;
+
+        #if EXEC_TRACE
+        rt_sid_t        __type_name;
+        #endif
+    };
+
+    template<xil_cast_command_t _cast_cmd>
+    struct __cast_command_template_t
+    {
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, bool is_interface, rt_type_t * type,
+                                                    _args_t ... args) -> command_t *
+        {
+            if (is_interface)
+            {
+                typedef __cast_command_t<_cv, _cast_cmd, true> this_command_t;
+                return __new_command<this_command_t>(memory, type, std::forward<_args_t>(args) ...);
+            }
+            else
+            {
+                typedef __cast_command_t<_cv, _cast_cmd, false> this_command_t;
+                return __new_command<this_command_t>(memory, type, std::forward<_args_t>(args) ...);
+            }
+        }
+    };
+
+    // Creates a cast command.
+    static command_t * __new_cast_command(__context_t & ctx, const cast_xil_t & xil)
+    {
+        rt_type_t * type = ctx.get_type(xil.type_ref());
+        bool is_interface = (type->get_ttype(ctx.env) == ttype_t::interface_);
+
+        if (xil.cmd() == xil_cast_command_t::is)
+        {
+            static __command_manager_t<
+                __cast_command_template_t<xil_cast_command_t::is>
+            >::with_args_t<bool, rt_type_t *> __manager;
+
+            return __manager.template get_command<__CastIsCmd>(is_interface, type
+            #if EXEC_TRACE
+                , type->get_name(ctx.env)
+            #endif
+            );
+        }
+        else if (xil.cmd() == xil_cast_command_t::as)
+        {
+            static __command_manager_t<
+                __cast_command_template_t<xil_cast_command_t::as>
+            >::with_args_t<bool, rt_type_t *> __manager;
+
+            return __manager.template get_command<__CastAsCmd>(is_interface, type
+            #if EXEC_TRACE
+                , type->get_name(ctx.env)
+            #endif
+            );
+        }
+
+        X_UNEXPECTED(_T("unknown cast command"));
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     #define __RetCmd(_ret_size)     __Cmd(smp, ret_##_ret_size)
     #define __StructRetUnitSize     65535
     #define __StructRetCmd          __RetCmd(65535)
@@ -5534,7 +5664,7 @@ namespace X_ROOT_NS::modules::exec {
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
             typedef __new_command_t<_new_type> this_command_t;
-            return __new_command<this_command_t>(memory,  std::forward<_args_t>(args) ...);
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
 
@@ -6053,6 +6183,9 @@ namespace X_ROOT_NS::modules::exec {
             case xil_command_t::cmp:
                 return __new_cmp_command(ctx, *(const cmp_xil_t *)xil);
 
+            case xil_command_t::cast:
+                return __new_cast_command(ctx, *(const cast_xil_t *)xil);
+
             case xil_command_t::smp:
                 return __new_smp_command(ctx, *(const smp_xil_t *)xil);
 
@@ -6487,6 +6620,12 @@ namespace X_ROOT_NS::modules::exec {
             __SwitchCommands_CaseBinary(cmp, not_equal, object, object)                 \
             __SwitchCommands_CaseBinary(cmp, equal, ptr, ptr)                           \
             __SwitchCommands_CaseBinary(cmp, not_equal, ptr, ptr)                       \
+                                                                                        \
+            /* cast */                                                                  \
+            __Case( __cast_command_template_t<xil_cast_command_t::as, true> )           \
+            __Case( __cast_command_template_t<xil_cast_command_t::as, false> )          \
+            __Case( __cast_command_template_t<xil_cast_command_t::is, true> )           \
+            __Case( __cast_command_template_t<xil_cast_command_t::is, false> )          \
                                                                                         \
             /* ret */                                                                   \
             __SwitchCommands_CaseRet(0)                                                 \

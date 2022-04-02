@@ -28,9 +28,9 @@ namespace X_ROOT_NS::modules::core {
         return get_unitary_vtype(this->op(), vtype);
     }
 
-    #define __C(type)                                                      \
-        case (int)__VT(type):                                              \
-            *out_value = unitary_operator_t<_op, __VT(type)>()((type##_t)v);    \
+    #define __C(type)                                                                   \
+        case (int)__VT(type):                                                           \
+            *out_value = unitary_operator_t<_op, __VT(type)>()((type##_t)v);            \
             return true;
 
     enum class __operate_region_t
@@ -271,16 +271,16 @@ namespace X_ROOT_NS::modules::core {
         return get_binary_vtype(this->op(), vtype1, vtype2);
     }
 
-    #define __C1(type1, type2)                                                  \
-        case ((int)__VT(type1) << 8) | (int)__VT(type2):                        \
-            *out_value = tvalue_t(                                              \
-                binary_operator_t<_op, __VT(type1), __VT(type2)>()(             \
-                    (type1##_t)v1, (type2##_t)v2)                               \
-            );                                                                  \
+    #define __C1(type1, type2)                                                          \
+        case ((int)__VT(type1) << 8) | (int)__VT(type2):                                \
+            *out_value = tvalue_t(                                                      \
+                binary_operator_t<_op, __VT(type1), __VT(type2)>()(                     \
+                    (type1##_t)v1, (type2##_t)v2)                                       \
+            );                                                                          \
             return true;
 
-    #define __C2(type1, type2)                                                  \
-        __C1(type1, type2)                                                      \
+    #define __C2(type1, type2)                                                          \
+        __C1(type1, type2)                                                              \
         __C1(type2, type1)
 
     //#undef __DefineBinaryOperate
