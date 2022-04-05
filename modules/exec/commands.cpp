@@ -68,6 +68,18 @@ namespace X_ROOT_NS::modules::exec {
     #define __Cmd(_cmd, _n)             __cmd_##_cmd##_##_n
     #define __DefineCmdValue(_cmd, _n)  __DefineCmdValue_(__Cmd(_cmd, _n));
 
+    #define __ToString(_s)                                                              \
+        __BeginToString()                                                               \
+            return _s;                                                                  \
+        __EndToString()
+
+    #define __Terminal(_msg)    throw _E(exec_env_code_t::terminal, _msg)
+
+    #define __TerminalOnNull(_exp)   do {                                               \
+            _A(_exp != nullptr);                                                        \
+            if ((_exp) == nullptr) __Terminal(_S(_exp) " is null");                     \
+        } while (false)
+
     ////////// ////////// ////////// ////////// //////////
 
     using namespace rt;
@@ -75,6 +87,8 @@ namespace X_ROOT_NS::modules::exec {
 
     void __execute_command(command_execute_context_t & ctx, command_t * command);
     const string_t to_command_string(command_t * command);
+
+    void __process_exception(command_execute_context_t & ctx);
 
     ////////// ////////// ////////// ////////// //////////
     // command_creating_context_t
@@ -138,6 +152,33 @@ namespace X_ROOT_NS::modules::exec {
             static _class_name * command = __new_command<_class_name>(&__command_heap); \
             return command;                                                             \
         } while (false)
+
+    ////////// ////////// ////////// ////////// //////////
+    // Core types
+
+    static rt_type_t * __get_core_type(command_execute_context_t & ctx,
+                const string_t & ns, const string_t & name, int generic_param_count = 0)
+    {
+        rt_type_t * type = ctx.env.get_core_type(ns, name, generic_param_count);
+        __TerminalOnNull(type);
+
+        return type;
+    }
+
+    #define __DefineGetCoreTypeFunction(_func_name, _ns, _name, _generic_param_count)   \
+        static rt_type_t * _func_name(command_execute_context_t & ctx)                  \
+        {                                                                               \
+            static rt_type_t * type = nullptr;                                          \
+            if (type == nullptr)                                                        \
+                type = __get_core_type(ctx, _ns, _name, _generic_param_count);          \
+                                                                                        \
+            return type;                                                                \
+        }
+
+    #define __DefineSimpleGetCoreTypeFunction(_func_name, _name)                        \
+        __DefineGetCoreTypeFunction(_func_name, _T(""), _name, 0)
+
+    __DefineSimpleGetCoreTypeFunction(__get_invalid_cast_exception, CoreType_InvalidCastException)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -280,11 +321,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-
-            return _T("[command]");
-
-        __EndToString()
+        __ToString(_T("[command]"));
 
         #endif      // EXEC_TRACE
     };
@@ -309,9 +346,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("[empty]");
-        __EndToString()
+        __ToString(_T("[empty]"));
 
         #endif      // EXEC_TRACE
     };
@@ -340,11 +375,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-
-            return _T("[end]");
-        
-        __EndToString()
+        __ToString(_T("[end]"));
 
         #endif  // EXEC_TRACE
     };
@@ -1005,9 +1036,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("duplicate");
-        __EndToString()
+        __ToString(_T("duplicate"));
 
         #endif  // EXEC_TRACE
     };
@@ -1142,11 +1171,10 @@ namespace X_ROOT_NS::modules::exec {
         typedef __vnum_t<_xil_type2>            __value2_t;
 
     public:
+
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("push array element"));
-        __EndToString()
+        __ToString(_T("push array element"));
 
         #endif  // EXEC_TRACE
 
@@ -1184,9 +1212,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("push array element"));
-        __EndToString()
+        __ToString(_T("push array element"));
 
         #endif  // EXEC_TRACE
 
@@ -1296,9 +1322,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("push params argument address"));
-        __EndToString()
+        __ToString(_T("push params argument address"));
 
         #endif  // EXEC_TRACE
 
@@ -2141,9 +2165,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("pop array element"));
-        __EndToString()
+        __ToString(_T("pop array element"));
 
         #endif  // EXEC_TRACE
 
@@ -2180,9 +2202,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("pop array element"));
-        __EndToString()
+        __ToString(_T("pop array element"));
 
         #endif  // EXEC_TRACE
 
@@ -2266,9 +2286,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("pop empty"));
-        __EndToString()
+        __ToString(_T("pop empty"));
 
         #endif  // EXEC_TRACE
 
@@ -2734,9 +2752,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("pick array element"));
-        __EndToString()
+        __ToString(_T("pick array element"));
 
         #endif      // EXEC_TRACE
 
@@ -2773,9 +2789,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("pick array element"));
-        __EndToString()
+        __ToString(_T("pick array element"));
 
         #endif  // EXEC_TRACE
 
@@ -3084,6 +3098,14 @@ namespace X_ROOT_NS::modules::exec {
     {
         _A(type != nullptr);
         type->pre_static_call(ctx.env);
+    }
+
+    __AlwaysInline static void __new_object(command_execute_context_t & ctx, rt_type_t * type)
+    {
+        _A(type != nullptr);
+
+        __pre_new(ctx, type);
+        ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(type));
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3751,9 +3773,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("call delegate init"));
-        __EndToString()
+        __ToString(_T("call delegate init"));
 
         #endif  // EXEC_TRACE
 
@@ -3796,9 +3816,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("call delegate init (with call type)"));
-        __EndToString()
+        __ToString(_T("call delegate init (with call type)"));
 
         #endif  // EXEC_TRACE
 
@@ -3854,9 +3872,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _F(_T("call delegate invoke"));
-        __EndToString()
+        __ToString(_T("call delegate invoke"));
 
         #endif  // EXEC_TRACE
 
@@ -4512,9 +4528,11 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    #define __CastDefaultCmd        __Cmd(cast, default_)
     #define __CastIsCmd             __Cmd(cast, is)
     #define __CastAsCmd             __Cmd(cast, as)
 
+    __DefineCmdValue_(__CastDefaultCmd)
     __DefineCmdValue_(__CastIsCmd)
     __DefineCmdValue_(__CastAsCmd)
 
@@ -4559,13 +4577,35 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            if constexpr (_cast_cmd == xil_cast_command_t::is)
+            // Default cast, raise exception when failed.
+            if constexpr (_cast_cmd == xil_cast_command_t::default_)
             {
-                rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+                rt_ref_t obj = ctx.stack.pick<rt_ref_t>();
                 rt_type_t * rt_type = __RtTypeOf(obj);
 
-                ctx.stack.push(__cast_test<_is_interface>(rt_type, __type));
+                if (!__cast_test<_is_interface>(rt_type, __type))
+                {
+                    rt_type_t * exception_type = __get_invalid_cast_exception(ctx);
+                    __pre_new(ctx, exception_type);
+                    rt_ref_t exception = ctx.heap->new_obj(exception_type);
+
+                    ctx.restore_stack();
+                    ctx.push_exception(exception);
+
+                    __process_exception(ctx);
+                }
             }
+
+            // Test whether a cast is valid.
+            else if constexpr (_cast_cmd == xil_cast_command_t::is)
+            {
+                rt_ref_t obj = ctx.stack.pick<rt_ref_t>();
+                rt_type_t * rt_type = __RtTypeOf(obj);
+
+                ctx.stack.replace(__cast_test<_is_interface>(rt_type, __type));
+            }
+
+            // Returns null when cast is invalid.
             else if constexpr (_cast_cmd == xil_cast_command_t::as)
             {
                 rt_ref_t obj = ctx.stack.pick<rt_ref_t>();
@@ -4611,32 +4651,53 @@ namespace X_ROOT_NS::modules::exec {
         rt_type_t * type = ctx.get_type(xil.type_ref());
         bool is_interface = (type->get_ttype(ctx.env) == ttype_t::interface_);
 
-        if (xil.cmd() == xil_cast_command_t::is)
+        switch (xil.cmd())
         {
-            static __command_manager_t<
-                __cast_command_template_t<xil_cast_command_t::is>
-            >::with_args_t<bool, rt_type_t *> __manager;
+            case xil_cast_command_t::default_: {
 
-            return __manager.template get_command<__CastIsCmd>(is_interface, type
-            #if EXEC_TRACE
-                , type->get_name(ctx.env)
-            #endif
-            );
+                static __command_manager_t<
+                    __cast_command_template_t<xil_cast_command_t::default_>
+                >::with_args_t<bool, rt_type_t *> __manager;
+
+                return __manager.template get_command<__CastDefaultCmd>(is_interface, type
+                #if EXEC_TRACE
+                    , type->get_name(ctx.env)
+                #endif
+                );
+
+            }   break;
+
+            case xil_cast_command_t::is: {
+
+                static __command_manager_t<
+                    __cast_command_template_t<xil_cast_command_t::is>
+                >::with_args_t<bool, rt_type_t *> __manager;
+
+                return __manager.template get_command<__CastIsCmd>(is_interface, type
+                #if EXEC_TRACE
+                    , type->get_name(ctx.env)
+                #endif
+                );
+
+            }   break;
+
+            case xil_cast_command_t::as: {
+
+                static __command_manager_t<
+                    __cast_command_template_t<xil_cast_command_t::as>
+                >::with_args_t<bool, rt_type_t *> __manager;
+
+                return __manager.template get_command<__CastAsCmd>(is_interface, type
+                #if EXEC_TRACE
+                    , type->get_name(ctx.env)
+                #endif
+                );
+
+            }   break;
+
+            default:
+                X_UNEXPECTED(_T("unknown cast command"));
         }
-        else if (xil.cmd() == xil_cast_command_t::as)
-        {
-            static __command_manager_t<
-                __cast_command_template_t<xil_cast_command_t::as>
-            >::with_args_t<bool, rt_type_t *> __manager;
-
-            return __manager.template get_command<__CastAsCmd>(is_interface, type
-            #if EXEC_TRACE
-                , type->get_name(ctx.env)
-            #endif
-            );
-        }
-
-        X_UNEXPECTED(_T("unknown cast command"));
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4727,9 +4788,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("ret  [struct]");
-        __EndToString()
+        __ToString(_T("ret  [struct]"));
 
         #endif  // EXEC_TRACE
 
@@ -4863,9 +4922,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("label");
-        __EndToString()
+        __ToString(_T("label"));
 
         #endif  // EXEC_TRACE
     };
@@ -4926,7 +4983,7 @@ namespace X_ROOT_NS::modules::exec {
     X_ENUM_INFO_END
 
     // Process block nodes.
-    __AlwaysInline __process_block_nodes_ret __process_block_nodes(command_execute_context_t & ctx)
+    __process_block_nodes_ret __process_block_nodes(command_execute_context_t & ctx)
     {
         block_node_t * node = ctx.block_queue.pick();
         if (node == nullptr)
@@ -4963,7 +5020,7 @@ namespace X_ROOT_NS::modules::exec {
     }
 
     // Process exceptions
-    __AlwaysInline void __process_exception(command_execute_context_t & ctx)
+    void __process_exception(command_execute_context_t & ctx)
     {
         exception_node_t * node = ctx.exception_stack.head;
         _A(node != nullptr);
@@ -5020,7 +5077,7 @@ namespace X_ROOT_NS::modules::exec {
     }
 
     // Process finally blocks.
-    __AlwaysInline void __process_finally(command_execute_context_t & ctx,
+    void __process_finally(command_execute_context_t & ctx,
                                                             command_t ** next_command)
     {
         ctx.block_queue.begin_group(ctx.stack.lp());
@@ -5048,7 +5105,7 @@ namespace X_ROOT_NS::modules::exec {
     }
 
     // Process finally blocks. ( for return )
-    __AlwaysInline void __process_finally_for_return(command_execute_context_t & ctx,
+    void __process_finally_for_return(command_execute_context_t & ctx,
                                                      command_t * return_command)
     {
         ctx.block_queue.begin_group(ctx.stack.lp());
@@ -5094,9 +5151,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("throw");
-        __EndToString()
+        __ToString(_T("throw"))
 
         #endif  // EXEC_TRACE
     };
@@ -5121,9 +5176,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("rethrow");
-        __EndToString()
+        __ToString(_T("rethrow"))
 
         #endif  // EXEC_TRACE
     };
@@ -5197,9 +5250,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("end finally");
-        __EndToString()
+        __ToString(_T("end finally"));
 
         #endif  // EXEC_TRACE
     };
@@ -5390,9 +5441,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("leave.ret");
-        __EndToString()
+        __ToString(_T("leave.ret"));
 
         #endif  // EXEC_TRACE
 
@@ -5441,9 +5490,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("switch");
-        __EndToString()
+        __ToString(_T("switch"));
 
         #endif  // EXEC_TRACE
 
@@ -5538,8 +5585,7 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            __pre_new(ctx, __This->__type);
-            ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(__This->__type));
+            __new_object(ctx, __This->__type);
 
         __EndExecute()
 
@@ -5753,9 +5799,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("copy");
-        __EndToString()
+        __ToString(_T("copy"));
 
         #endif  // EXEC_TRACE
 
@@ -5965,9 +6009,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __BeginToString()
-            return _T("init");
-        __EndToString()
+        __ToString(_T("init"));
 
         #endif  // EXEC_TRACE
     };
@@ -6622,6 +6664,8 @@ namespace X_ROOT_NS::modules::exec {
             __SwitchCommands_CaseBinary(cmp, not_equal, ptr, ptr)                       \
                                                                                         \
             /* cast */                                                                  \
+            __Case( __cast_command_template_t<xil_cast_command_t::default_, true> )     \
+            __Case( __cast_command_template_t<xil_cast_command_t::default_, false> )    \
             __Case( __cast_command_template_t<xil_cast_command_t::as, true> )           \
             __Case( __cast_command_template_t<xil_cast_command_t::as, false> )          \
             __Case( __cast_command_template_t<xil_cast_command_t::is, true> )           \
@@ -6806,7 +6850,7 @@ namespace X_ROOT_NS::modules::exec {
                 _A(node != nullptr);
                 rt_type_t * exception_type = mm::get_object_type(node->exception);
 
-                _PF(_T("Uncaught Exception: %1%"), node->exception);
+                _PF(_T("Uncaught Exception: %1%"), exception_type->get_name(ctx.env));
 
             }   break;
 

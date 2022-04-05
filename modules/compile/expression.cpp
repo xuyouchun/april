@@ -78,8 +78,7 @@ namespace X_ROOT_NS::modules::compile {
         _A(member != nullptr);
 
         type_t * host_type = member->host_type;
-        if (host_type == nullptr)
-            __Failed("member '%1%' host type missing", member);
+        __FailedWhenNull(host_type, "member '%1%' host type missing", member);
 
         return host_type;
     }
@@ -2462,9 +2461,23 @@ namespace X_ROOT_NS::modules::compile {
             return;
 
         expression_t * exp = this->expression();
-        _A(exp != nullptr);
+        __FailedWhenNull(exp, _T("expresion empty"));
 
-        exp->compile(ctx, pool, __xil_type(type_name));
+        type_t * type = this->get_type();
+        __FailedWhenNull(type, _T("type empty"));
+
+        if (is_object(type))
+        {
+            exp->compile(ctx, pool);
+
+            ref_t type_ref = __ref_of(ctx, type);
+            pool.append<x_cast_xil_t>(xil_cast_command_t::default_, type_ref);
+        }
+        else
+        {
+            exp->compile(ctx, pool, __xil_type(type_name));
+        }
+
         __post_compile_expression(ctx, pool, this, dtype);
     }
 

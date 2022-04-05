@@ -455,16 +455,16 @@ namespace X_ROOT_NS::modules::rt {
         static const __tidx_t tidx = (__tidx_t)0;
     };
 
-    #define __RtEntity(_tidx, _entity_t)                            \
-        class _entity_t;                                            \
-        template<> struct __rt_t<__tidx_t::_tidx>                   \
-        {                                                           \
-            typedef _entity_t entity_t;                             \
-        };                                                          \
-                                                                    \
-        template<> struct __rt_tidx_t<_entity_t>                    \
-        {                                                           \
-            static const __tidx_t tidx = __tidx_t::_tidx;           \
+    #define __RtEntity(_tidx, _entity_t)                                                \
+        class _entity_t;                                                                \
+        template<> struct __rt_t<__tidx_t::_tidx>                                       \
+        {                                                                               \
+            typedef _entity_t entity_t;                                                 \
+        };                                                                              \
+                                                                                        \
+        template<> struct __rt_tidx_t<_entity_t>                                        \
+        {                                                                               \
+            static const __tidx_t tidx = __tidx_t::_tidx;                               \
         };
 
     __RtEntity(assembly,            rt_assembly_t)
@@ -1885,7 +1885,7 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns core type of specified name.
         rt_general_type_t * get_core_type(const string_t & ns, const string_t & name,
-                                          int generic_param_count);
+                                          int generic_param_count = 0);
 
         // Returns array type.
         rt_general_type_t * get_tarray_type();

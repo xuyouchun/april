@@ -153,9 +153,11 @@ namespace X_ROOT_NS::modules::core {
 
         empty           = 0,
 
-        as              = 1,
+        default_        = 1,        // Throws InvalidCastException when cast failed.
 
-        is              = 2,
+        as              = 2,        // Returns null when cast failed.
+
+        is              = 3,        // Test whether a cast is valid.
 
     X_ENUM_END
 

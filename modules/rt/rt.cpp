@@ -1067,8 +1067,8 @@ namespace X_ROOT_NS::modules::rt {
 
         // Alloc vtable object.
         size_t vfunction_arr_pos = sizeof(rt_vtable_t);
-        size_t base_types_pos = vfunction_arr_pos + base_types.size() * sizeof(rt_type_t *);
-        size_t vtbl_interfaces_pos = base_types_pos + vfuncs.size() * sizeof(rt_vfunction_t);
+        size_t base_types_pos = vfunction_arr_pos + vfuncs.size() * sizeof(rt_vfunction_t);
+        size_t vtbl_interfaces_pos = base_types_pos + base_types.size() * sizeof(rt_type_t *);
         size_t vtbl_interface_arr_pos = vtbl_interfaces_pos + sizeof(rt_vtable_interfaces_t);
         size_t interface_function_arr_pos = vtbl_interface_arr_pos
                                         + interfaces.size() * sizeof(rt_vtable_interface_t);

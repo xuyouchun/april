@@ -669,6 +669,12 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Returns whether it's a user defined class or struct or string.
+    X_INLINE bool is_object(vtype_t vtype) _NE
+    {
+        return vtype == vtype_t::mobject_ || vtype == vtype_t::string_;
+    }
+
     // Returns whether it's a signed int value.
     X_INLINE bool is_signed_integer(vtype_t vtype) _NE
     {
@@ -2444,6 +2450,9 @@ namespace X_ROOT_NS::modules::core {
 
     // Returns whether a type is a pointer type.
     bool is_ptr_type(type_t * type);
+
+    // Returns whether a type is user defined class, struct or string.
+    bool is_object(type_t * type);
 
     // Returns whether a type is a general type, ( defined in source code. )
     X_ALWAYS_INLINE bool is_general(type_t * type)

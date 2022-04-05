@@ -19,6 +19,12 @@ namespace X_ROOT_NS::modules::compile {
     #define __Failed(_format, _s ...)                                                   \
         throw __CompileFailed(_T("") _format, ##_s)
 
+    #define __FailedWhen(_condition, _format, _s ...)                                   \
+        if (_condition) __Failed(_format, ##_s)
+
+    #define __FailedWhenNull(_exp, _format, _s ...)                                     \
+        __FailedWhen( ((_exp) == nullptr), _format, ##_s)
+
     ////////// ////////// ////////// ////////// //////////
 
     class code_section_builder_t

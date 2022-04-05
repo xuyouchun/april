@@ -2778,6 +2778,14 @@ namespace X_ROOT_NS::modules::core {
         return __is_vtype(type, vtype_t::ptr_);
     }
 
+    // Returns whether a type is user defined class, struct or string.
+    bool is_object(type_t * type)
+    {
+        _A(type != nullptr);
+
+        return is_object(type->this_vtype());
+    }
+
     // Returns general type if it's a generic type, otherwise, returns itself.
     type_t * to_general(type_t * type)
     {

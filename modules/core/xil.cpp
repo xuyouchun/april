@@ -164,6 +164,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(empty,          _T("empty"))
 
+        X_C(default_,       _T("cast"))
+
         X_C(as,             _T("as"))
 
         X_C(is,             _T("is"))

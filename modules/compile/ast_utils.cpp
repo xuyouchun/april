@@ -33,22 +33,6 @@ namespace X_ROOT_NS::modules::compile {
         return exp->get_vtype();
     }
 
-    // Returns vtype of expression.
-    static bool __is_mobject(expression_t * exp)
-    {
-        _A(exp != nullptr);
-
-        return __vtype_of(exp) == vtype_t::mobject_;
-    }
-
-    // Returns vtype of a type.
-    static bool __is_mobject(type_t * type)
-    {
-        _A(type != nullptr);
-
-        return type->this_vtype() == vtype_t::mobject_;
-    }
-
     // Converts multi-name to sid.
     sid_t mname_to_sid(const mname_t * mname)
     {
@@ -1187,7 +1171,7 @@ namespace X_ROOT_NS::modules::compile {
 
                 if (is_null(arg_type))
                     exists_null = true;
-                else if (__is_mobject(arg_type))
+                else if (is_object(arg_type))
                     exists_custom_type = true;
 
                 atypes.push_back(arg_type);
@@ -1227,7 +1211,7 @@ namespace X_ROOT_NS::modules::compile {
             al::svector_t<method_t *> methods;
             for (atype_t atype : atypes)
             {
-                if (!__is_mobject(atype.type))
+                if (!is_object(atype.type))
                     continue;
 
                 method_t * method = find_method(__cctx,

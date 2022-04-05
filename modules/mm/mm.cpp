@@ -1,6 +1,7 @@
 
 #include <mm.h>
 #include <algorithm.h>
+#include <arch.h>
 
 namespace X_ROOT_NS::modules::mm {
 
@@ -33,19 +34,20 @@ namespace X_ROOT_NS::modules::mm {
     }
 
     al::xheap_t __default_memory(_T("default"));
+    memory_t * __memory = nullptr;
     
     ////////// ////////// ////////// ////////// //////////
 
     // Allocate memory with specified size.
     X_ALWAYS_INLINE void * __alloc_memory(size_t size)
     {
-        return memory_t::alloc(&__default_memory, size);
+        return memory_t::alloc(__memory, size);
     }
 
     // Free memory of specified ptr.
     X_ALWAYS_INLINE void __free_memory(void * p)
     {
-        memory_t::free(&__default_memory, p);
+        memory_t::free(__memory, p);
     }
 
     // Allocate memory with specified size/extern size.
@@ -106,7 +108,7 @@ namespace X_ROOT_NS::modules::mm {
     }
 
     // Sets memory zero.
-    template<typename _t> void zero_memory(_t * p, size_t size)
+    template<typename _t> void __zero_memory(_t * p, size_t size)
     {
         while (!__zero(size, p))
         {
@@ -124,8 +126,8 @@ namespace X_ROOT_NS::modules::mm {
         size_t size = _alignf(type->get_size(), sizeof(rt_stack_unit_t));
         void * obj = __alloc<extern_size>(size);
 
+        __zero_memory((__uint_t *)obj, size / sizeof(__uint_t));
         __set_object_type(obj, type);
-        zero_memory((__uint_t *)obj, size / sizeof(__uint_t));
 
         return rt_ref_t(obj);
     }
@@ -185,7 +187,7 @@ namespace X_ROOT_NS::modules::mm {
             throw _ED(__e_t::array_dimension_error, dimension);
         }
 
-        zero_memory((__uint_t *)obj, size / sizeof(__uint_t));
+        __zero_memory((__uint_t *)obj, size / sizeof(__uint_t));
         return rt_ref_t(obj);
     }
 
