@@ -85,7 +85,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         left_shift,     right_shift, left_shift_assign, right_shift_assign, // << >> <<= >>=
         bit_and,        bit_or,     bit_not,    bit_xor,                    // & | ~ ^
         bit_and_assign, bit_or_assign, bit_xor_assign,                      // &= |= ^=
-        assign,                                                             // =
+        assign,         null_coalescing, null_coalescing_assign,            // = ?? ??=
 
         // compare
         greater,        greater_equal,  less,   less_equal,     // > >= < <=

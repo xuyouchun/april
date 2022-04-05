@@ -226,6 +226,8 @@ namespace X_ROOT_NS::modules::core {
         X_C(bit_xor_assign,     _T("^="),       _T("BitXorAssign"))
 
         X_C(assign,             _T("="),        _T("Assign"))
+        X_C(null_coalescing,    _T("??"),       _T("NullCoalescing"))
+        X_C(null_coalescing_assign, _T("??""="),  _T("NullCoalescingAssign"))
 
         X_C(greater,            _T(">"),        _T("Greater"))
         X_C(greater_equal,      _T(">="),       _T("GreaterEqual"))
@@ -335,70 +337,78 @@ namespace X_ROOT_NS::modules::core {
             };
 
             #define __Pri(v) ((v) << 8)
+            #define __BeginPriority(_pri)                                               \
+                e.each(std::bind(set_priority, _2, __Pri(_pri)),
+            #define __EndPriority   );
 
-            e.each(std::bind(set_priority, _2, __Pri(1)),
+            __BeginPriority(1)
                 op_t::member_point                                      // .
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(2)), 
+            __BeginPriority(2)
                 op_t::minus,             op_t::positive,                // - +
                 op_t::left_increment,    op_t::left_decrement,          // --x ++x
                 op_t::right_increment,   op_t::right_decrement,         // x-- x++
                 op_t::logic_not,         op_t::bit_not                  // ! ~
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(3)),
+            __BeginPriority(3)
                 op_t::div,   op_t::mul,   op_t::mod                     // / * %
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(4)),
+            __BeginPriority(4)
                 op_t::add,   op_t::sub                                  // + -
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(5)),
+            __BeginPriority(5)
                 op_t::left_shift,    op_t::right_shift                  // << >>
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(6)),
+            __BeginPriority(6)
                 op_t::greater,   op_t::greater_equal,                   // > >=
                 op_t::less,      op_t::less_equal                       // < <=
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(7)),
+            __BeginPriority(7)
                 op_t::equal,     op_t::not_equal                        // == !=
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(8)),
+            __BeginPriority(8)
                 op_t::bit_and                                           // &
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(9)),
+            __BeginPriority(9)
                 op_t::bit_xor                                           // ^
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(10)),
+            __BeginPriority(10)
                 op_t::bit_or                                            // |
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(11)),
+            __BeginPriority(11)
                 op_t::logic_and                                         // &&
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(12)),
+            __BeginPriority(12)
                 op_t::logic_or                                          // ||
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(13)),
+            __BeginPriority(13)
                 op_t::as, op_t::is                                      // as, is
-            );
+            __EndPriority
 
-            e.each(std::bind(set_priority, _2, __Pri(14)),
+            __BeginPriority(14)
+                op_t::null_coalescing
+            __EndPriority
+
+            __BeginPriority(15)
                 op_t::assign,                                           // =
                 op_t::add_assign,    op_t::sub_assign,                  // += -=
                 op_t::mul_assign,    op_t::div_assign,    op_t::mod_assign, // *= /= %=
                 op_t::left_shift_assign, op_t::right_shift_assign,      // <<= >>=
-                op_t::bit_and_assign,op_t::bit_or_assign, op_t::bit_xor_assign // &= |= ^=
-            );
+                op_t::bit_and_assign,op_t::bit_or_assign, op_t::bit_xor_assign, // &= |= ^=
+                op_t::null_coalescing_assign
+            __EndPriority
 
             // arity
             auto set_arity = [](operator_property_t & p, operator_arity_t arity) {
@@ -426,6 +436,8 @@ namespace X_ROOT_NS::modules::core {
                 op_t::bit_xor_assign,                                   // ^=
 
                 op_t::assign,        op_t::member_point,                // = .
+                op_t::null_coalescing,                                  // ??
+                op_t::null_coalescing_assign,                           // ??=
 
                 op_t::greater,       op_t::greater_equal,               // > >=
                 op_t::less,          op_t::less_equal,                  // < <=
@@ -459,7 +471,8 @@ namespace X_ROOT_NS::modules::core {
                 op_t::add_assign, op_t::sub_assign, op_t::mul_assign,
                 op_t::div_assign, op_t::mod_assign,
                 op_t::left_shift_assign, op_t::right_shift_assign,
-                op_t::bit_and_assign, op_t::bit_or_assign, op_t::bit_xor_assign
+                op_t::bit_and_assign, op_t::bit_or_assign, op_t::bit_xor_assign,
+                op_t::null_coalescing_assign
             );
 
             // assign
@@ -474,7 +487,8 @@ namespace X_ROOT_NS::modules::core {
                 op_t::left_shift_assign, op_t::right_shift_assign,
                 op_t::bit_and_assign, op_t::bit_or_assign, op_t::bit_xor_assign,
                 op_t::left_increment, op_t::left_decrement,
-                op_t::right_increment, op_t::right_decrement
+                op_t::right_increment, op_t::right_decrement,
+                op_t::null_coalescing_assign
             );
 
             // Can be overloaded.
@@ -488,9 +502,13 @@ namespace X_ROOT_NS::modules::core {
 
             e.each(std::bind(set_overload, _2, operator_overload_model_t::no_check),
                 op_t::assign, op_t::member_point, 
-                op_t::as,     op_t::is
+                op_t::as,     op_t::is,
+                op_t::null_coalescing, op_t::null_coalescing_assign
             );
         }
+
+        #undef __BeginPriority
+        #undef __EndPriority
     };
 
     typedef __system_operator_property_t::properties_t<(size_t)operator_t::__inner_end__>
@@ -2784,6 +2802,17 @@ namespace X_ROOT_NS::modules::core {
         _A(type != nullptr);
 
         return is_object(type->this_vtype());
+    }
+
+    // Returns whether a type is class, interface or null.
+    bool is_ref_type(type_t * type)
+    {
+        _A(type != nullptr);
+
+        if (type->this_gtype() == gtype_t::null)
+            return true;
+
+        return is_ref_type(type->this_ttype());
     }
 
     // Returns general type if it's a generic type, otherwise, returns itself.
@@ -7363,6 +7392,8 @@ namespace X_ROOT_NS::modules::core {
                 return to_actual_type(exp2());
 
             case operator_t::assign:
+            case operator_t::null_coalescing_assign:
+            case operator_t::null_coalescing:
                 return exp1()->get_type();
 
             default: {
@@ -7375,10 +7406,14 @@ namespace X_ROOT_NS::modules::core {
     // Returns behaviour.
     expression_behaviour_t binary_expression_t::get_behaviour() const
     {
-        if (op() == operator_t::member_point)
-            return exp2()->get_behaviour();
+        switch (op())
+        {
+            case operator_t::member_point:
+                return exp2()->get_behaviour();
 
-        return __super_t::get_behaviour();
+            default:
+                return __super_t::get_behaviour();
+        }
     }
 
     // Converts binary expression to a string.

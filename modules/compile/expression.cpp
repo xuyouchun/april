@@ -1318,13 +1318,64 @@ namespace X_ROOT_NS::modules::compile {
         __Failed("%1% is not a type", exp);
     }
 
+    // Throws exception when specified expression is not ref type.
+    void __expect_ref_type(expression_t * exp)
+    {
+        if (!is_ref_type(exp->get_type()))
+            __Failed("%1% is not a reference type expression", exp);
+    }
+
+    // Compiles null coalescing expression: ??
+    static void __compile_null_coalescing(__cctx_t & ctx, xil_pool_t & pool,
+                                expression_t * exp1, expression_t * exp2)
+    {
+        __expect_ref_type(exp1);
+        __expect_ref_type(exp2);
+
+        if (__is_optimize_basic_algorighm(ctx))
+        {
+            if (__execute_expression(exp1) == cvalue_t(nullptr))
+            {
+                exp2->compile(ctx, pool);
+                return;
+            }
+
+            if (__execute_expression(exp2) == cvalue_t(nullptr))
+            {
+                exp1->compile(ctx, pool);
+                return;
+            }
+        }
+
+        statement_compile_context_t & sctx = ctx.statement_ctx;
+
+        exp1->compile(ctx, pool);
+
+        // it's null?
+        pool.append<x_push_duplicate_xil_t>();
+        pool.append<x_push_null_xil_t>();
+        pool.append<x_cmp_xil_t>(xil_cmp_command_t::equal, xil_type_t::object, xil_type_t::object);
+
+        jmp_xil_t * finally_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
+
+        // exp2
+        pool.append<x_pop_empty_xil_t>(xil_type_t::object);
+        exp2->compile(ctx, pool);
+
+        xil::append_label_xil(sctx, pool, finally_jmp_xil);
+    }
+
+    // Compiles null coalescing expression: ??=
+    static void __compile_null_coalescing_assign(__cctx_t & ctx, xil_pool_t & pool,
+                                expression_t * exp1, expression_t * exp2)
+    {
+        _P(_T("__compile_null_coalescing_assign"));
+    }
+
     // Compiles as expression.
     static void __compile_as(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        if (!is_effective(ctx, exp1->parent))
-            return;
-
         exp1->compile(ctx, pool);
 
         type_t * type = __to_actual_type(exp2);
@@ -1338,9 +1389,6 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_is(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        if (!is_effective(ctx, exp1->parent))
-            return;
-
         exp1->compile(ctx, pool);
 
         type_t * type = __to_actual_type(exp2);
@@ -1860,6 +1908,8 @@ namespace X_ROOT_NS::modules::compile {
 
                 __Case(member_point)
                 __Case(assign)
+                __Case(null_coalescing)
+                __Case(null_coalescing_assign)
 
                 __Case(as)
                 __Case(is)

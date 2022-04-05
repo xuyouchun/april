@@ -179,6 +179,7 @@ namespace X_ROOT_NS::modules::exec {
         __DefineGetCoreTypeFunction(_func_name, _T(""), _name, 0)
 
     __DefineSimpleGetCoreTypeFunction(__get_invalid_cast_exception, CoreType_InvalidCastException)
+    __DefineSimpleGetCoreTypeFunction(__get_null_reference_exception, CoreType_NullReferenceException)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -3108,6 +3109,29 @@ namespace X_ROOT_NS::modules::exec {
         ctx.stack.push<rt_ref_t>(ctx.heap->new_obj(type));
     }
 
+    // Raise exception with specified type.
+    static void __raise_exception(command_execute_context_t & ctx,
+                                rt_type_t * exception_type, const char_t * message = nullptr)
+    {
+        __pre_new(ctx, exception_type);
+        rt_ref_t exception = ctx.heap->new_obj(exception_type);
+
+        ctx.restore_stack();
+        ctx.push_exception(exception);
+
+        __process_exception(ctx);
+    }
+
+    // Raise System.NullReferenceException when specified obj is null.
+    __AlwaysInline static void __check_null_reference(command_execute_context_t & ctx, rt_ref_t obj)
+    {
+        if (obj == nullptr)
+        {
+            rt_type_t * exception_type = __get_null_reference_exception(ctx);
+            __raise_exception(ctx, exception_type);
+        }
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // Class __call_command_t
 
@@ -3527,6 +3551,8 @@ namespace X_ROOT_NS::modules::exec {
                 msize_t this_offset, _fetch_t fetch_func)
     {
         rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - this_offset);
+        __check_null_reference(ctx, obj);
+
         rt_type_t * rt_type = __RtTypeOf(obj);
 
         rt_vtable_t * vtbl = get_vtable(rt_type);
@@ -4586,13 +4612,7 @@ namespace X_ROOT_NS::modules::exec {
                 if (!__cast_test<_is_interface>(rt_type, __type))
                 {
                     rt_type_t * exception_type = __get_invalid_cast_exception(ctx);
-                    __pre_new(ctx, exception_type);
-                    rt_ref_t exception = ctx.heap->new_obj(exception_type);
-
-                    ctx.restore_stack();
-                    ctx.push_exception(exception);
-
-                    __process_exception(ctx);
+                    __raise_exception(ctx, exception_type);
                 }
             }
 

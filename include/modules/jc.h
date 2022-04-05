@@ -36,6 +36,9 @@ namespace X_ROOT_NS::modules {
 
         operator void * () const { return ptr; }
         rt_ref_t operator = (void * ptr) { this->ptr = ptr; return *this; }
+
+        bool operator == (std::nullptr_t) const _NE { return ptr == nullptr; }
+        bool operator != (std::nullptr_t) const _NE { return ptr != nullptr; }
     };
 
     // Writes a runtime object reference to a stream.

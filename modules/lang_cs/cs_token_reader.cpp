@@ -243,7 +243,23 @@ namespace X_ROOT_NS::modules::lang_cs {
                 return __Nw(comma);
 
             case _T('?'):   // ?
-                return __Nw(question_mark);
+                switch (*__p)
+                {
+                    case _T('?'):
+                        if (*++__p == _T('='))
+                        {
+                            __p++;
+                            return __Nw(null_coalescing_assign);
+                        }
+                        else
+                        {
+                            return __Nw(null_coalescing);
+                        }
+
+                    default:
+                        return __Nw(question_mark);
+                }
+                break;
 
             case _T(':'):   // :
                 switch (*__p)

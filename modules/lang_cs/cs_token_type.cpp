@@ -82,17 +82,16 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(left_increment,  _T("`++"))  __C(left_decrement,  _T("`--"))  // ++ --
         __C(right_increment, _T("++"))   __C(right_decrement, _T("--"))   // ++ --
 
-        // shift
         __C(left_shift, _T("<<"))   __C(right_shift,_T(">>"))
         __C(left_shift_assign, _T("<<=")) __C(right_shift_assign, _T(">>=")) // << >> <<= >>=
 
-        // logic
         __C(bit_and, _T("&"))       __C(bit_or, _T("|"))    __C(bit_not, _T("~"))
         __C(bit_xor, _T("^"))                                       // & | ~ ^
-
-        // bit
         __C(bit_and_assign, _T("&="))   __C(bit_or_assign,  _T("|="))
         __C(bit_xor_assign, _T("^="))   __C(assign, _T("="))        // &= |= ^=
+
+        __C(assign, _T("="))                                        // =
+        __C(null_coalescing, _T("??"))  __C(null_coalescing_assign, _T("??""="))  // ?? ??=
 
         // compare
         __C(greater, _T("`>"))      __C(greater_equal, _T(">="))    // > >=

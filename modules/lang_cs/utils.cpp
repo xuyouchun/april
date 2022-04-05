@@ -63,7 +63,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         __Op(bit_and_assign) __Op(bit_or_assign) __Op(bit_xor_assign)
 
-        __Op(assign)
+        __Op(assign)  __Op(null_coalescing)  __Op(null_coalescing_assign)
 
         __Op(greater)   __Op(greater_equal)  __Op(less)   __Op(less_equal)
 

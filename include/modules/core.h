@@ -782,7 +782,7 @@ namespace X_ROOT_NS::modules::core {
 
         bit_and_assign, bit_or_assign, bit_xor_assign,                      // &= |= ^=
 
-        assign,                                                             // =
+        assign, null_coalescing, null_coalescing_assign,                    // = ?? ??=
 
         greater,        greater_equal,  less,   less_equal,                 // > >= < <=
 
@@ -2453,6 +2453,9 @@ namespace X_ROOT_NS::modules::core {
 
     // Returns whether a type is user defined class, struct or string.
     bool is_object(type_t * type);
+
+    // Returns whether a type is class, interface or null.
+    bool is_ref_type(type_t * type);
 
     // Returns whether a type is a general type, ( defined in source code. )
     X_ALWAYS_INLINE bool is_general(type_t * type)
