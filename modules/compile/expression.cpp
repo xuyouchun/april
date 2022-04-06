@@ -1130,6 +1130,7 @@ namespace X_ROOT_NS::modules::compile {
 
             case variable_type_t::field:
                 __push_this(ctx, pool, ca.this_);
+
                 if (!ca.custom_struct)
                     xil::write_assign_xil(ctx, pool, (field_variable_t *)var, dtype, pick);
                 else

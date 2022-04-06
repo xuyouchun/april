@@ -7383,10 +7383,10 @@ namespace X_ROOT_NS::modules::core {
 
         switch (op())
         {
-            case operator_t::member_point: {
-                expression_t * e2 = exp2();
-                return e2 != nullptr? e2->get_type() : nullptr;
-            }   break;
+            case operator_t::member_point:
+                if (expression_t * e2 = exp2(); e2 != nullptr)
+                    return e2->get_type();
+                return nullptr;
 
             case operator_t::as:
                 return to_actual_type(exp2());
@@ -7402,10 +7402,8 @@ namespace X_ROOT_NS::modules::core {
                     return type;
                 return exp2()->get_type();
 
-            default: {
-                vtype_t vtype = get_vtype();
-                return __XPool.get_internal_type(vtype);
-            }   break;
+            default:
+                return __XPool.get_internal_type(get_vtype());
         }
     }
 

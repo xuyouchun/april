@@ -259,6 +259,19 @@ namespace X_ROOT_NS::modules::core {
         if (vtype != vtype_t::__unknown__)
             return vtype;
 
+        operator_t op = this->op();
+        switch (op)
+        {
+            case operator_t::as:
+            case operator_t::assign:
+            case operator_t::null_coalescing:
+            case operator_t::null_coalescing_assign:
+                return this->get_type()->this_vtype();
+
+            default:
+                break;
+        }
+
         expression_t * e1 = exp1(), * e2 = exp2();
         if (e1 == nullptr || e2 == nullptr)
             return vtype_t::__unknown__;
@@ -268,7 +281,7 @@ namespace X_ROOT_NS::modules::core {
         if (vtype1 == vtype_t::__unknown__ || vtype2 == vtype_t::__unknown__)
             return vtype_t::__unknown__;
 
-        return get_binary_vtype(this->op(), vtype1, vtype2);
+        return get_binary_vtype(op, vtype1, vtype2);
     }
 
     #define __C1(type1, type2)                                                          \

@@ -299,6 +299,9 @@ namespace X_ROOT_NS::modules::compile {
     template<typename _ctx_t>
     bool is_effective(_ctx_t & ctx, expression_t * exp)
     {
+        if (exp == nullptr)
+            return false;
+
         if (!is_optimize(ctx, compile_optimize_code_t::remove_unnecessary_expressions))
             return true;
 
