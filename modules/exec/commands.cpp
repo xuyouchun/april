@@ -4620,19 +4620,28 @@ namespace X_ROOT_NS::modules::exec {
             else if constexpr (_cast_cmd == xil_cast_command_t::is)
             {
                 rt_ref_t obj = ctx.stack.pick<rt_ref_t>();
-                rt_type_t * rt_type = __RtTypeOf(obj);
-
-                ctx.stack.replace(__cast_test<_is_interface>(rt_type, __type));
+                if (obj != nullptr)
+                {
+                    rt_type_t * rt_type = __RtTypeOf(obj);
+                    ctx.stack.replace(__cast_test<_is_interface>(rt_type, __type));
+                }
+                else
+                {
+                    ctx.stack.replace(false);
+                }
             }
 
             // Returns null when cast is invalid.
             else if constexpr (_cast_cmd == xil_cast_command_t::as)
             {
                 rt_ref_t obj = ctx.stack.pick<rt_ref_t>();
-                rt_type_t * rt_type = __RtTypeOf(obj);
+                if (obj != nullptr)
+                {
+                    rt_type_t * rt_type = __RtTypeOf(obj);
 
-                if (!__cast_test<_is_interface>(rt_type, __type))
-                    ctx.stack.replace_to_null();
+                    if (!__cast_test<_is_interface>(rt_type, __type))
+                        ctx.stack.replace_to_null();
+                }
             }
 
         __EndExecute()
