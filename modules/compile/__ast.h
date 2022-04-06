@@ -776,6 +776,9 @@ namespace X_ROOT_NS::modules::compile {
         // Interfaces cannot contain instance fields.
         interfaces_cannot_contain_instance_fields,
 
+        // Cannot implicitly convert a type to another type.
+        invalid_type_cast,
+
         __the_end__         = 10000,
 
     X_ENUM_END

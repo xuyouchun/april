@@ -7392,9 +7392,15 @@ namespace X_ROOT_NS::modules::core {
                 return to_actual_type(exp2());
 
             case operator_t::assign:
-            case operator_t::null_coalescing_assign:
-            case operator_t::null_coalescing:
                 return exp1()->get_type();
+
+            case operator_t::null_coalescing_assign:
+                return exp1()->get_type();
+
+            case operator_t::null_coalescing:
+                if (type_t * type = exp1()->get_type(); !is_null(type))
+                    return type;
+                return exp2()->get_type();
 
             default: {
                 vtype_t vtype = get_vtype();

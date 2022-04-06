@@ -1159,6 +1159,37 @@ namespace X_ROOT_NS::modules::compile {
         template<size_t _exp_count>
         void __walk_op_expression(op_expression_t<_exp_count> * exp)
         {
+            // Check operator.
+            const operator_property_t * op_property = exp->op_property;
+            _A(op_property != nullptr);
+
+            operator_t op = op_property->op;
+            if (op == operator_t::assign)
+            {
+                _A(_exp_count == 2);
+
+                type_t * type1 = exp->expression_at(0)->get_type();
+                type_t * type2 = exp->expression_at(1)->get_type();
+
+                if (!is_type_compatible(type2, type1))
+                    ast_log(__cctx, exp, __c_t::invalid_type_cast, type2->to_prototype(),
+                                                                   type1->to_prototype());
+                return;
+            }
+
+            switch (op_property->overload)
+            {
+                case operator_overload_model_t::no_check:
+                    return;
+
+                case operator_overload_model_t::no_overloaded:
+                    ast_log(__cctx, exp, __c_t::operator_cannot_be_overloaded, op_property->op);
+                    return;
+
+                default:
+                    break;
+            }
+
             // Collect argument types.
             atypes_t atypes;
             bool exists_custom_type = false;
@@ -1179,24 +1210,6 @@ namespace X_ROOT_NS::modules::compile {
 
             if (!exists_custom_type)
                 return;
-
-            // Check operator.
-            const operator_property_t * op_property = exp->op_property;
-            _A(op_property != nullptr);
-
-            operator_t op = op_property->op;
-            switch (op_property->overload)
-            {
-                case operator_overload_model_t::no_check:
-                    return;
-
-                case operator_overload_model_t::no_overloaded:
-                    ast_log(__cctx, exp, __c_t::operator_cannot_be_overloaded, op_property->op);
-                    return;
-
-                default:
-                    break;
-            }
 
             // null types only support equal or not_equal operators.
             if (exists_null && (op == operator_t::equal || op == operator_t::not_equal))

@@ -571,6 +571,9 @@ namespace X_ROOT_NS::modules::compile {
         X_D(interfaces_cannot_contain_instance_fields,
                 _T("interfaces cannot contain instance fields"))
 
+        // Cannot implicitly convert a type to another type.
+        X_D(invalid_type_cast, _T("Cannot implicitly convert type '%1%' to '%2%'"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -3324,38 +3327,55 @@ namespace X_ROOT_NS::modules::compile {
     // Walks analysis step.
     bool defination_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        for (defination_statement_item_t * var_item : __statement.items)
+        #define __L(_code, _args...)                                                    \
+            this->__log(this->child_at(items, index), __c_t::_code, ##_args)
+
+        for (int index = 0, count = __statement.items.size(); index < count; ++index)
         {
-            if (!__is_uncertain(var_item->variable->type_name))
-                continue;
+            defination_statement_item_t * var_item = __statement.items[index];
+            if (__is_uncertain(var_item->variable->type_name))
+            {
+                type_t * type = nullptr;
+                if (var_item->expression != nullptr)
+                    type = var_item->expression->get_type();
 
-            type_t * type = nullptr;
+                if (type == nullptr)
+                    __Log(cannot_determine_local_variable_type, var_item->name);
+                else
+                    var_item->variable->type_name->type = type;
+
+                /*
+                _PF(_T("%1% %2% (%3%)"), var_item->variable->type_name->type, var_item->name,
+                                                                    var_item->expression);
+                */
+            }
+
             if (var_item->expression != nullptr)
-                type = var_item->expression->get_type();
+            {
+                type_t * type1 = var_item->variable->type_name->type;
+                type_t * type2 = var_item->expression->get_type();
 
-            if (type == nullptr)
-                __Log(cannot_determine_local_variable_type, var_item->name);
-            else
-                var_item->variable->type_name->type = type;
-
-            /*
-            _PF(_T("%1% %2% (%3%)"), var_item->variable->type_name->type, var_item->name,
-                                                                var_item->expression);
-            */
+                if (!is_type_compatible(type2, type1))
+                    __L(invalid_type_cast, type2->to_prototype(), type1->to_prototype());
+            }
         }
 
         if (__statement.constant)
         {
-            for (defination_statement_item_t * var_item : __statement.items)
+            for (int index = 0, count = __statement.items.size(); index < count; ++index)
             {
+                defination_statement_item_t * var_item = __statement.items[index];
+
                 if (var_item->expression == nullptr)
-                    __Log(constant_variable_initialize_missing, var_item->name);
+                    __L(constant_variable_initialize_missing, var_item->name);
                 else if (__execute_expression(var_item->expression) == cvalue_t::nan)
-                    __Log(constant_variable_required_constant_value, var_item->name);
+                    __L(constant_variable_required_constant_value, var_item->name);
             }
         }
 
         return true;
+
+        #undef __L
     }
 
     ////////// ////////// ////////// ////////// //////////
