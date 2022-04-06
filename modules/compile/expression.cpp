@@ -1325,6 +1325,21 @@ namespace X_ROOT_NS::modules::compile {
             __Failed("%1% is not a reference type expression", exp);
     }
 
+    // Returns a variable when it's a variable expression, otherwise, throws exception
+    variable_t * __expect_variable(expression_t * exp)
+    {
+        _A(exp != nullptr);
+
+        if (is_name_expression(exp))
+        {
+            name_expression_t * name_exp = (name_expression_t *)exp;
+            if (name_exp->expression_type == name_expression_type_t::variable)
+                return name_exp->get_variable();
+        }
+
+        __Failed("%1% is not a variable expression", exp);
+    }
+
     // Compiles null coalescing expression: ??
     static void __compile_null_coalescing(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
@@ -1351,14 +1366,14 @@ namespace X_ROOT_NS::modules::compile {
 
         exp1->compile(ctx, pool);
 
-        // it's null?
+        // Test it's null?
         pool.append<x_push_duplicate_xil_t>();
         pool.append<x_push_null_xil_t>();
         pool.append<x_cmp_xil_t>(xil_cmp_command_t::equal, xil_type_t::object, xil_type_t::object);
 
         jmp_xil_t * finally_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
 
-        // exp2
+        // Compiles exp2
         pool.append<x_pop_empty_xil_t>(xil_type_t::object);
         exp2->compile(ctx, pool);
 
@@ -1369,7 +1384,33 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_null_coalescing_assign(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        _P(_T("__compile_null_coalescing_assign"));
+        __expect_ref_type(exp1);
+        __expect_ref_type(exp2);
+
+        variable_t * var = __expect_variable(exp1);
+
+        if (__is_optimize_basic_algorighm(ctx))
+        {
+            if (__execute_expression(exp2) == cvalue_t(nullptr))
+                return;
+        }
+
+        statement_compile_context_t & sctx = ctx.statement_ctx;
+
+        exp1->compile(ctx, pool);
+
+        // Test it's null?
+        pool.append<x_push_null_xil_t>();
+        pool.append<x_cmp_xil_t>(xil_cmp_command_t::equal, xil_type_t::object, xil_type_t::object);
+
+        jmp_xil_t * finally_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
+
+        // Compiles exp2
+        __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
+        exp2->compile(ctx, pool);
+        __compile_assign_to(ctx, pool, ca, exp2);
+
+        xil::append_label_xil(sctx, pool, finally_jmp_xil);
     }
 
     // Compiles as expression.
