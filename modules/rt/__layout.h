@@ -3,6 +3,8 @@
 
 namespace X_ROOT_NS::modules::rt {
 
+    class analyzer_env_t;
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns aligned unit.
@@ -157,9 +159,19 @@ namespace X_ROOT_NS::modules::rt {
 
         // Constructor with type / method.
         template<typename _rt_entity_t>
-        generic_param_manager_t(assembly_analyzer_t & analyzer, _rt_entity_t * entity)
+        generic_param_manager_t(assembly_analyzer_t & analyzer, _rt_entity_t * entity,
+            const generic_param_manager_t * parent = nullptr) : parent(parent)
         {
-            generic_param_manager_builder_t(analyzer, *this).import(entity);
+            __initialize(analyzer, entity);
+        }
+
+        // Constructor with type / method.
+        template<typename _rt_entity_t>
+        generic_param_manager_t(analyzer_env_t & env, _rt_entity_t * entity,
+            const generic_param_manager_t * parent = nullptr) : parent(parent)
+        {
+            assembly_analyzer_t analyzer(env, entity->get_assembly(), parent);
+            __initialize(analyzer, entity);
         }
 
         // Append a generic param type with name.
@@ -186,15 +198,28 @@ namespace X_ROOT_NS::modules::rt {
         // Returns size.
         size_t size() const { return __atypes.size(); }
 
+        // Returns description.
+        string_t to_string(analyzer_env_t & env) const;
+
         // Returns the empty manager.
         static const __self_t * empty_instance();
 
         X_TO_STRING_IMPL(_T("generic_param_manager_t"))
 
+        // Parent generic param manager.
+        const generic_param_manager_t * parent = nullptr;
+
     private:
         al::svector_t<rt_type_t *, 10> __atypes;
         al::small_map_t<rt_sid_t, std::tuple<int, int>> __named_atypes;
         std::map<rt_sid_t, __type_item_t> __type_map;
+
+        // Initialize.
+        template<typename _rt_entity_t>
+        void __initialize(assembly_analyzer_t & analyzer, _rt_entity_t * entity)
+        {
+            generic_param_manager_builder_t(analyzer, *this).import(entity);
+        }
     };
 
     ////////// ////////// ////////// ////////// //////////

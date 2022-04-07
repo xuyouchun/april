@@ -1268,7 +1268,7 @@ namespace X_ROOT_NS::modules::rt {
     private:
 
         // Build virtual table.
-        void __build_vtbl(analyzer_env_t & env);
+        void __build_vtbl(analyzer_env_t & env, generic_param_manager_t * gp_mgr);
 
         // It's a tuple type?
         bool __is_tuple();
@@ -1393,6 +1393,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns method name.
         virtual rt_sid_t get_name() = 0;
+
+        // Gets host type.
+        virtual rt_type_t * get_host_type() = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1415,7 +1418,7 @@ namespace X_ROOT_NS::modules::rt {
         rt_assembly_t * get_assembly();
 
         // Gets host type.
-        rt_type_t * get_host_type();
+        rt_type_t * get_host_type() override;
 
         // Gets owner type (an interface type).
         rt_type_t * get_owner_type(analyzer_env_t & env);
@@ -1456,7 +1459,7 @@ namespace X_ROOT_NS::modules::rt {
         rt_type_t * host_type = nullptr;
 
         // Returns host type.
-        rt_type_t * get_host_type();
+        rt_type_t * get_host_type() override;
 
         // Gets assembly.
         rt_assembly_t * get_assembly();
@@ -1681,6 +1684,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Param type.
         param_type_t    param_type = param_type_t::__default__;
+
+        // Converts to string.
+        string_t to_string(analyzer_env_t & env) const;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1853,6 +1859,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns param count.
         int param_count() const { return arg_types.size(); }
+
+        // Converts to string.
+        string_t to_string(analyzer_env_t & env) const;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1882,7 +1891,6 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns core assembly.
         rt_assembly_t * get_core_assembly();
-
         // Returns core type of specified name.
         rt_general_type_t * get_core_type(const string_t & ns, const string_t & name,
                                           int generic_param_count = 0);
@@ -2002,6 +2010,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets generic method by method ref.
         rt_generic_method_t * get_generic_method(ref_t method_ref);
+
+        // Gets method or generic method by method ref.
+        rt_method_base_t * get_method_base(ref_t method_ref);
 
         // Gets field by field ref.
         rt_field_base_t * get_field(ref_t field_ref, rt_type_t ** out_type = nullptr);

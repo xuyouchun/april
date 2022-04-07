@@ -189,8 +189,7 @@ namespace X_ROOT_NS::modules::exec {
                 return exec_method_of((rt_generic_method_t *)rt_method_base);
 
             default:
-                _PP(rt_method_base->this_type());
-                X_UNEXPECTED();
+                X_UNEXPECTED(_T("unexpected member type when generate exec_method_t"));
         }
     }
 

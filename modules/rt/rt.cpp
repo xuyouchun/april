@@ -806,18 +806,18 @@ namespace X_ROOT_NS::modules::rt {
 
     // Builds virtual functions of virtual table.
     static void __build_vfunctions(analyzer_env_t & env, rt_type_t * type,
-                                                        __rt_vfunctions_t & vfuncs)
+                            __rt_vfunctions_t & vfuncs, const generic_param_manager_t * gp_mgr)
     {
         rt_type_t * base_type = type->get_base_type(env);
         if (base_type != nullptr)
-            __build_vfunctions(env, base_type, vfuncs);
+            __build_vfunctions(env, base_type, vfuncs, gp_mgr);
 
         ref_t ret = ref_t::null;
 
         typedef rt_mt_t<__tidx_t::method> mt_t;
 
         rt_assembly_t * assembly = type->get_assembly();
-        assembly_analyzer_t analyzer(env, assembly);
+        assembly_analyzer_t analyzer(env, assembly, gp_mgr);
 
         type->each_method(env, [&](ref_t method_ref, rt_method_t * rt_method) {
 
@@ -964,12 +964,13 @@ namespace X_ROOT_NS::modules::rt {
 
     // Builds virtual functions for interfaces.
     static void __build_interfaces(analyzer_env_t & env, rt_type_t * type,
-            __rt_interfaces_t & interfaces, rt_type_t * interface_type, rt_type_t * raw_type)
+            __rt_interfaces_t & interfaces, rt_type_t * interface_type,
+            rt_type_t * raw_type, const generic_param_manager_t * gp_mgr)
     {
         interface_type->each_super_type(env, [&](rt_type_t * super_type) {
 
             _A(super_type->get_ttype(env) == ttype_t::interface_);
-            __build_interfaces(env, type, interfaces, super_type, raw_type);
+            __build_interfaces(env, type, interfaces, super_type, raw_type, gp_mgr);
 
             return true;
 
@@ -977,7 +978,8 @@ namespace X_ROOT_NS::modules::rt {
 
         __rt_interface_vfunctions_t & vfs = al::map_get(interfaces, interface_type);
 
-        assembly_analyzer_t analyzer(env, interface_type->get_assembly());
+        generic_param_manager_t gp_mgr1(env, interface_type, gp_mgr);
+        assembly_analyzer_t analyzer(env, interface_type->get_assembly(), &gp_mgr1);
         int index = 0;
 
         interface_type->each_method(env, [&](ref_t method_ref, rt_method_t * method) {
@@ -1014,30 +1016,32 @@ namespace X_ROOT_NS::modules::rt {
 
     // Builds virtual functions for interfaces.
     static void __build_interfaces(analyzer_env_t & env, rt_type_t * type,
-                                __rt_interfaces_t & interfaces, rt_type_t * raw_type)
+                    __rt_interfaces_t & interfaces, rt_type_t * raw_type,
+                    const generic_param_manager_t * gp_mgr)
     {
         rt_type_t * base_type = type->get_base_type(env);
 
         if (base_type != nullptr)
-            __build_interfaces(env, base_type, interfaces, raw_type);
+            __build_interfaces(env, base_type, interfaces, raw_type, gp_mgr);
 
         type->each_super_type(env, [&](rt_type_t * super_type) {
 
             if (super_type->get_ttype(env) == ttype_t::interface_)
-                __build_interfaces(env, type, interfaces, super_type, raw_type);
+                __build_interfaces(env, type, interfaces, super_type, raw_type, gp_mgr);
 
             return true;
         });
     }
 
     // Builds virtual table.
-    void __build_vtbl(analyzer_env_t & env, rt_type_t * type)
+    void __build_vtbl(analyzer_env_t & env, rt_type_t * type,
+                                const generic_param_manager_t * gp_mgr = nullptr)
     {
         __rt_vfunctions_t vfuncs;
-        rt::__build_vfunctions(env, type, vfuncs);
+        rt::__build_vfunctions(env, type, vfuncs, gp_mgr);
 
         __rt_interfaces_t interfaces;
-        rt::__build_interfaces(env, type, interfaces, type);
+        rt::__build_interfaces(env, type, interfaces, type, gp_mgr);
 
         // No virtual function & interfaces.
         if (vfuncs.empty() && interfaces.empty())
@@ -1152,7 +1156,7 @@ namespace X_ROOT_NS::modules::rt {
         msize_t size = this->get_size(env);
 
         // build_vtbl;
-        this->__build_vtbl(env);
+        this->__build_vtbl(env, &gp_mgr);
 
         // execute static constructor
         this->pre_static_call(env);
@@ -1165,9 +1169,9 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Builds virtual table.
-    void rt_generic_type_t::__build_vtbl(analyzer_env_t & env)
+    void rt_generic_type_t::__build_vtbl(analyzer_env_t & env, generic_param_manager_t * gp_mgr)
     {
-        rt::__build_vtbl(env, this);
+        rt::__build_vtbl(env, this, gp_mgr);
     }
 
     // It's a tuple type?
@@ -1872,6 +1876,57 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // method_prototype_t
+
+    string_t rt_ptype_t::to_string(analyzer_env_t & env) const
+    {
+        stringstream_t ss;
+
+        if (param_type != param_type_t::__default__)
+            ss << _str(param_type).c_str() << _T(" ");
+
+        ss << type->get_name(env).c_str();
+        return ss.str();
+    }
+
+    string_t method_prototype_t::to_string(analyzer_env_t & env) const
+    {
+        stringstream_t ss;
+
+        if (return_type != nullptr)
+            ss << return_type->get_name(env).c_str() << _T(" ");
+
+        ss << name.c_str();
+
+        if (generic_param_count > 0)
+        {
+            ss << _T("<");
+            for (int k = 0; k < generic_param_count - 1; k++)
+            {
+                ss << _T(",");
+            }
+            ss << _T(">");
+        }
+
+        ss << _T("(");
+
+        {
+            int index = 0;
+            for (rt_ptype_t & ptype : arg_types)
+            {
+                if (index++ == 0)
+                    ss << _T(", ");
+
+                ss << _str(ptype).c_str();
+            }
+        }
+
+        ss << _T(")");
+
+        return ss.str();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
 
     // Returns core assembly.
     rt_assembly_t * analyzer_env_t::get_core_assembly()
@@ -2074,9 +2129,8 @@ namespace X_ROOT_NS::modules::rt {
 
         switch ((mt_type_extra_t)type_ref.extra)
         {
-            case mt_type_extra_t::general: {
+            case mt_type_extra_t::general:
                 return current->get_type(type_ref);
-            }
 
             case mt_type_extra_t::type_ref: {
                 rt_type_ref_t * rt_type_ref = current->get_type_ref(type_ref);
@@ -2190,8 +2244,6 @@ namespace X_ROOT_NS::modules::rt {
                         {
                             rt_type_t * atype = gp_manager->type_at(index);
                             atypes.push_back(atype);
-
-                            // _PP(atype->get_name(env));
                         }
                     }
                 }
@@ -2223,6 +2275,22 @@ namespace X_ROOT_NS::modules::rt {
     rt_generic_method_t * assembly_analyzer_t::get_generic_method(ref_t method_ref)
     {
         return current->get_generic_method(method_ref, gp_manager);
+    }
+
+    // Gets method or generic method by method ref.
+    rt_method_base_t * assembly_analyzer_t::get_method_base(ref_t method_ref)
+    {
+        switch ((mt_member_extra_t)method_ref.extra)
+        {
+            case mt_member_extra_t::internal:
+                return this->get_method(method_ref);
+
+            case mt_member_extra_t::generic:
+                return this->get_generic_method(method_ref);
+
+            default:
+                X_UNEXPECTED(_T("unexpected method type"));
+        }
     }
 
     // Gets method.

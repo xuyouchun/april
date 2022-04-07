@@ -48,7 +48,7 @@ namespace X_ROOT_NS::modules::rt {
     {
         auto it = __type_map.find(sid);
         if (it == __type_map.end())
-            return nullptr;
+            return parent != nullptr? parent->type_at(sid, out_index) : nullptr;
 
         if (out_index != nullptr)
             *out_index = std::get<int>(it->second);
@@ -72,6 +72,25 @@ namespace X_ROOT_NS::modules::rt {
             *out_count = std::get<1>(r);
 
         return true;
+    }
+
+    // Returns description.
+    string_t generic_param_manager_t::to_string(analyzer_env_t & env) const
+    {
+        stringstream_t ss;
+
+        int index = 0;
+        for (auto && it : __type_map)
+        {
+            if (index++ > 0)
+                ss << _T("; ");
+
+            rt_sid_t name = it.first;
+            rt_type_t * type = std::get<rt_type_t *>(it.second);
+            ss << name.c_str() << _T(":") << type->get_name(env).c_str();
+        }
+
+        return ss.str();
     }
 
     // Returns the empty manager.
