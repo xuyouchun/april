@@ -243,20 +243,20 @@ namespace X_ROOT_NS::modules::compile {
         if (is_custom_struct(type))     // custom struct 
             X_UNEXPECTED();
 
-        #define __Append(name, xil_type)                                    \
-            pool.append<x_##name##_field_xil_t>(                            \
-                xil_type_t::xil_type, __search_field_ref(ctx, field)        \
+        #define __Append(name, xil_type)                                                \
+            pool.append<x_##name##_field_xil_t>(                                        \
+                xil_type_t::xil_type, __search_field_ref(ctx, field)                    \
             )
 
-        #define __Write(xil_type)                                           \
-            if (pick)                                                       \
-                __Append(pick, xil_type);                                   \
-            else                                                            \
+        #define __Write(xil_type)                                                       \
+            if (pick)                                                                   \
+                __Append(pick, xil_type);                                               \
+            else                                                                        \
                 __Append(pop, xil_type);
 
-        #define __Case(type, xil_type)                                      \
-            case vtype_t::type:                                             \
-                __Write(xil_type)                                           \
+        #define __Case(type, xil_type)                                                  \
+            case vtype_t::type:                                                         \
+                __Write(xil_type)                                                       \
                 break;
 
         switch (type->this_gtype())

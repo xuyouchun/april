@@ -1745,7 +1745,7 @@ namespace X_ROOT_NS::modules::rt {
                                                 rt_generic_type_t * owner)
     {
         ref_t type_ref = (*this)->type;
-        _A((mt_type_extra_t)type_ref.extra != mt_type_extra_t::generic_param);
+        // _A((mt_type_extra_t)type_ref.extra != mt_type_extra_t::generic_param);
 
         rt_type_t * field_type = __fetch_type(analyzer, owner, type_ref);
         _A(field_type != nullptr);
@@ -2418,8 +2418,6 @@ namespace X_ROOT_NS::modules::rt {
     // Gets field.
     rt_field_base_t * assembly_analyzer_t::__get_field(ref_t field_ref, rt_type_t ** out_type)
     {
-        _A((mt_member_extra_t)field_ref.extra != mt_member_extra_t::generic);
-
         rt_field_ref_t * rt_field_ref;
         rt_type_t * rt_type = get_host_type_by_field_ref(field_ref, &rt_field_ref);
 

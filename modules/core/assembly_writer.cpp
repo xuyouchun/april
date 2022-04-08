@@ -27,12 +27,12 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
 
     // Checks limit.
-    #define __CheckLimit(value, max_value, name)                        \
-        do                                                              \
-        {                                                               \
-            if (value > max_value)                                      \
-                throw _ECF(overflow, _T("'%1%(%2%)' overlimit: '%3%' "),\
-                        name, value, max_value);                        \
+    #define __CheckLimit(value, max_value, name)                                        \
+        do                                                                              \
+        {                                                                               \
+            if (value > max_value)                                                      \
+                throw _ECF(overflow, _T("'%1%(%2%)' overlimit: '%3%' "),                \
+                        name, value, max_value);                                        \
         } while (false)
 
     ////////// ////////// ////////// ////////// //////////
@@ -41,29 +41,29 @@ namespace X_ROOT_NS::modules::core {
 
     // Searches metadata by specified entity.
     // Returns metadata if found.
-    #define __SearchRet(mgr, entity)                                    \
-        do                                                              \
-        {                                                               \
-            if (entity == nullptr)                                      \
-                return mgr.current_null();                              \
-                                                                        \
-            ref_t ref = mgr.search_ref(entity);                         \
-            if (ref != ref_t::null)                                     \
-                return ref;                                             \
+    #define __SearchRet(mgr, entity)                                                    \
+        do                                                                              \
+        {                                                                               \
+            if (entity == nullptr)                                                      \
+                return mgr.current_null();                                              \
+                                                                                        \
+            ref_t ref = mgr.search_ref(entity);                                         \
+            if (ref != ref_t::null)                                                     \
+                return ref;                                                             \
         } while (false)
 
     // Checks if it's empty.
     // Raise exception if empty.
-    #define __CheckEmptyV(element, value, element_name, field_name)     \
-        do                                                              \
-        {                                                               \
-            if (__is_empty_value(value))                                \
-                throw _ED(__e_t::missing, _T("") element_name, element, \
-                    _T("") field_name);                                 \
+    #define __CheckEmptyV(element, value, element_name, field_name)                     \
+        do                                                                              \
+        {                                                                               \
+            if (__is_empty_value(value))                                                \
+                throw _ED(__e_t::missing, _T("") element_name, element,                 \
+                    _T("") field_name);                                                 \
         } while (false)
 
     // Checks empty.
-    #define __CheckEmpty(element, field, element_name, field_name)      \
+    #define __CheckEmpty(element, field, element_name, field_name)                      \
             __CheckEmptyV(element, element->field, element_name, field_name)
 
     #define __Unexpected() X_UNEXPECTED()

@@ -594,7 +594,7 @@ namespace X_ROOT_NS::modules::exec {
         {
             exec_method_block_t * block = blocks, * block_end = block + count;
 
-            #define __MatchBlockType(_block)                    \
+            #define __MatchBlockType(_block)                                            \
                 (_type == method_xil_block_type_t::__unknown__ || _type == _block->type)
 
             for (; block < block_end; block++)

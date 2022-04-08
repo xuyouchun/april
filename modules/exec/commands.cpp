@@ -586,9 +586,8 @@ namespace X_ROOT_NS::modules::exec {
         {
             case xil_storage_type_t::field:
             case xil_storage_type_t::field_addr: {
-                rt_field_base_t * rt_field = ctx.get_field(xil.get_ref());
-                _A(rt_field != nullptr);
-                return __xil_type_of(ctx, rt_field->get_field_type(ctx));
+                _PP( __field_type(ctx, xil.get_ref())->get_name(ctx.env) );
+                return __xil_type_of(ctx, __field_type(ctx, xil.get_ref()));
             }
 
             case xil_storage_type_t::constant: {
@@ -863,9 +862,9 @@ namespace X_ROOT_NS::modules::exec {
                 _A( rt_field != nullptr );
                 _A( rt_type != nullptr );
 
-                // _A(is_general(rt_type));
+                rt_type_t * rt_field_type = rt_field->get_field_type(ctx,
+                                        dynamic_cast<rt_generic_type_t *>(ctx.type));
 
-                rt_type_t * rt_field_type = rt_field->get_field_type(ctx);
                 _A( rt_field_type != nullptr );
                 _A( is_general(rt_field_type) );
 
@@ -893,10 +892,12 @@ namespace X_ROOT_NS::modules::exec {
 
             case mt_member_extra_t::generic: {
 
-                rt_type_t * type = ctx.get_host_type_by_field_ref(field_ref);
-                _A(type != nullptr);
+                rt_type_t * type;
+                rt_field_base_t * field = ctx.get_field(field_ref, &type);
+                _A(type->get_kind() == rt_type_kind_t::generic);
 
-                return type;
+                rt_type_t * field_type = field->get_field_type(ctx, (rt_generic_type_t *)type);
+                return field_type;
             }
 
             default:
@@ -1502,6 +1503,7 @@ namespace X_ROOT_NS::modules::exec {
             case xil_storage_type_t::field_addr:
                 *out_dtype1 = __xil_type_of(ctx, __field_type(ctx, xil.get_ref()));
                 *out_dtype2 = __fetch_dtype(ctx, xil);
+                _P( *out_dtype2, xil.dtype(), xil.stype() );
                 break;
 
             case xil_storage_type_t::array_element:
@@ -1599,10 +1601,12 @@ namespace X_ROOT_NS::modules::exec {
                 return __params_address_command_manager.template get_command<__PushParamsAddrCmd>(
                     ctx.params_layout.extends_offset()
                 );
+
             case xil_storage_type_t::object:        // Push object command.
                 return __object_command_manager.template get_command<__PushObjectCmd>(
                     xil.get_ref(), ctx, xil.get_object_type()
                 );
+
             case xil_storage_type_t::local_addr:    // Push local address command.
                 return __push_address_command_manager.template get_command<
                     __StAddrCmd(push, local_addr), stype_t::local_addr>(
