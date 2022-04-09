@@ -122,14 +122,17 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _A(x, args...)      X_ASSERT(x, ##args)
 
 // Print expressions, multiple expressions splited by spaces.
-#define _P                  __root_ns::println
+#if X_DEBUG
+    #define _P(_first, _args...)    __root_ns::println(_first, ##_args,                 \
+                    _F(_T("[%1%:%2%]"), _T(__FILE__), __LINE__))
+#else
+    #define _P(_first, _args...)    __root_ns::println(_first, ##_args)
+#endif
+
+#define _PL()   __root_ns::println()
 
 // Print an expression, with the expression as prefix.
-#if X_DEBUG
-    #define _PP(s)      _PF(_T("%1%: %2% [%3%:%4%]"), _T("") #s, s, _T(__FILE__), __LINE__)
-#else
-    #define _PP(s)      _PF(_T("%1%: %2%"), _T("") #s, s)
-#endif
+#define _PP(s)      _PF(_T("%1%: %2%"), _T("") #s, s)
 
 // Print an formated string, the first argument is a format string.
 #define _PF(s, args...)     _P(sprintf(_T("") s, ##args))
@@ -156,7 +159,8 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _NE X_NOEXPECT
 
 // Throw an common unexpected exception.
-#define X_UNEXPECTED(args...)      throw _EC(unexpected, ##args)
+#define X_UNEXPECTED(_args...)              throw _EC(unexpected, ##_args)
+#define X_UNEXPECTED_F(_format, _args...)   X_UNEXPECTED(_FT(_format, ##_args))
 
 // Throw an common unimplemented exception.
 #define X_UNIMPLEMENTED(args...)   throw _EC(unimplemented, ##args)

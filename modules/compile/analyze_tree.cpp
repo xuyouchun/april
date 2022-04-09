@@ -2608,7 +2608,7 @@ namespace X_ROOT_NS::modules::compile {
             print((*it)->to_string());
         }
 
-        _P();
+        _PL();
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3507,7 +3507,7 @@ namespace X_ROOT_NS::modules::compile {
             printf(_T("%1% "), (__merge_identity_t)(*s)->current);
         }
 
-        _P();
+        _PL();
     }
 
     // Prints leaf identities.

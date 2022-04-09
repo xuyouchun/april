@@ -241,7 +241,7 @@ namespace X_ROOT_NS::modules::compile {
             __Failed("expect type of field '%1%'", field);
 
         if (is_custom_struct(type))     // custom struct 
-            X_UNEXPECTED();
+            X_UNEXPECTED_F("unexpected custom struct '%1%'", type);
 
         #define __Append(name, xil_type)                                                \
             pool.append<x_##name##_field_xil_t>(                                        \

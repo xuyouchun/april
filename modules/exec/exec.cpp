@@ -82,6 +82,8 @@ namespace X_ROOT_NS::modules::exec {
         this->method = method;
         __commands = nullptr;
 
+        // _P(_T("--------------- METHOD:"), method->get_name());
+
         __method_parser = new method_parser_t(this, env, method);
         __commands_uninitialized = true;
     }

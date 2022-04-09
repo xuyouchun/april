@@ -711,12 +711,12 @@ namespace X_ROOT_NS::modules::compile {
             ss << std::setw(4) << code << _T(": ") << message.c_str();
             ss << msg.c_str();
 
-            _P(ss.str());
+            println(ss.str());
         }
         else
         {
             X_SET_CONSOLE_COLOR_(color);
-            _P(message);
+            println(message);
         }
     }
 

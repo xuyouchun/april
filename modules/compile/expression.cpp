@@ -64,7 +64,7 @@ namespace X_ROOT_NS::modules::compile {
     // Returns xil type.
     X_ALWAYS_INLINE static xil_type_t __to_xil_type(type_t * type)
     {
-        if (type == nullptr)
+        if (type == nullptr || is_generic_param(type))
             return xil_type_t::empty;
 
         return to_xil_type(type->this_vtype());
@@ -1609,7 +1609,8 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            xil_type_t xil_type = (dtype != xil_type_t::empty)? dtype : __to_xil_type(field_type);
+            xil_type_t xil_type = (dtype != xil_type_t::__unknown__)?
+                                            dtype : __to_xil_type(field_type);
             pool.append<x_push_field_xil_t>(field_ref, xil_type);
         }
     }

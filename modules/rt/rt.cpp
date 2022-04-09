@@ -1745,7 +1745,6 @@ namespace X_ROOT_NS::modules::rt {
                                                 rt_generic_type_t * owner)
     {
         ref_t type_ref = (*this)->type;
-        // _A((mt_type_extra_t)type_ref.extra != mt_type_extra_t::generic_param);
 
         rt_type_t * field_type = __fetch_type(analyzer, owner, type_ref);
         _A(field_type != nullptr);

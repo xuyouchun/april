@@ -586,7 +586,6 @@ namespace X_ROOT_NS::modules::exec {
         {
             case xil_storage_type_t::field:
             case xil_storage_type_t::field_addr: {
-                _PP( __field_type(ctx, xil.get_ref())->get_name(ctx.env) );
                 return __xil_type_of(ctx, __field_type(ctx, xil.get_ref()));
             }
 
@@ -1415,7 +1414,7 @@ namespace X_ROOT_NS::modules::exec {
                 }   break;
 
                 default:
-                    X_UNEXPECTED();
+                    X_UNEXPECTED_F("unexpected object type %1%", object_type);
             }
 
             return __new_command<__push_object_command_t>(memory, object
@@ -1432,7 +1431,8 @@ namespace X_ROOT_NS::modules::exec {
             #endif
         )
         {
-            switch ((mt_member_extra_t)method_ref.extra)
+            mt_member_extra_t extra = (mt_member_extra_t)method_ref.extra;
+            switch (extra)
             {
                 case mt_member_extra_t::generic: {
                     rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
@@ -1452,7 +1452,7 @@ namespace X_ROOT_NS::modules::exec {
                 }   break;
 
                 default:
-                    X_UNEXPECTED();
+                    X_UNEXPECTED_F("unexpected member type '%1%'", extra);
             }
         }
     };
@@ -1503,7 +1503,6 @@ namespace X_ROOT_NS::modules::exec {
             case xil_storage_type_t::field_addr:
                 *out_dtype1 = __xil_type_of(ctx, __field_type(ctx, xil.get_ref()));
                 *out_dtype2 = __fetch_dtype(ctx, xil);
-                _P( *out_dtype2, xil.dtype(), xil.stype() );
                 break;
 
             case xil_storage_type_t::array_element:
@@ -1984,8 +1983,7 @@ namespace X_ROOT_NS::modules::exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
             default:
-                _PF(_T("push %1% %2% %3%"), xil.stype(), xt1, xt2);
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected command: push %1% %2% %3%", xil.stype(), xt1, xt2);
         }
 
         X_UNEXPECTED();
