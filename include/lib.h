@@ -341,7 +341,7 @@ namespace X_ROOT_NS::lib {
     #define _PFC(_color, _format, _args...)                                             \
         do {                                                                            \
             X_SET_CONSOLE_COLOR(_color);                                                \
-            _PF(_format, ##_args);                                                      \
+            println(sprintf(_T("") _format, ##_args));                                  \
         } while (false)
 
     ////////// ////////// ////////// ////////// //////////

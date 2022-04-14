@@ -4442,11 +4442,14 @@ namespace X_ROOT_NS::modules::core {
             return template_? template_->this_mtype() : mtype_t::__unknown__;
         }
 
-        // Gets the name of the method.
+        // Gets the name of the member.
         virtual name_t get_name() const override
         {
             return template_? template_->get_name() : name_t::null;
         }
+
+        // Returns a prototype name.
+        virtual string_t to_prototype() const override;
 
         // Commits it.
         void commit(eobject_commit_context_t & ctx) override;

@@ -1429,7 +1429,9 @@ namespace X_ROOT_NS::modules::rt {
     // Fetch type by ref.
     rt_type_t * __fetch_type(assembly_analyzer_t & analyzer, rt_generic_type_t * this_, ref_t type)
     {
-        if ((mt_type_extra_t)type.extra == mt_type_extra_t::generic_param)
+        mt_type_extra_t extra = (mt_type_extra_t)type.extra;
+
+        if (extra == mt_type_extra_t::generic_param)
         {
             _A(this_ != nullptr);
 
@@ -1745,11 +1747,7 @@ namespace X_ROOT_NS::modules::rt {
                                                 rt_generic_type_t * owner)
     {
         ref_t type_ref = (*this)->type;
-
-        rt_type_t * field_type = __fetch_type(analyzer, owner, type_ref);
-        _A(field_type != nullptr);
-
-        return field_type;
+        return __fetch_type(analyzer, owner, type_ref);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2415,7 +2413,8 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Gets field.
-    rt_field_base_t * assembly_analyzer_t::__get_field(ref_t field_ref, rt_type_t ** out_type)
+    rt_field_base_t * assembly_analyzer_t::__get_field(ref_t field_ref,
+                                                        rt_type_t ** out_type = nullptr)
     {
         rt_field_ref_t * rt_field_ref;
         rt_type_t * rt_type = get_host_type_by_field_ref(field_ref, &rt_field_ref);
@@ -2425,33 +2424,55 @@ namespace X_ROOT_NS::modules::rt {
         al::assign_value(out_type, rt_type);
 
         rt_field_base_t * rt_field;
-        if (__is_current(rt_assembly))
-        {
-            rt_field = rt_assembly->get_field(field_ref);
-        }
-        else if (__is_tuple_type(rt_type))
-        {
-            rt_field = nullptr;
-        }
-        else
-        {
-            mt_field_ref_t * mt = rt_field_ref->mt;
-            rt_sid_t field_name = __to_sid(mt->name);
 
-            rt_field = nullptr;
-            rt_type->each_field(env, [&, this](ref_t field_ref, rt_field_base_t * field_base) {
-                rt_field_t * field = (rt_field_t *)field_base;
-                res_t name = (*field)->name;
-                bool r = (field_name == rt_assembly->to_sid(name));
-                return r? rt_field = rt_assembly->get_field(field_ref), false : true;
-            });
+        mt_member_extra_t extra = (mt_member_extra_t)field_ref.extra;
+        switch (extra)
+        {
+            case mt_member_extra_t::internal:
+                rt_field = rt_assembly->get_field(field_ref);
+                break;
 
-            if (rt_field == nullptr)
-            {
-                throw __RtAssemblyErrorF("field '%1%' not found",
-                    __join_field_name(rt_assembly, rt_type, mt)
-                );
-            }
+            case mt_member_extra_t::generic: {
+                mt_generic_field_t * mt = current->mt_of_generic_field(field_ref);
+
+                rt_field_t * template_field = as<rt_field_t *>(__get_field(mt->template_));
+                _A(template_field != nullptr);
+                
+                generic_param_manager_t gp(env, rt_type);
+                assembly_analyzer_t analyzer(env, rt_type->get_assembly(), &gp);
+
+                ref_t field_type_ref = (*template_field)->type;
+                rt_type_t * field_type = analyzer.get_type(field_type_ref);
+                rt_field = memory_t::new_obj<rt_generic_field_t>(env.memory, field_type);
+
+            }   break;
+
+            case mt_member_extra_t::position:
+                rt_field = nullptr;
+                break;
+
+            case mt_member_extra_t::import: {
+                mt_field_ref_t * mt = rt_field_ref->mt;
+                rt_sid_t field_name = __to_sid(mt->name);
+
+                rt_field = nullptr;
+                rt_type->each_field(env, [&, this](ref_t field_ref, rt_field_base_t * field_base) {
+                    rt_field_t * field = (rt_field_t *)field_base;
+                    res_t name = (*field)->name;
+                    bool r = (field_name == rt_assembly->to_sid(name));
+                    return r? rt_field = rt_assembly->get_field(field_ref), false : true;
+                });
+
+                if (rt_field == nullptr)
+                {
+                    throw __RtAssemblyErrorF("field '%1%' not found",
+                        __join_field_name(rt_assembly, rt_type, mt)
+                    );
+                }
+            }   break;
+
+            default:
+                X_UNEXPECTED_F("unexpected member type '%1%'", extra);
         }
 
         return rt_field;
@@ -2805,7 +2826,7 @@ namespace X_ROOT_NS::modules::rt {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Creates a new metadata for  general method.
+    // Creates a new metadata for general method.
     rt_method_t * rt_mt_t<__tidx_t::method>::new_entity(rt_context_t & ctx,
                                 ref_t ref, __mt_t * mt, rt_assembly_t * assembly)
     {

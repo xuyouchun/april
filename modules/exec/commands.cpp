@@ -850,7 +850,8 @@ namespace X_ROOT_NS::modules::exec {
 
     static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
     {
-        switch ((mt_member_extra_t)field_ref.extra)
+        mt_member_extra_t extra = (mt_member_extra_t)field_ref.extra;
+        switch (extra)
         {
             case mt_member_extra_t::import:
             case mt_member_extra_t::internal: {
@@ -865,7 +866,8 @@ namespace X_ROOT_NS::modules::exec {
                                         dynamic_cast<rt_generic_type_t *>(ctx.type));
 
                 _A( rt_field_type != nullptr );
-                _A( is_general(rt_field_type) );
+                if (!is_general(rt_field_type))
+                    return rt_field_type;
 
                 rt_general_type_t * rt_general_field_type = (rt_general_type_t *)rt_field_type;
                 if (!rt_general_field_type->is_generic_template())
@@ -895,12 +897,15 @@ namespace X_ROOT_NS::modules::exec {
                 rt_field_base_t * field = ctx.get_field(field_ref, &type);
                 _A(type->get_kind() == rt_type_kind_t::generic);
 
+                generic_param_manager_t gp_mgr(ctx.env, (rt_generic_type_t *)type);
+                assembly_analyzer_t analyzer(ctx, &gp_mgr);
+
                 rt_type_t * field_type = field->get_field_type(ctx, (rt_generic_type_t *)type);
                 return field_type;
             }
 
             default:
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected member type '%1%'", extra);
         }
     }
 

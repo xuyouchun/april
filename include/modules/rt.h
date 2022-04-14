@@ -1531,8 +1531,15 @@ namespace X_ROOT_NS::modules::rt {
 
     // Runtime generic field.
     class rt_generic_field_t : public rt_object_t
+                             , public rt_field_base_t
     {
-        // Empty.
+    public:
+        rt_generic_field_t(rt_type_t * type) : type(type) { }
+
+        rt_type_t * type;
+
+        virtual rt_type_t * get_field_type(assembly_analyzer_t & analyzer,
+                                rt_generic_type_t * owner) override { return type; }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1777,7 +1784,7 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets generic method.
         virtual rt_generic_method_t * get_generic_method(ref_t ref,
-                                      const generic_param_manager_t * gp_mgr) = 0;
+                                    const generic_param_manager_t * gp_mgr) = 0;
 
         // Gets generic argument.
         virtual rt_generic_argument_t * get_generic_argument(ref_t ref) = 0;
@@ -2290,6 +2297,20 @@ namespace X_ROOT_NS::modules::rt {
 
         static rt_method_t * new_entity(rt_context_t & ctx,
                             ref_t ref, __mt_t * mt, rt_assembly_t * assembly);
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Runtime metadata for generic method.
+    template<> struct rt_mt_t<__tidx_t::generic_field> : __rt_mt_base_t<__tidx_t::generic_field>
+    {
+        typedef rt_mt_t<__tidx_t::generic_field> __self_t, __mt_t;
+        typedef __rt_mt_base_t<__tidx_t::generic_field> __super_t;
+
+        using __super_t::__super_t;
+
+        static rt_generic_field_t * new_entity(rt_context_t & ctx,
+            ref_t ref, __mt_t * mt, rt_assembly_t * assembly, const __gp_mgr_t * gp_mgr = nullptr);
     };
 
     ////////// ////////// ////////// ////////// //////////

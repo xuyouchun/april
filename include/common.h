@@ -90,36 +90,36 @@
 namespace __root_ns = ::X_ROOT_NS;
 
 // Defines a constant unicode string.
-#define _T(s)               X_UNICODE_STR(s)
+#define _T(_s)              X_UNICODE_STR(_s)
 
 // Convert a macro value to a string.
-#define _S(s)               X_CONVERT_TO_STR(s)
+#define _S(_s)              X_CONVERT_TO_STR(_s)
 
 // Format a string with specified arguments.
-#define _F(format, args...) __root_ns::sprintf(format, ##args)
+#define _F(_format, _args...) __root_ns::sprintf(_format, ##_args)
 
 // Format a string with specified arguments, same as _F(_T("") format, args...)
-#define _FT(format, args...) _F(_T("") format, ##args)
+#define _FT(_format, _args...) _F(_T("") _format, ##_args)
 
 // Defines an exception by specified error code, the exception type depended on the error code.
-#define _E(code, args...)   X_ERROR(code, ##args)
+#define _E(_code, _args...)   X_ERROR(_code, ##_args)
 
 // Defines a common exception with specified common error code .
-#define _EC(code, args...)  X_ERROR(__root_ns::common_error_code_t::code, ##args)
+#define _EC(_code, _args...)  X_ERROR(__root_ns::common_error_code_t::_code, ##_args)
 
 // Defines an exception with specified error code and formated string.
-#define _EF(code, format, args...)  X_ERROR(code, __root_ns::sprintf(format, ##args))
+#define _EF(_code, _format, _args...)  X_ERROR(_code, __root_ns::sprintf(_format, ##_args))
 
 // Defines a common exception with specified common error code and formated string.
-#define _ECF(code, format, args...) X_ERROR(__root_ns::common_error_code_t::code,       \
-                                                __root_ns::sprintf(format, ##args))
+#define _ECF(_code, _format, _args...) X_ERROR(__root_ns::common_error_code_t::_code,   \
+                                            __root_ns::sprintf(_format, ##_args))
 
 // Defines an exception with specified error code, its error message depeneded on the description
 //    of the error code, which defined by macro X_D.
-#define _ED(code, args...)  X_ERROR(code, __root_ns::sprintf(_desc(code), ##args))
+#define _ED(_code, _args...)  X_ERROR(_code, __root_ns::sprintf(_desc(_code), ##_args))
 
 // An expression assertion.
-#define _A(x, args...)      X_ASSERT(x, ##args)
+#define _A(_x, _args...)      X_ASSERT(_x, ##_args)
 
 // Print expressions, multiple expressions splited by spaces.
 #if X_DEBUG
@@ -132,22 +132,22 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _PL()   __root_ns::println()
 
 // Print an expression, with the expression as prefix.
-#define _PP(s)      _PF(_T("%1%: %2%"), _T("") #s, s)
+#define _PP(_s)      _PF(_T("%1%: %2%"), _T("") #_s, _s)
 
 // Print an formated string, the first argument is a format string.
-#define _PF(s, args...)     _P(sprintf(_T("") s, ##args))
+#define _PF(_format, _args...)     _P(sprintf(_T("") _format, ##_args))
 
 // Print current calling stack.
 #define _PS()               __root_ns::arch::print_call_stack();
 
 // Default value for the specified type.
-#define X_DEFAULT(type)     (__root_ns::def_value<type>())
+#define X_DEFAULT(_type)     (__root_ns::def_value<_type>())
 
 // Simplification of X_DEFAULT
-#define _D(type)            X_DEFAULT(type)
+#define _D(_type)            X_DEFAULT(_type)
 
 // Assert a expression is an specified type, throw expression if fault to convert.
-#define _M(type_t, value)   X_MUST(type_t, value)
+#define _M(_type_t, _value)   X_MUST(_type_t, _value)
 
 // C++ keyword: noexpect
 #if X_DEBUG
@@ -163,7 +163,7 @@ namespace __root_ns = ::X_ROOT_NS;
 #define X_UNEXPECTED_F(_format, _args...)   X_UNEXPECTED(_FT(_format, ##_args))
 
 // Throw an common unimplemented exception.
-#define X_UNIMPLEMENTED(args...)   throw _EC(unimplemented, ##args)
+#define X_UNIMPLEMENTED(_args...)   throw _EC(unimplemented, ##_args)
 
 // Returns current call stack as string.
 #define X_CALL_STACK     to_call_stack_string()
@@ -175,7 +175,7 @@ namespace __root_ns = ::X_ROOT_NS;
 #define X_TEMP_VAR          __temp_var_##__COUNTER__##__
 
 // Gets a static array elements' count.
-#define X_ARRAY_SIZE(arr)   (sizeof(arr) / sizeof((arr)[0]))
+#define X_ARRAY_SIZE(_arr)  (sizeof(_arr) / sizeof((_arr)[0]))
 
 // Macros for try ... finally grammar in c++.
 #define X_TRY       __root_ns::try_finally([&]() {

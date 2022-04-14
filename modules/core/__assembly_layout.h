@@ -698,20 +698,20 @@ namespace X_ROOT_NS::modules::core {
         mt_heap_buffer_t       __buffer;
     };
 
-    #define __DefineMt(tidx, _entity_t ...)                             \
-        template<> struct mt_t<__tidx_t::tidx>                          \
-            : mt_base_t<__tidx_t::tidx, ##_entity_t>                    \
+    #define __DefineMt(tidx, _entity_t ...)                                             \
+        template<> struct mt_t<__tidx_t::tidx>                                          \
+            : mt_base_t<__tidx_t::tidx, ##_entity_t>                                    \
         {
 
-    #define __EndDefineMt(tidx)                                         \
-        };                                                              \
-                                                                        \
-        typedef mt_t<__tidx_t::tidx> mt_##tidx##_t;                     \
-                                                                        \
-        template<> struct __mt_fields_t<__tidx_t::tidx>                 \
-        {                                                               \
-            static __mt_field_t fields[];                               \
-            static size_t field_count(__lv_t lv);                       \
+    #define __EndDefineMt(tidx)                                                         \
+        };                                                                              \
+                                                                                        \
+        typedef mt_t<__tidx_t::tidx> mt_##tidx##_t;                                     \
+                                                                                        \
+        template<> struct __mt_fields_t<__tidx_t::tidx>                                 \
+        {                                                                               \
+            static __mt_field_t fields[];                                               \
+            static size_t field_count(__lv_t lv);                                       \
         };
 
     ////////// ////////// ////////// ////////// //////////
@@ -785,9 +785,9 @@ namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
 
-    #define __ConstantType(cvalue_type, vtype)                                      \
-        (int8_t)(                                                                   \
-            (uint8_t)(((int)cvalue_type_t::cvalue_type << 5) | (int)vtype_t::vtype) \
+    #define __ConstantType(cvalue_type, vtype)                                          \
+        (int8_t)(                                                                       \
+            (uint8_t)(((int)cvalue_type_t::cvalue_type << 5) | (int)vtype_t::vtype)     \
         )
 
     X_ENUM(constant_type_t)

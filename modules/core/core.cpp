@@ -4336,6 +4336,30 @@ namespace X_ROOT_NS::modules::core {
         return args[index];
     }
 
+    // Returns a prototype name.
+    string_t generic_type_t::to_prototype() const
+    {
+        stringstream_t ss;
+
+        if (host_type != nullptr)
+            ss << host_type->to_short_name().c_str() << _T(".");
+
+        ss << get_name().c_str() << _T("<");
+
+        for (int index = 0, size = args.size(); index < size; index++)
+        {
+            if (index > 0)
+                ss << _T(",");
+
+            type_t * arg_type = args[index];
+            ss << arg_type->to_prototype().c_str();
+        }
+
+        ss << _T(">");
+
+        return ss.str();
+    }
+
     // Commits it.
     void generic_type_t::commit(eobject_commit_context_t & ctx)
     {
