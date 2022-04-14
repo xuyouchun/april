@@ -1005,10 +1005,10 @@ namespace X_ROOT_NS::modules::compile {
                 vtype = param_types->param_vtype_at(index);
 
             xil_type_t xil_type = to_xil_type(vtype);
+
             if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
                 exp->compile(ctx, pool, xil_type);
         }
-
     }
 
     // Compile arguments.
@@ -1860,16 +1860,16 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     void __post_compile_expression(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
-                                                                      xil_type_t dtype)
+                  xil_type_t dtype, xil_type_t exp_dtype = xil_type_t::__unknown__)
     {
-        xil_type_t xil_type = __xil_type(exp);
+        xil_type_t xil_type = (exp_dtype == xil_type_t::__unknown__)? __xil_type(exp) : exp_dtype;
 
         if (xil_type != xil_type_t::empty && xil_type != xil_type_t::__unknown__)
         {
             if (exp->parent == nullptr && !__is_effective(exp->get_behaviour()))
                 pool.append<x_pop_empty_xil_t>(__xil_type(exp));
-            else
-                __try_append_convert_xil(pool, exp->get_vtype(), dtype);
+            else if (xil_type != dtype)
+                __try_append_convert_xil(pool, xil_type, dtype);
         }
     }
 
@@ -2314,7 +2314,7 @@ namespace X_ROOT_NS::modules::compile {
 
             case cvalue_type_t::nan:
             default:
-                throw _EC(unexpected);
+                X_UNEXPECTED_F("unexpected cvalue type '%1%'", cvalue.value_type);
         }
     }
 
@@ -2327,7 +2327,7 @@ namespace X_ROOT_NS::modules::compile {
         cvalue_t cvalue = *this->value;
         __compile_cvalue(ctx, pool, cvalue, dtype);
 
-        __post_compile_expression(ctx, pool, this, dtype);
+        __post_compile_expression(ctx, pool, this, dtype, dtype);
     }
 
     ////////// ////////// ////////// ////////// //////////
