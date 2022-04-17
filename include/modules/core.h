@@ -3631,6 +3631,9 @@ namespace X_ROOT_NS::modules::core {
             _A(template_ != nullptr);
             return template_;
         }
+
+        // Replace to real type if it's a general param.
+        type_t * __revise_type(type_t * type) const;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -

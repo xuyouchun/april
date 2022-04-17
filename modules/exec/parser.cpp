@@ -13,7 +13,7 @@ namespace X_ROOT_NS::modules::exec {
 
     // Constructor.
     method_parser_t::method_parser_t(exec_method_t * exec_method, executor_env_t & env,
-                                                                    rt_method_t * method)
+                                rt_method_t * method)
         : __exec_method(exec_method), __env(env), __method(method)
     {
         _A(exec_method != nullptr);
@@ -31,7 +31,7 @@ namespace X_ROOT_NS::modules::exec {
 
     // Constructor.
     method_parser_t::method_parser_t(exec_method_t * exec_method, executor_env_t & env,
-                                                            rt_generic_method_t * generic_method)
+                                                    rt_generic_method_t * generic_method)
         : __exec_method(exec_method), __env(env)
     {
         _A(exec_method != nullptr);
@@ -107,8 +107,6 @@ namespace X_ROOT_NS::modules::exec {
         });
         locals_layout.commit();
 
-        // _P((string_t)locals_layout);
-
         // Read params variables
         params_layout_t & params_layout = __creating_ctx->params_layout;
         if (!((decorate_value_t)(*__method)->decorate).is_static)
@@ -116,12 +114,10 @@ namespace X_ROOT_NS::modules::exec {
 
         __assembly->each_params((*__method)->params, [&](int index, mt_param_t & mt_param) {
 
-            // _PP(assembly->to_sid(mt_param.name));
             if (mt_param.param_type == param_type_t::extends)
             {
                 ref_t ref = (*__method)->params.at(index);
                 __analyzer->each_extend_params(ref, [&](rt_type_t * type) {
-                    // _PP(type->get_name(analyzer.env));
                     return params_layout.append(type, param_type_t::extends), true;
                 });
             }
@@ -135,8 +131,6 @@ namespace X_ROOT_NS::modules::exec {
 
         params_layout.commit();
         msize_t this_offset = params_layout.offset_of(0);
-
-        // _P( (string_t)params_layout );
 
         // Read switch tables
         exec_switch_manager_t & switch_manager = __creating_ctx->switch_manager;

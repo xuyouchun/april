@@ -848,9 +848,20 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Push field commands.
 
+    static bool __is_current_template(__context_t & ctx, rt_type_t * type)
+    {
+        if (ctx.type->get_kind() != rt_type_kind_t::generic)
+            return false;
+
+        rt_general_type_t * template_ = ((rt_generic_type_t *)ctx.type)->template_;
+        return is_host_type_template(type, template_);
+    }
+
+    // Returns field type.
     static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
     {
         mt_member_extra_t extra = (mt_member_extra_t)field_ref.extra;
+
         switch (extra)
         {
             case mt_member_extra_t::import:
@@ -3503,6 +3514,14 @@ namespace X_ROOT_NS::modules::exec {
                 >::with_args_t<rt_method_t *> __instance_call_command_manager;
 
                 rt_method_t * rt_method = (rt_method_t *)method;
+                if (__is_current_template(ctx, rt_method->host_type))
+                {
+                    rt_generic_method_t * rt_generic_method = ctx.to_generic_method(
+                        rt_method, ctx.type
+                    );
+
+                    return __new_instance_call_command(ctx, rt_generic_method);
+                }
 
                 return __instance_call_command_manager.template
                     get_command<__CallCmd_(instance, general)>(rt_method, ctx);

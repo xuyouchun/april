@@ -269,8 +269,7 @@ namespace X_ROOT_NS::modules::rt {
 
         });
     }
-
-
+    
     // Gets array type.
     rt_array_type_t * rt_pool_t::to_array_type(memory_t * memory, rt_type_t * element_type,
                                                dimension_t dimension)
@@ -280,6 +279,26 @@ namespace X_ROOT_NS::modules::rt {
         auto key = new_key<rpool_key_type_t::array_type>(element_type, dimension);
         return get(key, [memory, element_type, dimension]() {
             return memory_t::new_obj<rt_array_type_t>(memory, element_type, dimension);
+        });
+    }
+
+    // Gets generic method.
+    rt_generic_method_t * rt_pool_t::to_generic_method(memory_t * memory,
+                rt_method_t * template_, rt_type_t * host_type,
+                rt_type_t ** atypes, int atype_count)
+    {
+        _A(template_ != nullptr);
+
+        __rt_generic_args_key_t args_key(atypes, atypes + atype_count);
+        auto key = new_key<rpool_key_type_t::generic_method>(template_, host_type, args_key);
+
+        return get(key, [&]() {
+
+            key = revise_key(key, (rt_type_t **)atypes, atype_count);
+            return memory_t::new_obj<rt_generic_method_t>(memory,
+                template_, host_type, key.types(), atype_count
+            );
+
         });
     }
 
@@ -373,6 +392,31 @@ namespace X_ROOT_NS::modules::rt {
 
         return type->get_vtype(env) == vtype_t::mobject_ &&
             type->get_ttype(env) == ttype_t::struct_;
+    }
+
+    // Returns whether it's a host type of specified type.
+    bool is_host_type_template(rt_type_t * type, rt_type_t * host_type)
+    {
+        _A(type != nullptr);
+        _A(host_type != nullptr);
+
+        for (; type != nullptr; type = type->get_host_type())
+        {
+            switch (type->get_kind())
+            {
+                case rt_type_kind_t::generic:
+                    if (host_type == (rt_type_t *)((generic_type_t *)type)->template_)
+                        return true;
+                    break;
+
+                default:
+                    if (host_type == type)
+                        return true;
+                    break;
+            }
+        }
+
+        return false;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1712,11 +1756,14 @@ namespace X_ROOT_NS::modules::rt {
 
     // Constructor.
     rt_generic_method_t::rt_generic_method_t(rt_method_t * template_, rt_type_t * host_type,
-                                             rt_type_t ** atypes)
+                                             rt_type_t ** atypes, int atype_count)
         : template_(template_), host_type(host_type), atypes(atypes)
+        , __atype_count(atype_count < 0? template_->generic_param_count() : atype_count)
     {
         _A(template_ != nullptr);
         _A(host_type != nullptr);
+
+        _A(__atype_count >= template_->generic_param_count());
     }
 
     // Returns host type.
@@ -2211,6 +2258,13 @@ namespace X_ROOT_NS::modules::rt {
         _A(template_ != nullptr);
 
         return __to_generic(template_);
+    }
+
+    // Gets generic method.
+    rt_generic_method_t * assembly_analyzer_t::to_generic_method(rt_method_t * template_,
+                        rt_type_t * host_type, rt_type_t ** atypes, int atype_count)
+    {
+        return env.rpool.to_generic_method(env.memory, template_, host_type, atypes, atype_count);
     }
 
     rt_type_t * assembly_analyzer_t::__to_generic(rt_general_type_t * template_)

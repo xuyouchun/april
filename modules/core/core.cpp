@@ -2021,10 +2021,55 @@ namespace X_ROOT_NS::modules::core {
         return __template()->param_type_at(index);
     }
 
+    // Replace to real type if it's a general param.
+    type_t * generic_method_t::__revise_type(type_t * type) const
+    {
+        if (type == nullptr || type->this_gtype() != gtype_t::generic_param)
+            return type;
+
+        name_t name = ((generic_param_t *)type)->name;
+
+        return type;
+    }
+
     // Converts generic method to a string.
     X_DEFINE_TO_STRING(generic_method_t)
     {
-        return _F(_T("%1%<%2%>"), template_, args);
+        method_t * method = __template();
+
+        stringstream_t ss;
+
+        // Return type.
+        type_t * return_type = __revise_type(to_type(method->type_name));
+        if (return_type != nullptr)
+            ss << return_type->to_full_name() << _T(" ");
+
+        // Method name.
+        ss << _str(method->name);
+
+        // Generic arguments.
+        if (!args.empty())
+            ss << _T("<") << _str(args) << _T(">");
+
+        // Arguments.
+        ss << _T("(");
+        if (method->params != nullptr)
+        {
+            int index = 0;
+            for (param_t * param : *method->params)
+            {
+                if (index++ > 0)
+                    ss << _T(", ");
+
+                type_t * type = __revise_type(to_type(param->type_name));
+                _A(type != nullptr);
+
+                ss << type->to_full_name().c_str() << _T(" ") << _str(param->name).c_str();
+            }
+        }
+        ss << _T(")");
+
+        return ss.str();
     }
 
     ////////// ////////// ////////// ////////// //////////

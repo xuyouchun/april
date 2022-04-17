@@ -746,6 +746,10 @@ namespace X_ROOT_NS::modules::rt {
         rt_array_type_t * to_array_type(memory_t * memory, rt_type_t * element_type,
                                         dimension_t dimension);
 
+        // Gets generic method.
+        rt_generic_method_t * to_generic_method(memory_t * memory, rt_method_t * template_,
+                        rt_type_t * host_type, rt_type_t ** atypes, int atype_count);
+
         // Creates a msize array.
         msize_t * new_msize_array(size_t count);
 
@@ -1039,6 +1043,9 @@ namespace X_ROOT_NS::modules::rt {
 
     // Returns whether it's a custom struct.
     bool is_custom_struct(analyzer_env_t & env, rt_type_t * type);
+
+    // Returns whether it's a host type of specified type.
+    bool is_host_type_template(rt_type_t * type, rt_type_t * host_type);
 
     //-------- ---------- ---------- ---------- ----------
     // General like type.
@@ -1441,7 +1448,8 @@ namespace X_ROOT_NS::modules::rt {
 
         // Constructor.
         rt_generic_method_t() = default;
-        rt_generic_method_t(rt_method_t * template_, rt_type_t * host_type, rt_type_t ** atypes);
+        rt_generic_method_t(rt_method_t * template_, rt_type_t * host_type, rt_type_t ** atypes,
+                                                                        int atype_count = -1);
 
         // Returns type of this object.
         virtual rt_member_type_t this_type() override { return rt_member_type_t::generic; }
@@ -1453,7 +1461,7 @@ namespace X_ROOT_NS::modules::rt {
         rt_type_t  ** atypes = nullptr;
 
         // Argument count.
-        int atype_count() { return template_->generic_param_count(); }
+        int atype_count() { return __atype_count; /* template_->generic_param_count(); */ }
 
         // Host Type.
         rt_type_t * host_type = nullptr;
@@ -1466,6 +1474,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets name.
         virtual rt_sid_t get_name() override;
+
+    private:
+        int __atype_count;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -2011,6 +2022,10 @@ namespace X_ROOT_NS::modules::rt {
 
         // Converts template to generic type, used by gp_manager.
         rt_type_t * to_generic_type(rt_general_type_t * template_);
+
+        // Gets generic method.
+        rt_generic_method_t * to_generic_method(rt_method_t * template_,
+                    rt_type_t * host_type, rt_type_t ** atypes = nullptr, int atype_count = 0);
 
         // Gets method by method ref.
         rt_method_t * get_method(ref_t method_ref);
