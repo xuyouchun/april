@@ -573,6 +573,12 @@ namespace X_ROOT_NS::modules::exec {
         return __xil_type_of(ctx, type);
     }
 
+    static xil_type_t __xil_type_of_local(__context_t & ctx, uint16_t identity)
+    {
+        rt_type_t * type = ctx.locals_layout.type_at(identity);
+        return __xil_type_of(ctx, type);
+    }
+
     // Fetches the data type of specified xil.
     template<typename _xil_t>
     xil_type_t __fetch_dtype(__context_t & ctx, const _xil_t & xil)
@@ -582,7 +588,8 @@ namespace X_ROOT_NS::modules::exec {
         if (dtype != xil_type_t::empty)
             return dtype;
 
-        switch (xil.stype())
+        xil_storage_type_t storage_type = xil.stype();
+        switch (storage_type)
         {
             case xil_storage_type_t::field:
             case xil_storage_type_t::field_addr: {
@@ -600,8 +607,14 @@ namespace X_ROOT_NS::modules::exec {
                 return __xil_type_of_argument(ctx, xil.get_identity());
             }
 
+            case xil_storage_type_t::local:
+            case xil_storage_type_t::local_addr: {
+                int index = xil.get_identity();
+                return __xil_type_of_local(ctx, xil.get_identity());
+            }
+
             default:
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected storage type '%1%'", storage_type);
         }
     }
 
@@ -1492,7 +1505,7 @@ namespace X_ROOT_NS::modules::exec {
         {
             case xil_storage_type_t::local:
             case xil_storage_type_t::local_addr:
-                *out_dtype1 = __xil_type_of(ctx, ctx.locals_layout.type_at(xil.get_identity()));
+                *out_dtype1 = __xil_type_of_local(ctx, xil.get_identity());
                 *out_dtype2 = __fetch_dtype(ctx, xil);
                 break;
 
