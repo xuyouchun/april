@@ -676,10 +676,9 @@ namespace X_ROOT_NS::modules::rt {
 
     // Compares to methods.
     static bool __compare_method(analyzer_env_t & env, method_prototype_t & prototype,
-                                                                 rt_method_t * rt_method)
+                 rt_method_t * rt_method, const generic_param_manager_t * gp_mgr = nullptr)
     {
         rt_assembly_t * rt_assembly = rt_method->get_assembly();
-        assembly_analyzer_t analyzer(env, rt_assembly);
         mt_method_t & mt = *rt_method->mt;
 
         if (rt_method->get_name() != prototype.name)
@@ -690,6 +689,8 @@ namespace X_ROOT_NS::modules::rt {
 
         if (prototype.param_count() != mt.params.count)
             return false;
+
+        assembly_analyzer_t analyzer(env, rt_assembly, gp_mgr);
 
         if (prototype.return_type != analyzer.get_type(mt.type))
             return false;
@@ -927,7 +928,7 @@ namespace X_ROOT_NS::modules::rt {
 
         type->each_method(env, [&](ref_t method_ref0, rt_method_t * method) {
 
-            if (!__compare_method(env, prototype, method))
+            if (!__compare_method(env, prototype, method, analyzer.gp_manager))
                 return true;
 
             rt_type_t * owner_type = method->get_owner_type(env);
@@ -1571,6 +1572,17 @@ namespace X_ROOT_NS::modules::rt {
         al::assign(out_storage_type, layout.storage_type());
 
         return layout.type_size();
+    }
+
+    // Returns whether it's a runnable type, general type (except template) or generic type.
+    bool is_runnable_type(rt_type_t * type)
+    {
+        if (type == nullptr)
+            return false;
+
+        rt_type_kind_t kind = type->get_kind();
+        return kind == rt_type_kind_t::generic ||
+            (kind == rt_type_kind_t::general && !((rt_general_type_t *)type)->is_generic_template());
     }
 
     ////////// ////////// ////////// ////////// //////////

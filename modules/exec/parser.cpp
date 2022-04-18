@@ -21,6 +21,7 @@ namespace X_ROOT_NS::modules::exec {
 
         __host_type = method->get_host_type();
         _A(__host_type != nullptr);
+        _A(is_runnable_type(__host_type));
 
         __analyzer = __pool.new_obj<assembly_analyzer_t>(to_analyzer(env, __host_type));
 

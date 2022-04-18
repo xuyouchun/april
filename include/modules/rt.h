@@ -1166,6 +1166,9 @@ namespace X_ROOT_NS::modules::rt {
         void __build_vtbl(analyzer_env_t & env);
     };
 
+    // Returns whether it's a runnable type, general type (except template) or generic type.
+    bool is_runnable_type(rt_type_t * type);
+
     //-------- ---------- ---------- ---------- ----------
 
     // Runtime type ref.

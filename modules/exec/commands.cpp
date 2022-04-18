@@ -102,6 +102,8 @@ namespace X_ROOT_NS::modules::exec {
         _A(assembly != nullptr);
         _A(type != nullptr);
         _A(method != nullptr);
+
+        _A(is_runnable_type(type));
     }
 
     // Converts template to a generic type. (with cache)
@@ -3600,11 +3602,18 @@ namespace X_ROOT_NS::modules::exec {
         if (!func.initialized())
         {
             rt_assembly_t * rt_assembly = ctx.env.assemblies.at(func.assembly_idx);
-            rt_method_t * rt_method = __assembly_analyzer(ctx, rt_assembly).get_method(
-                ref_t(func.method_idx)
-            );
+            assembly_analyzer_t analyzer = __assembly_analyzer(ctx, rt_assembly);
+            rt_method_t * rt_method = analyzer.get_method(ref_t(func.method_idx));
 
-            func.method = ctx.env.exec_method_of(rt_method);
+            if (rt_type->get_kind() == rt_type_kind_t::generic)
+            {
+                rt_generic_method_t * m = analyzer.to_generic_method(rt_method, rt_type);
+                func.method = ctx.env.exec_method_of(m);
+            }
+            else
+            {
+                func.method = ctx.env.exec_method_of(rt_method);
+            }
         }
        
         return (exec_method_t *)func.method;
