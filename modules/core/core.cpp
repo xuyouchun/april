@@ -2012,6 +2012,18 @@ namespace X_ROOT_NS::modules::core {
         return _F(_T("%s %s"), _str(atype), _str(type));
     }
 
+    // Returns interface type that defined the method.
+    type_t * generic_method_t::get_owner_type()
+    {
+        return __revise_type(__template()->get_owner_type());
+    }
+
+    // Returns the return type.
+    type_t * generic_method_t::get_type()
+    {
+        return __revise_type(__template()->get_type());
+    }
+
     // Returns param count.
     size_t generic_method_t::param_count() const
     {

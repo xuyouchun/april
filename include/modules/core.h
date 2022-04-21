@@ -3578,10 +3578,7 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Returns interface type that defined the method.
-        virtual type_t * get_owner_type() override
-        {
-            return __template()->get_owner_type();
-        }
+        virtual type_t * get_owner_type() override;
 
         // Returns host type of this method.
         virtual type_t * get_host_type() override
@@ -3590,10 +3587,7 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Returns the return type.
-        virtual type_t * get_type() override
-        {
-            return __template()->get_type();
-        }
+        virtual type_t * get_type() override;
 
         // Returns param count.
         virtual size_t param_count() const override;
