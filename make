@@ -2,7 +2,7 @@
 
 source ./tools/xfunctions
 
-options='hd'
+options='hdg'
 longoptions='help,debug,run::,optimize::';
 _expand_args "$options" "$longoptions" "$*" "__g_";
 
@@ -21,6 +21,8 @@ options:
     -h, --help:                         Show this message.
 
     -d, --debug:                        Debug model.
+
+    -g:                                 Generate source-level debug information.
 
         --run=\"running arguments\":      Running arguments.
 
@@ -61,6 +63,10 @@ function __make()
 
     if [ "$__g_optimize" != "" ]; then
         args="$args OPTIMIZE=$__g_optimize";
+    fi;
+
+    if _is_defined __g_g; then
+        args="$args COMPILE_ARGS=-g";
     fi;
 
     if echo "$__projects" | egrep '(\s|^)test\.' &>/dev/null; then
