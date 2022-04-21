@@ -14,7 +14,7 @@ namespace X_ROOT_NS::modules::exec {
     // Constructor.
     method_parser_t::method_parser_t(exec_method_t * exec_method, executor_env_t & env,
                                 rt_method_t * method)
-        : __exec_method(exec_method), __env(env), __method(method)
+        : __exec_method(exec_method), __env(env), __method(method), __raw_method(method)
     {
         _A(exec_method != nullptr);
         _A(method != nullptr);
@@ -33,7 +33,7 @@ namespace X_ROOT_NS::modules::exec {
     // Constructor.
     method_parser_t::method_parser_t(exec_method_t * exec_method, executor_env_t & env,
                                                     rt_generic_method_t * generic_method)
-        : __exec_method(exec_method), __env(env)
+        : __exec_method(exec_method), __env(env), __raw_method(generic_method)
     {
         _A(exec_method != nullptr);
         _A(generic_method != nullptr);
@@ -45,6 +45,7 @@ namespace X_ROOT_NS::modules::exec {
         __gp_manager = __pool.new_obj<generic_param_manager_t>(analyzer, generic_method);
 
         __host_type = generic_method->get_host_type();
+        _A(is_runnable_type(__host_type));
 
         __analyzer = __pool.new_obj<assembly_analyzer_t>(
             to_analyzer(env, __host_type, __gp_manager)
@@ -78,18 +79,16 @@ namespace X_ROOT_NS::modules::exec {
         #if EXEC_TRACE
         // _PF(_T("parse_commands: %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
 
-        _PFC(dark_gray, _T("\n%1% %2%.%3%"), __LogPrefix,
-            __host_type->get_name(__env), __analyzer->get_name(__method)
-        );
+        string_t ss = __raw_method->to_string(__env, true);
+        _PFC(dark_gray, _T("\n%1% %2%"), __LogPrefix, ss.c_str());
+
         #endif  // EXEC_TRACE
 
         command_t ** commands = this->__parse_commands();
 
         #if EXEC_TRACE
 
-        _PFC(dark_gray, _T("%1% End of %2%.%3%\n"), __LogPrefix,
-            __host_type->get_name(__env), __analyzer->get_name(__method)
-        );
+        _PFC(dark_gray, _T("%1% End of %2%\n"), __LogPrefix, ss.c_str());
 
         #endif
 

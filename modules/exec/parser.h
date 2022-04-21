@@ -159,6 +159,7 @@ namespace X_ROOT_NS::modules::exec {
         executor_env_t &            __env;
         assembly_analyzer_t *       __analyzer;
         rt_method_t *               __method;
+        rt_method_base_t *          __raw_method;
         rt_type_t *                 __host_type = nullptr;
         rt_assembly_t *             __assembly;
         rt_bytes_t                  __body;

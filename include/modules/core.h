@@ -1536,6 +1536,7 @@ namespace X_ROOT_NS::modules::core {
         operator string_t() const;
 
         static const decorate_value_t default_value;
+        static const decorate_value_t public_readonly;
     };
 
     // Writes a decorate value to a stream.
@@ -3279,6 +3280,7 @@ namespace X_ROOT_NS::modules::core {
         typex_t() _NE : __v(nullptr) { }
         typex_t(type_t * type) _NE : __v(type) { }
         typex_t(type_t * type, __gatype_t atype) _NE : __v(al::incorp(type, atype)) { }
+        typex_t(type_t * type, param_type_t ptype) _NE : __v(al::incorp(type, ptype)) { }
         typex_t(param_t * param) : __v(al::incorp(param->get_type(), param->ptype)) { }
 
         type_t *  type() const _NE     { return incorp_p((type_t *)__v);  }

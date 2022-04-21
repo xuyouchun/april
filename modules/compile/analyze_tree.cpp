@@ -1405,7 +1405,7 @@ namespace X_ROOT_NS::modules::compile {
                 }   break;
 
                 default:
-                    _A(false, sprintf(_T("unexpect branch type: %1%"), u->node_type()).c_str());
+                    X_UNEXPECTED_F("unexpect branch type: %1%", u->node_type());
             }
 
             analyze_normal_node_t * normal_node;

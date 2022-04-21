@@ -2266,8 +2266,7 @@ namespace X_ROOT_NS::modules::compile {
 
             default:
             case value_type_t::ldouble_:
-                _PP(value.type);
-                throw _EC(unexpected);
+                X_UNEXPECTED_F("unexpected value type '%1%'", value.type);
         }
     }
 

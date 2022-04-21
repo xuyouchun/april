@@ -81,27 +81,21 @@ namespace X_ROOT_NS::algorithm {
     // Deallocator
     xheap_t::~xheap_t()
     {
-        for (object_t * obj : __large_objs)
+        if (!__disable_deallocate)
         {
-            if (!__disable_deallocate)
-                obj->~object_t();
-
-            delete [] (byte_t *)obj;
-        }
-
-        for (byte_t * bytes : __large_bytes)
-        {
-            delete [] bytes;
-        }
-
-        for (size_t k = 0; k < array_size(__row_collections); k++)
-        {
-            __row_collection_t & rc = __row_collections[k];
-            size_t obj_size = (k + 1) * sizeof(int);
-
-            for (__row_t & r : rc.rows)
+            // Deallocate large objects.
+            for (object_t * obj : __large_objs)
             {
-                if (!__disable_deallocate)
+                obj->~object_t();
+            }
+
+            // Deallocate normal objects.
+            for (size_t k = 0; k < array_size(__row_collections); k++)
+            {
+                __row_collection_t & rc = __row_collections[k];
+                size_t obj_size = (k + 1) * sizeof(int);
+
+                for (__row_t & r : rc.rows)
                 {
                     for (size_t obj_index = 0, obj_count = r.object_count;
                         obj_index < obj_count; obj_index++)
@@ -109,9 +103,31 @@ namespace X_ROOT_NS::algorithm {
                         ((object_t *)(r.buffer + obj_index * obj_size))->~object_t();
                     }
                 }
+            }
+        }
 
+        // Free large objects.
+        for (object_t * obj : __large_objs)
+        {
+            delete [] (byte_t *)obj;
+        }
+
+        // Free normal objects.
+        for (size_t k = 0; k < array_size(__row_collections); k++)
+        {
+            __row_collection_t & rc = __row_collections[k];
+            size_t obj_size = (k + 1) * sizeof(int);
+
+            for (__row_t & r : rc.rows)
+            {
                 delete [] r.buffer;
             }
+        }
+
+        // Free large bytes.
+        for (byte_t * bytes : __large_bytes)
+        {
+            delete [] bytes;
         }
     }
 

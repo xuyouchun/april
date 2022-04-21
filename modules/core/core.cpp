@@ -1083,7 +1083,10 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
     // decorate_value_t
 
-    const decorate_value_t decorate_value_t::default_value{};
+    const decorate_value_t decorate_value_t::default_value { };
+    const decorate_value_t decorate_value_t::public_readonly {
+        .is_readonly = true, .access = access_value_t::public_
+    };
     const decorate_t decorate_t::default_value { };
 
     // Converts decorate_value_t to a string.
@@ -2018,7 +2021,41 @@ namespace X_ROOT_NS::modules::core {
     // Returns param type of specified index.
     typex_t generic_method_t::param_type_at(size_t index) const
     {
-        return __template()->param_type_at(index);
+        typex_t typex = __template()->param_type_at(index);
+        type_t * type = (type_t *)typex;
+
+        return typex_t(__revise_type(type), (param_type_t)typex);
+    }
+
+    // Finds real type of generic param.
+    template<typename _type_collection_t, typename _pred_t, typename _f_t>
+    bool __search_type(generic_params_t & params, _type_collection_t & args,
+                                                _pred_t pred, _f_t f)
+    {
+        for (size_t index = 0, count = params.size(); index < count; index++)
+        {
+            if (pred(params[index]))
+            {
+                f(args, index);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Finds real type of generic param by name.
+    template<typename _type_collection_t>
+    type_t * __search_type(generic_params_t & params, const _type_collection_t & args, name_t name)
+    {
+        type_t * type = nullptr;
+
+        __search_type(params, args,
+            [&](generic_param_t * param) { return param->name == name; },
+            [&](auto & args_, size_t index) { _A(index < args_.size()); type = args_[index]; }
+        );
+
+        return type;
     }
 
     // Replace to real type if it's a general param.
@@ -2028,6 +2065,13 @@ namespace X_ROOT_NS::modules::core {
             return type;
 
         name_t name = ((generic_param_t *)type)->name;
+        type_t * type1 = __search_type(*__template()->generic_params, args, name);
+        if (type1 != nullptr)
+            return type1;
+
+        if (is_generic(host_type) &&
+            (type1 = ((generic_type_t *)host_type)->type_at(name)) != nullptr)
+            return type1;
 
         return type;
     }
@@ -3766,7 +3810,7 @@ namespace X_ROOT_NS::modules::core {
             new_field->name         = xpool.to_name(name.c_str());
             new_field->type_name    = xpool.new_obj<type_name_t>(type);
             new_field->init_value   = nullptr;
-            new_field->decorate     = nullptr;
+            new_field->decorate     = xpool.new_obj<decorate_t>(decorate_value_t::public_readonly);
             new_field->host_type    = this;
             new_field->variable     = xpool.new_obj<field_variable_t>(new_field);
 
@@ -3820,6 +3864,7 @@ namespace X_ROOT_NS::modules::core {
         }
     }
 
+    // Finds real type of generic param.
     template<typename _pred_t, typename _f_t>
     bool __general_type_like_base_t::__find_type(general_type_t * template_, 
             const type_collection_t & args, _pred_t pred, _f_t f) const
@@ -3827,14 +3872,7 @@ namespace X_ROOT_NS::modules::core {
         if (template_ != nullptr && template_->params != nullptr && args.size() > 0)
         {
             generic_params_t & params = *template_->params;
-            for (size_t index = 0, count = params.size(); index < count; index++)
-            {
-                if (pred(params[index]))
-                {
-                    f(args, index);
-                    return true;
-                }
-            }
+            __search_type(params, args, pred, f);
         }
 
         type_t * type = this->host_type;
@@ -3861,12 +3899,8 @@ namespace X_ROOT_NS::modules::core {
 
         __find_type(template_, args,
             [&](generic_param_t * param) { return param->name == name; },
-            [&](auto & args_, size_t index) {
-
-            _A(index < args_.size());
-            type = args_[index];
-
-        });
+            [&](auto & args_, size_t index) { _A(index < args_.size()); type = args_[index]; }
+        );
 
         return type;
     }
@@ -5177,8 +5211,8 @@ namespace X_ROOT_NS::modules::core {
     }
 
     // Creates a new generic method.
-    generic_method_t * xpool_t::new_generic_method(method_t * template_, xtype_collection_t & types,
-                                                                         type_t * host_type)
+    generic_method_t * xpool_t::new_generic_method(method_t * template_,
+                                xtype_collection_t & types, type_t * host_type)
     {
         _A(template_ != nullptr);
         _A(template_->generic_param_count() == types.size());
@@ -5196,8 +5230,8 @@ namespace X_ROOT_NS::modules::core {
     }
 
     // Creates a new generic method.
-    generic_method_t * xpool_t::new_generic_method(method_t * template_, type_collection_t & types,
-                                                                         type_t * host_type)
+    generic_method_t * xpool_t::new_generic_method(method_t * template_,
+                                type_collection_t & types, type_t * host_type)
     {
         _A(template_ != nullptr);
 

@@ -1687,9 +1687,14 @@ namespace X_ROOT_NS::modules::compile {
                     fill_type_collection(tc, function_exp->generic_args);
 
                 if (tc.empty())
+                {
                     function_exp->set_method(method);
+                }
                 else
-                    function_exp->set_method(__XPool.new_generic_method(method, tc, type));
+                {
+                    generic_method_t * generic_method = __XPool.new_generic_method(method, tc, type);
+                    function_exp->set_method(generic_method);
+                }
             }
 
             if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)

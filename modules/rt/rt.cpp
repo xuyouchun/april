@@ -1763,6 +1763,84 @@ namespace X_ROOT_NS::modules::rt {
         return (*this)->generic_params.count;
     }
 
+    // Returns a description of this method.
+    string_t rt_method_t::to_string(analyzer_env_t & env, bool include_host_type)
+    {
+        generic_param_manager_t gp_mgr(env, this);
+        rt_assembly_t * assembly = get_assembly();
+        assembly_analyzer_t analyzer(env, assembly, &gp_mgr);
+
+        stringstream_t ss;
+
+        // Return type.
+        {
+            rt_type_t * return_type = analyzer.get_type((*this)->type);
+            if (return_type != nullptr)
+            {
+                ss << return_type->get_name(env).c_str() << _T(" ");
+            }
+        }
+
+        // Host type.
+        if (include_host_type)
+        {
+            rt_type_t * host_type = this->get_host_type();
+            if (host_type != nullptr)
+            {
+                ss << host_type->get_name(env).c_str() << _T(".");
+            }
+        }
+
+        // Method name.
+        ss << get_name().c_str();
+
+        // Generic params.
+        if (generic_param_count() > 0)
+        {
+            ss << _T("<");
+
+            int index = 0;
+            for (ref_t ref : (*this)->generic_params)
+            {
+                rt_generic_param_t * gp = analyzer.get_generic_param(ref);
+                _A(gp != nullptr);
+
+                if (index++ > 0)
+                    ss << _T(", ");
+
+                ss << analyzer.to_sid((*gp)->name).c_str();
+            }
+
+            ss << _T(">");
+        }
+
+        // Params
+        {
+            ss << _T("(");
+
+            int index = 0;
+            for (ref_t ref : (*this)->params)
+            {
+                rt_param_t * rt_param = assembly->get_param(ref);
+                _A(rt_param != nullptr);
+
+                if (index++ > 0)
+                    ss << _T(", ");
+
+                rt_type_t * param_type = analyzer.get_type((*rt_param)->type);
+                _A(param_type != nullptr);
+
+                rt_sid_t name = param_type->get_name(env);
+                ss << (name.empty() ? _T("?") : name.c_str()) << _T(" ");
+                ss << analyzer.to_sid((*rt_param)->name).ce_str();
+            }
+
+            ss << _T(")");
+        }
+
+        return ss.str();
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // rt_generic_method_t
 
@@ -1798,6 +1876,81 @@ namespace X_ROOT_NS::modules::rt {
         _A(template_ != nullptr);
 
         return template_->get_name();
+    }
+
+    // Returns a description of this method.
+    string_t rt_generic_method_t::to_string(analyzer_env_t & env, bool include_host_type)
+    {
+        generic_param_manager_t gp_mgr(env, this);
+        rt_assembly_t * assembly = get_assembly();
+        assembly_analyzer_t analyzer(env, assembly, &gp_mgr);
+
+        stringstream_t ss;
+        _A(template_ != nullptr);
+
+        // Return type.
+        {
+            rt_type_t * return_type = analyzer.get_type((*template_)->type);
+            if (return_type != nullptr)
+            {
+                ss << return_type->get_name(env).ce_str() << _T(" ");
+            }
+        }
+
+        // Host type.
+        if (include_host_type)
+        {
+            rt_type_t * host_type = this->get_host_type();
+            if (host_type != nullptr)
+            {
+                ss << host_type->get_name(env).ce_str() << _T(".");
+            }
+        }
+
+        // Method name.
+        ss << get_name().c_str();
+
+        // Generic params.
+        if (atypes != nullptr && atype_count() > 0)
+        {
+            ss << _T("<");
+
+            int index = 0;
+            for (rt_type_t * type : _range(atypes, atypes + atype_count()))
+            {
+                if (index++ > 0)
+                    ss << _T(", ");
+
+                ss << type->get_name(env).ce_str();
+            }
+            ss << _T(">");
+        }
+
+        // Params.
+        {
+            ss << _T("(");
+
+            int index = 0;
+            for (ref_t ref : (*template_)->params)
+            {
+                rt_param_t * rt_param = assembly->get_param(ref);
+                _A(rt_param != nullptr);
+
+                if (index++ > 0)
+                    ss << _T(", ");
+
+                rt_type_t * param_type = analyzer.get_type((*rt_param)->type);
+                _A(param_type != nullptr);
+
+                rt_sid_t name = param_type->get_name(env);
+                ss << name.ce_str() << _T(" ");
+                ss << analyzer.to_sid((*rt_param)->name).ce_str();
+            }
+
+            ss << _T(")");
+        }
+
+        return ss.str();
     }
 
     ////////// ////////// ////////// ////////// //////////

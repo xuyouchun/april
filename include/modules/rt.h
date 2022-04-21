@@ -417,6 +417,18 @@ namespace X_ROOT_NS::modules::rt {
         // Converts to const char_t *.
         const char_t * c_str() const { return value? value->s : nullptr; }
 
+        // Converts to const char_t *, returns empty string when nullptr.
+        const char_t * ce_str() const { return value && value->s? value->s : _T(""); }
+
+        // Returns c_str or default_str when nullptr.
+        const char_t * operator | (const char_t * default_str) const
+        {
+            return empty()? default_str : c_str();
+        }
+
+        // Returns whether it's empty.
+        bool empty() const { return value == nullptr; }
+
         static const rt_sid_t null;
     };
 
@@ -1406,6 +1418,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets host type.
         virtual rt_type_t * get_host_type() = 0;
+
+        // Returns a description of this method.
+        virtual string_t to_string(analyzer_env_t & env, bool include_host_type = false) = 0;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1438,6 +1453,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns generic param count.
         int generic_param_count();
+
+        // Returns a description of this method.
+        virtual string_t to_string(analyzer_env_t & env, bool include_host_type) override;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -1477,6 +1495,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets name.
         virtual rt_sid_t get_name() override;
+
+        // Returns a description of this method.
+        virtual string_t to_string(analyzer_env_t & env, bool include_host_type) override;
 
     private:
         int __atype_count;
