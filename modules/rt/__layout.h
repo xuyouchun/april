@@ -187,10 +187,29 @@ namespace X_ROOT_NS::modules::rt {
         rt_type_t * type_at(int index) const;
 
         // Returns type of specified name.
-        rt_type_t * type_at(rt_sid_t sid, int * out_index = nullptr) const;
+        rt_type_t * type_at(rt_sid_t name, int * out_index = nullptr) const;
 
         // Returns types position of specified name, for generic params.
-        bool types_of(rt_sid_t sid, int * out_index, int * out_count) const;
+        bool types_of(rt_sid_t name, int * out_index, int * out_count) const;
+
+        // Append types of specified name to a container.
+        template<typename _itor_t>
+        bool pick_types(rt_sid_t name, _itor_t itor) const
+        {
+            int index, count;
+            if (!types_of(name, &index, &count))
+                return false;
+
+            for (int end = index + count; index < end; index++)
+            {
+                rt_type_t * type = type_at(index);
+                _A(type != nullptr);
+
+                *itor++ = type;
+            }
+
+            return true;
+        }
 
         // Returns whether it is empty.
         bool empty() const { return __atypes.empty(); }

@@ -419,6 +419,14 @@ namespace X_ROOT_NS::modules::rt {
         return false;
     }
 
+    // Returns whether it's a place holder.
+    bool is_place_holder(rt_type_t * type)
+    {
+        _A(type != nullptr);
+
+        return type->get_kind() == rt_type_kind_t::place_holder;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns size of structure.
@@ -431,7 +439,7 @@ namespace X_ROOT_NS::modules::rt {
 
         if (vtype != vtype_t::mobject_)
         {
-            al::assign(out_storage_type, storage_type_t::value);
+            al::assign_value(out_storage_type, storage_type_t::value);
             return get_vtype_size(vtype);
         }
 
@@ -442,7 +450,7 @@ namespace X_ROOT_NS::modules::rt {
     msize_t __size_of_enum(analyzer_env_t & env, rt_type_t * type,
                                                  storage_type_t * out_storage_type)
     {
-        al::assign(out_storage_type, storage_type_t::value);
+        al::assign_value(out_storage_type, storage_type_t::value);
 
         vtype_t vtype = type->get_vtype(env);
         return get_vtype_size(vtype);
@@ -499,7 +507,7 @@ namespace X_ROOT_NS::modules::rt {
         {
             case ttype_t::class_:
             case ttype_t::interface_:
-                al::assign(out_storage_type, storage_type_t::ref);
+                al::assign_value(out_storage_type, storage_type_t::ref);
                 return rt_ref_size;
 
             case ttype_t::struct_:
@@ -787,7 +795,7 @@ namespace X_ROOT_NS::modules::rt {
 
         layout.commit();
 
-        al::assign(out_storage_type, layout.storage_type());
+        al::assign_value(out_storage_type, layout.storage_type());
         return layout.type_size();
     }
 
@@ -1545,7 +1553,7 @@ namespace X_ROOT_NS::modules::rt {
 
         if (field_count == 0)
         {
-            al::assign(out_storage_type, storage_type_t::value);
+            al::assign_value(out_storage_type, storage_type_t::value);
             return base_size;
         }
 
@@ -1569,7 +1577,7 @@ namespace X_ROOT_NS::modules::rt {
         layout.commit();
 
         __field_offsets = msize_array;
-        al::assign(out_storage_type, layout.storage_type());
+        al::assign_value(out_storage_type, layout.storage_type());
 
         return layout.type_size();
     }
@@ -1695,7 +1703,7 @@ namespace X_ROOT_NS::modules::rt {
     msize_t rt_array_type_t::get_variable_size(analyzer_env_t & env,
                                                         storage_type_t * out_storage_type)
     {
-        al::assign(out_storage_type, storage_type_t::ref);
+        al::assign_value(out_storage_type, storage_type_t::ref);
         return rt_ref_size;
     }
 
@@ -1703,7 +1711,7 @@ namespace X_ROOT_NS::modules::rt {
     msize_t rt_array_type_t::on_caculate_size(analyzer_env_t & env,
                                                         storage_type_t * out_storage_type)
     {
-        al::assign(out_storage_type, storage_type_t::ref);
+        al::assign_value(out_storage_type, storage_type_t::ref);
         return rt_ref_size;
     }
 
@@ -1711,7 +1719,7 @@ namespace X_ROOT_NS::modules::rt {
     msize_t rt_array_type_t::on_caculate_layout(analyzer_env_t & env, msize_t base_size,
                                                         storage_type_t * out_storage_type)
     {
-        al::assign(out_storage_type, storage_type_t::__unknown__);
+        al::assign_value(out_storage_type, storage_type_t::__unknown__);
         return 0;
     }
 
@@ -1898,9 +1906,9 @@ namespace X_ROOT_NS::modules::rt {
         }
 
         // Host type.
+        rt_type_t * host_type = this->get_host_type();
         if (include_host_type)
         {
-            rt_type_t * host_type = this->get_host_type();
             if (host_type != nullptr)
             {
                 ss << host_type->get_name(env).ce_str() << _T(".");
@@ -1923,6 +1931,7 @@ namespace X_ROOT_NS::modules::rt {
 
                 ss << type->get_name(env).ce_str();
             }
+
             ss << _T(">");
         }
 
@@ -1939,12 +1948,36 @@ namespace X_ROOT_NS::modules::rt {
                 if (index++ > 0)
                     ss << _T(", ");
 
-                rt_type_t * param_type = analyzer.get_type((*rt_param)->type);
-                _A(param_type != nullptr);
+                rt_generic_param_t * gp;
+                if (analyzer.is_generic_params((*rt_param)->type, &gp))
+                {
+                    rt_sid_t name = analyzer.to_sid((*rt_param)->name);
+                    int index, count;
+                    if (gp_mgr.types_of(name, &index, &count))
+                    {
+                        _P(_T("------------------ hahaha"), name);
+                    }
 
-                rt_sid_t name = param_type->get_name(env);
-                ss << name.ce_str() << _T(" ");
-                ss << analyzer.to_sid((*rt_param)->name).ce_str();
+                    if (__is_tuple_type(host_type))
+                    {
+                        int index = 0;
+                        for (rt_type_t * type : _range(atypes, atypes + atype_count()))
+                        {
+                            ss << type->get_name(env).ce_str() << _T(" item");
+                        }
+                    }
+                    else
+                    {
+                        ss << _T("???");
+                    }
+                }
+                else
+                {
+                    rt_type_t * param_type = analyzer.get_type((*rt_param)->type);
+                    rt_sid_t name = param_type->get_name(env);
+                    ss << name.ce_str() << _T(" ");
+                    ss << analyzer.to_sid((*rt_param)->name).ce_str();
+                }
             }
 
             ss << _T(")");
@@ -2366,30 +2399,45 @@ namespace X_ROOT_NS::modules::rt {
                 rt_type_t * host_type = get_type(mt->host);
 
                 size_t atype_count = mt->args.count;
-                rt_type_t * atypes[atype_count];
-
                 _A(template_->is_match(*this, atype_count));
 
-                rt_type_t ** ptype = (rt_type_t **)atypes;
+                al::svector_t<rt_type_t *> atypes;
+
                 for (ref_t ga_ref : mt->args)
                 {
                     rt_generic_argument_t * ga = current->get_generic_argument(ga_ref);
                     ref_t atype_ref = (*ga)->type;
 
-                    rt_type_t * atype = get_type(atype_ref);
-                    _A(atype != nullptr);
+                    rt_generic_param_t * gp;
+                    if (is_generic_params(atype_ref, &gp))
+                    {
+                        rt_sid_t name = to_sid((*gp)->name);
+                        _A(gp_manager != nullptr);
+                        gp_manager->pick_types(name, std::back_inserter(atypes));
+                    }
+                    else
+                    {
+                        rt_type_t * atype = get_type(atype_ref);
+                        _A(atype != nullptr);
 
-                    *ptype++ = atype;
+                        atypes.push_back(atype);
+                    }
                 }
 
-                return to_generic_type(template_, host_type, (rt_type_t **)atypes, atype_count);
+                return to_generic_type(template_, host_type, (rt_type_t **)atypes, atypes.size());
             }
 
             case mt_type_extra_t::generic_param: {
-                rt_generic_param_t * gp = get_generic_param(type_ref);
-                _A(gp != nullptr);
+                if (is_generic_params(type_ref))
+                {
+                    _P(_T("generic params"));
+                }
 
+                _A(!is_generic_params(type_ref));
+
+                rt_generic_param_t * gp = get_generic_param(type_ref);
                 rt_sid_t name = to_sid((*gp)->name);
+
                 return gp_manager->type_at(name);
             }
 
@@ -2451,17 +2499,10 @@ namespace X_ROOT_NS::modules::rt {
 
                 rt_sid_t name = to_sid((*gp)->name);
 
-                if ((generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
+                if ((*gp)->param_type == generic_param_type_t::params)
                 {
-                    int index, count;
-                    if (gp_manager->types_of(name, &index, &count))
-                    {
-                        for (int end = index + count; index < end; index++)
-                        {
-                            rt_type_t * atype = gp_manager->type_at(index);
-                            atypes.push_back(atype);
-                        }
-                    }
+                    _A(gp_manager != nullptr);
+                    gp_manager->pick_types(name, std::back_inserter(atypes));
                 }
                 else
                 {
@@ -2598,20 +2639,25 @@ namespace X_ROOT_NS::modules::rt {
             rt_ptype_t * p = params;
             typedef rt_mt_t<__tidx_t::param> mt_param_t;
 
-            bool r = rt_assembly->each_params(mt.params, [&p, &analyzer](int, mt_param_t & param) {
+            bool r = true;
+            rt_assembly->each_params(mt.params, [&p, &analyzer, &r](int, mt_param_t & param) {
                 
                 if (param.param_type != p->param_type)
-                    return false;
+                    return (r = false, false);
+
+                rt_generic_param_t * gp;
+                if (analyzer.is_generic_params(param.type, &gp))
+                    return (r = is_place_holder(p->type), false);
 
                 if (analyzer.get_type(param.type) != p->type)
-                    return false;
+                    return (r = false, false);
 
                 p++;
+
                 return true;
             });
 
-            if (!r)
-                return false;
+            return r;
         }
 
         return true;
@@ -2701,6 +2747,22 @@ namespace X_ROOT_NS::modules::rt {
     rt_generic_param_t * assembly_analyzer_t::get_generic_param(ref_t ref)
     {
         return current->get_generic_param(ref);
+    }
+
+    // Returns whether it's a generic params.
+    bool assembly_analyzer_t::is_generic_params(ref_t ref, rt_generic_param_t ** out_gp)
+    {
+        if ((mt_type_extra_t)ref.extra == mt_type_extra_t::generic_param)
+        {
+            rt_generic_param_t * gp = get_generic_param(ref);
+            if ((*gp)->param_type == generic_param_type_t::params)
+            {
+                al::assign_value(out_gp, gp);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Each extends types.
@@ -3060,6 +3122,16 @@ namespace X_ROOT_NS::modules::rt {
         _A(method->host_type != nullptr);
 
         return method;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Returns whether it's a rt_generic_param_t and the type is generic_param_type_t::params.
+    bool is_generic_params(rt_generic_param_t * gp)
+    {
+        _A(gp != nullptr);
+
+        return (*gp)->param_type == generic_param_type_t::params;
     }
 
     ////////// ////////// ////////// ////////// //////////

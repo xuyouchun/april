@@ -1425,8 +1425,8 @@ namespace X_ROOT_NS::modules::exec {
     struct __push_object_template_t
     {
         template<command_value_t _cv, typename ... _args_t>
-        static auto new_command(memory_t * memory, ref_t ref,
-            __context_t & ctx, xil_storage_object_type_t object_type)
+        static auto new_command(memory_t * memory, ref_t ref, __context_t & ctx,
+                                                        xil_storage_object_type_t object_type)
         {
             rt_object_t * object;
 
@@ -1438,6 +1438,15 @@ namespace X_ROOT_NS::modules::exec {
             {
                 case xil_storage_object_type_t::method_info: {
                     object = __get_method_info(ctx, ref
+                    #if EXEC_TRACE
+                        , &name
+                    #endif
+                    );
+                }   break;
+
+                case xil_storage_object_type_t::type_info: {
+                    _PP(ctx.type->get_name(ctx.env));
+                    object = __get_type_info(ctx, ref
                     #if EXEC_TRACE
                         , &name
                     #endif
@@ -1485,6 +1494,22 @@ namespace X_ROOT_NS::modules::exec {
                 default:
                     X_UNEXPECTED_F("unexpected member type '%1%'", extra);
             }
+        }
+
+        // Returns type info.
+        static rt_object_t * __get_type_info(__context_t & ctx, ref_t type_ref
+            #if EXEC_TRACE
+            , rt_sid_t * out_name
+            #endif
+        )
+        {
+            rt_type_t * type = ctx.get_type(type_ref);
+
+            #if EXEC_TRACE
+            *out_name = type->get_name(ctx.env);
+            #endif
+
+            return type;
         }
     };
 

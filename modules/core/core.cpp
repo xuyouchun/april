@@ -3832,7 +3832,7 @@ namespace X_ROOT_NS::modules::core {
         // Methods.
         for (method_t * method : template_->methods)
         {
-            if (method->trait == method_trait_t::constructor)
+            if (method->trait == method_trait_t::constructor && method->generic_param_count() > 0)
             {
                 impl_method_t * new_method = xpool.new_obj<impl_method_t>();
                 new_method->raw = method;
@@ -4730,6 +4730,17 @@ namespace X_ROOT_NS::modules::core {
             return _T("?") + _str(name) + _T("...");
 
         return _T("?") + _str(name);
+    }
+
+    // Returns whether it's a multipy generic params.
+    bool is_generic_params(type_t * type)
+    {
+        _A(type != nullptr);
+
+        if (type->this_gtype() != gtype_t::generic_param)
+            return false;
+
+        return ((generic_param_t *)type)->param_type == generic_param_type_t::params;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -7409,7 +7420,7 @@ namespace X_ROOT_NS::modules::core {
     // Returns type of a type_of expression.
     type_t * type_of_expression_t::get_type() const
     {
-        return nullptr;
+        return __XPool.get_type_type();
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -411,6 +411,8 @@ namespace X_ROOT_NS::modules::core {
 
     X_ENUM_INFO(xil_storage_object_type_t)
 
+        X_C(type_info,      _T("type_info"))
+
         X_C(method_info,    _T("method_info"))
 
     X_ENUM_INFO_END

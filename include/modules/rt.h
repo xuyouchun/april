@@ -928,6 +928,9 @@ namespace X_ROOT_NS::modules::rt {
         // Array
         array,
 
+        // Place holder.
+        place_holder,
+
     X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -1058,6 +1061,9 @@ namespace X_ROOT_NS::modules::rt {
 
     // Returns whether it's a host type of specified type.
     bool is_host_type_template(rt_type_t * type, rt_type_t * host_type);
+
+    // Returns whether it's a place holder.
+    bool is_place_holder(rt_type_t * type);
 
     //-------- ---------- ---------- ---------- ----------
     // General like type.
@@ -1657,6 +1663,9 @@ namespace X_ROOT_NS::modules::rt {
         // Empty.
     };
 
+    // Returns whether it's a rt_generic_param_t and the type is generic_param_type_t::params.
+    bool is_generic_params(rt_generic_param_t * gp);
+
     //-------- ---------- ---------- ---------- ----------
 
     // Runtime param.
@@ -2065,6 +2074,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets generic param.
         rt_generic_param_t * get_generic_param(ref_t ref);
+
+        // Returns whether it's a generic params.
+        bool is_generic_params(ref_t ref, rt_generic_param_t ** out_gp = nullptr);
 
         // Callback function for enums members.
         using each_extern_params_func_t = std::function<bool(rt_type_t * type)>;

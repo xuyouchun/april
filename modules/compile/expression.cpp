@@ -2943,7 +2943,11 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles typeof expression.
     void __sys_t<type_of_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool, xil_type_t dtype)
     {
-        // TODO
+        type_t * type = to_type(this->type_name);
+        __FailedWhenNull(type, "type empty in typeof expression");
+
+        ref_t type_ref = __ref_of(ctx, type);
+        pool.append<x_push_object_xil_t>(xil_storage_object_type_t::type_info, type_ref);
     }
 
     ////////// ////////// ////////// ////////// //////////

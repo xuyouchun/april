@@ -30,7 +30,7 @@ internal static class Internal
     // Tuple
 
     [Internal]
-    public static extern Void Tuple_SetRange(Object tuple, Ptr data);
+    public static extern Void Tuple_SetRange(Object tuple, Type type, Ptr data);
 
     [Internal]
     public static extern Ptr Tuple_Get(Object tuple, Int32 index);

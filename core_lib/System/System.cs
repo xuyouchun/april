@@ -144,7 +144,7 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
 {
     public Tuple(TItems ... items)
     {
-        Internal.Tuple_SetRange(this, items);
+        Internal.Tuple_SetRange(this, typeof(Tuple<TItems ...>), items);
     }
 
     public Int32 Count { get { return Internal.Tuple_GetCount(this); } }

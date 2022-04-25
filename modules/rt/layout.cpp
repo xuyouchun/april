@@ -44,11 +44,11 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Returns type of specified name.
-    rt_type_t * generic_param_manager_t::type_at(rt_sid_t sid, int * out_index) const
+    rt_type_t * generic_param_manager_t::type_at(rt_sid_t name, int * out_index) const
     {
-        auto it = __type_map.find(sid);
+        auto it = __type_map.find(name);
         if (it == __type_map.end())
-            return parent != nullptr? parent->type_at(sid, out_index) : nullptr;
+            return parent != nullptr? parent->type_at(name, out_index) : nullptr;
 
         if (out_index != nullptr)
             *out_index = std::get<int>(it->second);
@@ -57,19 +57,16 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Returns types position of specified name, for generic params.
-    bool generic_param_manager_t::types_of(rt_sid_t sid, int * out_index, int * out_count) const
+    bool generic_param_manager_t::types_of(rt_sid_t name, int * out_index, int * out_count) const
     {
-        auto it = __named_atypes.find(sid);
+        auto it = __named_atypes.find(name);
         if (it == __named_atypes.end())
             return false;
 
         std::tuple<int, int> & r = it->value;
 
-        if (out_index != nullptr)
-            *out_index = std::get<0>(r);
-
-        if (out_count != nullptr)
-            *out_count = std::get<1>(r);
+        al::assign_value(out_index, std::get<0>(r));
+        al::assign_value(out_count, std::get<1>(r));
 
         return true;
     }
@@ -115,7 +112,7 @@ namespace X_ROOT_NS::modules::rt {
         virtual rt_sid_t get_name(analyzer_env_t & env) override { return rt_sid_t(); }
 
         // Gets type kind.
-        virtual rt_type_kind_t get_kind() override { return rt_type_kind_t::__unknown__; }
+        virtual rt_type_kind_t get_kind() override { return rt_type_kind_t::place_holder; }
 
         // Gets base type.
         virtual rt_type_t * get_base_type(analyzer_env_t & env,
@@ -232,7 +229,7 @@ namespace X_ROOT_NS::modules::rt {
         // Destructor.
         virtual ~type_place_holder_manager_t()
         {
-            /* TODO:
+            /*  TODO: Why?
             for (__holder_t * p : __types)
             {
                 this->__delete_obj(p);

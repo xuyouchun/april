@@ -634,15 +634,15 @@ namespace X_ROOT_NS::algorithm {
     // It used the stack size to store elements, until it's no enought, then move to the heap.
     // Avoids allocates memory from the heap at first.
 
-    template<typename t, size_t init_size = 10>
+    template<typename _t, size_t _init_size = 10>
     class svector_t : private memory_base_t
     {
-        typedef svector_t<t, init_size> __self_t;
+        typedef svector_t<_t, _init_size> __self_t;
 
     public:
-        typedef t           value_type;
-        typedef t *         iterator;
-        typedef const t *   const_iterator;
+        typedef _t          value_type;
+        typedef _t *        iterator;
+        typedef const _t *  const_iterator;
 
         // Constructor, with specified memory management.
         svector_t(memory_t * memory = nullptr)
@@ -650,7 +650,7 @@ namespace X_ROOT_NS::algorithm {
         { }
 
         // Constructor with specified memory management and initialized elements.
-        svector_t(std::initializer_list<t> il, memory_t * memory = nullptr)
+        svector_t(std::initializer_list<_t> il, memory_t * memory = nullptr)
             : memory_base_t(memory), __p(__array)
         {
             std::copy(il.begin(), il.end(), std::back_inserter(*this));
@@ -701,7 +701,7 @@ namespace X_ROOT_NS::algorithm {
             else
             {
                 __buffer_size = v.__buffer_size;
-                __buffer_start = this->__alloc_objs<t>(__buffer_size);
+                __buffer_start = this->__alloc_objs<_t>(__buffer_size);
                 __p = __buffer_start + v.size();
                 std::copy(v.__buffer_start, v.__buffer_start + v.__buffer_size, __buffer_start);
             }
@@ -718,23 +718,23 @@ namespace X_ROOT_NS::algorithm {
 
         // Pushes the value to the back.
         template<typename _value_t>
-        t & push_back(_value_t && value)
+        _t & push_back(_value_t && value)
         {
-            if (__p >= __array && __p < __array + init_size)
+            if (__p >= __array && __p < __array + _init_size)
             {
                 *__p = value;
             }
-            else if (__p == __array + init_size)
+            else if (__p == __array + _init_size)
             {
-                size_t buffer_size = init_size * 2;
-                t * buffer_start = this->__alloc_objs<t>(buffer_size);
+                size_t buffer_size = _init_size * 2;
+                _t * buffer_start = this->__alloc_objs<_t>(buffer_size);
 
-                std::copy(__array, __array + init_size, buffer_start);
+                std::copy(__array, __array + _init_size, buffer_start);
 
                 __buffer_start = buffer_start;
                 __buffer_size = buffer_size;
 
-                __p = __buffer_start + init_size;
+                __p = __buffer_start + _init_size;
                 *__p = value;
             }
             else
@@ -744,7 +744,7 @@ namespace X_ROOT_NS::algorithm {
                     size_t old_buffer_size = __buffer_size;
                     __buffer_size = old_buffer_size * 2;
 
-                    t * new_buffer = this->__alloc_objs<t>(__buffer_size);
+                    _t * new_buffer = this->__alloc_objs<_t>(__buffer_size);
                     std::copy(__buffer_start, __p, new_buffer);
 
                     this->__free(__buffer_start);
@@ -776,8 +776,8 @@ namespace X_ROOT_NS::algorithm {
 
             if (__is_in_array())
             {
-                t * p = __p + value_size;
-                if (p <= __array + init_size)
+                _t * p = __p + value_size;
+                if (p <= __array + _init_size)
                 {
                     std::move_backward(__array + index, __p, __p + value_size);
                     std::copy(std::begin(values), std::end(values), __array + index);
@@ -787,7 +787,7 @@ namespace X_ROOT_NS::algorithm {
                 {
                     size_t size = this->size(), new_size = size + value_size;
                     size_t buffer_size = _alignd(size, new_size);
-                    t * buffer_start = this->__alloc_objs<t>(buffer_size);
+                    _t * buffer_start = this->__alloc_objs<_t>(buffer_size);
 
                     std::copy(__array, __array + index, buffer_start);
                     std::copy(std::begin(values), std::end(values), buffer_start + index);
@@ -810,7 +810,7 @@ namespace X_ROOT_NS::algorithm {
                 else
                 {
                     __buffer_size = _alignd(size, new_size);
-                    t * new_buffer = this->__alloc_objs<t>(__buffer_size);
+                    _t * new_buffer = this->__alloc_objs<_t>(__buffer_size);
 
                     std::copy(__buffer_start, __buffer_start + index, new_buffer);
                     std::copy(std::begin(values), std::end(values), new_buffer + index);
@@ -837,39 +837,50 @@ namespace X_ROOT_NS::algorithm {
         }
 
         // Returns the element at the specified index.
-        t & operator[](size_t index) const
+        _t & operator[](size_t index) const
         {
             if (__is_in_array())
-                return (t &)__array[index];
+                return (_t &)__array[index];
 
             return __buffer_start[index];
         }
 
         // The iterator at the begin.
-        t * begin() const
+        _t * begin() const
         {
             if (__is_in_array())
-                return (t *)__array;
+                return (_t *)__array;
 
             return __buffer_start;
         }
 
         // The const iterator at the begin.
-        const t * cbegin() const
+        const _t * cbegin() const
         {
             return begin();
         }
 
         // The iterator at the end.
-        t * end() const
+        _t * end() const
         {
             return __p;
         }
 
         // The iterator at the end.
-        const t * cend() const
+        const _t * cend() const
         {
             return end();
+        }
+
+        // Returns a pointer of the first element.
+        operator _t * () const
+        {
+            return begin();
+        }
+
+        operator const _t * () const
+        {
+            return begin();
         }
 
         // Returns element count.
@@ -914,21 +925,21 @@ namespace X_ROOT_NS::algorithm {
     private:
         union
         {
-            t __array[init_size + 1];
+            _t __array[_init_size + 1];
 
             struct
             {
-                t * __buffer_start;
+                _t * __buffer_start;
                 size_t __buffer_size;
             };
         };
 
-        t * __p;
+        _t * __p;
 
         // Whether the data is on heap.
         bool __is_in_array() const
         {
-            return __p >= __array && __p <= __array + init_size;
+            return __p >= __array && __p <= __array + _init_size;
         }
     };
 

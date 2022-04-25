@@ -2716,6 +2716,9 @@ namespace X_ROOT_NS::modules::core {
         virtual const string_t to_identity() const override;
     };
 
+    // Returns whether it's a multipy generic params.
+    bool is_generic_params(type_t * type);
+
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     typedef eobject_ast_t<generic_param_t *> generic_param_ast_t;

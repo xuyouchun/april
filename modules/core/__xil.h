@@ -738,6 +738,8 @@ namespace X_ROOT_NS::modules::core {
 
     __Enum(xil_storage_object_type_t)
 
+        type_info,
+
         method_info,
 
     __EnumEnd

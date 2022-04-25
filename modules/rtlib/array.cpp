@@ -64,7 +64,8 @@ namespace X_ROOT_NS::modules::rtlib {
     // Tuple arguments
     struct __tuple_args_t
     {
-        robject_t   tuple;
+        robject_t       tuple;
+        rt_type_t *     type;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -79,13 +80,13 @@ namespace X_ROOT_NS::modules::rtlib {
     {
         typedef __tuple_set_range_args_t args_t;
         args_t * args = ctx.args<args_t>();
-        rt_ref_t tuple = *args->tuple;
 
-        rt_type_t * rt_type = mm::get_object_type(*args->tuple);
+        rt_ref_t tuple = *args->tuple;
+        _A(tuple != nullptr);
+
+        rt_type_t * rt_type = args->type;
         _A(rt_type != nullptr);
         _A(rt_type->get_kind() == rt_type_kind_t::generic);
-
-        rt_generic_type_t * rt_generic_type = (rt_generic_type_t *)rt_type;
 
         int position = 0;
         byte_t * ptr = (byte_t *)tuple;
