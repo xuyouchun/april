@@ -911,10 +911,13 @@ namespace X_ROOT_NS::modules::exec {
                 rt_generic_type_t * generic_type = (rt_generic_type_t *)type;
                 _A(generic_type->atypes != nullptr);
 
-                int index = field_ref.index;
-                _A(index < generic_type->atype_count());
+                mt_position_field_t * mt = ctx.current->mt_of_position_field(field_ref);
+                _A(mt != nullptr);
 
-                return generic_type->atypes[index];
+                int position = mt->position;
+                _A(position < generic_type->atype_count());
+
+                return generic_type->atypes[position];
             }
 
             case mt_member_extra_t::generic: {
@@ -1445,7 +1448,6 @@ namespace X_ROOT_NS::modules::exec {
                 }   break;
 
                 case xil_storage_object_type_t::type_info: {
-                    _PP(ctx.type->get_name(ctx.env));
                     object = __get_type_info(ctx, ref
                     #if EXEC_TRACE
                         , &name

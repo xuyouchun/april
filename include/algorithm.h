@@ -731,6 +731,14 @@ namespace X_ROOT_NS::algorithm {
             *out = value;
     }
 
+    // Assigns value to given variable pointer if it is not nullptr.
+    template<typename t>
+    X_ALWAYS_INLINE void assign_value(t ** out, std::nullptr_t)
+    {
+        if (out != nullptr)
+            *out = nullptr;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Convets a integer value to a compress format.

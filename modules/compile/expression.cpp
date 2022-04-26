@@ -149,7 +149,7 @@ namespace X_ROOT_NS::modules::compile {
 
         if (family == expression_family_t::name)
         {
-            al::assign(out_instance, nullptr);
+            al::assign_value(out_instance, nullptr);
             return __try_fetch_method_variable(exp);
         }
 
@@ -159,10 +159,10 @@ namespace X_ROOT_NS::modules::compile {
 
             binary_expression_t * binary_exp = (binary_expression_t *)exp;
             if (binary_exp->op() == operator_t::member_point &&
-                al::in(binary_exp->exp2()->this_family(), ef_t::name, ef_t::name_unit))
+                is_name_expression(binary_exp->exp2()))
             {
                 method_variable_t * variable = __try_fetch_method_variable(binary_exp->exp2());
-                al::assign(out_instance, binary_exp->exp1());
+                al::assign_value(out_instance, binary_exp->exp1());
 
                 return variable;
             }
@@ -1593,14 +1593,11 @@ namespace X_ROOT_NS::modules::compile {
                                     field_variable_t * field_var, xil_type_t dtype)
     {
         field_t * field = field_var->field;
-        if (field == nullptr)
-            __Failed("unknown field '%1%'", field_var);
+        __FailedWhenNull(field, "unknown field '%1%'", field_var);
 
         ref_t field_ref = __search_field_ref(ctx, field);
         type_t * field_type = to_type(field->type_name);
-
-        if (field_type == nullptr)
-            __Failed("unknown field '%1%' type", field);
+        __FailedWhenNull(field_type, "unknown field '%1%' type", field);
 
         // TODO: when member point, int, long ... types also should be ptr type.
         if (is_custom_struct(field_type))

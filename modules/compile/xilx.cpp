@@ -259,7 +259,8 @@ namespace X_ROOT_NS::modules::compile {
                 __Write(xil_type)                                                       \
                 break;
 
-        switch (type->this_gtype())
+        gtype_t gtype = type->this_gtype();
+        switch (gtype)
         {
             case gtype_t::general:
                 switch (((general_type_t *)type)->vtype)
@@ -281,7 +282,7 @@ namespace X_ROOT_NS::modules::compile {
 
                     __Case(bool_, bool_)
                     __Case(char_, char_)
-                    
+
                     __Case(string_, string)
                     __Case(mobject_, object)
 
@@ -305,7 +306,7 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             default:
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected gtype '%1%'", gtype);
         }
 
         #undef __Case
