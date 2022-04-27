@@ -839,20 +839,20 @@ namespace X_ROOT_NS::modules::core {
     {
         switch (new_type())
         {
-            case xil_new_type_t::array:
-                return _T("new array");
- 
             case xil_new_type_t::default_:
-                return _T("new");
+                return _FT("new {%1%}", type_ref());
 
+            case xil_new_type_t::array:
+                return _FT("new array {%1%}", type_ref());
+ 
             case xil_new_type_t::stack_alloc:
-                return _T("stack_alloc");
+                return _FT("stack_alloc {%1%}", type_ref());
 
             case xil_new_type_t::stack_allocs:
-                return _T("stack_allocs");
+                return _FT("stack_allocs {%1%} * %2%", type_ref(), count());
 
             default:
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected new type %1%", new_type());
         }
     }
 

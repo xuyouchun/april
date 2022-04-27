@@ -1428,92 +1428,102 @@ namespace X_ROOT_NS::modules::exec {
     struct __push_object_template_t
     {
         template<command_value_t _cv, typename ... _args_t>
-        static auto new_command(memory_t * memory, ref_t ref, __context_t & ctx,
-                                                        xil_storage_object_type_t object_type)
+        static auto new_command(memory_t * memory, rt_object_t * object
+        #if EXEC_TRACE
+            , xil_storage_object_type_t object_type, rt_sid_t name
+        #endif
+        )
         {
-            rt_object_t * object;
-
-            #if EXEC_TRACE
-            rt_sid_t name;
-            #endif
-
-            switch (object_type)
-            {
-                case xil_storage_object_type_t::method_info: {
-                    object = __get_method_info(ctx, ref
-                    #if EXEC_TRACE
-                        , &name
-                    #endif
-                    );
-                }   break;
-
-                case xil_storage_object_type_t::type_info: {
-                    object = __get_type_info(ctx, ref
-                    #if EXEC_TRACE
-                        , &name
-                    #endif
-                    );
-                }   break;
-
-                default:
-                    X_UNEXPECTED_F("unexpected object type %1%", object_type);
-            }
-
             return __new_command<__push_object_command_t>(memory, object
             #if EXEC_TRACE
                 , object_type, name
             #endif
             );
         }   
-
-        // Returns method info.
-        static rt_object_t * __get_method_info(__context_t & ctx, ref_t method_ref
-            #if EXEC_TRACE
-            , rt_sid_t * out_name
-            #endif
-        )
-        {
-            mt_member_extra_t extra = (mt_member_extra_t)method_ref.extra;
-            switch (extra)
-            {
-                case mt_member_extra_t::generic: {
-                    rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
-                    #if EXEC_TRACE
-                    *out_name = rt_generic_method->get_name();
-                    #endif
-                    return rt_generic_method;
-                }   break;
-
-                case mt_member_extra_t::import:
-                case mt_member_extra_t::internal: {
-                    rt_method_t * rt_method = ctx.get_method(method_ref);
-                    #if EXEC_TRACE
-                    *out_name = rt_method->get_name();
-                    #endif
-                    return rt_method;
-                }   break;
-
-                default:
-                    X_UNEXPECTED_F("unexpected member type '%1%'", extra);
-            }
-        }
-
-        // Returns type info.
-        static rt_object_t * __get_type_info(__context_t & ctx, ref_t type_ref
-            #if EXEC_TRACE
-            , rt_sid_t * out_name
-            #endif
-        )
-        {
-            rt_type_t * type = ctx.get_type(type_ref);
-
-            #if EXEC_TRACE
-            *out_name = type->get_name(ctx.env);
-            #endif
-
-            return type;
-        }
     };
+
+    // Returns method info.
+    static rt_object_t * __get_method_info(__context_t & ctx, ref_t method_ref
+        #if EXEC_TRACE
+        , rt_sid_t * out_name
+        #endif
+    )
+    {
+        mt_member_extra_t extra = (mt_member_extra_t)method_ref.extra;
+        switch (extra)
+        {
+            case mt_member_extra_t::generic: {
+                rt_generic_method_t * rt_generic_method = ctx.get_generic_method(method_ref);
+                #if EXEC_TRACE
+                *out_name = rt_generic_method->get_name();
+                #endif
+                return rt_generic_method;
+            }   break;
+
+            case mt_member_extra_t::import:
+            case mt_member_extra_t::internal: {
+                rt_method_t * rt_method = ctx.get_method(method_ref);
+                #if EXEC_TRACE
+                *out_name = rt_method->get_name();
+                #endif
+                return rt_method;
+            }   break;
+
+            default:
+                X_UNEXPECTED_F("unexpected member type '%1%'", extra);
+        }
+    }
+
+    // Returns type info.
+    static rt_object_t * __get_type_info(__context_t & ctx, ref_t type_ref
+        #if EXEC_TRACE
+        , rt_sid_t * out_name
+        #endif
+    )
+    {
+        rt_type_t * type = ctx.get_type(type_ref);
+
+        #if EXEC_TRACE
+        *out_name = type->get_name(ctx.env);
+        #endif
+
+        return type;
+    }
+
+    // Returns object of specified ref_t.
+    static rt_object_t * __get_object(__context_t & ctx,
+                                      xil_storage_object_type_t object_type, ref_t ref
+        #if EXEC_TRACE
+        , rt_sid_t * out_name
+        #endif
+    )
+    {
+        rt_object_t * object;
+
+        switch (object_type)
+        {
+            case xil_storage_object_type_t::method_info: {
+                object = __get_method_info(ctx, ref
+                #if EXEC_TRACE
+                    , out_name
+                #endif
+                );
+            }   break;
+
+            case xil_storage_object_type_t::type_info: {
+                object = __get_type_info(ctx, ref
+                #if EXEC_TRACE
+                    , out_name
+                #endif
+                );
+            }   break;
+
+            default:
+                X_UNEXPECTED_F("unexpected object type %1%", object_type);
+        }
+
+        return object;
+    }
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1640,7 +1650,7 @@ namespace X_ROOT_NS::modules::exec {
 
         static __command_manager_t<
             __push_object_template_t
-        >::with_args_t<ref_t> __object_command_manager;
+        >::with_args_t<rt_object_t *> __object_command_manager;
 
         static __command_manager_t<
             __push_convert_command_template_t, xil_type_t, xil_type_t
@@ -1659,10 +1669,24 @@ namespace X_ROOT_NS::modules::exec {
                     ctx.params_layout.extends_offset()
                 );
 
-            case xil_storage_type_t::object:        // Push object command.
-                return __object_command_manager.template get_command<__PushObjectCmd>(
-                    xil.get_ref(), ctx, xil.get_object_type()
+            case xil_storage_type_t::object: {       // Push object command.
+                #if EXEC_TRACE
+                    rt_sid_t name;
+                #endif
+
+                rt_object_t * object = __get_object(ctx, xil.get_object_type(), xil.get_ref()
+                #if EXEC_TRACE
+                    , &name
+                #endif
                 );
+
+                return __object_command_manager.template get_command<__PushObjectCmd>(
+                    object
+                #if EXEC_TRACE
+                    , xil.get_object_type(), name
+                #endif
+                );
+            }
 
             case xil_storage_type_t::local_addr:    // Push local address command.
                 return __push_address_command_manager.template get_command<
