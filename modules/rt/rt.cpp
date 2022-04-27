@@ -1582,6 +1582,18 @@ namespace X_ROOT_NS::modules::rt {
         return layout.type_size();
     }
 
+    // Returns whether it's a tuple type.
+    bool is_tuple_type(rt_type_t * type)
+    {
+        _A(type != nullptr);
+
+        if (type->get_kind() != rt_type_kind_t::generic)
+            return false;
+
+        rt_generic_type_t * generic_type = (rt_generic_type_t *)type;
+        return generic_type->is_tuple();
+    }
+
     // Returns whether it's a runnable type, general type (except template) or generic type.
     bool is_runnable_type(rt_type_t * type)
     {

@@ -30,13 +30,13 @@ internal static class Internal
     // Tuple
 
     [Internal]
-    public static extern Void Tuple_SetRange(Object tuple, Type type, Ptr data);
+    public static extern Void Tuple_SetRange(Type type, Object tuple, Ptr data);
 
     [Internal]
-    public static extern Ptr Tuple_Get(Object tuple, Int32 index);
+    public static extern Ptr Tuple_Get(Type type, Object tuple, Int32 index);
 
     [Internal]
-    public static extern Int32 Tuple_GetCount(Object tuple);
+    public static extern Int32 Tuple_GetCount(Type type);
 
 
     // Console

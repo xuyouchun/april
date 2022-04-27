@@ -142,12 +142,27 @@ public interface ITuple<TItems ...>
 [Internal]
 public struct Tuple<TItems ...> : ITuple<TItems ...>
 {
+    using __SelfType = Tuple<TItems ...>;
+
     public Tuple(TItems ... items)
     {
-        Internal.Tuple_SetRange(this, typeof(Tuple<TItems ...>), items);
+        Internal.Tuple_SetRange(typeof(__SelfType), this, items);
     }
 
-    public Int32 Count { get { return Internal.Tuple_GetCount(this); } }
+    public Int32 Count
+    {
+        get { return Internal.Tuple_GetCount(typeof(__SelfType)); }
+    }
+
+    public Object Get(Int32 index)
+    {
+        return null;
+    }
+
+    public T Get<T>(Int32 index)
+    {
+        return default(T);
+    }
 }
 
 ////////// ////////// ////////// ////////// //////////

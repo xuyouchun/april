@@ -902,6 +902,13 @@ namespace X_ROOT_NS::modules::compile {
     bool __utils_t::__check_member(type_t * type, _member_t * member,
                                                     _code_element_t * code_element)
     {
+        // Outside types.
+        if (type == nullptr)
+        {
+            // TODO: when outside types.
+            return true;
+        }
+
         if (!__check_duplicate(type, member, code_element))
             return false;
 

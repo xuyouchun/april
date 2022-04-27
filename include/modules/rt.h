@@ -1315,6 +1315,9 @@ namespace X_ROOT_NS::modules::rt {
         // int __b = 0;        // TODO: why it's set valuel 1?
     };
 
+    // Returns whether it's a tuple type.
+    bool is_tuple_type(rt_type_t * type);
+
     //-------- ---------- ---------- ---------- ----------
 
     // Runtime array time.

@@ -3874,6 +3874,14 @@ namespace X_ROOT_NS::modules::core {
                 methods.push_back(new_method);
             }
         }
+
+        // __transform_members(tctx, template_->fields, fields);
+        // __transform_members(tctx, template_->methods, methods);
+        __transform_members(tctx, template_->properties, properties);
+        __transform_members(tctx, template_->events, events);
+        __transform_members(tctx, template_->nest_types, nest_types);
+        __transform_members(tctx, template_->type_defs, type_defs);
+        __transform_members(tctx, template_->super_type_names, super_type_names);
     }
 
     // Finds real type of generic param.

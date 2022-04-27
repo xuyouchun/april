@@ -2,6 +2,8 @@
 
 namespace X_ROOT_NS::modules::rtlib {
 
+    al::xheap_t __global_heap(_T("rtlib_heap"));
+
     ////////// ////////// ////////// ////////// //////////
 
     // Runtime lib manager.
