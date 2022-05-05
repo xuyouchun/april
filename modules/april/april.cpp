@@ -147,7 +147,7 @@ The commands are:                                                           \n\
         run         compile and run April program                           \n\
         version     print April version                                     \n\
                                                                             \n\
-Use \"april help [command]\" for more information about a command.          \n\
+Use \"april help [command] ...\" for more information about a command.      \n\
 ");
 
     // Converts to april command.
@@ -174,6 +174,32 @@ Use \"april help [command]\" for more information about a command.          \n\
         return __to_april_command(string_convert<char, char_t>(cmd).c_str());
     }
 
+    // Returns whether it's a valid char of command name.
+    static bool __is_command_char(char c)
+    {
+        return (c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || c == '-' || c == '_'
+        ;
+    }
+
+    // Returns whether it maybe a command name.
+    static bool __maybe_command(char * command)
+    {
+        char * s = command;
+        for (; *s != '\0'; s++)
+        {
+            if (!__is_command_char(*s))
+                return false;
+        }
+
+        if (s - command > 16)
+            return false;
+
+        return true;
+    }
+
     // Parses arguments.
     bool april_options_t::parse(int argc, char ** argv)
     {
@@ -187,6 +213,19 @@ Use \"april help [command]\" for more information about a command.          \n\
 
         char * commandStr = argv[1];
         this->command = __to_april_command(commandStr);
+
+        if (this->command == april_command_t::__unknown__)
+        {
+            char * s_cmd = argv[1];
+
+            if (__maybe_command(s_cmd))
+                std::cout << "ERROR: unknown command " << s_cmd << std::endl;
+            else
+                std::cout << "ERROR: command missing" << std::endl;
+
+            show_help();
+            return false;
+        }
 
         __cmdline_parser_t parser;
 
@@ -222,6 +261,8 @@ Use \"april help [command]\" for more information about a command.          \n\
     bool april_options_t::__parse(april_command_t command, __cmdline_parser_t & parser,
                                                             int argc, char ** argv)
     {
+        _A(argc >= 1);
+
         string_t program_name = _F(_T("april %1%"), command);
         parser.set_program_name(string_convert<char_t, char>(program_name));
 
@@ -240,9 +281,7 @@ Use \"april help [command]\" for more information about a command.          \n\
                 return __parse_version(parser, argc, argv);
 
             default:
-                _PF(_T("unknown command '%1%'"), argv[1]);
-                show_help();
-                return false;
+                X_UNEXPECTED_F("unknown command %1%", command);
         }
     }
 
