@@ -343,7 +343,7 @@ namespace X_ROOT_NS::modules::core {
         void __assign_mt(mt_position_field_t * mt, uint16_t position, type_t * host)
         {
             mt->host      = __W->__commit_type(host);
-            mt->position  = position;;
+            mt->position  = position;
         }
 
         // Assigns param metadata.

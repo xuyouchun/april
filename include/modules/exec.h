@@ -1169,6 +1169,9 @@ namespace X_ROOT_NS::modules::exec {
         // Returns execute method of runtime generic method.
         exec_method_t * exec_method_of(rt_generic_method_t * rt_generic_method);
 
+        // Returns execute method of runtime dynamic method.
+        exec_method_t * exec_method_of(rt_dynamic_method_t * rt_dynamic_method);
+
         // Returns execute method of runtime method or generic method.
         exec_method_t * exec_method_of(rt_method_base_t * rt_method_base);
 

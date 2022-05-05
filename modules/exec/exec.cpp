@@ -177,6 +177,20 @@ namespace X_ROOT_NS::modules::exec {
         return __exec_method_of(generic_method);
     }
 
+    // Returns execute method of runtime dynamic method.
+    exec_method_t * executor_env_t::exec_method_of(rt_dynamic_method_t * dynamic_method)
+    {
+        _A(dynamic_method != nullptr);
+
+        /*
+        _PF(_T("exec_method_of: %1%.%2%"),
+            dynamic_method->get_host_type()->get_name(*this), dynamic_method->get_name()
+        );
+        */
+
+        return __exec_method_of(dynamic_method);
+    }
+
     // Returns execute method of runtime method or generic method.
     exec_method_t * executor_env_t::exec_method_of(rt_method_base_t * rt_method_base)
     {
@@ -189,6 +203,9 @@ namespace X_ROOT_NS::modules::exec {
 
             case rt_member_type_t::generic:
                 return exec_method_of((rt_generic_method_t *)rt_method_base);
+
+            case rt_member_type_t::dynamic:
+                return exec_method_of((rt_dynamic_method_t *)rt_method_base);
 
             default:
                 X_UNEXPECTED(_T("unexpected member type when generate exec_method_t"));

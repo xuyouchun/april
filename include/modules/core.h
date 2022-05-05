@@ -1536,7 +1536,12 @@ namespace X_ROOT_NS::modules::core {
         operator string_t() const;
 
         static const decorate_value_t default_value;
+
+        static const decorate_value_t public_;
         static const decorate_value_t public_readonly;
+
+        static const decorate_value_t private_;
+        static const decorate_value_t private_readonly;
     };
 
     // Writes a decorate value to a stream.
@@ -2520,6 +2525,9 @@ namespace X_ROOT_NS::modules::core {
 
     // Returns whether it's a custom defined struct type or class type.
     bool is_custom_class_or_struct(type_t * type);
+
+    // Returns whether it's a tuple type.
+    bool is_tuple(type_t * type);
 
     // Returns whether it's a null type.
     X_ALWAYS_INLINE bool is_null(type_t * type)
@@ -4920,6 +4928,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.Tuple<...> type.
         general_type_t * get_tuple_type();
 
+        // Returns System.ITuple<...> type.
+        general_type_t * get_ituple_type();
+
         // Returns System.Diagnostics.TraceAttribute type.
         general_type_t * get_trace_attribute_type();
 
@@ -4974,6 +4985,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns cvalue_expression_t of specified cvalue.
         cvalue_expression_t * get_cvalue_expression(cvalue_t cvalue);
 
+        // Returns decorate of specified value.
+        decorate_t * to_decorate(decorate_value_t value);
+
         // Returns current xpool.
         static xpool_t & current()
         {
@@ -5004,6 +5018,7 @@ namespace X_ROOT_NS::modules::core {
 
         general_type_t * __exception_type   = nullptr;
         general_type_t * __tuple_type       = nullptr;
+        general_type_t * __ituple_type      = nullptr;
         general_type_t * __trace_attribute_type = nullptr;
 
         general_type_t * __reflection_info_type = nullptr;
@@ -5025,6 +5040,9 @@ namespace X_ROOT_NS::modules::core {
 
         // type_t * -> typename cache.
         std::map<type_t *, type_name_t *> __type_type_name_map;
+
+        // decorate_value_t -> decorate_t * cache.
+        std::map<decorate_value_t, decorate_t *> __decorate_map;
 
         class __cvalue_t : public cvalue_t
         {

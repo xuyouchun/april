@@ -50,11 +50,16 @@ namespace X_ROOT_NS::algorithm {
         }
     }
 
-
     void quick_copy(void * dst, const void * src, size_t size) _NE
     {
         if (dst == src || size == 0)
             return;
+
+        if (size <= sizeof(uint64_t))
+        {
+            __quick_copy(dst, src, size);
+            return;
+        }
 
         if (dst > src && dst <= (const byte_t *)src + size) // Copy backward
         {
@@ -64,6 +69,8 @@ namespace X_ROOT_NS::algorithm {
             size_t offset = (arch_uint_t)src0 % sizeof(uint64_t);
             if (offset > 0)
             {
+                offset = sizeof(uint64_t) - offset;
+
                 src0 -= offset;
                 dst0 -= offset;
                 size -= offset;
@@ -90,6 +97,7 @@ namespace X_ROOT_NS::algorithm {
             size_t offset = (arch_uint_t)src0 % sizeof(uint64_t);
             if (offset > 0)
             {
+                offset = sizeof(uint64_t) - offset;
                 __quick_copy(dst0, src0, offset);
 
                 src0 += offset;

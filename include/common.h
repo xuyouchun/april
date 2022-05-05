@@ -147,7 +147,11 @@ namespace __root_ns = ::X_ROOT_NS;
 #define _D(_type)            X_DEFAULT(_type)
 
 // Assert a expression is an specified type, throw expression if fault to convert.
-#define _M(_type_t, _value)   X_MUST(_type_t, _value)
+#if X_DEBUG
+    #define _M(_type_t, _value)     X_MUST(_type_t, _value)
+#else
+    #define _M(_type_t, _value)     ((_type_t)_value)
+#endif
 
 // C++ keyword: noexpect
 #if X_DEBUG

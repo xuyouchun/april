@@ -132,6 +132,27 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Dynamic method reader.
+    class dynamic_method_reader_t : public object_t
+    {
+    public:
+        dynamic_method_reader_t(const byte_t * bytes, size_t length, memory_t * memory)
+            : __memory(memory), __bytes(bytes), __bytes_end(bytes + length)
+        {
+            _A(bytes != nullptr);
+        }
+
+        // Read next command, returns nullptr when reached end.
+        rt_command_t * read_next();
+
+    private:
+
+        memory_t * __memory;                        // Memory management.
+        const byte_t * __bytes, * __bytes_end;      // Buffer.
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Method parser.
     class method_parser_t : public object_t
     {
@@ -140,6 +161,8 @@ namespace X_ROOT_NS::modules::exec {
         method_parser_t(exec_method_t * exec_method, executor_env_t & env, rt_method_t * method);
         method_parser_t(exec_method_t * exec_method, executor_env_t & env,
                                                             rt_generic_method_t * generic_method);
+        method_parser_t(exec_method_t * exec_method, executor_env_t & env,
+                                                            rt_dynamic_method_t * dynamic_method);
 
         // Initialize.
         void initialize();
@@ -153,22 +176,39 @@ namespace X_ROOT_NS::modules::exec {
     private:
 
         void __initialize();                // Initialize.
-        void __parse_info();                // Parse method info.
-        command_t ** __parse_commands();    // Parse commands.
+        void __initialize_ex();             // Initialize with method body and method reader.
+        void __parse_normal_info();         // Parse method info (for general/generic methods).
+        void __parse_dynamic_info();        // Parse method info (for dynamic methods).
+
+        command_t ** __parse_dynamic_commands();    // Parse dynamic commands.
+        command_t ** __parse_normal_commands();     // Parse commands.
+        command_t ** __parse_normal_commands_();    // Parse commands.
 
         executor_env_t &            __env;
         assembly_analyzer_t *       __analyzer;
-        rt_method_t *               __method;
         rt_method_base_t *          __raw_method;
         rt_type_t *                 __host_type = nullptr;
         rt_assembly_t *             __assembly;
-        rt_bytes_t                  __body;
-
         generic_param_manager_t *    __gp_manager = nullptr;
         command_creating_context_t * __creating_ctx;
-        method_reader_t            * __method_reader;
-        exec_method_t *             __exec_method;
 
+        union
+        {
+            // For general & generic methods.
+            struct
+            {
+                rt_method_t *       __method;
+                method_reader_t *   __method_reader;
+            };
+
+            // For dynamic methods.
+            struct
+            {
+                dynamic_method_reader_t * __dynamic_method_reader;
+            };
+        };
+
+        exec_method_t *             __exec_method;
         pool_t                      __pool;
     };
 

@@ -36,6 +36,8 @@ namespace X_ROOT_NS::modules::rt {
 
         X_C(position,   _T("position"))
 
+        X_C(dynamic,    _T("dynamic"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -208,6 +210,7 @@ namespace X_ROOT_NS::modules::rt {
     rt_pool_t::rt_pool_t(memory_t * memory) : __memory(memory), __msize_heap(memory)
     {
         __tuple_fields_heap = __pool.new_obj<al::heap_t<rt_tuple_field_t[]>>();
+        __dynamic_methods_heap = __pool.new_obj<al::heap_t<rt_dynamic_method_t[]>>();
     }
 
     // Revise key of generic method.
@@ -314,6 +317,12 @@ namespace X_ROOT_NS::modules::rt {
         return __tuple_fields_heap->acquire(count);
     }
 
+    // Creates a rt_dynamic_method_t array.
+    rt_dynamic_method_t * rt_pool_t::new_dynamic_method_array(size_t count)
+    {
+        return __dynamic_methods_heap->acquire(count);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // rt_type_t
 
@@ -369,8 +378,8 @@ namespace X_ROOT_NS::modules::rt {
             return 0;
 
         msize_t count = 0;
-        this->each_method(env, [&count](ref_t, rt_method_t * method) {
-            return __is_virtual((decorate_t)(*method)->decorate)? (++count, true) : false;
+        this->each_method(env, [&count](ref_t, rt_method_base_t * method) {
+            return method->is_virtual()? (++count, true) : false;
         });
 
         return count;
@@ -684,46 +693,11 @@ namespace X_ROOT_NS::modules::rt {
 
     // Compares to methods.
     static bool __compare_method(analyzer_env_t & env, method_prototype_t & prototype,
-                 rt_method_t * rt_method, const generic_param_manager_t * gp_mgr = nullptr)
+                 rt_method_base_t * rt_method, const generic_param_manager_t * gp_mgr = nullptr)
     {
-        rt_assembly_t * rt_assembly = rt_method->get_assembly();
-        mt_method_t & mt = *rt_method->mt;
+        _A(rt_method != nullptr);
 
-        if (rt_method->get_name() != prototype.name)
-            return false;
-
-        if (prototype.generic_param_count != mt.generic_params.count)
-            return false;
-
-        if (prototype.param_count() != mt.params.count)
-            return false;
-
-        assembly_analyzer_t analyzer(env, rt_assembly, gp_mgr);
-
-        if (prototype.return_type != analyzer.get_type(mt.type))
-            return false;
-
-        if (prototype.param_count() > 0)
-        {
-            auto p = prototype.arg_types.begin();
-            typedef rt_mt_t<__tidx_t::param> mt_param_t;
-
-            bool r = rt_assembly->each_params(mt.params, [&](int, mt_param_t & param) {
-                if (param.param_type != p->param_type)
-                    return false;
-
-                if (analyzer.get_type(param.type) != p->type)
-                    return false;
-
-                p++;
-                return true;
-            });
-
-            if (!r)
-                return false;
-        }
-
-        return true;
+        return rt_method->compare_to(env, prototype, gp_mgr);
     }
 
     // Searches method.
@@ -742,7 +716,7 @@ namespace X_ROOT_NS::modules::rt {
                 return false;
 
             ref_t method_ref = ref_t(idx);
-            rt_method_t * rt_method = analyzer.get_method(method_ref);
+            rt_method_base_t * rt_method = analyzer.get_method(method_ref);
             _A(rt_method != nullptr);
 
             if (__compare_method(env, prototype, rt_method))
@@ -842,7 +816,7 @@ namespace X_ROOT_NS::modules::rt {
 
     struct __rt_interface_vfunction_t
     {
-        rt_method_t * method;
+        rt_method_base_t * method;
 
         uint32_t    assembly_index;
         uint32_t    method_index;
@@ -872,15 +846,13 @@ namespace X_ROOT_NS::modules::rt {
         rt_assembly_t * assembly = type->get_assembly();
         assembly_analyzer_t analyzer(env, assembly, gp_mgr);
 
-        type->each_method(env, [&](ref_t method_ref, rt_method_t * rt_method) {
+        type->each_method(env, [&](ref_t method_ref, rt_method_base_t * rt_method) {
 
-            decorate_t decorate = (decorate_t)(*rt_method)->decorate;
-
-            if (__is_virtual(decorate))
+            if (rt_method->is_virtual())
             {
                 vfuncs.push_back(rt_vtable_function_t(assembly->index, method_ref.index));
             }
-            else if (__is_override(decorate))
+            else if (rt_method->is_override())
             {
                 method_prototype_t prototype;
                 analyzer.get_prototype(method_ref, &prototype);
@@ -903,7 +875,7 @@ namespace X_ROOT_NS::modules::rt {
 
                 if (!found)
                 {
-                    auto method_name = assembly->get_name(rt_method);
+                    auto method_name = rt_method->to_string(env, true);
                     throw __RtAssemblyErrorF("virtual method '%1%' not found", method_name);
                 }
             }
@@ -922,7 +894,7 @@ namespace X_ROOT_NS::modules::rt {
         method_prototype_t & prototype)
     {
         analyzer_env_t & env = analyzer.env;
-        rt_method_t * matched_method = nullptr;
+        rt_method_base_t * matched_method = nullptr;
 
         rt_type_t * base_type = type->get_base_type(env);
         if (base_type != nullptr)
@@ -934,7 +906,7 @@ namespace X_ROOT_NS::modules::rt {
         bool found_new = false;
         ref_t method_ref;
 
-        type->each_method(env, [&](ref_t method_ref0, rt_method_t * method) {
+        type->each_method(env, [&](ref_t method_ref0, rt_method_base_t * method) {
 
             if (!__compare_method(env, prototype, method, analyzer.gp_manager))
                 return true;
@@ -990,15 +962,15 @@ namespace X_ROOT_NS::modules::rt {
         analyzer_env_t & env = analyzer.env;
         bool stop_build = false;
 
-        type->each_method(env, [&](ref_t ref, rt_method_t * method) {
+        type->each_method(env, [&](ref_t ref, rt_method_base_t * method) {
 
-            if ((*method)->owner != ref_t::null)
+            if (method->get_owner_type(env) != nullptr)
                 return true;
 
             if (!__compare_method(env, prototype, method))
                 return true;
 
-            if (__is_override(method))
+            if (method->is_override())
             {
                 vfs[index] = __rt_interface_vfunction_t {
                     method, (uint32_t)type->get_assembly()->index, ref.index
@@ -1035,7 +1007,10 @@ namespace X_ROOT_NS::modules::rt {
         assembly_analyzer_t analyzer(env, interface_type->get_assembly(), &gp_mgr1);
         int index = 0;
 
-        interface_type->each_method(env, [&](ref_t method_ref, rt_method_t * method) {
+        interface_type->each_method(env, [&](ref_t method_ref, rt_method_base_t * method) {
+
+            if (method_ref == ref_t::null)
+                return true;
 
             method_prototype_t prototype;
             analyzer.get_prototype(method_ref, &prototype);
@@ -1047,8 +1022,8 @@ namespace X_ROOT_NS::modules::rt {
                 );
             }
 
-            rt_method_t * method1 = vfs[index].method;
-            if (__is_virtual(method1) && (*method1)->owner == ref_t::null)
+            rt_method_base_t * method1 = vfs[index].method;
+            if (method1->is_virtual() && method1->get_owner_type(env) == nullptr)
             {
                 rt_type_t * type1 = raw_type;
                 while (type1 != type)
@@ -1182,6 +1157,95 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Gets assembly.
+    rt_assembly_t * rt_dynamic_method_t::get_assembly()
+    {
+        _A(host_type != nullptr);
+
+        return host_type->get_assembly();
+    }
+
+    // Compares to prototype, returns true if equals.
+    bool rt_dynamic_method_t::compare_to(analyzer_env_t & env, method_prototype_t & prototype,
+                                        const generic_param_manager_t * gp_mgr)
+    {
+        if (prototype.name != this->name)
+            return false;
+
+        if (prototype.generic_param_count != 0)
+            return false;
+
+        if (prototype.return_type != this->return_type)
+            return false;
+
+        if (prototype.arg_types.size() != this->param_count)
+            return false;
+
+        if (this->param_count > 0)
+        {
+            if (this->params == nullptr)
+                return false;
+
+            for (int k = 0, count = this->param_count; k < count; k++)
+            {
+                rt_dynamic_param_t & param = this->params[k];
+                rt_ptype_t ptype = prototype.arg_types[k];
+
+                if (param.param_type != ptype.param_type)
+                    return false;
+
+                if (param.type != ptype.type)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Returns a description of this method.
+    string_t rt_dynamic_method_t::to_string(analyzer_env_t & env, bool include_host_type)
+    {
+        stringstream_t ss;
+
+        // Return type.
+        if (return_type != nullptr)
+            ss << (return_type->get_name(env) | _T("?")) << _T(" ");
+
+        // Host type.
+        if (include_host_type && host_type != nullptr)
+            ss << (host_type->get_name(env) | _T("?")) << _T(".");
+
+        // Name.
+        ss << (name | _T("?"));
+
+        // Parameters.
+        ss << _T("(");
+        if (params != nullptr)
+        {
+            for (rt_dynamic_param_t * param = params, * param_end = param + param_count;
+                param < param_end; param++)
+            {
+                if (param > params)
+                    ss << _T(", ");
+
+                if (param->param_type != param_type_t::__default__)
+                    ss << _str(param->param_type).c_str() << _T(" ");
+
+                if (param->type != nullptr)
+                    ss << param->type->get_name(env).c_str();
+                else
+                    ss << _T("?");
+
+                ss << _T(" ") << (param->name | _T("?"));
+            }
+        }
+        ss << _T(")");
+
+        return ss.str();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // rt_generic_type_t
 
     // Constructor.
@@ -1236,26 +1300,63 @@ namespace X_ROOT_NS::modules::rt {
     // Returns tuple fields.
     rt_tuple_field_t * rt_generic_type_t::__get_tuple_fields(analyzer_env_t & env)
     {
+        return __get_tuple_members(env)->fields;
+    }
+
+    // Returns tuple dynamic methods.
+    rt_dynamic_method_t * rt_generic_type_t::__get_dynamic_methods(analyzer_env_t & env)
+    {
+        return __get_tuple_members(env)->methods;
+    }
+
+    // Initialize tuple members and return them.
+    rt_generic_type_t::__tuple_members_t * rt_generic_type_t::__get_tuple_members(
+                                                                analyzer_env_t & env)
+    {
         _A(__is_tuple());
 
-        if (__tuple_fields == nullptr)
+        if (__tuple_members != nullptr)
+            return __tuple_members;
+
+        __tuple_members = memory_t::new_obj<__tuple_members_t>(env.memory);
+
+        int atype_count = this->atype_count();
+
+        rt_tuple_field_t * tuple_fields = env.rpool.new_tuple_field_array(atype_count);
+        rt_dynamic_method_t * dynamic_methods = env.rpool.new_dynamic_method_array(atype_count);
+        rt_assembly_t * assembly = this->get_assembly();
+
+        for (int position = 0; position < atype_count; position++)
         {
-            int atype_count = this->atype_count();
-            __tuple_fields = env.rpool.new_tuple_field_array(atype_count);
+            rt_type_t * field_type = atypes[position];
 
-            for  (int k = 0, count = atype_count; k < count; k++)
-            {
-                rt_type_t * field_type = atypes[k];
-                rt_tuple_field_t & field = __tuple_fields[k];
+            // Field.
+            rt_tuple_field_t & field = tuple_fields[position];
+            new ((void *)&field) rt_tuple_field_t();
 
-                new ((void *)&field) rt_tuple_field_t();
+            field.position = position;
+            field.type = field_type;
 
-                field.position = k;
-                field.type = field_type;
-            }
+            // Method.
+            rt_dynamic_method_t & method = dynamic_methods[position];
+            new ((void *)&method) rt_dynamic_method_t();
+
+            method.host_type = this;
+            method.name = assembly->to_sid(_FT("get_Item%1%", position + 1));
+            method.return_type = field_type;
+
+            rt_dynamic_method_body_builder_t builder;
+            builder.append<rt_push_argument_command_t>(0);
+            builder.append<rt_push_field_command_t>(&field);
+            builder.append<rt_ret_command_t>();
+
+            method.body = builder.to_method_body(env.memory);
         }
 
-        return __tuple_fields;
+        __tuple_members->fields  = tuple_fields;
+        __tuple_members->methods = dynamic_methods;
+
+        return __tuple_members;
     }
 
     // Gets ttype.
@@ -1282,7 +1383,18 @@ namespace X_ROOT_NS::modules::rt {
     {
         _A(template_ != nullptr);
 
-        template_->each_method(env, f);
+        if (__is_tuple())
+        {
+            rt_dynamic_method_t * methods = __get_dynamic_methods(env);
+            for (int k = 0, count = atype_count(); k < count; k++)
+            {
+                f(ref_t::null, methods + k);
+            }
+        }
+        else
+        {
+            template_->each_method(env, f);
+        }
     }
 
     // Gets name.
@@ -1409,7 +1521,7 @@ namespace X_ROOT_NS::modules::rt {
         if (__is_tuple())
         {
             rt_tuple_field_t * fields = __get_tuple_fields(env);
-            for  (int k = 0, count = atype_count(); k < count; k++)
+            for (int k = 0, count = atype_count(); k < count; k++)
             {
                 f(ref_t::null, fields + k);
             }
@@ -1441,6 +1553,23 @@ namespace X_ROOT_NS::modules::rt {
         _A(template_ != nullptr);
 
         return template_->get_assembly();
+    }
+
+    // Compares to prototype, returns true if equals.
+    bool rt_generic_method_t::compare_to(analyzer_env_t & env, method_prototype_t & prototype,
+                                        const generic_param_manager_t * gp_mgr)
+    {
+        _A(template_ != nullptr);
+
+        if (gp_mgr == nullptr)
+        {
+            assembly_analyzer_t analyzer0(env, this->get_assembly());
+            generic_param_manager_t gp_mgr(analyzer0, this);
+
+            return template_->compare_to(env, prototype, &gp_mgr);
+        }
+
+        return template_->compare_to(env, prototype, gp_mgr);
     }
 
     // When caculate size.
@@ -1771,6 +1900,15 @@ namespace X_ROOT_NS::modules::rt {
         return analyzer.get_type(owner_type_ref);;
     }
 
+    // Gets return type.
+    rt_type_t * rt_method_t::get_return_type(analyzer_env_t & env)
+    {
+        ref_t ret_type_ref = (*this)->type;
+
+        assembly_analyzer_t analyzer(env, get_assembly());
+        return analyzer.get_type(ret_type_ref);
+    }
+
     // Gets name.
     rt_sid_t rt_method_t::get_name()
     {
@@ -1781,6 +1919,68 @@ namespace X_ROOT_NS::modules::rt {
     int rt_method_t::generic_param_count()
     {
         return (*this)->generic_params.count;
+    }
+
+    // Returns whether it's a virtual method.
+    bool rt_method_t::is_virtual()
+    {
+        return __is_virtual((decorate_t)(*this)->decorate);
+    }
+
+    // Returns whether it's a override method.
+    bool rt_method_t::is_override()
+    {
+        return __is_override((decorate_t)(*this)->decorate);
+    }
+
+    // Compares to prototype, returns true if equals.
+    bool rt_method_t::compare_to(analyzer_env_t & env, method_prototype_t & prototype,
+                                        const generic_param_manager_t * gp_mgr)
+    {
+        rt_assembly_t * rt_assembly = get_assembly();
+        mt_method_t & mt = *this->mt;
+
+        if (this->get_name() != prototype.name)
+            return false;
+
+        if (prototype.generic_param_count != mt.generic_params.count)
+            return false;
+
+        if (prototype.param_count() != mt.params.count)
+            return false;
+
+        assembly_analyzer_t analyzer(env, rt_assembly, gp_mgr);
+
+        if (prototype.return_type != analyzer.get_type(mt.type))
+            return false;
+
+        if (prototype.param_count() > 0)
+        {
+            rt_ptype_t * p = (rt_ptype_t *)prototype.arg_types;
+            typedef rt_mt_t<__tidx_t::param> mt_param_t;
+
+            bool r = true;
+            rt_assembly->each_params(mt.params, [&](int, mt_param_t & param) {
+
+                if (param.param_type != p->param_type)
+                    return (r = false, false);
+
+                rt_generic_param_t * gp;
+                if (analyzer.is_generic_params(param.type, &gp))
+                    return (r = is_place_holder(p->type), false);
+
+                if (analyzer.get_type(param.type) != p->type)
+                    return (r = false, false);
+
+                p++;
+                return true;
+            });
+
+            if (!r)
+                return false;
+        }
+
+        return true;
     }
 
     // Returns a description of this method.
@@ -1882,6 +2082,21 @@ namespace X_ROOT_NS::modules::rt {
         return host_type;
     }
 
+    // Gets owner type (an interface type).
+    rt_type_t * rt_generic_method_t::get_owner_type(analyzer_env_t & env)
+    {
+        _A(template_ != nullptr);
+
+        return template_->get_owner_type(env);
+    }
+
+    // Gets return type.
+    rt_type_t * rt_generic_method_t::get_return_type(analyzer_env_t & env)
+    {
+        _A(template_ != nullptr);
+        return template_->get_return_type(env);
+    }
+
     // Gets assembly.
     rt_assembly_t * rt_generic_method_t::get_assembly()
     {
@@ -1896,6 +2111,22 @@ namespace X_ROOT_NS::modules::rt {
         _A(template_ != nullptr);
 
         return template_->get_name();
+    }
+
+    // Returns whether it's a virtual method.
+    bool rt_generic_method_t::is_virtual()
+    {
+        _A(template_ != nullptr);
+
+        return template_->is_virtual();
+    }
+
+    // Returns whether it's a override method.
+    bool rt_generic_method_t::is_override()
+    {
+        _A(template_ != nullptr);
+
+        return template_->is_override();
     }
 
     // Returns a description of this method.
@@ -1964,12 +2195,6 @@ namespace X_ROOT_NS::modules::rt {
                 if (analyzer.is_generic_params((*rt_param)->type, &gp))
                 {
                     rt_sid_t name = analyzer.to_sid((*rt_param)->name);
-                    int index, count;
-                    if (gp_mgr.types_of(name, &index, &count))
-                    {
-                        _P(_T("------------------ hahaha"), name);
-                    }
-
                     if (__is_tuple_type(host_type))
                     {
                         int index = 0;
@@ -2254,7 +2479,8 @@ namespace X_ROOT_NS::modules::rt {
             }
 
             case mt_member_extra_t::generic: {
-                rt_generic_method_t * rt_generic_method = get_generic_method(method_ref);
+                rt_generic_method_t * rt_generic_method = _M(rt_generic_method_t *,
+                                                            get_method(method_ref));
                 _A(rt_generic_method != nullptr);
 
                 return rt_generic_method->get_host_type();
@@ -2531,31 +2757,21 @@ namespace X_ROOT_NS::modules::rt {
         return template_;
     }
 
-    // Gets method.
-    rt_method_t * assembly_analyzer_t::get_method(ref_t method_ref)
-    {
-        auto key = env.rpool.new_key<rpool_key_type_t::method>(current, method_ref);
-        return env.rpool.get(key, [this, method_ref]() {
-            return __get_method(method_ref);
-        });
-    }
-
-    // Gets generic method.
-    rt_generic_method_t * assembly_analyzer_t::get_generic_method(ref_t method_ref)
-    {
-        return current->get_generic_method(method_ref, gp_manager);
-    }
-
     // Gets method or generic method by method ref.
-    rt_method_base_t * assembly_analyzer_t::get_method_base(ref_t method_ref)
+    rt_method_base_t * assembly_analyzer_t::get_method(ref_t method_ref)
     {
         switch ((mt_member_extra_t)method_ref.extra)
         {
             case mt_member_extra_t::internal:
-                return this->get_method(method_ref);
+            case mt_member_extra_t::import: {
+                auto key = env.rpool.new_key<rpool_key_type_t::method>(current, method_ref);
+                return env.rpool.get(key, [this, method_ref]() {
+                    return __get_method(method_ref);
+                });
+            }
 
             case mt_member_extra_t::generic:
-                return this->get_generic_method(method_ref);
+                return current->get_generic_method(method_ref, gp_manager);
 
             default:
                 X_UNEXPECTED(_T("unexpected method type"));
@@ -2563,15 +2779,16 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Gets method.
-    rt_method_t * assembly_analyzer_t::__get_method(ref_t method_ref)
+    rt_method_base_t * assembly_analyzer_t::__get_method(ref_t method_ref)
     {
         rt_method_ref_t * rt_method_ref;
         rt_type_t * rt_type = get_host_type_by_method_ref(method_ref, &rt_method_ref);
         _A(rt_type != nullptr);
 
         rt_assembly_t * rt_assembly = rt_type->get_assembly();
-        rt_method_t * rt_method;
+        rt_method_base_t * rt_method;
 
+        // Current assembly.
         if (__is_current(rt_assembly))
         {
             switch ((mt_member_extra_t)method_ref.extra)
@@ -2583,13 +2800,20 @@ namespace X_ROOT_NS::modules::rt {
                     return rt_assembly->get_method(method_ref);
             }
         }
-        else
+        else    // External assemblies.
         {
             assembly_analyzer_t analyzer0(*this, rt_type->get_assembly());
             generic_param_manager_t gp_mgr(analyzer0, rt_type);
             assembly_analyzer_t analyzer(*this, &gp_mgr);
 
             mt_method_ref_t * mt = rt_method_ref->mt;
+
+            method_prototype_t prototype = {
+                .name = __to_sid(rt_method_ref->mt->name),
+                .return_type = analyzer.get_type(mt->type),
+                .generic_param_count = mt->generic_param_count,
+            };
+
             ref_t params_ref = mt->params;
             int param_count = params_ref.count;
             rt_ptype_t params[param_count];
@@ -2599,31 +2823,19 @@ namespace X_ROOT_NS::modules::rt {
             {
                 rt_method_ref_param_t * param = current->get_method_ref_param(param_ref++);
                 rt_type_t * type = analyzer.get_type(param->mt->type);
-                *p = rt_ptype_t(type, param->mt->ptype);
+                prototype.arg_types.push_back(rt_ptype_t(type, param->mt->ptype));
             }
 
-            rt_sid_t method_name = __to_sid(rt_method_ref->mt->name);
-            rt_type_t * return_type = analyzer.get_type(mt->type);
             rt_method = nullptr;
+            rt_type->each_method(env, [&, this](ref_t, rt_method_base_t * rt_method_) {
 
-            rt_type->each_method(env, [&, this](ref_t method_ref, rt_method_t * rt_method0) {
-                rt_mt_t<__tidx_t::method> & mt = *rt_method0->mt;
+                bool r = rt_method_->compare_to(env, prototype, &gp_mgr);
 
-                bool r = analyzer.__compare_method(rt_assembly, mt, method_name,
-                    mt.generic_params.count, return_type, param_count, params
-                );
-
-                return r? rt_method = rt_assembly->get_method(method_ref), false : true;
+                return r? rt_method = rt_method_, false : true;
             });
-
-            if (rt_method == nullptr)
-            {
-                throw __RtAssemblyErrorF("method '%1%' not found",
-                    __join_method_name(rt_assembly, rt_type, mt, params)
-                );
-            }
         }
 
+        _A(rt_method != nullptr);
         return rt_method;
     }
 
@@ -2910,7 +3122,7 @@ namespace X_ROOT_NS::modules::rt {
             method_ref = mt->template_;
         }
 
-        method = this->get_method(method_ref);
+        method = _M(rt_method_t *, this->get_method(method_ref));
         _A(method != nullptr);
 
         rt_type_t * rt_type = method->get_host_type();
@@ -2956,7 +3168,7 @@ namespace X_ROOT_NS::modules::rt {
     // Gets prototype of method.
     void assembly_analyzer_t::get_prototype(ref_t method_ref, method_prototype_t * out_prototype)
     {
-        rt_method_t * rt_method = get_method(method_ref);
+        rt_method_t * rt_method = _M(rt_method_t *, get_method(method_ref));
         _A(rt_method != nullptr);
 
         rt_assembly_t * rt_assembly = rt_method->get_assembly();
@@ -3050,7 +3262,7 @@ namespace X_ROOT_NS::modules::rt {
         switch ((mt_member_extra_t)mt->template_.extra)
         {
             case mt_member_extra_t::internal: {
-                template_ = analyzer.get_method(mt->template_);
+                template_ = _M(rt_method_t *, analyzer.get_method(mt->template_));
 
                 if (mt->host.empty())   // it's general host type.
                     host_type = assembly->get_host_by_method_ref(mt->template_);
@@ -3061,9 +3273,7 @@ namespace X_ROOT_NS::modules::rt {
 
             case mt_member_extra_t::generic: {
                 rt_generic_method_t * g_template = assembly->get_generic_method(
-                    mt->template_, gp_mgr
-                );
-
+                                                            mt->template_, gp_mgr);
                 _A(g_template != nullptr);
 
                 template_ = g_template->template_;
@@ -3072,7 +3282,7 @@ namespace X_ROOT_NS::modules::rt {
             }  break;
 
             case mt_member_extra_t::import: {
-                template_ = analyzer.get_method(mt->template_);
+                template_ = _M(rt_method_t *, analyzer.get_method(mt->template_));
 
                 if (mt->host.empty())   // it's general host type.
                     host_type = template_->get_host_type();

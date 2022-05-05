@@ -14,6 +14,8 @@ namespace X_ROOT_NS::modules::rt {
     class rt_assembly_t;
     class rt_general_type_t;
     class rt_generic_method_t;
+    class rt_dynamic_method_t;
+    class rt_method_base_t;
 
     class rt_field_t;
     class rt_field_base_t;
@@ -621,7 +623,7 @@ namespace X_ROOT_NS::modules::rt {
 
         // Base class of rt method pool key.
         typedef __rpool_key_base_t<rpool_key_type_t::method,
-            rt_method_t *, rt_assembly_t *, ref_t
+            rt_method_base_t *, rt_assembly_t *, ref_t
         > __rpool_key_method_base_t;
 
         // Rt pool method key.
@@ -768,6 +770,9 @@ namespace X_ROOT_NS::modules::rt {
         // Creates a rt_tuple_field_t array.
         rt_tuple_field_t * new_tuple_field_array(size_t count);
 
+        // Creates a rt_dynamic_method_t array.
+        rt_dynamic_method_t * new_dynamic_method_array(size_t count);
+
         X_TO_STRING_IMPL(_T("rt_pool_t"))
 
     private:
@@ -782,6 +787,7 @@ namespace X_ROOT_NS::modules::rt {
 
         al::heap_t<msize_t[]> __msize_heap;
         al::heap_t<rt_tuple_field_t[]> * __tuple_fields_heap;
+        al::heap_t<rt_dynamic_method_t[]> * __dynamic_methods_heap;
 
         pool_t __pool;
     };
@@ -896,9 +902,9 @@ namespace X_ROOT_NS::modules::rt {
     // Member type.
     X_ENUM(rt_member_type_t)
 
-        general,
+        general,        // General type.
 
-        generic,
+        generic,        // Generic type.
 
         array,          // Array type.
 
@@ -906,12 +912,14 @@ namespace X_ROOT_NS::modules::rt {
 
         position,       // Position field.
 
+        dynamic,        // Dynamic field.
+
     X_ENUM_END
 
     // Runtime member.
     class rt_member_t : public rt_object_t
     {
-
+        // Emtpy.
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -993,7 +1001,7 @@ namespace X_ROOT_NS::modules::rt {
         virtual void each_field(analyzer_env_t & env, each_field_t f) = 0;
 
         // Enums all methods.
-        typedef std::function<bool (ref_t, rt_method_t *)> each_method_t;
+        typedef std::function<bool (ref_t, rt_method_base_t *)> each_method_t;
         virtual void each_method(analyzer_env_t & env, each_method_t f) = 0;
 
         // Searches method.
@@ -1199,6 +1207,106 @@ namespace X_ROOT_NS::modules::rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Runtime method base.
+    class rt_method_base_t
+    {
+    public:
+
+        // Returns type of this member.
+        virtual rt_member_type_t this_type() = 0;
+
+        // Returns method name.
+        virtual rt_sid_t get_name() = 0;
+
+        // Gets host type.
+        virtual rt_type_t * get_host_type() = 0;
+
+        // Gets owner type.
+        virtual rt_type_t * get_owner_type(analyzer_env_t & env) = 0;
+
+        // Gets return type.
+        virtual rt_type_t * get_return_type(analyzer_env_t & env) = 0;
+
+        // Geturns assembly.
+        virtual rt_assembly_t * get_assembly() = 0;
+
+        // Returns whether it's a virtual method.
+        virtual bool is_virtual() = 0;
+
+        // Returns whether it's a override method.
+        virtual bool is_override() = 0;
+
+        // Compares to prototype, returns true if equals.
+        virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
+                                            const generic_param_manager_t * gp_mgr) = 0;
+
+        // Returns a description of this method.
+        virtual string_t to_string(analyzer_env_t & env, bool include_host_type = false) = 0;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Runtime dynamic param.
+    struct rt_dynamic_param_t
+    {
+        rt_sid_t        name        = rt_sid_t::null;
+        param_type_t    param_type  = param_type_t::__default__;
+        rt_type_t *     type        = nullptr;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    class rt_dynamic_method_body_t;
+
+    // Runtime dynamic method.
+    class rt_dynamic_method_t : public rt_member_t
+                              , public rt_method_base_t
+    {
+    public:
+
+        // Returns type of this member.
+        virtual rt_member_type_t this_type() override { return rt_member_type_t::dynamic; }
+
+        // Returns method name.
+        virtual rt_sid_t get_name() override { return name; }
+
+        // Gets host type.
+        virtual rt_type_t * get_host_type() override { return host_type; }
+
+        // Gets assembly.
+        virtual rt_assembly_t * get_assembly() override;
+
+        // Gets owner type.
+        virtual rt_type_t * get_owner_type(analyzer_env_t & env) override { return nullptr; }
+
+        // Gets return type.
+        virtual rt_type_t * get_return_type(analyzer_env_t & env) override { return return_type; }
+
+        // Returns whether it'sa virtual method.
+        virtual bool is_virtual() override { return false; }
+
+        // Returns whether it's a override method.
+        virtual bool is_override() override { return false; }
+
+        // Compares to prototype, returns true if equals.
+        virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
+                                            const generic_param_manager_t * gp_mgr) override;
+
+        // Returns a description of this method.
+        virtual string_t to_string(analyzer_env_t & env, bool include_host_type) override;
+
+        rt_sid_t        name        = rt_sid_t::null;
+        rt_type_t *     host_type   = nullptr;
+        rt_type_t *     return_type = nullptr;
+
+        rt_dynamic_param_t * params = nullptr;
+        msize_t         param_count = 0;
+
+        rt_dynamic_method_body_t * body = nullptr;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Runtime generic type.
     class rt_generic_type_t : public __rt_general_like_type_t
     {
@@ -1307,12 +1415,24 @@ namespace X_ROOT_NS::modules::rt {
         // Returns tuple fields.
         rt_tuple_field_t * __get_tuple_fields(analyzer_env_t & env);
 
+        // Returns tuple dynamic methods.
+        rt_dynamic_method_t * __get_dynamic_methods(analyzer_env_t & env);
+
         // Field offset array.
         msize_t * __field_offsets = nullptr;
-        rt_tuple_field_t * __tuple_fields = nullptr;
-        int __atype_count = 0;
+        msize_t __atype_count = 0;
 
-        // int __b = 0;        // TODO: why it's set valuel 1?
+        // Tuple members.
+        struct __tuple_members_t
+        {
+            rt_tuple_field_t *      fields;
+            rt_dynamic_method_t *   methods;
+        };
+
+        __tuple_members_t * __tuple_members = nullptr;
+
+        // Initialize tuple members and return them.
+        __tuple_members_t * __get_tuple_members(analyzer_env_t & env);
     };
 
     // Returns whether it's a tuple type.
@@ -1413,26 +1533,6 @@ namespace X_ROOT_NS::modules::rt {
     };
 
     //-------- ---------- ---------- ---------- ----------
-
-    // Runtime method base.
-    class rt_method_base_t
-    {
-    public:
-
-        // Returns type of this member.
-        virtual rt_member_type_t this_type() = 0;
-
-        // Returns method name.
-        virtual rt_sid_t get_name() = 0;
-
-        // Gets host type.
-        virtual rt_type_t * get_host_type() = 0;
-
-        // Returns a description of this method.
-        virtual string_t to_string(analyzer_env_t & env, bool include_host_type = false) = 0;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
     // rt_method_t
 
     // Runtime method.
@@ -1449,19 +1549,32 @@ namespace X_ROOT_NS::modules::rt {
         rt_type_t * host_type = nullptr;
 
         // Gets assembly.
-        rt_assembly_t * get_assembly();
+        virtual rt_assembly_t * get_assembly() override;
 
         // Gets host type.
         rt_type_t * get_host_type() override;
 
         // Gets owner type (an interface type).
-        rt_type_t * get_owner_type(analyzer_env_t & env);
+        virtual rt_type_t * get_owner_type(analyzer_env_t & env) override;
+
+        // Gets return type.
+        virtual rt_type_t * get_return_type(analyzer_env_t & env) override;
 
         // Gets name.
         virtual rt_sid_t get_name() override;
 
         // Returns generic param count.
         int generic_param_count();
+
+        // Returns whether it's a virtual method.
+        virtual bool is_virtual() override;
+
+        // Returns whether it's a override method.
+        virtual bool is_override() override;
+
+        // Compares to prototype, returns true if equals.
+        virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
+                                            const generic_param_manager_t * gp_mgr) override;
 
         // Returns a description of this method.
         virtual string_t to_string(analyzer_env_t & env, bool include_host_type) override;
@@ -1499,11 +1612,27 @@ namespace X_ROOT_NS::modules::rt {
         // Returns host type.
         rt_type_t * get_host_type() override;
 
+        // Gets owner type.
+        virtual rt_type_t * get_owner_type(analyzer_env_t & env) override;
+
+        // Gets return type.
+        virtual rt_type_t * get_return_type(analyzer_env_t & env) override;
+
         // Gets assembly.
-        rt_assembly_t * get_assembly();
+        virtual rt_assembly_t * get_assembly() override;
 
         // Gets name.
         virtual rt_sid_t get_name() override;
+
+        // Returns whether it's a virtual method.
+        virtual bool is_virtual() override;
+
+        // Returns whether it's a override method.
+        virtual bool is_override() override;
+
+        // Compares to prototype, returns true if equals.
+        virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
+                                            const generic_param_manager_t * gp_mgr) override;
 
         // Returns a description of this method.
         virtual string_t to_string(analyzer_env_t & env, bool include_host_type) override;
@@ -1904,11 +2033,11 @@ namespace X_ROOT_NS::modules::rt {
     // Method prototype.
     struct method_prototype_t
     {
-        typedef al::svector_t<rt_ptype_t, 8> __ptypes;
+        typedef al::svector_t<rt_ptype_t, 8> __ptypes_t;
 
         rt_sid_t        name;                   // Method property.
         rt_type_t *     return_type;            // Return type.
-        __ptypes        arg_types;              // Argument types.
+        __ptypes_t      arg_types;              // Argument types.
         int             generic_param_count;    // Generic param count.
 
         // Returns param count.
@@ -2064,13 +2193,7 @@ namespace X_ROOT_NS::modules::rt {
                     rt_type_t * host_type, rt_type_t ** atypes = nullptr, int atype_count = 0);
 
         // Gets method by method ref.
-        rt_method_t * get_method(ref_t method_ref);
-
-        // Gets generic method by method ref.
-        rt_generic_method_t * get_generic_method(ref_t method_ref);
-
-        // Gets method or generic method by method ref.
-        rt_method_base_t * get_method_base(ref_t method_ref);
+        rt_method_base_t * get_method(ref_t method_ref);
 
         // Gets field by field ref.
         rt_field_base_t * get_field(ref_t field_ref, rt_type_t ** out_type = nullptr);
@@ -2152,7 +2275,7 @@ namespace X_ROOT_NS::modules::rt {
         }
 
         // Gets method by method ref.
-        rt_method_t * __get_method(ref_t method_ref);
+        rt_method_base_t * __get_method(ref_t method_ref);
 
         // Gets field by field ref.
         rt_field_base_t  * __get_field(ref_t field_ref, rt_type_t ** out_type);
@@ -2373,6 +2496,7 @@ namespace X_ROOT_NS::modules::rt {
 
 #include <modules/rt/__assembly_loader.h>
 #include <modules/rt/__layout.h>
+#include <modules/rt/__rt_commands.h>
 
 #endif // __RT_H__
 

@@ -24,11 +24,11 @@ namespace X_ROOT_NS::modules::exec {
 
         // Constructor.
         command_creating_context_t(executor_env_t & env, rt_assembly_t * assembly,
-            rt_type_t * type, rt_method_t * method,
+            rt_type_t * type, rt_method_base_t * method,
             const generic_param_manager_t * gp_manager = nullptr);
 
         rt_type_t * const           type;               // Runtime type.
-        rt_method_t * const         method;             // Runtime method.
+        rt_method_base_t * const    method;             // Runtime method.
         locals_layout_t             locals_layout;      // Locals layout.
         params_layout_t             params_layout;      // Params layout.
         exec_switch_manager_t       switch_manager;     // Switch...case method.
@@ -48,6 +48,9 @@ namespace X_ROOT_NS::modules::exec {
 
     // Creates command.
     command_t * new_command(command_creating_context_t & ctx, const xil_base_t * xil);
+
+    // Creates command.
+    command_t * new_command(command_creating_context_t & ctx, rt_command_t * cmd);
 
     // Creates static call command.
     command_t * new_static_call_command(command_creating_context_t & ctx, ref_t method_ref);

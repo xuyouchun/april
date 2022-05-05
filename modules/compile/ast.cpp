@@ -561,7 +561,8 @@ namespace X_ROOT_NS::modules::compile {
                 _T("'%1%': cannot override inherited member '%2%' because it is sealed"))
 
         // Return type changed when override inherit members.
-        X_D(override_member_return_type_changed, _T("'%1%': return type must be '%2%' to match overridden member '%3%'"))
+        X_D(override_member_return_type_changed,
+                _T("'%1%': return type must be '%2%' to match overridden member '%3%'"))
 
         // Interface method cannot declare a body.
         X_D(interface_members_cannot_have_defination,

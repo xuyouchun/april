@@ -1084,9 +1084,23 @@ namespace X_ROOT_NS::modules::core {
     // decorate_value_t
 
     const decorate_value_t decorate_value_t::default_value { };
+
+    const decorate_value_t decorate_value_t::public_ {
+        .access = access_value_t::public_
+    };
+
     const decorate_value_t decorate_value_t::public_readonly {
         .is_readonly = true, .access = access_value_t::public_
     };
+
+    const decorate_value_t decorate_value_t::private_ {
+        .access = access_value_t::private_
+    };
+
+    const decorate_value_t decorate_value_t::private_readonly {
+        .is_readonly = true, .access = access_value_t::private_
+    };
+
     const decorate_t decorate_t::default_value { };
 
     // Converts decorate_value_t to a string.
@@ -2952,6 +2966,12 @@ namespace X_ROOT_NS::modules::core {
             && ( (ttype = type->this_ttype()) == ttype_t::struct_ || ttype == ttype_t::class_ );
     }
 
+    // Returns whether it's a tuple type.
+    bool is_tuple(type_t * type)
+    {
+        return type == __XPool.get_tuple_type() || type == __XPool.get_ituple_type();
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // analyze_member_args_t
 
@@ -3787,7 +3807,8 @@ namespace X_ROOT_NS::modules::core {
         _A(template_ != nullptr);
         _A(template_->committed());
 
-        if (template_ == __XPool.get_tuple_type())    // Tuple
+        // Tuple types.
+        if (template_ == __XPool.get_tuple_type() || template_ == __XPool.get_ituple_type())
         {
             __transform_tuple_type(tctx);
         }
@@ -3811,25 +3832,15 @@ namespace X_ROOT_NS::modules::core {
 
         xpool_t & xpool = __XPool;
 
-        // Fields.
-        for (int index = 0, count = args.size(); index < count; index++)
-        {
-            type_t * type = args[index];
-            string_t name = _F(_T("Item%1%"), index + 1);
-
-            position_field_t * new_field = xpool.new_obj<position_field_t>();
-            new_field->position     = index;
-            new_field->name         = xpool.to_name(name.c_str());
-            new_field->type_name    = xpool.new_obj<type_name_t>(type);
-            new_field->init_value   = nullptr;
-            new_field->decorate     = xpool.new_obj<decorate_t>(decorate_value_t::public_readonly);
-            new_field->host_type    = this;
-            new_field->variable     = xpool.new_obj<field_variable_t>(new_field);
-
-            fields.push_back(new_field);
-        }
+        // Transform members (except fields & methods).
+        __transform_members(tctx, template_->properties, properties);
+        __transform_members(tctx, template_->events, events);
+        __transform_members(tctx, template_->nest_types, nest_types);
+        __transform_members(tctx, template_->type_defs, type_defs);
+        __transform_members(tctx, template_->super_type_names, super_type_names);
 
         // Methods.
+        // __transform_members(tctx, template_->methods, methods);
         for (method_t * method : template_->methods)
         {
             if (method->trait == method_trait_t::constructor && method->generic_param_count() > 0)
@@ -3875,13 +3886,49 @@ namespace X_ROOT_NS::modules::core {
             }
         }
 
-        // __transform_members(tctx, template_->fields, fields);
-        // __transform_members(tctx, template_->methods, methods);
-        __transform_members(tctx, template_->properties, properties);
-        __transform_members(tctx, template_->events, events);
-        __transform_members(tctx, template_->nest_types, nest_types);
-        __transform_members(tctx, template_->type_defs, type_defs);
-        __transform_members(tctx, template_->super_type_names, super_type_names);
+        // Fields.
+        __transform_members(tctx, template_->fields, fields);
+        for (int index = 0, count = args.size(); index < count; index++)
+        {
+            type_t * type = args[index];
+            type_name_t * type_name = xpool.new_obj<type_name_t>(type);
+
+            // field.
+            if (template_ == xpool.get_tuple_type())
+            {
+                position_field_t * new_field = xpool.new_obj<position_field_t>();
+                new_field->position     = index;
+                new_field->name         = xpool.to_name(_FT("__item%1%", index + 1));
+                new_field->type_name    = type_name;
+                new_field->init_value   = nullptr;
+                new_field->decorate     = xpool.to_decorate(decorate_value_t::private_readonly);
+                new_field->host_type    = this;
+                new_field->variable     = xpool.new_obj<field_variable_t>(new_field);
+
+                fields.push_back(new_field);
+            }
+
+            // method.
+            method_t * new_method   = xpool.new_obj<method_t>();
+            new_method->name = xpool.to_name(_FT("get_Item%1%", index + 1));
+            new_method->type_name   = type_name;
+            new_method->decorate    = xpool.to_decorate(decorate_value_t::public_);
+            new_method->host_type   = this;
+            new_method->variable    = xpool.new_obj<method_variable_t>(new_method);
+
+            methods.push_back(new_method);
+
+            // property.
+            property_t * new_property = xpool.new_obj<property_t>();
+            new_property->name      = xpool.to_name(_FT("Item%1%", index + 1));
+            new_property->type_name = type_name;
+            new_property->decorate  = xpool.to_decorate(decorate_value_t::public_);
+            new_property->host_type = this;
+            new_property->variable  = xpool.new_obj<property_variable_t>(new_property);
+            new_property->get_method = new_method;
+
+            properties.push_back(new_property);
+        }
     }
 
     // Finds real type of generic param.
@@ -5400,10 +5447,16 @@ namespace X_ROOT_NS::modules::core {
         return __get_specified_type(__CoreTypeName(CoreType_Exception), __exception_type);
     }
 
-    // Returns System.Tuple type.
+    // Returns System.Tuple<...> type.
     general_type_t * xpool_t::get_tuple_type()
     {
         return __get_specified_type(__CoreTypeName(CoreType_Tuple), __tuple_type);
+    }
+
+    // Returns System.ITuple<...> type.
+    general_type_t * xpool_t::get_ituple_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_ITuple), __ituple_type);
     }
 
     // Returns System.Diagnostics.TraceAttribute type.
@@ -5583,6 +5636,21 @@ namespace X_ROOT_NS::modules::core {
             it->second = new_obj<cvalue_expression_t>(
                 const_cast<__cvalue_t *>(&it->first)
             );
+        }
+
+        return it->second;
+    }
+
+    // Returns decorate of specified value.
+    decorate_t * xpool_t::to_decorate(decorate_value_t value)
+    {
+        auto it = __decorate_map.find(value);
+        if (it == __decorate_map.end())
+        {
+            decorate_t * decorate = new_obj<decorate_t>(value);
+            __decorate_map[value] = decorate;
+
+            return decorate;
         }
 
         return it->second;
