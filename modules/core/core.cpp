@@ -3832,13 +3832,6 @@ namespace X_ROOT_NS::modules::core {
 
         xpool_t & xpool = __XPool;
 
-        // Transform members (except fields & methods).
-        __transform_members(tctx, template_->properties, properties);
-        __transform_members(tctx, template_->events, events);
-        __transform_members(tctx, template_->nest_types, nest_types);
-        __transform_members(tctx, template_->type_defs, type_defs);
-        __transform_members(tctx, template_->super_type_names, super_type_names);
-
         // Methods.
         // __transform_members(tctx, template_->methods, methods);
         for (method_t * method : template_->methods)
@@ -3929,6 +3922,13 @@ namespace X_ROOT_NS::modules::core {
 
             properties.push_back(new_property);
         }
+
+        // Transform members (except fields & methods).
+        __transform_members(tctx, template_->properties, properties);
+        __transform_members(tctx, template_->events, events);
+        __transform_members(tctx, template_->nest_types, nest_types);
+        __transform_members(tctx, template_->type_defs, type_defs);
+        __transform_members(tctx, template_->super_type_names, super_type_names);
     }
 
     // Finds real type of generic param.

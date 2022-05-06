@@ -204,7 +204,8 @@ namespace X_ROOT_NS::modules::exec {
             // For dynamic methods.
             struct
             {
-                dynamic_method_reader_t * __dynamic_method_reader;
+                rt_dynamic_method_t *       __dynamic_method;
+                dynamic_method_reader_t *   __dynamic_method_reader;
             };
         };
 

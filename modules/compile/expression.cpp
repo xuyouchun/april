@@ -271,9 +271,18 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    // Push this expression.
+    static void __push_this(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
+    {
+        if (exp == nullptr)
+            pool.append<x_push_this_ref_xil_t>();
+        else
+            exp->compile(ctx, pool);
+    }
+
     // Pre append custom struct for assign.
     void __pre_custom_struct_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
-        variable_t * variable, expression_t * expression)
+        variable_t * variable, expression_t * expression, expression_t * this_)
     {
         type_t * type = expression->get_type();
         _A( is_custom_struct(type) );
@@ -305,6 +314,10 @@ namespace X_ROOT_NS::modules::compile {
         else // assign
         {
             expression->compile(ctx, pool);
+
+            if (variable->this_type() == variable_type_t::field)
+                __push_this(ctx, pool, this_);
+
             __push_variable_address(ctx, pool, variable);
             pool.append<x_object_copy_xil_t>(__ref_of(ctx, type));
         }
@@ -1050,15 +1063,6 @@ namespace X_ROOT_NS::modules::compile {
         bool           custom_struct;
     };
 
-    // Push this expression.
-    static void __push_this(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
-    {
-        if (exp == nullptr)
-            pool.append<x_push_this_ref_xil_t>();
-        else
-            exp->compile(ctx, pool);
-    }
-
     // Pre compile assign.
     static __compile_assign_t __pre_compile_assign_to(__cctx_t & ctx, xil_pool_t & pool,
                                                                   expression_t * exp)
@@ -1129,12 +1133,16 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case variable_type_t::field:
-                __push_this(ctx, pool, ca.this_);
-
                 if (!ca.custom_struct)
+                {
+                    __push_this(ctx, pool, ca.this_);
                     xil::write_assign_xil(ctx, pool, (field_variable_t *)var, dtype, pick);
+                }
                 else
-                    __pre_custom_struct_assign(ctx, pool, var, exp2);
+                {
+                    __pre_custom_struct_assign(ctx, pool, var, exp2, ca.this_);
+                }
+
                 break;
 
             case variable_type_t::property: {

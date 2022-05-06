@@ -1391,10 +1391,8 @@ namespace X_ROOT_NS::modules::rt {
                 f(ref_t::null, methods + k);
             }
         }
-        else
-        {
-            template_->each_method(env, f);
-        }
+
+        template_->each_method(env, f);
     }
 
     // Gets name.
@@ -1636,11 +1634,13 @@ namespace X_ROOT_NS::modules::rt {
     // A generic field wrapper.
     struct __generic_field_wrapper_t
     {
-        msize_t * p_offset;
+        msize_t *           p_offset;
+        rt_field_base_t *   rt_field;
 
         void set_offset(msize_t offset)
         {
             *p_offset = offset;
+            rt_field->offset = offset;
         }
 
         bool operator == (std::nullptr_t) const
@@ -1657,9 +1657,12 @@ namespace X_ROOT_NS::modules::rt {
     };
 
     // Wraps a offset pointer.
-    __generic_field_wrapper_t __wrap_generic_field(msize_t * p_offset)
+    __generic_field_wrapper_t __wrap_generic_field(msize_t * p_offset, rt_field_base_t * rt_field)
     {
-        return __generic_field_wrapper_t { p_offset };
+        return __generic_field_wrapper_t {
+            .p_offset = p_offset,
+            .rt_field = rt_field,
+        };
     }
 
     // When caculate layout.
@@ -1700,7 +1703,7 @@ namespace X_ROOT_NS::modules::rt {
             rt_type_t * field_type = field->get_field_type(analyzer, this);
             _A(field_type != nullptr);
 
-            return layout.append(__wrap_generic_field(p++), field_type), true;
+            return layout.append(__wrap_generic_field(p++, field), field_type), true;
         });
 
         layout.commit();
@@ -2828,9 +2831,7 @@ namespace X_ROOT_NS::modules::rt {
 
             rt_method = nullptr;
             rt_type->each_method(env, [&, this](ref_t, rt_method_base_t * rt_method_) {
-
                 bool r = rt_method_->compare_to(env, prototype, &gp_mgr);
-
                 return r? rt_method = rt_method_, false : true;
             });
         }

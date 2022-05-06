@@ -520,7 +520,7 @@ namespace X_ROOT_NS::algorithm {
     template<size_t _size, bool _backward = false>
     X_ALWAYS_INLINE void quick_copy(void * dst, const void * src) _NE
     {
-        if (_backward)
+        if constexpr (_backward)
             __quick_copy_t<_size>::copy_backward(dst, src);
         else
             __quick_copy_t<_size>::copy(dst, src);

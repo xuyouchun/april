@@ -2148,7 +2148,7 @@ namespace X_ROOT_NS::modules::exec {
                 args.constant.dtype = xil.dtype();
                 args.constant.data  = (void *)((const exxil_t &)xil).extra;
 
-                if (args.constant.dtype == xil_type_t::object)
+                if (args.constant.dtype == xil_type_t::object)  // System.Type
                     args.constant.type = ctx.get_type(xil.get_ref());
 
                 break;
@@ -2160,14 +2160,14 @@ namespace X_ROOT_NS::modules::exec {
                 args.params.offset = ctx.params_layout.extends_offset();
                 break;
 
-            case xil_storage_type_t::object: {
+            case xil_storage_type_t::object:
                 args.object.type = xil.get_object_type();
-                rt_object_t * object = __get_object(ctx, args.object.type, xil.get_ref()
+                args.object.object = __get_object(ctx, args.object.type, xil.get_ref()
                 #if EXEC_TRACE
                     , &name
                 #endif
                 );
-            }   break;
+                break;
 
             case xil_storage_type_t::local_addr:
                 args.local_addr.offset = ctx.locals_layout.offset_of(xil.get_identity());
@@ -6238,7 +6238,7 @@ namespace X_ROOT_NS::modules::exec {
                 break;
 
             default:
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected xil copy kind '%1%'", kind);
         }
 
         #undef __Case
@@ -6522,16 +6522,54 @@ namespace X_ROOT_NS::modules::exec {
         {
             case xil_storage_type_t::argument: {
                 rt_push_argument_command_t * cmd = (rt_push_argument_command_t *)rt_cmd;
-                return nullptr;
+                xil_type_t xt = __xil_type_of_argument(ctx, cmd->identity);
+
+                __new_push_command_args_t args {
+                    .stype = xil_storage_type_t::argument,
+                    .xt1   = xt,
+                    .xt2   = xt,
+                    .argument.offset = __offset_of_argument(ctx, cmd->identity),
+                };
+
+                return __new_push_command(ctx, args);
             }
 
             case xil_storage_type_t::field: {
                 rt_push_field_command_t * cmd = (rt_push_field_command_t *)rt_cmd;
-                return nullptr;
+                rt_field_base_t * field = cmd->field;
+                rt_type_t * field_type = field->get_field_type(ctx,
+                                        dynamic_cast<rt_generic_type_t *>(ctx.type));
+
+                _A(field_type != nullptr);
+                xil_type_t xt = __xil_type_of(ctx, field_type);
+
+                __new_push_command_args_t args {
+                    .stype = xil_storage_type_t::field,
+                    .xt1   = xt,
+                    .xt2   = xt,
+                    .field.offset = field->offset,
+                };
+
+                return __new_push_command(ctx, args);
             }
 
             default:
                 X_UNEXPECTED_F("unexpected storage type '%1%'", rt_cmd->stype);
+        }
+    }
+
+    // Creates a smp command.
+    command_t * __new_smp_command(command_creating_context_t & ctx, rt_smp_command_base_t * rt_cmd)
+    {
+        _A(rt_cmd != nullptr);
+
+        switch (rt_cmd->smp)
+        {
+            case xil_smp_t::ret:
+                return new_ret_command(ctx);
+
+            default:
+                X_UNEXPECTED_F("unexpected smp type %1%", rt_cmd->smp);
         }
     }
 
@@ -6544,6 +6582,9 @@ namespace X_ROOT_NS::modules::exec {
         {
             case xil_command_t::push:
                 return __new_push_command(ctx, (rt_push_command_base_t *)rt_cmd);
+
+            case xil_command_t::smp:
+                return __new_smp_command(ctx, (rt_smp_command_base_t *)rt_cmd);
 
             default:
                 X_UNEXPECTED_F("unexpected xil command '%1%", rt_cmd->cmd);

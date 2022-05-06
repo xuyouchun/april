@@ -91,23 +91,34 @@ namespace X_ROOT_NS::modules::rt {
         typedef rt_push_argument_command_t              __self_t;
         typedef rt_push_command_t<__stype_t::argument>  __super_t;
 
-        rt_push_argument_command_t(msize_t index) _NE : index(index) { }
+        rt_push_argument_command_t(msize_t identity) _NE : identity(identity) { }
 
-        msize_t index;
+        msize_t identity;
     };
 
     //-------- ---------- ---------- ---------- ----------
 
     // Runtime smp command base type.
-    template<__smp_t _smp>
     struct rt_smp_command_base_t : rt_command_base_t<__cmd_t::smp>
     {
         typedef rt_smp_command_base_t           __self_t;
         typedef rt_command_base_t<__cmd_t::smp> __super_t;
 
-        rt_smp_command_base_t() _NE : smp(_smp) { }
+        rt_smp_command_base_t(__smp_t smp) _NE : smp(smp) { }
 
         __smp_t     smp;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Runtime smp command base type.
+    template<__smp_t _smp>
+    struct rt_smp_command_t : rt_smp_command_base_t
+    {
+        typedef rt_smp_command_t<_smp>  __self_t;
+        typedef rt_smp_command_base_t   __super_t;
+
+        rt_smp_command_t() _NE : __super_t(_smp) { }
 
         static const __smp_t this_smp = _smp;
     };
@@ -115,10 +126,10 @@ namespace X_ROOT_NS::modules::rt {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // Runtime ret command.
-    struct rt_ret_command_t : rt_smp_command_base_t<__smp_t::ret>
+    struct rt_ret_command_t : rt_smp_command_t<__smp_t::ret>
     {
-        typedef rt_ret_command_t                    __self_t;
-        typedef rt_smp_command_base_t<__smp_t::ret> __super_t;
+        typedef rt_ret_command_t                __self_t;
+        typedef rt_smp_command_t<__smp_t::ret>  __super_t;
     };
 
     ////////// ////////// ////////// ////////// //////////

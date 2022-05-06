@@ -1302,6 +1302,8 @@ namespace X_ROOT_NS::modules::rt {
         rt_dynamic_param_t * params = nullptr;
         msize_t         param_count = 0;
 
+        decorate_value_t    decorate = decorate_value_t::default_value;
+
         rt_dynamic_method_body_t * body = nullptr;
     };
 

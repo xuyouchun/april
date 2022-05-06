@@ -91,6 +91,7 @@ namespace X_ROOT_NS::modules::exec {
         rt_bytes_t commands = body->commands;
         _A(commands.bytes != nullptr);
 
+        __dynamic_method = dynamic_method;
         __dynamic_method_reader = __pool.new_obj<dynamic_method_reader_t>(
             commands.bytes, commands.length, __env.memory
         );
@@ -301,7 +302,43 @@ namespace X_ROOT_NS::modules::exec {
     // Parse method info.
     void method_parser_t::__parse_dynamic_info()
     {
-        // X_UNEXPECTED(_T("---------------- __parse_dynamic_info"));
+        // Read local variables
+        uint16_t ref_objects = 0;
+
+        locals_layout_t & locals_layout = __creating_ctx->locals_layout;
+        /*
+        __method_reader->each_variable([&locals_layout](local_variable_defination_t & def) {
+            locals_layout.append(def);
+        });
+        locals_layout.commit();
+        */
+
+        // Read params variables
+        params_layout_t & params_layout = __creating_ctx->params_layout;
+        if (!__dynamic_method->decorate.is_static)
+            params_layout.append(__host_type, param_type_t::default_, param_layout_type_t::this_);
+
+        for (rt_dynamic_param_t * param = __dynamic_method->params,
+                * param_end = param + __dynamic_method->param_count;
+             param < param_end; param++)
+        {
+            params_layout.append(param->type, param->param_type);
+        }
+
+        params_layout.commit();
+        msize_t this_offset = params_layout.offset_of(0);
+
+        // Read switch tables
+        /*
+        exec_switch_manager_t & switch_manager = __creating_ctx->switch_manager;
+        __method_reader->each_switch_table([&switch_manager](exec_switch_table_t * tbl) {
+            switch_manager.append_table(tbl);
+        });
+        */
+
+        __exec_method->ref_objects = ref_objects;
+        __exec_method->stack_unit_size = locals_layout.unit_size();
+        __exec_method->this_offset = this_offset;
     }
 
     // Parse dynamic commands.

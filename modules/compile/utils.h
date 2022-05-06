@@ -159,7 +159,7 @@ namespace X_ROOT_NS::modules::compile {
     // Otherwise, append object_copy xil.
     // See also: __compile_new_struct_object() in expression.cpp.
     void __pre_custom_struct_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
-        variable_t * variable, expression_t * expression);
+        variable_t * variable, expression_t * expression, expression_t * this_ = nullptr);
 
     // Pre append custom struct for return.
     void __do_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
