@@ -2240,33 +2240,11 @@ namespace X_ROOT_NS::modules::core {
     // Returns whether it's a reference type.
     bool field_t::is_ref_type()
     {
-        if (this->this_family() == member_family_t::position)
-        {
-            position_field_t * f = (position_field_t *)this;
-            type_t * type = get_type();
-        }
-
         type_t * type = get_type();
         if (type == nullptr)
             return true;                    // treat as object
 
-        ttype_t ttype;
-
-        switch (type->this_gtype())
-        {
-            case gtype_t::general:
-                ttype = ((general_type_t *)type)->ttype;
-                break;
-
-            case gtype_t::generic:
-                ttype = (((generic_type_t *)type)->template_)->ttype;
-                break;
-
-            default:
-                ttype = ttype_t::class_;
-                break;
-        }
-
+        ttype_t ttype = type->this_ttype();
         return __is_ref_type(ttype);
     }
 
@@ -2928,6 +2906,14 @@ namespace X_ROOT_NS::modules::core {
             return true;
 
         return is_ref_type(type->this_ttype());
+    }
+
+    // Returns whether a type is struct.
+    bool is_value_type(type_t * type)
+    {
+        _A(type != nullptr);
+
+        return is_value_type(type->this_ttype());
     }
 
     // Returns general type if it's a generic type, otherwise, returns itself.

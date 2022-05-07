@@ -192,11 +192,11 @@ namespace X_ROOT_NS::modules::core {
 
         char_           = 12,
 
-        string          = 13,
+        ptr             = 13,
 
         object          = 14,
 
-        ptr             = 15,
+        string          = 15,
 
     __EnumEnd
 
@@ -205,6 +205,18 @@ namespace X_ROOT_NS::modules::core {
 
     // Converts a type_t * to xil_type
     xil_type_t to_xil_type(type_t * type);
+
+    // Returns whether it's a ref type.
+    X_INLINE bool is_ref_type(xil_type_t type) _NE
+    {
+        return type == xil_type_t::object || type == xil_type_t::string;
+    }
+
+    // Returns whether it's a value type.
+    X_INLINE bool is_value_type(xil_type_t type) _NE
+    {
+        return type >= xil_type_t::int8 || type <= xil_type_t::ptr;
+    }
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -329,6 +341,10 @@ namespace X_ROOT_NS::modules::core {
         duplicate       = 18,       // Push the same object at the top.
 
         convert         = 19,       // Converts the object at the top to another type.
+
+        box             = 20,       // Creates a value object on heap.
+
+        unbox           = 21,       // Converts an ref object to value object.
 
     __EnumEnd
 
@@ -746,6 +762,14 @@ namespace X_ROOT_NS::modules::core {
 
     #define XIL_CALLING_BOTTOM_IDENTITY        65535U
 
+    __Enum(xil_box_type_t)
+
+        pop         = __default__,
+
+        pick,
+
+    __EnumEnd
+
     // Push xil.
     __BeginXil(push)
 
@@ -830,6 +854,12 @@ namespace X_ROOT_NS::modules::core {
         // Sets object type. (for external command: push object)
         void set_object_type(__object_type_t object_type) { __data = (byte_t)object_type; }
 
+        // Gets box type.
+        xil_box_type_t get_box_type() const _NE { return (xil_box_type_t)__data; }
+
+        // Sets box type.
+        void set_box_type(xil_box_type_t type) _NE { __data = (byte_t)type; };
+
         // Returns extra data.
         template<typename t> const t & get_extra() const _NE
         {
@@ -877,7 +907,12 @@ namespace X_ROOT_NS::modules::core {
                 break;
 
             case xil_storage_type_t::convert:
-                size += 1;
+                size += 1;                              // xil_type_t
+                break;
+
+            case xil_storage_type_t::box:
+            case xil_storage_type_t::unbox:
+                size += sizeof(__ref_t);                // type_ref
                 break;
 
             default:

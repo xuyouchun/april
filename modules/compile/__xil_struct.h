@@ -452,6 +452,32 @@ namespace X_ROOT_NS::modules::compile {
         }
     };
 
+    // Push box xil.
+    struct x_push_box_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_box_xil_t(ref_t type_ref, xil_box_type_t box_type = xil_box_type_t::pop)
+            : __super_t(xil_storage_type_t::box)
+        {
+            this->set_ref(type_ref);
+            this->set_box_type(box_type);
+        }
+    };
+
+    // Push unbox xil.
+    struct x_push_unbox_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_unbox_xil_t(ref_t type_ref)
+            : __super_t(xil_storage_type_t::unbox)
+        {
+            this->set_dtype(xil_type_t::empty);
+            this->set_ref(type_ref);
+        }
+    };
+
     // Push params address xil.
     struct x_push_params_xil_t : xil_extra_t<push_xil_t>
     {

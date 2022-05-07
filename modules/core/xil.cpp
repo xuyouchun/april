@@ -404,6 +404,10 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(convert,            _T("convert"))
 
+        X_C(box,                _T("box"))
+
+        X_C(unbox,              _T("unbox"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -414,6 +418,17 @@ namespace X_ROOT_NS::modules::core {
         X_C(type_info,      _T("type_info"))
 
         X_C(method_info,    _T("method_info"))
+
+    X_ENUM_INFO_END
+
+    //-------- ---------- ---------- ---------- ----------
+    // Box type
+
+    X_ENUM_INFO(xil_box_type_t)
+
+        X_C(pop,            _T("pop"))
+
+        X_C(pick,           _T("pick"))
 
     X_ENUM_INFO_END
 
@@ -543,7 +558,9 @@ namespace X_ROOT_NS::modules::core {
                 return _F(_T("push argument %1% [%2%]"), dtype(), get_identity());
 
             case xil_storage_type_t::field:
-                return _F(_T("push field %1% [%2%]"), dtype(), get_ref());
+                if (dtype() == xil_type_t::empty)
+                    return _F(_T("push field {%1%}"), get_ref());
+                return _F(_T("push field %1% {%2%}"), dtype(), get_ref());
 
             case xil_storage_type_t::array_element:
                 return _F(_T("push array_element %1% [%2%]"), dtype(), get_ref());
@@ -588,6 +605,12 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_storage_type_t::convert:
                 return _F(_T("convert %1%=>%2%"), dtype(), dtype2());
+
+            case xil_storage_type_t::box:
+                return _FT("box {%1%} [%2%]", get_ref(), get_box_type());
+
+            case xil_storage_type_t::unbox:
+                return _FT("unbox {%1%}", get_ref());
 
             default:
                 return _T("push ?");

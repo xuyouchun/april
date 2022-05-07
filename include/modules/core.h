@@ -2113,6 +2113,12 @@ namespace X_ROOT_NS::modules::core {
         return ttype == ttype_t::class_ || ttype == ttype_t::interface_;
     }
 
+    // Returns whether the ttype is value type.
+    X_INLINE bool is_value_type(ttype_t ttype)
+    {
+        return ttype == ttype_t::struct_;
+    }
+
     //-------- ---------- ---------- ---------- ----------
 
     // Kind of a type.
@@ -2462,6 +2468,9 @@ namespace X_ROOT_NS::modules::core {
 
     // Returns whether a type is class, interface or null.
     bool is_ref_type(type_t * type);
+
+    // Returns whether a type is struct.
+    bool is_value_type(type_t * type);
 
     // Returns whether a type is a general type, ( defined in source code. )
     X_ALWAYS_INLINE bool is_general(type_t * type)

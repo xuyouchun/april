@@ -302,16 +302,16 @@ namespace X_ROOT_NS::modules::compile {
 
             expression->compile(ctx, pool);
         }
-        else if (__is_call_expression(expression))  // function
+        else if (__is_call_expression(expression))  // Function
         {
             __push_variable_address(ctx, pool, variable);
             expression->compile(ctx, pool);
         }
         else if (__try_delegate_assign(ctx, pool, variable, expression))
         {
-            // OK
+            // OK, do nothing.
         }
-        else // assign
+        else // Assign
         {
             expression->compile(ctx, pool);
 
@@ -1105,29 +1105,29 @@ namespace X_ROOT_NS::modules::compile {
         return __compile_assign_t { this_exp, var, exp, custom_struct };
     }
 
-
     // Compiles assign to expression.
     static void __compile_assign_to(__cctx_t & ctx, xil_pool_t & pool, __compile_assign_t & ca,
-        expression_t * exp2, __assign_to_type_t assign_type = __assign_to_type_t::default_,
-        xil_type_t dtype = xil_type_t::empty)
+        expression_t * exp2, __assign_to_type_t assign_type = __assign_to_type_t::default_)
     {
         expression_t * exp = ca.exp;
         bool pick = (assign_type == __assign_to_type_t::default_)?
             is_effective(ctx, exp->parent->parent) : (assign_type == __assign_to_type_t::pick);
+
+        type_t * type = (exp2 == nullptr)? nullptr : exp2->get_type();
 
         variable_t * var = ca.var;
         switch (var->this_type())
         {
             case variable_type_t::local:
                 if (!ca.custom_struct)
-                    xil::write_assign_xil(ctx, pool, (local_variable_t *)var, dtype, pick);
+                    xil::write_assign_xil(ctx, pool, (local_variable_t *)var, type, pick);
                 else
                     __pre_custom_struct_assign(ctx, pool, var, exp2);
                 break;
 
             case variable_type_t::param:
                 if (!ca.custom_struct)
-                    xil::write_assign_xil(ctx, pool, (param_variable_t *)var, dtype, pick);
+                    xil::write_assign_xil(ctx, pool, (param_variable_t *)var, type, pick);
                 else
                     __pre_custom_struct_assign(ctx, pool, var, exp2);
                 break;
@@ -1136,7 +1136,7 @@ namespace X_ROOT_NS::modules::compile {
                 if (!ca.custom_struct)
                 {
                     __push_this(ctx, pool, ca.this_);
-                    xil::write_assign_xil(ctx, pool, (field_variable_t *)var, dtype, pick);
+                    xil::write_assign_xil(ctx, pool, (field_variable_t *)var, type, pick);
                 }
                 else
                 {
@@ -1209,7 +1209,7 @@ namespace X_ROOT_NS::modules::compile {
             }   break;
 
             default:
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected variable type '%1%'", var->this_type());
         }
     }
 
@@ -2329,7 +2329,21 @@ namespace X_ROOT_NS::modules::compile {
             return;
 
         cvalue_t cvalue = *this->value;
-        __compile_cvalue(ctx, pool, cvalue, dtype);
+
+        if (is_number(cvalue) && is_ref_type(dtype))    // Box.
+        {
+            dtype = xil_type_t::empty;
+            __compile_cvalue(ctx, pool, cvalue, dtype);
+
+            type_t * type = this->get_type();
+            __FailedWhenNull(type, "type empty when compile cvalue_expression_t");
+
+            pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
+        }
+        else
+        {
+            __compile_cvalue(ctx, pool, cvalue, dtype);
+        }
 
         __post_compile_expression(ctx, pool, this, dtype, dtype);
     }

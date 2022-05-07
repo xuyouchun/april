@@ -475,7 +475,6 @@ namespace X_ROOT_NS::modules::exec {
     #define __DefineStArrayCmdValue(_cmd, _xt1, _xt2, _deminision)                      \
                     __DefineCmdValue_(__StArrayCmd(_cmd, _xt1, _xt2, _deminision))
 
-
     ////////// ////////// ////////// ////////// //////////
     // Class __push_command_t
 
@@ -1342,6 +1341,7 @@ namespace X_ROOT_NS::modules::exec {
     }
 
     //-------- ---------- ---------- ---------- ----------
+    // Push params address.
 
     #define __PushParamsAddrCmd  __Cmd(push, params_addr)
     __DefineCmdValue_(__PushParamsAddrCmd)
@@ -1380,6 +1380,75 @@ namespace X_ROOT_NS::modules::exec {
         {
             typedef __push_params_address_command_t this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Push box.
+
+    #define __PushBoxCmd(_box_type)  __Cmd(push, box##_##_box_type)
+    __DefineCmdValue_(__PushBoxCmd(pop))
+    __DefineCmdValue_(__PushBoxCmd(pick))
+
+    template<command_value_t _cv, xil_type_t _xt, xil_box_type_t _box_type>
+    class __push_box_command_t : public __command_base_t<_cv>
+    {
+        typedef __push_box_command_t    __self_t;
+        typedef __command_base_t<_cv>   __super_t;
+        typedef __vnum_t<_xt>           __value_t;
+
+    public:
+        __push_box_command_t(rt_type_t * type) : __type(type) { }
+
+        #if EXEC_TRACE
+
+        __ToString(_FT("box [%1%]", _box_type));
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            if constexpr (_box_type == xil_box_type_t::pop)
+            {
+                __value_t value = ctx.stack.pop<__value_t>();
+
+                // __pre_new(ctx, type);
+
+                rt_ref_t obj = ctx.heap->new_obj(__type);
+                *(__value_t *)(void *)obj = value;
+
+                ctx.stack.push<rt_ref_t>(obj);
+            }
+            else if constexpr (_box_type == xil_box_type_t::pick)
+            {
+                __value_t value = ctx.stack.pick<__value_t>();
+
+                // __pre_new(ctx, type);
+
+                rt_ref_t obj = ctx.heap->new_obj(__type);
+                *(__value_t *)(void *)obj = value;
+
+                ctx.stack.push<rt_ref_t>(obj);
+            }
+            else
+            {
+                X_UNEXPECTED_F("unexpected box type '%1%'", _box_type);
+            }
+
+        __EndExecute()
+
+    private:
+        rt_type_t * __type;
+    };
+
+    struct __push_box_command_template_t
+    {
+        template<command_value_t _cv, xil_type_t _xt, xil_box_type_t _box_type,
+                                                        typename ... _args_t>
+        static auto new_command(memory_t * memory, rt_type_t * type, _args_t && ... args)
+        {
+            typedef __push_box_command_t<_cv, _xt, _box_type> this_command_t;
+            return __new_command<this_command_t>(memory, type, std::forward<_args_t>(args) ...);
         }
     };
 
@@ -1664,6 +1733,19 @@ namespace X_ROOT_NS::modules::exec {
             {
                 dimension_t dimension;
             } array_element;
+
+            // box.
+            struct
+            {
+                rt_type_t *     type;
+                xil_box_type_t  box_type;
+            } box;
+
+            // unbox.
+            struct
+            {
+                rt_type_t *     type;
+            } unbox;
         };
     };
 
@@ -1724,6 +1806,10 @@ namespace X_ROOT_NS::modules::exec {
             __push_convert_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<> __convert_command_manager;
 
+        static __command_manager_t<
+            __push_box_command_template_t, xil_type_t, xil_box_type_t
+        >::with_args_t<rt_type_t *> __box_command_manager;
+
         xil_storage_type_t stype = args.stype;
         xil_type_t xt1 = args.xt1, xt2 = args.xt2;
 
@@ -1764,6 +1850,45 @@ namespace X_ROOT_NS::modules::exec {
                     __StAddrCmd(push, field_addr), stype_t::field_addr>(
                     args.field_addr.offset
                 );
+
+            case xil_storage_type_t::box: {         // Push box.
+                xil_type_t xt = __xil_type_of(ctx, args.box.type);
+                #define __BoxV(_xt, _box_type)  (((byte_t)_xt << 4) | (byte_t)_box_type)
+
+                switch (__BoxV(xt, args.box.box_type))
+                {
+                    #define __CaseBox_(_xt, _box_type)                                  \
+                        case __BoxV(xil_type_t::_xt, xil_box_type_t::_box_type):        \
+                            return __box_command_manager.template get_command<          \
+                                __PushBoxCmd(_box_type), xil_type_t::_xt,               \
+                                xil_box_type_t::_box_type>(args.box.type);
+
+                    #define __CaseBox(_xt)                                              \
+                        __CaseBox_(_xt, pop)                                            \
+                        __CaseBox_(_xt, pick)
+
+
+                    __CaseBox(int8)
+                    __CaseBox(uint8)
+                    __CaseBox(int16)
+                    __CaseBox(uint16)
+                    __CaseBox(int32)
+                    __CaseBox(uint32)
+                    __CaseBox(int64)
+                    __CaseBox(uint64)
+                    __CaseBox(float_)
+                    __CaseBox(double_)
+                    __CaseBox(bool_)
+                    __CaseBox(char_)
+
+                    #undef __CaseBox
+                    #undef __CaseBox_
+
+                    default:
+                        X_UNEXPECTED_F("unexpected box command %1% %2%", args.box.box_type, xt);
+                }
+                #undef __BoxV
+            }   break;
 
             default:
                 break;
@@ -2204,6 +2329,15 @@ namespace X_ROOT_NS::modules::exec {
             case xil_storage_type_t::convert:
                 xt1 = xil.dtype();
                 xt2 = xil.dtype2();
+                break;
+
+            case xil_storage_type_t::box:
+                args.box.type     = ctx.get_type(xil.get_ref());
+                args.box.box_type = xil.get_box_type();
+                break;
+
+            case xil_storage_type_t::unbox:
+                args.box.type = ctx.get_type(xil.get_ref());
                 break;
 
             default:
@@ -2822,8 +2956,7 @@ namespace X_ROOT_NS::modules::exec {
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
             default:
-                _PF(_T("pop %1% %2% %3%"), stype, dtype1, dtype2);
-                X_UNEXPECTED(_T("unknown pop data types"));
+                X_UNEXPECTED_F("unexpected pop data types: %1% %2% %3%", stype, dtype1, dtype2);
         }
 
         X_UNEXPECTED();
