@@ -607,6 +607,8 @@ namespace X_ROOT_NS::modules::core {
                 return _F(_T("convert %1%=>%2%"), dtype(), dtype2());
 
             case xil_storage_type_t::box:
+                if (get_box_type() == xil_box_type_t::__default__)
+                    return _FT("box {%1%}", get_ref());
                 return _FT("box {%1%} [%2%]", get_ref(), get_box_type());
 
             case xil_storage_type_t::unbox:

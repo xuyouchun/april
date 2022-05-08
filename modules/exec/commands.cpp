@@ -1217,7 +1217,7 @@ namespace X_ROOT_NS::modules::exec {
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
             array_length_t index = ctx.stack.pop<array_length_t>();
 
-            if (_dimension >= 2)
+            if constexpr (_dimension >= 2)
             {
                 array_length_t * lengths = mm::get_array_lengths(array_ref);
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
@@ -1279,39 +1279,24 @@ namespace X_ROOT_NS::modules::exec {
 
     struct __push_array_element_command_template_t
     {
-        template<dimension_t _dimension> struct __new_t
-        {
-            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
-            static command_t * new_(memory_t * memory, dimension_t dimension,
-                _args_t && ... args)
-            {
-                return __new_command<__push_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
-                    memory, std::forward<_args_t>(args) ...
-                );
-            }
-        };
-
-        template<> struct __new_t<0>
-        {
-            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
-            static command_t * new_(memory_t * memory, dimension_t dimension,
-                _args_t && ... args)
-            {
-                return __new_command<__push_array_element_command_t<_cv, _xt1, _xt2, 0>>(
-                    memory, dimension, std::forward<_args_t>(args) ...
-                );
-            }
-        };
-
         template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2,
             dimension_t _dimension, typename ... _args_t
         >
         static command_t * new_command(memory_t * memory, dimension_t dimension,
             _args_t && ... args)
         {
-            return __new_t<_dimension>::template new_<_cv, _xt1, _xt2>(
-                memory, dimension, std::forward<_args_t>(args) ...
-            );
+            if constexpr (_dimension == 0)
+            {
+                return __new_command<__push_array_element_command_t<_cv, _xt1, _xt2, 0>>(
+                    memory, dimension, std::forward<_args_t>(args) ...
+                );
+            }
+            else
+            {
+                return __new_command<__push_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
+                    memory, std::forward<_args_t>(args) ...
+                );
+            }
         }
     };
 
@@ -1386,16 +1371,29 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Push box.
 
-    #define __PushBoxCmd(_box_type)  __Cmd(push, box##_##_box_type)
-    __DefineCmdValue_(__PushBoxCmd(pop))
-    __DefineCmdValue_(__PushBoxCmd(pick))
+    #define __CustomStructSize  65535
+    #define __PushBoxCmd(_size, _box_type)                                              \
+            __Cmd(push, box##_##_size##_##_box_type)
 
-    template<command_value_t _cv, xil_type_t _xt, xil_box_type_t _box_type>
+    #define __DefinePushBoxCmd(_size)                                                   \
+        __DefineCmdValue_(__PushBoxCmd(_size, pop))                                     \
+        __DefineCmdValue_(__PushBoxCmd(_size, pick))
+
+    __DefinePushBoxCmd(0)
+    __DefinePushBoxCmd(1)
+    __DefinePushBoxCmd(2)
+    __DefinePushBoxCmd(4)
+    __DefinePushBoxCmd(8)
+    __DefinePushBoxCmd(__CustomStructSize)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    template<command_value_t _cv, msize_t _size, xil_box_type_t _box_type>
     class __push_box_command_t : public __command_base_t<_cv>
     {
         typedef __push_box_command_t    __self_t;
         typedef __command_base_t<_cv>   __super_t;
-        typedef __vnum_t<_xt>           __value_t;
+        typedef uint_type_t<_size>      __value_t;
 
     public:
         __push_box_command_t(rt_type_t * type) : __type(type) { }
@@ -1441,14 +1439,79 @@ namespace X_ROOT_NS::modules::exec {
         rt_type_t * __type;
     };
 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    template<command_value_t _cv, xil_box_type_t _box_type>
+    class __push_box_command_t<_cv, __CustomStructSize, _box_type> : public __command_base_t<_cv>
+    {
+        typedef __push_box_command_t    __self_t;
+        typedef __command_base_t<_cv>   __super_t;
+
+    public:
+        __push_box_command_t(rt_type_t * type, msize_t size)
+            : __type(type), __size(size) { }
+
+        #if EXEC_TRACE
+
+        __ToString(_FT("box [%1%]", _box_type));
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            if constexpr (_box_type == xil_box_type_t::pop)
+            {
+                void * addr = ctx.stack.pop<void *>();
+
+                // __pre_new(ctx, type);
+
+                rt_ref_t obj = ctx.heap->new_obj(__type);
+                al::quick_copy((void *)obj, addr, __size);
+
+                ctx.stack.push<rt_ref_t>(obj);
+            }
+            else if constexpr (_box_type == xil_box_type_t::pick)
+            {
+                void * addr = ctx.stack.pick<void *>();
+
+                // __pre_new(ctx, type);
+
+                rt_ref_t obj = ctx.heap->new_obj(__type);
+                al::quick_copy((void *)obj, addr, __size);
+
+                ctx.stack.push<rt_ref_t>(obj);
+            }
+            else
+            {
+                X_UNEXPECTED_F("unexpected box type '%1%'", _box_type);
+            }
+
+        __EndExecute()
+
+    private:
+        rt_type_t * __type;
+        msize_t     __size;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     struct __push_box_command_template_t
     {
-        template<command_value_t _cv, xil_type_t _xt, xil_box_type_t _box_type,
+        template<command_value_t _cv, msize_t _size, xil_box_type_t _box_type,
                                                         typename ... _args_t>
-        static auto new_command(memory_t * memory, rt_type_t * type, _args_t && ... args)
+        static auto new_command(memory_t * memory, rt_type_t * type, msize_t real_size,
+                                                        _args_t && ... args)
         {
-            typedef __push_box_command_t<_cv, _xt, _box_type> this_command_t;
-            return __new_command<this_command_t>(memory, type, std::forward<_args_t>(args) ...);
+            typedef __push_box_command_t<_cv, _size, _box_type> this_command_t;
+            if constexpr (_size == __CustomStructSize)
+            {
+                return __new_command<this_command_t>(memory, type, real_size,
+                                                        std::forward<_args_t>(args) ...);
+            }
+            else
+            {
+                return __new_command<this_command_t>(memory, type, std::forward<_args_t>(args) ...);
+            }
         }
     };
 
@@ -1807,7 +1870,7 @@ namespace X_ROOT_NS::modules::exec {
         >::with_args_t<> __convert_command_manager;
 
         static __command_manager_t<
-            __push_box_command_template_t, xil_type_t, xil_box_type_t
+            __push_box_command_template_t, msize_t, xil_box_type_t
         >::with_args_t<rt_type_t *> __box_command_manager;
 
         xil_storage_type_t stype = args.stype;
@@ -1851,43 +1914,47 @@ namespace X_ROOT_NS::modules::exec {
                     args.field_addr.offset
                 );
 
-            case xil_storage_type_t::box: {         // Push box.
-                xil_type_t xt = __xil_type_of(ctx, args.box.type);
-                #define __BoxV(_xt, _box_type)  (((byte_t)_xt << 4) | (byte_t)_box_type)
+            case xil_storage_type_t::box: {         // Push box command.
 
-                switch (__BoxV(xt, args.box.box_type))
+                #define __BoxV(_size, _box_type)    (((int)_size << 8) | (int)_box_type)
+
+                rt_type_t * type = args.box.type;
+                _A(type != nullptr);
+
+                msize_t real_size = type->get_size(ctx.env);
+                _A(real_size > 0);
+
+                msize_t size = is_custom_struct(ctx.env, type)? __CustomStructSize : real_size;
+
+                switch (__BoxV(size, args.box.box_type))
                 {
-                    #define __CaseBox_(_xt, _box_type)                                  \
-                        case __BoxV(xil_type_t::_xt, xil_box_type_t::_box_type):        \
+                    #define __CaseBox_(_size, _box_type)                                \
+                        case __BoxV(_size, xil_box_type_t::_box_type):                  \
                             return __box_command_manager.template get_command<          \
-                                __PushBoxCmd(_box_type), xil_type_t::_xt,               \
-                                xil_box_type_t::_box_type>(args.box.type);
+                                __PushBoxCmd(_size, _box_type), _size,                  \
+                                xil_box_type_t::_box_type> (args.box.type, real_size);
 
-                    #define __CaseBox(_xt)                                              \
-                        __CaseBox_(_xt, pop)                                            \
-                        __CaseBox_(_xt, pick)
+                    #define __CaseBox(_size)                                            \
+                        __CaseBox_(_size, pop)                                          \
+                        __CaseBox_(_size, pick)
 
-
-                    __CaseBox(int8)
-                    __CaseBox(uint8)
-                    __CaseBox(int16)
-                    __CaseBox(uint16)
-                    __CaseBox(int32)
-                    __CaseBox(uint32)
-                    __CaseBox(int64)
-                    __CaseBox(uint64)
-                    __CaseBox(float_)
-                    __CaseBox(double_)
-                    __CaseBox(bool_)
-                    __CaseBox(char_)
+                    __CaseBox(0)
+                    __CaseBox(1)
+                    __CaseBox(2)
+                    __CaseBox(4)
+                    __CaseBox(8)
+                    __CaseBox(__CustomStructSize)
 
                     #undef __CaseBox
                     #undef __CaseBox_
 
                     default:
-                        X_UNEXPECTED_F("unexpected box command %1% %2%", args.box.box_type, xt);
+                        X_UNEXPECTED_F("unexpected box command %1% [%2%]", size,
+                                                                       args.box.box_type);
                 }
+
                 #undef __BoxV
+
             }   break;
 
             default:

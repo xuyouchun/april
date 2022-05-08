@@ -315,6 +315,10 @@ namespace X_ROOT_NS::modules::compile {
         {
             expression->compile(ctx, pool);
 
+            type_t * to_type = variable->get_type();
+            if (is_ref_type(to_type))
+                pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
+
             if (variable->this_type() == variable_type_t::field)
                 __push_this(ctx, pool, this_);
 
@@ -985,6 +989,7 @@ namespace X_ROOT_NS::modules::compile {
             return;
         }
 
+        // Custom struct.
         if (is_custom_struct(atype))
         {
             ref_t type_ref = __ref_of(ctx, atype);
@@ -1003,7 +1008,7 @@ namespace X_ROOT_NS::modules::compile {
             }
             else if (__try_delegate_assign(ctx, pool, nullptr, exp))
             {
-                // OK
+                // OK, do nothing.
             }
             else  // assign
             {
@@ -1013,14 +1018,28 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
+            type_t * exp_type = exp->get_type();
+
             vtype_t vtype = vtype_t::__default__;
             if (param_types != nullptr)
                 vtype = param_types->param_vtype_at(index);
 
             xil_type_t xil_type = to_xil_type(vtype);
 
+            bool box = false;
+
+            // Box.
+            if (is_ref_type(atype) && is_value_type(exp_type))
+            {
+                xil_type = xil_type_t::empty;
+                box = true;
+            }
+
             if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
                 exp->compile(ctx, pool, xil_type);
+
+            if (box)
+                pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
         }
     }
 
@@ -2330,7 +2349,7 @@ namespace X_ROOT_NS::modules::compile {
 
         cvalue_t cvalue = *this->value;
 
-        if (is_number(cvalue) && is_ref_type(dtype))    // Box.
+        if (is_number(cvalue) && dtype == xil_type_t::object)    // Box.
         {
             dtype = xil_type_t::empty;
             __compile_cvalue(ctx, pool, cvalue, dtype);

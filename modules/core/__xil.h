@@ -206,14 +206,14 @@ namespace X_ROOT_NS::modules::core {
     // Converts a type_t * to xil_type
     xil_type_t to_xil_type(type_t * type);
 
-    // Returns whether it's a ref type.
-    X_INLINE bool is_ref_type(xil_type_t type) _NE
+    // Returns whether it maybe a ref type.
+    X_INLINE bool maybe_ref_type(xil_type_t type) _NE
     {
         return type == xil_type_t::object || type == xil_type_t::string;
     }
 
-    // Returns whether it's a value type.
-    X_INLINE bool is_value_type(xil_type_t type) _NE
+    // Returns whether it maybe a value type.
+    X_INLINE bool maybe_value_type(xil_type_t type) _NE
     {
         return type >= xil_type_t::int8 || type <= xil_type_t::ptr;
     }
