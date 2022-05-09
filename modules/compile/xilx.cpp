@@ -6,9 +6,10 @@ namespace X_ROOT_NS::modules::compile {
     using namespace core;
     using namespace xil;
 
-    typedef statement_compile_context_t __sctx_t;
-    typedef xilx_write_context_t        __xw_context_t;
-    typedef compile_error_code_t        __e_t;
+    typedef statement_compile_context_t         __sctx_t;
+    typedef xilx_write_context_t                __xw_context_t;
+    typedef compile_error_code_t                __e_t;
+    typedef expression_compile_environment_t    __environment_t;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -73,10 +74,10 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles xilx.
     static void __compile_expression(__xw_context_t & ctx, xil_pool_t & pool,
-                         expression_t * expression, xil_type_t dtype = xil_type_t::empty)
+         expression_t * expression, const __environment_t & env = __environment_t::empty)
     {
         expression_compile_context_t exp_ctx(ctx);
-        expression->compile(exp_ctx, pool, dtype);
+        expression->compile(exp_ctx, pool, env);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -481,18 +482,22 @@ namespace X_ROOT_NS::modules::compile {
             return;
         }
 
-        type_t * type = expression->get_type();
-        if (type == nullptr)
-            __Failed("expect type of expression '%1%'", expression);
+        _A(local != nullptr);
+
+        type_t * local_type = local->get_type();
+        __FailedWhenNull(local_type, "expect type of local variable '%1%'", local);
 
         // Custom struct
-        if (is_custom_struct(type))
+        if (is_custom_struct(local_type))
         {
             expression_compile_context_t cctx(ctx);
             __pre_custom_struct_assign(cctx, pool, local, expression);
 
             return;
         }
+
+        type_t * type = expression->get_type();
+        __FailedWhenNull(type, "expect type of expression '%1%'", expression);
 
         if (local->write_count == 1)
         {
@@ -517,8 +522,8 @@ namespace X_ROOT_NS::modules::compile {
             */
         }
 
-        __compile_expression(ctx, pool, expression);
-        write_assign_xil(ctx, pool, local, expression->get_type());
+        __compile_expression(ctx, pool, expression, local_type);
+        write_assign_xil(ctx, pool, local, local_type);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -530,17 +535,16 @@ namespace X_ROOT_NS::modules::compile {
         {
             statement_compile_context_t & sctx = (statement_compile_context_t &)ctx;
             type_t * type = sctx.method->get_type();
-            xil_type_t dtype = to_xil_type(type);
 
             // For custom struct type, push the address to stack top when calling new constructor.
             if (is_custom_struct(type))
             {
                 expression_compile_context_t cctx(ctx);
-                __do_custom_struct_return(cctx, pool, expression);
+                __do_custom_struct_return(cctx, pool, expression, type);
             }
             else
             {
-                __compile_expression(ctx, pool, expression, dtype);
+                __compile_expression(ctx, pool, expression, type);
             }
         }
 
@@ -603,7 +607,7 @@ namespace X_ROOT_NS::modules::compile {
     // Writes xils to pool.
     void global_label_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-
+        // Do nothing.
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -641,7 +645,7 @@ namespace X_ROOT_NS::modules::compile {
     // Writes xils to pool.
     void global_label_jmp_xilx_t::write(__xw_context_t & ctx, xil_pool_t & pool)
     {
-
+        // Do nothing.
     }
 
     //-------- ---------- ---------- ---------- ----------

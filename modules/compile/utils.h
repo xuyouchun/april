@@ -11,6 +11,8 @@ namespace X_ROOT_NS::modules::compile {
         using namespace core;
         typedef expression_compile_context_t __cctx_t;
         typedef statement_compile_context_t  __sctx_t;
+
+        typedef expression_compile_environment_t    __environment_t;
     }
 
     #define __CompileFailed(_format, _s ...)                                            \
@@ -163,7 +165,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Pre append custom struct for return.
     void __do_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
-        expression_t * expression);
+        expression_t * expression, const __environment_t & env = __environment_t::empty);
 
     // Push address of variable.
     void __push_variable_address(expression_compile_context_t & ctx, xil_pool_t & pool,

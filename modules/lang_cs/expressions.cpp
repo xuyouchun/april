@@ -23,8 +23,8 @@ namespace X_ROOT_NS::modules::lang_cs {
     }
 
     // Compiles this expression.
-    void cs_condition_expression_t::compile(expression_compile_context_t & ctx,
-										xil_pool_t & pool, xil_type_t dtype)
+    void cs_condition_expression_t::compile(__cctx_t & ctx, xil_pool_t & pool,
+                                                const __environment_t & env)
     {
         //_PF(_T("__compile: %1%"), this);
 
@@ -80,8 +80,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles single expression.
-    static void __compile_single_expression(expression_compile_context_t & ctx,
-                                            xil_pool_t & pool, expression_t * exp)
+    static void __compile_single_expression(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
     {
         if (exp != nullptr)
         {
@@ -95,8 +94,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     }
 
     // Compiles this expression.
-    void cs_expressions_t::compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-											xil_type_t dtype)
+    void cs_expressions_t::compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
     {
         _A(this->expression_count() > 0);
 

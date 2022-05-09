@@ -7,6 +7,9 @@ namespace X_ROOT_NS::modules::compile {
     {
         using namespace core;
         using namespace std::placeholders;
+
+        typedef expression_compile_context_t        __cctx_t;
+        typedef expression_compile_environment_t    __environment_t;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -43,8 +46,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-            xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     private:
 
@@ -62,8 +65,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-            xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     private:
 
@@ -81,8 +84,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-            xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -95,8 +98,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-            xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -110,8 +113,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-            xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -124,22 +127,22 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-            xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     private:
 
         // Compile method calling expression.
         void __compile_method(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                                  xil_type_t dtype);
+                                                        const __environment_t & env);
 
         // Compile delegate calling expression.
         void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                                  xil_type_t dtype);
+                                                        const __environment_t & env);
 
         // Compile delegate calling expression, for complex namex expressions.
         void __compile_default(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                                  xil_type_t dtype);
+                                                        const __environment_t & env);
 
     __EndSystemExpressionT
 
@@ -152,8 +155,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                        xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -166,8 +169,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                        xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -180,16 +183,18 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                        xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
         // Compile array index.
         void __compile_array_index(expression_compile_context_t & ctx, xil_pool_t & pool,
-                array_index_variable_t * variable, expression_t * namex, xil_type_t dtype);
+                array_index_variable_t * variable, expression_t * namex,
+                const __environment_t & env);
 
         // Compile property index.
         void __compile_property_index(expression_compile_context_t & ctx, xil_pool_t & pool,
-                property_index_variable_t * variable, expression_t * namex, xil_type_t dtype);
+                property_index_variable_t * variable, expression_t * namex,
+                const __environment_t & env);
 
     __EndSystemExpressionT
 
@@ -202,8 +207,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                    xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     private:
 
@@ -226,8 +231,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                    xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -240,8 +245,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                    xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -254,8 +259,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                    xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -268,8 +273,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                    xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 
@@ -282,8 +287,8 @@ namespace X_ROOT_NS::modules::compile {
         virtual cvalue_t execute() override;
 
         // Compile the expression.
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                                    xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
 
     __EndSystemExpressionT
 

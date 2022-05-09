@@ -11,6 +11,9 @@ namespace X_ROOT_NS::modules::lang_cs {
         using namespace compile;
     }
 
+    typedef expression_compile_context_t        __cctx_t;
+    typedef expression_compile_environment_t    __environment_t;
+
     ////////// ////////// ////////// ////////// //////////
 
     class cs_condition_expression_t : public texpression_t<3>
@@ -28,8 +31,8 @@ namespace X_ROOT_NS::modules::lang_cs {
         virtual vtype_t get_vtype() const override;
         virtual type_t * get_type() const override;
 
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                        xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                        override;
         virtual cvalue_t execute() override;
 
         expression_t * condition() const { return exps[0]; }
@@ -51,8 +54,8 @@ namespace X_ROOT_NS::modules::lang_cs {
     public:
         using __super_t::__super_t;
 
-        virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                        xil_type_t dtype) override;
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                        override;
         virtual cvalue_t execute() override;
     };
 

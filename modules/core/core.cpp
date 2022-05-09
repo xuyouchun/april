@@ -6642,6 +6642,17 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
     // expression_t
 
+    // Converts to string.
+    expression_compile_environment_t::operator string_t() const
+    {
+        if (type != nullptr)
+            return type->to_string();
+
+        return _str(dtype);
+    }
+
+    const expression_compile_environment_t expression_compile_environment_t::empty;
+
     // Converts to a string.
     const string_t expression_t::to_string() const
     {

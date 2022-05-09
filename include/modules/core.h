@@ -6501,6 +6501,32 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Expression compile environment.
+    struct expression_compile_environment_t
+    {
+        // Constructors.
+        expression_compile_environment_t() _NE : dtype(xil_type_t::empty), type(nullptr) { }
+        expression_compile_environment_t(xil_type_t dtype) _NE : dtype(dtype), type(nullptr) { }
+
+        expression_compile_environment_t(type_t * type) _NE
+            : type(type), dtype(to_xil_type(type)) { }
+        
+        type_t * const          type;       // Real type.
+        const xil_type_t        dtype;      // Data type.
+
+        // Converts to data type.
+        operator xil_type_t () const _NE { return dtype; }
+
+        // Converts to real type.
+        operator type_t * () const _NE { return type; }
+
+        // Converts to string.
+        operator string_t() const;
+
+        // A empty object.
+        static const expression_compile_environment_t empty;
+    };
+
     // Expression.
     class expression_t : public eobject_t, public code_element_t
     {
@@ -6532,7 +6558,7 @@ namespace X_ROOT_NS::modules::core {
 
         // Compile the expression.
         virtual void compile(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                    xil_type_t dtype = xil_type_t::empty)
+          const expression_compile_environment_t & env = expression_compile_environment_t::empty)
         {
             throw _unimplemented_error(this, _T("compile"));
         }
