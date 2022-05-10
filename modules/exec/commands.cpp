@@ -1388,6 +1388,23 @@ namespace X_ROOT_NS::modules::exec {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    template<xil_box_type_t _box_type, typename _t>
+    __AlwaysInline _t __fetch_box_addr(command_execute_context_t & ctx)
+    {
+        if constexpr (_box_type == xil_box_type_t::pop)
+        {
+            return ctx.stack.pop<_t>();
+        }
+        else if constexpr (_box_type == xil_box_type_t::pick)
+        {
+            return ctx.stack.pick<_t>();
+        }
+        else
+        {
+            X_UNEXPECTED_F("unexpected box type '%1%'", _box_type);
+        }
+    }
+
     template<command_value_t _cv, msize_t _size, xil_box_type_t _box_type>
     class __push_box_command_t : public __command_base_t<_cv>
     {
@@ -1406,32 +1423,13 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            if constexpr (_box_type == xil_box_type_t::pop)
-            {
-                __value_t value = ctx.stack.pop<__value_t>();
+            __value_t value = __fetch_box_addr<_box_type, __value_t>(ctx);
 
-                // __pre_new(ctx, type);
+            __pre_new(ctx, __type);
+            rt_ref_t obj = ctx.heap->new_obj(__type);
 
-                rt_ref_t obj = ctx.heap->new_obj(__type);
-                *(__value_t *)(void *)obj = value;
-
-                ctx.stack.push<rt_ref_t>(obj);
-            }
-            else if constexpr (_box_type == xil_box_type_t::pick)
-            {
-                __value_t value = ctx.stack.pick<__value_t>();
-
-                // __pre_new(ctx, type);
-
-                rt_ref_t obj = ctx.heap->new_obj(__type);
-                *(__value_t *)(void *)obj = value;
-
-                ctx.stack.push<rt_ref_t>(obj);
-            }
-            else
-            {
-                X_UNEXPECTED_F("unexpected box type '%1%'", _box_type);
-            }
+            *(__value_t *)(void *)obj = value;
+            ctx.stack.push<rt_ref_t>(obj);
 
         __EndExecute()
 
@@ -1459,32 +1457,13 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            if constexpr (_box_type == xil_box_type_t::pop)
-            {
-                void * addr = ctx.stack.pop<void *>();
+            void * addr = __fetch_box_addr<_box_type, void *>(ctx);
 
-                // __pre_new(ctx, type);
+            __pre_new(ctx, __type);
+            rt_ref_t obj = ctx.heap->new_obj(__type);
 
-                rt_ref_t obj = ctx.heap->new_obj(__type);
-                al::quick_copy((void *)obj, addr, __size);
-
-                ctx.stack.push<rt_ref_t>(obj);
-            }
-            else if constexpr (_box_type == xil_box_type_t::pick)
-            {
-                void * addr = ctx.stack.pick<void *>();
-
-                // __pre_new(ctx, type);
-
-                rt_ref_t obj = ctx.heap->new_obj(__type);
-                al::quick_copy((void *)obj, addr, __size);
-
-                ctx.stack.push<rt_ref_t>(obj);
-            }
-            else
-            {
-                X_UNEXPECTED_F("unexpected box type '%1%'", _box_type);
-            }
+            al::quick_copy((void *)obj, addr, __size);
+            ctx.stack.push<rt_ref_t>(obj);
 
         __EndExecute()
 

@@ -81,6 +81,52 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Writes assign xil for local variable.
+    void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, variable_t * var,
+                                                        xil_type_t dtype, bool pick)
+    {
+        _A(var != nullptr);
+
+        switch (var->this_type())
+        {
+            case variable_type_t::local:
+                return write_assign_xil(ctx, pool, (local_variable_t *)var, dtype, pick);
+
+            case variable_type_t::param:
+                return write_assign_xil(ctx, pool, (param_variable_t *)var, dtype, pick);
+
+            case variable_type_t::field:
+                return write_assign_xil(ctx, pool, (field_variable_t *)var, dtype, pick);
+
+            default:
+                X_UNEXPECTED_F("unexpected variable type '%1%'", var->this_type());
+        }
+    }
+
+    // Writes assign xil for local variable.
+    void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, variable_t * var,
+                                                    type_t * from_type, bool pick)
+    {
+        _A(var != nullptr);
+
+        switch (var->this_type())
+        {
+            case variable_type_t::local:
+                return write_assign_xil(ctx, pool, (local_variable_t *)var, from_type, pick);
+
+            case variable_type_t::param:
+                return write_assign_xil(ctx, pool, (param_variable_t *)var, from_type, pick);
+
+            case variable_type_t::field:
+                return write_assign_xil(ctx, pool, (field_variable_t *)var, from_type, pick);
+
+            default:
+                X_UNEXPECTED_F("unexpected variable type '%1%'", var->this_type());
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // local_assign_xilx_t
 
     // Writes assign xil for local variable.
@@ -91,7 +137,7 @@ namespace X_ROOT_NS::modules::compile {
         if (type == nullptr)
             __Failed("expect type of local variable '%1%'", local);
 
-        if (is_custom_struct(type))     // custom struct 
+        if (is_custom_struct(type))     // custom struct not supported.
             X_UNEXPECTED_F("unexpected custom struct type '%1%'", type);
 
         #define __Append(name, xil_type)                                                \
@@ -499,6 +545,13 @@ namespace X_ROOT_NS::modules::compile {
         type_t * type = expression->get_type();
         __FailedWhenNull(type, "expect type of expression '%1%'", expression);
 
+        if (is_ref_type(local_type) && is_custom_struct(type)
+            && expression->get_behaviour() == expression_behaviour_t::execute)
+        {
+            // New struct object.
+            pool.append<x_new_xil_t>(__ref_of(ctx, type));
+        }
+
         if (local->write_count == 1)
         {
             if (is_constant_expression(expression))
@@ -522,8 +575,8 @@ namespace X_ROOT_NS::modules::compile {
             */
         }
 
-        __compile_expression(ctx, pool, expression, local_type);
-        write_assign_xil(ctx, pool, local, local_type);
+        __compile_expression(ctx, pool, expression, type);
+        write_assign_xil(ctx, pool, local, type);
     };
 
     ////////// ////////// ////////// ////////// //////////

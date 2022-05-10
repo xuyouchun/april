@@ -114,8 +114,6 @@ namespace X_ROOT_NS::modules::exec {
         __initialize();
 
         rt_bytes_t body = __assembly->get_method_body(__method);
-        _A(body.bytes != nullptr);
-
         __method_reader = __pool.new_obj<method_reader_t>(body.bytes, body.length, __env.memory);
     }
 

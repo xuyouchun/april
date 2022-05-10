@@ -154,6 +154,23 @@ namespace X_ROOT_NS::modules::compile {
         return var->this_type() == variable_type_t::param && __is_addr((param_variable_t *)var);
     }
 
+    // Returns whether it's a function call expression.
+    bool __is_call_expression(expression_t * exp);
+
+    // Returns whether it's a new expression.
+    bool __is_new_expression(expression_t * exp);
+
+    X_INLINE bool __need_box(type_t * type1, type_t * type2)
+    {
+        _A(type1 != nullptr);
+        _A(type2 != nullptr);
+
+        if (type1 == type2)
+            return false;
+
+        return is_ref_type(type1) && is_value_type(type2);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Pre append custom struct for assign.

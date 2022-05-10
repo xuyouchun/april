@@ -526,6 +526,32 @@ namespace X_ROOT_NS::modules::compile {
 
     namespace xil
     {
+        //-------- ---------- ---------- ---------- ----------
+
+        // Writes assign xil for local variable.
+        void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool,
+                    variable_t * var, xil_type_t dtype, bool pick = false);
+
+        // Writes assign xil for local variable.
+        void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool,
+                    variable_t * var, type_t * from_type, bool pick = false);
+
+        // Writes assign xil for local variable.
+        X_INLINE void write_assign_xil(__cctx_t & ctx, xil_pool_t & pool,
+                    variable_t * var, xil_type_t dtype, bool pick)
+        {
+            write_assign_xil(ctx.statement_ctx, pool, var, dtype, pick);
+        }
+
+        // Writes assign xil for local variable.
+        X_INLINE void write_assign_xil(__cctx_t & ctx, xil_pool_t & pool,
+                    variable_t * var, type_t * from_type, bool pick)
+        {
+            write_assign_xil(ctx.statement_ctx, pool, var, from_type, pick);
+        }
+
+        //-------- ---------- ---------- ---------- ----------
+
         // Writes assign xil for local variable.
         void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool,
                     local_variable_t * local, xil_type_t dtype, bool pick = false);

@@ -124,6 +124,13 @@ namespace X_ROOT_NS::modules::compile {
                behaviour == expression_behaviour_t::new_;
     }
 
+    // Returns whether it's a new expression.
+    bool __is_new_expression(expression_t * exp)
+    {
+        expression_behaviour_t behaviour = exp->get_behaviour();
+        return behaviour == expression_behaviour_t::new_;
+    }
+
     // Try to fetch method variable of expression specified.
     static method_variable_t * __try_fetch_method_variable(expression_t * exp)
     {
@@ -1053,6 +1060,13 @@ namespace X_ROOT_NS::modules::compile {
             // Box.
             if (is_ref_type(atype) && is_value_type(exp_type))
             {
+                expression_family_t family = exp->this_family();
+                if (family == expression_family_t::new_)
+                {
+                    exp->compile(ctx, pool, atype);
+                    return;
+                }
+
                 xil_type = xil_type_t::empty;
                 box = true;
             }
@@ -1067,7 +1081,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compile arguments.
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
-        param_types_t * param_types = nullptr)
+                                                        param_types_t * param_types = nullptr)
     {
         if (arguments == nullptr)
             return;
@@ -1152,8 +1166,18 @@ namespace X_ROOT_NS::modules::compile {
         type_t * type = nullptr)
     {
         expression_t * exp = ca.exp;
-        bool pick = (assign_type == __assign_to_type_t::default_)?
-            is_effective(ctx, exp->parent->parent) : (assign_type == __assign_to_type_t::pick);
+
+        bool pick;
+
+        if (assign_type == __assign_to_type_t::default_)
+        {
+            _A(exp != nullptr && exp->parent != nullptr);
+            pick = is_effective(ctx, exp->parent->parent);
+        }
+        else
+        {
+            pick = (assign_type == __assign_to_type_t::pick);
+        }
 
         if (type == nullptr && exp2 != nullptr)
             type = exp2->get_type();
@@ -1262,15 +1286,21 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
 
-        type_t * type = nullptr;
+        type_t * type1 = ca.var->get_type();
+        type_t * type2 = exp2->get_type();
 
-        if (!ca.custom_struct)
+        // Assign a value type to a ref type.
+        if (is_ref_type(type1) && is_custom_struct(type2)
+            && exp2->get_behaviour() == expression_behaviour_t::execute)
         {
-            type = exp1->get_type();
-            exp2->compile(ctx, pool, type);
+            // New struct object.
+            pool.append<x_new_xil_t>(__ref_of(ctx, type2));
         }
 
-        __compile_assign_to(ctx, pool, ca, exp2, __assign_to_type_t::default_, type);
+        if (!ca.custom_struct)
+            exp2->compile(ctx, pool, type1);
+
+        __compile_assign_to(ctx, pool, ca, exp2, __assign_to_type_t::default_, type2);
     }
 
     // Compiles add assign expression.

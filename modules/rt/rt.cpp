@@ -534,7 +534,8 @@ namespace X_ROOT_NS::modules::rt {
     // Pre new object.
     void rt_general_type_t::pre_new(analyzer_env_t & env)
     {
-        if (__size != unknown_msize)
+        rt_vtable_t * vtbl = get_vtable(this);
+        if (__size != unknown_msize && vtbl != nullptr)
             return;
 
         rt_type_t * base_type = get_base_type(env);
@@ -542,10 +543,12 @@ namespace X_ROOT_NS::modules::rt {
             base_type->pre_new(env);
 
         // size
-        msize_t size = this->get_size(env);
+        if (__size == unknown_msize)
+            this->get_size(env);
 
         // build_vtbl;
-        this->__build_vtbl(env);
+        if (vtbl == nullptr)
+            this->__build_vtbl(env);
 
         // execute static constructor
         this->pre_static_call(env);
