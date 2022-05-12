@@ -1068,12 +1068,21 @@ namespace X_ROOT_NS::modules::compile {
                     return;
                 }
 
+                if (exp->get_behaviour() == expression_behaviour_t::execute)
+                {
+                    pool.append<x_new_xil_t>(__ref_of(ctx, exp_type));
+                    pool.append<x_push_duplicate_xil_t>();
+
+                    exp->compile(ctx, pool, atype);
+                    return;
+                }
+
                 xil_type = xil_type_t::empty;
                 box = true;
             }
 
             if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
-                exp->compile(ctx, pool, xil_type);
+                exp->compile(ctx, pool, atype);
 
             if (box)
                 pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
@@ -1292,6 +1301,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             // New struct object.
             pool.append<x_new_xil_t>(__ref_of(ctx, type2));
+            pool.append<x_push_duplicate_xil_t>();
         }
 
         if (!ca.custom_struct)

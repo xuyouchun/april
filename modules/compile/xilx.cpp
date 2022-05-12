@@ -550,6 +550,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             // New struct object.
             pool.append<x_new_xil_t>(__ref_of(ctx, type));
+            pool.append<x_push_duplicate_xil_t>();
         }
 
         if (local->write_count == 1)
