@@ -559,6 +559,7 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Returns whether it's function namex. (function name or delegate expression)
+    // function namex is like: myfunc()()
     static bool __is_function_namex(expression_t * exp)
     {
         expression_t * parent_exp;
@@ -1200,15 +1201,11 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case variable_type_t::field:
+                __push_this(ctx, pool, ca.this_);
                 if (!ca.custom_struct)
-                {
-                    __push_this(ctx, pool, ca.this_);
                     xil::write_assign_xil(ctx, pool, (field_variable_t *)var, type, pick);
-                }
                 else
-                {
                     __pre_custom_struct_assign(ctx, pool, var, exp2, ca.this_);
-                }
 
                 break;
 
@@ -2518,8 +2515,7 @@ namespace X_ROOT_NS::modules::compile {
             {
                 bool is_static = __is_static(call_type);
 
-                if (!is_static || __is_function_namex(this))
-                    __pre_call_method(ctx, pool, this, method);
+                __pre_call_method(ctx, pool, this, method);
 
                 if (!is_static)
                     pool.append<x_push_this_ref_xil_t>();
@@ -2659,12 +2655,38 @@ namespace X_ROOT_NS::modules::compile {
         type_t * type = this->get_type();
         __FailedWhenNull(type, _T("type empty"));
 
-        if (is_object(type))
-        {
-            exp->compile(ctx, pool);
+        type_t * exp_type = exp->get_type();
+        __FailedWhenNull(exp_type, _T("type empty"));
 
-            ref_t type_ref = __ref_of(ctx, type);
-            pool.append<x_cast_xil_t>(xil_cast_command_t::default_, type_ref);
+        if (is_ref_type(type))
+        {
+            if (is_value_type(exp_type))    // Box.
+            {
+                expression_behaviour_t behaviour = exp->get_behaviour();
+                if (behaviour == expression_behaviour_t::new_)
+                {
+                    exp->compile(ctx, pool, type);
+                    pool.append<x_cast_xil_t>(xil_cast_command_t::default_, __ref_of(ctx, type));
+                }
+                else if (behaviour == expression_behaviour_t::execute &&
+                        is_custom_struct(exp_type))
+                {
+                    pool.append<x_new_xil_t>(__ref_of(ctx, exp_type));
+                    pool.append<x_push_duplicate_xil_t>();
+                    exp->compile(ctx, pool, type);
+                }
+                else
+                {
+                    exp->compile(ctx, pool);
+                    pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
+                }
+            }
+            else
+            {
+                exp->compile(ctx, pool);
+
+                pool.append<x_cast_xil_t>(xil_cast_command_t::default_, __ref_of(ctx, type));
+            }
         }
         else
         {

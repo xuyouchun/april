@@ -2329,6 +2329,7 @@ namespace X_ROOT_NS::modules::core {
         method_trait_t      method_trait    = method_trait_t::__default__;  // Method trait.
         arg_types_t         out_arg_types;      // Generic types auto determined
         size_t              generic_args_count = 0; // Generic argument count when fetch nest types.
+        type_t *            owner = nullptr;    // Member owner (an inerface type)
 
         bool                exact_match     = false;    // Whether exact match the member.
 

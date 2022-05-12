@@ -3072,6 +3072,9 @@ namespace X_ROOT_NS::modules::core {
         // Analyze method.
         bool __analyze(method_t * method)
         {
+            if (to_type(method->owner_type_name) != __args.owner)
+                return false;
+
             __member_compare_t compare_result = __compare_method(
                 method, __args.generic_args, __args.atypes, *__next_arg_types()
             );
@@ -3239,6 +3242,9 @@ namespace X_ROOT_NS::modules::core {
         // Analyzer property.
         void __analyzer(property_t * property)
         {
+            if (to_type(property->owner_type_name) != __args.owner)
+                return;
+
             if (property->name != name_t::null || property->params == nullptr)
                 return;
 
