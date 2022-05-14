@@ -104,28 +104,6 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
-    // Writes assign xil for local variable.
-    void write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, variable_t * var,
-                                                    type_t * from_type, bool pick)
-    {
-        _A(var != nullptr);
-
-        switch (var->this_type())
-        {
-            case variable_type_t::local:
-                return write_assign_xil(ctx, pool, (local_variable_t *)var, from_type, pick);
-
-            case variable_type_t::param:
-                return write_assign_xil(ctx, pool, (param_variable_t *)var, from_type, pick);
-
-            case variable_type_t::field:
-                return write_assign_xil(ctx, pool, (field_variable_t *)var, from_type, pick);
-
-            default:
-                X_UNEXPECTED_F("unexpected variable type '%1%'", var->this_type());
-        }
-    }
-
     ////////// ////////// ////////// ////////// //////////
     // local_assign_xilx_t
 
@@ -183,31 +161,6 @@ namespace X_ROOT_NS::modules::compile {
         #undef __Case
         #undef __Write
         #undef __Append
-    }
-
-    // Writes assign xil for local variable.
-    void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, local_variable_t * local,
-                                    type_t * from_type, bool pick)
-    {
-        _A(from_type != nullptr);
-
-        type_t * type = to_type(local->type_name);
-
-        if (type == nullptr)
-            __Failed("expect type of local variable '%1%'", local);
-
-        if (from_type != nullptr && is_ref_type(type) && is_value_type(from_type))
-        {
-            pool.append<x_push_box_xil_t>(__ref_of(ctx, from_type),
-                pick? xil_box_type_t::pick : xil_box_type_t::pop
-            );
-
-            write_assign_xil(ctx, pool, local, xil_type_t::object, false);
-        }
-        else
-        {
-            write_assign_xil(ctx, pool, local, to_xil_type(from_type), pick);
-        }
     }
 
     // Writes assign xil for param variable.
@@ -299,31 +252,6 @@ namespace X_ROOT_NS::modules::compile {
         #undef __Append
     }
 
-    // Writes assign xil for param variable.
-    void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, param_variable_t * param_var,
-                                    type_t * from_type, bool pick)
-    {
-        _A(from_type != nullptr);
-
-        type_t * type = to_type(param_var->param->type_name);
-
-        if (type == nullptr)
-            __Failed("expect type of param variable '%1%'", param_var);
-
-        if (from_type != nullptr && is_ref_type(type) && is_value_type(from_type))
-        {
-            pool.append<x_push_box_xil_t>(__ref_of(ctx, from_type),
-                pick? xil_box_type_t::pick : xil_box_type_t::pop
-            );
-
-            write_assign_xil(ctx, pool, param_var, xil_type_t::object, false);
-        }
-        else
-        {
-            write_assign_xil(ctx, pool, param_var, to_xil_type(from_type), pick);
-        }
-    }
-
     // Writes assign xil for field variable.
     void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, field_variable_t * field_var,
                                                                 xil_type_t dtype, bool pick)
@@ -410,33 +338,6 @@ namespace X_ROOT_NS::modules::compile {
         #undef __Write
         #undef __Append
     }
-
-    // Writes assign xil for field variable.
-    void xil::write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, field_variable_t * field_var,
-                                    type_t * from_type, bool pick)
-    {
-        _A(from_type != nullptr);
-
-        field_t * field = field_var->field;
-        type_t * type = to_type(field->type_name);
-
-        if (type == nullptr)
-            __Failed("expect type of field variable '%1%'", field_var);
-
-        if (from_type != nullptr && is_ref_type(type) && is_value_type(from_type))
-        {
-            pool.append<x_push_box_xil_t>(__ref_of(ctx, from_type),
-                pick? xil_box_type_t::pick : xil_box_type_t::pop
-            );
-
-            write_assign_xil(ctx, pool, field_var, xil_type_t::object, false);
-        }
-        else
-        {
-            write_assign_xil(ctx, pool, field_var, to_xil_type(from_type), pick);
-        }
-    }
-
 
     // Writes assign xils for variable.
     void __write_assign_xil(__sctx_t & ctx, xil_pool_t & pool, variable_t * var,
@@ -576,8 +477,8 @@ namespace X_ROOT_NS::modules::compile {
             */
         }
 
-        __compile_expression(ctx, pool, expression, type);
-        write_assign_xil(ctx, pool, local, type);
+        __compile_expression(ctx, pool, expression, local_type);
+        write_assign_xil(ctx, pool, local);
     };
 
     ////////// ////////// ////////// ////////// //////////

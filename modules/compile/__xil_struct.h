@@ -470,11 +470,11 @@ namespace X_ROOT_NS::modules::compile {
     {
         typedef xil_extra_t<push_xil_t> __super_t;
 
-        x_push_unbox_xil_t(ref_t type_ref)
+        x_push_unbox_xil_t(ref_t type_ref, xil_box_type_t box_type = xil_box_type_t::pop)
             : __super_t(xil_storage_type_t::unbox)
         {
-            this->set_dtype(xil_type_t::empty);
             this->set_ref(type_ref);
+            this->set_box_type(box_type);
         }
     };
 

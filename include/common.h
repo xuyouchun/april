@@ -146,6 +146,9 @@ namespace __root_ns = ::X_ROOT_NS;
 // Simplification of X_DEFAULT
 #define _D(_type)            X_DEFAULT(_type)
 
+// When nullptr, assign with specified expression.
+#define _N(_p, _exp)        (_p == nullptr? (_p = (_exp)) : _p)
+
 // Assert a expression is an specified type, throw expression if fault to convert.
 #if X_DEBUG
     #define _M(_type_t, _value)     X_MUST(_type_t, _value)

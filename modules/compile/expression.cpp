@@ -26,6 +26,21 @@ namespace X_ROOT_NS::modules::compile {
             const __environment_t & env = __environment_t::empty,
             expression_t * owner_exp = nullptr);
 
+    // Returns whether it's a reference type.
+    bool __is_ref_type(type_t * type)
+    {
+        return type != nullptr && is_ref_type(type);
+    }
+
+    // If env.type is ref type, returns xil_type_t::empty
+    xil_type_t __only_value_type(const __environment_t & env)
+    {
+        if (__is_ref_type(env.type))
+            return xil_type_t::empty;
+
+        return env.dtype;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns xil type of the expression.
@@ -71,6 +86,17 @@ namespace X_ROOT_NS::modules::compile {
             return xil_type_t::empty;
 
         return to_xil_type(type->this_vtype());
+    }
+
+    // Returns param index.
+    static int __param_index(expression_compile_context_t & ctx, param_variable_t * variable)
+    {
+        int index = ((param_variable_t *)variable)->param->index;
+
+        if (!__is_static(ctx.statement_ctx.method))
+            index++;
+
+        return index;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -327,9 +353,7 @@ namespace X_ROOT_NS::modules::compile {
 
             new_expression_t * new_exp = (new_expression_t *)expression;
 
-            if (__need_call_constructor(new_exp))
-                __push_variable_address(ctx, pool, variable);
-
+            __push_variable_address(ctx, pool, variable);
             expression->compile(ctx, pool, var_type);
         }
         else if (__is_call_expression(expression))  // Function
@@ -344,9 +368,6 @@ namespace X_ROOT_NS::modules::compile {
         else // Assign
         {
             expression->compile(ctx, pool, var_type);
-
-            if (is_ref_type(var_type))
-                pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
 
             if (variable->this_type() == variable_type_t::field)
                 __push_this(ctx, pool, this_);
@@ -406,11 +427,11 @@ namespace X_ROOT_NS::modules::compile {
                 );
                 break;
 
-            case variable_type_t::param:
+            case variable_type_t::param: {
                 pool.append<x_push_argument_addr_xil_t>(
-                    ((param_variable_t *)variable)->param->index
+                    __param_index(ctx, (param_variable_t *)variable)
                 );
-                break;
+            }   break;
 
             case variable_type_t::field:
                 pool.append<x_push_field_addr_xil_t>(
@@ -1056,36 +1077,8 @@ namespace X_ROOT_NS::modules::compile {
 
             xil_type_t xil_type = to_xil_type(vtype);
 
-            bool box = false;
-
-            // Box.
-            if (is_ref_type(atype) && is_value_type(exp_type))
-            {
-                expression_family_t family = exp->this_family();
-                if (family == expression_family_t::new_)
-                {
-                    exp->compile(ctx, pool, atype);
-                    return;
-                }
-
-                if (exp->get_behaviour() == expression_behaviour_t::execute)
-                {
-                    pool.append<x_new_xil_t>(__ref_of(ctx, exp_type));
-                    pool.append<x_push_duplicate_xil_t>();
-
-                    exp->compile(ctx, pool, atype);
-                    return;
-                }
-
-                xil_type = xil_type_t::empty;
-                box = true;
-            }
-
             if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
                 exp->compile(ctx, pool, atype);
-
-            if (box)
-                pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
         }
     }
 
@@ -1172,8 +1165,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles assign to expression.
     static void __compile_assign_to(__cctx_t & ctx, xil_pool_t & pool, __compile_assign_t & ca,
-        expression_t * exp2, __assign_to_type_t assign_type = __assign_to_type_t::default_,
-        type_t * type = nullptr)
+        expression_t * exp2, __assign_to_type_t assign_type = __assign_to_type_t::default_)
     {
         expression_t * exp = ca.exp;
 
@@ -1189,22 +1181,21 @@ namespace X_ROOT_NS::modules::compile {
             pick = (assign_type == __assign_to_type_t::pick);
         }
 
-        if (type == nullptr && exp2 != nullptr)
-            type = exp2->get_type();
+        xil_type_t xt = xil_type_t::empty;
 
         variable_t * var = ca.var;
         switch (var->this_type())
         {
             case variable_type_t::local:
                 if (!ca.custom_struct)
-                    xil::write_assign_xil(ctx, pool, (local_variable_t *)var, type, pick);
+                    xil::write_assign_xil(ctx, pool, (local_variable_t *)var, xt, pick);
                 else
                     __pre_custom_struct_assign(ctx, pool, var, exp2);
                 break;
 
             case variable_type_t::param:
                 if (!ca.custom_struct)
-                    xil::write_assign_xil(ctx, pool, (param_variable_t *)var, type, pick);
+                    xil::write_assign_xil(ctx, pool, (param_variable_t *)var, xt, pick);
                 else
                     __pre_custom_struct_assign(ctx, pool, var, exp2);
                 break;
@@ -1212,7 +1203,7 @@ namespace X_ROOT_NS::modules::compile {
             case variable_type_t::field:
                 __push_this(ctx, pool, ca.this_);
                 if (!ca.custom_struct)
-                    xil::write_assign_xil(ctx, pool, (field_variable_t *)var, type, pick);
+                    xil::write_assign_xil(ctx, pool, (field_variable_t *)var, xt, pick);
                 else
                     __pre_custom_struct_assign(ctx, pool, var, exp2, ca.this_);
 
@@ -1302,12 +1293,16 @@ namespace X_ROOT_NS::modules::compile {
             // New struct object.
             pool.append<x_new_xil_t>(__ref_of(ctx, type2));
             pool.append<x_push_duplicate_xil_t>();
+
+            __compile_assign_to(ctx, pool, ca, exp2);
         }
+        else
+        {
+            if (!ca.custom_struct)
+                exp2->compile(ctx, pool, type1);
 
-        if (!ca.custom_struct)
-            exp2->compile(ctx, pool, type1);
-
-        __compile_assign_to(ctx, pool, ca, exp2, __assign_to_type_t::default_, type2);
+            __compile_assign_to(ctx, pool, ca, exp2);
+        }
     }
 
     // Compiles add assign expression.
@@ -1619,9 +1614,6 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_local_variable(__cctx_t & ctx, xil_pool_t & pool,
                     local_variable_t * variable, xil_type_t dtype = xil_type_t::empty)
     {
-        //_PF(_T("-------- variable: %1%, %2%, %3%"), variable,
-        //                variable->read_count, variable->write_count);
-
         xil_type_t xil_type = __to_xil_type(ctx, variable);
 
         if (variable->constant)
@@ -1658,10 +1650,7 @@ namespace X_ROOT_NS::modules::compile {
             return;
         }
 
-        msize_t index = variable->param->index;
-        if (!__is_static(ctx.statement_ctx.method))
-            index++;
-
+        int index = __param_index(ctx, variable);
         type_t * type = variable->get_type();
 
         // TODO: when member point, int, long ... types also should be ptr type.
@@ -1699,9 +1688,10 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            xil_type_t xil_type = (dtype != xil_type_t::__unknown__)?
-                                            dtype : __to_xil_type(field_type);
-            pool.append<x_push_field_xil_t>(field_ref, xil_type);
+            if (dtype == xil_type_t::empty)
+                dtype = __to_xil_type(field_type);
+
+            pool.append<x_push_field_xil_t>(field_ref, dtype);
         }
     }
 
@@ -1865,7 +1855,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __check_static_member(ctx, owner_exp, variable);
 
-        if (owner_exp != nullptr && !__is_member_expression(owner_exp->parent))
+        if (owner_exp != nullptr && !__is_right_member(owner_exp->parent, owner_exp))
             pool.append<x_push_this_ref_xil_t>();
     }
 
@@ -1950,17 +1940,39 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     void __post_compile_expression(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
-                  xil_type_t dtype, const __environment_t & env = __environment_t::empty)
+            const __environment_t & env = __environment_t::empty,
+            type_t * exp_type = nullptr       // expression type maybe changed.
+    )  
     {
-        xil_type_t xil_type = (env.dtype == xil_type_t::empty)? __xil_type(exp) : env.dtype;
+        #define __ExpType   _N(exp_type, exp->get_type())
 
-        if (xil_type != xil_type_t::empty && xil_type != xil_type_t::__unknown__)
+        // When result is not required.
+        if (exp->parent == nullptr && !__is_effective(exp->get_behaviour()))
         {
-            if (exp->parent == nullptr && !__is_effective(exp->get_behaviour()))
-                pool.append<x_pop_empty_xil_t>(__xil_type(exp));
-            else if (xil_type != dtype)
-                __try_append_convert_xil(pool, xil_type, dtype);
+            xil_type_t xt = to_xil_type(__ExpType);
+            pool.append<x_pop_empty_xil_t>(xt);
+
+            return;
         }
+
+        // When need to box.
+        if (env.type != nullptr && is_ref_type(env.type) && is_value_type(__ExpType))
+        {
+            pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
+            return;
+        }
+
+        // When need to convert.
+        if (type_t * type = env.type; type != nullptr && is_value_type(type))
+        {
+            if (env.dtype != xil_type_t::empty && is_value_type(__ExpType))
+            {
+                xil_type_t xil_type = to_xil_type(exp_type);
+                __try_append_convert_xil(pool, xil_type, env.dtype);
+            }
+        }
+
+        #undef __ExpType
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2246,7 +2258,7 @@ namespace X_ROOT_NS::modules::compile {
         switch (this->expression_type)
         {
             case name_expression_type_t::variable:
-                __compile_variable(ctx, pool, this->variable, env, this);
+                __compile_variable(ctx, pool, this->variable, __only_value_type(env), this);
                 __post_compile_expression(ctx, pool, this, env);
                 break;
 
@@ -2278,7 +2290,7 @@ namespace X_ROOT_NS::modules::compile {
         switch (this->expression_type)
         {
             case name_expression_type_t::variable:
-                __compile_variable(ctx, pool, this->variable, env, this);
+                __compile_variable(ctx, pool, this->variable, __only_value_type(env), this);
                 __post_compile_expression(ctx, pool, this, env);
                 break;
 
@@ -2427,14 +2439,14 @@ namespace X_ROOT_NS::modules::compile {
             type_t * type = this->get_type();
             __FailedWhenNull(type, "type empty when compile cvalue_expression_t");
 
-            pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
+            // pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
         }
         else
         {
             __compile_cvalue(ctx, pool, cvalue, env);
         }
 
-        __post_compile_expression(ctx, pool, this, dtype, env);
+        __post_compile_expression(ctx, pool, this, env);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2460,6 +2472,13 @@ namespace X_ROOT_NS::modules::compile {
     void __sys_t<function_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                     const __environment_t & env)
     {
+        type_t * type = this->get_type();
+        if (__is_ref_type(env.type) && is_custom_struct(type))
+        {
+            pool.append<x_new_xil_t>(__ref_of(ctx, type));
+            pool.append<x_push_duplicate_xil_t>();
+        }
+
         function_expression_type_t ftype = this->get_ftype();
 
         switch (ftype)
@@ -2694,13 +2713,27 @@ namespace X_ROOT_NS::modules::compile {
             else
             {
                 exp->compile(ctx, pool);
-
                 pool.append<x_cast_xil_t>(xil_cast_command_t::default_, __ref_of(ctx, type));
             }
         }
-        else
+        else    // value type.
         {
-            exp->compile(ctx, pool, __xil_type(type_name));
+            if (is_ref_type(exp_type))      // Unbox.
+            {
+                if (is_custom_struct(type)) // Unbox custom struct.
+                {
+                    exp->compile(ctx, pool);
+                }
+                else    // internal value types.
+                {
+                    exp->compile(ctx, pool);
+                    pool.append<x_push_unbox_xil_t>(__ref_of(ctx, type));
+                }
+            }
+            else
+            {
+                exp->compile(ctx, pool, type);
+            }
         }
 
         __post_compile_expression(ctx, pool, this, env);
@@ -2719,7 +2752,7 @@ namespace X_ROOT_NS::modules::compile {
     void __sys_t<type_name_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                         const __environment_t & env)
     {
-        // Type name.
+        return;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2847,15 +2880,23 @@ namespace X_ROOT_NS::modules::compile {
             case ttype_t::struct_:
                 // When returns/assigns as an ref type.
                 if (env.type != nullptr && is_ref_type(env.type))
+                {
                     __compile_new_class_object(ctx, pool, type);
+                    type = env.type;
+                }
                 else
+                {
                     __compile_new_struct_object(ctx, pool, type);
+                }
+
                 break;
 
             default:
                 __Failed("Cannot create instance of type '%1%', because it's a '%2%' type",
                                                                             type, ttype);
         }
+
+        __post_compile_expression(ctx, pool, this, env, type);
     }
 
     // Creates instance of class type.

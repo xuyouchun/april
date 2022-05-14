@@ -889,7 +889,9 @@ namespace X_ROOT_NS::modules::core {
         switch (copy_type())
         {
             case xil_copy_type_t::object_copy:
-                return _T("object copy");
+                if (copy_kind() == xil_copy_kind_t::__default__)
+                    return _FT("object copy {%1%}", type_ref());
+                return _FT("object copy {%1%} [%2%]", type_ref(), copy_kind());
 
             default:
                 X_UNEXPECTED();

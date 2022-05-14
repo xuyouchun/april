@@ -180,8 +180,43 @@ namespace X_ROOT_NS::modules::exec {
     #define __DefineSimpleGetCoreTypeFunction(_func_name, _name)                        \
         __DefineGetCoreTypeFunction(_func_name, _T(""), _name, 0)
 
-    __DefineSimpleGetCoreTypeFunction(__get_invalid_cast_exception, CoreType_InvalidCastException)
-    __DefineSimpleGetCoreTypeFunction(__get_null_reference_exception, CoreType_NullReferenceException)
+    #define __DS    __DefineSimpleGetCoreTypeFunction
+    __DS(__get_invalid_cast_exception,      CoreType_InvalidCastException)
+    __DS(__get_null_reference_exception,    CoreType_NullReferenceException)
+    #undef __DS
+
+    // Raise exception with specified type.
+    static void __raise_exception(command_execute_context_t & ctx,
+                                rt_type_t * exception_type, const char_t * message = nullptr);
+
+    // Raise System.NullReferenceException when specified obj is null.
+    __AlwaysInline static bool __check_null_reference(command_execute_context_t & ctx, rt_ref_t obj)
+    {
+        if (obj == nullptr)
+        {
+            rt_type_t * exception_type = __get_null_reference_exception(ctx);
+            __raise_exception(ctx, exception_type);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    #define __CheckNullReference(_ctx, _obj)                                            \
+        do {                                                                            \
+            if (!__check_null_reference(_ctx, _obj))                                    \
+                return;                                                                 \
+        } while (false)
+
+    #define __RaiseInvalidCastException(_ctx)                                           \
+        do {                                                                            \
+            rt_type_t * exception_type = __get_invalid_cast_exception(_ctx);            \
+            __raise_exception(_ctx, exception_type);                                    \
+            return;                                                                     \
+        } while (false)
+
+
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1417,7 +1452,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __ToString(_FT("box [%1%]", _box_type));
+        __ToString(_FT("box [%1%]"), _box_type);
 
         #endif  // EXEC_TRACE
 
@@ -1489,7 +1524,121 @@ namespace X_ROOT_NS::modules::exec {
             }
             else
             {
-                return __new_command<this_command_t>(memory, type, std::forward<_args_t>(args) ...);
+                return __new_command<this_command_t>(memory, type,
+                                                        std::forward<_args_t>(args) ...);
+            }
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Push unbox.
+
+    #define __PushUnboxCmd(_size, _box_type)                                            \
+        __Cmd(push, unbox##_##_size##_##_box_type)
+
+    #define __DefinePushUnboxCmd(_size)                                                 \
+        __DefineCmdValue_(__PushUnboxCmd(_size, pop))                                   \
+        __DefineCmdValue_(__PushUnboxCmd(_size, pick))
+
+    __DefinePushUnboxCmd(0)
+    __DefinePushUnboxCmd(1)
+    __DefinePushUnboxCmd(2)
+    __DefinePushUnboxCmd(3)
+    __DefinePushUnboxCmd(4)
+    __DefinePushUnboxCmd(8)
+    __DefinePushUnboxCmd(__CustomStructSize)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    template<command_value_t _cv, msize_t _size, xil_box_type_t _box_type>
+    class __push_unbox_command_t : public __command_base_t<_cv>
+    {
+        typedef __push_unbox_command_t      __self_t;
+        typedef __command_base_t<_cv>       __super_t;
+        typedef uint_type_t<_size>          __value_t;
+
+    public:
+        __push_unbox_command_t(rt_type_t * type) : __type(type) { }
+
+        #if EXEC_TRACE
+
+        __ToString(_FT("unbox [%1%]"), _box_type);
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            rt_ref_t obj = __fetch_box_addr<_box_type, rt_ref_t>(ctx);
+            __CheckNullReference(ctx, obj); 
+
+            rt_type_t * type = __RtTypeOf(obj);
+            if (type != __type)
+                __RaiseInvalidCastException(ctx);
+
+            ctx.stack.push<__value_t>(*(__value_t *)(void *)obj);
+
+        __EndExecute()
+
+    private:
+        rt_type_t * __type;
+    };
+    
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    template<command_value_t _cv, xil_box_type_t _box_type>
+    class __push_unbox_command_t<_cv, __CustomStructSize, _box_type> : public __command_base_t<_cv>
+    {
+        typedef __push_unbox_command_t          __self_t;
+        typedef __command_base_t<_cv>           __super_t;
+
+    public:
+        __push_unbox_command_t(rt_type_t * type, msize_t size)
+            : __type(type), __size(size) { }
+
+        #if EXEC_TRACE
+
+        __ToString(_FT("unbox [%1%]"), _box_type);
+
+        #endif      // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            rt_ref_t obj = __fetch_box_addr<_box_type, rt_ref_t>(ctx);
+            __CheckNullReference(ctx, obj); 
+
+            rt_type_t * type = __RtTypeOf(obj);
+            if (type != __type)
+                __RaiseInvalidCastException(ctx);
+
+            void * val = ctx.stack.pop<void *>();
+            al::quick_copy(val, (void *)obj, __size);
+
+        __EndExecute()
+
+    private:
+        rt_type_t * __type;
+        msize_t     __size;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    struct __push_unbox_command_template_t
+    {
+        template<command_value_t _cv, size_t _size, xil_box_type_t _box_type,
+                                                    typename ... _args_t>
+        static auto new_command(memory_t * memory, rt_type_t * type, msize_t real_size,
+                                                    _args_t && ... args)
+        {
+            typedef __push_unbox_command_t<_cv, _size, _box_type> this_command_t;
+            if constexpr (_size == __CustomStructSize)
+            {
+                return __new_command<this_command_t>(memory, type, real_size,
+                                            std::forward<_args_t>(args) ...);
+            }
+            else
+            {
+                return __new_command<this_command_t>(memory, type,
+                                            std::forward<_args_t>(args) ...);
             }
         }
     };
@@ -1787,6 +1936,7 @@ namespace X_ROOT_NS::modules::exec {
             struct
             {
                 rt_type_t *     type;
+                xil_box_type_t  box_type;
             } unbox;
         };
     };
@@ -1851,6 +2001,10 @@ namespace X_ROOT_NS::modules::exec {
         static __command_manager_t<
             __push_box_command_template_t, msize_t, xil_box_type_t
         >::with_args_t<rt_type_t *> __box_command_manager;
+
+        static __command_manager_t<
+            __push_unbox_command_template_t, msize_t, xil_box_type_t
+        >::with_args_t<rt_type_t *> __unbox_command_manager;
 
         xil_storage_type_t stype = args.stype;
         xil_type_t xt1 = args.xt1, xt2 = args.xt2;
@@ -1935,6 +2089,50 @@ namespace X_ROOT_NS::modules::exec {
                 #undef __BoxV
 
             }   break;
+
+            case xil_storage_type_t::unbox: {         // Push unbox command.
+
+                #define __UnboxV(_size, _box_type)    (((int)_size << 8) | (int)_box_type)
+
+                rt_type_t * type = args.unbox.type;
+                _A(type != nullptr);
+
+                msize_t real_size = type->get_size(ctx.env);
+                _A(real_size > 0);
+
+                msize_t size = is_custom_struct(ctx.env, type)? __CustomStructSize : real_size;
+
+                switch (__UnboxV(size, args.unbox.box_type))
+                {
+                    #define __CaseUnbox_(_size, _box_type)                              \
+                        case __UnboxV(_size, xil_box_type_t::_box_type):                \
+                            return __unbox_command_manager.template get_command<        \
+                                __PushUnboxCmd(_size, _box_type), _size,                \
+                                xil_box_type_t::_box_type> (args.unbox.type, real_size);
+
+                    #define __CaseUnbox(_size)                                          \
+                        __CaseUnbox_(_size, pop)                                        \
+                        __CaseUnbox_(_size, pick)
+
+                    __CaseUnbox(0)
+                    __CaseUnbox(1)
+                    __CaseUnbox(2)
+                    __CaseUnbox(4)
+                    __CaseUnbox(8)
+                    __CaseUnbox(__CustomStructSize)
+
+                    #undef __CaseUnbox
+                    #undef __CaseUnbox_
+
+                    default:
+                        X_UNEXPECTED_F("unexpected unbox command %1% [%2%]", size,
+                                                                       args.unbox.box_type);
+                }
+
+                #undef __BoxV
+
+            }   break;
+
 
             default:
                 break;
@@ -2383,7 +2581,8 @@ namespace X_ROOT_NS::modules::exec {
                 break;
 
             case xil_storage_type_t::unbox:
-                args.box.type = ctx.get_type(xil.get_ref());
+                args.unbox.type     = ctx.get_type(xil.get_ref());
+                args.unbox.box_type = xil.get_box_type();
                 break;
 
             default:
@@ -3516,7 +3715,7 @@ namespace X_ROOT_NS::modules::exec {
 
     // Raise exception with specified type.
     static void __raise_exception(command_execute_context_t & ctx,
-                                rt_type_t * exception_type, const char_t * message = nullptr)
+                                rt_type_t * exception_type, const char_t * message)
     {
         __pre_new(ctx, exception_type);
         rt_ref_t exception = ctx.heap->new_obj(exception_type);
@@ -3525,16 +3724,6 @@ namespace X_ROOT_NS::modules::exec {
         ctx.push_exception(exception);
 
         __process_exception(ctx);
-    }
-
-    // Raise System.NullReferenceException when specified obj is null.
-    __AlwaysInline static void __check_null_reference(command_execute_context_t & ctx, rt_ref_t obj)
-    {
-        if (obj == nullptr)
-        {
-            rt_type_t * exception_type = __get_null_reference_exception(ctx);
-            __raise_exception(ctx, exception_type);
-        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3964,7 +4153,8 @@ namespace X_ROOT_NS::modules::exec {
                                                 msize_t this_offset, _fetch_t fetch_func)
     {
         rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - this_offset);
-        __check_null_reference(ctx, obj);
+        if (obj == nullptr)
+            return nullptr;
 
         rt_type_t * rt_type = __RtTypeOf(obj);
 
@@ -4011,6 +4201,7 @@ namespace X_ROOT_NS::modules::exec {
                 }
             );
 
+            __CheckNullReference(ctx, method);
             ctx.push_calling(method);
 
         __EndExecute()
@@ -4060,6 +4251,7 @@ namespace X_ROOT_NS::modules::exec {
                 }
             );
 
+            __CheckNullReference(ctx, method);
             ctx.push_calling(method);
 
         __EndExecute()
@@ -5023,13 +5215,11 @@ namespace X_ROOT_NS::modules::exec {
             if constexpr (_cast_cmd == xil_cast_command_t::default_)
             {
                 rt_ref_t obj = ctx.stack.pick<rt_ref_t>();
-                rt_type_t * rt_type = __RtTypeOf(obj);
+                __CheckNullReference(ctx, obj);
 
+                rt_type_t * rt_type = __RtTypeOf(obj);
                 if (!__cast_test<_is_interface>(rt_type, __type))
-                {
-                    rt_type_t * exception_type = __get_invalid_cast_exception(ctx);
-                    __raise_exception(ctx, exception_type);
-                }
+                    __RaiseInvalidCastException(ctx);
             }
 
             // Test whether a cast is valid.
