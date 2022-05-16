@@ -6,10 +6,10 @@ namespace X_ROOT_NS::modules::core {
     #define __Unexpected() X_UNEXPECTED()
 
     // Check ref limit.
-    #define __CheckRefLimit(ref, limit, name)                           \
-        do {                                                            \
-            if (ref.count > 0 && ref.index + ref.count - 1 >= limit)     \
-                throw _ED(__e_t::overlimit, name);                      \
+    #define __CheckRefLimit(ref, limit, name)                                           \
+        do {                                                                            \
+            if (ref.count > 0 && ref.index + ref.count - 1 >= limit)                    \
+                throw _ED(__e_t::overlimit, name);                                      \
         } while (false)
 
     #define __FakeEntryPoint    ((method_t *)0x01)
@@ -185,9 +185,9 @@ namespace X_ROOT_NS::modules::core {
 
         //-------- ---------- ---------- ---------- ----------
 
-        std::map<res_t, namespace_t *> __ns_map;
-        std::map<type_t *, type_name_t *> __type_name_map;
-        std::map<decorate_value_t, decorate_t *> __decorate_map;
+        std::map<name_t, namespace_t *>             __ns_map;
+        std::map<type_t *, type_name_t *>           __type_name_map;
+        std::map<decorate_value_t, decorate_t *>    __decorate_map;
 
         __list_t<assembly_t *>          __assembly_refs;        // Assembly refs
         __list_t<general_type_t *>      __type_refs;            // Type refs.
@@ -288,27 +288,42 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Returns namespace_t of ns.
-        namespace_t * __to_namespace(sid_t ns)
+        namespace_t * __to_namespace(name_t name)
         {
-            if (ns == sid_t::null)
+            if (name == name_t::null)
                 return nullptr;
 
-            // TODO: ?
-            return nullptr;
+            mname_operate_context_t ctx = to_mname_operate_context();
+            const mname_t * mname = mname_t::to_mname(ctx, name);
+
+            namespace_t * ns = __new_obj<namespace_t>();
+            ns->full_name = mname;
+            ns->name      = __new_obj<emname_t>(mname);
+
+            const mname_t * parent_name = mname_t::get_parent(ctx, mname);
+            if (parent_name != nullptr)
+            {
+                namespace_t * parent_ns = __to_namespace(name_t((sid_t)*parent_name));
+                parent_ns->namespaces.push_back(ns);
+            }
+
+            return ns;
         }
 
         // Returns namespace_t of res.
-        namespace_t * __to_namespace(res_t res)
+        namespace_t * __to_namespace(res_t ns_res)
         {
-            if (res == res_t::null)
+            if (ns_res == res_t::null)
                 return nullptr;
 
-            auto it = __ns_map.find(res);
+            name_t name = __to_name(ns_res);
+
+            auto it = __ns_map.find(name);
             if (it != __ns_map.end())
                 return it->second;
 
-            namespace_t * ns = __to_namespace(__to_sid(res));
-            __ns_map[res] = ns;
+            namespace_t * ns = __to_namespace(name);
+            __ns_map[name] = ns;
 
             return ns;
         }
@@ -461,7 +476,7 @@ namespace X_ROOT_NS::modules::core {
         // Bind entities.
         void __build_entities()
         {
-            #define __Bind(func)       \
+            #define __Bind(func)                                                        \
                 std::bind(&__self_t::func, this, std::placeholders::_1, std::placeholders::_2)
 
             __set_placeholders_null<__tidx_t::generic_type>(__generic_types);
@@ -1078,11 +1093,13 @@ namespace X_ROOT_NS::modules::core {
         // Build general type.
         void __build_general_type(mt_type_t & mt_type, general_type_t * type)
         {
-            type->name      = __to_name(mt_type.name);
-            type->decorate  = __to_decorate(mt_type.decorate);
-            type->ttype     = (ttype_t)mt_type.ttype;
-            type->vtype     = (vtype_t)mt_type.vtype;
-            type->params    = __to_generic_params(mt_type.generic_params);
+            type->name       = __to_name(mt_type.name);
+            type->decorate   = __to_decorate(mt_type.decorate);
+            type->ttype      = (ttype_t)mt_type.ttype;
+            type->vtype      = (vtype_t)mt_type.vtype;
+            type->params     = __to_generic_params(mt_type.generic_params);
+            type->assembly   = &__assembly;
+            type->namespace_ = __to_namespace(mt_type.namespace_);
         }
 
         // Fill nest types of general type.
@@ -1114,8 +1131,6 @@ namespace X_ROOT_NS::modules::core {
                                                 mt_type.super_types, _T("super type"));
 
             type->attributes = __to_attributes(mt_type.attributes, type);
-
-            type->namespace_ = __to_namespace(mt_type.namespace_);
         }
 
         // Builds array type.
@@ -1247,6 +1262,11 @@ namespace X_ROOT_NS::modules::core {
         // Commits general types.
         void __commit_general_types()
         {
+            for (general_type_t * type : __general_types)
+            {
+                __XPool.append_new_type(type);
+            }
+
             eobject_commit_context_t ctx(__logger);
 
             for (general_type_t * type : __general_types)
@@ -1279,6 +1299,9 @@ namespace X_ROOT_NS::modules::core {
         {
             for (type_def_t * type_def : __type_defs)
             {
+                if (type_def->namespace_ != nullptr)
+                    type_def->namespace_->type_defs.push_back(type_def);
+
                 this->__assembly.types.append_type_def(
                     __ns_to_sid(type_def->namespace_), type_def
                 );

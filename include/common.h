@@ -1164,12 +1164,12 @@ namespace X_ROOT_NS {
 #if X_DEBUG
             , const char_t * file, size_t line, string_t && call_stack
 #endif
-        )
+        ) _NE
             : logic_error_base_t(std::forward<message_t>(message)
 #if X_DEBUG
             , file, line, std::move(call_stack)
 #endif
-            ) _NE, code(code) { }
+            ), code(code) { }
 
     public:
         typedef error_code_t code_t;

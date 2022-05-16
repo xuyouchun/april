@@ -981,6 +981,12 @@ namespace X_ROOT_NS::modules::core {
     // Returns parent of a mname.
     const mname_t * mname_t::get_parent(__context_t && ctx, const mname_t * name)
     {
+        return get_parent(ctx, name);
+    }
+
+    // Returns parent of a mname.
+    const mname_t * mname_t::get_parent(__context_t & ctx, const mname_t * name)
+    {
         if (name == nullptr || name->parts.size() <= 1)
             return nullptr;
 
@@ -1004,12 +1010,6 @@ namespace X_ROOT_NS::modules::core {
             new_name->sid = sid;
             return new_name;
         });
-    }
-
-    // Returns parent of a mname.
-    const mname_t * mname_t::get_parent(__context_t & ctx, const mname_t * name)
-    {
-        return get_parent(ctx, name);
     }
 
     // Returns child of a mname.
@@ -5549,6 +5549,8 @@ namespace X_ROOT_NS::modules::core {
     // Append a new type.
     void xpool_t::append_new_type(type_t * type)
     {
+        _A(type != nullptr);
+
         __new_types.push(type);
 
         if (type->this_gtype() == gtype_t::general)

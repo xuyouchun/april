@@ -331,7 +331,11 @@ namespace X_ROOT_NS {
         else
             msg = sprintf(_T("Assert error: %1%"), exp);
 
-        throw assert_error_t(std::move(msg), file, line, std::move(call_stack));
+        throw assert_error_t(std::move(msg)
+#if X_DEBUG
+            , file, line, std::move(call_stack)
+#endif
+        );
     }
 
     // Raise assert error if the specified expression is false.
