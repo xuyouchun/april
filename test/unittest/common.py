@@ -3,6 +3,9 @@
 
 import os
 import sys
+import re
+
+import pytest
 
 ##############################################################################
 
@@ -18,13 +21,16 @@ def __get_parent_path(path, level = 1):
 def get_root_path():
     return __get_parent_path(__file__, 3)
 
+def get_absolute_path(path):
+    return os.path.join(get_root_path(), path)
+
 """ Returns april bin file path """
 def get_april_path():
-    return os.path.join(get_root_path(), "bin/april")
+    return get_absolute_path("bin/april")
 
 """ Returns the path that contains test files """
 def get_test_path():
-    return os.path.join(get_root_path(), "test/unittest")
+    return get_absolute_path("test/unittest")
 
 """ Runs a code file or project file or solution file """
 def run_file(file):
@@ -34,10 +40,12 @@ def run_file(file):
     if not os.path.exists(test_file):
         raise RuntimeError("code file " + test_file + " not exists")
 
-    command = april_path + " run " + file;
+    command = april_path + " run " + file + " " + get_absolute_path("System.apl")
     print(command)
-    #s = os.system(april)
-    #return s
+
+    s = "".join(os.popen(command).readlines())
+
+    return s
 
 
 ##############################################################################
@@ -45,5 +53,49 @@ def run_file(file):
 class Base:
 
     def run(self, file):
-        s = run_file(file)
-        print(s)
+        result, expect = self.__run(file);
+        assert result == expect
+
+    def __run(self, file):
+        result = run_file(file)
+        result = re.sub(r"^[\n\r]*|[\n\r]*$", "", result)
+
+        expect = self.__read_expect(file).replace("\r", "")
+        expect = re.sub(r"^[\n\r]*|[\n\r]*$", "", expect)
+
+        if result != expect:
+            if '\n' in expect or '\n' in result:
+                print("EXPECT:\n" + expect)
+                print("ACTUAL:\n" + result)
+            else:
+                print("EXPECT: " + expect)
+                print("ACTUAL: " + result)
+
+        return (result, expect)
+
+    def __read_expect(self, file):
+
+        matched = False
+        expect_results = []
+
+        with open(file, "r") as file:
+            while True:
+                s = file.readline()
+                if s == "":
+                    break
+
+                if re.match(r"\s*/\*\s*EXPECT", s):
+                    matched = True
+                    continue
+
+                if matched:
+                    if re.match(r"\s*\*/", s):
+                        break
+
+                    expect_results.append(s)
+
+        assert matched
+        return "".join(expect_results);
+
+
+

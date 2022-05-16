@@ -1,4 +1,10 @@
 
+/* EXPECT
+
+Hello World
+
+*/
+
 import System;
 
 using System;
@@ -11,3 +17,5 @@ class Program
         Console.WriteLine("Hello World");
     }
 }
+
+
