@@ -543,6 +543,15 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Returns whether it's the left member expression.
+    static bool __is_left_member(expression_t * exp)
+    {
+        if (exp->parent == nullptr)
+            return false;
+
+        return __is_left_member(exp->parent, exp);
+    }
+
+    // Returns whether it's the left member expression.
     static bool __is_left_member(expression_t * exp, expression_t * exp1, bool recursion)
     {
         expression_t * exp0;
@@ -1640,7 +1649,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles param variable.
     static void __compile_param_variable(__cctx_t & ctx, xil_pool_t & pool,
-                                    param_variable_t * variable, xil_type_t dtype)
+                param_variable_t * variable, xil_type_t dtype, expression_t * owner_exp)
     {
         param_t * param = variable->param;
 
@@ -1653,21 +1662,27 @@ namespace X_ROOT_NS::modules::compile {
         int index = __param_index(ctx, variable);
         type_t * type = variable->get_type();
 
-        // TODO: when member point, int, long ... types also should be ptr type.
-        if (__is_addr(variable))
+        if (__is_addr(variable))    // ref, out param
         {
             if (dtype == xil_type_t::ptr)
                 pool.append<x_push_argument_xil_t>(xil_type_t::ptr, index);
             else
                 pool.append<x_push_argument_content_xil_t>(__to_xil_type(ctx, variable), index);
-
-            return;
         }
-
-        if (is_custom_struct(type))
-            pool.append<x_push_argument_addr_xil_t>(index);
-        else
+        else if (vtype_t vtype = variable->get_vtype();     // when call ((int)v).MyMethod()
+            is_system_value_type(vtype) && __is_left_member(owner_exp))
+        {
             pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
+            pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
+        }
+        else if (is_custom_struct(type))    // custom struct
+        {
+            pool.append<x_push_argument_addr_xil_t>(index);
+        }
+        else
+        {
+            pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
+        }
     }
 
     // Compiles field variable.
@@ -1904,7 +1919,7 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case variable_type_t::param:
-                __compile_param_variable(ctx, pool, (param_variable_t *)variable, env);
+                __compile_param_variable(ctx, pool, (param_variable_t *)variable, env, owner_exp);
                 break;
 
             case variable_type_t::field: {
