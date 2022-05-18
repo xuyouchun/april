@@ -6502,6 +6502,12 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    X_ENUM(type_mark_t)
+    
+        default_ = __default__, ref, value,
+
+    X_ENUM_END
+
     // Expression compile environment.
     struct expression_compile_environment_t
     {
@@ -6509,12 +6515,28 @@ namespace X_ROOT_NS::modules::core {
         expression_compile_environment_t() _NE : dtype(xil_type_t::empty), type(nullptr) { }
         expression_compile_environment_t(xil_type_t dtype) _NE : dtype(dtype), type(nullptr) { }
 
+        expression_compile_environment_t(xil_type_t dtype, bool is_ref) _NE
+            : dtype(dtype), type(nullptr)
+            , type_mark(is_ref? type_mark_t::ref : type_mark_t::value) { }
+
+        expression_compile_environment_t(type_mark_t mark) _NE
+            : dtype(xil_type_t::empty), type(nullptr), type_mark(mark)
+        {
+            _A(mark != type_mark_t::__default__);
+        }
+
         expression_compile_environment_t(type_t * type) _NE
             : type(type), dtype(to_xil_type(type)) { }
-        
-        type_t * const          type;       // Real type.
-        const xil_type_t        dtype;      // Data type.
 
+        expression_compile_environment_t(type_t * type, bool is_ref) _NE
+            : type(type), dtype(to_xil_type(type))
+            , type_mark(is_ref? type_mark_t::ref : type_mark_t::value) { }
+        
+        type_t * const      type;           // Real type.
+        const xil_type_t    dtype;          // Data type.
+        const type_mark_t   type_mark = type_mark_t::default_;
+                                            // When value type but marked with ref type,
+                                            //   it should be box to heap.
         // Converts to data type.
         operator xil_type_t () const _NE { return dtype; }
 
@@ -6523,6 +6545,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Converts to string.
         operator string_t() const;
+
+        // Returns whether it's value type.
+        bool is_value() const;
+
+        // Returns whether it's ref type.
+        bool is_ref() const;
 
         // A empty object.
         static const expression_compile_environment_t empty;

@@ -692,22 +692,22 @@ namespace X_ROOT_NS::modules::rt {
         return offset;
     }
 
-    // Returns offset of field index.
-    msize_t locals_layout_t::offset_of(int index)
+    // Returns offset of local variable identity.
+    msize_t locals_layout_t::offset_of(int identity)
     {
-        if (index >= __items.size())
-            throw __RtAssemblyError(_T("local index out of range"));
+        if (identity >= __items.size())
+            throw __RtAssemblyError(_T("local identity out of range"));
 
-        return __items[index].offset;
+        return __items[identity].offset;
     }
 
-    // Returns type of local variable index.
-    rt_type_t * locals_layout_t::type_at(int index)
+    // Returns type of local variable identity.
+    rt_type_t * locals_layout_t::type_at(int identity)
     {
-        if (index >= __items.size())
-            throw __RtAssemblyError(_T("local index out of range"));
+        if (identity >= __items.size())
+            throw __RtAssemblyError(_T("local identity out of range"));
 
-        return __items[index].type;
+        return __items[identity].type;
     }
 
     // Converts to string.
@@ -757,7 +757,8 @@ namespace X_ROOT_NS::modules::rt {
         append(type, param_type, layout_type);
 
         // Params generic type.
-        if (gp != nullptr && (generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
+        if (gp != nullptr &&
+            (generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
         {
             for (size_t index1 = index + 1, count = __ctx.gp_manager->size();
                 index1 < count; index1++)
@@ -770,7 +771,7 @@ namespace X_ROOT_NS::modules::rt {
 
     // Appends a param.
     void params_layout_t::append(rt_type_t * type, param_type_t param_type,
-                param_layout_type_t layout_type)
+                                                param_layout_type_t layout_type)
     {
         typedef param_type_t p_t;
 
@@ -792,17 +793,17 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Returns offset of index.
-    msize_t params_layout_t::offset_of(int index)
+    msize_t params_layout_t::offset_of(int identity)
     {
-        if (index >= __items.size())
+        if (identity >= __items.size())
         {
-            if (index == __items.size())
+            if (identity == __items.size())
                 return 0;
 
-            throw __RtAssemblyError(_T("argument index out of range"));
+            throw __RtAssemblyError(_T("argument identity out of range"));
         }
 
-        return __current_offset - __items[index].offset;
+        return __current_offset - __items[identity].offset;
     }
 
     // Returns offset of the first extends param.
@@ -814,23 +815,23 @@ namespace X_ROOT_NS::modules::rt {
         return __current_offset - __extends_params_offset;
     }
 
-    // Returns param type of index.
-    rt_type_t * params_layout_t::type_at(int index)
+    // Returns param type of identity.
+    rt_type_t * params_layout_t::type_at(int identity)
     {
-        if (index >= __items.size())
-            throw __RtAssemblyError(_T("argument index out of range"));
+        if (identity >= __items.size())
+            throw __RtAssemblyError(_T("argument identity out of range"));
 
-        return __items[index].type;
+        return __items[identity].type;
     }
 
-    // Returns param type of index.
-    rt_type_t * params_layout_t::type_at(int index, msize_t * out_offset,
+    // Returns param type of identity.
+    rt_type_t * params_layout_t::type_at(int identity, msize_t * out_offset,
                                                     param_type_t * out_param_type)
     {
-        if (index >= __items.size())
-            throw __RtAssemblyError(_T("argument index out of range"));
+        if (identity >= __items.size())
+            throw __RtAssemblyError(_T("argument identity out of range"));
 
-        __item_t & it = __items[index];
+        __item_t & it = __items[identity];
 
         if (out_offset != nullptr)
             *out_offset = it.offset;

@@ -1512,8 +1512,17 @@ namespace X_ROOT_NS::modules::core {
         method_variable_stub_t stub(variable_count);
         stub.write(buffer);
 
-        each([&](local_variable_t * variable) {
+        al::svector_t<local_variable_t *, 16> variables;
+        this->each([&](local_variable_t * variable) {
+            variables.push_back(variable);
+        });
 
+        std::sort(std::begin(variables), std::end(variables), [](auto v1, auto v2) {
+            return v1->identity < v2->identity;
+        });
+
+        for (local_variable_t * variable : variables)
+        {
             type_t * type = variable->get_type();
             ref_t ref = layout.ref_of(type);
             if (ref == ref_t::null)
@@ -1522,7 +1531,7 @@ namespace X_ROOT_NS::modules::core {
             local_variable_defination_t defination = { ref, variable->index };
             defination.write(layout, buffer);
 
-        });
+        };
     }
 
     // Converts to string.
@@ -6650,6 +6659,19 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
     // expression_t
 
+    X_ENUM_INFO(type_mark_t)
+
+        // Default, unspecified.
+        X_C(default_,       _T("default"))
+
+        // Ref type.
+        X_C(ref,            _T("ref"))
+
+        // Value type.
+        X_C(value,          _T("value"))
+
+    X_ENUM_INFO_END
+
     // Converts to string.
     expression_compile_environment_t::operator string_t() const
     {
@@ -6657,6 +6679,44 @@ namespace X_ROOT_NS::modules::core {
             return type->to_string();
 
         return _str(dtype);
+    }
+
+    // Returns whether it's ref type.
+    bool expression_compile_environment_t::is_value() const
+    {
+        switch (type_mark)
+        {
+            case type_mark_t::ref:
+                return false;
+
+            case type_mark_t::value:
+                return true;
+
+            default:
+                if (type == nullptr)
+                    return false;
+
+                return is_value_type(type);
+        }
+    }
+
+    // Returns whether it's value type.
+    bool expression_compile_environment_t::is_ref() const
+    {
+        switch (type_mark)
+        {
+            case type_mark_t::ref:
+                return true;
+
+            case type_mark_t::value:
+                return false;
+
+            default:
+                if (type == nullptr)
+                    return false;
+
+                return is_ref_type(type);
+        }
     }
 
     const expression_compile_environment_t expression_compile_environment_t::empty;

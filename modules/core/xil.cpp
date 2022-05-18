@@ -1147,7 +1147,10 @@ namespace X_ROOT_NS::modules::core {
     // Returns method call type.
     xil_call_type_t call_type_of_method(method_base_t * method)
     {
+        _A(method != nullptr);
+
         method_t * m = to_general(method);
+        _A(m != nullptr);
 
         if (m->is_extern())
             return xil_call_type_t::internal;
@@ -1155,9 +1158,19 @@ namespace X_ROOT_NS::modules::core {
         if (m->is_static())
             return xil_call_type_t::static_;
 
-        if (m->is_virtual() || m->is_override() || m->is_abstract()
-                            || is_interface(method->get_host_type()))
+        if (m->is_virtual() || m->is_override() || m->is_abstract())
+        {
+            type_t * host_type = method->get_host_type();
+            _A(host_type != nullptr);
+
+            if (is_interface(host_type))
+                return xil_call_type_t::virtual_;
+
+            if (m->is_sealed() || host_type->is_sealed())
+                return xil_call_type_t::instance;
+
             return xil_call_type_t::virtual_;
+        }
 
         return xil_call_type_t::instance;
     }

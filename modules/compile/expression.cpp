@@ -573,6 +573,20 @@ namespace X_ROOT_NS::modules::compile {
         return __is_member_expression(exp, nullptr, &exp0) && exp0 == exp2;
     }
 
+    // Returns whether it's the left member of calling a method.
+    static bool __is_calling_method_owner(expression_t * exp)
+    {
+        if (exp->parent == nullptr)
+            return false;
+
+        expression_t * exp2;
+        if (!__is_member_expression(exp->parent, nullptr, &exp2))
+            return false;
+
+        _A(exp2 != nullptr);
+        return exp2->this_family() == expression_family_t::function;
+    }
+
     // Returns whether it's effective.
     static bool __is_this_effective(__cctx_t & ctx, expression_t * exp)
     {
@@ -1678,6 +1692,9 @@ namespace X_ROOT_NS::modules::compile {
         else if (is_custom_struct(type))    // custom struct
         {
             pool.append<x_push_argument_addr_xil_t>(index);
+
+            if (__is_calling_method_owner(owner_exp))
+                pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
         }
         else
         {
@@ -1971,7 +1988,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // When need to box.
-        if (env.type != nullptr && is_ref_type(env.type) && is_value_type(__ExpType))
+        if (is_value_type(__ExpType) && env.is_ref())
         {
             pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
             return;
@@ -2314,8 +2331,7 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             default:
-                _PP(this->expression_type);
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected name-unit expression type '%1%'", this->expression_type);
         }
     }
 
@@ -2553,7 +2569,12 @@ namespace X_ROOT_NS::modules::compile {
             if (__is_right_member(this->parent, this))
             {
                 __pre_call_method(ctx, pool, this->parent, method);
-                ((binary_expression_t *)this->parent)->exp1()->compile(ctx, pool);
+
+                type_t * host_type = method->get_host_type();
+                _A(host_type != nullptr);
+
+                expression_t * exp1 = ((binary_expression_t *)this->parent)->exp1();
+                exp1->compile(ctx, pool, host_type);
             }
             else
             {

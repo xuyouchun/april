@@ -283,11 +283,11 @@ namespace X_ROOT_NS::modules::rt {
         // Commits it.
         void commit();
 
-        // Returns offset of local variable index.
-        msize_t offset_of(int index);
+        // Returns offset of local variable identity.
+        msize_t offset_of(int identity);
 
-        // Returns type of local variable index.
-        rt_type_t * type_at(int index);
+        // Returns type of local variable identity.
+        rt_type_t * type_at(int identity);
 
         // Returns unit size of variables.
         msize_t unit_size() { return __local_unit_size; }
@@ -322,7 +322,6 @@ namespace X_ROOT_NS::modules::rt {
             operator string_t() const;
         };
 
-        msize_t __identity = 0;             // Identity.
         msize_t __local_unit_size = 0;      // Local unit size.
         static const msize_t __empty_msize = max_value<msize_t>();
 
@@ -371,7 +370,7 @@ namespace X_ROOT_NS::modules::rt {
         msize_t __find_reset_index(msize_t index, storage_type_t storage_type);
 
         // Returns current identity.
-        msize_t __current_identity() { return __identity++; }
+        msize_t __current_identity() { return __items.size(); }
 
         // Arrange variables.
         template<typename _f_t, typename _caller_t>
@@ -434,17 +433,17 @@ namespace X_ROOT_NS::modules::rt {
         void append(rt_type_t * type, param_type_t param_type,
                 param_layout_type_t layout_type = param_layout_type_t::default_);
 
-        // Returns offset of param index.
-        msize_t offset_of(int index);
+        // Returns offset of param identity.
+        msize_t offset_of(int identity);
 
         // Returns offset of the first extends param.
         msize_t extends_offset();
 
-        // Returns param type of param index.
-        rt_type_t * type_at(int index);
+        // Returns param type of param identity.
+        rt_type_t * type_at(int identity);
 
-        // Returns param type of param index.
-        rt_type_t * type_at(int index, msize_t * out_offset,
+        // Returns param type of param identity.
+        rt_type_t * type_at(int identity, msize_t * out_offset,
                                        param_type_t * out_param_type = nullptr);
 
         // Commits it.

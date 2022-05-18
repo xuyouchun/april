@@ -1093,13 +1093,9 @@ namespace X_ROOT_NS::modules::exec {
     public:
         __BeginExecute(ctx)
 
-            // _PP(ctx.stack.pick<rt_ref_t>());
-
             ctx.stack.push<rt_stack_unit_t>(
                 ctx.stack.pick<rt_stack_unit_t>()
             );
-
-            // _PP(ctx.stack.pick<rt_ref_t>());
 
         __EndExecute()
 
@@ -1452,7 +1448,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __ToString(_FT("box [%1%]"), _box_type);
+        __ToString(_FT("box [%1%]", _box_type));
 
         #endif  // EXEC_TRACE
 
@@ -1562,7 +1558,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __ToString(_FT("unbox [%1%]"), _box_type);
+        __ToString(_FT("unbox [%1%]", _box_type));
 
         #endif  // EXEC_TRACE
 
@@ -1597,7 +1593,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #if EXEC_TRACE
 
-        __ToString(_FT("unbox [%1%]"), _box_type);
+        __ToString(_FT("unbox [%1%]", _box_type));
 
         #endif      // EXEC_TRACE
 
@@ -1912,6 +1908,12 @@ namespace X_ROOT_NS::modules::exec {
             {
                 msize_t     offset;
             } argument;
+
+            // argument content
+            struct
+            {
+                msize_t     offset;
+            } argument_content;
 
             // field
             struct
@@ -2303,7 +2305,7 @@ namespace X_ROOT_NS::modules::exec {
                     return __command_manager.template get_command<                      \
                         __StCmd(push, argument_content, _xt1, _xt2),                    \
                         xil_storage_type_t::argument_content, xil_type_t::_xt1, xil_type_t::_xt2 \
-                    >(args.argument.offset);
+                    >(args.argument_content.offset);
 
 
             #define __CaseArgumentContents(_xt2)                                        \
@@ -2533,7 +2535,7 @@ namespace X_ROOT_NS::modules::exec {
                 args.object.type = xil.get_object_type();
                 args.object.object = __get_object(ctx, args.object.type, xil.get_ref()
                 #if EXEC_TRACE
-                    , &name
+                    , &args.object.name
                 #endif
                 );
                 break;
@@ -2558,6 +2560,11 @@ namespace X_ROOT_NS::modules::exec {
             case xil_storage_type_t::argument:
                 __analyze_xil_types(ctx, xil, &xt1, &xt2, false);
                 args.argument.offset = __offset_of_argument(ctx, xil.get_identity());
+                break;
+
+            case xil_storage_type_t::argument_content:
+                __analyze_xil_types(ctx, xil, &xt1, &xt2, false);
+                args.argument_content.offset = __offset_of_argument(ctx, xil.get_identity());
                 break;
 
             case xil_storage_type_t::field:
