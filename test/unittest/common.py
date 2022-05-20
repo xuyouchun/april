@@ -3,6 +3,7 @@
 
 import os
 import sys
+import subprocess
 import re
 
 import pytest
@@ -14,6 +15,19 @@ def __get_parent_path(path, level = 1):
     for k in range(level):
         path = os.path.dirname(path)
     return path
+
+def colorize(num, string, bold=False, highlight=False):
+    attr = []
+
+    if highlight:
+        num += 10;
+
+    attr.append(str(num))
+
+    if bold:
+        attr.append('1')
+
+    return '\x1b[%sm%s\x1b[0m' % (';'.join(attr), string)
 
 ##############################################################################
 
@@ -38,14 +52,16 @@ def run_file(file):
     test_file = os.path.join(get_test_path(), file)
 
     if not os.path.exists(test_file):
-        raise RuntimeError("code file " + test_file + " not exists")
+        raise RuntimeError("Code file " + test_file + " not exists")
 
     command = april_path + " run " + file + " " + get_absolute_path("System.apl")
-    print(command)
+    print(colorize(36, command))
 
-    s = "".join(os.popen(command).readlines())
-
-    return s
+    code, ret = subprocess.getstatusoutput(command)
+    if code != 0:
+        raise RuntimeError("Status code is " + str(code))
+        
+    return ret
 
 
 ##############################################################################
@@ -65,11 +81,11 @@ class Base:
 
         if result != expect:
             if '\n' in expect or '\n' in result:
-                print("EXPECT:\n" + expect)
-                print("ACTUAL:\n" + result)
+                print(colorize(35, "EXPECT:\n") + expect)
+                print(colorize(35, "ACTUAL:\n") + result)
             else:
-                print("EXPECT: " + expect)
-                print("ACTUAL: " + result)
+                print(colorize(35, "EXPECT: ") + expect)
+                print(colorize(35, "ACTUAL: ") + result)
 
         return (result, expect)
 
