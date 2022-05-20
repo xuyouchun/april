@@ -1618,6 +1618,19 @@ namespace X_ROOT_NS::modules::core {
         __DefineAccessMethod(protected_and_internal, protected_and_internal)
 
         #undef __DefineAccessMethod
+
+        void set_static(bool v)   _NE { __decorate()->is_static = v; }
+        void set_sealed(bool v)   _NE { __decorate()->is_sealed = v; }
+        void set_override(bool v) _NE { __decorate()->is_override = v; }
+        void set_virtual(bool v)  _NE { __decorate()->is_virtual = v; }
+        void set_abstract(bool v) _NE { __decorate()->is_abstract = v; }
+        void set_new(bool v)      _NE { __decorate()->is_new = v; }
+        void set_const(bool v)    _NE { __decorate()->is_const = v; }
+        void set_readonly(bool v) _NE { __decorate()->is_readonly = v; }
+        void set_extern(bool v)   _NE { __decorate()->is_extern = v; }
+
+    private:
+        decorate_t * __decorate() _NE;
     };
 
     // Returns whether it's static and const.

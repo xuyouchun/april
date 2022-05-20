@@ -178,7 +178,7 @@ namespace X_ROOT_NS::modules::compile {
             X_UNEXPECTED();
 
         msize_t index = param_var->param->index;
-        if (call_type_of_method(sctx.method) != xil_call_type_t::static_)
+        if (call_type_of_method(sctx.method, true) != xil_call_type_t::static_)
             index++;
 
         #define __Append(name, xil_type)                                                \

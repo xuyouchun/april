@@ -27,13 +27,13 @@ namespace X_ROOT_NS::modules::compile {
             expression_t * owner_exp = nullptr);
 
     // Returns whether it's a reference type.
-    bool __is_ref_type(type_t * type)
+    static bool __is_ref_type(type_t * type)
     {
         return type != nullptr && is_ref_type(type);
     }
 
     // If env.type is ref type, returns xil_type_t::empty
-    xil_type_t __only_value_type(const __environment_t & env)
+    static xil_type_t __only_value_type(const __environment_t & env)
     {
         if (__is_ref_type(env.type))
             return xil_type_t::empty;
@@ -41,17 +41,23 @@ namespace X_ROOT_NS::modules::compile {
         return env.dtype;
     }
 
+    // Returns call type of method of runtime.
+    static xil_call_type_t __call_type_of_method(method_base_t * method)
+    {
+        return call_type_of_method(method, true);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns xil type of the expression.
-    xil_type_t __xil_type(expression_t * exp)
+    static xil_type_t __xil_type(expression_t * exp)
     {
         vtype_t vtype = exp->get_vtype();
         return to_xil_type(vtype);
     }
 
     // Returns xil type of type_name.
-    xil_type_t __xil_type(type_name_t * type_name)
+    static xil_type_t __xil_type(type_name_t * type_name)
     {
         type_t * type = to_type(type_name);
         vtype_t vtype = type->this_vtype();
@@ -70,7 +76,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         _A(method != nullptr);
 
-        return __is_static(call_type_of_method(method));
+        return __is_static(__call_type_of_method(method));
     }
 
     // Returns this method.
@@ -1247,7 +1253,7 @@ namespace X_ROOT_NS::modules::compile {
                     __compile_argument(ctx, pool, exp2, method, 0);
 
                 ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<x_method_call_xil_t>(call_type_of_method(method), method_ref);
+                pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
 
             }   break;
 
@@ -1816,7 +1822,7 @@ namespace X_ROOT_NS::modules::compile {
         __compile_arguments(ctx, pool, arguments, method);
 
         ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<x_method_call_xil_t>(call_type_of_method(method), method_ref);
+        pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
 
         __try_pop_empty_for_method(ctx, pool, method, owner_exp);
     }
@@ -2561,7 +2567,7 @@ namespace X_ROOT_NS::modules::compile {
         method_base_t * method = this->get_method();
         _A(method != nullptr);
 
-        xil_call_type_t call_type = call_type_of_method(method);
+        xil_call_type_t call_type = __call_type_of_method(method);
         bool effective = is_effective(ctx, this);
 
         if (effective)
@@ -2878,7 +2884,7 @@ namespace X_ROOT_NS::modules::compile {
         if (type != nullptr && !is_void_type(type))
             __Failed("constructor '%1%' should no return type", constructor);
 
-        xil_call_type_t call_type = call_type_of_method(constructor);
+        xil_call_type_t call_type = __call_type_of_method(constructor);
         switch (call_type)
         {
             case xil_call_type_t::static_:
@@ -3200,7 +3206,11 @@ namespace X_ROOT_NS::modules::compile {
                 if (dtype == xil_type_t::empty)
                     dtype = to_xil_type(vtype);
 
-                pool.append<x_push_this_content_xil_t>(dtype);
+                pool.append<x_push_this_xil_t>(dtype);
+            }
+            else if (is_custom_struct(method->host_type))
+            {
+                pool.append<x_push_this_xil_t>(xil_type_t::ptr);
             }
             else
             {

@@ -1145,7 +1145,7 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
 
     // Returns method call type.
-    xil_call_type_t call_type_of_method(method_base_t * method)
+    xil_call_type_t call_type_of_method(method_base_t * method, bool runtime)
     {
         _A(method != nullptr);
 
@@ -1166,7 +1166,7 @@ namespace X_ROOT_NS::modules::core {
             if (is_interface(host_type))
                 return xil_call_type_t::virtual_;
 
-            if (m->is_sealed() || host_type->is_sealed())
+            if (runtime && (m->is_sealed() || host_type->is_sealed()))
                 return xil_call_type_t::instance;
 
             return xil_call_type_t::virtual_;

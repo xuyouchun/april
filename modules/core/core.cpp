@@ -1142,6 +1142,13 @@ namespace X_ROOT_NS::modules::core {
         return decorate == nullptr? empty_access_value : decorate->access;
     }
 
+    decorate_t * with_decorate_object_t::__decorate()
+    {
+        return decorate != nullptr? decorate :
+            (decorate = __XPool.new_obj<decorate_t>(decorate_value_t::default_value));
+    }
+
+
     ////////// ////////// ////////// ////////// //////////
     // name_t
 
@@ -4400,6 +4407,9 @@ namespace X_ROOT_NS::modules::core {
     {
         if (!__ensure_size_initialize())
             __super_t::commit(ctx);
+
+        if (this->ttype == ttype_t::struct_)
+            this->set_sealed(true);
 
         if (get_base_type() == nullptr)
         {

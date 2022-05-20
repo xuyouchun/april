@@ -254,13 +254,23 @@ namespace X_ROOT_NS::modules::compile {
         { }
     };
 
-    // Push this xil. ( for ref object. )
+    // Push this xil. ( for val object address. )
     struct x_push_this_content_xil_t : x_push_variable_xil_t
     {
         typedef x_push_variable_xil_t __super_t;
 
         x_push_this_content_xil_t(xil_type_t xtype)
             : __super_t(xil_storage_type_t::argument_content, xtype, 0)
+        { }
+    };
+
+    // Push this xil. ( for system value. )
+    struct x_push_this_xil_t : x_push_variable_xil_t
+    {
+        typedef x_push_variable_xil_t __super_t;
+
+        x_push_this_xil_t(xil_type_t xtype)
+            : __super_t(xil_storage_type_t::argument, xtype, 0)
         { }
     };
 

@@ -671,7 +671,10 @@ namespace X_ROOT_NS::modules::rt {
     // Gets method offset.
     int rt_general_type_t::get_method_offset(analyzer_env_t & env, ref_t method_ref)
     {
-        return method_ref - mt->methods;
+        int offset = method_ref - mt->methods;
+        _A(offset >= 0);
+
+        return offset;
     }
 
     // Gets field offset.
@@ -2764,16 +2767,21 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Gets method or generic method by method ref.
-    rt_method_base_t * assembly_analyzer_t::get_method(ref_t method_ref)
+    rt_method_base_t * assembly_analyzer_t::get_method(ref_t method_ref, ref_t * out_method_ref)
     {
         switch ((mt_member_extra_t)method_ref.extra)
         {
             case mt_member_extra_t::internal:
             case mt_member_extra_t::import: {
                 auto key = env.rpool.new_key<rpool_key_type_t::method>(current, method_ref);
-                return env.rpool.get(key, [this, method_ref]() {
-                    return __get_method(method_ref);
+                __rpool_method_t rm =  env.rpool.get(key, [this, method_ref]() {
+                    ref_t method_ref1;
+                    rt_method_base_t * method =  __get_method(method_ref, &method_ref1);
+                    return __rpool_method_t { method, method_ref1 };
                 });
+
+                al::assign_value(out_method_ref, rm.ref);
+                return rm.method;
             }
 
             case mt_member_extra_t::generic:
@@ -2785,7 +2793,8 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Gets method.
-    rt_method_base_t * assembly_analyzer_t::__get_method(ref_t method_ref)
+    rt_method_base_t * assembly_analyzer_t::__get_method(ref_t method_ref,
+                                                         ref_t * out_method_ref)
     {
         rt_method_ref_t * rt_method_ref;
         rt_type_t * rt_type = get_host_type_by_method_ref(method_ref, &rt_method_ref);
@@ -2793,6 +2802,8 @@ namespace X_ROOT_NS::modules::rt {
 
         rt_assembly_t * rt_assembly = rt_type->get_assembly();
         rt_method_base_t * rt_method;
+
+        al::assign_value(out_method_ref, method_ref);
 
         // Current assembly.
         if (__is_current(rt_assembly))
@@ -2833,9 +2844,10 @@ namespace X_ROOT_NS::modules::rt {
             }
 
             rt_method = nullptr;
-            rt_type->each_method(env, [&, this](ref_t, rt_method_base_t * rt_method_) {
+            rt_type->each_method(env, [&, this](ref_t ref, rt_method_base_t * rt_method_) {
                 bool r = rt_method_->compare_to(env, prototype, &gp_mgr);
-                return r? rt_method = rt_method_, false : true;
+                return r? rt_method = rt_method_, al::assign_value(out_method_ref, ref),
+                    false : true;
             });
         }
 
@@ -3126,7 +3138,7 @@ namespace X_ROOT_NS::modules::rt {
             method_ref = mt->template_;
         }
 
-        method = _M(rt_method_t *, this->get_method(method_ref));
+        method = _M(rt_method_t *, this->get_method(method_ref, &method_ref));
         _A(method != nullptr);
 
         rt_type_t * rt_type = method->get_host_type();

@@ -401,7 +401,7 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
 
     class method_base_t;
-    xil_call_type_t call_type_of_method(method_base_t * method);
+    xil_call_type_t call_type_of_method(method_base_t * method, bool runtime = false);
 
     // Trace write xil, for debug.
     template<typename _xil_t>

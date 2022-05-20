@@ -621,9 +621,15 @@ namespace X_ROOT_NS::modules::rt {
 
         //-------- ---------- ---------- ---------- ----------
 
+        struct __rpool_method_t
+        {
+            rt_method_base_t *  method;
+            ref_t               ref;
+        };
+
         // Base class of rt method pool key.
         typedef __rpool_key_base_t<rpool_key_type_t::method,
-            rt_method_base_t *, rt_assembly_t *, ref_t
+            __rpool_method_t, rt_assembly_t *, ref_t
         > __rpool_key_method_base_t;
 
         // Rt pool method key.
@@ -2195,7 +2201,7 @@ namespace X_ROOT_NS::modules::rt {
                     rt_type_t * host_type, rt_type_t ** atypes = nullptr, int atype_count = 0);
 
         // Gets method by method ref.
-        rt_method_base_t * get_method(ref_t method_ref);
+        rt_method_base_t * get_method(ref_t method_ref, ref_t * out_method_ref = nullptr);
 
         // Gets field by field ref.
         rt_field_base_t * get_field(ref_t field_ref, rt_type_t ** out_type = nullptr);
@@ -2277,7 +2283,7 @@ namespace X_ROOT_NS::modules::rt {
         }
 
         // Gets method by method ref.
-        rt_method_base_t * __get_method(ref_t method_ref);
+        rt_method_base_t * __get_method(ref_t method_ref, ref_t * out_method_ref = nullptr);
 
         // Gets field by field ref.
         rt_field_base_t  * __get_field(ref_t field_ref, rt_type_t ** out_type);
