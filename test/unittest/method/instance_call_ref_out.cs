@@ -5,6 +5,8 @@
 
 100
 100
+333
+444
 123
 234
 
@@ -35,6 +37,22 @@ class Program
             Console.WriteLine(value);
         }
 
+        // Ref ref type.
+        {
+            Class1 obj = new Class1();
+            __RefClass(ref obj);
+
+            Console.WriteLine(obj.Value);
+        }
+
+        // Out ref type.
+        {
+            Class1 obj;
+            __OutClass(ref obj);
+
+            Console.WriteLine(obj.Value);
+        }
+
         // Ref struct type.
         {
             Struct1 st = new Struct1();
@@ -62,6 +80,18 @@ class Program
         value = 100;
     }
 
+    private static void __RefClass(ref Class1 obj)
+    {
+        obj = new Class1();
+        obj.Value = 333;
+    }
+
+    private static void __OutClass(ref Class1 obj)
+    {
+        obj = new Class1();
+        obj.Value = 444;
+    }
+
     private static void __RefStruct(ref Struct1 st)
     {
         st.Value = 123;
@@ -73,6 +103,11 @@ class Program
         st.Value = 234;
     }
 
+}
+
+class Class1
+{
+    public int Value;
 }
 
 
