@@ -1448,7 +1448,7 @@ namespace X_ROOT_NS::modules::core {
     void param_t::append_to(stringstream_t & ss, bool include_name)
     {
         if (ptype != param_type_t::__default__)
-            ss << _str(ptype);
+            ss << _str(ptype) << _T(" ");
 
         ss << _str(type_name);
 

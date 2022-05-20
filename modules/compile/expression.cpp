@@ -434,9 +434,19 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case variable_type_t::param: {
-                pool.append<x_push_argument_addr_xil_t>(
-                    __param_index(ctx, (param_variable_t *)variable)
-                );
+                if (__is_addr(variable))
+                {
+                    pool.append<x_push_argument_xil_t>(
+                        xil_type_t::ptr,
+                        __param_index(ctx, (param_variable_t *)variable)
+                    );
+                }
+                else
+                {
+                    pool.append<x_push_argument_addr_xil_t>(
+                        __param_index(ctx, (param_variable_t *)variable)
+                    );
+                }
             }   break;
 
             case variable_type_t::field:
@@ -1685,6 +1695,8 @@ namespace X_ROOT_NS::modules::compile {
         if (__is_addr(variable))    // ref, out param
         {
             if (dtype == xil_type_t::ptr)
+                pool.append<x_push_argument_xil_t>(xil_type_t::ptr, index);
+            else if (is_custom_struct(type))
                 pool.append<x_push_argument_xil_t>(xil_type_t::ptr, index);
             else
                 pool.append<x_push_argument_content_xil_t>(__to_xil_type(ctx, variable), index);
