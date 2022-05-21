@@ -23,6 +23,14 @@ False
 True
 False
 
+0
+255
+255
+-171
+
+7
+9
+
 */
 
 import System;
@@ -71,9 +79,21 @@ class Program
             Console.WriteLine(!(a > b));
         }
 
+        // Bit
+        {
+            int a = 0B1010101, b = 0B10101010;
+            Console.WriteLine(a & b);
+            Console.WriteLine(a | b);
+            Console.WriteLine(a ^ b);
+            Console.WriteLine(~b);
+        }
+
         // Priorities
         {
-            int a = 1 + 2 * 3;
+            Console.WriteLine(1 + 2 * 3);
+            Console.WriteLine((1 + 2) * 3);
         }
     }
 }
+
+

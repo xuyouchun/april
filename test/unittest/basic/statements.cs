@@ -2,6 +2,7 @@
 
 /* EXPECT
 
+True
 5050
 5050
 5050
@@ -19,6 +20,19 @@ class Program
     [EntryPoint]
     public static void Main()
     {
+        // If
+        {
+            int a = 20, b = 10;
+            if (a > b)
+            {
+                Console.WriteLine("True");
+            }
+            else
+            {
+                Console.WriteLine("False");
+            }
+        }
+
         // While
         {
             int k = 1, sum = 0;

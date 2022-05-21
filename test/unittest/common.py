@@ -82,11 +82,16 @@ class Base:
         expects = re.split(r'[\r\n]+', expect);
 
         succeed = True
+        line = -1
+
         if len(results) == len(expects):
             for k in range(len(results)):
-                if results[k] != results[k]:
+                if results[k] != expects[k]:
                     succeed = False
+                    line = k
                     break
+        else:
+            succeed = False
 
         if not succeed:
             if '\n' in expect or '\n' in result:
@@ -96,7 +101,11 @@ class Base:
                 print(colorize(35, "EXPECT: ") + expect)
                 print(colorize(35, "ACTUAL: ") + result)
 
-            raise RuntimeError('result is unexpected')
+            if line >= 0:
+                raise RuntimeError('result is unexpected: line %d: %s<=>%s' %           \
+                        (line, results[line], expects[line]))
+            else:
+                raise RuntimeError('result is unexpected')
 
 
     def __read_expect(self, file):

@@ -11,6 +11,7 @@ class TestBasic(common.Base):
         'simple.cs',
         'expressions.cs',
         'statements.cs',
+        'cast.cs',
     ])
     def code_file(self, request):
         return request.param
