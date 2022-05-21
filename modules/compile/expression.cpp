@@ -1705,14 +1705,15 @@ namespace X_ROOT_NS::modules::compile {
             is_system_value_type(vtype) && __is_left_member(owner_exp))
         {
             pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
-            pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
+            // pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
         }
         else if (is_custom_struct(type))    // custom struct
         {
             pool.append<x_push_argument_addr_xil_t>(index);
-
+            /*
             if (__is_calling_method_owner(owner_exp))
                 pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
+            */
         }
         else
         {
@@ -2340,8 +2341,6 @@ namespace X_ROOT_NS::modules::compile {
         switch (this->expression_type)
         {
             case name_expression_type_t::variable:
-                __compile_variable(ctx, pool, this->variable, __only_value_type(env), this);
-                __post_compile_expression(ctx, pool, this, env);
                 break;
 
             case name_expression_type_t::type:
