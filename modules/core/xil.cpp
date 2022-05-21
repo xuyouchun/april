@@ -1158,14 +1158,14 @@ namespace X_ROOT_NS::modules::core {
         if (m->is_static())
             return xil_call_type_t::static_;
 
+        type_t * host_type = method->get_host_type();
+        _A(host_type != nullptr);
+
+        if (is_interface(host_type))
+            return xil_call_type_t::virtual_;
+
         if (m->is_virtual() || m->is_override() || m->is_abstract())
         {
-            type_t * host_type = method->get_host_type();
-            _A(host_type != nullptr);
-
-            if (is_interface(host_type))
-                return xil_call_type_t::virtual_;
-
             if (runtime && (m->is_sealed() || host_type->is_sealed()))
                 return xil_call_type_t::instance;
 
