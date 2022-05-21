@@ -431,6 +431,11 @@ namespace X_ROOT_NS::modules::rt {
         // Returns whether it's empty.
         bool empty() const { return value == nullptr; }
 
+        bool operator == (const string_t & str)
+        {
+            return (string_t)(*this) == str;
+        }
+
         static const rt_sid_t null;
     };
 

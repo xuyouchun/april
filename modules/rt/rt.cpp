@@ -3,8 +3,6 @@
 
 namespace X_ROOT_NS::modules::rt {
 
-    #define __EmptyVTbl ((rt_vtable_t *)0x01)
-
     typedef rt_error_code_t __e_t;
     typedef generic_param_manager_t __gp_mgr_t;
 
@@ -1071,18 +1069,13 @@ namespace X_ROOT_NS::modules::rt {
     void __build_vtbl(analyzer_env_t & env, rt_type_t * type,
                                 const generic_param_manager_t * gp_mgr = nullptr)
     {
+        static rt_vtable_t * simple_vtbl = nullptr;
+
         __rt_vfunctions_t vfuncs;
         rt::__build_vfunctions(env, type, vfuncs, gp_mgr);
 
         __rt_interfaces_t interfaces;
         rt::__build_interfaces(env, type, interfaces, type, gp_mgr);
-
-        // No virtual function & interfaces.
-        if (vfuncs.empty() && interfaces.empty())
-        {
-            set_vtable(type, __EmptyVTbl);
-            return;
-        }
 
         // Builds virtual table.
         size_t interface_vfunction_count = 0;
@@ -1101,6 +1094,15 @@ namespace X_ROOT_NS::modules::rt {
             {
                 base_types.push_back(type1);
             }
+        }
+
+        #define __IsSimpleVtbl() (vfuncs.empty() && interfaces.empty() && base_types.size() == 1)
+
+        if (simple_vtbl != nullptr && __IsSimpleVtbl())
+        {
+            _A(base_types[0]->get_name(env) == _T("System.Object"));
+            set_vtable(type, simple_vtbl);
+            return;
         }
 
         // Alloc vtable object.
@@ -1154,6 +1156,9 @@ namespace X_ROOT_NS::modules::rt {
         }
 
         set_vtable(type, vtable);
+
+        if (simple_vtbl != nullptr && __IsSimpleVtbl())
+            simple_vtbl = vtable;
     }
 
     // Builds virtual table.
@@ -3373,8 +3378,6 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     ////////// ////////// ////////// ////////// //////////
-
-    #undef __EmptyVTbl
 
 }   // namespace X_ROOT_NS::modules::rt
 
