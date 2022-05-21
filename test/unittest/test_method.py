@@ -8,8 +8,9 @@ class TestMethod(common.Base):
 
     @pytest.fixture(params=[
         'instance_call.cs',
-        'instance_call_ref_out.cs',
-        'instance_call_struct.cs'
+        'ref_out_arguments.cs',
+        'struct_arguments.cs',
+        "this_arguments.cs",
     ])
     def code_file(self, request):
         return request.param

@@ -69,8 +69,7 @@ def run_file(file):
 class Base:
 
     def run(self, file):
-        result, expect = self.__run(file);
-        assert result == expect
+        self.__run(file);
 
     def __run(self, file):
         result = run_file(file)
@@ -79,7 +78,17 @@ class Base:
         expect = self.__read_expect(file).replace("\r", "")
         expect = re.sub(r"^[\n\r]*|[\n\r]*$", "", expect)
 
-        if result != expect:
+        results = re.split(r'[\r\n]+', result);
+        expects = re.split(r'[\r\n]+', expect);
+
+        succeed = True
+        if len(results) == len(expects):
+            for k in range(len(results)):
+                if results[k] != results[k]:
+                    succeed = False
+                    break
+
+        if not succeed:
             if '\n' in expect or '\n' in result:
                 print(colorize(35, "EXPECT:\n") + expect)
                 print(colorize(35, "ACTUAL:\n") + result)
@@ -87,7 +96,8 @@ class Base:
                 print(colorize(35, "EXPECT: ") + expect)
                 print(colorize(35, "ACTUAL: ") + result)
 
-        return (result, expect)
+            raise RuntimeError('result is unexpected')
+
 
     def __read_expect(self, file):
 

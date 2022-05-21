@@ -1,5 +1,5 @@
 
-// Instance call with struct arguments.
+// Call with struct arguments.
 
 /* EXPECT
 

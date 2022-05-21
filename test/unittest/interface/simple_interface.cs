@@ -17,8 +17,9 @@ class Program
     public static void Main()
     {
         Interface1 obj = new MyClass(100);
+        int r = obj.GetValue1();
 
-        Console.WriteLine(obj.GetValue1());
+        Console.WriteLine(r);
     }
 }
 

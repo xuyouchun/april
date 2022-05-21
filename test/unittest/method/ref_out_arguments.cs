@@ -1,5 +1,5 @@
 
-// Instance call.
+// Call with ref/out arguments.
 
 /* EXPECT
 
