@@ -1163,6 +1163,9 @@ namespace X_ROOT_NS::modules::compile {
             const operator_property_t * op_property = exp->op_property;
             _A(op_property != nullptr);
 
+            if (op_property->overload == operator_overload_model_t::no_check)
+                return;
+
             operator_t op = op_property->op;
             if (op == operator_t::assign)
             {
@@ -1175,19 +1178,6 @@ namespace X_ROOT_NS::modules::compile {
                     ast_log(__cctx, exp, __c_t::invalid_type_cast, type2->to_prototype(),
                                                                    type1->to_prototype());
                 return;
-            }
-
-            switch (op_property->overload)
-            {
-                case operator_overload_model_t::no_check:
-                    return;
-
-                case operator_overload_model_t::no_overloaded:
-                    ast_log(__cctx, exp, __c_t::operator_cannot_be_overloaded, op_property->op);
-                    return;
-
-                default:
-                    break;
             }
 
             // Collect argument types.
@@ -1214,6 +1204,12 @@ namespace X_ROOT_NS::modules::compile {
             // null types only support equal or not_equal operators.
             if (exists_null && (op == operator_t::equal || op == operator_t::not_equal))
                 return;
+
+            if (op_property->overload == operator_overload_model_t::no_overloaded)
+            {
+                ast_log(__cctx, exp, __c_t::operator_cannot_be_overloaded, op_property->op);
+                return;
+            }
 
             // Finds method.
             const char_t * op_name = exp->op_property->name;
