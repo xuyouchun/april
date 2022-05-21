@@ -89,9 +89,12 @@ public struct String
 [Internal]
 public struct Boolean
 {
-    public override String ToString()
+    public String ToString()
     {
-        return this? "True": "False";
+        if (this)
+            return "True";
+
+        return "False";
     }
 };
 

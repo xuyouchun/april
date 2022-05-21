@@ -16,12 +16,6 @@ public class Object
     {
         return Internal.Reflection_GetType(this);
     }
-
-    // Converts to string.
-    public virtual String ToString()
-    {
-        return GetType().Name;
-    }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -87,12 +81,6 @@ public sealed class Type
     public Assembly Assembly
     {
         get { return null; }
-    }
-
-    // Converts to string.
-    public override String ToString()
-    {
-        return "Type";
     }
 }
 
@@ -253,6 +241,26 @@ public class Exception
 
     // Inner exception that caused this exception.
     private Exception __innerException;
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// Converts to string.
+public interface IString
+{
+    String ToString();
+}
+
+// Get hash code.
+public interface IHashCode
+{
+    Int32 GetHashCode();
+}
+
+// Check if two objects are equal.
+public interface IEquals
+{
+    Boolean Equals(Object obj);
 }
 
 ////////// ////////// ////////// ////////// //////////
