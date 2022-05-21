@@ -553,9 +553,9 @@ namespace X_ROOT_NS::modules::core {
         #define __CmpIntBinaryOps(op)       __IntOps(op, vtype_t::bool_)
         #define __CmpFloatBinaryOps(op)     __FloatOps(op, vtype_t::bool_)
         #define __CmpBoolBinaryOps(op)      __BoolOps(op, vtype_t::bool_)
-        #define __CmpCharBinaryOps(op)      __CharOps2(op, vtype_t::void_)
-        #define __CmpObjectBinaryOps(op)    __ObjectOps(op, vtype_t::mobject_)
-        #define __CmpPtrBinaryOps(op)       __PtrOps(op, vtype_t::ptr_)
+        #define __CmpCharBinaryOps(op)      __CharOps2(op, vtype_t::bool_)
+        #define __CmpObjectBinaryOps(op)    __ObjectOps(op, vtype_t::bool_)
+        #define __CmpPtrBinaryOps(op)       __PtrOps(op, vtype_t::bool_)
         #define __LogicBoolBinaryOps(op)    __BoolOps(op, vtype_t::bool_)
 
         #define X_DEFINE_BINARY_OPS                                                         \
