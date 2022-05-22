@@ -10,6 +10,10 @@ True
 True
 False
 
+OK
+OK
+Invalid Cast
+
 */
 
 import System;
@@ -41,6 +45,41 @@ class Program
 
             Interface2 obj3 = obj as Interface2;
             Console.WriteLine(obj3 != null);
+        }
+
+        // cast
+        {
+            object obj = new Class1(123);
+
+            try
+            {
+                Class1 obj1 = (Class1)obj;
+                Console.WriteLine("OK");
+            }
+            catch (InvalidCastException ex)
+            {
+                Console.WriteLine("Invalid Cast");
+            }
+
+            try
+            {
+                Interface1 obj2 = (Interface1)obj;
+                Console.WriteLine("OK");
+            }
+            catch (InvalidCastException ex2)
+            {
+                Console.WriteLine("Invalid Cast");
+            }
+
+            try
+            {
+                Interface2 obj3 = (Interface2)obj;
+                Console.WriteLine("OK");
+            }
+            catch (InvalidCastException ex3)
+            {
+                Console.WriteLine("Invalid Cast");
+            }
         }
     }
 }
