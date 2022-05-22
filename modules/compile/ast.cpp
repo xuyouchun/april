@@ -3822,17 +3822,22 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool catch_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        if (__catch.type_name == nullptr && !__catch.name.empty())
-        {
-            this->__log(__variable_el, __c_t::type_name_missing, _T("catch statement"));
-        }
-        else
-        {
-            variable_defination_t vd(this->__context, context, __variable_el);
-            __catch.variable = vd.define_local(__catch.type_name, __catch.name);
-        }
+        if (__catch.type_name == nullptr)
+            __catch.type_name = __XPool.get_object_type_name();
 
-        return __super_t::on_walk(context, step, tag);
+        if (__catch.name.empty())
+            __catch.name = __XPool.to_name(_T("__catch_exception_temp_variable__"));
+
+        context.push_new_region();
+
+        variable_defination_t vd(this->__context, context, __variable_el);
+        __catch.variable = vd.define_local(__catch.type_name, __catch.name);
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.pop();
+
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
