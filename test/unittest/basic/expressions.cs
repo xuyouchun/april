@@ -1,4 +1,4 @@
-// Test statements.
+// Test expressions.
 
 /* EXPECT
 

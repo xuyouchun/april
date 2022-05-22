@@ -10,6 +10,7 @@ class TestBasic(common.Base):
     @pytest.fixture(params=[
         'simple.cs',
         'expressions.cs',
+        'operators.cs',
         'statements.cs',
         'cast.cs',
     ])
