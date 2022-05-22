@@ -440,8 +440,8 @@ namespace X_ROOT_NS::modules::core {
             return array_type;
         }
 
-        // Returns whether it's a interal type.
-        bool __is_internal_type(ref_t ref)
+        // Returns whether it's a general type.
+        bool __is_general_type(ref_t ref)
         {
             return (mt_type_extra_t)ref.extra == mt_type_extra_t::general;
         }
@@ -925,7 +925,7 @@ namespace X_ROOT_NS::modules::core {
             auto & mgr = __mt_manager<__tidx_t::nest_type>();
             for (mt_nest_type_t * mt : mgr)
             {
-                if (!__is_internal_type(mt->type))
+                if (!__is_general_type(mt->type))
                     throw _ED(__e_t::read_unexpected_nest_type);
 
                 type_t * type = __get_type(mt->type);
@@ -1149,6 +1149,8 @@ namespace X_ROOT_NS::modules::core {
             field->type_name        = __to_type_name(mt.type);
             field->attributes       = __to_attributes(mt.attributes, field);
             field->init_value       = __get_constant(mt.init_value);
+
+            field->variable         = __new_obj<field_variable_t>(field);
         }
 
         // Builds method.
@@ -1161,6 +1163,8 @@ namespace X_ROOT_NS::modules::core {
             method->generic_params  = __to_generic_params(mt.generic_params);
             method->params          = __to_params(mt.params);
             method->trait           = mt.trait;
+
+            method->variable        = __new_obj<method_variable_t>(method);
         }
 
         // Builds property.
@@ -1175,6 +1179,8 @@ namespace X_ROOT_NS::modules::core {
 
             property->get_method    = __get_method(mt.get_method);
             property->set_method    = __get_method(mt.set_method);
+
+            property->variable      = __new_obj<property_variable_t>(property);
         }
 
         // Builds event.
@@ -1188,6 +1194,8 @@ namespace X_ROOT_NS::modules::core {
 
             event->add_method       = __get_method(mt.add_method);
             event->remove_method    = __get_method(mt.remove_method);
+
+            event->variable         = __new_obj<event_variable_t>(event);
         }
 
         // Builds typedef.
