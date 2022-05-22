@@ -304,3 +304,15 @@ public class InvalidCastException : SystemException
 
 ////////// ////////// ////////// ////////// //////////
 
+// CoreType_OutOfRangeException
+[Internal]
+public class OutOfRangeException : SystemException
+{
+    // Default constructor.
+    public OutOfRangeException() { }
+
+    public OutOfRangeException(String message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
