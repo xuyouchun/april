@@ -85,6 +85,7 @@ namespace X_ROOT_NS::modules::core {
     #define CoreType_SystemException            _T("SystemException")
     #define CoreType_NullReferenceException     _T("NullReferenceException")
     #define CoreType_InvalidCastException       _T("InvalidCastException")
+    #define CoreType_OutOfRangeException        _T("OutOfRangeException")
 
     // Attributes.
     #define CoreType_TraceAttribute     _T("Diagnostics.TraceAttribute")
@@ -4590,6 +4591,9 @@ namespace X_ROOT_NS::modules::core {
         {
             return element_type? element_type->get_name() : name_t::null;
         }
+
+        // Returns base type.
+        virtual type_t * get_base_type() override { return base_type; }
 
         // Returns member descripted by the args.
         virtual member_t * get_member(analyze_member_args_t & args) override;

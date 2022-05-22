@@ -189,6 +189,22 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Impl for System.NullReferenceException
+    class __null_reference_exception_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __null_reference_exception_type_impl_t::type_name[]
+                                        = __CoreTypeName(CoreType_NullReferenceException);
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Impl for System.InvalidCastException
     class __invalid_cast_exception_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
@@ -205,8 +221,8 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Impl for System.NullReferenceException
-    class __null_reference_exception_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    // Impl for System.OutOfRangeException
+    class __out_of_range_exception_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
         typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
 
@@ -216,8 +232,8 @@ namespace X_ROOT_NS::modules::core {
         static const char_t type_name[];
     };
 
-    const char_t __null_reference_exception_type_impl_t::type_name[]
-                                        = __CoreTypeName(CoreType_NullReferenceException);
+    const char_t __out_of_range_exception_type_impl_t::type_name[]
+                                        = __CoreTypeName(CoreType_OutOfRangeException);
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -804,6 +820,7 @@ namespace X_ROOT_NS::modules::core {
             __impls.append<__system_exception_type_impl_t>();
             __impls.append<__null_reference_exception_type_impl_t>();
             __impls.append<__invalid_cast_exception_type_impl_t>();
+            __impls.append<__out_of_range_exception_type_impl_t>();
             __impls.append<__attribute_type_impl_t>();
             __impls.append<__enum_type_impl_t>();
             __impls.append<__array_type_impl_t>();

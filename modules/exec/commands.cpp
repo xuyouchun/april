@@ -183,6 +183,7 @@ namespace X_ROOT_NS::modules::exec {
     #define __DS    __DefineSimpleGetCoreTypeFunction
     __DS(__get_invalid_cast_exception,      CoreType_InvalidCastException)
     __DS(__get_null_reference_exception,    CoreType_NullReferenceException)
+    __DS(__get_out_of_range_exception,      CoreType_OutOfRangeException)
     #undef __DS
 
     // Raise exception with specified type.
@@ -209,14 +210,15 @@ namespace X_ROOT_NS::modules::exec {
                 return;                                                                 \
         } while (false)
 
-    #define __RaiseInvalidCastException(_ctx)                                           \
+    #define __RaiseException(_ctx, _exception_name)                                     \
         do {                                                                            \
-            rt_type_t * exception_type = __get_invalid_cast_exception(_ctx);            \
+            rt_type_t * exception_type = __get_##_exception_name##_exception(_ctx);     \
             __raise_exception(_ctx, exception_type);                                    \
             return;                                                                     \
         } while (false)
 
-
+    #define __RaiseInvalidCastException(_ctx)   __RaiseException(_ctx, invalid_cast)
+    #define __RaiseOutOfRangeException(_ctx)    __RaiseException(_ctx, out_of_range)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1253,6 +1255,9 @@ namespace X_ROOT_NS::modules::exec {
                 array_length_t * lengths = mm::get_array_lengths(array_ref);
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
             }
+
+            if (index >= mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
 
             ctx.stack.push<__value2_t>(static_cast<__value2_t>(
                 mm::get_array_element<__value1_t>(array_ref, index)
