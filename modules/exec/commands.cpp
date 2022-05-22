@@ -5222,11 +5222,12 @@ namespace X_ROOT_NS::modules::exec {
             if constexpr (_cast_cmd == xil_cast_command_t::default_)
             {
                 rt_ref_t obj = ctx.stack.pick<rt_ref_t>();
-                __CheckNullReference(ctx, obj);
-
-                rt_type_t * rt_type = __RtTypeOf(obj);
-                if (!__cast_test<_is_interface>(rt_type, __type))
-                    __RaiseInvalidCastException(ctx);
+                if (obj != nullptr)
+                {
+                    rt_type_t * rt_type = __RtTypeOf(obj);
+                    if (!__cast_test<_is_interface>(rt_type, __type))
+                        __RaiseInvalidCastException(ctx);
+                }
             }
 
             // Test whether a cast is valid.
