@@ -634,7 +634,7 @@ namespace X_ROOT_NS::algorithm {
     // It used the stack size to store elements, until it's no enought, then move to the heap.
     // Avoids allocates memory from the heap at first.
 
-    template<typename _t, size_t _init_size = 10>
+    template<typename _t, size_t _init_size = 8>
     class svector_t : private memory_base_t
     {
         typedef svector_t<_t, _init_size> __self_t;
@@ -654,6 +654,14 @@ namespace X_ROOT_NS::algorithm {
             : memory_base_t(memory), __p(__array)
         {
             std::copy(il.begin(), il.end(), std::back_inserter(*this));
+        }
+
+        // Constructor with specified memory management and initialized elements.
+        template<typename _container_t>
+        svector_t(const _container_t & container, memory_t * memory = nullptr)
+            : memory_base_t(memory), __p(__array)
+        {
+            std::copy(std::begin(container), std::end(container), std::back_inserter(*this));
         }
 
         // Constructor, with a initialize list.
@@ -838,6 +846,12 @@ namespace X_ROOT_NS::algorithm {
 
         // Returns the element at the specified index.
         _t & operator[](size_t index) const
+        {
+            return at(index);
+        }
+
+        // Returns the element at the specified index.
+        _t & at(size_t index) const
         {
             if (__is_in_array())
                 return (_t &)__array[index];

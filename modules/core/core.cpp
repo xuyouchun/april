@@ -2635,20 +2635,24 @@ namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
 
-    #define __FindMemberAndRet(members, name)                   \
-        do                                                      \
-        {                                                       \
-            auto r = members.get(name);                         \
-            if (r != nullptr)                                    \
-                return r;                                       \
+    #define __FindMemberAndRet(members, name)                                           \
+        do                                                                              \
+        {                                                                               \
+            auto r = members.get(name);                                                 \
+            if (r != nullptr)                                                           \
+                return r;                                                               \
         } while (false)
 
     //-------- ---------- ---------- ---------- ----------
 
     // Method compare results.
     X_ENUM(__member_compare_t)
-        not_match, match, equals, same_name,
-        auto_determined, auto_determined_failed,
+        not_match,                  // Not match, at least one argument are not matched.
+        match,                      // Matched, but not all arguments are equals.
+        equals,                     // Matched, All arguments are equals.
+        same_name,                  // Matched, has generic params and no arguments.
+        auto_determined,            // Matched, Generic params auto determined.
+        auto_determined_failed,     // Not matched, failed to determine generic params.
     X_ENUM_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -2667,7 +2671,7 @@ namespace X_ROOT_NS::modules::core {
 
     // Constructor of atype_t.
     atype_t::atype_t(typex_t typex) _NE
-        : type((type_t *)typex), atype((param_type_t)typex)
+        : type((type_t *)typex), ptype((param_type_t)typex)
     { }
 
     //-------- ---------- ---------- ---------- ----------
@@ -2713,53 +2717,308 @@ namespace X_ROOT_NS::modules::core {
         return is_vtype_compatible(from->this_vtype(), to->this_vtype());
     }
 
-    // Compare argument
-    static __member_compare_t __compare_argument(param_t * param, generic_args_t * generic_args,
-                        atype_t atype, type_t ** out_gp_type = nullptr)
+    // Argument type analyzer.
+    class __argument_type_analyzer_t
     {
-        if (param == nullptr || atype.type == nullptr)
-            return __member_compare_t::not_match;
+    public:
+        __argument_type_analyzer_t(params_t * params) : __params(params) { }
 
-        type_t * param_type = param->get_type();
-        type_t * argument_type = atype.type;
-
-        if (param_type != nullptr && param_type->this_gtype() == gtype_t::generic_param)
+        __argument_type_analyzer_t(method_t * method, generic_args_t * generic_args)
+            : __generic_args(generic_args)
         {
-            generic_param_t * generic_param = (generic_param_t *)param_type;
-            if (generic_args != nullptr && generic_param->index < generic_args->size())
+            _A(method != nullptr);
+
+            __params = method->params;
+
+            if (generic_args != nullptr)
             {
-                param_type = (*generic_args)[generic_param->index]->get_type();
+                if (generic_args->size() != method->generic_param_count())
+                    throw _ECF(argument_error, _T("invalid generic argument count"));
+
+                for (int index = 0, count = method->generic_param_count();
+                                                    index < count; index++)
+                {
+                    generic_arg_t * ga = generic_args->at(index);
+                    _A(ga != nullptr);
+
+                    generic_param_t * gp = method->generic_params->at(index);
+                    _A(gp != nullptr);
+
+                    __generic_param_map[gp->name] = ga->get_type();
+                }
+            }
+        }
+
+        // Gets real type of specified generic type name.
+        type_t * get_type(name_t name)
+        {
+            if (auto it = __generic_param_map.find(name); it != __generic_param_map.end())
+                return it->second;
+
+            return nullptr;
+        }
+
+        // Gets real type of specified generic param.
+        type_t * get_type(generic_param_t * gp)
+        {
+            _A(gp != nullptr);
+
+            return get_type(gp->name);
+        }
+
+        // Compare to specified arguments.
+        __member_compare_t compare(atypes_t * atypes)
+        {
+            size_t atype_count = al::size_of(atypes);
+            size_t param_count = al::size_of(__params);
+
+            if (atype_count != param_count)
+                return __member_compare_t::not_match;
+
+            __member_compare_t r = __member_compare_t::equals;
+            for (size_t index = 0; index < param_count; index++)
+            {
+                param_t * param = __params->at(index);
+
+                switch (__compare_argument(param, atypes->at(index)))
+                {
+                    case __member_compare_t::not_match:
+                    case __member_compare_t::auto_determined_failed:
+                        return __member_compare_t::not_match;
+
+                    case __member_compare_t::match:
+                        if (r != __member_compare_t::auto_determined)
+                            r = __member_compare_t::match;
+                        break;
+
+                    case __member_compare_t::auto_determined:
+                        r = __member_compare_t::auto_determined;
+                        break;
+
+                    case __member_compare_t::equals:
+                        break;
+
+                    default:
+                        X_UNEXPECTED_F("unexpected member compare type");
+                }
+            }
+
+            return r;
+        }
+
+    private:
+        generic_args_t * __generic_args = nullptr;
+        params_t * __params;
+        std::map<name_t, type_t *> __generic_param_map;
+
+        typedef std::map<generic_param_t *, type_t *> __generic_map_t;
+
+        struct __matched_item_t
+        {
+            generic_type_t *    type;
+            __generic_map_t     map;
+        };
+
+        // Compare.
+        __member_compare_t __compare_argument(param_t * param, atype_t atype)
+        {
+            if (param == nullptr || atype.type == nullptr)
+                return __member_compare_t::not_match;
+
+            if (param->ptype != atype.ptype)
+                return __member_compare_t::not_match;
+
+            type_t * param_type = param->get_type();
+            _A(param_type != nullptr);
+
+            type_t * argument_type = atype.type;
+            _A(argument_type != nullptr);
+
+            __member_compare_t r;
+            param_type = __to_real_type(param_type, argument_type, &r);
+
+            if (r != __member_compare_t::__default__)
+                return r;
+
+            if (param_type == argument_type)
+                return __member_compare_t::equals;
+
+            if (param->ptype == param_type_t::ref)
+                return __member_compare_t::not_match;
+
+            if (param->ptype == param_type_t::out)
+            {
+                if (is_type_compatible(param_type, argument_type))
+                    return __member_compare_t::match;
             }
             else
             {
-                param_type = atype.type;
-                al::assign(out_gp_type, param_type);
-                return __member_compare_t::auto_determined;
+                if (is_type_compatible(argument_type, param_type))
+                    return __member_compare_t::match;
             }
-        }
 
-        if (param->ptype != atype.atype)
             return __member_compare_t::not_match;
-
-        if (param_type == argument_type)
-            return __member_compare_t::equals;
-
-        if (param->ptype == param_type_t::ref)
-            return __member_compare_t::not_match;
-
-        if (param->ptype == param_type_t::out)
-        {
-            if (is_type_compatible(param_type, argument_type))
-                return __member_compare_t::match;
-        }
-        else
-        {
-            if (is_type_compatible(argument_type, param_type))
-                return __member_compare_t::match;
         }
 
-        return __member_compare_t::not_match;
-    }
+        // Converts to a real type.
+        type_t * __to_real_type(type_t * param_type, type_t * argument_type,
+                                                __member_compare_t * out_r = nullptr)
+        {
+            al::assign_value(out_r, __member_compare_t::__default__);
+
+            // Converts generic param.
+            if (is_generic_param(param_type))
+            {
+                generic_param_t * gp = (generic_param_t *)param_type;
+                if (type_t * param_type1 = get_type(gp); param_type1 != nullptr)
+                {
+                    return param_type1;
+                }
+                else
+                {
+                    al::assign_value(out_r, __member_compare_t::auto_determined);
+                    __generic_param_map[gp->name] = argument_type;
+                    return argument_type;
+                }
+            }
+
+            // Generic types.
+            if (has_generic_params(param_type))
+            {
+                generic_type_t * gp_type = (generic_type_t *)param_type;
+
+                if (__generic_args != nullptr)
+                {
+                    generic_type_t * type = __fill_generic_type(gp_type, __generic_args);
+                    return type;
+                }
+                else
+                {
+                    general_type_t * gp_template = gp_type->template_;
+                    std::vector<__matched_item_t> matched_items;
+
+                    __each_types(argument_type, [&](type_t * type) -> bool {
+
+                        if (is_generic(type) && ((generic_type_t *)type)->template_ == gp_template)
+                        {
+                            __generic_map_t map;
+                            generic_type_t * ga_type = (generic_type_t *)type;
+                            if (__determine_generic_param_types(gp_type, ga_type, map))
+                            {
+                                matched_items.push_back(__matched_item_t { ga_type, map });
+                            }
+                        }
+
+                        return true;
+
+                    });
+
+                    if (matched_items.size() != 1)
+                    {
+                        al::assign_value(out_r, __member_compare_t::auto_determined_failed);
+                        return nullptr;
+                    }
+
+                    __matched_item_t & matched_item = matched_items[0];
+
+                    for (auto & it : matched_item.map)
+                    {
+                        generic_param_t * gp = it.first;
+                        type_t * type = it.second;
+
+                        __generic_param_map[gp->name] = type;
+                    }
+
+                    return matched_item.type;
+                }
+            }
+
+        __end:
+            return param_type;
+        }
+
+        generic_type_t * __fill_generic_type(generic_type_t * type, generic_args_t * generic_args)
+        {
+            _A(generic_args != nullptr);
+
+            general_type_t * template_ = type->template_;
+            
+            type_collection_t types;
+            for (type_t * arg_type : type->args)
+            {
+                if (is_generic_param(arg_type))
+                {
+                    generic_param_t * gp = (generic_param_t *)arg_type;
+                    type_t * type = get_type(gp);
+                    _A(type != nullptr);
+
+                    types.push_back(type);
+                }
+                else if (is_generic(arg_type))
+                {
+                    type_t * type = __fill_generic_type((generic_type_t *)arg_type, generic_args);
+                    types.push_back(type);
+                }
+                else
+                {
+                    types.push_back(arg_type);
+                }
+            }
+
+            return __XPool.new_generic_type(template_, types, type->host_type);
+        }
+
+        // Determine generic param types.
+        bool __determine_generic_param_types(generic_type_t * param_type,
+                             generic_type_t * argument_type, __generic_map_t & map)
+        {
+            if (param_type->template_ != argument_type->template_)
+                return false;
+
+            _A(param_type->args.size() == argument_type->args.size());
+
+            for (int index = 0, count = param_type->argument_count(); index < count; index++)
+            {
+                type_t * param_arg_type = param_type->args[index];
+                if (is_generic_param(param_arg_type))
+                {
+                    generic_param_t * gp = (generic_param_t *)param_arg_type;
+                    type_t * ptype = get_type(gp);
+
+                    decltype(std::begin(map)) it;
+                    if (ptype == nullptr && (it = map.find(gp)) != std::end(map))
+                        ptype = it->second;
+
+                    type_t * atype = argument_type->args[index];
+
+                    if (ptype == nullptr)
+                        map[gp] = atype;
+                    else if (ptype != atype)
+                        return false;
+                }
+                else if (is_generic(param_arg_type))
+                {
+                    generic_type_t * gp_type = (generic_type_t *)param_arg_type;
+                    type_t * atype = argument_type->args[index];
+
+                    if (!is_generic(atype) ||
+                        !__determine_generic_param_types(gp_type, (generic_type_t *)atype, map))
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Enum all super types and itself.
+        template<typename _f_t> void __each_types(type_t * type, _f_t f)
+        {
+            if (!f(type))
+                return;
+
+            type->each_super_type(f);
+        }
+    };
 
     // Returns compatible type of two types.
     static type_t * __get_compatible_type(type_t * type1, type_t * type2)
@@ -2821,53 +3080,14 @@ namespace X_ROOT_NS::modules::core {
         if (atype_count != param_count)
             return __member_compare_t::not_match;
 
-        struct gp_match_t { generic_param_t * gparam; type_t * type; };
-        al::svector_t<gp_match_t, 8> gp_matches;
+        __argument_type_analyzer_t analyzer(method, generic_args);
+        __member_compare_t r = analyzer.compare(atypes);
 
-        __member_compare_t r = __member_compare_t::equals;
-        for (size_t index = 0; index < param_count; index++)
+        if (method->is_generic() && generic_args == nullptr)    // auto determined generic params.
         {
-            type_t * gp_type = nullptr;
-            param_t * param = method->param_at(index);
-            switch (__compare_argument(param, generic_args, (*atypes)[index], &gp_type))
+            for (generic_param_t * gp : *method->generic_params)
             {
-                case __member_compare_t::not_match:
-                case __member_compare_t::auto_determined_failed:
-                    return __member_compare_t::not_match;
-
-                case __member_compare_t::match:
-                    r = __member_compare_t::match;
-                    break;
-
-                case __member_compare_t::auto_determined:
-                    if (gp_type != nullptr)
-                    {
-                        gp_matches.push_back(gp_match_t {
-                            (generic_param_t *)param->get_type(), gp_type
-                        });
-                    }
-                    break;
-
-                case __member_compare_t::equals:
-                    break;
-
-                default:
-                    X_UNEXPECTED();
-            }
-        }
-
-        if (method->is_generic() && generic_args == nullptr)
-        {
-            for (generic_param_t * gparam : *method->generic_params)
-            {
-                al::svector_t<type_t *> types;
-                for (gp_match_t & m : gp_matches)
-                {
-                    if (m.gparam == gparam)
-                        types.push_back(m.type);
-                }
-
-                type_t * type = __get_compatible_type(types);
+                type_t * type = analyzer.get_type(gp);
                 if (type == nullptr)
                     return __member_compare_t::auto_determined_failed;
 
@@ -2930,6 +3150,25 @@ namespace X_ROOT_NS::modules::core {
         _A(type != nullptr);
 
         return is_value_type(type->this_ttype());
+    }
+
+    // Returns whether it's a generic type with generic params.
+    bool has_generic_params(type_t * type)
+    {
+        if (!is_generic(type))
+            return false;
+
+        generic_type_t * generic_type = (generic_type_t *)type;
+        for (type_t * arg_type : generic_type->args)
+        {
+            if (is_generic_param(arg_type))
+                return true;
+
+            if (has_generic_params(arg_type))
+                return true;
+        }
+
+        return false;
     }
 
     // Returns general type if it's a generic type, otherwise, returns itself.
@@ -3041,19 +3280,28 @@ namespace X_ROOT_NS::modules::core {
         // Gets method descripted by __args.
         method_t * get_method(bool exact_match = false)
         {
+            #define __Throw(_error_code, _methods...)                                   \
+                throw method_compare_error_t(method_compare_error_code_t::_error_code,  \
+                                                                        ##_methods)
+
             if (__equaled_method.method != nullptr)
                 return __pick_method(__equaled_method);
 
             if (exact_match)
-                return nullptr;
+                __Throw(not_match, __matched_methods);
 
             if (__matched_methods.size() >= 2)
-                throw _ECF(conflict, _T("method \"%1%\" conflict"), __args.get_name());
+                __Throw(conflict, __matched_methods);
 
             if (!__matched_methods.empty())
                 return __pick_method(__matched_methods[0]);
+
+            if (!__determine_failed_methods.empty())
+                __Throw(auto_determined_failed, __determine_failed_methods);
  
-            return nullptr;
+            __Throw(not_match, __not_matched_methods);
+
+            #undef __Throw
         }
 
         // Gets method descripted by __args.
@@ -3062,7 +3310,7 @@ namespace X_ROOT_NS::modules::core {
             if (__equaled_method.method != nullptr)
                 out_members.push_back(__equaled_method.method);
 
-            for (mi_t & mi : __matched_methods)
+            for (__mi_t & mi : __matched_methods)
                 out_members.push_back(mi.method);
         }
 
@@ -3071,12 +3319,19 @@ namespace X_ROOT_NS::modules::core {
         analyze_member_args_t & __args;
         static const size_t __empty_size = (size_t)-1;
 
-        struct mi_t { method_t * method; size_t ga_index = __empty_size; };
+        struct __mi_t
+        {
+            method_t * method;
+            size_t ga_index = __empty_size;
 
-        mi_t __equaled_method { nullptr };
-        typedef al::svector_t<mi_t, 16> __methods_vector_t;
-        __methods_vector_t __matched_methods;
-        //__methods_vector_t __not_matched_methods;
+            operator method_t * () { return method; }
+        };
+
+        __mi_t __equaled_method { nullptr };
+        typedef al::svector_t<__mi_t, 16> __methods_vector_t;
+        __methods_vector_t  __matched_methods;
+        __methods_vector_t  __determine_failed_methods;
+        __methods_vector_t  __not_matched_methods;
 
         struct __arg_types_data_t
         {
@@ -3099,17 +3354,22 @@ namespace X_ROOT_NS::modules::core {
             {
                 case __member_compare_t::equals:
                 case __member_compare_t::auto_determined:
-                    __equaled_method = mi_t { method, __current_arg_types_index() };
+                    __equaled_method = __mi_t { method, __current_arg_types_index() };
                     break;
 
                 case __member_compare_t::match:
                 case __member_compare_t::same_name:
-                    __matched_methods.push_back(mi_t { method, __current_arg_types_index() });
+                    __matched_methods.push_back(__mi_t { method, __current_arg_types_index() });
                     break;
 
                 case __member_compare_t::not_match:
+                    __not_matched_methods.push_back(__mi_t { method, __current_arg_types_index() });
+                    break;
+
                 case __member_compare_t::auto_determined_failed:
-                    //__not_matched_methods.push_back(method);
+                    __determine_failed_methods.push_back(__mi_t {
+                        method, __current_arg_types_index()
+                    });
                     break;
 
                 default:
@@ -3120,7 +3380,7 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Pick method. revises ga_index to a really type.
-        method_t * __pick_method(mi_t & mi)
+        method_t * __pick_method(__mi_t & mi)
         {
             if (mi.ga_index != __empty_size)
             {
@@ -3261,10 +3521,11 @@ namespace X_ROOT_NS::modules::core {
             if (to_type(property->owner_type_name) != __args.owner)
                 return;
 
-            if (property->name != name_t::null || property->params == nullptr)
+            if (property->name != __get_property_index_name() || property->params == nullptr)
                 return;
 
-            switch (__compare_arguments(property->params))
+            __member_compare_t compare_result = __compare_arguments(property->params);
+            switch (compare_result)
             {
                 case __member_compare_t::equals:
                     __equaled_property = pi_t { property };
@@ -3278,7 +3539,7 @@ namespace X_ROOT_NS::modules::core {
                     break;
 
                 default:
-                    X_UNEXPECTED();
+                    X_UNEXPECTED_F("unexpected __method_compare_t::%1%", compare_result);
             }
         }
 
@@ -3290,28 +3551,8 @@ namespace X_ROOT_NS::modules::core {
             if (param_count != __arg_count)
                 return __member_compare_t::not_match;
 
-            __member_compare_t r = __member_compare_t::equals;
-            for (size_t index = 0, count = params->size(); index < count; index++)
-            {
-                type_t * gp_type = nullptr;
-                switch (__compare_argument((*params)[index], nullptr,
-                                            (*__args.atypes)[index], &gp_type))
-                {
-                    case __member_compare_t::not_match:
-                    case __member_compare_t::auto_determined_failed:
-                        return __member_compare_t::not_match;
-
-                    case __member_compare_t::match:
-                        r = __member_compare_t::match;
-
-                    case __member_compare_t::equals:
-                        break;
-
-                    case __member_compare_t::auto_determined:
-                    default:
-                        X_UNEXPECTED();
-                }
-            }
+            __argument_type_analyzer_t analyzer(params);
+            __member_compare_t r = analyzer.compare(__args.atypes);
 
             return r;
         }
@@ -3320,6 +3561,17 @@ namespace X_ROOT_NS::modules::core {
         property_t * __pick_property(pi_t & pi)
         {
             return pi.property;
+        }
+
+        // Property index name.
+        static name_t __get_property_index_name()
+        {
+            static name_t static_name;
+
+            if (static_name == name_t::null)
+                static_name = __XPool.to_name(PropertyIndexName);
+
+            return static_name;
         }
     };
 
@@ -4231,10 +4483,10 @@ namespace X_ROOT_NS::modules::core {
     // Converts to a string.
     atype_t::operator string_t() const
     {
-        if (atype == param_type_t::__default__)
+        if (ptype == param_type_t::__default__)
             return _str(type);
 
-        return _F(_T("%1% %2%"), _title(atype), type);
+        return _F(_T("%1% %2%"), _title(ptype), type);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4587,6 +4839,19 @@ namespace X_ROOT_NS::modules::core {
 
         return ss.str();
     }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Methods compare error code.
+    X_ENUM_INFO(method_compare_error_code_t)
+
+        X_C(not_match,      _T("not_match"))
+
+        X_C(conflict,       _T("conflict"))
+
+        X_C(auto_determined_failed, _T("auto_determined_failed"))
+
+    X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
 

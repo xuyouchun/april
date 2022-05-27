@@ -575,6 +575,13 @@ namespace X_ROOT_NS::modules::compile {
         // Cannot implicitly convert a type to another type.
         X_D(invalid_type_cast, _T("Cannot implicitly convert type '%1%' to '%2%'"))
 
+        // The type arguments for method cannot be inferred from the usage.
+        // Try specifying the type arguments explicitly.
+        X_D(type_arguments_cannot_be_inferred,
+            _T("The type arguments for method '%1%' in type '%2%' ")
+            _T("cannot be inferred from the usage. ")
+            _T("Try specifying the type arguments explicitly"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -4664,23 +4671,38 @@ namespace X_ROOT_NS::modules::compile {
     // Walks default step.
     bool property_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
     {
+        bool has_error = false;
+
         if (!__property.name.empty())
         {
             if (__property.params != nullptr)
+            {
+                has_error = true;
                 this->__log(this->child_at(params), __c_t::unexpected_params, "property");
+            }
         }
         else
         {
             if (__property.params == nullptr)
+            {
+                has_error = true;
                 this->__log(this, __c_t::name_empty, _T("property"));
+            }
+            else
+            {
+                __property.name = __XPool.to_name(PropertyIndexName);
+            }
         }
 
         this->__append_default_methods(context);
 
-        variable_region_t * region = context.current_region();
+        if (!has_error)
+        {
+            variable_region_t * region = context.current_region();
 
-        variable_defination_t vd(this->__context, context, &__property);
-        vd.define_property(&__property);
+            variable_defination_t vd(this->__context, context, &__property);
+            vd.define_property(&__property);
+        }
 
         context.push(this->to_eobject());
         __super_t::on_walk(context, step, tag);

@@ -1591,21 +1591,6 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // Tries to get method.
-        common_error_code_t __try_get_method(type_t * type, analyze_member_args_t & args,
-                                                                method_t ** out_method)
-        {
-            try
-            {
-                *out_method = (method_t *)type->get_member(args, true);
-            }
-            catch (const logic_error_t<common_error_code_t> & e)
-            {
-                return e.code;
-            }
-
-            return common_error_code_t::__default__;
-        }
-
         // Walks arguments.
         void __walk_arguments(arguments_t * arguments)
         {
@@ -1642,55 +1627,55 @@ namespace X_ROOT_NS::modules::compile {
                 member_type_t::method, name, &atypes, function_exp->generic_args
             );
 
-            if (__try_get_method(type, am_args, &method) == common_error_code_t::conflict)
+            try
             {
-                analyze_members_args_t ams_args(
-                    member_type_t::method, name, &atypes, function_exp->generic_args
-                );
+                method = (method_t *)type->get_member(am_args, true);
+            }
+            catch (const method_compare_error_t & e)
+            {
+                auto & methods = e.related_methods;
+                string_t s = al::join_str(methods.begin(), methods.end(), _T(", "));
 
-                type->get_members(ams_args);
+                switch (e.error_code)
+                {
+                    case method_compare_error_code_t::conflict:
+                        ast_log(__cctx, function_exp, __c_t::method_conflict, name, type, s);
+                        break;
 
-                members_t & members = ams_args.out_members;
-                string_t s = al::join_str(members.begin(), members.end(), _T(", "));
-                ast_log(__cctx, function_exp, __c_t::method_conflict, name, type, s);
+                    case method_compare_error_code_t::not_match: 
+                        if (methods.empty())
+                            ast_log(__cctx, function_exp, __c_t::method_not_found, name, type);
+                        else
+                            ast_log(__cctx, function_exp, __c_t::method_not_match, name, type);
+                        break;
+
+                    case method_compare_error_code_t::auto_determined_failed:
+                        ast_log(__cctx, function_exp, __c_t::type_arguments_cannot_be_inferred,
+                                name, type);
+                        break;
+                                        
+                    default:
+                        break;
+                }
 
                 return;
             }
 
-            if (method == nullptr)
+            type_collection_t tc;
+
+            if (function_exp->generic_args == nullptr)
+                al::copy(am_args.out_arg_types, std::back_inserter(tc));
+            else
+                fill_type_collection(tc, function_exp->generic_args);
+
+            if (tc.empty())
             {
-                analyze_members_args_t ams_args(
-                    member_type_t::method, name, &atypes, function_exp->generic_args
-                );
-
-                type->get_members(ams_args);
-
-                members_t & members = ams_args.out_members;
-                if (members.empty())
-                    ast_log(__cctx, function_exp, __c_t::method_not_found, name, type);
-                else
-                    ast_log(__cctx, function_exp, __c_t::method_not_match, name, type);
-
-                return;
+                function_exp->set_method(method);
             }
             else
             {
-                type_collection_t tc;
-
-                if (function_exp->generic_args == nullptr)
-                    al::copy(am_args.out_arg_types, std::back_inserter(tc));
-                else
-                    fill_type_collection(tc, function_exp->generic_args);
-
-                if (tc.empty())
-                {
-                    function_exp->set_method(method);
-                }
-                else
-                {
-                    generic_method_t * generic_method = __XPool.new_generic_method(method, tc, type);
-                    function_exp->set_method(generic_method);
-                }
+                generic_method_t * generic_method = __XPool.new_generic_method(method, tc, type);
+                function_exp->set_method(generic_method);
             }
 
             if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)

@@ -2564,9 +2564,11 @@ namespace X_ROOT_NS::modules::compile {
                 return xil_call_command_t::_command;                                    \
         }
 
-        __IsInternalCommand(Delegate_Invoke, delegate_invoke)
-        __IsInternalCommand(Delegate_Init, delegate_init)
+        __IsInternalCommand(Delegate_Invoke,    delegate_invoke)
+        __IsInternalCommand(Delegate_Init,      delegate_init)
         __IsInternalCommand(Delegate_InitWithCallType, delegate_init_with_call_type)
+        __IsInternalCommand(Array_GetValue,     array_get_value)
+        __IsInternalCommand(Array_SetValue,     array_set_value)
 
         return xil_call_command_t::none;
     }

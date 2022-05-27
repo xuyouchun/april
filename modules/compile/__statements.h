@@ -533,7 +533,7 @@ namespace X_ROOT_NS::modules::compile {
         { }
 
         statement_t * try_statement     =   nullptr;    // Try statement.
-        __catches_t   catches           =   nullptr;    // Catch statements.
+        __catches_t   catches;                          // Catch statements.
         statement_t * finally_statement =   nullptr;    // Finally statement.
 
         // Compile this statement.

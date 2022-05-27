@@ -36,6 +36,8 @@ namespace X_ROOT_NS::modules::core {
 
     typedef int16_t element_value_t;
 
+    #define PropertyIndexName   _T("Item")
+
     // Core assembly name.
     #define CoreAssembly  _T("System")
 
@@ -1156,18 +1158,6 @@ namespace X_ROOT_NS::modules::core {
         virtual const string_t to_string() const override { return (string_t)*this; }
     };
 
-    // Returns element count of the collection, returns 0 if nullptr.
-    template<typename _etype_t> size_t size_of(eobjects_t<_etype_t> * objs)
-    {
-        return objs == nullptr? 0 : objs->size();
-    }
-
-    // Returns whether the collection is empty of nullptr.
-    template<typename _etype_t> size_t is_empty(eobjects_t<_etype_t> * objs)
-    {
-        return size_of(objs) == 0;
-    }
-
     //-------- ---------- ---------- ---------- ----------
 
     // A eobject collection with owner.
@@ -1289,6 +1279,12 @@ namespace X_ROOT_NS::modules::core {
 
         operator sid_t () const { return sid; }
         operator string_t () const { return (string_t)sid; }
+
+        bool operator == (const char_t * s) const _NE { return (string_t)sid == s; }
+        bool operator != (const char_t * s) const _NE { return !operator == (s); }
+
+        bool operator == (const string_t & s) const _NE { return (string_t)sid == s; }
+        bool operator != (const string_t & s) const _NE { return !operator == (s); }
 
         bool empty() const { return sid == sid_t::null; }
 
@@ -2281,11 +2277,11 @@ namespace X_ROOT_NS::modules::core {
     {
         atype_t() = default;
         atype_t(typex_t typex) _NE;
-        atype_t(type_t * type, param_type_t atype = param_type_t::__default__) _NE
-            : type(type), atype(atype) { }
+        atype_t(type_t * type, param_type_t ptype = param_type_t::__default__) _NE
+            : type(type), ptype(ptype) { }
 
         type_t * type = nullptr;
-        param_type_t atype = param_type_t::__default__;
+        param_type_t ptype = param_type_t::__default__;
 
         // Converts to a string.
         operator string_t() const;
@@ -2366,6 +2362,44 @@ namespace X_ROOT_NS::modules::core {
 
         // Output members.
         members_t out_members;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Method compare error code.
+    X_ENUM(method_compare_error_code_t)
+
+        // None of methods matched.
+        not_match,
+
+        // More than one methods matched.
+        conflict,
+
+        // Failed to determined generic parameters.
+        auto_determined_failed,
+
+    X_ENUM_END
+
+    // Exception of method compare error.
+    class method_compare_error_t
+    {
+        typedef error_t __super_t;
+
+    public:
+
+        // Constructors.
+        method_compare_error_t(method_compare_error_code_t error_code)
+            : error_code(error_code) { }
+
+        template<typename _methods_t>
+        method_compare_error_t(method_compare_error_code_t error_code, const _methods_t & methods)
+            : error_code(error_code), related_methods(methods) { }
+
+        // Error code.
+        method_compare_error_code_t error_code;
+
+        // Related methods.
+        al::svector_t<method_t *> related_methods;
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2507,6 +2541,9 @@ namespace X_ROOT_NS::modules::core {
     {
         return type != nullptr && type->this_gtype() == gtype_t::generic_param;
     }
+
+    // Returns whether it's a generic type with generic params.
+    bool has_generic_params(type_t * type);
 
     // Returns whether a type is a array type.
     X_ALWAYS_INLINE bool is_array(type_t * type)

@@ -433,6 +433,18 @@ namespace X_ROOT_NS::algorithm {
         return container[container.size() - 1];
     }
 
+    // Returns element count of the collection, returns 0 if nullptr.
+    template<typename _container_t> size_t size_of(_container_t * objs)
+    {
+        return objs == nullptr? 0 : objs->size();
+    }
+
+    // Returns whether the collection is empty of nullptr.
+    template<typename _container_t> size_t is_empty(_container_t * objs)
+    {
+        return size_of(objs) == 0;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     namespace

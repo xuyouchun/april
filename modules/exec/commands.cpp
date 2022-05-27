@@ -1294,6 +1294,9 @@ namespace X_ROOT_NS::modules::exec {
 
             index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
 
+            if (index >= mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
+
             ctx.stack.push<__value2_t>(static_cast<__value2_t>(
                 mm::get_array_element<__value1_t>(array_ref, index)
             ));
@@ -2798,6 +2801,9 @@ namespace X_ROOT_NS::modules::exec {
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
             }
 
+            if (index >= mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
+
             mm::set_array_element<__value1_t>(
                 array_ref, index, static_cast<__value1_t>(ctx.stack.pop<__value2_t>())
             );
@@ -2853,39 +2859,24 @@ namespace X_ROOT_NS::modules::exec {
 
     struct __pop_array_element_command_template_t
     {
-        template<dimension_t _dimension> struct __new_t
-        {
-            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
-            static command_t * new_(memory_t * memory, dimension_t dimension,
-                _args_t && ... args)
-            {
-                return __new_command<__pop_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
-                    memory, std::forward<_args_t>(args) ...
-                );
-            }
-        };
-
-        template<> struct __new_t<0>
-        {
-            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
-            static command_t * new_(memory_t * memory, dimension_t dimension,
-                _args_t && ... args)
-            {
-                return __new_command<__pop_array_element_command_t<_cv, _xt1, _xt2, 0>>(
-                    memory, dimension, std::forward<_args_t>(args) ...
-                );
-            }
-        };
-
         template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2,
             dimension_t _dimension, typename ... _args_t
         >
         static command_t * new_command(memory_t * memory, dimension_t dimension,
             _args_t && ... args)
         {
-            return __new_t<_dimension>::template new_<_cv, _xt1, _xt2>(
-                memory, dimension, std::forward<_args_t>(args) ...
-            );
+            if constexpr (_dimension == 0)
+            {
+                return __new_command<__pop_array_element_command_t<_cv, _xt1, _xt2, 0>>(
+                    memory, dimension, std::forward<_args_t>(args) ...
+                );
+            }
+            else
+            {
+                return __new_command<__pop_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
+                    memory, std::forward<_args_t>(args) ...
+                );
+            }
         }
     };
 
@@ -3439,43 +3430,26 @@ namespace X_ROOT_NS::modules::exec {
 
     struct __pick_array_element_command_template_t
     {
-        template<dimension_t _dimension> struct __new_t
-        {
-            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
-            static command_t * new_(memory_t * memory, dimension_t dimension,
-                _args_t && ... args)
-            {
-                return __new_command<__pick_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
-                    memory, std::forward<_args_t>(args) ...
-                );
-            }
-        };
-
-        template<> struct __new_t<0>
-        {
-            template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
-            static command_t * new_(memory_t * memory, dimension_t dimension,
-                _args_t && ... args)
-            {
-                return __new_command<__pick_array_element_command_t<_cv, _xt1, _xt2, 0>>(
-                    memory, dimension, std::forward<_args_t>(args) ...
-                );
-            }
-        };
-
         template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2,
             dimension_t _dimension, typename ... _args_t
         >
         static command_t * new_command(memory_t * memory, dimension_t dimension,
             _args_t && ... args)
         {
-            return __new_t<_dimension>::template new_<_cv, _xt1, _xt2>(
-                memory, dimension, std::forward<_args_t>(args) ...
-            );
+            if constexpr (_dimension == 0)
+            {
+                return __new_command<__pick_array_element_command_t<_cv, _xt1, _xt2, 0>>(
+                    memory, dimension, std::forward<_args_t>(args) ...
+                );
+            }
+            else
+            {
+                return __new_command<__pick_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
+                    memory, std::forward<_args_t>(args) ...
+                );
+            }
         }
     };
-
-
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -3760,6 +3734,8 @@ namespace X_ROOT_NS::modules::exec {
     __DefineCmdValue_(__CallCmd(delegate_init))
     __DefineCmdValue_(__CallCmd(delegate_init_with_call_type))
     __DefineCmdValue_(__CallCmd(delegate_invoke))
+    __DefineCmdValue_(__CallCmd(array_get_value))
+    __DefineCmdValue_(__CallCmd(array_set_value))
 
     typedef rtlib::libfunc_t __libfunc_t;
 
@@ -4524,6 +4500,7 @@ namespace X_ROOT_NS::modules::exec {
 
     };
 
+
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     struct __delegate_command_template_t
@@ -4547,7 +4524,9 @@ namespace X_ROOT_NS::modules::exec {
         return __delegate_command_manager.template get_command<_cv>(this_offset, xil.command);
     }
 
-    static command_t * __new_command_call_command(__context_t & ctx, const call_xil_t & xil)
+    // Creates command delegate call command.
+    static command_t * __new_command_delegate_call_command(__context_t & ctx,
+                                                            const call_xil_t & xil)
     {
         #define __InitOffset(_name, _identity)                                          \
             _name = __offset_of_argument(ctx, _identity) + __stack_stub_size;
@@ -4603,11 +4582,118 @@ namespace X_ROOT_NS::modules::exec {
                 return __new_delegate_command<__CallCmd(delegate_invoke)>(ctx, xil);
 
             default:
-                X_UNEXPECTED();
+                X_UNEXPECTED_F("unexpected xil command command '%1%'", xil.command);
         }
 
         #undef __IsOffsetEmpty
         #undef __InitOffset
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // array call command.
+
+    template<command_value_t _cv> class __array_call_command_t { };
+
+    template<command_value_t _cv>
+    class __array_call_command_base_t : public __command_base_t<_cv>
+    {
+        typedef __array_call_command_base_t     __self_t;
+        typedef __command_base_t<_cv>           __super_t;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // array call command.
+
+    template<>
+    class __array_call_command_t<__CallCmd(array_get_value)>
+        : public __array_call_command_base_t<__CallCmd(array_get_value)>
+    {
+        typedef __array_call_command_t __self_t;
+        typedef __array_call_command_base_t<__CallCmd(array_get_value)>  __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        __BeginExecute(ctx)
+
+            // 
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("call array_get_value"));
+
+        #endif  // EXEC_TRACE
+    };
+
+    typedef __array_call_command_t<__CallCmd(array_get_value)> __array_get_value_call_command_t;
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // array set_value call command.
+
+    template<>
+    class __array_call_command_t<__CallCmd(array_set_value)>
+        : public __array_call_command_base_t<__CallCmd(array_set_value)>
+    {
+        typedef __array_call_command_t __self_t;
+        typedef __array_call_command_base_t<__CallCmd(array_set_value)>  __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        __BeginExecute(ctx)
+
+            // 
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("call array_get_value"));
+
+        #endif  // EXEC_TRACE
+
+    };
+
+    typedef __array_call_command_t<__CallCmd(array_set_value)> __array_set_value_call_command_t;
+
+    // Creates command array get/set value command.
+    static command_t * __new_command_array_call_command(__context_t & ctx,
+                                                            const call_xil_t & xil)
+    {
+        switch (xil.command)
+        {
+            case xil_call_command_t::array_get_value:
+                __ReturnInstance(__array_get_value_call_command_t);
+
+            case xil_call_command_t::array_set_value:
+                __ReturnInstance(__array_set_value_call_command_t);
+
+            default:
+                X_UNEXPECTED_F("unexpected xil command command '%1%'", xil.command);
+        }
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Creates command call command.
+    static command_t * __new_command_call_command(__context_t & ctx, const call_xil_t & xil)
+    {
+        switch (xil.command)
+        {
+            case xil_call_command_t::delegate_init:
+            case xil_call_command_t::delegate_init_with_call_type:
+            case xil_call_command_t::delegate_invoke:
+                return __new_command_delegate_call_command(ctx, xil);
+
+            case xil_call_command_t::array_get_value:
+            case xil_call_command_t::array_set_value:
+                return __new_command_array_call_command(ctx, xil);
+
+            default:
+                X_UNEXPECTED_F("unexpected xil command command '%1%'", xil.command);
+        }
     }
 
     //-------- ---------- ---------- ---------- ----------

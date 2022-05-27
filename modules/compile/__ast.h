@@ -779,6 +779,10 @@ namespace X_ROOT_NS::modules::compile {
         // Cannot implicitly convert a type to another type.
         invalid_type_cast,
 
+        // The type arguments for method cannot be inferred from the usage.
+        // Try specifying the type arguments explicitly.
+        type_arguments_cannot_be_inferred,
+
         __the_end__         = 10000,
 
     X_ENUM_END
