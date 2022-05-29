@@ -314,10 +314,6 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(delegate_invoke,    _T("delegate_invoke"))
 
-        X_C(array_get_value,    _T("array_get_value"))
-
-        X_C(array_set_value,    _T("array_set_value"))
-
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -756,7 +752,7 @@ namespace X_ROOT_NS::modules::core {
         if (call_type() == xil_call_type_t::command)
             return _FT("call command %1%", command);
 
-        return _FT("call %1% {%2%}"), call_type(), method_ref();
+        return _FT("call %1% {%2%}", call_type(), method_ref());
     }
 
     ////////// ////////// ////////// ////////// //////////

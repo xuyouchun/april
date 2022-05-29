@@ -2108,7 +2108,14 @@ namespace X_ROOT_NS::modules::rt {
     rt_type_t * rt_generic_method_t::get_return_type(analyzer_env_t & env)
     {
         _A(template_ != nullptr);
-        return template_->get_return_type(env);
+
+        ref_t ret_type_ref = (*template_)->type;
+        generic_param_manager_t gp(env, this);
+
+        assembly_analyzer_t analyzer(env, get_assembly(), &gp);
+        rt_type_t * type = analyzer.get_type(ret_type_ref);
+
+        return type;
     }
 
     // Gets assembly.
@@ -2680,11 +2687,6 @@ namespace X_ROOT_NS::modules::rt {
             }
 
             case mt_type_extra_t::generic_param: {
-                if (is_generic_params(type_ref))
-                {
-                    _P(_T("generic params"));
-                }
-
                 _A(!is_generic_params(type_ref));
 
                 rt_generic_param_t * gp = get_generic_param(type_ref);

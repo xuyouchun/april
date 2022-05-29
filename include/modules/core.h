@@ -2342,6 +2342,7 @@ namespace X_ROOT_NS::modules::core {
         type_t *            owner = nullptr;    // Member owner (an inerface type)
 
         bool                exact_match     = false;    // Whether exact match the member.
+        bool                throw_on_not_found = false; // Throw exception when not found.
 
         // Returns name of member, if name is null, returns name from context
         // (constructor, destructor, static_constructor ...).
@@ -2532,6 +2533,9 @@ namespace X_ROOT_NS::modules::core {
     {
         return type != nullptr && type->this_gtype() == gtype_t::generic;
     }
+
+    // Returns whether a type is System.Array<T> type.
+    bool is_tarray(type_t * type);
 
     // Returns general type if it's a generic type, otherwise, returns itself.
     type_t * to_general(type_t * type);
@@ -3599,6 +3603,9 @@ namespace X_ROOT_NS::modules::core {
         // Type arguments.
         type_collection_t args;
 
+        // Returns param count.
+        virtual size_t param_count() const override;
+
         // Returns param type of specified index.
         virtual typex_t param_type_at(size_t index) const override;
 
@@ -4364,6 +4371,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Transform type_name to its implemenation with type arguments.
         type_name_t * __transform_member(__tctx_t & tctx, type_name_t * type_name);
+
+        // Transform params.
+        params_t * __transform_params(__tctx_t & tctx, params_t * params);
 
         // Transform tuple type.
         void __transform_tuple_type(__tctx_t & tctx); 

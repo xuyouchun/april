@@ -1626,6 +1626,7 @@ namespace X_ROOT_NS::modules::compile {
             analyze_member_args_t am_args(
                 member_type_t::method, name, &atypes, function_exp->generic_args
             );
+            am_args.throw_on_not_found = true;
 
             try
             {

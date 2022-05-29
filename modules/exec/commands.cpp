@@ -652,7 +652,7 @@ namespace X_ROOT_NS::modules::exec {
             }
 
             default:
-                X_UNEXPECTED_F("unexpected storage type '%1%'", storage_type);
+                return xil_type_t::empty;
         }
     }
 
@@ -1825,6 +1825,8 @@ namespace X_ROOT_NS::modules::exec {
             case xil_storage_type_t::array_element_addr:
                 *out_dtype1 = __xil_type_of(ctx, __array_element_type(ctx, xil.get_ref()));
                 *out_dtype2 = __fetch_dtype(ctx, xil);
+                if (*out_dtype2 == xil_type_t::empty)
+                    *out_dtype2 = *out_dtype1;
                 break;
 
             default:
@@ -4589,92 +4591,6 @@ namespace X_ROOT_NS::modules::exec {
         #undef __InitOffset
     }
 
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // array call command.
-
-    template<command_value_t _cv> class __array_call_command_t { };
-
-    template<command_value_t _cv>
-    class __array_call_command_base_t : public __command_base_t<_cv>
-    {
-        typedef __array_call_command_base_t     __self_t;
-        typedef __command_base_t<_cv>           __super_t;
-    };
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // array call command.
-
-    template<>
-    class __array_call_command_t<__CallCmd(array_get_value)>
-        : public __array_call_command_base_t<__CallCmd(array_get_value)>
-    {
-        typedef __array_call_command_t __self_t;
-        typedef __array_call_command_base_t<__CallCmd(array_get_value)>  __super_t;
-
-    public:
-        using __super_t::__super_t;
-
-        __BeginExecute(ctx)
-
-            // 
-
-        __EndExecute()
-
-        #if EXEC_TRACE
-
-        __ToString(_T("call array_get_value"));
-
-        #endif  // EXEC_TRACE
-    };
-
-    typedef __array_call_command_t<__CallCmd(array_get_value)> __array_get_value_call_command_t;
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // array set_value call command.
-
-    template<>
-    class __array_call_command_t<__CallCmd(array_set_value)>
-        : public __array_call_command_base_t<__CallCmd(array_set_value)>
-    {
-        typedef __array_call_command_t __self_t;
-        typedef __array_call_command_base_t<__CallCmd(array_set_value)>  __super_t;
-
-    public:
-        using __super_t::__super_t;
-
-        __BeginExecute(ctx)
-
-            // 
-
-        __EndExecute()
-
-        #if EXEC_TRACE
-
-        __ToString(_T("call array_get_value"));
-
-        #endif  // EXEC_TRACE
-
-    };
-
-    typedef __array_call_command_t<__CallCmd(array_set_value)> __array_set_value_call_command_t;
-
-    // Creates command array get/set value command.
-    static command_t * __new_command_array_call_command(__context_t & ctx,
-                                                            const call_xil_t & xil)
-    {
-        switch (xil.command)
-        {
-            case xil_call_command_t::array_get_value:
-                __ReturnInstance(__array_get_value_call_command_t);
-
-            case xil_call_command_t::array_set_value:
-                __ReturnInstance(__array_set_value_call_command_t);
-
-            default:
-                X_UNEXPECTED_F("unexpected xil command command '%1%'", xil.command);
-        }
-    }
-
     //-------- ---------- ---------- ---------- ----------
 
     // Creates command call command.
@@ -4686,10 +4602,6 @@ namespace X_ROOT_NS::modules::exec {
             case xil_call_command_t::delegate_init_with_call_type:
             case xil_call_command_t::delegate_invoke:
                 return __new_command_delegate_call_command(ctx, xil);
-
-            case xil_call_command_t::array_get_value:
-            case xil_call_command_t::array_set_value:
-                return __new_command_array_call_command(ctx, xil);
 
             default:
                 X_UNEXPECTED_F("unexpected xil command command '%1%'", xil.command);

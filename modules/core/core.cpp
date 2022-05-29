@@ -1969,6 +1969,12 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
     // impl_method_t
 
+    // Returns param count.
+    size_t impl_method_t::param_count() const
+    {
+        return __super_t::param_count();
+    }
+
     // Returns param type of specified index.
     typex_t impl_method_t::param_type_at(size_t index) const
     {
@@ -2103,17 +2109,36 @@ namespace X_ROOT_NS::modules::core {
     // Replace to real type if it's a general param.
     type_t * generic_method_t::__revise_type(type_t * type) const
     {
-        if (type == nullptr || type->this_gtype() != gtype_t::generic_param)
+        if (type == nullptr)
+            return nullptr;
+
+        if (is_generic_param(type))
+        {
+            name_t name = ((generic_param_t *)type)->name;
+            type_t * type1 = __search_type(*__template()->generic_params, args, name);
+            if (type1 != nullptr)
+                return type1;
+
+            if (is_generic(host_type) &&
+                (type1 = ((generic_type_t *)host_type)->type_at(name)) != nullptr)
+                return type1;
+
             return type;
+        }
 
-        name_t name = ((generic_param_t *)type)->name;
-        type_t * type1 = __search_type(*__template()->generic_params, args, name);
-        if (type1 != nullptr)
-            return type1;
+        if (has_generic_params(type))
+        {
+            generic_type_t * generic_type = (generic_type_t *)type;
+            type_collection_t types;
 
-        if (is_generic(host_type) &&
-            (type1 = ((generic_type_t *)host_type)->type_at(name)) != nullptr)
-            return type1;
+            for (type_t * type : generic_type->args)
+            {
+                types.push_back(__revise_type(type));
+            }
+
+            return __XPool.new_generic_type(generic_type->template_, types,
+                                            generic_type->host_type);
+        }
 
         return type;
     }
@@ -2878,6 +2903,7 @@ namespace X_ROOT_NS::modules::core {
                 {
                     al::assign_value(out_r, __member_compare_t::auto_determined);
                     __generic_param_map[gp->name] = argument_type;
+
                     return argument_type;
                 }
             }
@@ -2887,12 +2913,21 @@ namespace X_ROOT_NS::modules::core {
             {
                 generic_type_t * gp_type = (generic_type_t *)param_type;
 
+                // Call in generic methods.
+                if (is_general(argument_type) &&
+                    is_type_compatible((general_type_t *)argument_type, gp_type->template_))
+                {
+                    return argument_type;
+                }
+
+                // Generic param types specified.
                 if (__generic_args != nullptr)
                 {
                     generic_type_t * type = __fill_generic_type(gp_type, __generic_args);
                     return type;
                 }
-                else
+
+                // Auto determine generic param types.
                 {
                     general_type_t * gp_template = gp_type->template_;
                     std::vector<__matched_item_t> matched_items;
@@ -3152,6 +3187,13 @@ namespace X_ROOT_NS::modules::core {
         return is_value_type(type->this_ttype());
     }
 
+    // Returns whether a type is System.Array<T> type.
+    bool is_tarray(type_t * type)
+    {
+        return is_generic(type) &&
+            ((generic_type_t *)type)->template_ == __XPool.get_tarray_type();
+    }
+
     // Returns whether it's a generic type with generic params.
     bool has_generic_params(type_t * type)
     {
@@ -3288,7 +3330,12 @@ namespace X_ROOT_NS::modules::core {
                 return __pick_method(__equaled_method);
 
             if (exact_match)
-                __Throw(not_match, __matched_methods);
+            {
+                if (__args.throw_on_not_found)
+                    __Throw(not_match, __matched_methods.empty()? __not_matched_methods :
+                                                                  __matched_methods);
+                return nullptr;
+            }
 
             if (__matched_methods.size() >= 2)
                 __Throw(conflict, __matched_methods);
@@ -3299,7 +3346,10 @@ namespace X_ROOT_NS::modules::core {
             if (!__determine_failed_methods.empty())
                 __Throw(auto_determined_failed, __determine_failed_methods);
  
-            __Throw(not_match, __not_matched_methods);
+            if (__args.throw_on_not_found)
+                __Throw(not_match, __not_matched_methods);
+
+            return nullptr;
 
             #undef __Throw
         }
@@ -4289,6 +4339,54 @@ namespace X_ROOT_NS::modules::core {
         return new_field;
     }
 
+    // Transform params.
+    params_t * __general_type_like_base_t::__transform_params(__tctx_t & tctx, params_t * params)
+    {
+        if (params == nullptr)
+            return nullptr;
+
+        xpool_t & xpool = __XPool;
+        params_t * new_params = xpool.new_obj<params_t>();
+
+        for (param_t * param : *params)
+        {
+            if (param->ptype == param_type_t::extends)
+            {
+                int index = 0;
+
+                name_t type_name = xpool.to_name(_str(param->type_name).c_str());
+                __types_at(tctx.template_, tctx.args, type_name, [&](typex_t typex) {
+
+                    string_t name = _F(_T("arg%1%"), ++index);
+                    param_t * new_param = xpool.new_obj<param_t>();
+
+                    new_param->name       = xpool.to_name(name.c_str());
+                    new_param->attributes = nullptr;
+                    new_param->type_name  = xpool.to_type_name((type_t *)typex);
+                    new_param->ptype      = (param_type_t)typex;
+                    new_param->default_value = nullptr;
+
+                    new_params->push_back(new_param);
+
+                });
+            }
+            else
+            {
+                param_t * new_param = xpool.new_obj<param_t>();
+
+                new_param->name          = param->name;
+                new_param->attributes    = param->attributes;
+                new_param->type_name     = __transform_type_name(tctx, param->type_name);
+                new_param->ptype         = param->ptype;
+                new_param->default_value = param->default_value;
+
+                new_params->push_back(new_param);
+            }
+        }
+
+        return new_params;
+    }
+
     // Transform method.
     method_t * __general_type_like_base_t::__transform_member(__tctx_t & tctx, method_t * method)
     {
@@ -4305,48 +4403,7 @@ namespace X_ROOT_NS::modules::core {
         new_method->trait       = method->trait;
         new_method->host_type   = this;
         new_method->variable    = xpool.new_obj<method_variable_t>(new_method);
-
-        // Params
-        if (method->params != nullptr)
-        {
-            new_method->params = xpool.new_obj<params_t>();
-
-            for (param_t * param : *method->params)
-            {
-                if (param->ptype == param_type_t::extends)
-                {
-                    int index = 0;
-
-                    name_t type_name = xpool.to_name(_str(param->type_name).c_str());
-                    __types_at(tctx.template_, tctx.args, type_name, [&](typex_t typex) {
-
-                        string_t name = _F(_T("arg%1%"), ++index);
-                        param_t * new_param = xpool.new_obj<param_t>();
-
-                        new_param->name       = xpool.to_name(name.c_str());
-                        new_param->attributes = nullptr;
-                        new_param->type_name  = xpool.to_type_name((type_t *)typex);
-                        new_param->ptype      = (param_type_t)typex;
-                        new_param->default_value = nullptr;
-
-                        new_method->params->push_back(new_param);
-
-                    });
-                }
-                else
-                {
-                    param_t * new_param = xpool.new_obj<param_t>();
-
-                    new_param->name          = param->name;
-                    new_param->attributes    = param->attributes;
-                    new_param->type_name     = __transform_type_name(tctx, param->type_name);
-                    new_param->ptype         = param->ptype;
-                    new_param->default_value = param->default_value;
-
-                    new_method->params->push_back(new_param);
-                }
-            }
-        }
+        new_method->params      = __transform_params(tctx, method->params);
 
         // Generic params.
         if (method->generic_params != nullptr)
@@ -4374,6 +4431,7 @@ namespace X_ROOT_NS::modules::core {
         new_property->owner_type_name = __transform_type_name(tctx, property->owner_type_name);
         new_property->name       = property->name;
         new_property->type_name  = __transform_type_name(tctx, property->type_name);
+        new_property->params     = __transform_params(tctx, property->params);
         new_property->attributes = property->attributes;
         new_property->decorate   = property->decorate;
         new_property->host_type  = this;

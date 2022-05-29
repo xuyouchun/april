@@ -1186,7 +1186,7 @@ namespace X_ROOT_NS::modules::compile {
                 _A(exp->this_family() == expression_family_t::index);
                 ((index_expression_t *)exp)->namex()->compile(ctx, pool);
 
-                property_t * property = ((property_variable_t *)var)->property;
+                property_t * property = _M(property_index_variable_t *, var)->property;
                 if (property == nullptr)
                     __Failed("unknown property '%1%'", var);
 
@@ -2548,10 +2548,19 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
-    static xil_call_command_t __to_command_command(xil_call_type_t call_type, name_t name)
+    enum __xil_call_command_t
+    {
+        none                = (int)xil_call_command_t::none,
+
+        array_get_value     = -1000,
+
+        array_set_value,
+    };
+
+    static __xil_call_command_t __to_command_command(xil_call_type_t call_type, name_t name)
     {
         if (call_type != xil_call_type_t::internal)
-            return xil_call_command_t::none;
+            return __xil_call_command_t::none;
 
     #define __IsInternalCommand(_name, _command)                                        \
         {                                                                               \
@@ -2561,16 +2570,35 @@ namespace X_ROOT_NS::modules::compile {
                 static_##_name = __XPool.to_name(_S(_name));                            \
                                                                                         \
             if (static_##_name == name)                                                 \
-                return xil_call_command_t::_command;                                    \
+                return (__xil_call_command_t)_command;                                  \
         }
 
-        __IsInternalCommand(Delegate_Invoke,    delegate_invoke)
-        __IsInternalCommand(Delegate_Init,      delegate_init)
-        __IsInternalCommand(Delegate_InitWithCallType, delegate_init_with_call_type)
-        __IsInternalCommand(Array_GetValue,     array_get_value)
-        __IsInternalCommand(Array_SetValue,     array_set_value)
+        typedef xil_call_command_t      t1;
 
-        return xil_call_command_t::none;
+        __IsInternalCommand(Delegate_Invoke,    t1::delegate_invoke)
+        __IsInternalCommand(Delegate_Init,      t1::delegate_init)
+        __IsInternalCommand(Delegate_InitWithCallType, t1::delegate_init_with_call_type)
+
+        typedef __xil_call_command_t    t2;
+        __IsInternalCommand(Array_GetValue,     t2::array_get_value)
+        __IsInternalCommand(Array_SetValue,     t2::array_set_value)
+
+        return __xil_call_command_t::none;
+    }
+
+    // Get a generic array type.
+    static type_t * __get_generic_array_type()
+    {
+        static type_t * array_type;
+
+        if (array_type == nullptr)
+        {
+            general_type_t * tarray_type = __XPool.get_tarray_type();
+            type_t * element_type = tarray_type->param_at(0);
+            array_type = __XPool.new_array_type(element_type, 1);
+        }
+
+        return array_type;
     }
 
     // Compile method calling expression.
@@ -2619,11 +2647,34 @@ namespace X_ROOT_NS::modules::compile {
             }
             else
             {
-                xil_call_command_t cmd = __to_command_command(call_type, method->get_name());
-                if (cmd != xil_call_command_t::none)
-                    pool.append<x_command_call_xil_t>(cmd);
-                else
-                    pool.append<x_method_call_xil_t>(call_type, method_ref);
+                __xil_call_command_t cmd = __to_command_command(call_type, method->get_name());
+
+                switch (cmd)
+                {
+                    // Array get value.
+                    case __xil_call_command_t::array_get_value:
+                        pool.append<x_push_array_element_xil_t>(
+                            env.dtype, __ref_of(ctx, __get_generic_array_type())
+                        );
+                        break;
+
+                    // Array set value.
+                    case __xil_call_command_t::array_set_value:
+                        pool.append<x_pop_array_element_xil_t>(
+                            env.dtype, __ref_of(ctx, __get_generic_array_type())
+                        );
+                        break;
+
+                    // Call method.
+                    case __xil_call_command_t::none:
+                        pool.append<x_method_call_xil_t>(call_type, method_ref);
+                        break;
+
+                    // Call command.
+                    default:
+                        pool.append<x_command_call_xil_t>((xil_call_command_t)cmd);
+                        break;
+                }
             }
 
             if (env.dtype != xil_type_t::empty)

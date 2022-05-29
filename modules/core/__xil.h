@@ -250,10 +250,6 @@ namespace X_ROOT_NS::modules::core {
 
         delegate_invoke,            // Delegate invoke
 
-        array_get_value,            // Array get value
-
-        array_set_value,            // Array set value
-
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
