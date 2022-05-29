@@ -26,6 +26,12 @@ internal static class Internal
     [Internal]
     public static extern Int32 Array_GetLengthOfDimension(Array array, Int32 dimension);
 
+    [Internal]
+    public static extern T Array_GetValue<T>(Int32 index, Array<T> array);
+
+    [Internal]
+    public static extern Void Array_SetValue<T>(T value, Int32 index, Array<T> array);
+
 
     // Tuple
 

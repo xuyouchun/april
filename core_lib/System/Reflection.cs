@@ -24,7 +24,7 @@ namespace Reflection
 	{
 		public Array<Type> GetTypes()
 		{
-			return new Array<Type>(10);
+			return Array.New<Type>(10);
 		}
 	}
 
@@ -52,12 +52,12 @@ namespace Reflection
 	{
 		public Array<Parameter> GetParameters()
 		{
-			return new Array<Parameter>(10);
+			return Array.New<Parameter>(10);
 		}
 
 		public Array<GenericParameter> GetGenericParameters()
 		{
-			return new Array<GenericParameter>(10);
+			return Array.New<GenericParameter>(10);
 		}
 	}
 

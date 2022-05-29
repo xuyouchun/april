@@ -30,7 +30,7 @@ public sealed class Type
 
     public Array<Field> GetFields()
     {
-        return new Array<Field>(10);
+        return Array.New<Field>(10);
     }
 
     public Field GetField(String name)
@@ -40,12 +40,12 @@ public sealed class Type
 
     public Array<Method> GetMethods()
     {
-        return new Array<Method>(10);
+        return Array.New<Method>(10);
     }
 
     public Array<Method> GetMethods(String name)
     {
-        return new Array<Method>(10);
+        return Array.New<Method>(10);
     }
 
     public Method GetMethod(String name, Array<Type> parameterTypes)
@@ -55,7 +55,7 @@ public sealed class Type
 
     public Array<Property> GetProperties()
     {
-        return new Array<Property>(10);
+        return Array.New<Property>(10);
     }
 
     public Property GetProperty(String name)
@@ -65,7 +65,7 @@ public sealed class Type
 
     public Array<Event> GetEvents()
     {
-        return new Array<Event>(10);
+        return Array.New<Event>(10);
     }
 
     public Event GetEvent(String name)
@@ -75,7 +75,7 @@ public sealed class Type
 
     public Array<GenericParameter> GetGenericParameters()
     {
-        return new Array<GenericParameter>(10);
+        return Array.New<GenericParameter>(10);
     }
 
     public Assembly Assembly
@@ -87,7 +87,7 @@ public sealed class Type
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public class Array : Object
+public abstract class Array : Object
 {
     // Returns rank of array.
     public Int32 Rank { get { return Internal.Array_GetRank(this); } }
@@ -100,16 +100,29 @@ public class Array : Object
     {
         return Internal.Array_GetLengthOfDimension(this, dimension);
     }
+
+    public static Array<T> New<T>(Int32 length)
+    {
+        return default(Array<T>);
+    }
 }
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public class Array<T> : Array
+public abstract class Array<T> : Array
 {
-    public Array(Int32 length)
+    // Gets/Sets value of specified index.
+    public T this[Int32 index]
     {
-
+        get
+        {
+            return Internal.Array_GetValue<T>(index, this);
+        }
+        set
+        {
+            Internal.Array_SetValue<T>(value, index, this);
+        }
     }
 }
 
