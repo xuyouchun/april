@@ -196,8 +196,7 @@ public struct Delegate<TReturn, TArgs ...>
 
     public TReturn Invoke(TArgs ... args)
     {
-        Internal.Delegate_Invoke(); 
-        return default(TReturn);
+        return Internal.Delegate_Invoke<TReturn>(); 
     }
 }
 

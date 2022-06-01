@@ -131,7 +131,7 @@ internal static class Internal
 
     // Delegate
     [Internal]
-    public static extern Void Delegate_Invoke();
+    public static extern T Delegate_Invoke<T>();
 
     [Internal]
     public static extern Void Delegate_Init();

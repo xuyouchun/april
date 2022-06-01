@@ -158,7 +158,7 @@ namespace X_ROOT_NS::modules::core {
         //-------- ---------- ---------- ---------- ----------
 
         // Generic param placeholder type.
-        class __generlc_param_placeholder_type_t : public type_t
+        class __generic_param_placeholder_type_t : public type_t
         {
             typedef type_t __super_t;
 
@@ -180,7 +180,7 @@ namespace X_ROOT_NS::modules::core {
             virtual name_t get_name() const override { return name_t::null; }
             virtual const string_t to_identity() const override { return _T("<placeholder>"); }
 
-            operator string_t() const { return _T("__generlc_param_placeholder_type_t"); }
+            operator string_t() const { return _T("__generic_param_placeholder_type_t"); }
         };
 
         //-------- ---------- ---------- ---------- ----------
@@ -222,7 +222,7 @@ namespace X_ROOT_NS::modules::core {
                                                                 // Compile time attributes.
 
         std::vector<generic_args_t *>   __generic_args_array;   // Generic argument array.
-        std::vector<type_t *>           __generlc_param_placeholder_types; 
+        std::vector<type_t *>           __generic_param_placeholder_types; 
                                                                 // Generic param placehoder.
 
         pool_t                          __pool;                 // Pool.
@@ -775,23 +775,23 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Gets generic param placeholder type.
-        type_t * __get_generlc_param_placeholder_type(int index)
+        type_t * __get_generic_param_placeholder_type(int index)
         {
-            while (__generlc_param_placeholder_types.size() < index + 1)
+            while (__generic_param_placeholder_types.size() < index + 1)
             {
-                __generlc_param_placeholder_types.push_back(nullptr);
+                __generic_param_placeholder_types.push_back(nullptr);
             }
 
-            if (__generlc_param_placeholder_types[index] == nullptr)
+            if (__generic_param_placeholder_types[index] == nullptr)
             {
-                __generlc_param_placeholder_types[index] = 
-                    __pool.template new_obj<__generlc_param_placeholder_type_t>();
+                __generic_param_placeholder_types[index] = 
+                    __pool.template new_obj<__generic_param_placeholder_type_t>();
             }
 
-            return __generlc_param_placeholder_types[index];
+            return __generic_param_placeholder_types[index];
         }
 
-        #define __GenericParamType(index) (__get_generlc_param_placeholder_type(index))
+        #define __GenericParamType(index) (__get_generic_param_placeholder_type(index))
 
         // Gets import method param type.
         type_t * __get_import_method_param_type(ref_t ref)

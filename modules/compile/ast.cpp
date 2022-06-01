@@ -1070,6 +1070,9 @@ namespace X_ROOT_NS::modules::compile {
     // Converts to string.
     X_DEFINE_TO_STRING(general_type_name_t)
     {
+        if (type != nullptr)
+            return _str(type);
+
         return al::join_str(units.begin(), units.end(), _T("."),
             [](auto it) { return _str(it); }
         );
@@ -1078,6 +1081,9 @@ namespace X_ROOT_NS::modules::compile {
     // Converts to string.
     X_DEFINE_TO_STRING(array_type_name_t)
     {
+        if (type != nullptr)
+            return _str(type);
+
         stringstream_t ss;
         ss << _str(element_type_name) << _T("[");
 

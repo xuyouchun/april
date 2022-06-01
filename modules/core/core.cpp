@@ -1447,7 +1447,7 @@ namespace X_ROOT_NS::modules::core {
     // Append to a string stream.
     void param_t::append_to(stringstream_t & ss, bool include_name)
     {
-        if (ptype != param_type_t::__default__)
+        if (ptype != param_type_t::__default__ && ptype != param_type_t::extends)
             ss << _str(ptype) << _T(" ");
 
         ss << _str(type_name);
@@ -4352,9 +4352,12 @@ namespace X_ROOT_NS::modules::core {
         {
             if (param->ptype == param_type_t::extends)
             {
+                type_t * param_type = param->get_type();
+                _A(is_generic_param(param_type));
+
                 int index = 0;
 
-                name_t type_name = xpool.to_name(_str(param->type_name).c_str());
+                name_t type_name = ((generic_param_t *)param_type)->name;
                 __types_at(tctx.template_, tctx.args, type_name, [&](typex_t typex) {
 
                     string_t name = _F(_T("arg%1%"), ++index);
