@@ -11,6 +11,7 @@ class TestBasic(common.Base):
         'simple.cs',
         'expressions.cs',
         'operators.cs',
+        'array.cs',
         'statements.cs',
         'cast.cs',
     ])

@@ -11,6 +11,7 @@ class TestMethod(common.Base):
         'ref_out_arguments.cs',
         'struct_arguments.cs',
         "this_arguments.cs",
+        'delegate.cs',
     ])
     def code_file(self, request):
         return request.param
