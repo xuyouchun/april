@@ -7294,8 +7294,8 @@ namespace X_ROOT_NS::modules::core {
         );
     }
 
-    // Returns whetner it's a variable expression.
-    bool is_field_variable_expression(expression_t * exp, field_variable_t ** out_variable)
+    // Returns whether it's a variable expression.
+    bool is_variable_expression(expression_t * exp, variable_t ** out_variable)
     {
         if (!is_name_expression(exp))
             return false;
@@ -7305,12 +7305,27 @@ namespace X_ROOT_NS::modules::core {
             return false;
 
         variable_t * variable = name_exp->variable;
-        if (variable == nullptr || variable->this_type() != variable_type_t::field)
+
+        if (variable != nullptr)
+        {
+            al::assign_value(out_variable, variable);
+            return true;
+        }
+
+        return false;
+    }
+
+    // Returns whetner it's a variable expression.
+    bool is_field_variable_expression(expression_t * exp, field_variable_t ** out_variable)
+    {
+        variable_t * variable;
+        if (!is_variable_expression(exp, &variable))
             return false;
 
-        if (out_variable != nullptr)
-            *out_variable = (field_variable_t *)variable;
+        if (variable->this_type() != variable_type_t::field)
+            return false;
 
+        al::assign_value(out_variable, (field_variable_t *)variable);
         return true;
     }
 

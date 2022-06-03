@@ -173,12 +173,12 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Pre append custom struct for assign.
-    // If expression is new_expression_t, only put address of this variable.
-    // Otherwise, append object_copy xil.
-    // See also: __compile_new_struct_object() in expression.cpp.
-    void __pre_custom_struct_assign(expression_compile_context_t & ctx, xil_pool_t & pool,
-        variable_t * variable, expression_t * expression, expression_t * this_ = nullptr);
+    // Returns whether the variable is local, field, param or array item.
+    bool is_real_variable(variable_t * variable);
+
+    // Compiles assign expression.
+    void compile_assign(__cctx_t & ctx, xil_pool_t & pool, local_variable_t * var,
+                                                           expression_t * exp);
 
     // Pre append custom struct for return.
     void __do_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
@@ -186,7 +186,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Push address of variable.
     void __push_variable_address(expression_compile_context_t & ctx, xil_pool_t & pool,
-        variable_t * variable);
+        variable_t * variable, expression_t * this_ = nullptr);
 
     ////////// ////////// ////////// ////////// //////////
 

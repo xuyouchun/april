@@ -434,25 +434,15 @@ namespace X_ROOT_NS::modules::compile {
         type_t * local_type = local->get_type();
         __FailedWhenNull(local_type, "expect type of local variable '%1%'", local);
 
-        // Custom struct
-        if (is_custom_struct(local_type))
-        {
-            expression_compile_context_t cctx(ctx);
-            __pre_custom_struct_assign(cctx, pool, local, expression);
+        expression_compile_context_t cctx(ctx);
+        compile_assign(cctx, pool, local, expression);
 
-            return;
-        }
-
-        type_t * type = expression->get_type();
-        __FailedWhenNull(type, "expect type of expression '%1%'", expression);
-
-        if (is_ref_type(local_type) && is_custom_struct(type)
-            && expression->get_behaviour() == expression_behaviour_t::execute)
-        {
-            // New struct object.
-            pool.append<x_new_xil_t>(__ref_of(ctx, type));
-            pool.append<x_push_duplicate_xil_t>();
-        }
+        /*
+        variable_t * variable;
+        if (is_custom_struct(local_type) && is_variable_expression(expression, &variable)
+            && is_real_variable(variable))
+            pool.append<x_object_copy_xil_t>(__ref_of(ctx, local_type), xil_copy_kind_t::reverse);
+        */
 
         if (local->write_count == 1)
         {
@@ -476,9 +466,6 @@ namespace X_ROOT_NS::modules::compile {
             }
             */
         }
-
-        __compile_expression(ctx, pool, expression, local_type);
-        write_assign_xil(ctx, pool, local);
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -87,6 +87,11 @@ namespace X_ROOT_NS::modules::compile {
         virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
                                                                                 override;
 
+    private:
+
+        // Returns whether a variable need object copy.
+        bool __need_object_copy(expression_t * exp);
+
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////

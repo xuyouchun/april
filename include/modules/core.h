@@ -6952,6 +6952,9 @@ namespace X_ROOT_NS::modules::core {
     // Returns whether it's a type expression.
     bool is_type_expression(expression_t * exp);
 
+    // Returns whether it's a variable expression.
+    bool is_variable_expression(expression_t * exp, variable_t ** out_variable = nullptr);
+
     // Returns whetner it's a variable expression.
     bool is_field_variable_expression(expression_t * exp,
                         field_variable_t ** out_variable = nullptr);
