@@ -1167,7 +1167,7 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case variable_type_t::field:
-                __push_variable_address(ctx, pool, ca.var, ca.this_);
+                __push_this(ctx, pool, ca.this_);
                 xil::write_assign_xil(ctx, pool, (field_variable_t *)var, xt, pick);
                 break;
 
@@ -2862,6 +2862,7 @@ namespace X_ROOT_NS::modules::compile {
                 if (is_custom_struct(type)) // Unbox custom struct.
                 {
                     exp->compile(ctx, pool);
+                    pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
                 }
                 else    // internal value types.
                 {
