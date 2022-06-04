@@ -498,7 +498,6 @@ namespace X_ROOT_NS::modules::exec {
         __EachDimensionXilTypePairs_(7)                                                 \
         __EachDimensionXilTypePairs_(8)
     
-
     #define __StCmd(_cmd, _st, _xt1, _xt2)      __Cmd(_cmd, _st##_##_xt1##_##_xt2)
     #define __DefineStCmdValue(_cmd, _st, _xt1, _xt2)                                   \
                                     __DefineCmdValue_(__StCmd(_cmd, _st, _xt1, _xt2))
@@ -506,11 +505,17 @@ namespace X_ROOT_NS::modules::exec {
     #define __StAddrCmd(_cmd, _st)              __Cmd(_cmd, _st)
     #define __DefineStAddrCmdValue(_cmd, _st)   __DefineCmdValue_(__StAddrCmd(_cmd, _st))
 
-    #define __StArrayCmd(_cmd, _xt1, _xt2, _deminision)                                 \
-                                    __Cmd(_cmd, array_element_##_xt1##_##_xt2##_##_deminision)
+    #define __StArrayCmd(_cmd, _xt1, _xt2, _dimension)                                  \
+                                    __Cmd(_cmd, array_element_##_xt1##_##_xt2##_##_dimension)
 
-    #define __DefineStArrayCmdValue(_cmd, _xt1, _xt2, _deminision)                      \
-                    __DefineCmdValue_(__StArrayCmd(_cmd, _xt1, _xt2, _deminision))
+    #define __DefineStArrayCmdValue(_cmd, _xt1, _xt2, _dimension)                       \
+                    __DefineCmdValue_(__StArrayCmd(_cmd, _xt1, _xt2, _dimension))
+
+    #define __StArrayElementAddrCmd(_cmd, _dimension)                                   \
+                    __Cmd(_cmd, array_element_addr_##_dimension)
+
+    #define __DefineStArrayElementAddrCmdValue(_cmd, _dimension)                        \
+                    __DefineCmdValue_(__StArrayElementAddrCmd(_cmd, _dimension))
 
     ////////// ////////// ////////// ////////// //////////
     // Class __push_command_t
@@ -1226,6 +1231,7 @@ namespace X_ROOT_NS::modules::exec {
     }
 
     //-------- ---------- ---------- ---------- ----------
+    // Push array element.
 
     #define __RtTypeOf(rt_ref)  (mm::get_object_type(rt_ref))
 
@@ -1266,7 +1272,7 @@ namespace X_ROOT_NS::modules::exec {
         __EndExecute()
     };
 
-    //-------- ---------- ---------- ---------- ----------
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
     class __push_array_element_command_t<_cv, _xt1, _xt2, 0>
@@ -1314,7 +1320,7 @@ namespace X_ROOT_NS::modules::exec {
 
     #undef __CaseDimensionXilTypePair
 
-    //-------- ---------- ---------- ---------- ----------
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     struct __push_array_element_command_template_t
     {
@@ -1334,6 +1340,119 @@ namespace X_ROOT_NS::modules::exec {
             {
                 return __new_command<__push_array_element_command_t<_cv, _xt1, _xt2, _dimension>>(
                     memory, std::forward<_args_t>(args) ...
+                );
+            }
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Push array element address.
+
+    template<command_value_t _cv, dimension_t _dimension>
+    class __push_array_element_address_command_t : public __command_base_t<_cv>
+    {
+        typedef __push_array_element_address_command_t  __self_t;
+
+    public:
+
+        __push_array_element_address_command_t(msize_t element_size)
+            : __element_size(element_size)
+        { }
+
+        #if EXEC_TRACE
+
+            __ToString(_T("push array element address"));
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            array_length_t index = ctx.stack.pop<array_length_t>();
+
+            if constexpr (_dimension >= 2)
+            {
+                array_length_t * lengths = mm::get_array_lengths(array_ref);
+                index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
+            }
+
+            if (index >= mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
+
+            ctx.stack.push(array_ref + index * __element_size);
+
+        __EndExecute();
+
+    private:
+        msize_t     __element_size;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    template<command_value_t _cv>
+    class __push_array_element_address_command_t<_cv, 0> : public __command_base_t<_cv>
+    {
+        typedef __push_array_element_address_command_t  __self_t;
+
+    public:
+
+        __push_array_element_address_command_t(dimension_t dimension, msize_t element_size)
+            : __dimension(dimension), __element_size(element_size) { }
+
+        #if EXEC_TRACE
+
+            __ToString(_T("push array element address"));
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            array_length_t index = ctx.stack.pop<array_length_t>();
+            array_length_t * lengths = mm::get_array_lengths(array_ref);
+
+            index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
+
+            if (index >= mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
+
+            ctx.stack.push(array_ref + index * __element_size);
+
+        __EndExecute()
+
+    private:
+        dimension_t __dimension;
+        msize_t     __element_size;
+    };
+
+    __DefineStArrayElementAddrCmdValue(push, 0)
+    __DefineStArrayElementAddrCmdValue(push, 1)
+    __DefineStArrayElementAddrCmdValue(push, 2)
+    __DefineStArrayElementAddrCmdValue(push, 3)
+    __DefineStArrayElementAddrCmdValue(push, 4)
+    __DefineStArrayElementAddrCmdValue(push, 5)
+    __DefineStArrayElementAddrCmdValue(push, 6)
+    __DefineStArrayElementAddrCmdValue(push, 7)
+    __DefineStArrayElementAddrCmdValue(push, 8)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    struct __push_array_element_address_command_template_t
+    {
+        template<command_value_t _cv, dimension_t _dimension, typename ... _args_t>
+        static command_t * new_command(memory_t * memory, dimension_t dimension,
+            msize_t element_size, _args_t && ... args)
+        {
+            if constexpr (_dimension == 0)
+            {
+                return __new_command<__push_array_element_address_command_t<_cv, 0>>(
+                    memory, dimension, element_size, std::forward<_args_t>(args) ...
+                );
+            }
+            else
+            {
+                return __new_command<__push_array_element_address_command_t<_cv, _dimension>>(
+                    memory, element_size, std::forward<_args_t>(args) ...
                 );
             }
         }
@@ -1937,6 +2056,13 @@ namespace X_ROOT_NS::modules::exec {
                 dimension_t dimension;
             } array_element;
 
+            // array element addr.
+            struct
+            {
+                msize_t     element_size;
+                dimension_t dimension;
+            } array_element_addr;
+
             // box.
             struct
             {
@@ -1996,27 +2122,11 @@ namespace X_ROOT_NS::modules::exec {
 
         static __command_manager_t<
             __push_array_element_command_template_t, xil_type_t, xil_type_t, dimension_t
-        >::with_args_t<dimension_t> __array_element_command_manager;
-
-        static __command_manager_t<
-            __push_params_address_template_t
-        >::with_args_t<__offset_t> __params_address_command_manager;
-
-        static __command_manager_t<
-            __push_object_template_t
-        >::with_args_t<rt_object_t *> __object_command_manager;
+        >::with_args_t<dimension_t> __push_array_element_command_manager;
 
         static __command_manager_t<
             __push_convert_command_template_t, xil_type_t, xil_type_t
         >::with_args_t<> __convert_command_manager;
-
-        static __command_manager_t<
-            __push_box_command_template_t, msize_t, xil_box_type_t
-        >::with_args_t<rt_type_t *> __box_command_manager;
-
-        static __command_manager_t<
-            __push_unbox_command_template_t, msize_t, xil_box_type_t
-        >::with_args_t<rt_type_t *> __unbox_command_manager;
 
         xil_storage_type_t stype = args.stype;
         xil_type_t xt1 = args.xt1, xt2 = args.xt2;
@@ -2026,12 +2136,22 @@ namespace X_ROOT_NS::modules::exec {
             case xil_storage_type_t::duplicate:     // Duplicate command.
                 __ReturnInstance(__duplicate_command_t);
 
-            case xil_storage_type_t::params:        // Push params argument command.
+            case xil_storage_type_t::params: {      // Push params argument command.
+
+                static __command_manager_t<
+                    __push_params_address_template_t
+                >::with_args_t<__offset_t> __params_address_command_manager;
+
                 return __params_address_command_manager.template get_command<__PushParamsAddrCmd>(
                     args.params.offset
                 );
+            }
 
             case xil_storage_type_t::object: {       // Push object command.
+
+                static __command_manager_t<
+                    __push_object_template_t
+                >::with_args_t<rt_object_t *> __object_command_manager;
 
                 return __object_command_manager.template get_command<__PushObjectCmd>(
                     args.object.object
@@ -2041,11 +2161,12 @@ namespace X_ROOT_NS::modules::exec {
                 );
             }
 
-            case xil_storage_type_t::local_addr:    // Push local address command.
+            case xil_storage_type_t::local_addr: {  // Push local address command.
                 return __push_address_command_manager.template get_command<
                     __StAddrCmd(push, local_addr), stype_t::local_addr>(
                     args.local_addr.offset
                 );
+            }
 
             case xil_storage_type_t::argument_addr: // Push agrument address command.
                 return __push_address_command_manager.template get_command<
@@ -2059,7 +2180,46 @@ namespace X_ROOT_NS::modules::exec {
                     args.field_addr.offset
                 );
 
+            case xil_storage_type_t::array_element_addr: { // Push array element address command.
+
+                static __command_manager_t<
+                    __push_array_element_address_command_template_t, dimension_t
+                >::with_args_t<msize_t, dimension_t> __push_array_element_address_command_manager;
+
+                dimension_t dimension = args.array_element_addr.dimension;
+                msize_t element_size  = args.array_element_addr.element_size;
+
+                switch (dimension <= 8? dimension : 0)
+                {
+                    #define __Case(_dimension)                                          \
+                        case _dimension: {                                              \
+                            constexpr command_value_t cmd = __StArrayElementAddrCmd(    \
+                                push, _dimension                                        \
+                            );                                                          \
+                            return __push_array_element_address_command_manager.template    \
+                                get_command<cmd, _dimension>(dimension, element_size);  \
+                        }   break;
+
+                    __Case(0)
+                    __Case(1)
+                    __Case(2)
+                    __Case(3)
+                    __Case(4)
+                    __Case(5)
+                    __Case(6)
+                    __Case(7)
+                    __Case(8)
+
+                    #undef __Case
+                }
+
+            }   break;
+
             case xil_storage_type_t::box: {         // Push box command.
+
+                static __command_manager_t<
+                    __push_box_command_template_t, msize_t, xil_box_type_t
+                >::with_args_t<rt_type_t *> __box_command_manager;
 
                 #define __BoxV(_size, _box_type)    (((int)_size << 8) | (int)_box_type)
 
@@ -2103,6 +2263,10 @@ namespace X_ROOT_NS::modules::exec {
             }   break;
 
             case xil_storage_type_t::unbox: {         // Push unbox command.
+
+                static __command_manager_t<
+                    __push_unbox_command_template_t, msize_t, xil_box_type_t
+                >::with_args_t<rt_type_t *> __unbox_command_manager;
 
                 #define __UnboxV(_size, _box_type)    (((int)_size << 8) | (int)_box_type)
 
@@ -2401,7 +2565,7 @@ namespace X_ROOT_NS::modules::exec {
 
             #define __CaseArrayElement_Dimension(_xt1, _xt2, _dimension, dimension)     \
                 case _dimension:                                                        \
-                    return __array_element_command_manager.template get_command<        \
+                    return __push_array_element_command_manager.template get_command<   \
                         __StArrayCmd(push, _xt1, _xt2, _dimension),                     \
                         xil_type_t::_xt1, xil_type_t::_xt2, _dimension                  \
                     >(dimension);
@@ -2586,6 +2750,14 @@ namespace X_ROOT_NS::modules::exec {
                 __analyze_xil_types(ctx, xil, &xt1, &xt2, false);
                 args.array_element.dimension = __array_dimension(ctx, xil.get_ref());
                 break;
+
+            case xil_storage_type_t::array_element_addr: {
+                rt_array_type_t * type = __array_type(ctx, xil.get_ref());
+                rt_type_t * element_type = type->element_type;
+
+                args.array_element_addr.dimension = type->dimension;
+                args.array_element_addr.element_size = element_type->get_variable_size(ctx.env);
+            }   break;
 
             case xil_storage_type_t::convert:
                 xt1 = xil.dtype();
@@ -2850,8 +3022,8 @@ namespace X_ROOT_NS::modules::exec {
         dimension_t __dimension;
     };
 
-    #define __CaseDimensionXilTypePair( _xt1, _xt2, _deminision )                       \
-        __DefineStArrayCmdValue(pop, _xt1, _xt2, _deminision)
+    #define __CaseDimensionXilTypePair( _xt1, _xt2, _dimension )                       \
+        __DefineStArrayCmdValue(pop, _xt1, _xt2, _dimension)
 
     __EachDimensionXilTypePairs()
 
@@ -3421,8 +3593,8 @@ namespace X_ROOT_NS::modules::exec {
         dimension_t __dimension;
     };
 
-    #define __CaseDimensionXilTypePair( _xt1, _xt2, _deminision )                       \
-        __DefineStArrayCmdValue(pick, _xt1, _xt2, _deminision)
+    #define __CaseDimensionXilTypePair( _xt1, _xt2, _dimension )                        \
+        __DefineStArrayCmdValue(pick, _xt1, _xt2, _dimension)
 
     __EachDimensionXilTypePairs()
 

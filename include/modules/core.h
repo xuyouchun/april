@@ -5524,6 +5524,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns whether it's a left value.
         virtual bool is_lvalue() override { return true; }
 
+        // Returns array type.
+        type_t * get_array_type();
+
         // Converts to string.
         X_TO_STRING
     };

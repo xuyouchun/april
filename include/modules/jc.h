@@ -39,6 +39,9 @@ namespace X_ROOT_NS::modules {
 
         bool operator == (std::nullptr_t) const _NE { return ptr == nullptr; }
         bool operator != (std::nullptr_t) const _NE { return ptr != nullptr; }
+
+        void * operator + (int offset) const _NE { return (byte_t *)ptr + offset; }
+        void * operator - (int offset) const _NE { return (byte_t *)ptr - offset; }
     };
 
     // Writes a runtime object reference to a stream.

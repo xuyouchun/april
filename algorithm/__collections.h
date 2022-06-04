@@ -412,7 +412,7 @@ namespace X_ROOT_NS::algorithm {
         X_TO_STRING_IMPL(_T("heap_t<obj_t[]>"))
 
     private:
-        std::list<obj_t *> __rows;
+        std::vector<obj_t *> __rows;
         obj_t * __current_row;
         size_t __current_size;
         size_t __current_col;

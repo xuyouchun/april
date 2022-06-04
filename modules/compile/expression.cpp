@@ -26,6 +26,10 @@ namespace X_ROOT_NS::modules::compile {
             const __environment_t & env = __environment_t::empty,
             expression_t * owner_exp = nullptr);
 
+    // Compiles arguments.
+    static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
+                                                        param_types_t * param_types = nullptr);
+
     // Returns whether it's a reference type.
     static bool __is_ref_type(type_t * type)
     {
@@ -350,6 +354,38 @@ namespace X_ROOT_NS::modules::compile {
         expression->compile(ctx, pool, env);
     }
 
+    // param_types_t with specified param types.
+    class __static_param_types_t : public param_types_t
+    {
+    public:
+
+        __static_param_types_t(type_t * type, size_t param_count)
+            : __type(type), __param_count(param_count)
+        {
+            _A(type != nullptr);
+        }
+
+        __static_param_types_t(array_index_variable_t * arr_var)
+            : __static_param_types_t(arr_var->get_type(), arr_var->dimension())
+        { }
+
+        // Returns type count
+        virtual size_t param_count() const override
+        {
+            return __param_count;
+        }
+
+        // Returns type at specified index.
+        virtual typex_t param_type_at(size_t index) const override
+        {
+            return __type;
+        }
+
+    private:
+        type_t * __type;
+        size_t   __param_count;
+    };
+
     // Push address of variable.
     void __push_variable_address(expression_compile_context_t & ctx, xil_pool_t & pool,
         variable_t * variable, expression_t * this_)
@@ -384,6 +420,21 @@ namespace X_ROOT_NS::modules::compile {
                     __search_field_ref(ctx, ((field_variable_t *)variable)->field)
                 );
                 break;
+
+            case variable_type_t::array_index: {
+                array_index_variable_t * var = (array_index_variable_t *)variable;
+
+                __FailedWhenNull(var->arguments, "index '%1%' arguments missing", var);
+                __FailedWhenNull(var->body, "index '%1%' body missing", var);
+
+                __static_param_types_t param_types(var);
+                __compile_arguments(ctx, pool, var->arguments, &param_types);
+                var->body->compile(ctx, pool);
+
+                pool.append<x_push_array_element_addr_xil_t>(
+                    __ref_of(ctx, var->get_array_type())
+                );
+            }   break;
 
             default:
                 X_UNEXPECTED();
@@ -1054,7 +1105,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compile arguments.
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
-                                                        param_types_t * param_types = nullptr)
+                                                        param_types_t * param_types)
     {
         if (arguments == nullptr)
             return;
@@ -1137,8 +1188,6 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_assign_to(__cctx_t & ctx, xil_pool_t & pool, __compile_assign_t & ca,
         expression_t * exp2, __assign_to_type_t assign_type = __assign_to_type_t::default_)
     {
-        _A(!ca.custom_struct);
-
         expression_t * exp = ca.exp;
 
         bool pick;
@@ -1181,9 +1230,7 @@ namespace X_ROOT_NS::modules::compile {
                     __Failed("property '%1%' cannot be write", var);
 
                 __validate_set_method(ctx, method);
-
-                if (ca.custom_struct)
-                    __compile_argument(ctx, pool, exp2, method, 0);
+                __compile_argument(ctx, pool, exp2, method, 0);
 
                 ref_t method_ref = __search_method_ref(ctx, method);
                 pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
@@ -1195,21 +1242,18 @@ namespace X_ROOT_NS::modules::compile {
                 expression_t * body = arr_var->body;
                 arguments_t * args = arr_var->arguments;
 
-                if (body == nullptr)
-                    __Failed("index '%1%' body missing", var);
+                __FailedWhenNull(body, "index '%1%' body missing", var);
+                __FailedWhenNull(args, "index '%1%' arguments missing", var);
 
-                if (args == nullptr)
-                    __Failed("index '%1%' arguments missing", var);
-
+                __static_param_types_t param_types(arr_var);
                 __compile_arguments(ctx, pool, args);
                 body->compile(ctx, pool);
 
                 type_t * element_type = arr_var->get_type();
-                type_t * array_type = __XPool.new_array_type(
-                    element_type, arr_var->dimension()
-                );
+                type_t * array_type = arr_var->get_array_type();
 
                 ref_t type_ref = __ref_of(ctx, array_type);
+
                 pool.append<x_pop_array_element_xil_t>(
                     __to_xil_type(element_type), type_ref
                 );
@@ -1246,31 +1290,38 @@ namespace X_ROOT_NS::modules::compile {
         type_t * type1 = ca.var->get_type();
         type_t * type2 = exp2->get_type();
 
-        if (is_custom_struct(type2))
+        if (is_real_variable(ca.var))
         {
-            if (is_ref_type(type1))     // Box
+            if (is_custom_struct(type2))
             {
-                pool.append<x_new_xil_t>(__ref_of(ctx, type2));
-                pool.append<x_push_duplicate_xil_t>();
+                if (is_ref_type(type1))     // Box
+                {
+                    pool.append<x_new_xil_t>(__ref_of(ctx, type2));
+                    pool.append<x_push_duplicate_xil_t>();
 
-                exp2->compile(ctx, pool);
-                __compile_assign_to(ctx, pool, ca, exp2, assign_type);
+                    exp2->compile(ctx, pool);
+                    __compile_assign_to(ctx, pool, ca, exp2, assign_type);
+                }
+                else
+                {
+                    if (type1 != type2)
+                    {
+                        __Failed("Custom struct assign failed, cannot assign '%1%' to '%2%'",
+                                                                            type2, type1);
+                    }
+
+                    __push_variable_address(ctx, pool, ca.var, ca.this_);
+                    exp2->compile(ctx, pool, type1);
+                }
             }
             else
             {
-                if (type1 != type2)
-                {
-                    __Failed("Custom struct assign failed, cannot assign '%1%' to '%2%'",
-                                                                        type2, type1);
-                }
-
-                __push_variable_address(ctx, pool, ca.var, ca.this_);
                 exp2->compile(ctx, pool, type1);
+                __compile_assign_to(ctx, pool, ca, exp2, assign_type);
             }
         }
         else
         {
-            exp2->compile(ctx, pool, type1);
             __compile_assign_to(ctx, pool, ca, exp2, assign_type);
         }
     }
@@ -2299,40 +2350,8 @@ namespace X_ROOT_NS::modules::compile {
         );
     }
 
-    // Compiles name expression.
-    void __sys_t<name_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
-                                                        const __environment_t & env)
-    {
-        if (!__is_this_effective(ctx, this))
-            return;
-
-        switch (this->expression_type)
-        {
-            case name_expression_type_t::variable:
-            {
-                type_t * type = this->get_type();
-                __compile_variable(ctx, pool, this->variable, __only_value_type(env), this);
-
-                if (is_custom_struct(type) && is_real_variable(this->variable)
-                                           && __need_object_copy(this))
-                {
-                    pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
-                }
-                    
-                __post_compile_expression(ctx, pool, this, env);
-            }   break;
-
-            case name_expression_type_t::type:
-            case name_expression_type_t::type_def:
-                break;
-
-            default:
-                X_UNEXPECTED_F("unexpected name expression type '%1%'", this->expression_type);
-        }
-    }
-
     // Returns whether a variable need object copy.
-    bool __sys_t<name_expression_t>::__need_object_copy(expression_t * exp)
+    static bool __need_object_copy(expression_t * exp)
     {
         expression_t * parent_exp = exp->parent;
 
@@ -2363,6 +2382,38 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         return true;
+    }
+
+    // Compiles name expression.
+    void __sys_t<name_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
+                                                        const __environment_t & env)
+    {
+        if (!__is_this_effective(ctx, this))
+            return;
+
+        switch (this->expression_type)
+        {
+            case name_expression_type_t::variable:
+            {
+                type_t * type = this->get_type();
+                __compile_variable(ctx, pool, this->variable, __only_value_type(env), this);
+
+                if (is_custom_struct(type) && is_real_variable(this->variable)
+                                           && __need_object_copy(this))
+                {
+                    pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
+                }
+                    
+                __post_compile_expression(ctx, pool, this, env);
+            }   break;
+
+            case name_expression_type_t::type:
+            case name_expression_type_t::type_def:
+                break;
+
+            default:
+                X_UNEXPECTED_F("unexpected name expression type '%1%'", this->expression_type);
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -2952,9 +3003,25 @@ namespace X_ROOT_NS::modules::compile {
 
         ref_t array_type_ref = __ref_of(ctx, array_type);
 
-        pool.append<x_push_array_element_xil_t>(
-            __to_xil_type(element_type), array_type_ref
-        );
+        if (is_custom_struct(element_type))
+        {
+            pool.append<x_push_array_element_addr_xil_t>(
+                __ref_of(ctx, array_type)
+            );
+
+            if (__need_object_copy(this))
+            {
+                pool.append<x_object_copy_xil_t>(
+                    __ref_of(ctx, array_type), xil_copy_kind_t::reverse
+                );
+            }
+        }
+        else
+        {
+            pool.append<x_push_array_element_xil_t>(
+                __to_xil_type(element_type), array_type_ref
+            );
+        }
     }
 
     // Compiles property index expression.

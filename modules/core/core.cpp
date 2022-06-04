@@ -5478,6 +5478,13 @@ namespace X_ROOT_NS::modules::core {
         return __get_vtype(element_type);
     }
 
+    // Returns array type.
+    type_t * array_index_variable_t::get_array_type()
+    {
+        _A(element_type != nullptr);
+        return __XPool.new_array_type(element_type, dimension());
+    }
+
     // Converts array index variable to a string.
     X_DEFINE_TO_STRING(array_index_variable_t)
     {
