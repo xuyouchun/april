@@ -4925,9 +4925,7 @@ namespace X_ROOT_NS::modules::core {
 
         __type_get_member_t(type_t * type, analyze_member_args_t & args, bool include_base_types)
             : __type(type), __args(args), __include_base_types(include_base_types)
-        {
-            __walked_types.insert(type);
-        }
+        { }
 
         member_t * get_member()
         {
@@ -4960,6 +4958,7 @@ namespace X_ROOT_NS::modules::core {
                 if (member != nullptr || !__include_base_types)
                     return member;
 
+                __walked_types.insert(type);
                 return __get_member_for_non_interface(type->get_base_type());
             }
         }
