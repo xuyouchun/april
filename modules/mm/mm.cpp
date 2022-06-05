@@ -146,6 +146,7 @@ namespace X_ROOT_NS::modules::mm {
         void * obj;
         if (dimension == 1)
         {
+            // type info + array length.
             const size_t extern_size = _alignf(
                 sizeof(rt_type_t *) + sizeof(array_length_t), sizeof(rt_stack_unit_t)
             );
@@ -162,8 +163,10 @@ namespace X_ROOT_NS::modules::mm {
                 length *= *l;
             }
 
+            // type info + length of each dimensions + array length.
             const size_t extern_size = _alignf(
-                sizeof(rt_type_t *) + sizeof(array_length_t) * dimension, sizeof(rt_stack_unit_t)
+                sizeof(rt_type_t *) + sizeof(array_length_t) * dimension + sizeof(array_length_t),
+                sizeof(rt_stack_unit_t)
             );
 
             obj = __alloc(extern_size, size);
@@ -174,13 +177,12 @@ namespace X_ROOT_NS::modules::mm {
             l_t * the_lengths = get_array_lengths(obj);
             l_t base = 1;
 
-            for (const l_t * l = lengths + dimension - 1, * l_end = lengths; l >= l_end; l--)
+            for (const l_t * l = lengths + dimension - 1, * l_end = lengths; l >= l_end;
+                                                l--, the_lengths--)
             {
                 *the_lengths = *l * base;
-                base = *the_lengths--;
+                base = *the_lengths;
             }
-
-            return rt_ref_t(obj);
         }
         else
         {
