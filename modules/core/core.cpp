@@ -4916,56 +4916,107 @@ namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Returns members descripted by args. (for non-interface types)
-    static member_t * __get_member(std::set<type_t *> walked_types, type_t * type,
-                                                        analyze_member_args_t & args)
+    class __type_get_member_t
     {
-        if (type == nullptr || !al::set_insert(walked_types, type))
-            return nullptr;
+        typedef al::svector_t<member_t *>   __not_matched_members_t;
+        typedef method_compare_error_code_t __error_code_t;
 
-        member_t * member = type->get_member(args);
-        if (member != nullptr)
+    public:
+
+        __type_get_member_t(type_t * type, analyze_member_args_t & args, bool include_base_types)
+            : __type(type), __args(args), __include_base_types(include_base_types)
+        {
+            __walked_types.insert(type);
+        }
+
+        member_t * get_member()
+        {
+            member_t * member = __get_member(__type);
+            if (member == nullptr && __args.throw_on_not_found)
+                throw method_compare_error_t(__error_code_t::not_match, __not_matched_methods);
+
             return member;
+        }
 
-        return __get_member(walked_types, type->get_base_type(), args);
-    }
+    private: 
 
-    // Returns members descripted by args. (for interface types)
-    static member_t * __get_member_for_interface(std::set<type_t *> walked_types, type_t * type,
-                                                        analyze_member_args_t & args)
-    {
-        if (type == nullptr || !al::set_insert(walked_types, type))
-            return nullptr;
+        type_t *                    __type;
+        analyze_member_args_t &     __args;
+        bool                        __include_base_types;
 
-        member_t * member = type->get_member(args);
-        if (member != nullptr)
+        std::set<type_t *>          __walked_types;
+        al::svector_t<method_t *>   __not_matched_methods;
+
+        // Returns members descripted by args.
+        member_t * __get_member(type_t * type)
+        {
+            if (is_interface(type))
+            {
+                return __get_member_for_interface(type);
+            }
+            else
+            {
+                member_t * member = __try_get_member(type);
+                if (member != nullptr || !__include_base_types)
+                    return member;
+
+                return __get_member_for_non_interface(type->get_base_type());
+            }
+        }
+
+        // Returns members descripted by args. (for non-interface types)
+        member_t * __get_member_for_non_interface(type_t * type)
+        {
+            if (type == nullptr || !al::set_insert(__walked_types, type))
+                return nullptr;
+
+            member_t * member = __try_get_member(type);
+            if (member != nullptr)
+                return member;
+
+            return __get_member_for_non_interface(type->get_base_type());
+        }
+
+        // Returns members descripted by args. (for interface types)
+         member_t * __get_member_for_interface(type_t * type)
+        {
+            if (type == nullptr || !al::set_insert(__walked_types, type))
+                return nullptr;
+
+            member_t * member = __try_get_member(type);
+            if (member != nullptr)
+                return member;
+
+            type->each_super_type([&, this](type_t * super_type) {
+                member = __get_member_for_interface(super_type);
+                return member == nullptr;
+            });
+
             return member;
+        }
 
-        type->each_super_type([&](type_t * super_type) {
-            member = __get_member_for_interface(walked_types, super_type, args);
-            return member == nullptr;
-        });
+        // Returns nullptr when not found, but not throw exceptions.
+        member_t * __try_get_member(type_t * type)
+        {
+            try
+            {
+                return type->get_member(__args);
+            }
+            catch (method_compare_error_t & err)
+            {
+                if (err.error_code != method_compare_error_code_t::not_match)
+                    throw err;
 
-        return member;
-    }
+                al::copy(err.related_methods, std::back_inserter(__not_matched_methods));
+                return nullptr;
+            }
+        }
+    };
 
     // Returns members descripted by args.
     member_t * type_t::get_member(analyze_member_args_t & args, bool include_base_types)
     {
-        if (is_interface(this))
-        {
-            std::set<type_t *> walked_types;
-            return __get_member_for_interface(walked_types, this, args);
-        }
-        else
-        {
-            member_t * member = this->get_member(args);
-            if (member != nullptr || !include_base_types)
-                return member;
-
-            std::set<type_t *> walked_types = { this };
-            return __get_member(walked_types, this->get_base_type(), args);
-        }
+        return __type_get_member_t(this, args, include_base_types).get_member();
     }
 
     // Checks whether it's duplicate.
