@@ -2551,6 +2551,7 @@ namespace X_ROOT_NS::modules::compile {
                     field->decorate = __new_obj<decorate_t>(decorate_t::default_value);
                     field->decorate->is_static = true;
                     field->decorate->is_const  = true;
+                    field->decorate->access    = access_value_t::public_;
                 }
             }
         }
