@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 import sys
 import os
@@ -104,7 +104,7 @@ def _is_cmd_line(s):
 def __main():
     lines = [line.rstrip('\r\n') for line in sys.stdin.readlines()]
     converter = Converter(lines)
-    print converter.convert()
+    print(converter.convert())
 
 __main()
 

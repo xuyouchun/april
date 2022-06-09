@@ -18,7 +18,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     // Commits this node.
     void _attribute_group_assign_ast_node_t::on_commit()
     {
-        __argument.expression = __to_eobject<expression_t *>(expression);
+        __argument.expression = __to_eobject<expression_t *>(__expression__);
         __argument.name_type  = argument_name_type_t::field;
 
         this->__check_name_empty(__argument.name, _T("attribute param"));
@@ -49,13 +49,14 @@ namespace X_ROOT_NS::modules::lang_cs {
     // Returns eobject count.
     size_t _attribute_group_ast_node_t::eobject_count() const
     {
-        return this->child_count(items);
+        return this->child_count(__items__);
     }
 
     // Returns eobject at specified index.
     attribute_t * _attribute_group_ast_node_t::eobject_at(size_t index) const
     {
-        return ((_attribute_group_item_ast_node_t *)this->child_at(items, index))->to_eobject();
+        return ((_attribute_group_item_ast_node_t *)this->child_at(__items__, index))
+                                                        ->to_eobject();
     }
 
     // Walks this node.
@@ -166,7 +167,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     // Commits this node.
     void _defination_st_item_ast_node_t::on_commit()
     {
-        __item.expression = __to_eobject<expression_t *>(expression);
+        __item.expression = __to_eobject<expression_t *>(__expression__);
 
         this->__check_name_empty(__item.name, _T("variable"));
     }
@@ -188,22 +189,22 @@ namespace X_ROOT_NS::modules::lang_cs {
     // Commits this node.
     void _fields_ast_node_t::on_commit()
     {
-        this->each_child<field_t *>(items, [this](field_t * field) {
-            field->type_name = __to_eobject<type_name_t *>(type_name);
-            field->decorate  = __to_eobject<decorate_t *>(decorate);
+        this->each_child<field_t *>(__items__, [this](field_t * field) {
+            field->type_name = __to_eobject<type_name_t *>(__type_name__);
+            field->decorate  = __to_eobject<decorate_t *>(__decorate__);
         });
     }
 
     // Returns eobject count.
     size_t _fields_ast_node_t::eobject_count() const
     {
-        return this->child_count(items);
+        return this->child_count(__items__);
     }
 
     // Returns eobject at specified index.
     field_t * _fields_ast_node_t::eobject_at(size_t index) const
     {
-        return ((_fields_item_ast_node_t *)this->child_at(items, index))->to_eobject();
+        return ((_fields_item_ast_node_t *)this->child_at(__items__, index))->to_eobject();
     }
 
     // Walks this node.

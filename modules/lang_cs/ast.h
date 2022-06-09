@@ -47,7 +47,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     __Ast(_attribute_group_assign)
 
         // Expression.
-        expression,
+        __expression__,
 
     __EndAst(_attribute_group_assign)
 
@@ -83,7 +83,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __Ast(_attribute_group)
 
-        items,
+        __items__,
 
     __EndAst(_attribute_group)
 
@@ -158,7 +158,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __Ast(_defination_st_item)
 
-        expression,
+        __expression__,
 
     __EndAst(_defination_st_item)
 
@@ -210,7 +210,13 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __Ast(_fields)
 
-        type_name, decorate, attributes, items,
+        __type_name__,
+
+        __decorate__,
+
+        __attributes__,
+
+        __items__,
 
     __EndAst(_fields)
 
@@ -308,7 +314,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __default_array_lengths_ast_node_t(args_t && ... args)
             : __super_t(std::forward<args_t>(args) ...)
         {
-            this->append_child(lengths, nullptr);
+            this->append_child(__lengths__, nullptr);
         }
     };
 

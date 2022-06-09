@@ -1966,6 +1966,16 @@ namespace X_ROOT_NS::modules::core {
         }
     };
 
+    // Transform generic type.
+    type_t * transform_type(type_t * type, std::function<type_t * (name_t)> type_provider)
+    {
+        if (type == nullptr)
+            return nullptr;
+
+        __type_transform_t transform(type_provider);
+        return transform.transform_type(type);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // impl_method_t
 
@@ -2618,6 +2628,8 @@ namespace X_ROOT_NS::modules::core {
         X_C(class_,     _T("class"))
 
         X_C(struct_,    _T("struct"))
+
+        X_C(new_,       _T("new"))
 
     X_ENUM_INFO_END
 

@@ -166,7 +166,8 @@ $generic_param:  $attributes (in | out)? name ...?;
 $generic_params: < $generic_param (, $generic_param)* > ;
 
 # Generic constraint: where T : MyClass.
-$generic_constraint: where name \: ($__item: $type_name | class | struct) (, $__item *)*  ;
+$generic_constraint:
+    where name \: ($__item: $type_name | class | struct | new \( \)) (, $__item *)*  ;
 
 # Generic constraints.
 $generic_constraints: $generic_constraint * ;

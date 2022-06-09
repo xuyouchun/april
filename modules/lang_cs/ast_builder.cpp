@@ -102,7 +102,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         if (is<expression_ast_t *>(node))
         {
-            __This->append_child(__Type::expressions, node);
+            __This->append_child(__Type::__expressions__, node);
         }
     }
 
@@ -117,7 +117,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         if (as<type_name_ast_t *>(node) != nullptr)
         {
-            __This->set_child(__Type::underlying, node);
+            __This->set_child(__Type::__underlying__, node);
         }
     }
 
@@ -141,7 +141,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(generic_args):
-                __This->set_child(__Type::generic_args, node);
+                __This->set_child(__Type::__generic_args__, node);
                 break;
         }
     }
@@ -232,8 +232,8 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     void __B(general_type_name)::__set_name(const string_t & name, token_t * token, bool is_root)
     {
-        __This->append_child(__Type::units, this->__to_name_unit_ast(_T("System")));
-        __This->append_child(__Type::units, this->__to_name_unit_ast(name));
+        __This->append_child(__Type::__units__, this->__to_name_unit_ast(_T("System")));
+        __This->append_child(__Type::__units__, this->__to_name_unit_ast(name));
         __This->set_global_type(global_type_t::global);
     }
 
@@ -242,7 +242,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(name_unit):
-                __This->append_child(__Type::units, node);
+                __This->append_child(__Type::__units__, node);
                 break;
         }
     }
@@ -262,7 +262,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __TokenValue(comma):
             case __TokenValue(right_square):
-                __This->append_child(__Type::dimensions, __last_dimension);
+                __This->append_child(__Type::__dimensions__, __last_dimension);
                 __last_dimension = nullptr;
                 break;
         }
@@ -273,7 +273,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::element_type_name, node);
+                __This->set_child(__Type::__element_type_name__, node);
                 break;
 
             case __AstValue(expression):
@@ -324,7 +324,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_def_param):
-                __This->append_child(__Type::params, node);
+                __This->append_child(__Type::__params__, node);
                 break;
         }
     }
@@ -350,19 +350,19 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(decorate):
-                __This->set_child(__Type::decorate, node);
+                __This->set_child(__Type::__decorate__, node);
                 break;
 
             case __AstValue(type_def_params):
-                __This->set_child(__Type::params, node);
+                __This->set_child(__Type::__params__, node);
                 break;
         }
     }
@@ -379,7 +379,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
         }
     }
@@ -416,7 +416,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
         }
     }
@@ -433,7 +433,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(generic_param):
-                __This->append_child(__Type::params, node);
+                __This->append_child(__Type::__params__, node);
                 break;
         }
     }
@@ -458,6 +458,10 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __TokenValue(k_struct):
                 __This->set_constraint(generic_constraint_ttype_t::struct_, token);
                 break;
+
+            case __TokenValue(k_new):
+                __This->set_constraint(generic_constraint_ttype_t::new_, token);
+                break;
         }
     }
 
@@ -466,7 +470,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->append_child(__Type::type_names, node);
+                __This->append_child(__Type::__type_names__, node);
                 break;
         }
     }
@@ -483,7 +487,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(generic_constraint):
-                __This->append_child(__Type::constraints, node);
+                __This->append_child(__Type::__constraints__, node);
                 break;
         }
     }
@@ -516,7 +520,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
         }
     }
@@ -532,7 +536,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __TokenValue(comma):
             case __TokenValue(right_angle):
-                __This->append_child(__Type::generic_args, __last_arg);
+                __This->append_child(__Type::__generic_args__, __last_arg);
                 __last_arg = nullptr;
                 break;
         }
@@ -576,11 +580,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->set_child(__Type::expression, node);
+                __This->set_child(__Type::__expression__, node);
                 break;
 
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
         }
     }
@@ -597,7 +601,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(argument):
-                __This->append_child(__Type::arguments, node);
+                __This->append_child(__Type::__arguments__, node);
                 break;
         }
     }
@@ -650,7 +654,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(attribute):
-                __This->append_child(__Type::items, node);
+                __This->append_child(__Type::__items__, node);
                 break;
         }
     }
@@ -667,12 +671,12 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(arguments):
             case __AstValue(_attribute_group_assign):
-                __This->set_child(__Type::arguments, node);
+                __This->set_child(__Type::__arguments__, node);
                 break;
         }
     }
@@ -697,7 +701,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->set_child(__Type::expression, node);
+                __This->set_child(__Type::__expression__, node);
                 break;
         }
     }
@@ -713,7 +717,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         if (as<type_name_ast_t *>(node) != nullptr)
         {
-            __This->set_child(__Type::underlying, node);
+            __This->set_child(__Type::__underlying__, node);
         }
     }
 
@@ -730,7 +734,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __AstValue(attribute):
             case __AstValue(_attribute_group):
-                __This->append_child(__Type::attributes, node);
+                __This->append_child(__Type::__attributes__, node);
                 break;
         }
     }
@@ -767,7 +771,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         if (as<statement_ast_t *>(node) != nullptr)
         {
-            __This->set_child(__Type::underlying, node);
+            __This->set_child(__Type::__underlying__, node);
         }
     }
 
@@ -783,7 +787,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(statement):
-                __This->append_child(__Type::statements, node);
+                __This->append_child(__Type::__statements__, node);
                 break;
         }
     }
@@ -808,34 +812,34 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(decorate):
-                __This->set_child(__Type::decorate, node);
+                __This->set_child(__Type::__decorate__, node);
                 break;
 
             case __AstValue(type_name):
                 if (al::starts_with(args.flag, _T("r")))         // ret
-                    __This->set_child(__Type::type_name, node);
+                    __This->set_child(__Type::__type_name__, node);
                 else if (al::starts_with(args.flag, _T("o")))    // owner
-                    __This->set_child(__Type::owner_type_name, node);
+                    __This->set_child(__Type::__owner_type_name__, node);
                 break;
 
             case __AstValue(params):
-                __This->set_child(__Type::params, node);
+                __This->set_child(__Type::__params__, node);
                 break;
 
             case __AstValue(method):
                 switch (((_fake_method_ast_node_t *)node)->token_value)
                 {
                     case cs_token_value_t::k_get:
-                        __This->set_child_with_check(__Type::get_method, node,
+                        __This->set_child_with_check(__Type::__get_method__, node,
                                 __cc_t::duplicate, _T("property method"), _T("get"));
                         break;
 
                     case cs_token_value_t::k_set:
-                        __This->set_child_with_check(__Type::set_method, node,
+                        __This->set_child_with_check(__Type::__set_method__, node,
                                 __cc_t::duplicate, _T("property method"), _T("set"));
                         break;
  
@@ -868,30 +872,30 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(decorate):
-                __This->set_child(__Type::decorate, node);
+                __This->set_child(__Type::__decorate__, node);
                 break;
 
             case __AstValue(type_name):
                 if (al::starts_with(args.flag, _T("r")))                 // ret
-                    __This->set_child(__Type::type_name, node);
+                    __This->set_child(__Type::__type_name__, node);
                 else if (al::starts_with(args.flag, _T("o")))
-                    __This->set_child(__Type::owner_type_name, node);   // owner
+                    __This->set_child(__Type::__owner_type_name__, node);   // owner
                 break;
 
             case __AstValue(method):
                 switch (((_fake_method_ast_node_t *)node)->token_value)
                 {
                     case cs_token_value_t::k_add:
-                        __This->set_child_with_check(__Type::add_method, node,
+                        __This->set_child_with_check(__Type::__add_method__, node,
                                 __cc_t::duplicate, _T("event method"), _T("add"));
                         break;
 
                     case cs_token_value_t::k_remove:
-                        __This->set_child_with_check(__Type::remove_method, node,
+                        __This->set_child_with_check(__Type::__remove_method__, node,
                                 __cc_t::duplicate, _T("event method"), _T("remove"));
                         break;
  
@@ -992,7 +996,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
         }
     }
@@ -1009,11 +1013,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(expression):
-                __This->set_child(__Type::expression, node);
+                __This->set_child(__Type::__expression__, node);
                 break;
         }
     }
@@ -1030,14 +1034,14 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression): {
-                __This->set_child(__Type::namex, node);
+                __This->set_child(__Type::__namex__, node);
                 auto n = (_function_name_expression_ast_node_t *)(node);
                 if (n->generic_args_node != nullptr)
-                    __This->set_child(__Type::generic_args, n->generic_args_node);
+                    __This->set_child(__Type::__generic_args__, n->generic_args_node);
             }   break;
 
             case __AstValue(arguments):
-                __This->set_child(__Type::arguments, node);
+                __This->set_child(__Type::__arguments__, node);
                 break;
         }
     }
@@ -1054,11 +1058,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->set_child(__Type::namex, node);
+                __This->set_child(__Type::__namex__, node);
                 break;
 
             case __AstValue(arguments):
-                __This->set_child(__Type::arguments, node);
+                __This->set_child(__Type::__arguments__, node);
                 break;
         }
     }
@@ -1075,11 +1079,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(arguments):
-                __This->set_child(__Type::arguments, node);
+                __This->set_child(__Type::__arguments__, node);
                 break;
         }
     }
@@ -1096,24 +1100,24 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(array_lengths):
-                __This->set_child(__Type::lengths, node);
+                __This->set_child(__Type::__lengths__, node);
                 break;
 
             case __AstValue(array_initializer):
-                __This->set_child(__Type::initializer, node);
+                __This->set_child(__Type::__initializer__, node);
                 break;
         }
     }
 
     __OnCompleted(new_array, args)
     {
-        if (!__This->has_child(__Type::lengths))
+        if (!__This->has_child(__Type::__lengths__))
         {
-            __This->set_child(__Type::lengths,
+            __This->set_child(__Type::__lengths__,
                 this->__new_ast_with_commit<__default_array_lengths_ast_node_t>()
             );
         }
@@ -1130,7 +1134,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __AstValue(array_initializer):
             case __AstValue(expression):
-                __This->append_child(__Type::elements, node);
+                __This->append_child(__Type::__elements__, node);
                 break;
         }
     }
@@ -1145,7 +1149,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (token->value)
         {
             case __TokenValue(comma):
-                __This->append_child(__Type::lengths, __last_exp);
+                __This->append_child(__Type::__lengths__, __last_exp);
                 __last_exp = nullptr;
                 break;
         }
@@ -1163,7 +1167,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __OnCompleted(array_lengths, args)
     {
-        __This->append_child(__Type::lengths, __last_exp);
+        __This->append_child(__Type::__lengths__, __last_exp);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -1176,7 +1180,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
         }
     }
@@ -1193,7 +1197,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(statement):
-                __This->append_child(__Type::statements, node);
+                __This->append_child(__Type::__statements__, node);
                 break;
         }
     }
@@ -1210,7 +1214,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->set_child(__Type::expression, node);
+                __This->set_child(__Type::__expression__, node);
                 break;
         }
     }
@@ -1227,7 +1231,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_def):
-                __This->set_child(__Type::type_def, node);
+                __This->set_child(__Type::__type_def__, node);
                 break;
         }
     }
@@ -1253,11 +1257,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(_defination_st_item):
-                __This->append_child(__Type::items, node); 
+                __This->append_child(__Type::__items__, node); 
                 break;
         }
     }
@@ -1283,7 +1287,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             default:
                 if (is<expression_ast_t *>(node))
-                    __This->set_child(__Type::expression, node);
+                    __This->set_child(__Type::__expression__, node);
                 break;
         }
     }
@@ -1314,7 +1318,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->set_child(__Type::expression, node);
+                __This->set_child(__Type::__expression__, node);
                 break;
         }
     }
@@ -1347,7 +1351,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->set_child(__Type::expression, node);
+                __This->set_child(__Type::__expression__, node);
                 break;
         }
     }
@@ -1365,11 +1369,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __AstValue(expression):
             case __AstValue(expressions):
-                __This->set_child(__Type::condition, node);
+                __This->set_child(__Type::__condition__, node);
                 break;
 
             case __AstValue(statement):
-                __This->set_child(__Type::body, node);
+                __This->set_child(__Type::__body__, node);
                 break;
         }
     }
@@ -1387,11 +1391,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __AstValue(expression):
             case __AstValue(expressions):
-                __This->set_child(__Type::condition, node);
+                __This->set_child(__Type::__condition__, node);
                 break;
 
             case __AstValue(statement):
-                __This->set_child(__Type::body, node);
+                __This->set_child(__Type::__body__, node);
                 break;
         }
     }
@@ -1408,27 +1412,27 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(defination_st):
-                __This->set_child(__Type::initialize, node);
+                __This->set_child(__Type::__initialize__, node);
                 break;
 
             case __AstValue(expression):
             case __AstValue(expressions):
                 if (al::starts_with(args.flag, _T("ini")))       // initialize
                 {
-                    __This->set_child(__Type::initialize, node);
+                    __This->set_child(__Type::__initialize__, node);
                 }
                 else if (al::starts_with(args.flag, _T("c")))    // condition
                 {
-                    __This->set_child(__Type::condition, node);
+                    __This->set_child(__Type::__condition__, node);
                 }
                 else if (al::starts_with(args.flag, _T("inc")))  // increase
                 {
-                    __This->set_child(__Type::increase, node);
+                    __This->set_child(__Type::__increase__, node);
                 }
                 break;
 
             case __AstValue(statement):
-                __This->set_child(__Type::body, node);
+                __This->set_child(__Type::__body__, node);
                 break;
         }
     }
@@ -1453,15 +1457,15 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->set_child(__Type::iterator, node);
+                __This->set_child(__Type::__iterator__, node);
                 break;
 
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(statement):
-                __This->set_child(__Type::body, node);
+                __This->set_child(__Type::__body__, node);
                 break;
         }
     }
@@ -1479,14 +1483,14 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __AstValue(expression):
             case __AstValue(expressions):
-                __This->set_child(__Type::condition, node);
+                __This->set_child(__Type::__condition__, node);
                 break;
 
             case __AstValue(statement):
                 if (al::starts_with(args.flag, _T("if")))        // if_body
-                    __This->set_child(__Type::if_body, node);
+                    __This->set_child(__Type::__if_body__, node);
                 else if (al::starts_with(args.flag, _T("else"))) // else_body
-                    __This->set_child(__Type::else_body, node);
+                    __This->set_child(__Type::__else_body__, node);
 
                 break;
         }
@@ -1505,11 +1509,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __AstValue(expression):
             case __AstValue(expressions):
-                __This->set_child(__Type::expression, node);
+                __This->set_child(__Type::__expression__, node);
                 break;
 
             case __AstValue(case_):
-                __This->append_child(__Type::cases, node);
+                __This->append_child(__Type::__cases__, node);
                 break;
         }
     }
@@ -1534,11 +1538,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->append_child(__Type::constants, node);
+                __This->append_child(__Type::__constants__, node);
                 break;
 
             case __AstValue(statements):
-                __This->set_child(__Type::statements, node);
+                __This->set_child(__Type::__statements__, node);
                 break;
         }
     }
@@ -1557,17 +1561,17 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __AstValue(statement):
                 if (al::starts_with(args.flag, _T("t")))         // try
                 {
-                    __This->set_child(__Type::try_, node);
+                    __This->set_child(__Type::__try__, node);
                 }
                 else if (al::starts_with(args.flag, _T("f")))    // finally
                 {
-                    __This->set_child(__Type::finally, node);
+                    __This->set_child(__Type::__finally__, node);
                 }
 
                 break;
 
             case __AstValue(catch_):
-                __This->append_child(__Type::catches, node);
+                __This->append_child(__Type::__catches__, node);
                 break;
         }
     }
@@ -1592,11 +1596,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(statement):
-                __This->set_child(__Type::body, node);
+                __This->set_child(__Type::__body__, node);
                 break;
         }
     }
@@ -1620,7 +1624,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(statement):
-                __This->append_child(__Type::statements, node);
+                __This->append_child(__Type::__statements__, node);
                 break;
         }
     }
@@ -1637,19 +1641,19 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(decorate):
-                __This->set_child(__Type::decorate, node);
+                __This->set_child(__Type::__decorate__, node);
                 break;
 
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(field):
-                __This->append_child(__Type::items, node);
+                __This->append_child(__Type::__items__, node);
                 break;
         }
     }
@@ -1674,11 +1678,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(expression):
-                __This->set_child(__Type::init_value, node);
+                __This->set_child(__Type::__init_value__, node);
                 break;
         }
     }
@@ -1719,15 +1723,15 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(decorate):
-                __This->set_child(__Type::decorate, node);
+                __This->set_child(__Type::__decorate__, node);
                 break;
 
             case __AstValue(method_body):
-                __This->set_child(__Type::body, node);
+                __This->set_child(__Type::__body__, node);
                 break;
         }
     }
@@ -1756,16 +1760,16 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(decorate):
-                __This->set_child(__Type::decorate, node);
+                __This->set_child(__Type::__decorate__, node);
                 break;
 
             case __AstValue(type_name):
                 if (al::starts_with(args.flag, _T("r")))         // ret
-                    __This->set_child(__Type::type_name, node);
+                    __This->set_child(__Type::__type_name__, node);
                 else if (al::starts_with(args.flag, _T("o")))    // owner
-                    __This->set_child(__Type::owner_type_name, node);
+                    __This->set_child(__Type::__owner_type_name__, node);
                 else if (al::starts_with(args.flag, _T("c")))    // conversion
-                    __This->set_child(__Type::conversion_type_name, node);
+                    __This->set_child(__Type::__conversion_type_name__, node);
                 break;
 
             case __AstValue(_operator):
@@ -1773,23 +1777,27 @@ namespace X_ROOT_NS::modules::lang_cs {
                 break;
 
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(generic_params):
-                __This->set_child(__Type::generic_params, node);
+                __This->set_child(__Type::__generic_params__, node);
                 break;
 
             case __AstValue(params):
-                __This->set_child(__Type::params, node);
+                __This->set_child(__Type::__params__, node);
                 break;
 
             case __AstValue(arguments):
-                __This->set_child(__Type::base_ctor_args, node);
+                __This->set_child(__Type::__base_ctor_args__, node);
                 break;
 
             case __AstValue(method_body):
-                __This->set_child(__Type::body, node);
+                __This->set_child(__Type::__body__, node);
+                break;
+
+            case __AstValue(generic_constraints):
+                __This->set_child(__Type::__generic_constraints__, node);
                 break;
         }
     }
@@ -1800,13 +1808,13 @@ namespace X_ROOT_NS::modules::lang_cs {
             return;
 
         const operator_property_t * op_property = __operator_ast_node->op_property;
-        params_ast_node_t * params_node = (params_ast_node_t *)__This->child_at(__Type::params);
+        params_ast_node_t * params_node = (params_ast_node_t *)__This->child_at(__Type::__params__);
 
         if (params_node != nullptr)
         {
             #define __CheckReassign(_op_count, _op)                                         \
                 do {                                                                        \
-                    if (__ChildCount(params_node, params) == _op_count)                     \
+                    if (__ChildCount(params_node, __params__) == _op_count)                 \
                         op_property = get_system_operator_property(operator_t::_op);        \
                 } while (0)
 
@@ -1864,7 +1872,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(field):
-                __This->append_child(__Type::items, node);
+                __This->append_child(__Type::__items__, node);
                 break;
         }
     }
@@ -1889,11 +1897,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(expression):
-                __This->set_child(__Type::init_value, node);
+                __This->set_child(__Type::__init_value__, node);
                 break;
         }
     }
@@ -1934,47 +1942,51 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(generic_params):
-                __This->set_child(__Type::generic_params, node);
+                __This->set_child(__Type::__generic_params__, node);
                 break;
 
             case __AstValue(type_name):
-                __This->append_child(__Type::super_type_names, node);
+                __This->append_child(__Type::__super_type_names__, node);
                 break;
 
             case __AstValue(decorate):
-                __This->set_child(__Type::decorate, node);
+                __This->set_child(__Type::__decorate__, node);
                 break;
 
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(field):
-                __This->append_child(__Type::fields, node);
+                __This->append_child(__Type::__fields__, node);
                 break;
 
             case __AstValue(_fields):
-                __This->append_child(__Type::fields, node);
+                __This->append_child(__Type::__fields__, node);
                 break;
 
             case __AstValue(property):
-                __This->append_child(__Type::properties, node);
+                __This->append_child(__Type::__properties__, node);
                 break;
 
             case __AstValue(method):
-                __This->append_child(__Type::methods, node);
+                __This->append_child(__Type::__methods__, node);
                 break;
 
             case __AstValue(event):
-                __This->append_child(__Type::events, node);
+                __This->append_child(__Type::__events__, node);
                 break;
 
             case __AstValue(type):
-                __This->append_child(__Type::nest_types, node);
+                __This->append_child(__Type::__nest_types__, node);
                 break;
 
             case __AstValue(type_def):
-                __This->append_child(__Type::type_defs, node);
+                __This->append_child(__Type::__type_defs__, node);
+                break;
+
+            case __AstValue(generic_constraints):
+                __This->set_child(__Type::__generic_constraints__, node);
                 break;
         }
     }
@@ -2015,15 +2027,15 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(type_name):
-                __This->set_child(__Type::type_name, node);
+                __This->set_child(__Type::__type_name__, node);
                 break;
 
             case __AstValue(attributes):
-                __This->set_child(__Type::attributes, node);
+                __This->set_child(__Type::__attributes__, node);
                 break;
 
             case __AstValue(expression):
-                __This->set_child(__Type::default_value, node);
+                __This->set_child(__Type::__default_value__, node);
                 break;
         }
     }
@@ -2040,7 +2052,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(param):
-                __This->append_child(__Type::params, node);
+                __This->append_child(__Type::__params__, node);
                 break;
         }
     }
@@ -2147,9 +2159,9 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __AstValue(mname):
                 if (al::starts_with(args.flag, _T("f")))         // from
-                    __This->set_child(__Type::package, node);
+                    __This->set_child(__Type::__package__, node);
                 else if (al::starts_with(args.flag, _T("i")))    // import
-                    __This->set_child(__Type::assembly, node);
+                    __This->set_child(__Type::__assembly__, node);
                 break;
         }
     }
@@ -2166,19 +2178,19 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(mname):
-                __This->set_child(__Type::name, node);
+                __This->set_child(__Type::__name__, node);
                 break;
 
             case __AstValue(type):
-                __This->append_child(__Type::types, node);
+                __This->append_child(__Type::__types__, node);
                 break;
 
             case __AstValue(namespace_):
-                __This->append_child(__Type::namespaces, node);
+                __This->append_child(__Type::__namespaces__, node);
                 break;
 
             case __AstValue(type_def):
-                __This->append_child(__Type::type_defs, node);
+                __This->append_child(__Type::__type_defs__, node);
                 break;
         }
     }
@@ -2203,7 +2215,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(mname):
-                __This->set_child(__Type::ns, node);
+                __This->set_child(__Type::__ns__, node);
                 break;
         }
     }

@@ -130,6 +130,7 @@ internal static class Internal
 
 
     // Delegate
+
     [Internal]
     public static extern T Delegate_Invoke<T>();
 
@@ -138,6 +139,20 @@ internal static class Internal
 
     [Internal]
     public static extern Void Delegate_InitWithCallType();
+
+    [Internal]
+    public static extern Int32 MulticastDelegate_GetCount();
+
+    [Internal]
+    public static extern TDelegate MulticastDelegate_Get<TDelegate>(Int32 index);
+
+    // [Internal]
+    // public static extern TMulticastDelegate MulticastDelegate_Add<TMulticastDelegate>(
+    //                         TMulticastDelegate self, TMulticastDelegate.Self func);
+
+    // [Internal]
+    // public static extern TMulticastDelegate MulticastDelegate_Remove<TMulticastDelegate>(
+    //                         TMulticastDelegate self, TMulticastDelegate.Self func);
 
     // Math
 

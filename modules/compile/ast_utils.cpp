@@ -843,8 +843,7 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Ascertains type.
-    type_t * ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx,
-                                                name_t name)
+    type_t * ascertain_type(ast_context_t & cctx, ast_walk_context_t & wctx, name_t name)
     {
         type_t * type = __ascertain_type(cctx, wctx, name);
 
@@ -1223,7 +1222,7 @@ namespace X_ROOT_NS::modules::compile {
                 if (!is_object(atype.type))
                     continue;
 
-                method_t * method = find_method(__cctx,
+                method_t * method = find_method(
                     atype.type, method_trait_t::default_, name, nullptr, &atypes
                 );
 
@@ -1727,7 +1726,7 @@ namespace X_ROOT_NS::modules::compile {
     // find_method
 
     // Finds method.
-    method_t * find_method(ast_context_t & cctx, type_t * type, method_trait_t trait, name_t name,
+    method_t * find_method(type_t * type, method_trait_t trait, name_t name,
                         generic_args_t * generic_args, atypes_t * atypes)
     {
         _A(type != nullptr);
@@ -1745,13 +1744,13 @@ namespace X_ROOT_NS::modules::compile {
         atypes_t atypes;
         __fill_atypes(cctx, atypes, arguments);
 
-        return find_method(cctx, type, trait, name, generic_args, &atypes);
+        return find_method(type, trait, name, generic_args, &atypes);
     }
 
     // Finds a constructor.
-    method_t * find_constructor(ast_context_t & cctx, type_t * type, atypes_t * atypes)
+    method_t * find_constructor(type_t * type, atypes_t * atypes)
     {
-        return find_method(cctx, type, method_trait_t::constructor, name_t::null,
+        return find_method(type, method_trait_t::constructor, name_t::null,
                                                                 nullptr, atypes);
     }
 
@@ -1762,25 +1761,37 @@ namespace X_ROOT_NS::modules::compile {
                                                                 nullptr, arguments);
     }
 
-    // Finds static constructor.
-    method_t * find_static_constructor(ast_context_t & cctx, type_t * type)
+    // Finds default constructor.
+    method_t * find_default_constructor(type_t * type)
     {
-        return find_method(cctx, type, method_trait_t::static_constructor, name_t::null,
-                                                                nullptr, (atypes_t *)nullptr);
+        return find_constructor(type, nullptr);
+    }
+
+    // Returns whether the type has default constructor.
+    bool has_default_constructor(type_t * type)
+    {
+        return find_default_constructor(type) != nullptr;
+    }
+
+    // Returns whether the type has public default constructor.
+    bool has_public_default_constructor(type_t * type)
+    {
+        method_t * method = find_default_constructor(type);
+        return method != nullptr && method->get_access_value() == access_value_t::public_;
+    }
+
+    // Finds static constructor.
+    method_t * find_static_constructor(type_t * type)
+    {
+        return find_method(type, method_trait_t::static_constructor, name_t::null,
+                                                    nullptr, (atypes_t *)nullptr);
     }
 
     // Finds desctructor.
-    method_t * find_destructor(ast_context_t & cctx, type_t * type, arguments_t * arguments)
+    method_t * find_destructor(type_t * type, arguments_t * arguments)
     {
-        return find_method(cctx, type, method_trait_t::destructor, name_t::null,
-                                                                nullptr, (atypes_t *)nullptr);
-    }
-
-    // Finds methods.
-    void find_methods(ast_context_t & cctx, type_t * type, method_trait_t trait, name_t name,
-                        generic_args_t * generic_args, arguments_t * arguments)
-    {
-
+        return find_method(type, method_trait_t::destructor, name_t::null,
+                                                    nullptr, (atypes_t *)nullptr);
     }
 
     // Converts to argument types string.
@@ -1929,4 +1940,5 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
 
 }   // namespace X_ROOT_NS::modules::compile
+
 

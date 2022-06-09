@@ -79,28 +79,33 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Finds method.
-    method_t * find_method(ast_context_t & cctx, type_t * type, method_trait_t trait, name_t name,
+    method_t * find_method(type_t * type, method_trait_t trait, name_t name,
                 generic_args_t * generic_args, atypes_t * atypes);
 
     // Finds method.
-    method_t * find_method(ast_context_t & cctx, type_t * type, method_trait_t trait, name_t name,
+    method_t * find_method(type_t * type, method_trait_t trait, name_t name,
                 generic_args_t * generic_args, arguments_t * arguments);
 
     // Finds constructor.
-    method_t * find_constructor(ast_context_t & cctx, type_t * type, atypes_t * atypes);
+    method_t * find_constructor(type_t * type, atypes_t * atypes);
 
     // Finds constructors.
     method_t * find_constructor(ast_context_t & cctx, type_t * type, arguments_t * arguments);
 
+    // Finds default constructor.
+    method_t * find_default_constructor(type_t * type);
+
+    // Returns whether the type has default constructor.
+    bool has_default_constructor(type_t * type);
+
+    // Returns whether the type has public default constructor.
+    bool has_public_default_constructor(type_t * type);
+
     // Finds static constructor.
-    method_t * find_static_constructor(ast_context_t & cctx, type_t * type);
+    method_t * find_static_constructor(type_t * type);
 
     // Finds destructor.
-    method_t * find_destructor(ast_context_t & cctx, type_t * type);
-
-    // Finds methods.
-    void find_methods(ast_context_t & cctx, type_t * type, method_trait_t trait, name_t name,
-                generic_args_t * generic_args, arguments_t * arguments);
+    method_t * find_destructor(type_t * type);
 
     // Converts to argument types string.
     string_t to_arg_types_str(ast_context_t & cctx, arguments_t * arguments);

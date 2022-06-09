@@ -15,8 +15,8 @@ namespace X_ROOT_NS::modules::compile {
             using __super_t::__super_t;
         };
 
-        template<typename exp_t>
-        using __wexp_t = __w_t<system_expression_t<exp_t>>;
+        template<typename _exp_t>
+        using __wexp_t = __w_t<system_expression_t<_exp_t>>;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -783,6 +783,55 @@ namespace X_ROOT_NS::modules::compile {
         // Try specifying the type arguments explicitly.
         type_arguments_cannot_be_inferred,
 
+        // The type 'string' cannot be used as type parameter 'T' in the
+        //  generic type or method 'Class1<T>'. There is no implicit reference conversion
+        //  from 'string' to 'Project1.Class2'.
+        constraint_no_implicit_conversion,
+
+        // The type 'string' must be a non-nullable value type
+        //  in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+        constraint_expect_value_type,
+
+        // The type 'int' must be a reference type in order to
+        //  use it as parameter 'T' in the generic type or method 'Class1<T>'
+        constraint_expect_reference_type,
+
+        // 'long' is not a valid constraint. A type used as a constraint
+        //  must be an interface, a non-sealed class or a type parameter
+        constraint_invalid_type,
+
+        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints
+        //  cannot be combined or duplicated.
+        constraint_combined_or_duplicated,
+
+        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints
+        //  must be specified first in the constraints list.
+        constraint_must_be_first,
+
+        // The 'new()' constraint cannot be used with the 'struct' constraint
+        constraint_new_cannot_be_used_with_struct,
+
+        // 'Class2' must be a non-abstract type with a public parameterless constructor
+        //  in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+        constraint_expect_public_parameterless_constructor,
+
+        // Duplicate constraint 'Class2' for type parameter 'T'
+        constraint_duplicate_types,
+
+        // At most one class type can be specified for type parameter 'T'.
+        constraint_at_most_one_class_type,
+
+        // Constraint cannot be special class 'object'
+        constraint_cannot_be_special_type,
+
+        // A constraint clause has already been specified for type parameter 'T'.
+        // All of the constraints for a type parameter must be specified in a single where clause.
+        constraint_duplicate_specified,
+
+        // Class1<T>' does not define type parameter 'K'
+        generic_parameter_not_defined,
+
+
         __the_end__         = 10000,
 
     X_ENUM_END
@@ -1059,6 +1108,21 @@ namespace X_ROOT_NS::modules::compile {
                 return true;
             }
 
+            // Assigns a bit value.
+            template<typename dst_t, typename src_t>
+            bool __assign_bit(dst_t && dst, const src_t & src, __el_t * el,
+                                    const char_t * title = _T(""), bool check_duplicate = false)
+            {
+                if (check_duplicate && bit_has_flag(dst, src))
+                {
+                    __log(el, __c_t::duplicate, title, src);
+                    return false;
+                }
+
+                bit_add_flag(dst, src);
+                return true;
+            }
+
             // Checks whether it's empty.
             template<typename t, typename _log_code_t, typename ... _args_t>
             bool __check_empty(const t & value, __el_t * el, _log_code_t code, _args_t && ... args)
@@ -1122,27 +1186,19 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             // Check whether has permission to access a member or type.
-            template<typename _member_t, typename _code_element_t, typename _element_t>
+            template<typename _member_t, typename _element_t>
             bool __check_access(ast_walk_context_t & wctx, _member_t * member,
-                        _code_element_t * code_element, _element_t && element)
+                                                           _element_t && element)
             {
                 if (!__check_access(wctx, member))
                 {
-                    this->__log(code_element,
+                    this->__log(element,
                         common_log_code_t::inaccessible_protection_level, element
                     );
                     return false;
                 }
 
                 return true;
-            }
-
-            // Check whether has permission to access a member or type.
-            template<typename _member_t, typename _code_element_t>
-            bool __check_access(ast_walk_context_t & wctx, _member_t * member,
-                        _code_element_t * code_element)
-            {
-                return __check_access(wctx, member, code_element, code_element);
             }
 
             // Check member duplicate or format correct.
@@ -1525,7 +1581,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(expressions, __xcvalue_t::expressions)
 
         // Expressions.
-        expressions,
+        __expressions__,
 
     EndAst(expressions)
 
@@ -1534,6 +1590,7 @@ namespace X_ROOT_NS::modules::compile {
     // Expressions ast node.
     class expressions_ast_node_t : public __expressions_ast_node_t
                                  , public expression_ast_t
+                                 , public expressions_t
     {
         typedef __expressions_ast_node_t __super_t;
 
@@ -1548,9 +1605,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        expressions_t __expressions;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1559,7 +1613,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(type_name, __cvalue_t::type_name)
 
         // Underlying.
-        underlying,
+        __underlying__,
 
     EndAst(type_name)
 
@@ -1784,7 +1838,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(general_type_name, __xcvalue_t::general_type_name)
 
         // Units.
-        units,
+        __units__,
 
     EndAst(general_type_name)
 
@@ -1794,6 +1848,7 @@ namespace X_ROOT_NS::modules::compile {
     class general_type_name_ast_node_t
             : public type_name_ast_node_base_t<__general_type_name_ast_node_t>
             , public type_name_ast_t
+            , public __w_t<general_type_name_t>
     {
         typedef type_name_ast_node_base_t<__general_type_name_ast_node_t> __super_t;
 
@@ -1816,7 +1871,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<general_type_name_t> __type_name;
 
         // Walks confirm step.
         bool __walk_confirm(ast_walk_context_t & context);
@@ -1831,7 +1885,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(name_unit, __xcvalue_t::name_unit)
 
         // Generic arguments.
-        generic_args,
+        __generic_args__,
 
     EndAst(name_unit)
 
@@ -1840,6 +1894,7 @@ namespace X_ROOT_NS::modules::compile {
     // Typename unit ast node.
     class name_unit_ast_node_t : public __name_unit_ast_node_t
                                , public name_unit_ast_t
+                               , public __w_t<name_unit_t>
     {
         typedef __name_unit_ast_node_t __super_t;
 
@@ -1857,9 +1912,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<name_unit_t> __name_unit;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1869,10 +1921,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(array_type_name, __xcvalue_t::array_type_name)
 
         // Array element typename.
-        element_type_name,
+        __element_type_name__,
         
         // Array dimensions.
-        dimensions,
+        __dimensions__,
 
     EndAst(array_type_name)
 
@@ -1882,6 +1934,7 @@ namespace X_ROOT_NS::modules::compile {
     class array_type_name_ast_node_t
             : public type_name_ast_node_base_t<__array_type_name_ast_node_t>
             , public type_name_ast_t
+            , public __w_t<array_type_name_t>
     {
         typedef type_name_ast_node_base_t<__array_type_name_ast_node_t> __super_t;
 
@@ -1898,7 +1951,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<array_type_name_t> __type_name;
 
         // Walks the confirm step.
         bool __walk_confirm(ast_walk_context_t & context);
@@ -1929,9 +1981,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        // __w_t<type_name_t> __type_name;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1947,6 +1996,7 @@ namespace X_ROOT_NS::modules::compile {
     // Typedef param ast node.
     class type_def_param_ast_node_t : public __type_def_param_ast_node_t
                                     , public type_def_param_ast_t
+                                    , public __w_t<type_def_param_t>
     {
         typedef __type_def_param_ast_node_t __super_t;
 
@@ -1967,9 +2017,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<type_def_param_t> __type_def_param;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1979,7 +2026,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(type_def_params, __xcvalue_t::type_def_params)
 
         // Params.
-        params,
+        __params__,
 
     EndAst(type_def_params)
 
@@ -1988,6 +2035,7 @@ namespace X_ROOT_NS::modules::compile {
     // Typedef params ast node.
     class type_def_params_ast_node_t : public __type_def_params_ast_node_t
                                      , public type_def_params_ast_t
+                                     , public type_def_params_t
     {
         typedef __type_def_params_ast_node_t __super_t;
 
@@ -2002,9 +2050,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        type_def_params_t __type_def_params;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2014,16 +2059,16 @@ namespace X_ROOT_NS::modules::compile {
     Ast(type_def, __xcvalue_t::type_def)
 
         // Attributes.
-        attributes,
+        __attributes__,
         
         // Decorate.
-        decorate,
+        __decorate__,
 
         // Typename
-        type_name,
+        __type_name__,
         
         // Params.
-        params,
+        __params__,
 
     EndAst(type_def)
 
@@ -2032,6 +2077,7 @@ namespace X_ROOT_NS::modules::compile {
     // Typedef ast node.
     class type_def_ast_node_t : public __type_def_ast_node_t
                               , public type_def_ast_t
+                              , public type_def_t
     {
         typedef __type_def_ast_node_t __super_t;
 
@@ -2051,7 +2097,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        type_def_t  __type_def;
         __el_t *    __name_el = nullptr;
 
         // Walks default step.
@@ -2068,7 +2113,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(type_of, __xcvalue_t::type_of)
 
         // Typename.
-        type_name,
+        __type_name__,
 
     EndAst(type_of)
 
@@ -2077,6 +2122,7 @@ namespace X_ROOT_NS::modules::compile {
     // Typeof ast node.
     class type_of_ast_node_t : public __type_of_ast_node_t
                              , public expression_ast_t
+                             , public __wexp_t<type_of_expression_t>
     {
         typedef __type_of_ast_node_t __super_t;
 
@@ -2091,9 +2137,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<type_of_expression_t> __type_of;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2103,10 +2146,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(argument, __xcvalue_t::argument)
 
         // Expression
-        expression,
+        __expression__,
         
         // Attributes.
-        attributes,
+        __attributes__,
 
     EndAst(argument)
 
@@ -2115,6 +2158,7 @@ namespace X_ROOT_NS::modules::compile {
     // Argument ast node.
     class argument_ast_node_t : public __argument_ast_node_t
                               , public argument_ast_t
+                              , public argument_t
     {
         typedef __argument_ast_node_t __super_t;
 
@@ -2135,9 +2179,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        argument_t __argument;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2147,7 +2188,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(arguments, __xcvalue_t::arguments)
 
         // Arguments.
-        arguments,
+        __arguments__,
 
     EndAst(arguments)
 
@@ -2156,6 +2197,7 @@ namespace X_ROOT_NS::modules::compile {
     // Arguments ast node.
     class arguments_ast_node_t : public __arguments_ast_node_t
                                , public arguments_ast_t
+                               , public arguments_t
     {
         typedef __arguments_ast_node_t __super_t;
 
@@ -2170,9 +2212,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Returns this eobject.
         virtual arguments_t * to_eobject() override;
-
-    private:
-        arguments_t __arguments;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2182,13 +2221,13 @@ namespace X_ROOT_NS::modules::compile {
     Ast(param, __xcvalue_t::param)
 
         // Typename
-        type_name,
+        __type_name__,
         
         // Attributes.
-        attributes,
+        __attributes__,
         
         // Default value.
-        default_value,
+        __default_value__,
 
     EndAst(param)
 
@@ -2197,6 +2236,7 @@ namespace X_ROOT_NS::modules::compile {
     // Param ast node.
     class param_ast_node_t : public __param_ast_node_t
                            , public param_ast_t
+                           , public param_t
     {
         typedef __param_ast_node_t __super_t;
 
@@ -2217,9 +2257,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        param_t __param;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2229,7 +2266,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(params, __xcvalue_t::params)
 
         // Params.
-        params,
+        __params__,
 
     EndAst(params)
 
@@ -2238,6 +2275,7 @@ namespace X_ROOT_NS::modules::compile {
     // Params ast node.
     class params_ast_node_t : public __params_ast_node_t
                             , public params_ast_t
+                            , public params_t
     {
         typedef __params_ast_node_t __super_t;
 
@@ -2252,9 +2290,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        params_t __params;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2264,7 +2299,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(generic_param, __xcvalue_t::generic_param)
 
         // Attributes.
-        attributes,
+        __attributes__,
 
     EndAst(generic_param)
 
@@ -2273,6 +2308,7 @@ namespace X_ROOT_NS::modules::compile {
     // Generic param ast node.
     class generic_param_ast_node_t : public __generic_param_ast_node_t
                                    , public generic_param_ast_t
+                                   , public generic_param_t
     {
         typedef __generic_param_ast_node_t __super_t;
 
@@ -2293,9 +2329,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Wallks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        generic_param_t __param;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2305,7 +2338,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(generic_params, __xcvalue_t::generic_params)
 
         // Params.
-        params,
+        __params__,
 
     EndAst(generic_params)
 
@@ -2314,6 +2347,7 @@ namespace X_ROOT_NS::modules::compile {
     // Generic params ast node.
     class generic_params_ast_node_t : public __generic_params_ast_node_t
                                     , public generic_params_ast_t
+                                    , public generic_params_t
     {
         typedef __generic_params_ast_node_t __super_t;
 
@@ -2328,9 +2362,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        generic_params_t __generic_params;
     };
    
     ////////// ////////// ////////// ////////// //////////
@@ -2340,7 +2371,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(generic_constraint, __xcvalue_t::generic_constraint)
 
         // Typenames.
-        type_names,
+        __type_names__,
 
     EndAst(generic_constraint)
 
@@ -2349,6 +2380,7 @@ namespace X_ROOT_NS::modules::compile {
     // Generic constraint ast node.
     class generic_constraint_ast_node_t : public __generic_constraint_ast_node_t
                                         , public generic_constraint_ast_t
+                                        , public generic_constraint_t
     {
         typedef __generic_constraint_ast_node_t __super_t;
 
@@ -2369,9 +2401,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-       generic_constraint_t __generic_constraint;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2381,7 +2410,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(generic_constraints, __xcvalue_t::generic_constraints)
 
         // Constraints.
-        constraints,
+        __constraints__,
 
     EndAst(generic_constraints)
 
@@ -2390,6 +2419,7 @@ namespace X_ROOT_NS::modules::compile {
     // Generic constraints ast node.
     class generic_constraints_ast_node_t : public __generic_constraints_ast_node_t
                                          , public generic_constraints_ast_t
+                                         , public generic_constraints_t
     {
         typedef __generic_constraints_ast_node_t __super_t;
 
@@ -2404,9 +2434,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-       generic_constraints_t __generic_constraints;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2416,7 +2443,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(generic_arg, __xcvalue_t::generic_arg)
 
         // Typename.
-        type_name,
+        __type_name__,
 
     EndAst(generic_arg)
 
@@ -2425,6 +2452,7 @@ namespace X_ROOT_NS::modules::compile {
     // Generic argument ast node.
     class generic_arg_ast_node_t : public __generic_arg_ast_node_t
                                  , public generic_arg_ast_t
+                                 , public generic_arg_t
     {
         typedef __generic_arg_ast_node_t __super_t;
 
@@ -2442,9 +2470,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        generic_arg_t       __arg;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2454,7 +2479,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(generic_args, __xcvalue_t::generic_args)
 
         // Generic arguments.
-        generic_args,
+        __generic_args__,
 
     EndAst(generic_args)
 
@@ -2463,6 +2488,7 @@ namespace X_ROOT_NS::modules::compile {
     // Generic arguments ast node.
     class generic_args_ast_node_t : public __generic_args_ast_node_t
                                   , public generic_args_ast_t
+                                  , public generic_args_t
     {
         typedef __generic_args_ast_node_t __super_t;
 
@@ -2477,9 +2503,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        generic_args_t __args;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2489,10 +2512,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(attribute, __cvalue_t::attribute)
 
         // Typename
-        type_name,
+        __type_name__,
         
         // Arguments.
-        arguments,
+        __arguments__,
 
     EndAst(attribute)
 
@@ -2501,6 +2524,7 @@ namespace X_ROOT_NS::modules::compile {
     // Attribute ast node.
     class attribute_ast_node_t : public __attribute_ast_node_t
                                , public attribute_ast_t
+                               , public attribute_t
     {
         typedef __attribute_ast_node_t __super_t;
 
@@ -2517,8 +2541,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        attribute_t __attr;
-
         // Returns compile time attribute.
         attribute_t * __get_compile_time_attribute();
 
@@ -2533,7 +2555,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(attributes, __cvalue_t::attributes)
 
         // Attributes.
-        attributes,
+        __attributes__,
 
     EndAst(attributes)
 
@@ -2542,6 +2564,7 @@ namespace X_ROOT_NS::modules::compile {
     // Attributes ast node.
     class attributes_ast_node_t : public __attributes_ast_node_t
                                 , public attributes_ast_t
+                                , public attributes_t
     {
         typedef __attributes_ast_node_t __super_t;
 
@@ -2556,9 +2579,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        attributes_t __attributes;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2571,6 +2591,7 @@ namespace X_ROOT_NS::modules::compile {
     // Constant ast node.
     class cvalue_ast_node_t : public __cvalue_ast_node_t
                             , public cvalue_ast_t
+                            , public cvalue_t
     {
         typedef __cvalue_ast_node_t __super_t;
 
@@ -2588,9 +2609,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Sets value.
         void set_value(const token_data_t & data);
-
-    private:
-        cvalue_t __value;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2603,10 +2621,12 @@ namespace X_ROOT_NS::modules::compile {
     // Decorate ast node.
     class decorate_ast_node_t : public __decorate_ast_node_t
                               , public decorate_ast_t
+                              , public decorate_t
     {
         typedef __decorate_ast_node_t __super_t;
 
     public:
+
         using __decorate_ast_node_t::__decorate_ast_node_t;
 
         // Walks this node.
@@ -2653,9 +2673,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Returns this eobject.
         virtual decorate_t * to_eobject() override;
-
-    private:
-        decorate_t __decorate = decorate_t::default_value;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2665,7 +2682,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(statements, __xcvalue_t::statements)
 
         // Statements.
-        statements,
+        __statements__,
 
     EndAst(statements)
 
@@ -2674,6 +2691,7 @@ namespace X_ROOT_NS::modules::compile {
     // Statements ast node.
     class statements_ast_node_t : public __statements_ast_node_t
                                 , public statements_ast_t
+                                , public statements_t
     {
         typedef __statements_ast_node_t __super_t;
 
@@ -2688,9 +2706,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        statements_t __statements;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2700,7 +2715,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(method_body, __xcvalue_t::method_body)
 
         // Statements.
-        statements,
+        __statements__,
 
     EndAst(method_body)
 
@@ -2709,6 +2724,7 @@ namespace X_ROOT_NS::modules::compile {
     // Method body ast node.
     class method_body_ast_node_t : public __method_body_ast_node_t
                                  , public method_body_ast_t
+                                 , public method_body_t
     {
         typedef __method_body_ast_node_t __super_t;
 
@@ -2725,8 +2741,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        method_body_t __body;
-
         // Walks post analysis step.
         bool __walk_post_analysis(ast_walk_context_t & context);
     };
@@ -2738,7 +2752,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(expression, __cvalue_t::expression)
 
         // Nodes.
-        nodes,
+        __nodes__,
 
     EndAst(expression)
 
@@ -2792,7 +2806,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(statement, __cvalue_t::statement)
 
         // Underlying statement.
-        underlying,
+        __underlying__,
 
     EndAst(statement)
 
@@ -2824,10 +2838,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(import, __cvalue_t::import)
 
         // Package.
-        package,
+        __package__,
         
         // Assembly.
-        assembly,
+        __assembly__,
         
     EndAst(import)
 
@@ -2836,6 +2850,7 @@ namespace X_ROOT_NS::modules::compile {
     // Import ast node.
     class import_ast_node_t : public __import_ast_node_t
                             , public import_ast_t
+                            , public import_t
     {
         typedef __import_ast_node_t __super_t;
 
@@ -2853,9 +2868,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        import_t __import;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2865,7 +2877,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(using, __cvalue_t::using_)
 
         // Namespace.
-        ns,
+        __ns__,
         
     EndAst(using)
 
@@ -2874,6 +2886,7 @@ namespace X_ROOT_NS::modules::compile {
     // Using ast node.
     class using_ast_node_t : public __using_ast_node_t
                            , public using_namespace_ast_t
+                           , public using_namespace_t
     {
         typedef __using_ast_node_t __super_t;
 
@@ -2891,9 +2904,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        using_namespace_t __using_namespace;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2903,16 +2913,16 @@ namespace X_ROOT_NS::modules::compile {
     Ast(namespace, __xcvalue_t::namespace_)
 
         // Name.
-        name,
+        __name__,
         
         // Typedefs.
-        type_defs,
+        __type_defs__,
         
         // Types.
-        types,
+        __types__,
         
         // Namespaces.
-        namespaces, 
+        __namespaces__, 
         
     EndAst(namespace)
 
@@ -2921,6 +2931,7 @@ namespace X_ROOT_NS::modules::compile {
     // Namespace ast node.
     class namespace_ast_node_t : public __namespace_ast_node_t
                                , public namespace_ast_t
+                               , public namespace_t
     {
         typedef __namespace_ast_node_t __super_t;
 
@@ -2935,9 +2946,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        namespace_t __namespace;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2947,34 +2955,37 @@ namespace X_ROOT_NS::modules::compile {
     Ast(type, __cvalue_t::type)
 
         // Attributes.
-        attributes,
+        __attributes__,
         
         // Decorate.
-        decorate,
+        __decorate__,
         
         // Generic param.
-        generic_params,
+        __generic_params__,
         
         // Super typenames.
-        super_type_names,
+        __super_type_names__,
 
         // Typedefs.
-        type_defs,
+        __type_defs__,
         
         // Fields.
-        fields,
+        __fields__,
         
         // Methods.
-        methods,
+        __methods__,
         
         // Properties.
-        properties,
+        __properties__,
         
         // Events.
-        events,
+        __events__,
         
         // Nest types.
-        nest_types,
+        __nest_types__,
+
+        // Generic constraints,
+        __generic_constraints__,
         
     EndAst(type)
 
@@ -2983,6 +2994,7 @@ namespace X_ROOT_NS::modules::compile {
     // Type ast node.
     class type_ast_node_t : public __type_ast_node_t
                           , public type_ast_t
+                          , public __w_t<general_type_t>
     {
         typedef __type_ast_node_t __super_t;
 
@@ -3012,7 +3024,6 @@ namespace X_ROOT_NS::modules::compile {
         template<vtype_t _vtype> class __enum_fields_init_stub_t;
         class __general_fields_init_stub_t;
 
-        __w_t<general_type_t> __type;
         __el_t * __name_el = nullptr;
 
         // Walks default step.
@@ -3041,7 +3052,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(expression_st, __xcvalue_t::expression_st)
 
         // Expression.
-        expression,
+        __expression__,
         
     EndAst(expression_st)
 
@@ -3050,6 +3061,7 @@ namespace X_ROOT_NS::modules::compile {
     // Expression statement ast node.
     class expression_st_ast_node_t : public __expression_st_ast_node_t
                                    , public statement_ast_t
+                                   , public __w_t<expression_statement_t>
     {
         typedef __expression_st_ast_node_t __super_t;
 
@@ -3064,9 +3076,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<expression_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3076,7 +3085,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(type_def_st, __xcvalue_t::type_def_st)
 
         // Typedef.
-        type_def,
+        __type_def__,
         
     EndAst(type_def_st)
 
@@ -3085,6 +3094,7 @@ namespace X_ROOT_NS::modules::compile {
     // Typedef statement ast node.
     class type_def_st_ast_node_t : public __type_def_st_ast_node_t
                                  , public statement_ast_t
+                                 , public __w_t<type_def_statement_t>
     {
         typedef __type_def_st_ast_node_t __super_t;
 
@@ -3099,9 +3109,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<type_def_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3111,10 +3118,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(defination_st, __xcvalue_t::defination_st)
 
         // Typename.
-        type_name,
+        __type_name__,
         
         // Items.
-        items,
+        __items__,
 
     EndAst(defination_st)
 
@@ -3123,6 +3130,7 @@ namespace X_ROOT_NS::modules::compile {
     // Defination statement ast node.
     class defination_st_ast_node_t : public __defination_st_ast_node_t
                                    , public statement_ast_t
+                                   , public __w_t<defination_statement_t>
     {
         typedef __defination_st_ast_node_t __super_t;
 
@@ -3142,8 +3150,6 @@ namespace X_ROOT_NS::modules::compile {
         void set_constant(bool constant);
 
     private:
-        __w_t<defination_statement_t> __statement;
-
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context);
 
@@ -3161,6 +3167,7 @@ namespace X_ROOT_NS::modules::compile {
     // Break statements ast node.
     class break_st_ast_node_t : public __break_st_ast_node_t
                               , public statement_ast_t
+                              , public __w_t<break_statement_t>
     {
         typedef __break_st_ast_node_t __super_t;
 
@@ -3172,9 +3179,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<break_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3188,6 +3192,7 @@ namespace X_ROOT_NS::modules::compile {
     // Continue statement ast node.
     class continue_st_ast_node_t : public __continue_st_ast_node_t
                                  , public statement_ast_t
+                                 , public __w_t<continue_statement_t>
     {
         typedef __continue_st_ast_node_t __super_t;
 
@@ -3199,9 +3204,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<continue_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3211,7 +3213,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(throw_st, __xcvalue_t::throw_st)
 
         // Expression.
-        expression,
+        __expression__,
 
     EndAst(throw_st)
 
@@ -3220,6 +3222,7 @@ namespace X_ROOT_NS::modules::compile {
     // Throw statement ast node.
     class throw_st_ast_node_t : public __throw_st_ast_node_t
                               , public statement_ast_t
+                              , public __w_t<throw_statement_t>
     {
         typedef __throw_st_ast_node_t __super_t;
 
@@ -3234,9 +3237,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<throw_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3250,6 +3250,7 @@ namespace X_ROOT_NS::modules::compile {
     // Goto statement ast node.
     class goto_st_ast_node_t : public __goto_st_ast_node_t
                              , public statement_ast_t
+                             , public __w_t<goto_statement_t>
     {
         typedef __goto_st_ast_node_t __super_t;
 
@@ -3267,9 +3268,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<goto_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3279,7 +3277,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(return_st, __xcvalue_t::return_st)
 
         // Expression.
-        expression,
+        __expression__,
 
     EndAst(return_st)
 
@@ -3288,6 +3286,7 @@ namespace X_ROOT_NS::modules::compile {
     // Return statement ast node.
     class return_st_ast_node_t : public __return_st_ast_node_t
                                , public statement_ast_t
+                               , public __w_t<return_statement_t>
     {
         typedef __return_st_ast_node_t __super_t;
 
@@ -3304,8 +3303,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<return_statement_t> __statement;
-
         // Walks post analysis step.
         bool __walk_post_analysis(ast_walk_context_t & context);
     };
@@ -3316,10 +3313,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(do_while_st, __xcvalue_t::do_while_st)
 
         // Condition
-        condition,
+        __condition__,
         
         // Body
-        body,
+        __body__,
 
     EndAst(do_while_st)
 
@@ -3328,6 +3325,7 @@ namespace X_ROOT_NS::modules::compile {
     // Do ... while statement ast node.
     class do_while_st_ast_node_t : public __do_while_st_ast_node_t
                                  , public statement_ast_t
+                                 , public __w_t<do_while_statement_t>
     {
         typedef __do_while_st_ast_node_t __super_t;
 
@@ -3342,9 +3340,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<do_while_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3354,10 +3349,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(loop_until_st, __xcvalue_t::loop_until_st)
 
         // Condition.
-        condition,
+        __condition__,
         
         // Body.
-        body,
+        __body__,
 
     EndAst(loop_until_st)
 
@@ -3366,6 +3361,7 @@ namespace X_ROOT_NS::modules::compile {
     // Loop ... until statement ast node.
     class loop_until_st_ast_node_t : public __loop_until_st_ast_node_t
                                    , public statement_ast_t
+                                   , public __w_t<loop_until_statement_t>
     {
         typedef __loop_until_st_ast_node_t __super_t;
 
@@ -3380,9 +3376,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<loop_until_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3392,10 +3385,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(while_st, __xcvalue_t::while_st)
 
         // Condition.
-        condition,
+        __condition__,
         
         // Body.
-        body,
+        __body__,
 
     EndAst(while_st)
 
@@ -3404,6 +3397,7 @@ namespace X_ROOT_NS::modules::compile {
     // While statement ast node.
     class while_st_ast_node_t : public __while_st_ast_node_t
                               , public statement_ast_t
+                              , public __w_t<while_statement_t>
     {
         typedef __while_st_ast_node_t __super_t;
 
@@ -3418,9 +3412,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<while_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3430,16 +3421,16 @@ namespace X_ROOT_NS::modules::compile {
     Ast(for_st, __xcvalue_t::for_st)
 
         // Initialize
-        initialize,
+        __initialize__,
         
         // Condition.
-        condition,
+        __condition__,
         
         // Increase.
-        increase,
+        __increase__,
         
         // Body.
-        body,
+        __body__,
 
     EndAst(for_st)
 
@@ -3448,6 +3439,7 @@ namespace X_ROOT_NS::modules::compile {
     // For statement ast node.
     class for_st_ast_node_t : public __for_st_ast_node_t
                             , public statement_ast_t
+                            , public __w_t<for_statement_t>
     {
         typedef __for_st_ast_node_t __super_t;
 
@@ -3462,9 +3454,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<for_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3473,13 +3462,13 @@ namespace X_ROOT_NS::modules::compile {
     Ast(for_each_st, __xcvalue_t::for_each_st)
 
         // Typename
-        type_name,
+        __type_name__,
         
         // Iterator expression.
-        iterator,
+        __iterator__,
         
         // Body.
-        body,
+        __body__,
 
     EndAst(for_each_st)
 
@@ -3488,6 +3477,7 @@ namespace X_ROOT_NS::modules::compile {
     // For...each statement ast node.
     class for_each_st_ast_node_t : public __for_each_st_ast_node_t
                                  , public statement_ast_t
+                                 , public __w_t<for_each_statement_t>
     {
         typedef __for_each_st_ast_node_t __super_t;
 
@@ -3505,9 +3495,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<for_each_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3517,13 +3504,13 @@ namespace X_ROOT_NS::modules::compile {
     Ast(if_st, __xcvalue_t::if_st)
 
         // Condition.
-        condition,
+        __condition__,
         
         // If body.
-        if_body,
+        __if_body__,
         
         // Else body.
-        else_body,
+        __else_body__,
 
     EndAst(if_st)
 
@@ -3532,6 +3519,7 @@ namespace X_ROOT_NS::modules::compile {
     // If statement ast node.
     class if_st_ast_node_t : public __if_st_ast_node_t
                            , public statement_ast_t
+                           , public __w_t<if_statement_t>
     {
         typedef __if_st_ast_node_t __super_t;
 
@@ -3546,9 +3534,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<if_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3558,10 +3543,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(switch_st, __xcvalue_t::switch_st)
 
         // Expression.
-        expression,
+        __expression__,
         
         // Cases.
-        cases,
+        __cases__,
 
     EndAst(switch_st)
 
@@ -3570,6 +3555,7 @@ namespace X_ROOT_NS::modules::compile {
     // Switch statement ast node.
     class switch_st_ast_node_t : public __switch_st_ast_node_t
                                , public statement_ast_t
+                               , public __w_t<switch_statement_t>
     {
         typedef __switch_st_ast_node_t __super_t;
 
@@ -3584,9 +3570,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<switch_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3596,10 +3579,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(case, __xcvalue_t::case_)
 
         // Constants.
-        constants,
+        __constants__,
         
         // Statements.
-        statements,
+        __statements__,
 
     EndAst(case)
 
@@ -3608,6 +3591,7 @@ namespace X_ROOT_NS::modules::compile {
     // Case ast node.
     class case_ast_node_t : public __case_ast_node_t
                           , public case_ast_t
+                          , public __w_t<case_t>
     {
         typedef __case_ast_node_t __super_t;
 
@@ -3625,9 +3609,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<case_t> __case;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3637,13 +3618,13 @@ namespace X_ROOT_NS::modules::compile {
     Ast(try_st, __xcvalue_t::try_st)
 
         // Try.
-        try_,
+        __try__,
         
         // Catches.
-        catches,
+        __catches__,
         
         // Finally.
-        finally,
+        __finally__,
         
     EndAst(try_st)
 
@@ -3652,6 +3633,7 @@ namespace X_ROOT_NS::modules::compile {
     // Try statement ast node.
     class try_st_ast_node_t : public __try_st_ast_node_t
                             , public statement_ast_t
+                            , public __w_t<try_statement_t>
     {
         typedef __try_st_ast_node_t __super_t;
 
@@ -3666,9 +3648,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walk this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<try_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3678,10 +3657,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(catch, __xcvalue_t::catch_)
 
         // Typename.
-        type_name,
+        __type_name__,
         
         // Body.
-        body,
+        __body__,
         
     EndAst(catch)
 
@@ -3690,6 +3669,7 @@ namespace X_ROOT_NS::modules::compile {
     // Catch ast node.
     class catch_ast_node_t : public __catch_ast_node_t
                            , public catch_ast_t
+                           , public __w_t<catch_t>
     {
         typedef __catch_ast_node_t __super_t;
 
@@ -3710,7 +3690,6 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
         __el_t * __variable_el;
-        __w_t<catch_t> __catch;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3724,6 +3703,7 @@ namespace X_ROOT_NS::modules::compile {
     // Empty statement ast node.
     class empty_st_ast_node_t : public __empty_st_ast_node_t
                               , public statement_ast_t
+                              , public __w_t<empty_statement_t>
     {
         typedef __empty_st_ast_node_t __super_t;
 
@@ -3735,9 +3715,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<empty_statement_t> __statement;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3747,7 +3724,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(statement_group_st, __xcvalue_t::statement_group_st)
 
         // Statements.
-        statements,
+        __statements__,
 
     EndAst(statement_group_st)
 
@@ -3756,6 +3733,7 @@ namespace X_ROOT_NS::modules::compile {
     // Statement group statement ast node.
     class statement_group_st_ast_node_t : public __statement_group_st_ast_node_t
                                         , public statement_ast_t
+                                        , public __w_t<statement_group_t>
     {
         typedef __statement_group_st_ast_node_t __super_t;
 
@@ -3770,9 +3748,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __w_t<statement_group_t> __statement_group;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3782,7 +3757,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(type_name_exp, __xcvalue_t::type_name_exp)
 
         // Typename.
-        type_name,
+        __type_name__,
 
     EndAst(type_name_exp)
 
@@ -3791,6 +3766,7 @@ namespace X_ROOT_NS::modules::compile {
     // Typename expression ast node.
     class type_name_exp_ast_node_t : public __type_name_exp_ast_node_t
                                    , public expression_ast_t
+                                   , public __wexp_t<type_name_expression_t>
     {
         typedef __type_name_exp_ast_node_t __super_t;
 
@@ -3805,9 +3781,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<type_name_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3817,10 +3790,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(type_cast_exp, __xcvalue_t::type_cast_exp)
 
         // Typename
-        type_name,
+        __type_name__,
         
         // Expression.
-        expression,
+        __expression__,
 
     EndAst(type_cast_exp)
 
@@ -3829,6 +3802,7 @@ namespace X_ROOT_NS::modules::compile {
     // Type cast expression ast node.
     class type_cast_exp_ast_node_t : public __type_cast_exp_ast_node_t
                                    , public expression_ast_t
+                                   , public __wexp_t<type_cast_expression_t>
     {
         typedef __type_cast_exp_ast_node_t __super_t;
 
@@ -3843,9 +3817,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<type_cast_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3855,13 +3826,13 @@ namespace X_ROOT_NS::modules::compile {
     Ast(function, __xcvalue_t::function)
 
         // Namex or an expression.
-        namex,
+        __namex__,
         
         // Generic arguments.
-        generic_args,
+        __generic_args__,
         
         // Arguments.
-        arguments,
+        __arguments__,
 
     EndAst(function)
 
@@ -3870,6 +3841,7 @@ namespace X_ROOT_NS::modules::compile {
     // Functions ast node.
     class function_ast_node_t : public __function_ast_node_t
                               , public expression_ast_t
+                              , public __wexp_t<function_expression_t>
     {
         typedef __function_ast_node_t __super_t;
 
@@ -3886,7 +3858,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __wexp_t<function_expression_t> __expression;
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context);
@@ -3902,10 +3873,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(index, __xcvalue_t::index)
 
         // Name or an expression.
-        namex,
+        __namex__,
         
         // Arguments.
-        arguments,
+        __arguments__,
 
     EndAst(index)
 
@@ -3914,6 +3885,7 @@ namespace X_ROOT_NS::modules::compile {
     // Index ast node.
     class index_ast_node_t : public __index_ast_node_t
                            , public expression_ast_t
+                           , public __wexp_t<index_expression_t>
     {
         typedef __index_ast_node_t __super_t;
 
@@ -3928,9 +3900,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<index_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3940,10 +3909,10 @@ namespace X_ROOT_NS::modules::compile {
     Ast(new, __xcvalue_t::new_)
 
         // Typename
-        type_name,
+        __type_name__,
         
         // Arguments.
-        arguments,
+        __arguments__,
 
     EndAst(new)
 
@@ -3952,6 +3921,7 @@ namespace X_ROOT_NS::modules::compile {
     // New ast node.
     class new_ast_node_t : public __new_ast_node_t
                          , public expression_ast_t
+                         , public __wexp_t<new_expression_t>
     {
         typedef __new_ast_node_t __super_t;
 
@@ -3966,9 +3936,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<new_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3978,13 +3945,13 @@ namespace X_ROOT_NS::modules::compile {
     Ast(new_array, __xcvalue_t::new_array)
 
         // Typename
-        type_name,
+        __type_name__,
         
         // Lengths.
-        lengths,
+        __lengths__,
         
         // Initializer.
-        initializer,
+        __initializer__,
 
     EndAst(new_array)
 
@@ -3993,6 +3960,7 @@ namespace X_ROOT_NS::modules::compile {
     // New array ast node.
     class new_array_ast_node_t : public __new_array_ast_node_t
                                , public expression_ast_t
+                               , public __wexp_t<new_array_expression_t>
     {
         typedef __new_array_ast_node_t __super_t;
 
@@ -4009,7 +3977,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __wexp_t<new_array_expression_t> __expression;
         array_length_t __get_length(dimension_t dimension);
 
         // Walks default step.
@@ -4029,7 +3996,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(array_initializer, __xcvalue_t::array_initializer)
 
         // Elements.
-        elements,
+        __elements__,
 
     EndAst(array_initializer)
 
@@ -4038,6 +4005,7 @@ namespace X_ROOT_NS::modules::compile {
     // Array initializer ast node.
     class array_initializer_ast_node_t : public __array_initializer_ast_node_t
                                        , public array_initializer_ast_t
+                                       , public array_initializer_t
     {
         typedef __array_initializer_ast_node_t __super_t;
 
@@ -4052,9 +4020,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        array_initializer_t __initializer;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4064,7 +4029,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(array_lengths, __xcvalue_t::array_lengths)
 
         // Lengths.
-        lengths,
+        __lengths__,
 
     EndAst(array_lengths)
 
@@ -4073,6 +4038,7 @@ namespace X_ROOT_NS::modules::compile {
     // Array lengths ast node.
     class array_lengths_ast_node_t : public __array_lengths_ast_node_t
                                    , public array_lengths_ast_t
+                                   , public array_lengths_t
     {
         typedef __array_lengths_ast_node_t __super_t;
 
@@ -4087,9 +4053,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        array_lengths_t __lengths;
     };
 
 
@@ -4100,7 +4063,7 @@ namespace X_ROOT_NS::modules::compile {
     Ast(default_value, __xcvalue_t::default_value)
 
         // Typename.
-        type_name,
+        __type_name__,
 
     EndAst(default_value)
 
@@ -4109,6 +4072,7 @@ namespace X_ROOT_NS::modules::compile {
     // Default value ast node.
     class default_value_ast_node_t : public __default_value_ast_node_t
                                    , public expression_ast_t
+                                   , public __wexp_t<default_value_expression_t>
     {
         typedef __default_value_ast_node_t __super_t;
 
@@ -4123,9 +4087,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        __wexp_t<default_value_expression_t> __expression;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4135,16 +4096,16 @@ namespace X_ROOT_NS::modules::compile {
     Ast(field, __cvalue_t::field)
 
         // Attributes.
-        attributes,
+        __attributes__,
         
         // Decorate.
-        decorate,
+        __decorate__,
         
         // Typename
-        type_name,
+        __type_name__,
         
         // Initialize value.
-        init_value,
+        __init_value__,
         
     EndAst(field)
 
@@ -4153,6 +4114,7 @@ namespace X_ROOT_NS::modules::compile {
     // Field ast node.
     class field_ast_node_t : public __field_ast_node_t
                            , public field_ast_t
+                           , public __w_t<field_t>
     {
         typedef __field_ast_node_t __super_t;
 
@@ -4172,7 +4134,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<field_t>  __field;
         __el_t *        __name_el = nullptr;
 
         // Walks default step.
@@ -4189,31 +4150,34 @@ namespace X_ROOT_NS::modules::compile {
     Ast(method, __cvalue_t::method)
 
         // Attributes.
-        attributes,
+        __attributes__,
         
         // Decorate.
-        decorate,
+        __decorate__,
         
         // Owner type name.
-        owner_type_name,
+        __owner_type_name__,
         
         // Typename
-        type_name,
+        __type_name__,
 
         // Conversion typename.
-        conversion_type_name,
+        __conversion_type_name__,
         
         // Generic params.
-        generic_params,
+        __generic_params__,
         
         // Params.
-        params,
+        __params__,
 
         // Base constructor arguments.
-        base_ctor_args,
+        __base_ctor_args__,
         
         // Body.
-        body,
+        __body__,
+
+        // Generic constraints,
+        __generic_constraints__,
 
     EndAst(method)
 
@@ -4222,6 +4186,7 @@ namespace X_ROOT_NS::modules::compile {
     // Method ast node.
     class method_ast_node_t : public __method_ast_node_t
                             , public method_ast_t
+                            , public __w_t<method_t>
     {
         typedef __method_ast_node_t __super_t;
 
@@ -4247,7 +4212,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<method_t> __method;
         const operator_property_t * __op_property = nullptr;
         __el_t * __name_el = nullptr;
 
@@ -4265,25 +4229,25 @@ namespace X_ROOT_NS::modules::compile {
     Ast(property, __cvalue_t::property)
 
         // Attributes.
-        attributes,
+        __attributes__,
         
         // Decorate.
-        decorate,
+        __decorate__,
         
         // Owner type name.
-        owner_type_name,
+        __owner_type_name__,
         
         // Type name.
-        type_name,
+        __type_name__,
         
         // Get method.
-        get_method,
+        __get_method__,
         
         // Set method.
-        set_method,
+        __set_method__,
         
         // Params.
-        params,
+        __params__,
         
     EndAst(property)
 
@@ -4292,6 +4256,7 @@ namespace X_ROOT_NS::modules::compile {
     // Property ast node.
     class property_ast_node_t : public __property_ast_node_t
                               , public property_ast_t
+                              , public __w_t<property_t>
     {
         typedef __property_ast_node_t __super_t;
 
@@ -4311,7 +4276,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<property_t> __property;
         __el_t * __name_el = nullptr;
 
         // Walks default step.
@@ -4337,22 +4301,22 @@ namespace X_ROOT_NS::modules::compile {
     Ast(event, __cvalue_t::event)
 
         // Attributes.
-        attributes,
+        __attributes__,
         
         // Decorate.
-        decorate,
+        __decorate__,
         
         // Owner type name.
-        owner_type_name,
+        __owner_type_name__,
         
         // Typename.
-        type_name,
+        __type_name__,
         
         // Add method.
-        add_method,
+        __add_method__,
         
         // Remove method.
-        remove_method,
+        __remove_method__,
         
     EndAst(event)
 
@@ -4361,6 +4325,7 @@ namespace X_ROOT_NS::modules::compile {
     // Events ast node.
     class event_ast_node_t : public __event_ast_node_t
                            , public event_ast_t
+                           , public __w_t<event_t>
     {
         typedef __event_ast_node_t __super_t;
 
@@ -4380,7 +4345,6 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
-        __w_t<event_t> __event;
         __el_t *       __name_el = nullptr;
 
         // Walks default step.

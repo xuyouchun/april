@@ -1563,7 +1563,8 @@ namespace X_ROOT_NS::modules::core {
         typedef decorate_value_t __super_t;
 
     public:
-        decorate_t() = default;
+        decorate_t() : __super_t(decorate_value_t::default_value) { }
+
         decorate_t(const decorate_value_t & value) : __super_t(value) { }
 
         typedef decorate_t * itype_t;
@@ -2612,6 +2613,9 @@ namespace X_ROOT_NS::modules::core {
         return vtype >= vtype_t::int8_ && vtype <= vtype_t::ptr_;
     }
 
+    // Transform generic type.
+    type_t * transform_type(type_t * type, std::function<type_t * (name_t)> type_provider);
+
     const vtype_t default_enum_underlying_vtype = vtype_t::int32_;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2847,10 +2851,13 @@ namespace X_ROOT_NS::modules::core {
     X_ENUM(generic_constraint_ttype_t)
 
         // Class, ref type
-        class_,
+        class_      = 1 << 1,
 
         // Struct, value type
-        struct_,
+        struct_     = 1 << 2,
+
+        // Has no arguments constructors.
+        new_        = 1 << 3,
 
     X_ENUM_END
 
@@ -3476,6 +3483,8 @@ namespace X_ROOT_NS::modules::core {
         params_t *          params          = nullptr;      // Params.
         method_body_t *     body            = nullptr;      // Method body.
         method_variable_t * variable        = nullptr;      // Relation variable.
+
+        generic_constraints_t * constraints =  nullptr; // Generic constraints.
 
         // Method trait.
         method_trait_t      trait           = method_trait_t::__default__;
@@ -4413,6 +4422,7 @@ namespace X_ROOT_NS::modules::core {
         namespace_t * namespace_ = nullptr;         // Its namespace.
 
         generic_params_t * params = nullptr;        // Generic params.
+        generic_constraints_t * constraints =  nullptr; // Generic constraints.
 
         type_impl_t * impl = type_impl_t::default_();   // Type implemenation for core types.
 
