@@ -14,6 +14,7 @@ class TestBasic(common.Base):
         'array.cs',
         'statements.cs',
         'cast.cs',
+        'enum.cs',
     ])
     def code_file(self, request):
         return request.param
