@@ -1470,8 +1470,25 @@ namespace X_ROOT_NS::modules::compile {
                 generic_param_t * gp = (generic_param_t *)type;
                 generic_constraint_t * constraint = __search_constraint(gp->name);
 
-                return constraint != nullptr
-                    && bit_has_flag(constraint->cttype, __f_t::class_);
+                if (constraint == nullptr)
+                    return false;
+
+                if (bit_has_flag(constraint->cttype, __f_t::class_))
+                    return true;
+
+                for (type_name_t * type_name : constraint->type_names)
+                {
+                    type_t * type0 = type_name->type;
+                    _A(type0 != nullptr);
+
+                    if (type0 == __XPool.get_enum_type() || type0 == __XPool.get_object_type())
+                        continue;
+
+                    if (is_class(type0))
+                        return true;
+                }
+
+                return false;
             }
 
             return is_ref_type(type);
@@ -3134,7 +3151,7 @@ namespace X_ROOT_NS::modules::compile {
                         __LogAndRet(constraint_duplicate_types, type_name, type0,
                                                                 constraint->param_name);
 
-                    if (is_class(type0) &&
+                    if (is_class(type0) && type0 != __XPool.get_enum_type() &&
                         bit_has_flag(constraint->cttype, __f_t::class_, __f_t::struct_))
                         __LogAndRet(constraint_unexpected_class_or_struct, type_name, type0);
 
