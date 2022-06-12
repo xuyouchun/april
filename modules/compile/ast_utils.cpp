@@ -1482,8 +1482,7 @@ namespace X_ROOT_NS::modules::compile {
                     break;
 
                 default:
-                    _PP(member->this_type());
-                    throw _EC(unexpected);
+                    X_UNEXPECTED_F("unexpect member type '%1%'", member->this_type());
             }
 
             if (!check_access(__wctx.current_type(), member))

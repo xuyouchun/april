@@ -4637,7 +4637,8 @@ namespace X_ROOT_NS::modules::core {
     }
 
     // Converts genreal type to string without generic arguments.
-    static void __to_identity_no_gerneric_args(stringstream_t & ss, const general_type_t * type)
+    static void __to_identity_no_gerneric_args(stringstream_t & ss, const general_type_t * type,
+        type_t * host_type = nullptr)
     {
         if (type->assembly != nullptr)
             ss << _str(type->assembly) << _T(".");
@@ -4645,10 +4646,13 @@ namespace X_ROOT_NS::modules::core {
         if (type->namespace_ != nullptr)
             ss << _str(type->namespace_) << _T(".");
 
-        if (type->host_type != nullptr)
+        if (host_type == nullptr)
+            host_type = type->host_type;
+
+        if (host_type != nullptr)
         {
             std::stack<const type_t *> host_types;
-            for (const type_t * htype = type->host_type; htype != nullptr; htype = htype->host_type)
+            for (const type_t * htype = host_type; htype != nullptr; htype = htype->host_type)
             {
                 host_types.push(htype);
             }
@@ -4896,7 +4900,7 @@ namespace X_ROOT_NS::modules::core {
     {
         stringstream_t ss;
 
-        __to_identity_no_gerneric_args(ss, template_);
+        __to_identity_no_gerneric_args(ss, template_, host_type);
 
         ss << _T("<");
 

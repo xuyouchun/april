@@ -231,6 +231,7 @@ $method:
     ret:$type_name? ~ ? (owner:$type_name .)?
     ( name | operator ($_operator | overload:$type_name) )
     $generic_params? \( $params? \) ( \: base \( $arguments? \) )?
+    $generic_constraints
     ($method_body | \;)
 ;
 

@@ -125,26 +125,35 @@ namespace X_ROOT_NS::algorithm {
 
     // Gets the value from the map by the key, Auto creates when not found.
     template<typename _map_t, typename _key_t, typename _creator_t>
-    auto & map_get(_map_t && map, _key_t && key, _creator_t creator)
+    auto & map_get(_map_t && map, _key_t && key, _creator_t creator,
+                                                 bool * out_created_new = nullptr)
     {
         auto it = map.find(key);
         if (it != map.end())
+        {
+            assign_value(out_created_new, false);
             return it->second;
+        }
 
         map[key] = creator();
+        assign_value(out_created_new, true);
         return map[key];
     }
 
     // Gets the value from the map by the key, Auto creates when not found.
     template<typename _map_t, typename _key_t>
-    auto & map_get(_map_t && map, _key_t && key)
+    auto & map_get(_map_t && map, _key_t && key, bool * out_created_new = nullptr)
     {
         auto it = map.find(key);
         if (it != map.end())
+        {
+            assign_value(out_created_new, false);
             return it->second;
+        }
 
         typedef std::remove_reference_t<decltype(it->second)> value_t;
         map[key] = value_t();
+        assign_value(out_created_new, true);
         return map[key];
     }
 

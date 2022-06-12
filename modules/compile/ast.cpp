@@ -634,10 +634,6 @@ namespace X_ROOT_NS::modules::compile {
         X_D(constraint_duplicate_types,
             _T("Duplicate constraint '%1%' for type parameter '%2%'"))
 
-        // At most one class type can be specified for type parameter 'T'.
-        X_D(constraint_at_most_one_class_type,
-            _T("At most one class type can be specified for type parameter '%1%'"))
-
         // Constraint cannot be special class 'object'
         X_D(constraint_cannot_be_special_type,
             _T("Constraint cannot be special class '%1%'"))
@@ -648,6 +644,19 @@ namespace X_ROOT_NS::modules::compile {
             _T("A constraint clause has already been specified for type parameter '%1%'.")
             _T(" All of the constraints for a type parameter must be specified in a single")
             _T(" where clause"))
+
+        // The class type constraint 'Class3' must come before any other constraints
+        X_D(constraint_type_position_error,
+            _T("The class type constraint '%1%' must come before any other constraints"))
+
+        // Circular constraint dependency involving 'T' and 'K'
+        X_D(constraint_circular_dependency,
+            _T("Circular constraint dependency involving '%1%'"))
+
+        // 'Class3': cannot specify both a constraint class and the 'class' or 'struct' constraint
+        X_D(constraint_unexpected_class_or_struct,
+            _T("'%1%': cannot specify both a constraint class")
+            _T(" and the 'class' or 'struct' constraint"))
 
         // Class1<T>' does not define type parameter 'K'
         X_D(generic_parameter_not_defined,
@@ -1275,7 +1284,7 @@ namespace X_ROOT_NS::modules::compile {
         void fill_by_generic(_entity_t * entity)
         {
             _A(entity != nullptr);
-            __fill(entity->template_, entity->args);
+            __fill(entity->template_, entity->args, entity->host_type);
         }
 
         // Fill generic type map.
@@ -1310,37 +1319,49 @@ namespace X_ROOT_NS::modules::compile {
         std::map<name_t, type_t *> __type_map;
 
         // Fill generic type map.
-        void __fill(general_type_t * type, type_collection_t & types)
+        void __fill(general_type_t * type, type_collection_t & types, type_t * host_type)
         {
             _A(type != nullptr);
             _A(types.size() >= type->params_count());
 
-            int index = 0;
-            for (generic_param_t * gp : *type->params)
-            {
-                __type_map[gp->name] = types[index++];
-            }
-
-            type_t * host_type = type->host_type;
-            if (host_type != nullptr && is_generic(host_type))
-                fill_by_generic((generic_type_t *)host_type);
+            __fill(type->params, types, host_type);
         }
 
         // Fill generic type map.
-        void __fill(method_t * method, type_collection_t & types)
+        void __fill(method_t * method, type_collection_t & types, type_t * host_type)
         {
             _A(method != nullptr);
+            _A(types.size() >= method->generic_param_count());
+
+            __fill(method->generic_params, types, host_type);
+        }
+
+        void __fill(generic_params_t * params, type_collection_t & types, type_t * host_type)
+        {
+            _A(params != nullptr);
+
+            int index = 0;
+            for (generic_param_t * gp : *params)
+            {
+                type_t * type = types[index++];
+                __type_map[gp->name] = type;
+            }
+
+            if (host_type != nullptr && is_generic(host_type))
+                fill_by_generic((generic_type_t *)host_type);
         }
     };
 
     template<typename _entity_t, typename _code_element_t>
     class __check_generic_constraints_t
     {
+        typedef generic_constraint_ttype_t __f_t;
+
     public:
 
-        __check_generic_constraints_t(ast_context_t & cctx, _entity_t * entity,
-                                                _code_element_t * code_element)
-            : __cctx(cctx), __entity(entity), __code_element(code_element)
+        __check_generic_constraints_t(ast_context_t & cctx, ast_walk_context_t & wctx,
+                        _entity_t * entity, _code_element_t * code_element)
+            : __cctx(cctx), __wctx(wctx), __entity(entity), __code_element(code_element)
         {
             _A(entity != nullptr);
         }
@@ -1366,9 +1387,10 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
 
-        ast_context_t &     __cctx;
-        _entity_t *         __entity;
-        _code_element_t *   __code_element;
+        ast_walk_context_t &    __wctx;
+        ast_context_t &         __cctx;
+        _entity_t *             __entity;
+        _code_element_t *       __code_element;
 
         __generic_param_types_t __param_types;
 
@@ -1386,31 +1408,28 @@ namespace X_ROOT_NS::modules::compile {
             {
                 for (type_name_t * type_name : constraint->type_names)
                 {
-                    type_t * type0 = __param_types.get_type(to_type(type_name));
-
+                    type_t * type0 = __param_types.get_type(type_name->type);
                     if (type0 == nullptr)
-                        return false;
+                        continue;
 
                     if (is_struct(type0))
                         __LogAndRet(constraint_invalid_type, type0);
 
-                    if (!is_type_compatible(type, type0))
+                    if (!__is_type_compatible(type, type0))
                         __LogAndRet(constraint_no_implicit_conversion, type, name, __entity, type0);
                 }
             }
 
             // Check cttype 
             {
-                if (bit_has_flag(constraint->cttype, generic_constraint_ttype_t::class_) &&
-                    !is_ref_type(type))
+                if (bit_has_flag(constraint->cttype, __f_t::class_) && !__is_ref_type(type))
                     __LogAndRet(constraint_expect_value_type, type, name, __entity);
 
-                if (bit_has_flag(constraint->cttype, generic_constraint_ttype_t::struct_) &&
-                    !is_value_type(type))
+                if (bit_has_flag(constraint->cttype, __f_t::struct_) && !__is_value_type(type))
                     __LogAndRet(constraint_expect_reference_type, type, name, __entity);
 
-                if (bit_has_flag(constraint->cttype, generic_constraint_ttype_t::new_) &&
-                    !has_public_default_constructor(type))
+                if (bit_has_flag(constraint->cttype, __f_t::new_) &&
+                    !__has_public_default_constructor(type))
                     __LogAndRet(constraint_expect_public_parameterless_constructor, type, name,
                                                                                 __entity);
             }
@@ -1418,6 +1437,109 @@ namespace X_ROOT_NS::modules::compile {
             return true;
         }
 
+        bool __is_type_compatible(type_t * from_type, type_t * to_type)
+        {
+            if (is_generic_param(from_type))
+            {
+                generic_param_t * gp = (generic_param_t *)from_type;
+                generic_constraint_t * constraint = __search_constraint(gp->name);
+
+                if (constraint == nullptr)
+                    return false;
+
+                for (type_name_t * type_name : constraint->type_names)
+                {
+                    type_t * type0 = type_name->type;
+                    _A(type0 != nullptr);
+
+                    if (is_type_compatible(type0, to_type))
+                        return true;
+                }
+
+                return false;
+            }
+
+            return is_type_compatible(from_type, to_type);
+        }
+
+        // Returns whether it's a reference type.
+        bool __is_ref_type(type_t * type)
+        {
+            if (is_generic_param(type))
+            {
+                generic_param_t * gp = (generic_param_t *)type;
+                generic_constraint_t * constraint = __search_constraint(gp->name);
+
+                return constraint != nullptr
+                    && bit_has_flag(constraint->cttype, __f_t::class_);
+            }
+
+            return is_ref_type(type);
+        }
+
+        // Returns whether it's a value type.
+        bool __is_value_type(type_t * type)
+        {
+            return !__is_ref_type(type);
+        }
+
+        // Returns whether a type has public default constructor.
+        bool __has_public_default_constructor(type_t * type)
+        {
+            if (is_generic_param(type))
+            {
+                generic_param_t * gp = (generic_param_t *)type;
+                generic_constraint_t * constraint = __search_constraint(gp->name);
+
+                return constraint != nullptr && bit_has_flag(constraint->cttype, __f_t::new_);
+            }
+
+            return (is_class(type) || is_struct(type)) && has_public_default_constructor(type);
+        }
+
+        // Search constraint by name.
+        generic_constraint_t * __search_constraint(name_t name)
+        {
+            // Search method
+            {
+                method_t * method = to_general(__wctx.current_method());
+                generic_constraint_t * constraint = __search_constraint(method->constraints, name);
+
+                if (constraint != nullptr)
+                    return constraint;
+            }
+
+            // Search type
+            {
+                general_type_t * type = _M(general_type_t *, to_general(__wctx.current_type()));
+                for (; type != nullptr; type = _M(general_type_t *, to_general(type->host_type)))
+                {
+                    generic_constraint_t * constraint = __search_constraint(type->constraints, name);
+
+                    if (constraint != nullptr)
+                        return constraint;
+                }
+            }
+
+            return nullptr;
+        }
+
+        // Search constraint by name.
+        generic_constraint_t * __search_constraint(generic_constraints_t * constraints, name_t name)
+        {
+            if (constraints == nullptr)
+                return nullptr;
+
+            for (generic_constraint_t * constraint : *constraints)
+            {
+                if (constraint->param_name == name)
+                    return constraint;
+            }
+
+            return nullptr;
+        }
+
+        // Output and record logs.
         template<typename ... _args_t>
         void __log(common_log_code_t code, _args_t ... args)
         {
@@ -1428,10 +1550,10 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     template<typename _entity_t, typename _code_element_t>
-    bool __check_generic_constraints(ast_context_t & cctx, _entity_t * entity,
-                                     _code_element_t * code_element)
+    bool __check_generic_constraints(ast_context_t & cctx, ast_walk_context_t & wctx,
+                        _entity_t * entity, _code_element_t * code_element)
     {
-        __check_generic_constraints_t c(cctx, entity, code_element);
+        __check_generic_constraints_t c(cctx, wctx, entity, code_element);
         return c.check();
     }
 
@@ -1450,7 +1572,7 @@ namespace X_ROOT_NS::modules::compile {
         if (is_generic(type))
         {
             generic_type_t * generic_type = (generic_type_t *)type;
-            __check_generic_constraints(this->__context, generic_type, this);
+            __check_generic_constraints(this->__context, context, generic_type, this);
         }
 
         return true;
@@ -2931,6 +3053,8 @@ namespace X_ROOT_NS::modules::compile {
     template<typename _entity_t, typename _code_element_t>
     class __check_generic_template_constraints_t
     {
+        typedef generic_constraint_ttype_t __f_t;
+
     public:
 
         __check_generic_template_constraints_t(ast_context_t & cctx, _entity_t * entity,
@@ -2951,7 +3075,7 @@ namespace X_ROOT_NS::modules::compile {
             if (constraints == nullptr)
                 return true;
 
-            __param_types.fill_by_general(__entity);
+            // __param_types.fill_by_general(__entity);
 
             bool ret = true;
             std::set<name_t> names;
@@ -2968,6 +3092,9 @@ namespace X_ROOT_NS::modules::compile {
                     ret = false;
             }
 
+            // Circle dependency checking.
+            __check_circle_dependency();
+
             return ret;
         }
 
@@ -2977,11 +3104,159 @@ namespace X_ROOT_NS::modules::compile {
         _entity_t *             __entity;
         _code_element_t *       __code_element;
 
-        __generic_param_types_t __param_types;
+        // __generic_param_types_t     __param_types;
+        typedef std::list<name_t>   __names_t;
+
+        struct __dependency_t
+        {
+            generic_constraint_t *  constraint;
+            __names_t               names;
+        };
+
+        std::vector<name_t> __param_dependency_names;
+        std::map<name_t, __dependency_t> __param_dependencies;
 
         bool __check(generic_constraint_t * constraint)
         {
-            _P(_T("hahaha"));
+            std::set<type_t *> types;
+
+            // Check types.
+            {
+                int index = 0;
+
+                for (type_name_t * type_name : constraint->type_names)
+                {
+                    type_t * type0 = to_type(type_name);
+                    _A(type0 != nullptr);
+
+                    // Duplicate?
+                    if (!al::set_insert(types, type0))
+                        __LogAndRet(constraint_duplicate_types, type_name, type0,
+                                                                constraint->param_name);
+
+                    if (is_class(type0) &&
+                        bit_has_flag(constraint->cttype, __f_t::class_, __f_t::struct_))
+                        __LogAndRet(constraint_unexpected_class_or_struct, type_name, type0);
+
+                    // Cannot be specified types.
+                    if (type0 == __XPool.get_object_type())
+                        __LogAndRet(constraint_cannot_be_special_type, type_name, type0);
+                    
+                    // Should not be sealed types.
+                    if (type0->is_sealed())
+                        __LogAndRet(constraint_invalid_type, type_name, type0);
+
+                    // Class types position.
+                    if (is_class(type0))
+                    {
+                        if (index >= 1)
+                            __LogAndRet(constraint_type_position_error, type_name, type0);
+                    }
+
+                    // Circle dependency checking.
+                    if (is_generic_param(type0))
+                    {
+                        __append_dependency(constraint->param_name,
+                            ((generic_param_t *)type0)->name, constraint
+                        );
+                    }
+
+                    index++;
+                }
+            }
+
+            // Duplicate?
+            {
+                int c = 0;
+                #define __HasFlag(_flag) bit_has_flag(constraint->cttype, __f_t::_flag)
+
+                #define __ValidateFlag(_flag) do { if (__HasFlag(_flag)) c++; } while (false)
+
+                __ValidateFlag(class_);
+                __ValidateFlag(struct_);
+
+                if (c > 1)
+                    __LogAndRet(constraint_combined_or_duplicated, constraint);
+
+                if (__HasFlag(struct_) && __HasFlag(new_))
+                    __LogAndRet(constraint_new_cannot_be_used_with_struct, constraint);
+
+                #undef __ValidateFlag
+                #undef __HasFlag
+            }
+
+            return true;
+        }
+
+        void __append_dependency(name_t name, name_t dependency_name,
+                                                    generic_constraint_t * constraint)
+        {
+            bool created_new;
+            __dependency_t & dependency = al::map_get(__param_dependencies, name, &created_new);
+
+            if (created_new)
+                __param_dependency_names.push_back(name);
+
+            dependency.constraint = constraint;
+            dependency.names.push_back(dependency_name);
+        }
+
+        struct __check_circle_dependency_context_t
+        {
+            std::set<name_t>    walked_names;
+            std::list<name_t>   path;
+        };
+
+        void __check_circle_dependency()
+        {
+            for (name_t name : __param_dependency_names)
+            {
+                __dependency_t & dependency = __param_dependencies[name];
+
+                __check_circle_dependency_context_t context;
+                context.walked_names.insert(name);
+                context.path.push_back(name);
+
+                if (!__check_circle_dependency(context, dependency.names))
+                {
+                    auto & path = context.path;
+                    string_t s_path = al::join_str(std::begin(path), std::end(path), _T("->"),
+                        [](auto && it) { return (string_t)it; }
+                    );
+                    __log(__c_t::constraint_circular_dependency, dependency.constraint, s_path);
+                    return;
+                }
+            }
+        }
+
+        bool __check_circle_dependency(__check_circle_dependency_context_t & ctx,
+                                        __names_t & dependency_names)
+        {
+            for (name_t dependency_name : dependency_names)
+            {
+                if (!__check_circle_dependency(ctx, dependency_name))
+                    return false;
+            }
+
+            return true;
+        }
+
+        bool __check_circle_dependency(__check_circle_dependency_context_t & ctx,
+                                        name_t dependency_name)
+        {
+            ctx.path.push_back(dependency_name);
+
+            if (!al::set_insert(ctx.walked_names, dependency_name))
+                return false;
+
+            auto it = __param_dependencies.find(dependency_name);
+            if (it != std::end(__param_dependencies))
+            {
+                __dependency_t & dependency = it->second;
+                if (!__check_circle_dependency(ctx, dependency.names))
+                    return false;
+            }
+
             return true;
         }
 
@@ -3016,6 +3291,7 @@ namespace X_ROOT_NS::modules::compile {
                 );
             }
 
+            // Check constraints.
             if (this->constraints != nullptr && this->constraints->size() > 0)
                 __check_generic_template_constraints(this->__context, this, this);
         }
@@ -3244,6 +3520,19 @@ namespace X_ROOT_NS::modules::compile {
                                                             __el_t * el)
     {
         this->__assign_bit(this->cttype, cttype, el, _T("constraint type"), true);
+
+        switch (cttype)
+        {
+            case generic_constraint_ttype_t::class_:
+            case generic_constraint_ttype_t::struct_:
+                if (this->has_child(__type_names__))
+                    this->__log(el, __c_t::constraint_must_be_first);
+                break;
+
+            case generic_constraint_ttype_t::new_:
+            default:
+                break;
+        }
     }
 
     // Sets name.
@@ -4331,6 +4620,18 @@ namespace X_ROOT_NS::modules::compile {
             return true;
 
         this->__check_access(context, method, this->child_at(__namex__));
+
+        if (method->this_family() == member_family_t::generic)
+        {
+            generic_method_t * generic_method = (generic_method_t *)method;
+            method_t * template_ = generic_method->template_;
+            _A(template_ != nullptr);
+
+            if (template_->constraints != nullptr && template_->constraints->size() > 0)
+                __check_generic_constraints(this->__context, context, generic_method,
+                                                                    (ast_node_t *)this);
+        }
+
         return true;
     }
 
@@ -4905,6 +5206,10 @@ namespace X_ROOT_NS::modules::compile {
         // Check duplicated.
         if (this->relation_member == nullptr)
             this->__check_member(context.current_type(), (method_t *)this, __name_el);
+
+        // Check constraints.
+        if (this->constraints != nullptr && this->constraints->size() > 0)
+            __check_generic_template_constraints(this->__context, this, this);
 
         // Operator overload, checks prototype.
         if (__op_property == nullptr)

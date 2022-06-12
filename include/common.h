@@ -1533,10 +1533,10 @@ namespace X_ROOT_NS {
     }
 
     // Determines if the specivied value has the specified flag.
-    template<typename _t>
-    X_INLINE constexpr bool bit_has_flag(_t v, _t flag)
+    template<typename _t, typename ... _args_t>
+    X_INLINE constexpr bool bit_has_flag(_t v, _args_t ... flags)
     {
-        return bit_and(v, flag) != (_t)0;
+        return bit_and(v, bit_xor(flags ...)) != (_t)0;
     }
 
     // Determines if the specivied value matchs the specified flag.

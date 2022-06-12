@@ -818,15 +818,21 @@ namespace X_ROOT_NS::modules::compile {
         // Duplicate constraint 'Class2' for type parameter 'T'
         constraint_duplicate_types,
 
-        // At most one class type can be specified for type parameter 'T'.
-        constraint_at_most_one_class_type,
-
         // Constraint cannot be special class 'object'
         constraint_cannot_be_special_type,
 
         // A constraint clause has already been specified for type parameter 'T'.
         // All of the constraints for a type parameter must be specified in a single where clause.
         constraint_duplicate_specified,
+
+        // The class type constraint 'Class3' must come before any other constraints
+        constraint_type_position_error,
+
+        // Circular constraint dependency involving 'T' and 'K'
+        constraint_circular_dependency,
+
+        // 'Class3': cannot specify both a constraint class and the 'class' or 'struct' constraint
+        constraint_unexpected_class_or_struct,
 
         // Class1<T>' does not define type parameter 'K'
         generic_parameter_not_defined,
