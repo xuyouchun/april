@@ -220,6 +220,10 @@ namespace X_ROOT_NS::modules::compile {
         void __compile_new_struct_object(expression_compile_context_t & ctx, xil_pool_t & pool,
                                                     type_t * type);
 
+        // Creates instance of a generic param type.
+        void __compile_generic_param(expression_compile_context_t & ctx, xil_pool_t & pool,
+                                                    generic_param_t * generic_param);
+
     __EndSystemExpressionT
 
     ////////// ////////// ////////// ////////// //////////

@@ -354,11 +354,15 @@ namespace X_ROOT_NS::modules::core {
 
         default_        = __default__,  // Creates a new object.
 
-        array           = 1,            // Creates a new array.
+        extend          = 1,            // Creates a new object with constructor.
 
-        stack_alloc     = 2,            // Allocate object from stack.
+        array           = 2,            // Creates a new array.
 
-        stack_allocs    = 3,            // Allocate objects from stack.
+        generic         = 3,            // Creates a new object of generic types.
+
+        stack_alloc     = 4,            // Allocate object from stack.
+
+        stack_allocs    = 5,            // Allocate objects from stack.
 
     __EnumEnd
 
@@ -367,6 +371,8 @@ namespace X_ROOT_NS::modules::core {
     __Enum(xil_copy_type_t)
 
         object_copy     = 1,            // Copy object.
+
+        generic_copy    = 2,            // Copy generic object.
 
     __EnumEnd
 
@@ -1616,6 +1622,12 @@ namespace X_ROOT_NS::modules::core {
         // Sets type_ref.
         void set_type_ref(ref_t ref) _NE { *(ref_t *)&__type_ref = ref; }
 
+        // Returns constructor method ref.
+        ref_t constructor_ref() const _NE { return *(ref_t *)__extra; }
+
+        // Sets constructor method ref.
+        void set_constructor_ref(ref_t ref) _NE { *(ref_t *)__extra = ref; }
+
         // Sets count.
         void set_count(uint32_t count) _NE { *(uint32_t *)__extra = count; }
 
@@ -1633,8 +1645,20 @@ namespace X_ROOT_NS::modules::core {
         int size = sizeof(new_xil_t);
 
         xil_new_type_t type = xil.new_type();
-        if (type == xil_new_type_t::stack_allocs)
-            size += sizeof(uint32_t);   // the size of __extra.
+
+        switch (type)
+        {
+            case xil_new_type_t::stack_allocs:
+                size += sizeof(uint32_t);   // the size of __extra.
+                break;
+
+            case xil_new_type_t::extend:
+                size += sizeof(ref_t);
+                break;
+
+            default:
+                break;
+        }
 
         return size;
     }
@@ -1700,6 +1724,7 @@ namespace X_ROOT_NS::modules::core {
         switch (xil.copy_type())
         {
             case xil_copy_type_t::object_copy:
+            case xil_copy_type_t::generic_copy:
                 size += sizeof(ref_t);
                 break;
 

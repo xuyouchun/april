@@ -4705,7 +4705,7 @@ namespace X_ROOT_NS::modules::compile {
 
             case walk_step_t::analysis: {
                 type_t * type = to_type(this->type_name);
-                if (type != nullptr)
+                if (type != nullptr && !is_generic_param(type))
                 {
                     this->constructor = find_constructor(
                         this->__context, type, this->arguments()

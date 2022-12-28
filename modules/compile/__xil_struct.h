@@ -138,7 +138,23 @@ namespace X_ROOT_NS::modules::compile {
     {
         typedef x_new_xil_base_t __super_t;
 
-        x_new_xil_t(ref_t type_ref) : __super_t(xil_new_type_t::default_, type_ref) { }
+        x_new_xil_t(ref_t type_ref)
+            : __super_t(xil_new_type_t::default_, type_ref)
+        { }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // New with constructor.
+    struct x_new_ex_xil_t : x_new_xil_base_t
+    {
+        typedef x_new_xil_base_t __super_t;
+
+        x_new_ex_xil_t(ref_t type_ref, ref_t constructor_ref)
+            : __super_t(xil_new_type_t::default_, type_ref)
+        {
+            this->set_constructor_ref(constructor_ref);
+        }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -774,6 +790,21 @@ namespace X_ROOT_NS::modules::compile {
 
         x_object_copy_xil_t(ref_t type_ref, __copy_kind_t copy_kind = __copy_kind_t::default_) _NE
             : __super_t(xil_copy_type_t::object_copy)
+        {
+            this->set_type_ref(type_ref);
+            this->set_copy_kind(copy_kind);
+        }
+    };
+
+    // Generic object copy xil.
+    struct x_generic_copy_xil_t : xil_extra_t<copy_xil_t>
+    {
+        typedef xil_extra_t<copy_xil_t> __super_t;
+        typedef xil_copy_kind_t         __copy_kind_t;
+
+        x_generic_copy_xil_t(ref_t type_ref, __copy_kind_t copy_kind =
+                                             __copy_kind_t::default_) _NE
+            : __super_t(xil_copy_type_t::generic_copy)
         {
             this->set_type_ref(type_ref);
             this->set_copy_kind(copy_kind);

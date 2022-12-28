@@ -1712,6 +1712,10 @@ namespace X_ROOT_NS::modules::compile {
                 pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
             */
         }
+        else if (type->this_gtype() == gtype_t::generic_param)
+        {
+            pool.append<x_push_argument_addr_xil_t>(index);
+        }
         else
         {
             pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
@@ -3043,7 +3047,7 @@ namespace X_ROOT_NS::modules::compile {
     }
     
     // Returns constructor call type.
-    xil_call_type_t __get_constructor_calltype(type_t * host_type, method_t * constructor)
+    void __check_constructor_calltype(type_t * host_type, method_t * constructor)
     {
         type_t * type = to_type(constructor->type_name);
         if (type != nullptr && !is_void_type(type))
@@ -3063,10 +3067,6 @@ namespace X_ROOT_NS::modules::compile {
 
         if (host_type != nullptr && !is_type_compatible(host_type, constructor->host_type))
             __Failed("member '%1%' has unexpected host type '%2%'", constructor, host_type);
-
-        #undef __EConstructor
-
-        return call_type;
     }
 
     // Compiles new expression.
@@ -3076,6 +3076,12 @@ namespace X_ROOT_NS::modules::compile {
         type_t * type = to_type(this->type_name);
         if (type == nullptr)
             __Failed("type missing");
+
+        if (is_generic_param(type))
+        {
+            __compile_generic_param(ctx, pool, (generic_param_t *)type);
+            return;
+        }
 
         ttype_t ttype = type->this_ttype();
         switch (ttype)
@@ -3110,19 +3116,7 @@ namespace X_ROOT_NS::modules::compile {
     void __sys_t<new_expression_t>::__compile_new_class_object(__cctx_t & ctx,
                                         xil_pool_t & pool, type_t * type)
     {
-        ref_t type_ref = __ref_of(ctx, type);
-        _A(type_ref != ref_t::null);
-
-        pool.append<x_new_xil_t>(type_ref);
-
-        bool need_call_constructor = __need_call_constructor(this);
-
-        bool is_parent_effective = is_effective(ctx, this->parent);
-        if (need_call_constructor && is_parent_effective)
-        {
-            pool.append<x_push_duplicate_xil_t>();
-        }
-
+        // Arguments
         if (this->arguments() != nullptr)
         {
             if (this->constructor == nullptr)
@@ -3131,13 +3125,19 @@ namespace X_ROOT_NS::modules::compile {
             __compile_arguments(ctx, pool, this->arguments(), this->constructor);
         }
 
-        if (need_call_constructor)
-        {
-            xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
-            ref_t method_ref = __search_method_ref(ctx, this->constructor);
-            pool.append<x_method_call_xil_t>(call_type, method_ref);
-        }
-        else if (!is_parent_effective)
+        // Type ref
+        ref_t type_ref = __ref_of(ctx, type);
+        _A(type_ref != ref_t::null);
+
+        // Constructor.
+        __check_constructor_calltype(type, this->constructor);
+        ref_t constructor_ref = __search_method_ref(ctx, this->constructor);
+
+        // New xil.
+        pool.append<x_new_ex_xil_t>(type_ref, constructor_ref);
+
+        // Pop empty.
+        if (!is_effective(ctx, this->parent))
         {
             pool.append<x_pop_empty_xil_t>(xil_type_t::object);
         }
@@ -3177,9 +3177,9 @@ namespace X_ROOT_NS::modules::compile {
         // custom constructor.
         if (need_call_constructor)
         {
-            xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
+            __check_constructor_calltype(type, this->constructor);
             ref_t method_ref = __search_method_ref(ctx, this->constructor);
-            pool.append<x_method_call_xil_t>(call_type, method_ref);
+            pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
         }
 
         /*
@@ -3187,6 +3187,46 @@ namespace X_ROOT_NS::modules::compile {
         {
             ref_t type_ref = __ref_of(ctx, type);
             pool.append<x_object_copy_xil_t>(type_ref, xil_copy_kind_t::zero);
+        }
+        */
+    }
+
+    // Creates instance of a generic param type.
+    void __sys_t<new_expression_t>::__compile_generic_param(__cctx_t & ctx, xil_pool_t & pool,
+                                                generic_param_t * generic_param)
+    {
+        _P("__compile_generic_param", generic_param);
+
+        /*
+        ref_t type_ref = __ref_of(ctx, type);
+
+        pool.append<x_new_xil_t>(type_ref);
+
+        bool need_call_constructor = __need_call_constructor(this);
+
+        bool is_parent_effective = is_effective(ctx, this->parent);
+        if (need_call_constructor && is_parent_effective)
+        {
+            pool.append<x_push_duplicate_xil_t>();
+        }
+
+        if (this->arguments() != nullptr)
+        {
+            if (this->constructor == nullptr)
+                __Failed("constructor of type '%1%' missing", type);
+
+            __compile_arguments(ctx, pool, this->arguments(), this->constructor);
+        }
+
+        if (need_call_constructor)
+        {
+            xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
+            // ref_t method_ref = __search_method_ref(ctx, this->constructor);
+            // pool.append<x_method_call_xil_t>(call_type, method_ref);
+        }
+        else if (!is_parent_effective)
+        {
+            pool.append<x_pop_empty_xil_t>(xil_type_t::object);
         }
         */
     }

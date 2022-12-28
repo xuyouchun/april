@@ -127,8 +127,6 @@ namespace X_ROOT_NS::modules::compile {
 
     ref_t __search_field_ref(__sctx_t & ctx, field_t * field);
 
-    xil_call_type_t __get_constructor_calltype(type_t * host_type, method_t * constructor);
-
     X_INLINE ref_t __search_field_ref(__cctx_t & ctx, field_t * field)
     {
         return __search_field_ref(ctx.statement_ctx, field);

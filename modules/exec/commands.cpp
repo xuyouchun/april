@@ -6382,10 +6382,13 @@ namespace X_ROOT_NS::modules::exec {
 
     #define __NewCmd(_new_type)     __Cmd(new_, _new_type)
     __DefineCmdValue_(__NewCmd(default_))
+    __DefineCmdValue_(__NewCmd(extend))
     __DefineCmdValue_(__NewCmd(array))
     __DefineCmdValue_(__NewCmd(stack_alloc))
 
     template<xil_new_type_t _new_type> class __new_command_t { };
+
+    //-------- ---------- ---------- ---------- ----------
 
     template<>
     class __new_command_t<xil_new_type_t::default_>
@@ -6416,6 +6419,46 @@ namespace X_ROOT_NS::modules::exec {
 
     private:
         rt_type_t * __type;
+
+        #if EXEC_TRACE
+        rt_sid_t    __name;
+        #endif  // EXEC_TRACE
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    template<>
+    class __new_command_t<xil_new_type_t::extend>
+        : public __command_base_t<__NewCmd(extend)>
+    {
+        typedef __new_command_t     __self_t;
+
+    public:
+        #if EXEC_TRACE
+        __new_command_t(rt_type_t * type, rt_method_t * method, rt_sid_t name)
+            : __type(type), __method(method), __name(name) { }
+        #else
+        __new_command_t(rt_type_t * type, rt_method_t * method)
+            : __type(type), __method(method) { }
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            __new_object(ctx, __This->__type);
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("new %1%"), __This->__name);
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+    private:
+        rt_type_t *     __type;
+        rt_method_t *   __method;
 
         #if EXEC_TRACE
         rt_sid_t    __name;
@@ -6521,6 +6564,23 @@ namespace X_ROOT_NS::modules::exec {
         }
     };
 
+    struct __new_extend_command_template_t
+    {
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, rt_type_t * type, rt_method_t * method,
+                                __context_t & ctx, _args_t && ... args)
+        {
+            typedef __new_command_t<xil_new_type_t::extend> this_command_t;
+            return __new_command<this_command_t>(memory, type, method,
+
+            #if EXEC_TRACE
+                type->get_name(ctx.env),
+            #endif  // EXEC_TRACE
+
+            std::forward<_args_t>(args) ...);
+        }
+    };
+
     struct __new_alloc_command_template_t
     {
         template<command_value_t _cv, xil_new_type_t _new_type, typename ... _args_t>
@@ -6554,6 +6614,23 @@ namespace X_ROOT_NS::modules::exec {
             case xil_new_type_t::default_:
                 return __new_command_manager.template
                     get_command<__NewCmd(default_), xil_new_type_t::default_>(type, ctx);
+
+            case xil_new_type_t::extend: {
+
+                static __command_manager_t<
+                    __new_extend_command_template_t
+                >::with_args_t<rt_type_t *, rt_method_t *> __new_extend_command_manager;
+
+                ref_t constructor_ref = xil.constructor_ref();
+                _A(constructor_ref != ref_t::null);
+
+                rt_method_base_t * method = ctx.get_method(constructor_ref);
+                _A(method != nullptr);
+                _A(method->this_type() == rt_member_type_t::general);
+
+                return __new_extend_command_manager.template
+                    get_command<__NewCmd(extend)>(type, (rt_method_t *)method, ctx);
+            }
 
             case xil_new_type_t::array:
                 return __new_command_manager.template
@@ -6806,6 +6883,17 @@ namespace X_ROOT_NS::modules::exec {
                 ref_t type_ref = xil.type_ref();
                 rt_type_t * type = ctx.get_type(type_ref);
                 msize_t size = type->get_size(ctx.env);
+                xil_copy_kind_t kind = xil.copy_kind();
+
+                return __get_object_copy_command(size, kind);
+
+            }   break;
+
+            case xil_copy_type_t::generic_copy: {
+                
+                ref_t type_ref = xil.type_ref();
+                rt_type_t * type = ctx.get_type(type_ref);
+                msize_t size = type->get_variable_size(ctx.env);
                 xil_copy_kind_t kind = xil.copy_kind();
 
                 return __get_object_copy_command(size, kind);

@@ -439,6 +439,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(default_,       _T("default"))
 
+        X_C(extend,         _T("extend"))
+
         X_C(array,          _T("array"))
 
         X_C(stack_alloc,    _T("stack_alloc"))
@@ -453,6 +455,8 @@ namespace X_ROOT_NS::modules::core {
     X_ENUM_INFO(xil_copy_type_t)
 
         X_C(object_copy,    _T("object_copy"))
+
+        X_C(generic_copy,   _T("generic_copy"))
 
     X_ENUM_INFO_END
 
@@ -870,6 +874,9 @@ namespace X_ROOT_NS::modules::core {
             case xil_new_type_t::default_:
                 return _FT("new {%1%}", type_ref());
 
+            case xil_new_type_t::extend:
+                return _FT("new {%1%} {$2$}", type_ref(), constructor_ref());
+
             case xil_new_type_t::array:
                 return _FT("new array {%1%}", type_ref());
  
@@ -895,6 +902,11 @@ namespace X_ROOT_NS::modules::core {
                 if (copy_kind() == xil_copy_kind_t::__default__)
                     return _FT("object copy {%1%}", type_ref());
                 return _FT("object copy {%1%} [%2%]", type_ref(), copy_kind());
+
+            case xil_copy_type_t::generic_copy:
+                if (copy_kind() == xil_copy_kind_t::__default__)
+                    return _FT("generic copy {%1%}", type_ref());
+                return _FT("generic copy {%1%} [%2%]", type_ref(), copy_kind());
 
             default:
                 X_UNEXPECTED();
