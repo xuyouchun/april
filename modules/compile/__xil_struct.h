@@ -145,20 +145,6 @@ namespace X_ROOT_NS::modules::compile {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // New with constructor.
-    struct x_new_ex_xil_t : x_new_xil_base_t
-    {
-        typedef x_new_xil_base_t __super_t;
-
-        x_new_ex_xil_t(ref_t type_ref, ref_t constructor_ref)
-            : __super_t(xil_new_type_t::default_, type_ref)
-        {
-            this->set_constructor_ref(constructor_ref);
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
     // New array xil.
     struct x_new_array_xil_t : x_new_xil_base_t
     {

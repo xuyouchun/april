@@ -149,7 +149,6 @@ namespace X_ROOT_NS::modules::compile {
             case gtype_t::generic_param:
                 _A(pick == false);
                 pool.append<x_push_local_addr_xil_t>(local->identity);
-                _PP(__ref_of(ctx, type));
                 pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type));
                 break;
 

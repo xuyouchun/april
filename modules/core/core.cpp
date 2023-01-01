@@ -1831,6 +1831,19 @@ namespace X_ROOT_NS::modules::core {
         return nullptr;
     }
 
+
+    // Returns return type of the method.
+    type_t * method_t::get_type()
+    {
+        return to_type(type_name);
+    }
+
+    // Returns original type, returns generic param type if it's a generic_method.
+    type_t * method_t::get_original_type()
+    {
+        return get_type();
+    }
+
     // Finds generic param by name.
     generic_param_t * method_t::find_param(const name_t & name)
     {
@@ -1991,6 +2004,12 @@ namespace X_ROOT_NS::modules::core {
         return __super_t::param_type_at(index);
     }
 
+    // Returns original type, returns generic param type if it's a generic_method.
+    type_t * impl_method_t::get_original_type()
+    {
+        return raw->get_type();
+    }
+
     // Builds with generic args.
     void impl_method_t::build(method_t * raw, type_collection_t & args)
     {
@@ -2068,6 +2087,12 @@ namespace X_ROOT_NS::modules::core {
     type_t * generic_method_t::get_type()
     {
         return __revise_type(__template()->get_type());
+    }
+
+    // Returns original type, returns generic param type if it's a generic_method.
+    type_t * generic_method_t::get_original_type()
+    {
+        return __template()->get_type();
     }
 
     // Returns param count.

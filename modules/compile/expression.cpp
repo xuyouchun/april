@@ -51,6 +51,12 @@ namespace X_ROOT_NS::modules::compile {
         return call_type_of_method(method, true);
     }
 
+    // Returns whether the type is custom struct of generic param.
+    static bool __is_custom_struct_like(type_t * type)
+    {
+        return is_custom_struct(type) || is_generic_param(type);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Returns xil type of the expression.
@@ -348,7 +354,7 @@ namespace X_ROOT_NS::modules::compile {
         expression_t * expression, const __environment_t & env)
     {
         _A(expression != nullptr);
-        _A(is_custom_struct(expression->get_type()));
+        _A(__is_custom_struct_like(expression->get_type()));
 
         pool.append<x_push_calling_bottom_xil_t>();
         expression->compile(ctx, pool, env);
@@ -1081,17 +1087,17 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // Custom struct.
-        if (is_custom_struct(atype))
+        if (__is_custom_struct_like(atype))
         {
             ref_t type_ref = __ref_of(ctx, atype);
             pool.append<x_stack_alloc_xil_t>(type_ref);
+
+            _PP(atype);
 
             exp->compile(ctx, pool);
         }
         else
         {
-            type_t * exp_type = exp->get_type();
-
             vtype_t vtype = vtype_t::__default__;
             if (param_types != nullptr)
                 vtype = param_types->param_vtype_at(index);
@@ -1156,7 +1162,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         variable_t * var = __pick_var(r_exp);
-        bool custom_struct = is_custom_struct(var->get_type());
+        bool custom_struct = __is_custom_struct_like(var->get_type());
 
         switch (var->this_type())
         {
@@ -1292,7 +1298,7 @@ namespace X_ROOT_NS::modules::compile {
 
         if (is_real_variable(ca.var))
         {
-            if (is_custom_struct(type2))
+            if (__is_custom_struct_like(type2))
             {
                 if (is_ref_type(type1))     // Box
                 {
@@ -1338,7 +1344,7 @@ namespace X_ROOT_NS::modules::compile {
     void compile_assign(__cctx_t & ctx, xil_pool_t & pool, local_variable_t * var,
                                                            expression_t * exp)
     {
-        __compile_assign_t ca = { nullptr, var, nullptr, is_custom_struct(var->get_type()) };
+        __compile_assign_t ca = { nullptr, var, nullptr, __is_custom_struct_like(var->get_type()) };
         __compile_assign(ctx, pool, ca, exp, __assign_to_type_t::pop);
     }
 
@@ -1667,7 +1673,7 @@ namespace X_ROOT_NS::modules::compile {
 
             type_t * type = variable->get_type();
 
-            if (is_custom_struct(type))
+            if (__is_custom_struct_like(type))
                 pool.append<x_push_local_addr_xil_t>(variable->identity);
             else
                 pool.append<x_push_local_xil_t>(dtype, variable->identity);
@@ -1693,7 +1699,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             if (dtype == xil_type_t::ptr)
                 pool.append<x_push_argument_xil_t>(xil_type_t::ptr, index);
-            else if (is_custom_struct(type))
+            else if (__is_custom_struct_like(type))
                 pool.append<x_push_argument_xil_t>(xil_type_t::ptr, index);
             else
                 pool.append<x_push_argument_content_xil_t>(__to_xil_type(ctx, variable), index);
@@ -1704,7 +1710,7 @@ namespace X_ROOT_NS::modules::compile {
             pool.append<x_push_argument_xil_t>(__to_xil_type(ctx, variable), index);
             // pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
         }
-        else if (is_custom_struct(type))    // custom struct
+        else if (__is_custom_struct_like(type))    // custom struct
         {
             pool.append<x_push_argument_addr_xil_t>(index);
             /*
@@ -1734,7 +1740,7 @@ namespace X_ROOT_NS::modules::compile {
         __FailedWhenNull(field_type, "unknown field '%1%' type", field);
 
         // TODO: when member point, int, long ... types also should be ptr type.
-        if (is_custom_struct(field_type))
+        if (__is_custom_struct_like(field_type))
         {
             pool.append<x_push_field_addr_xil_t>(field_ref);
         }
@@ -1754,7 +1760,7 @@ namespace X_ROOT_NS::modules::compile {
         _A(exp != nullptr);
 
         // When return type is custom struct, but not assign to a variable.
-        if (is_custom_struct(ret_type))
+        if (__is_custom_struct_like(ret_type))
         {
             if (exp->parent == nullptr)
             {
@@ -1770,7 +1776,6 @@ namespace X_ROOT_NS::modules::compile {
                     pool.append<x_push_duplicate_xil_t>();
             }
         }
-
     }
 
     // Pre call a method.
@@ -1779,7 +1784,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         _A(method != nullptr);
 
-        type_t * ret_type = method->get_type();
+        type_t * ret_type = method->get_original_type();
         __pre_call_method(ctx, pool, exp, ret_type);
     }
 
@@ -1813,7 +1818,7 @@ namespace X_ROOT_NS::modules::compile {
         vtype_t vtype;
 
         if ((ret_type != nullptr && (vtype = ret_type->this_vtype()) != vtype_t::void_)
-            && !is_custom_struct(ret_type))
+            && !__is_custom_struct_like(ret_type))
         {
             xil_type_t xil_type = to_xil_type(vtype);
             pool.append<x_pop_empty_xil_t>(xil_type);
@@ -2388,6 +2393,15 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    static void __append_object_copy_xil(__cctx_t & ctx, xil_pool_t & pool, type_t * type,
+                                                            xil_copy_kind_t copy_kind)
+    {
+        if (is_generic_param(type))
+            pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type), copy_kind);
+        else
+            pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), copy_kind);
+    }
+
     // Compiles name expression.
     void __sys_t<name_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                         const __environment_t & env)
@@ -2402,10 +2416,10 @@ namespace X_ROOT_NS::modules::compile {
                 type_t * type = this->get_type();
                 __compile_variable(ctx, pool, this->variable, __only_value_type(env), this);
 
-                if (is_custom_struct(type) && is_real_variable(this->variable)
+                if (__is_custom_struct_like(type) && is_real_variable(this->variable)
                                            && __need_object_copy(this))
                 {
-                    pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
+                    __append_object_copy_xil(ctx, pool, type, xil_copy_kind_t::reverse);
                 }
                     
                 __post_compile_expression(ctx, pool, this, env);
@@ -2609,7 +2623,7 @@ namespace X_ROOT_NS::modules::compile {
                                                     const __environment_t & env)
     {
         type_t * type = this->get_type();
-        if (__is_ref_type(env.type) && is_custom_struct(type))
+        if (__is_ref_type(env.type) && __is_custom_struct_like(type))
         {
             pool.append<x_new_xil_t>(__ref_of(ctx, type));
             pool.append<x_push_duplicate_xil_t>();
@@ -2892,7 +2906,7 @@ namespace X_ROOT_NS::modules::compile {
                     pool.append<x_cast_xil_t>(xil_cast_command_t::default_, __ref_of(ctx, type));
                 }
                 else if (behaviour == expression_behaviour_t::execute &&
-                        is_custom_struct(exp_type))
+                        __is_custom_struct_like(exp_type))
                 {
                     pool.append<x_new_xil_t>(__ref_of(ctx, exp_type));
                     pool.append<x_push_duplicate_xil_t>();
@@ -2914,7 +2928,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             if (is_ref_type(exp_type))      // Unbox.
             {
-                if (is_custom_struct(type)) // Unbox custom struct.
+                if (__is_custom_struct_like(type)) // Unbox custom struct.
                 {
                     exp->compile(ctx, pool);
                     pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
@@ -3007,18 +3021,14 @@ namespace X_ROOT_NS::modules::compile {
 
         ref_t array_type_ref = __ref_of(ctx, array_type);
 
-        if (is_custom_struct(element_type))
+        if (__is_custom_struct_like(element_type))
         {
             pool.append<x_push_array_element_addr_xil_t>(
                 __ref_of(ctx, array_type)
             );
 
             if (__need_object_copy(this))
-            {
-                pool.append<x_object_copy_xil_t>(
-                    __ref_of(ctx, array_type), xil_copy_kind_t::reverse
-                );
-            }
+                __append_object_copy_xil(ctx, pool, array_type, xil_copy_kind_t::reverse);
         }
         else
         {
@@ -3116,6 +3126,13 @@ namespace X_ROOT_NS::modules::compile {
     void __sys_t<new_expression_t>::__compile_new_class_object(__cctx_t & ctx,
                                         xil_pool_t & pool, type_t * type)
     {
+        // New xil.
+        ref_t type_ref = __ref_of(ctx, type);
+        _A(type_ref != ref_t::null);
+
+        pool.append<x_new_xil_t>(type_ref);
+        pool.append<x_push_duplicate_xil_t>();
+
         // Arguments
         if (this->arguments() != nullptr)
         {
@@ -3125,16 +3142,11 @@ namespace X_ROOT_NS::modules::compile {
             __compile_arguments(ctx, pool, this->arguments(), this->constructor);
         }
 
-        // Type ref
-        ref_t type_ref = __ref_of(ctx, type);
-        _A(type_ref != ref_t::null);
 
         // Constructor.
         __check_constructor_calltype(type, this->constructor);
         ref_t constructor_ref = __search_method_ref(ctx, this->constructor);
-
-        // New xil.
-        pool.append<x_new_ex_xil_t>(type_ref, constructor_ref);
+        pool.append<x_method_call_xil_t>(xil_call_type_t::instance, constructor_ref);
 
         // Pop empty.
         if (!is_effective(ctx, this->parent))
@@ -3421,7 +3433,7 @@ namespace X_ROOT_NS::modules::compile {
 
                 pool.append<x_push_this_xil_t>(dtype);
             }
-            else if (is_custom_struct(method->host_type))
+            else if (__is_custom_struct_like(method->host_type))
             {
                 pool.append<x_push_this_xil_t>(xil_type_t::ptr);
             }

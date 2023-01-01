@@ -439,8 +439,6 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(default_,       _T("default"))
 
-        X_C(extend,         _T("extend"))
-
         X_C(array,          _T("array"))
 
         X_C(stack_alloc,    _T("stack_alloc"))
@@ -873,9 +871,6 @@ namespace X_ROOT_NS::modules::core {
         {
             case xil_new_type_t::default_:
                 return _FT("new {%1%}", type_ref());
-
-            case xil_new_type_t::extend:
-                return _FT("new {%1%} {$2$}", type_ref(), constructor_ref());
 
             case xil_new_type_t::array:
                 return _FT("new array {%1%}", type_ref());

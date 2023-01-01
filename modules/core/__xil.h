@@ -354,15 +354,13 @@ namespace X_ROOT_NS::modules::core {
 
         default_        = __default__,  // Creates a new object.
 
-        extend          = 1,            // Creates a new object with constructor.
+        array           = 1,            // Creates a new array.
 
-        array           = 2,            // Creates a new array.
+        generic         = 2,            // Creates a new object of generic types.
 
-        generic         = 3,            // Creates a new object of generic types.
+        stack_alloc     = 3,            // Allocate object from stack.
 
-        stack_alloc     = 4,            // Allocate object from stack.
-
-        stack_allocs    = 5,            // Allocate objects from stack.
+        stack_allocs    = 4,            // Allocate objects from stack.
 
     __EnumEnd
 
@@ -1622,12 +1620,6 @@ namespace X_ROOT_NS::modules::core {
         // Sets type_ref.
         void set_type_ref(ref_t ref) _NE { *(ref_t *)&__type_ref = ref; }
 
-        // Returns constructor method ref.
-        ref_t constructor_ref() const _NE { return *(ref_t *)__extra; }
-
-        // Sets constructor method ref.
-        void set_constructor_ref(ref_t ref) _NE { *(ref_t *)__extra = ref; }
-
         // Sets count.
         void set_count(uint32_t count) _NE { *(uint32_t *)__extra = count; }
 
@@ -1650,10 +1642,6 @@ namespace X_ROOT_NS::modules::core {
         {
             case xil_new_type_t::stack_allocs:
                 size += sizeof(uint32_t);   // the size of __extra.
-                break;
-
-            case xil_new_type_t::extend:
-                size += sizeof(ref_t);
                 break;
 
             default:

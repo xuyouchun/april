@@ -11,13 +11,19 @@ class Project1
     [Trace]
     public static void Main()
     {
-        // Struct1 obj = new Struct1();
-        Class2 obj = new Class2();
+        // Struct1 obj = new Struct1(103);
+        // __Call1(obj);
 
-        Class1.Call2(obj);
+        __Call1(new Struct1(104));
+    }
+
+    [Trace]
+    private static void __Call1(Struct1 obj1)
+    {
+        Console.WriteLine("Hello Call1");
+        Console.WriteLine(obj1.Value);        
     }
 }
-
 
 class Class1
 {
@@ -26,10 +32,22 @@ class Class1
     //     T obj1 = obj;
     // }
 
-    [Trace]
-    public static void Call2<T11>(T11 obj)
+    // [Trace]
+    public static void Call2<T1>(T1 obj1)
     {
-        T11 obj1 = obj;
+        Call3(obj1);
+    }
+
+    // [Trace]
+    public static void Call3<T2>(T2 obj)
+    {
+        T2 obj2 = obj;
+    }
+
+    // [Trace]
+    public static T Call4<T>(T obj)
+    {
+        return obj;
     }
 }
 
@@ -40,6 +58,13 @@ class Class2
 
 struct Struct1
 {
+    [Trace]
+    public Struct1(int value)
+    {
+        Value = value;
+        // Console.WriteLine("Hello Struct1");
+    }
+
     public int Value;
 }
 

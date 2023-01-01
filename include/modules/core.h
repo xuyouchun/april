@@ -3454,6 +3454,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns the return type of this method.
         virtual type_t * get_type() = 0;
 
+        // Returns original type, returns generic param type if it's a generic_method.
+        virtual type_t * get_original_type() { return get_type(); }
+
         // Returns Decorates.
         virtual decorate_t * get_decorate() = 0;
 
@@ -3526,7 +3529,10 @@ namespace X_ROOT_NS::modules::core {
         virtual method_trait_t get_trait() const override { return trait; }
 
         // Returns return type of the method.
-        virtual type_t * get_type() override { return to_type(type_name); }
+        virtual type_t * get_type() override;
+
+        // Returns original type, returns generic param type if it's a generic_method.
+        virtual type_t * get_original_type() override;
 
         // Returns param count.
         virtual size_t param_count() const override
@@ -3618,6 +3624,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns param type of specified index.
         virtual typex_t param_type_at(size_t index) const override;
 
+        // Returns original type, returns generic param type if it's a generic_method.
+        virtual type_t * get_original_type() override;
+
         // Builds with generic args.
         void build(method_t * raw, type_collection_t & args);
 
@@ -3676,6 +3685,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns the return type.
         virtual type_t * get_type() override;
+
+        // Returns original type, returns generic param type if it's a generic_method.
+        virtual type_t * get_original_type() override;
 
         // Returns param count.
         virtual size_t param_count() const override;
