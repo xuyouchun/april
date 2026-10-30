@@ -225,6 +225,8 @@ namespace X_ROOT_NS
         { };
 
         //-------- ---------- ---------- ---------- ----------
+        #if WCHAR_MAX > 0xFFFF  // wchar_t == char16_t on Windows: covered by __wchar_t below.
+
 
         // Converts char16 to wchar_t
         template<>
@@ -232,6 +234,8 @@ namespace X_ROOT_NS
             : public __string_convert_base_ex_t<char16_t, wchar_t, \
                     __string_convert_from_bytes_t<char16_t, wchar_t, __codecvt_utf16<wchar_t>>>
         { };
+
+        #endif
 
         //-------- ---------- ---------- ---------- ----------
 

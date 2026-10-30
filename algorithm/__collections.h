@@ -427,7 +427,7 @@ namespace X_ROOT_NS::algorithm {
 
     class xheap_t : public object_t, public memory_t
     {
-        typedef int16_t __size_t;
+        typedef int16_t __row_size_t;
 
     public:
     
@@ -457,7 +457,7 @@ namespace X_ROOT_NS::algorithm {
         struct __row_t
         {
             byte_t * buffer;
-            __size_t object_count;
+            __row_size_t object_count;
         };
 
         // A row collection structure for recording a row array.
@@ -465,8 +465,8 @@ namespace X_ROOT_NS::algorithm {
         {
             std::vector<__row_t> rows;
             __row_t * current_row;
-            __size_t  capacity;
-            __size_t  bytes_count;
+            __row_size_t  capacity;
+            __row_size_t  bytes_count;
         };
 
         __row_collection_t __row_collections[__large_object_size / sizeof(int)];

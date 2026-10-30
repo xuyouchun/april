@@ -1142,7 +1142,7 @@ namespace X_ROOT_NS::modules::core {
         return decorate == nullptr? empty_access_value : decorate->access;
     }
 
-    decorate_t * with_decorate_object_t::__decorate()
+    decorate_t * with_decorate_object_t::__decorate() _NE
     {
         return decorate != nullptr? decorate :
             (decorate = __XPool.new_obj<decorate_t>(decorate_value_t::default_value));

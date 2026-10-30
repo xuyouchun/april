@@ -120,7 +120,7 @@ namespace X_ROOT_NS::modules::core {
         {
             typedef __list_t<attribute_t *> __super_t;
             typedef __self_t                __owner_t;
-            typedef size_type               __size_t;
+            typedef size_type               __row_size_t;
 
         public:
 
@@ -128,7 +128,7 @@ namespace X_ROOT_NS::modules::core {
             __attribute_list_t(__owner_t * owner) : __owner(owner) { }
 
             // Returns attribute at specified pos.
-            attribute_t * operator [] (__size_t pos)
+            attribute_t * operator [] (__row_size_t pos)
             {
                 attribute_t * attr = __super_t::operator[](pos);
                 if (__owner->__is_compile_time_attribute(attr))

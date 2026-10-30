@@ -659,7 +659,7 @@ namespace X_ROOT_NS::algorithm {
         X_TO_STRING_IMPL(_T("tspool_t"))
 
     private:
-        std::set<const __string_t> __string_set;
+        std::set<__string_t> __string_set;
     };
 
     typedef tsid_t<char_t>   sid_t;

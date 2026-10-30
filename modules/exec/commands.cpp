@@ -220,6 +220,8 @@ namespace X_ROOT_NS::modules::exec {
     #define __RaiseInvalidCastException(_ctx)   __RaiseException(_ctx, invalid_cast)
     #define __RaiseOutOfRangeException(_ctx)    __RaiseException(_ctx, out_of_range)
 
+    __AlwaysInline static void __pre_new(command_execute_context_t & ctx, rt_type_t * type);
+
     ////////// ////////// ////////// ////////// //////////
 
     namespace

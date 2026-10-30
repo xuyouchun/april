@@ -25,6 +25,10 @@
 #include <algorithm.h>
 #include <cmath>
 
+// <stdlib.h> on Windows defines __max / __min as function-like macros.
+#undef __max
+#undef __min
+
 namespace X_ROOT_NS::algorithm {
 
     #define __AlwaysInline  X_ALWAYS_INLINE

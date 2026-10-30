@@ -431,10 +431,14 @@ namespace X_ROOT_NS::modules::rt {
         // Returns whether it's empty.
         bool empty() const { return value == nullptr; }
 
-        bool operator == (const string_t & str)
+        bool operator == (const string_t & str) const
         {
             return (string_t)(*this) == str;
         }
+
+        // Exact-match overloads, avoid ambiguity with the string_t conversion (C++20).
+        bool operator == (const rt_sid_t & other) const { return value == other.value; }
+        bool operator != (const rt_sid_t & other) const { return value != other.value; }
 
         static const rt_sid_t null;
     };
@@ -456,7 +460,7 @@ namespace X_ROOT_NS::modules::rt {
         X_TO_STRING_IMPL(_T("rt_spool_t"))
 
     private:
-        std::set<const rt_string_t> __string_set;
+        std::set<rt_string_t> __string_set;
         al::heap_t<char_t[]> __heap;
     };
 
