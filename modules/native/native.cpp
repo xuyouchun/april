@@ -319,6 +319,15 @@ namespace X_ROOT_NS::modules::native {
             bool                    __uses_memset = false;
             bool                    __uses_new_object = false;
 
+            // The objects that hold the static fields of types: a global of each, which is
+            // a root and is allocated before the entry point.
+            struct __static_data_t { std::string global, desc; int64_t size; };
+            std::map<rt_type_t *, __static_data_t> __static_data_map;
+
+            // The delegates of virtual methods are bound to the implementation of the
+            // instance: the virtual offset of the method that a method info stands for.
+            std::map<std::string, int>  __virtual_delegate_offsets;
+
             // Virtual calls. The classes that are instantiated get a type descriptor
             // (see native_abi.h); the functions it holds are found once all call sites
             // are known: the offsets of the virtual methods and the interface methods
@@ -1432,6 +1441,8 @@ namespace X_ROOT_NS::modules::native {
                                 if (obj.type != "ptr")
                                     throw _ED(__e_t::bad_stack, fn.display, _T("field of a non reference"));
 
+                                raise_if_null(obj);
+
                                 llb::value_t addr = f.gep_bytes(obj, (int64_t)info.offset);
 
                                 if (push->stype() == xil_storage_type_t::field_addr)
@@ -1472,6 +1483,32 @@ namespace X_ROOT_NS::modules::native {
                             }   break;
 
                             case xil_storage_type_t::object: {
+                                if (push->get_object_type() == xil_storage_object_type_t::static_data)
+                                {
+                                    rt_type_t * data_type = analyzer.get_type(push->get_ref());
+                                    if (data_type == nullptr)
+                                        throw _ED(__e_t::unsupported_type, _T("(static data type)"));
+
+                                    auto sit = __static_data_map.find(data_type);
+                                    if (sit == __static_data_map.end())
+                                    {
+                                        data_type->pre_new(__env);
+
+                                        __static_data_t sd {
+                                            "april.static." + std::to_string(__static_data_map.size()),
+                                            __descriptor_of(data_type),
+                                            (int64_t)data_type->get_size(__env)
+                                        };
+
+                                        __module.add_global_line("@" + sd.global + " = internal global ptr null");
+                                        sit = __static_data_map.emplace(data_type, sd).first;
+                                    }
+
+                                    stack.push_back(f.load("ptr",
+                                        llb::value_t { llb::types::ptr, "@" + sit->second.global }));
+                                    break;
+                                }
+
                                 if (push->get_object_type() != xil_storage_object_type_t::method_info)
                                     throw _ED(__e_t::unsupported_xil, _T("push object (type info)"));
 
@@ -1490,9 +1527,26 @@ namespace X_ROOT_NS::modules::native {
                                 if (method == nullptr || method->this_type() == rt_member_type_t::dynamic)
                                     throw _ED(__e_t::unsupported_xil, _T("method info of a dynamic method"));
 
-                                stack.push_back(llb::value_t {
+                                llb::value_t method_info {
                                     llb::types::ptr, "@" + __delegate_target_of(method)
-                                });
+                                };
+
+                                if (method->this_type() == rt_member_type_t::general
+                                        && method->get_host_type()->get_kind() != rt_type_kind_t::generic
+                                        && method->get_host_type()->get_ttype(__env) != ttype_t::interface_)
+                                {
+                                    decorate_t decorate = (decorate_t)(*(rt_method_t *)method)->decorate;
+                                    if (decorate.is_virtual || decorate.is_override || decorate.is_abstract)
+                                    {
+                                        int voffset = analyzer.get_virtual_method_offset(push->get_ref());
+
+                                        __virtual_sites.insert({ method->get_host_type(), voffset });
+                                        __max_virtual_offset = std::max(__max_virtual_offset, voffset);
+                                        __virtual_delegate_offsets[method_info.text] = voffset;
+                                    }
+                                }
+
+                                stack.push_back(method_info);
                             }   break;
 
                             case xil_storage_type_t::array_element:
@@ -1747,6 +1801,8 @@ namespace X_ROOT_NS::modules::native {
                                 if (obj.type != "ptr")
                                     throw _ED(__e_t::bad_stack, fn.display, _T("field of a non reference"));
 
+                                raise_if_null(obj);
+
                                 // The value is of the xil type, the field of its own type.
                                 if (info.xtype != pop->dtype() && __conv_num_of(info.xtype).valid
                                                     && __conv_num_of(pop->dtype()).valid)
@@ -1840,6 +1896,17 @@ namespace X_ROOT_NS::modules::native {
                                     llb::value_t method_ptr = pop_value("delegate method");
                                     llb::value_t instance = pop_value("delegate instance");
                                     llb::value_t self = pop_value("delegate");
+
+                                    // A virtual method: the implementation of the instance.
+                                    auto vit = __virtual_delegate_offsets.find(method_ptr.text);
+                                    if (vit != __virtual_delegate_offsets.end())
+                                    {
+                                        raise_if_null(instance);
+
+                                        llb::value_t desc = f.load("ptr", f.gep_bytes(instance, -8));
+                                        method_ptr = f.load("ptr", f.gep_bytes(
+                                            desc, 32 + 8 * (int64_t)vit->second));
+                                    }
 
                                     f.store(instance, f.gep_bytes(self, (int64_t)instance_offset));
                                     f.store(method_ptr, f.gep_bytes(self, (int64_t)method_offset));
@@ -1971,10 +2038,25 @@ namespace X_ROOT_NS::modules::native {
                         }
                         else if (call_type == xil_call_type_t::internal)
                         {
+                            // The array functions that read an array: it is not null.
+                            if (callee->name.find("Array_Get") != std::string::npos
+                                    && !call_args.empty() && call_args[0].type == "ptr")
+                            {
+                                raise_if_null(call_args[0]);
+                            }
+
                             result = __emit_libfunc_call(f, fn, *callee, call_args);
                         }
                         else
                         {
+                            // The object of an instance method is not null.
+                            size_t this_index = hidden_dst? 1 : 0;
+                            if (call_type == xil_call_type_t::instance && this_index < call_args.size()
+                                    && call_args[this_index].type == "ptr")
+                            {
+                                raise_if_null(call_args[this_index]);
+                            }
+
                             result = f.call(callee->ret_type, callee->name, call_args);
                             check_exception();
 
@@ -2000,6 +2082,9 @@ namespace X_ROOT_NS::modules::native {
                             llb::value_t exception = pop_value("exception");
                             if (exception.type != "ptr")
                                 throw _ED(__e_t::bad_stack, fn.display, _T("throw of a non reference"));
+
+                            // Throwing null raises a NullReferenceException.
+                            raise_if_null(exception);
 
                             f.store(exception, exception_global);
                             f.br(dispatch_label(inner_block(xil_index)));
@@ -2083,11 +2168,17 @@ namespace X_ROOT_NS::modules::native {
                             std::string element_ll = __ll_type_of(array_type->element_type);
                             bool has_refs = element_ll == "ptr" || element_ll[0] == '[';
 
-                            stack.push_back(f.call("ptr", APRIL_NATIVE_SYM_NEW_ARRAY, {
+                            llb::value_t new_array = f.call("ptr", APRIL_NATIVE_SYM_NEW_ARRAY, {
                                 llb::const_int("i64", (int64_t)array_type->element_type->get_variable_size(__env)),
                                 llb::const_int("i32", dimension), lengths, llb::const_null(),
                                 llb::const_int("i32", has_refs? 1 : 0)
-                            }));
+                            });
+
+                            // A negative or too large length.
+                            raise_if(f.icmp("eq", new_array, llb::const_null()),
+                                     CoreType_OutOfRangeException);
+
+                            stack.push_back(new_array);
                             break;
                         }
 
@@ -2202,6 +2293,18 @@ namespace X_ROOT_NS::modules::native {
                         // A generic copy is of a generic param, already of a concrete type.
                         msize_t type_size = copy->copy_type() == xil_copy_type_t::generic_copy?
                                         type->get_variable_size(__env) : type->get_size(__env);
+
+                        // The object at the address is pushed as a value.
+                        if (copy->copy_kind() == xil_copy_kind_t::ret)
+                        {
+                            llb::value_t address = pop_value("load source");
+                            std::string ll = __ll_type_of(type);
+                            if (ll[0] == '[' || address.type != "ptr")
+                                throw _ED(__e_t::unsupported_type, type->get_name(__env));
+
+                            stack.push_back(f.load(ll, address));
+                            break;
+                        }
 
                         llb::value_t size = llb::const_int("i64", (int64_t)type_size);
                         llb::value_t dst, src;
@@ -2379,6 +2482,24 @@ namespace X_ROOT_NS::modules::native {
 
                             default:
                                 throw _ED(__e_t::unsupported_xil, _F(_T("al %1%"), cmd));
+                        }
+
+                        // Integer division: the divisor is not zero, and the result fits.
+                        if (!n.is_float && (cmd == xil_al_command_t::div || cmd == xil_al_command_t::mod))
+                        {
+                            raise_if(f.icmp("eq", b, llb::const_int(b.type, 0)),
+                                     CoreType_DivideByZeroException);
+
+                            if (n.is_signed)
+                            {
+                                int64_t min_value = n.bits >= 64? INT64_MIN
+                                                                : -((int64_t)1 << (n.bits - 1));
+
+                                raise_if(f.binop("and",
+                                    f.icmp("eq", a, llb::const_int(a.type, min_value)),
+                                    f.icmp("eq", b, llb::const_int(b.type, -1))
+                                ), CoreType_OverflowException);
+                            }
                         }
 
                         stack.push_back(f.binop(op, a, b));
@@ -2898,6 +3019,9 @@ namespace X_ROOT_NS::modules::native {
         // Emits `main` and the initializer of the library functions.
         void __generator_t::__emit_main(__fn_t & entry)
         {
+            if (!__static_data_map.empty())
+                __uses_new_object = true;
+
             // The runtime support, declared.
             __module.declare(APRIL_NATIVE_SYM_INIT,         "void", { "ptr" });
             __module.declare(APRIL_NATIVE_SYM_ADD_ROOT,     "void", { "ptr" });
@@ -2966,6 +3090,19 @@ namespace X_ROOT_NS::modules::native {
             main_f.call("void", APRIL_NATIVE_SYM_ADD_ROOT,
                         { llb::value_t { llb::types::ptr, "@april.exception" } });
             main_f.call("void", "april.init_libfuncs", { });
+
+            for (auto & it : __static_data_map)
+            {
+                llb::value_t slot { llb::types::ptr, "@" + it.second.global };
+                llb::value_t obj = main_f.call("ptr", APRIL_NATIVE_SYM_NEW_OBJECT, {
+                    llb::const_int("i64", it.second.size),
+                    llb::value_t { llb::types::ptr, "@" + it.second.desc }
+                });
+
+                main_f.store(obj, slot);
+                main_f.call("void", APRIL_NATIVE_SYM_ADD_ROOT, { slot });
+            }
+
             main_f.call("void", entry.name, { });
 
             // An exception that nothing caught.

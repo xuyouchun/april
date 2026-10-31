@@ -2556,13 +2556,13 @@ namespace X_ROOT_NS {
         // Assigns a value.
         constexpr __self_t operator = (_enum_t v) _NE
         {
-            this->value = v;
+            return this->value = v, *this;
         }
 
         // Assigns a value.
         constexpr __self_t operator = (__self_t v) _NE
         {
-            this->value = v.value;
+            return this->value = v.value, *this;
         }
 
         // Equals.

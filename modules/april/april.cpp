@@ -422,21 +422,18 @@ Use \"april help [command] ...\" for more information about a command.      \n\
     }
 
     // Executes.
-    void april_t::execute()
+    bool april_t::execute()
     {
         switch (__options.command)
         {
             case april_command_t::compile:
-                __execute_compile(__options.get<__t::compile_options_t>());
-                break;
+                return __execute_compile(__options.get<__t::compile_options_t>());
 
             case april_command_t::run:
-                __execute_run(__options.get<__t::run_options_t>());
-                break;
+                return __execute_run(__options.get<__t::run_options_t>());
 
             case april_command_t::native:
-                __execute_native(__options.get<__t::run_options_t>());
-                break;
+                return __execute_native(__options.get<__t::run_options_t>());
 
             case april_command_t::help:
                 __execute_help(__options.get<__t::help_options_t>());
@@ -449,30 +446,29 @@ Use \"april help [command] ...\" for more information about a command.      \n\
             default:
                 X_UNEXPECTED();
         }
+
+        return true;
     }
 
     // Executes compile command.
-    void april_t::__execute_compile(const __t::compile_options_t & options)
+    bool april_t::__execute_compile(const __t::compile_options_t & options)
     {
-        april_xcompiler_t(options).compile();
+        return april_xcompiler_t(options).compile();
     }
 
     // Executes run command.
-    void april_t::__execute_run(const __t::run_options_t & options)
+    bool april_t::__execute_run(const __t::run_options_t & options)
     {
         if (options.native_run)
-        {
-            april_xcompiler_t(options).native(options.execute_assembly, &options);
-            return;
-        }
+            return april_xcompiler_t(options).native(options.execute_assembly, &options);
 
-        april_xcompiler_t(options).run(options.execute_assembly);
+        return april_xcompiler_t(options).run(options.execute_assembly);
     }
 
     // Executes native command.
-    void april_t::__execute_native(const __t::run_options_t & options)
+    bool april_t::__execute_native(const __t::run_options_t & options)
     {
-        april_xcompiler_t(options).native(options.execute_assembly, &options);
+        return april_xcompiler_t(options).native(options.execute_assembly, &options);
     }
 
     // Executes help command.
@@ -499,8 +495,7 @@ Use \"april help [command] ...\" for more information about a command.      \n\
             april_options_t options;
             if (options.parse(argc, argv))
             {
-                april_t(options).execute();
-                return 0;
+                return april_t(options).execute()? 0 : 1;
             }
         }
         catch (const error_t & err)

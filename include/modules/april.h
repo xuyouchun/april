@@ -315,8 +315,8 @@ namespace X_ROOT_NS::modules::april {
         // Constructor.
         april_t(april_options_t & options);
 
-        // Executes.
-        void execute();
+        // Executes, returns whether it succeeded.
+        bool execute();
 
         X_TO_STRING_IMPL(_T("april_t"))
 
@@ -326,13 +326,13 @@ namespace X_ROOT_NS::modules::april {
         typedef april_options_t __t;
 
         // Executes compiling command.
-        void __execute_compile(const __t::compile_options_t & options);
+        bool __execute_compile(const __t::compile_options_t & options);
 
         // Executes running command.
-        void __execute_run(const __t::run_options_t & options);
+        bool __execute_run(const __t::run_options_t & options);
 
         // Executes native command.
-        void __execute_native(const __t::run_options_t & options);
+        bool __execute_native(const __t::run_options_t & options);
 
         // Executes helping command.
         void __execute_help(const __t::help_options_t & options);

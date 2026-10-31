@@ -332,6 +332,37 @@ namespace X_ROOT_NS::modules::compile {
             exp->compile(ctx, pool);
     }
 
+    // Returns whether the variable is a static field.
+    static bool __is_static_field(variable_t * variable)
+    {
+        return variable != nullptr && variable->this_type() == variable_type_t::field
+            && ((field_variable_t *)variable)->field != nullptr
+            && ((field_variable_t *)variable)->field->is_static();
+    }
+
+    // Pushes the object that holds the static fields of the type of the field. It is used
+    // in place of the instance, the field is accessed with its offset like the ones of an
+    // instance.
+    static void __push_static_data(__cctx_t & ctx, xil_pool_t & pool, field_t * field)
+    {
+        type_t * host_type = field->host_type;
+        __FailedWhenNull(host_type, "static field '%1%' has no host type", field);
+
+        pool.append<x_push_object_xil_t>(
+            xil_storage_object_type_t::static_data, __ref_of(ctx, host_type)
+        );
+    }
+
+    // Pushes the object of a field: the instance, or the static data.
+    static void __push_field_owner(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+                                                                      variable_t * variable)
+    {
+        if (__is_static_field(variable))
+            __push_static_data(ctx, pool, ((field_variable_t *)variable)->field);
+        else
+            __push_this(ctx, pool, exp);
+    }
+
     // Returns whether need to call constructor of a struct.
     bool __need_call_constructor(new_expression_t * exp)
     {
@@ -421,7 +452,7 @@ namespace X_ROOT_NS::modules::compile {
             }   break;
 
             case variable_type_t::field:
-                __push_this(ctx, pool, this_);
+                __push_field_owner(ctx, pool, this_, variable);
                 pool.append<x_push_field_addr_xil_t>(
                     __search_field_ref(ctx, ((field_variable_t *)variable)->field)
                 );
@@ -916,10 +947,19 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
-        exp1->compile(ctx, pool);
-        exp2->compile(ctx, pool);
+        // Short circuit: the second operand is not evaluated when the first is false.
+        statement_compile_context_t & sctx = ctx.statement_ctx;
 
-        pool.append<x_logic_xil_t>(xil_logic_command_t::and_);
+        exp1->compile(ctx, pool);
+        jmp_xil_t * false_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
+
+        exp2->compile(ctx, pool);
+        jmp_xil_t * end_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
+
+        xil::append_label_xil(sctx, pool, false_jmp_xil);
+        __compile_cvalue(ctx, pool, cvalue_t(false));
+
+        xil::append_label_xil(sctx, pool, end_jmp_xil);
     }
 
     // Compiles logic or expression.
@@ -941,10 +981,19 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
-        exp1->compile(ctx, pool);
-        exp2->compile(ctx, pool);
+        // Short circuit: the second operand is not evaluated when the first is true.
+        statement_compile_context_t & sctx = ctx.statement_ctx;
 
-        pool.append<x_logic_xil_t>(xil_logic_command_t::or_);
+        exp1->compile(ctx, pool);
+        jmp_xil_t * true_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::true_);
+
+        exp2->compile(ctx, pool);
+        jmp_xil_t * end_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
+
+        xil::append_label_xil(sctx, pool, true_jmp_xil);
+        __compile_cvalue(ctx, pool, cvalue_t(true));
+
+        xil::append_label_xil(sctx, pool, end_jmp_xil);
     }
 
     // Compiles logic not expression.
@@ -1220,7 +1269,7 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case variable_type_t::field:
-                __push_this(ctx, pool, ca.this_);
+                __push_field_owner(ctx, pool, ca.this_, var);
                 xil::write_assign_xil(ctx, pool, (field_variable_t *)var, xt, pick);
                 break;
 
@@ -1657,6 +1706,10 @@ namespace X_ROOT_NS::modules::compile {
     {
         xil_type_t xil_type = __to_xil_type(ctx, variable);
 
+        // The value is pushed with the type of the variable: the conversion to the type that
+        // the expression needs is made once, by __post_compile_expression.
+        dtype = xil_type;
+
         if (variable->constant)
         {
             cvalue_t cvalue = __execute_expression(variable->expression);
@@ -1666,9 +1719,6 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            if (dtype == xil_type_t::empty)
-                dtype = xil_type;
-
             type_t * type = variable->get_type();
 
             if (__is_custom_struct_like(type))
@@ -1744,8 +1794,8 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            if (dtype == xil_type_t::empty)
-                dtype = __to_xil_type(field_type);
+            // The type of the field: see __compile_local_variable.
+            dtype = __to_xil_type(field_type);
 
             pool.append<x_push_field_xil_t>(field_ref, dtype);
         }
@@ -1922,10 +1972,13 @@ namespace X_ROOT_NS::modules::compile {
             return;
 
         expression_t * left_exp;
-        bool has_instance;
+        bool has_instance, is_member_access = false;
 
         if (__is_member_expression(owner_exp->parent, &left_exp))
+        {
             has_instance = __is_instance(left_exp);
+            is_member_access = true;
+        }
         else
             has_instance = !ctx.statement_ctx.method->is_static();
 
@@ -1934,7 +1987,8 @@ namespace X_ROOT_NS::modules::compile {
 
         // _P(_T("__check_static_member"), owner_exp, variable, is_static, has_instance);
 
-        if (is_static && has_instance)
+        // A static member used by its simple name is fine in an instance method.
+        if (is_static && has_instance && is_member_access)
             __Failed("instance reference '%1%' cannot be accessed on static member '%2%'",
                                                                         left_exp, member);
 
@@ -2008,6 +2062,12 @@ namespace X_ROOT_NS::modules::compile {
                 if (is_static_const(field))
                 {
                     __compile_static_const_field(ctx, pool, field, env);
+                }
+                else if (field->is_static())
+                {
+                    __check_static_member(ctx, owner_exp, variable);
+                    __push_static_data(ctx, pool, field);
+                    __compile_field_variable(ctx, pool, (field_variable_t *)variable, env);
                 }
                 else
                 {
@@ -2417,7 +2477,12 @@ namespace X_ROOT_NS::modules::compile {
                 if (__is_custom_struct_like(type) && is_real_variable(this->variable)
                                            && __need_object_copy(this))
                 {
-                    __append_object_copy_xil(ctx, pool, type, xil_copy_kind_t::reverse);
+                    // A generic param that is a value (e.g. returned) is loaded into the
+                    // stack, not copied to a destination.
+                    if (is_generic_param(type) && env.type_mark == type_mark_t::value)
+                        __append_object_copy_xil(ctx, pool, type, xil_copy_kind_t::ret);
+                    else
+                        __append_object_copy_xil(ctx, pool, type, xil_copy_kind_t::reverse);
                 }
                     
                 __post_compile_expression(ctx, pool, this, env);
@@ -2601,7 +2666,8 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            __compile_cvalue(ctx, pool, cvalue, env);
+            // The natural type of the constant; the conversion is made by the post compile.
+            __compile_cvalue(ctx, pool, cvalue, __environment_t::empty);
         }
 
         __post_compile_expression(ctx, pool, this, env);

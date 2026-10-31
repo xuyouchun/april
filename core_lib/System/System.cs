@@ -353,3 +353,27 @@ public class OutOfRangeException : SystemException
 
 ////////// ////////// ////////// ////////// //////////
 
+// DivideByZeroException: an integer is divided by zero.
+[Internal]
+public class DivideByZeroException : SystemException
+{
+    // Default constructor.
+    public DivideByZeroException() { }
+
+    public DivideByZeroException(String message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// OverflowException: an arithmetic operation overflows, e.g. MinValue / -1.
+[Internal]
+public class OverflowException : SystemException
+{
+    // Default constructor.
+    public OverflowException() { }
+
+    public OverflowException(String message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+

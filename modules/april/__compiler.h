@@ -143,7 +143,7 @@ namespace X_ROOT_NS::modules::april {
         __project_cassembly_t * __record_project(project_t * project);
 
         // Runs the specified assembly.
-        void __run(const string_t & execute_assembly);
+        bool __run(const string_t & execute_assembly);
 
         // Generates the LLVM IR of the specified assembly.
         void __native(const string_t & execute_assembly,

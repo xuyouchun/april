@@ -148,6 +148,15 @@ namespace X_ROOT_NS::modules::exec {
             _A(buffer != nullptr);
         }
 
+        // Sets the limit: a call that would go beyond it overflows the stack.
+        void set_limit(rt_stack_unit_t * limit) _NE { __limit = limit; }
+
+        // Returns whether the specified units still fit under the limit.
+        __AlwaysInline bool fits(size_t units) const _NE
+        {
+            return __limit == nullptr || __top + units < __limit;
+        }
+
         // Allocate from stack.
         __AlwaysInline rt_stack_unit_t * alloc(size_t size) _NE
         {
@@ -271,6 +280,7 @@ namespace X_ROOT_NS::modules::exec {
     private:
         rt_stack_unit_t * __top, * __lp;
         rt_stack_unit_t * __buffer;
+        rt_stack_unit_t * __limit = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -939,6 +949,9 @@ namespace X_ROOT_NS::modules::exec {
         exec_method_t *     method;         // Method.
     };
 
+    // Ends the process with a stack overflow.
+    [[noreturn]] void __stack_overflow();
+
     // Context of command executing.
     class command_execute_context_t : public object_t, public no_copy_ctor_t
                                     , public gc_root_source_t
@@ -953,6 +966,9 @@ namespace X_ROOT_NS::modules::exec {
             , heap(heap), env(env)
         {
             _A(heap != nullptr);
+
+            // Keeps a margin for the operands of the commands.
+            stack.set_limit(__stack_buffer + stack_size - 4096);
 
             heap->add_root_source(this);
         }
@@ -982,11 +998,17 @@ namespace X_ROOT_NS::modules::exec {
         command_t ** current = nullptr;         // Current command.
 
         exception_stack_t exception_stack;      // Exception stack.
+        bool              unhandled = false;    // An exception that nothing caught ended the execution.
         block_queue_t     block_queue;          // Block queue.
 
         // Pushes calling context.
         __AlwaysInline void push_calling(exec_method_t * method) _NE
         {
+            // Like the runtimes of other languages, a stack overflow ends the process:
+            // it cannot be handled.
+            if (!stack.fits(method->stack_unit_size + 16)) [[unlikely]]
+                __stack_overflow();
+
             stack.push(__calling_stub_t { stack.lp(), this->current, method });
             this->current = method->get_commands();
             stack.set_lp(stack.top());
@@ -1177,6 +1199,7 @@ namespace X_ROOT_NS::modules::exec {
 
     // Executor environment.
     class executor_env_t : public analyzer_env_t, public no_copy_ctor_t
+                         , public gc_root_source_t
     {
         typedef analyzer_env_t __super_t;
         typedef executor_env_t __self_t;
@@ -1207,7 +1230,25 @@ namespace X_ROOT_NS::modules::exec {
         // Creates an array of exec_method_block_t.
         exec_method_block_t * new_blocks(size_t count);
 
+        // Returns the object that holds the static fields of the type, created on demand.
+        rt_ref_t static_data_of(rt_type_t * type);
+
+        // Heap that holds the static data, nullptr when not executing.
+        rt_heap_t * static_heap = nullptr;
+
+        // (gc_root_source_t)
+        virtual void each_gc_root_ranges(
+                const std::function<void (void **, void **)> & f) override { }
+
+        // (gc_root_source_t)
+        virtual void each_gc_roots(const std::function<void (rt_ref_t)> & f) override
+        {
+            for (auto & it : __static_data_map)
+                f(it.second);
+        }
+
     private:
+        std::map<rt_type_t *, rt_ref_t> __static_data_map;
         std::map<void *, exec_method_t *> __method_map;
         __command_heap_t        __command_heap;
         __method_block_heap_t   __method_block_heap;
@@ -1233,8 +1274,8 @@ namespace X_ROOT_NS::modules::exec {
             : env(ctx.memory, ctx.rpool, ctx.assemblies), __ctx(ctx)
         { }
 
-        // Executes commands.
-        void execute();
+        // Executes commands, returns false when an exception that nothing caught ended it.
+        bool execute();
 
         executor_env_t env;
 
@@ -1265,8 +1306,9 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Executes with specified context.
-    void execute(rt_context_t & ctx);
+    // Executes with specified context, returns false when an exception that nothing
+    // caught ended it.
+    bool execute(rt_context_t & ctx);
 
     ////////// ////////// ////////// ////////// //////////
 

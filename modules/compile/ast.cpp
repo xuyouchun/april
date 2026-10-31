@@ -2497,7 +2497,7 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             // Initialize fields.
-            __init_fields(statements, method);
+            __init_fields(statements, method, false);
 
             // Appends to method body.
             if (statements.size() > 0)
@@ -2518,6 +2518,21 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
             */
+        }
+
+        // Revise static constructor: initializes the static fields.
+        void revise_static_constructor(method_t & method)
+        {
+            __statements_t statements;
+            __init_fields(statements, method, true);
+
+            if (statements.size() > 0)
+            {
+                if (method.body == nullptr)
+                    method.body = __new_obj<method_body_t>(__wctx.current_region());
+
+                method.body->push_front(statements);
+            }
         }
 
     private:
@@ -2547,7 +2562,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // Initialize fields.
-        void __init_fields(__statements_t & statements, method_t & method)
+        void __init_fields(__statements_t & statements, method_t & method, bool is_static)
         {
             // fields initialize
             type_t * type = __wctx.current_type();
@@ -2559,6 +2574,12 @@ namespace X_ROOT_NS::modules::compile {
             for (member_t * member : members_args.out_members)
             {
                 field_t * field = (field_t *)member;
+
+                // Static fields are initialized by the static constructor, constants
+                // have no storage to initialize.
+                if (field->is_static() != is_static || field->is_const())
+                    continue;
+
                 expression_t * init_exp = field->init_value;
                 type_t * field_type = to_type(field->type_name);
 
@@ -2586,6 +2607,15 @@ namespace X_ROOT_NS::modules::compile {
             cvalue_t def_cv = default_value_of(type->this_vtype());
             return cv != def_cv;
         }
+    };
+
+    // Tag of the delayed analysis of a synthesized static constructor.
+    class __static_ctor_tag_t : public object_t
+    {
+    public:
+        __static_ctor_tag_t(method_t * method) : method(method) { }
+
+        method_t * method;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2720,8 +2750,9 @@ namespace X_ROOT_NS::modules::compile {
 
             if (it == std::end(this->methods))  // no constructor
             {
+                // The tag is read back as an object_t: convert before it becomes a void *.
                 method_t * method = __append_default_constructor(context);
-                this->__delay(context, walk_step_t::analysis, method);
+                this->__delay(context, walk_step_t::analysis, (object_t *)method);
             }
             else
             {
@@ -2737,7 +2768,36 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
-        this->__delay(context, walk_step_t::analysis, new_default_constructor);
+        this->__delay(context, walk_step_t::analysis, (object_t *)new_default_constructor);
+
+        // Static fields with initial values need a static constructor.
+        if (al::in(type->this_ttype(), ttype_t::class_, ttype_t::struct_))
+        {
+            bool has_static_ctor = al::any_of(this->methods, [](method_t * m) {
+                return m->trait == method_trait_t::static_constructor;
+            });
+
+            bool has_static_init = al::any_of(this->fields, [](field_t * f) {
+                return f->is_static() && !f->is_const() && f->init_value != nullptr;
+            });
+
+            if (!has_static_ctor && has_static_init)
+            {
+                method_t * method = __new_obj<method_t>();
+
+                method->name     = this->name;
+                method->decorate = __new_obj<decorate_t>();
+                method->decorate->access    = access_value_t::private_;
+                method->decorate->is_static = true;
+                method->trait    = method_trait_t::static_constructor;
+                method->body     = __new_obj<method_body_t>(context.current_region());
+                method->body->push_back(__new_obj<return_statement_t>());
+
+                this->methods.push_back(method);
+                this->__delay(context, walk_step_t::analysis,
+                                    (object_t *)__new_obj<__static_ctor_tag_t>(method));
+            }
+        }
 
         return true;
     }
@@ -3317,7 +3377,17 @@ namespace X_ROOT_NS::modules::compile {
         method_t * new_default_constructor = nullptr;
         __fields_init_stub_t * fields_init_stub = nullptr;
 
-        dynamic_cast_tie(tag_obj, &new_default_constructor, &fields_init_stub);
+        __static_ctor_tag_t * static_ctor_tag = nullptr;
+
+        dynamic_cast_tie(tag_obj, &new_default_constructor, &fields_init_stub,
+                                                            &static_ctor_tag);
+
+        if (static_ctor_tag != nullptr)
+        {
+            __method_utils_t(__context, context).revise_static_constructor(
+                                                            *static_ctor_tag->method);
+            return true;
+        }
 
         // Revise constructor.
         if (new_default_constructor != nullptr)
@@ -5204,6 +5274,7 @@ namespace X_ROOT_NS::modules::compile {
         switch (this->trait)
         {
             case method_trait_t::static_constructor:
+                __method_utils_t(__context, context).revise_static_constructor(*this);
                 break;
 
             case method_trait_t::constructor:

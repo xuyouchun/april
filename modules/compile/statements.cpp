@@ -609,7 +609,15 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            append_xilx<rethrow_xilx_t>(ctx);
+            // Throws the exception of the catch block again.
+            if (ctx.catch_variables.empty())
+                __Failed("throw without an expression is only allowed in a catch block");
+
+            expression_t * exception = ctx.new_obj<system_expression_t<name_expression_t>>(
+                ctx.catch_variables.back());
+
+            append_expression(ctx, exception, true);
+            append_xilx<throw_xilx_t>(ctx);
         }
     }
 
@@ -648,17 +656,15 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles this statement.
     void return_statement_t::compile(statement_compile_context_t & ctx) 
     {
-        // Insert leave command before return in protected regions.
-        if (__need_leave(ctx))
-            xilx::append_xilx<leave_ret_xilx_t>(ctx);
-
         if (expression != nullptr)
         {
             __walk_variables(expression);
             set_assign_parent(expression);
         }
 
-        append_xilx<return_xilx_t>(ctx, expression);
+        // In protected regions, a leave command is inserted before the return, after the
+        // value of the expression.
+        append_xilx<return_xilx_t>(ctx, expression, __need_leave(ctx));
     }
 
     // Returns exit type.
@@ -1621,7 +1627,10 @@ namespace X_ROOT_NS::modules::compile {
 
             append_local_label(ctx, label_catch);
             xilx::append_xilx<pop_variable_xilx_t>(ctx, c->variable);
+
+            ctx.catch_variables.push_back(c->variable);
             compile_statement(ctx, c->body);
+            ctx.catch_variables.pop_back();
 
             if (__statement_pass(ctx, c->body))
             {
@@ -1666,16 +1675,33 @@ namespace X_ROOT_NS::modules::compile {
         if (et_finally != __exit_type_t::none && !et_finally.has(__exit_type_t::pass))
             return et_finally;
 
-        __e_exit_type_t et = __exit_type_of(ctx, try_statement);
-        if (!et.has(__exit_type_t::throw_))
-            return et;
+        // The statement is left the way the try block is left, or a catch block: the
+        // handlers run when the try block throws. An empty block passes.
+        __e_exit_type_t et = __exit_type(ctx, try_statement);
+        if (!et)
+            et = __exit_type_t::pass;
 
+        bool catch_all = false;
         general_type_t * exception_type = __XPool.get_exception_type();
+
         for (catch_t * c : catches)
         {
-            if (c != nullptr && to_type(c->type_name) == exception_type)
-                et.remove(__exit_type_t::throw_);
+            if (c == nullptr)
+                continue;
+
+            __e_exit_type_t et_catch = __exit_type(ctx, c->body);
+            if (!et_catch)
+                et_catch = __exit_type_t::pass;
+
+            et = et | et_catch;
+
+            if (to_type(c->type_name) == exception_type)
+                catch_all = true;
         }
+
+        // Every exception is caught.
+        if (catch_all)
+            et.remove(__exit_type_t::throw_);
 
         return *et;
     }

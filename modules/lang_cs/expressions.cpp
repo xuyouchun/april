@@ -10,15 +10,36 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The numeric type that both branches of a condition expression convert to,
+    // nullptr when the branches are not numbers of different types.
+    static type_t * __numeric_result_type(expression_t * value1, expression_t * value2)
+    {
+        vtype_t vtype1 = value1->get_vtype(), vtype2 = value2->get_vtype();
+        if (vtype1 == vtype2 || !is_numberic_vtype(vtype1) || !is_numberic_vtype(vtype2))
+            return nullptr;
+
+        vtype_t vtype = get_binary_vtype(operator_t::add, vtype1, vtype2);
+        if (vtype == vtype_t::__unknown__ || vtype == vtype_t::__default__)
+            return nullptr;
+
+        return __XPool.get_internal_type(vtype);
+    }
+
     // Returns vtype of cs_condition_expression.
     vtype_t cs_condition_expression_t::get_vtype() const
     {
+        if (type_t * type = __numeric_result_type(value1(), value2()); type != nullptr)
+            return type->this_vtype();
+
         return value1()->get_vtype();
     }
 
     // Returns type of cs_condigion_expression.
     type_t * cs_condition_expression_t::get_type() const
     {
+        if (type_t * type = __numeric_result_type(value1(), value2()); type != nullptr)
+            return type;
+
         return value1()->get_type();
     }
 
@@ -35,30 +56,46 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         cvalue_t condition_value = execute_expression(this->condition());
 
+        // Numbers of different types: both branches are converted to the type of the
+        // whole expression.
+        type_t * result_type = __numeric_result_type(value1(), value2());
+        __environment_t branch_env = result_type != nullptr? __environment_t(result_type)
+                                                           : __environment_t::empty;
+
         if (value1_effective || value2_effective)
         {
             if (condition_value == true)
             {
-                value1()->compile(ctx, pool);
+                value1()->compile(ctx, pool, branch_env);
             }
             else if (condition_value == false)
             {
-                value2()->compile(ctx, pool);
+                value2()->compile(ctx, pool, branch_env);
             }
             else
             {
                 condition()->compile(ctx, pool);
                 jmp_xil_t * false_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
 
-                value1()->compile(ctx, pool);
+                value1()->compile(ctx, pool, branch_env);
                 jmp_xil_t * finally_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
 
                 if (false_jmp_xil != nullptr)
                     xil::append_label_xil(sctx, pool, false_jmp_xil);
 
-                value2()->compile(ctx, pool);
+                value2()->compile(ctx, pool, branch_env);
 
                 xil::append_label_xil(sctx, pool, finally_jmp_xil);
+            }
+
+            // The value is used as a number of another type.
+            type_t * type = this->get_type();
+            if (env.dtype != xil_type_t::empty && type != nullptr && is_value_type(type)
+                && env.type != nullptr && is_value_type(env.type))
+            {
+                xil_type_t dtype = to_xil_type(type);
+                if (dtype != xil_type_t::empty && dtype != env.dtype)
+                    pool.append<x_push_convert_xil_t>(dtype, env.dtype);
             }
         }
     }

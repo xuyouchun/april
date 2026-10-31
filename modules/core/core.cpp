@@ -3924,6 +3924,11 @@ namespace X_ROOT_NS::modules::core {
                 // Check method duplicate.
                 return __search_member(methods, name, (method_t *)member, owner_type,
                                                                 [&](method_t * method) {
+                    // A static constructor never duplicates an instance constructor.
+                    if ((method->trait == method_trait_t::static_constructor)
+                            != (((method_t *)member)->trait == method_trait_t::static_constructor))
+                        return false;
+
                     return __is_params_equals(
                         ((method_t *)member)->params, ((method_t *)member)->generic_params,
                         method->params, method->generic_params

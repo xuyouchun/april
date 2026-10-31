@@ -184,6 +184,8 @@ namespace X_ROOT_NS::modules::exec {
     __DS(__get_invalid_cast_exception,      CoreType_InvalidCastException)
     __DS(__get_null_reference_exception,    CoreType_NullReferenceException)
     __DS(__get_out_of_range_exception,      CoreType_OutOfRangeException)
+    __DS(__get_divide_by_zero_exception,    CoreType_DivideByZeroException)
+    __DS(__get_overflow_exception,          CoreType_OverflowException)
     #undef __DS
 
     // Raise exception with specified type.
@@ -219,6 +221,8 @@ namespace X_ROOT_NS::modules::exec {
 
     #define __RaiseInvalidCastException(_ctx)   __RaiseException(_ctx, invalid_cast)
     #define __RaiseOutOfRangeException(_ctx)    __RaiseException(_ctx, out_of_range)
+    #define __RaiseDivideByZeroException(_ctx)  __RaiseException(_ctx, divide_by_zero)
+    #define __RaiseOverflowException(_ctx)      __RaiseException(_ctx, overflow)
 
     __AlwaysInline static void __pre_new(command_execute_context_t & ctx, rt_type_t * type);
 
@@ -1046,8 +1050,11 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
+            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+            __CheckNullReference(ctx, obj);
+
             ctx.stack.push(static_cast<__value2_t>(
-                __Field(__value1_t, ctx.stack.pop<rt_ref_t>(), __This->__offset)
+                __Field(__value1_t, obj, __This->__offset)
             ));
 
         __EndExecute()
@@ -1080,9 +1087,10 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            ctx.stack.push(
-                __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset)
-            );
+            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+            __CheckNullReference(ctx, obj);
+
+            ctx.stack.push(__FieldAddress(obj, __This->__offset));
 
         __EndExecute()
 
@@ -1256,6 +1264,7 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
 
             if constexpr (_dimension >= 2)
@@ -1264,7 +1273,7 @@ namespace X_ROOT_NS::modules::exec {
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
             }
 
-            if (index >= mm::get_array_length(array_ref))
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
                 __RaiseOutOfRangeException(ctx);
 
             ctx.stack.push<__value2_t>(static_cast<__value2_t>(
@@ -1297,12 +1306,13 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
             array_length_t * lengths = mm::get_array_lengths(array_ref);
 
             index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
 
-            if (index >= mm::get_array_length(array_ref))
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
                 __RaiseOutOfRangeException(ctx);
 
             ctx.stack.push<__value2_t>(static_cast<__value2_t>(
@@ -1370,6 +1380,7 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
 
             if constexpr (_dimension >= 2)
@@ -1378,7 +1389,7 @@ namespace X_ROOT_NS::modules::exec {
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
             }
 
-            if (index >= mm::get_array_length(array_ref))
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
                 __RaiseOutOfRangeException(ctx);
 
             ctx.stack.push(array_ref + index * __element_size);
@@ -1410,12 +1421,13 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
             array_length_t * lengths = mm::get_array_lengths(array_ref);
 
             index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
 
-            if (index >= mm::get_array_length(array_ref))
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
                 __RaiseOutOfRangeException(ctx);
 
             ctx.stack.push(array_ref + index * __element_size);
@@ -1885,6 +1897,14 @@ namespace X_ROOT_NS::modules::exec {
                     , out_name
                 #endif
                 );
+            }   break;
+
+            case xil_storage_object_type_t::static_data: {
+                rt_type_t * type = ctx.get_type(ref);
+                #if EXEC_TRACE
+                *out_name = type->get_name(ctx.env);
+                #endif
+                object = (rt_object_t *)(void *)ctx.env.static_data_of(type);
             }   break;
 
             default:
@@ -2924,7 +2944,10 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            void * field = __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset);
+            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+            __CheckNullReference(ctx, obj);
+
+            void * field = __FieldAddress(obj, __This->__offset);
             *(__value1_t *)field = static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
 
         __EndExecute()
@@ -2969,6 +2992,7 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
 
             if (_dimension >= 2)
@@ -2977,7 +3001,7 @@ namespace X_ROOT_NS::modules::exec {
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
             }
 
-            if (index >= mm::get_array_length(array_ref))
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
                 __RaiseOutOfRangeException(ctx);
 
             mm::set_array_element<__value1_t>(
@@ -3009,10 +3033,14 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
             array_length_t * lengths = mm::get_array_lengths(array_ref);
 
             index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
+
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
 
             mm::set_array_element<__value1_t>(
                 array_ref, index, static_cast<__value1_t>(ctx.stack.pop<__value2_t>())
@@ -3497,7 +3525,10 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            void * field = __FieldAddress(ctx.stack.pop<rt_ref_t>(), __This->__offset);
+            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+            __CheckNullReference(ctx, obj);
+
+            void * field = __FieldAddress(obj, __This->__offset);
             *(__value1_t *)field = static_cast<__value1_t>(ctx.stack.pick<__value2_t>());
 
         __EndExecute()
@@ -3543,6 +3574,7 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
 
             if (_dimension >= 2)
@@ -3580,10 +3612,14 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
             array_length_t * lengths = mm::get_array_lengths(array_ref);
 
             index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
+
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
 
             mm::set_array_element<__value1_t>(
                 array_ref, index, static_cast<__value1_t>(ctx.stack.pick<__value2_t>())
@@ -3943,6 +3979,9 @@ namespace X_ROOT_NS::modules::exec {
 
             __This->__func(context);
 
+            if (context.ret_code == rtlib::rtlib_ret_null_reference)
+                __RaiseException(ctx, null_reference);
+
             ctx.stack.pop(__This->__pop_unit_size);
 
         __EndExecute()
@@ -4196,9 +4235,28 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             exec_method_t * method = __This->__get_method(ctx);
+
+            // The object of a class is a reference, that of a struct or a primitive is not.
+            if (__This->__check_this < 0)
+            {
+                __This->__check_this =
+                    __This->get_type()->get_ttype(ctx.env) == ttype_t::class_? 1 : 0;
+            }
+
+            if (__This->__check_this)
+            {
+                rt_ref_t self = *(rt_ref_t *)(ctx.stack.top() - method->this_offset);
+                __CheckNullReference(ctx, self);
+            }
+
             ctx.push_calling(method);
 
         __EndExecute()
+
+    private:
+        int8_t __check_this = -1;
+
+    public:
 
         virtual void switch_to(command_execute_context_t & ctx) override
         {
@@ -4546,6 +4604,50 @@ namespace X_ROOT_NS::modules::exec {
     };
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Returns the method that a delegate of a virtual method calls: the most derived
+    // implementation in the type of the instance, like a virtual call.
+    static rt_method_base_t * __resolve_delegate_method(command_execute_context_t & ctx,
+                                        rt_object_t * instance, rt_method_base_t * method)
+    {
+        if (instance == nullptr || method == nullptr
+                || method->this_type() != rt_member_type_t::general)
+        {
+            return method;
+        }
+
+        rt_method_t * rt_method = (rt_method_t *)method;
+        decorate_t decorate = (decorate_t)(*rt_method)->decorate;
+        if (!(decorate.is_virtual || decorate.is_override || decorate.is_abstract))
+            return method;
+
+        rt_type_t * type = mm::get_object_type((rt_ref_t)(void *)instance);
+        if (type == nullptr || type->get_kind() == rt_type_kind_t::generic)
+            return method;
+
+        method_prototype_t prototype;
+        assembly_analyzer_t(ctx.env, rt_method->get_assembly()).get_prototype(
+            rt_method, &prototype
+        );
+
+        for (rt_type_t * t = type; t != nullptr; t = t->get_base_type(ctx.env))
+        {
+            if (t->get_kind() == rt_type_kind_t::generic)
+                break;
+
+            ref_t ref = t->search_method(ctx.env, prototype);
+            if (ref == ref_t::null)
+                continue;
+
+            rt_method_base_t * found = assembly_analyzer_t(ctx.env, t->get_assembly())
+                                                                .get_method(ref);
+            return found != nullptr? found : method;
+        }
+
+        return method;
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
     // delegate invoke init command.
 
     template<command_value_t _cv> class __delegate_call_command_t { };
@@ -4564,8 +4666,14 @@ namespace X_ROOT_NS::modules::exec {
 
             rt_object_t * self = __This->__get_self(ctx);
 
-            __This->__set_instance(ctx, self, __get_instance_argument(ctx));
-            __This->__set_method(ctx, self, __get_method_argument(ctx));
+            // A virtual method is bound to the implementation of the instance.
+            rt_object_t * instance = __get_instance_argument(ctx);
+            rt_method_base_t * method = __resolve_delegate_method(
+                ctx, instance, __get_method_argument(ctx)
+            );
+
+            __This->__set_instance(ctx, self, instance);
+            __This->__set_method(ctx, self, method);
 
         __EndExecute()
 
@@ -4954,6 +5062,23 @@ namespace X_ROOT_NS::modules::exec {
             const msize_t unit_size2 = unit_size_of(get_vtype_size(vtype2));
 
             rt_stack_unit_t * top = ctx.stack.pop<unit_size1 + unit_size2>();
+
+            // Integer division: the divisor is not zero, and the result fits.
+            if constexpr (to_operator(_op) == operator_t::div || to_operator(_op) == operator_t::mod)
+            {
+                if constexpr (std::is_integral<t1>::value && std::is_integral<t2>::value)
+                {
+                    t2 divisor = *(t2 *)(top + unit_size1);
+                    if (divisor == 0)
+                        __RaiseDivideByZeroException(ctx);
+
+                    if constexpr (std::is_signed<t1>::value && std::is_signed<t2>::value)
+                    {
+                        if (divisor == (t2)-1 && *(t1 *)top == std::numeric_limits<t1>::min())
+                            __RaiseOverflowException(ctx);
+                    }
+                }
+            }
 
             ctx.stack.push(
                 binary_operator_t<to_operator(_op), vtype1, vtype2>()(
@@ -5961,6 +6086,10 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t exception = ctx.stack.pop<rt_ref_t>();
+
+            // Throwing null raises a NullReferenceException.
+            __CheckNullReference(ctx, exception);
+
             ctx.restore_stack();
 
             ctx.push_exception(exception);
@@ -6448,10 +6577,15 @@ namespace X_ROOT_NS::modules::exec {
             dimension_t dimension = __This->__type->dimension;
 
             array_length_t lengths[dimension];
+            bool negative = false;
             for (int * len = lengths + dimension - 1; len >= lengths; len--)
             {
                 *len = ctx.stack.pop<int32_t>();
+                negative |= *len < 0;
             }
+
+            if (negative)
+                __RaiseOutOfRangeException(ctx);
 
             ctx.stack.push(
                 ctx.heap->new_array(__This->__type, lengths)
@@ -6711,6 +6845,21 @@ namespace X_ROOT_NS::modules::exec {
                 void * p = ctx.stack.pop<void *>();
                 al::quick_zero(p, __This->__size);
             }
+            else if(__This->__kind == xil_copy_kind_t::ret)
+            {
+                // The value of the object is pushed into the stack.
+                void * src = ctx.stack.pop<void *>();
+
+                size_t units = (__This->__size + sizeof(rt_stack_unit_t) - 1)
+                                                        / sizeof(rt_stack_unit_t);
+                if (units == 0)
+                    units = 1;
+
+                rt_stack_unit_t * dst = ctx.stack.alloc_units(units);
+                dst[units - 1] = 0;
+
+                al::quick_copy((void *)dst, src, __This->__size);
+            }
 
 
         __EndExecute()
@@ -6792,6 +6941,10 @@ namespace X_ROOT_NS::modules::exec {
             case xil_copy_kind_t::zero:
                 __Switch(size, zero);
                 break;
+
+            case xil_copy_kind_t::ret:
+                return __memory_copy_command_ex_manager.template
+                    get_command<__CopyCmdEx>(size, kind);
 
             default:
                 X_UNEXPECTED_F("unexpected xil copy kind '%1%'", kind);
@@ -7763,7 +7916,9 @@ namespace X_ROOT_NS::modules::exec {
                 _A(node != nullptr);
                 rt_type_t * exception_type = mm::get_object_type(node->exception);
 
-                _PF(_T("Uncaught Exception: %1%"), exception_type->get_name(ctx.env));
+                std::wcerr << _T("Unhandled exception: ")
+                           << string_t(exception_type->get_name(ctx.env)) << std::endl;
+                ctx.unhandled = true;
 
             }   break;
 

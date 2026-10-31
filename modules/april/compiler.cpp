@@ -255,8 +255,7 @@ namespace X_ROOT_NS::modules::april {
                 throw e;
         }
 
-        this->__run(execute_assembly);
-        return true;
+        return this->__run(execute_assembly);
     }
 
     // Compiles, then generates the LLVM IR of the specified assembly.
@@ -383,7 +382,7 @@ namespace X_ROOT_NS::modules::april {
     }
 
     // Runs specified assembly.
-    void april_xcompiler_t::__run(const string_t & execute_assembly)
+    bool april_xcompiler_t::__run(const string_t & execute_assembly)
     {
         __cassembly_t * main_cassembly;
 
@@ -407,7 +406,7 @@ namespace X_ROOT_NS::modules::april {
                 : create_gc_heap(&__xheap);
 
         rt_context_t rt_ctx(&__xheap, heap, &provider);
-        exec::execute(rt_ctx);
+        return exec::execute(rt_ctx);
     }
 
     // Determines the compile type.

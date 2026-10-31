@@ -152,6 +152,9 @@ namespace X_ROOT_NS::algorithm {
             // Pushes a char to continue parse operation.
             __AlwaysInline __e_t push(char_t c)
             {
+                // The text is converted at the end, which is exact.
+                __text += (char)c;
+
                 switch (c)
                 {
                     case _T('.'):
@@ -210,6 +213,15 @@ namespace X_ROOT_NS::algorithm {
             // Commits to completed the paring operation.
             __AlwaysInline __e_t commit()
             {
+                if (!__text.empty())
+                {
+                    __numeric = (_numeric_t)std::strtold(__text.c_str(), nullptr);
+                    if (std::isinf(__numeric))
+                        return __e_t::overflow;
+
+                    return __e_t::success;
+                }
+
                 if (__pow != 0)
                 {
                     if (__point_zero_count > 0)
@@ -222,10 +234,10 @@ namespace X_ROOT_NS::algorithm {
                     if (std::isinf(ev))
                         return __e_t::overflow;
 
-                    if (__ec == _T('+'))
-                        __numeric *= ev;
-                    else
+                    if (__ec == _T('-'))
                         __numeric /= ev;
+                    else
+                        __numeric *= ev;
 
                     if (std::isinf(__numeric))
                         return __e_t::overflow;
@@ -236,6 +248,7 @@ namespace X_ROOT_NS::algorithm {
 
         private:
             _numeric_t & __numeric;
+            std::string  __text;
             bool         __point = false;
             _numeric_t   __point_mod = (_numeric_t)0.1;
             bool         __e = false;
@@ -509,20 +522,23 @@ namespace X_ROOT_NS::algorithm {
                         break;
 
                     case _T('E'): case _T('e'):
-                        if (__radix == 10)
+                        // The radix is not set yet for a decimal number (0): 'e' is a digit
+                        // of a hexadecimal number, the exponent of a decimal one.
+                        if (__radix == 10 || __radix == 0)
                         {
                             __set_e(__p);
-                            if (*++__p != _T('+') && *__p != _T('-'))
+
+                            // The sign of the exponent is optional.
+                            if (*(__p + 1) == _T('+') || *(__p + 1) == _T('-'))
+                                ++__p;
+
+                            if (!is_digit(*(__p + 1)))
                             {
                                 __set_error(__e_t::format_error);
                                 goto label_default;
                             }
 
-                            if (!is_digit(*++__p))
-                            {
-                                __set_error(__e_t::format_error);
-                                goto label_default;
-                            }
+                            ++__p;
                         }
                         else
                         {

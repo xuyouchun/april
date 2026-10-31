@@ -206,6 +206,31 @@ namespace X_ROOT_NS::modules::core {
                 }                                                   \
             };
 
+        // Whether the type is an integer that std::cmp_xxx accepts.
+        template<typename t> constexpr bool __is_cmp_integer =
+               std::is_integral<t>::value
+            && !std::is_same<t, bool>::value
+            && !std::is_same<t, char>::value
+            && !std::is_same<t, wchar_t>::value
+            && !std::is_same<t, char8_t>::value
+            && !std::is_same<t, char16_t>::value
+            && !std::is_same<t, char32_t>::value;
+
+        // Comparison: integers of different signs are compared by value, not converted to
+        // the unsigned type (-1 < 1u is true).
+        #define __DefineCompareOp(name, op, cmp)                    \
+            template<> struct __binary_op_t<operator_t::name>       \
+            {                                                       \
+                template<typename vnum1_t, typename vnum2_t>        \
+                auto operator()(vnum1_t v1, vnum2_t v2)             \
+                {                                                   \
+                    if constexpr (__is_cmp_integer<vnum1_t> && __is_cmp_integer<vnum2_t>)   \
+                        return std::cmp(v1, v2);                    \
+                    else                                            \
+                        return v1 op v2;                            \
+                }                                                   \
+            };
+
         // Defines binary operations.
         __DefineBinaryOp(add, +)
         __DefineBinaryOp(sub, -)
@@ -219,12 +244,12 @@ namespace X_ROOT_NS::modules::core {
         __DefineBinaryOp(div_assign, /=)
         __DefineBinaryOp(mod_assign, %=)
 
-        __DefineBinaryOp(greater, >)
-        __DefineBinaryOp(greater_equal, >=)
-        __DefineBinaryOp(less, <)
-        __DefineBinaryOp(less_equal, <=)
-        __DefineBinaryOp(equal, ==)
-        __DefineBinaryOp(not_equal, !=)
+        __DefineCompareOp(greater, >, cmp_greater)
+        __DefineCompareOp(greater_equal, >=, cmp_greater_equal)
+        __DefineCompareOp(less, <, cmp_less)
+        __DefineCompareOp(less_equal, <=, cmp_less_equal)
+        __DefineCompareOp(equal, ==, cmp_equal)
+        __DefineCompareOp(not_equal, !=, cmp_not_equal)
 
         __DefineBinaryOp(bit_and, &)
         __DefineBinaryOp(bit_or, |)

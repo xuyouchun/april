@@ -69,13 +69,13 @@ extern "C" {
         int64_t total = 1;
         for (int32_t k = 0; k < dimension; k++)
         {
+            // A negative or too large length: the program raises OutOfRangeException.
             if (lengths[k] < 0)
-            {
-                std::fputs("native: negative array length\n", stderr);
-                std::exit(1);
-            }
+                return nullptr;
 
             total *= lengths[k];
+            if (total * element_size > 0x7fffffffLL)
+                return nullptr;
         }
 
         size_t header = (16 + 4 * (size_t)dimension + 15) / 16 * 16;

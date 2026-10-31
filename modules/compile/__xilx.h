@@ -178,12 +178,16 @@ namespace X_ROOT_NS::modules::compile {
     public:
 
         // Constructor.
-        return_xilx_t(__region_t & region, expression_t * expression)
+        return_xilx_t(__region_t & region, expression_t * expression, bool leave = false)
             : __super_t(region)
-            , expression(expression) { }
+            , expression(expression), leave(leave) { }
 
         // Return expression.
         expression_t * expression;
+
+        // Whether the return leaves protected blocks: the finally blocks run after the
+        // value is computed, before the return.
+        bool leave;
 
         // Writes xilx to a pool.
         virtual void write(__xw_context_t & ctx, xil_pool_t & pool) override;

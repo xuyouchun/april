@@ -226,6 +226,22 @@ namespace X_ROOT_NS::modules::exec {
 
     #undef __CheckCache
 
+    // Returns the object that holds the static fields of the type.
+    rt_ref_t executor_env_t::static_data_of(rt_type_t * type)
+    {
+        auto it = __static_data_map.find(type);
+        if (it != __static_data_map.end())
+            return it->second;
+
+        _A(static_heap != nullptr);
+
+        type->pre_new(*this);
+        rt_ref_t obj = static_heap->new_obj(type);
+        __static_data_map[type] = obj;
+
+        return obj;
+    }
+
     // Gets exec_method_t from cache, returns nullptr if not found.
     exec_method_t * executor_env_t::__from_cache(void * method)
     {
@@ -239,8 +255,15 @@ namespace X_ROOT_NS::modules::exec {
     ////////// ////////// ////////// ////////// //////////
     // executor_t
 
+    // Ends the process with a stack overflow.
+    void __stack_overflow()
+    {
+        std::wcerr << _T("Stack overflow.") << std::endl;
+        std::exit(1);
+    }
+
     // Executes commands.
-    void executor_t::execute()
+    bool executor_t::execute()
     {
         rt_assembly_t * main_assembly = env.assemblies.load_main_assembly();
         rt_method_t * entry_point = main_assembly->get_entry_point();
@@ -261,10 +284,17 @@ namespace X_ROOT_NS::modules::exec {
         // Lets the gc tell which parts of objects hold references.
         gc_type_resolver_scope_t gc_resolver_scope(__ctx.heap, env);
 
+        env.static_heap = __ctx.heap;
+        __ctx.heap->add_root_source(&env);
+
         command_execute_context_t exec_ctx(__ctx.heap, env);
         execute_commands(exec_ctx, commands);
 
-        _A(exec_ctx.stack.bottom() == exec_ctx.stack.top());
+        __ctx.heap->remove_root_source(&env);
+        env.static_heap = nullptr;
+
+        _A(exec_ctx.stack.bottom() == exec_ctx.stack.top() || exec_ctx.unhandled);
+        return !exec_ctx.unhandled;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -296,9 +326,9 @@ namespace X_ROOT_NS::modules::exec {
     ////////// ////////// ////////// ////////// //////////
 
     // Executes with specified context.
-    void execute(rt_context_t & ctx)
+    bool execute(rt_context_t & ctx)
     {
-        executor_t(ctx).execute();
+        return executor_t(ctx).execute();
     }
 
     ////////// ////////// ////////// ////////// //////////

@@ -419,6 +419,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(method_info,    _T("method_info"))
 
+        X_C(static_data,    _T("static_data"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

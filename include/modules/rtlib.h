@@ -73,6 +73,9 @@ namespace X_ROOT_NS::modules::rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Return codes of runtime lib functions.
+    const int rtlib_ret_null_reference = 1;     // A null reference was used.
+
     // Runtime lib context.
     struct rtlib_context_t
     {

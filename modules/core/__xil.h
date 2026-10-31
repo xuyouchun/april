@@ -384,7 +384,8 @@ namespace X_ROOT_NS::modules::core {
 
         zero            = 2,            // Set object memory to zero.
 
-        ret             = 3,            // When return a custom struct.
+        ret             = 3,            // Loads the object at the address on the top into the
+                                        //   stack as a value, e.g. a generic param returned.
 
     __EnumEnd
 
@@ -761,6 +762,9 @@ namespace X_ROOT_NS::modules::core {
         type_info,
 
         method_info,
+
+        // The object that holds the static fields of a type (the type ref is the xil ref).
+        static_data,
 
     __EnumEnd
 

@@ -88,6 +88,8 @@ namespace X_ROOT_NS::modules::core {
     #define CoreType_NullReferenceException     _T("NullReferenceException")
     #define CoreType_InvalidCastException       _T("InvalidCastException")
     #define CoreType_OutOfRangeException        _T("OutOfRangeException")
+    #define CoreType_DivideByZeroException      _T("DivideByZeroException")
+    #define CoreType_OverflowException          _T("OverflowException")
 
     // Attributes.
     #define CoreType_TraceAttribute     _T("Diagnostics.TraceAttribute")
@@ -7473,6 +7475,7 @@ namespace X_ROOT_NS::modules::core {
             : __super_t(arguments)
         {
             _A(method != nullptr);
+            this->set_method(method);
         }
 
         expression_t    * namex         = nullptr;      // Name
@@ -8436,6 +8439,10 @@ namespace X_ROOT_NS::modules::core {
         statement_compile_context_t(method_compile_context_t & mctx, method_t * method);
 
         method_compile_context_t & mctx;        // Method compile context.
+
+        // The variables of the exception of the catch blocks that are being compiled,
+        // the innermost last: `throw;` throws the one of the innermost.
+        std::vector<variable_t *> catch_variables;
 
         method_t *              method;                 // Method.
         jmp_manager_t           jmp_manager;            // Jmp manager.
