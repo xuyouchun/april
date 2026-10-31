@@ -47,6 +47,7 @@ namespace X_ROOT_NS::modules::core {
     // Common types.
     #define CoreType_Type         _T("Type")
     #define CoreType_Exception    _T("Exception")
+    #define CoreType_Checked      _T("Checked")
     #define CoreType_Void         _T("Void")
     #define CoreType_Object       _T("Object")
     #define CoreType_Ptr          _T("Ptr")
@@ -5023,6 +5024,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.Exception type.
         general_type_t * get_exception_type();
 
+        // Returns System.Checked type: the arithmetic that raises on overflow.
+        general_type_t * get_checked_type();
+
         // Returns System.Tuple<...> type.
         general_type_t * get_tuple_type();
 
@@ -5115,6 +5119,7 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __multicast_delegate_type = nullptr;
 
         general_type_t * __exception_type   = nullptr;
+        general_type_t * __checked_type     = nullptr;
         general_type_t * __tuple_type       = nullptr;
         general_type_t * __ituple_type      = nullptr;
         general_type_t * __trace_attribute_type = nullptr;
@@ -6553,6 +6558,9 @@ namespace X_ROOT_NS::modules::core {
         // Defines a local variable.
         local_variable_t * define_temp_local(type_t * type);
 
+        // The arithmetic raises on overflow, in checked(expression).
+        bool checked = false;
+
         // Relation statement context.
         operator statement_compile_context_t & () const
         {
@@ -7458,6 +7466,10 @@ namespace X_ROOT_NS::modules::core {
 
         variable,
 
+        checked_,       // checked(expression): arithmetic of the expression raises on overflow.
+
+        unchecked_,     // unchecked(expression)
+
     X_ENUM_END
 
     // Function expression.
@@ -7495,6 +7507,18 @@ namespace X_ROOT_NS::modules::core {
 
         // Gets variable.
         variable_t * get_variable() const _NE;
+
+        // Makes it checked(expression) or unchecked(expression): it has no function.
+        void set_checked(bool checked) _NE;
+
+        // Returns whether it's checked(expression) or unchecked(expression).
+        bool is_checked_expression() const _NE
+        {
+            return get_ftype() == __ftype_t::checked_ || get_ftype() == __ftype_t::unchecked_;
+        }
+
+        // Returns the expression of checked(expression) or unchecked(expression).
+        expression_t * checked_expression() const;
 
         // Returns function expression relation object type.
         __ftype_t get_ftype() const _NE { return (__ftype_t)__relation_data; }

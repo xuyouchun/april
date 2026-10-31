@@ -702,10 +702,65 @@ namespace X_ROOT_NS::modules::compile {
         return is_optimize(ctx, compile_optimize_code_t::optimize_basic_algorighm);
     }
 
+    // Compiles an arithmetic of checked(expression): a call of the method of System.Checked,
+    // returns false if the types are not integers of 32 or 64 bits.
+    static bool __try_compile_checked(__cctx_t & ctx, xil_pool_t & pool, operator_t op,
+                                expression_t * exp1, expression_t * exp2)
+    {
+        if (!ctx.checked)
+            return false;
+
+        vtype_t vtype = get_binary_vtype(op, exp1->get_vtype(), exp2->get_vtype());
+        const char_t * type_name;
+
+        switch (vtype)
+        {
+            case vtype_t::int32_:   type_name = _T("Int32"); break;
+            case vtype_t::uint32_:  type_name = _T("UInt32"); break;
+            case vtype_t::int64_:   type_name = _T("Int64"); break;
+            case vtype_t::uint64_:  type_name = _T("UInt64"); break;
+            default:
+                return false;
+        }
+
+        const char_t * op_name;
+        switch (op)
+        {
+            case operator_t::add:   op_name = _T("Add"); break;
+            case operator_t::sub:   op_name = _T("Sub"); break;
+            case operator_t::mul:   op_name = _T("Mul"); break;
+            default:
+                return false;
+        }
+
+        type_t * type = __XPool.get_internal_type(vtype);
+        atypes_t atypes = { atype_t(type), atype_t(type) };
+
+        analyze_member_args_t args(
+            member_type_t::method, __XPool.to_name(_F(_T("%1%%2%"), op_name, type_name)), &atypes
+        );
+
+        method_t * method = (method_t *)__XPool.get_checked_type()->get_member(args, true);
+        __FailedWhenNull(method, "checked arithmetic of '%1%' not found", type);
+
+        // The operands are converted to the type of the result, like the instructions do.
+        exp1->compile(ctx, pool, type);
+        exp2->compile(ctx, pool, type);
+
+        pool.append<x_method_call_xil_t>(
+            xil_call_type_t::static_, __search_method_ref(ctx, method)
+        );
+
+        return true;
+    }
+
     // Compiles add expression.
     static void __compile_add(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__try_compile_checked(ctx, pool, operator_t::add, exp1, exp2))
+            return;
+
         if (__is_optimize_basic_algorighm(ctx))
         {
             if (__execute_expression(exp1) == cvalue_t(0))  // x + 0
@@ -733,6 +788,9 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_sub(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__try_compile_checked(ctx, pool, operator_t::sub, exp1, exp2))
+            return;
+
         if (__is_optimize_basic_algorighm(ctx))
         {
             if (__execute_expression(exp1) == cvalue_t(0))  // 0 * x
@@ -761,6 +819,9 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_mul(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__try_compile_checked(ctx, pool, operator_t::mul, exp1, exp2))
+            return;
+
         if (__is_optimize_basic_algorighm(ctx))
         {
             if (__execute_expression(exp1) == cvalue_t(1)) // 1 * x
@@ -2719,6 +2780,17 @@ namespace X_ROOT_NS::modules::compile {
             case function_expression_type_t::variable:  // Delegate
                 __compile_delegate(ctx, pool, env);
                 break;
+
+            case function_expression_type_t::checked_:
+            case function_expression_type_t::unchecked_: {
+                // The arithmetic of the expression raises on overflow, or not.
+                bool checked = ctx.checked;
+                ctx.checked = ftype == function_expression_type_t::checked_;
+
+                this->checked_expression()->compile(ctx, pool, env);
+
+                ctx.checked = checked;
+            }   break;
 
             case function_expression_type_t::__default__:
                 __compile_default(ctx, pool, env);

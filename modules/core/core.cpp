@@ -5887,6 +5887,12 @@ namespace X_ROOT_NS::modules::core {
         return __get_specified_type(__CoreTypeName(CoreType_Exception), __exception_type);
     }
 
+    // Returns System.Checked type.
+    general_type_t * xpool_t::get_checked_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Checked), __checked_type);
+    }
+
     // Returns System.Tuple<...> type.
     general_type_t * xpool_t::get_tuple_type()
     {
@@ -7534,6 +7540,10 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(variable,   _T("variable"))
 
+        X_C(checked_,   _T("checked"))
+
+        X_C(unchecked_, _T("unchecked"))
+
     X_ENUM_INFO_END
 
     // Sets namex, namex maybe a name or an expression.
@@ -7573,6 +7583,21 @@ namespace X_ROOT_NS::modules::core {
         return (variable_t *)__relation_data;
     }
 
+    // Makes it checked(expression) or unchecked(expression): it has no function.
+    void function_expression_t::set_checked(bool checked) _NE
+    {
+        __relation_data.set(this, checked? __ftype_t::checked_ : __ftype_t::unchecked_);
+    }
+
+    // Returns the expression of checked(expression) or unchecked(expression).
+    expression_t * function_expression_t::checked_expression() const
+    {
+        _A(is_checked_expression());
+
+        arguments_t * args = arguments();
+        return (args != nullptr && args->size() == 1)? (*args)[0]->expression : nullptr;
+    }
+
     // Returns name of function_expression.
     name_t function_expression_t::get_name() const
     {
@@ -7607,6 +7632,12 @@ namespace X_ROOT_NS::modules::core {
     {
         switch (get_ftype())
         {
+            case __ftype_t::checked_:
+            case __ftype_t::unchecked_: {
+                expression_t * exp = checked_expression();
+                return exp != nullptr? exp->get_type() : nullptr;
+            }
+
             case __ftype_t::method:
                 return get_method()->get_type();
 

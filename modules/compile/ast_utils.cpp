@@ -1585,6 +1585,14 @@ namespace X_ROOT_NS::modules::compile {
                         function_exp->set_variable(variable);
                         __walk_arguments(function_exp->arguments());
                     }
+                    else if (type == nullptr && __is_checked_name(name_exp->name)
+                                && function_exp->arguments() != nullptr
+                                && function_exp->arguments()->size() == 1)
+                    {
+                        // checked(expression), unchecked(expression)
+                        function_exp->set_checked(name_exp->name == __to_name(_T("checked")));
+                        __walk_arguments(function_exp->arguments());
+                    }
                     else
                     {
                         __walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
@@ -1627,6 +1635,12 @@ namespace X_ROOT_NS::modules::compile {
                     __walk_arguments(function_exp->arguments());
                     break;
             }
+        }
+
+        // Returns whether the name is checked or unchecked.
+        bool __is_checked_name(name_t name)
+        {
+            return name == __to_name(_T("checked")) || name == __to_name(_T("unchecked"));
         }
 
         // Tries to get method.
