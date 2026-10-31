@@ -957,7 +957,7 @@ namespace X_ROOT_NS::modules::core {
 
         // Constructors.
         pop_xil_t(xil_storage_type_t stype, xil_type_t dtype)
-            : __super_t(xil_command_t::pop, stype), __dtype((byte_t)dtype)
+            : __super_t(xil_command_t::pop, stype), __dtype((byte_t)dtype), identity(0)
         {
             _A(stype <= xil_storage_type_t::__pop_end__);
         }
@@ -965,7 +965,7 @@ namespace X_ROOT_NS::modules::core {
         // Constructors.
         pop_xil_t(ref_t struct_type_ref)
             : __super_t(xil_command_t::pop, xil_storage_type_t::empty)
-            , __dtype((byte_t)xil_type_t::empty)
+            , __dtype((byte_t)xil_type_t::empty), identity(0)
         {
             set_ref(struct_type_ref);
         }
@@ -1074,7 +1074,7 @@ namespace X_ROOT_NS::modules::core {
 
         // Constructor.
         pick_xil_t(xil_storage_type_t stype, xil_type_t dtype)
-            : __super_t(xil_command_t::pick, stype), __dtype((byte_t)dtype)
+            : __super_t(xil_command_t::pick, stype), __dtype((byte_t)dtype), identity(0)
         {
             _A(stype <= xil_storage_type_t::__pop_end__);
         }
@@ -1424,7 +1424,11 @@ namespace X_ROOT_NS::modules::core {
         // Constructor, for command call.
         call_xil_t(xil_call_command_t command)
             : __super_t(xil_command_t::call, xil_call_type_t::command)
-            , command(command) { }
+            , method(ref_t::null)
+        {
+            // The command is a byte, the other bytes of the union are written to the file.
+            this->command = command;
+        }
 
         union
         {
@@ -1674,7 +1678,7 @@ namespace X_ROOT_NS::modules::core {
 
         // Constructors.
         copy_xil_t(xil_copy_type_t copy_type) : __super_t(xil_command_t::copy)
-            , __copy_type((byte_t)copy_type)
+            , __copy_type((byte_t)copy_type), __data(0)
         { }
 
         // Returns copy type.

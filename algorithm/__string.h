@@ -600,6 +600,15 @@ namespace X_ROOT_NS::algorithm {
 
         operator __sid_value_t () const { return value; }
 
+        // The order of the string ids is the order of the strings. (A string id is the address
+        // of its string, that is not the same in every run: the maps that are ordered by string
+        // ids, and the files that are written from them, would be different in every run.)
+        // The equality is that of the addresses, the same strings have the same string id.
+        bool operator <  (const tsid_t & other) const { return __compare(other) <  0; }
+        bool operator <= (const tsid_t & other) const { return __compare(other) <= 0; }
+        bool operator >  (const tsid_t & other) const { return __compare(other) >  0; }
+        bool operator >= (const tsid_t & other) const { return __compare(other) >= 0; }
+
         // Returns whether the string is nullptr.
         bool is_null() const  { return value == nullptr; }
 
@@ -623,6 +632,23 @@ namespace X_ROOT_NS::algorithm {
 
         // The constant null string id.
         static const tsid_t<c_t> null;
+
+    private:
+
+        // Compares to another string id: a null string id is before the others.
+        int __compare(const tsid_t & other) const
+        {
+            if (value == other.value)
+                return 0;
+
+            if (value == nullptr)
+                return -1;
+
+            if (other.value == nullptr)
+                return 1;
+
+            return value->compare(*other.value);
+        }
     };
 
     // The constant null string id.

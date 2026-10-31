@@ -1657,6 +1657,10 @@ namespace X_ROOT_NS::modules::compile {
         // Reset state.
         void reset();
 
+        // The first ambiguity that the analyzer found: two ways to match the elements, that
+        // nothing else tells apart. Empty for none.
+        string_t ambiguity;
+
         // Returns current analyze tree.
         __stack_node_t * current_analyze_tree() { return __stack_root; }
 
@@ -1684,6 +1688,9 @@ namespace X_ROOT_NS::modules::compile {
         template<typename t> using __w_t = al::respool_wrapper_t<t>;
         __w_t<__stack_node_t> __stack_node_factory;
         uint32_t __node_serial = 0;             // The serial of the last stack node.
+
+        // Checks whether two leaves, one is removed, are two ways to match the elements.
+        void __check_ambiguity(__stack_node_t * kept, __stack_node_t * removed);
         al::heap_t<__stack_node_assign_key_action_t> __assign_key_action_factory;
         al::heap_t<__stack_node_raise_matched_event_action_t> __raise_matched_event_action_factory;
 

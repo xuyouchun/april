@@ -3415,6 +3415,9 @@ namespace X_ROOT_NS::modules::compile {
             if ((v2) < (v1)) return false;                                              \
         } while (0)
 
+    // Set when two leaves are ordered by their serial: nothing else tells them apart.
+    static bool __leaf_tie_by_serial = false;
+
     // Returns whether a leaf is less than another leaf.
     __AlwaysInline static bool __leaf_less(__stack_node_t * leaf1, __stack_node_t * leaf2)
     {
@@ -3503,6 +3506,7 @@ namespace X_ROOT_NS::modules::compile {
         // __LessReturn(value2, value1);
 
         // The leaves are the same for the grammar: the first one created wins, in every run.
+        __leaf_tie_by_serial = true;
         return (*leaf1)->serial < (*leaf2)->serial;
     };
 
@@ -3542,6 +3546,40 @@ namespace X_ROOT_NS::modules::compile {
         });
     }
 
+    // Two leaves that are the same for everything but the actions that they have: the grammar
+    // has two ways to match the elements, and the first one created is taken.
+    __AlwaysInline void analyze_context_t::__check_ambiguity(__stack_node_t * kept,
+                                                             __stack_node_t * removed)
+    {
+        typedef __stack_node_raise_matched_event_action_t __action_t;
+
+        __leaf_tie_by_serial = false;
+        __leaf_less(kept, removed);
+        __leaf_less(removed, kept);
+
+        if (!__leaf_tie_by_serial)
+            return;
+
+        al::svector_t<__action_t *, 8> actions1, actions2;
+        __list_match_actions(kept, std::back_inserter(actions1));
+        __list_match_actions(removed, std::back_inserter(actions2));
+
+        bool same = actions1.size() == actions2.size();
+        for (size_t index = 0; same && index < actions1.size(); index++)
+            same = actions1[index]->equals(*actions2[index]);
+
+        if (!same)
+        {
+            if (!ambiguity.empty())
+                return;
+
+            ambiguity = _F(_T("%1% or %2%"),
+                actions1.empty()? string_t(_T("(none)")) : _str(actions1[actions1.size() - 1]),
+                actions2.empty()? string_t(_T("(none)")) : _str(actions2[actions2.size() - 1])
+            );
+        }
+    }
+
     // Merges leaves.
     __AlwaysInline void analyze_context_t::__merge_leaves()
     {
@@ -3556,8 +3594,19 @@ namespace X_ROOT_NS::modules::compile {
 #endif
 
         __merge_identity_t last = __I(__leaves[0]);
-        __leaves.walk([&last, this](__stack_node_t * n) {
-            return (__I(n) == last)?  (__remove_leaf(n), false) : (last = __I(n), true);
+        __stack_node_t * kept = __leaves[0];
+
+        __leaves.walk([&last, &kept, this](__stack_node_t * n) {
+            if (__I(n) == last)
+            {
+                __check_ambiguity(kept, n);
+                __remove_leaf(n);
+                return false;
+            }
+
+            last = __I(n);
+            kept = n;
+            return true;
         }, 1);
 
 #if __EnableTrace >= 3
@@ -4360,6 +4409,16 @@ namespace X_ROOT_NS::modules::compile {
                 throw _E(analyze_tree_error_t::unknown_element_type,
                     sprintf(_T("unknown element type: %1%"), element->type)
                 );
+        }
+
+        // The grammar has two ways to match the elements that nothing tells apart: the one
+        // that is taken is not chosen by the program. It is an error of the grammar, it is
+        // reported when the program is compiled.
+        if (!__context.ambiguity.empty())
+        {
+            __log_format_error(_F(_T("ambiguous syntax: %1%"), __context.ambiguity), *element,
+                                                                                    nullptr);
+            __context.ambiguity.clear();
         }
     }
 

@@ -105,7 +105,11 @@ namespace X_ROOT_NS::modules::core {
         );
 
         type->assembly = __assembly;
-        return __append(__general_types, key, type);
+        if (!__append(__general_types, key, type))
+            return false;
+
+        __general_type_list.push_back(type);
+        return true;
     }
 
     // Appends typedef.
@@ -117,7 +121,11 @@ namespace X_ROOT_NS::modules::core {
             type_def->param_count(), type_def->host_type
         );
 
-        return __append(__type_defs, key, type_def);
+        if (!__append(__type_defs, key, type_def))
+            return false;
+
+        __type_def_list.push_back(type_def);
+        return true;
     }
 
     // Gets general type by namespace, name, etc.
@@ -179,6 +187,8 @@ namespace X_ROOT_NS::modules::core {
                 __generic_type_key_t(template_, types.get_tcid(), types.size(), host_type),
                 generic_type
             );
+
+            __generic_type_list.push_back(generic_type);
         }
 
         return generic_type;
@@ -195,6 +205,7 @@ namespace X_ROOT_NS::modules::core {
         {
             array_type = __XPool.new_array_type(type, dimension);
             __append(__array_types, __array_type_key_t(type, dimension), array_type);
+            __array_type_list.push_back(array_type);
         }
 
         return array_type;
