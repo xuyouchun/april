@@ -989,16 +989,14 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles this statement.
     void for_each_statement_t::compile(statement_compile_context_t & ctx)
     {
-        // TODO
-        X_UNEXPECTED();
+        _A(lowered != nullptr);
+        compile_statement(ctx, lowered);
     }
 
     // Returns exit type.
     __exit_type_t for_each_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        // TODO
-        X_UNEXPECTED();
-        return __exit_type_t::none;
+        return lowered != nullptr? lowered->exit_type(ctx) : __exit_type_t::none;
     }
 
     X_DEFINE_TO_STRING(for_each_statement_t)

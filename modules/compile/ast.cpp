@@ -212,6 +212,9 @@ namespace X_ROOT_NS::modules::compile {
         // The language has no goto statement.
         X_D(goto_not_supported, _T("goto statement is not supported"))
 
+        // For each statements go through arrays.
+        X_D(for_each_type_not_supported, _T("foreach is not supported for type %1%"))
+
         // Unexpected first char in a name.
         X_D(name_unexpected_first_char,
                 _T("unexpected first character \"%1%\" in name \"%2%\""))
@@ -4400,11 +4403,148 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool for_each_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        if ((walk_step_t)step == walk_step_t::analysis)
+            return __walk_analysis(context);
+
         this->__check_name_empty(this->variable, _T("variable"));
         this->__check_empty(this->iterator, this, __c_t::iterator_missing, "for each");
         this->__check_empty(this->body, this, __c_t::body_missing, _T("for each"));
 
-        return __super_t::on_walk(context, step, tag);
+        // The variables are those of the statement: the element, and the array and the
+        // index it goes through.
+        static int for_each_count = 0;
+        int number = ++for_each_count;
+
+        context.push_new_region();
+        __region = context.current_region();
+
+        variable_defination_t vd(this->__context, context, (object_t *)(ast_node_t *)this);
+
+        __variable = vd.define_local(this->type_name, this->variable, false, nullptr,
+                                                                    (object_t *)(ast_node_t *)this);
+
+        __array = vd.define_local(
+            __new_obj<type_name_t>(uncertain_type_t::instance()),
+            __to_name(_F(_T("__foreach_array%1%"), number)), false, nullptr, (object_t *)(ast_node_t *)this
+        );
+
+        __index = vd.define_local(
+            __new_obj<type_name_t>(__XPool.get_internal_type(vtype_t::int32_)),
+            __to_name(_F(_T("__foreach_index%1%"), number)), false, nullptr, (object_t *)(ast_node_t *)this
+        );
+
+        // The analysis is delayed before the children are walked: it comes before the analysis
+        // of the body, that needs the type of the variable (var).
+        this->__delay(context, walk_step_t::analysis);
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.pop();
+        return r;
+    }
+
+    // Walks the analysis step: a for statement that goes through an array by an index.
+    //   { array = iterator; index = 0;
+    //     for (; index < array.Length; index = index + 1) { variable = array[index]; body } }
+    bool for_each_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        if (this->iterator == nullptr || this->body == nullptr || __variable == nullptr)
+            return true;
+
+        if (!this->iterator->walked)
+            walk_expression(this->__context, context, this->iterator);
+
+        type_t * iterator_type = this->iterator->get_type();
+        if (iterator_type == nullptr)
+        {
+            this->__log(this, __c_t::invalid_expression, this->iterator);
+            return true;
+        }
+
+        if (iterator_type->this_gtype() != gtype_t::array
+                || ((array_type_t *)iterator_type)->dimension != 1)
+        {
+            this->__log(this, __c_t::for_each_type_not_supported, iterator_type);
+            return true;
+        }
+
+        type_t * element_type = ((array_type_t *)iterator_type)->element_type;
+
+        __array->type_name->type = iterator_type;
+        if (__is_uncertain(__variable->type_name))
+            __variable->type_name->type = element_type;
+
+        // The names are resolved like the names of the programs.
+        auto name_of = [this](variable_t * variable) -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable->get_name());
+        };
+
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        // array = iterator
+        expression_t * assign_array = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__array), this->iterator
+        );
+
+        // index = 0
+        expression_t * assign_index = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__index), __to_value_expression((int32_t)0)
+        );
+
+        // index < array.Length
+        expression_t * condition = __new_obj<__binary_t>(
+            operator_t::less, name_of(__index),
+            __new_obj<__binary_t>(
+                operator_t::member_point, name_of(__array),
+                __new_obj<system_expression_t<name_expression_t>>(__to_name(_T("Length")))
+            )
+        );
+
+        // index = index + 1
+        expression_t * increase = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__index),
+            __new_obj<__binary_t>(
+                operator_t::add, name_of(__index), __to_value_expression((int32_t)1)
+            )
+        );
+
+        // variable = array[index]
+        arguments_t * arguments = __new_obj<arguments_t>();
+        argument_t * argument = __new_obj<argument_t>();
+        argument->expression = name_of(__index);
+        arguments->push_back(argument);
+
+        auto * element = __new_obj<system_expression_t<index_expression_t>>();
+        element->set_namex(name_of(__array));
+        element->set_arguments(arguments);
+
+        expression_t * assign_variable = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__variable), element
+        );
+
+        for (expression_t * exp : { assign_array, assign_index, condition, increase,
+                                    assign_variable })
+        {
+            walk_expression(this->__context, context, exp);
+        }
+
+        // The body of the loop, one element at a time.
+        statement_group_t * loop_body = __new_obj<statement_group_t>();
+        loop_body->push_back(__new_obj<expression_statement_t>(assign_variable));
+        loop_body->push_back(this->body);
+
+        for_statement_t * for_statement = __new_obj<for_statement_t>(
+            nullptr, nullptr, condition, increase, loop_body
+        );
+
+        statement_group_t * lowered = __new_obj<statement_group_t>();
+        lowered->variable_region = __region;
+        lowered->push_back(__new_obj<expression_statement_t>(assign_array));
+        lowered->push_back(__new_obj<expression_statement_t>(assign_index));
+        lowered->push_back(for_statement);
+
+        this->lowered = lowered;
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////

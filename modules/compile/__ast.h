@@ -464,6 +464,9 @@ namespace X_ROOT_NS::modules::compile {
         // The language has no goto statement.
         goto_not_supported,
 
+        // The type of the expression of a for each statement is not supported.
+        for_each_type_not_supported,
+
         // Unexpected first char in a name.
         name_unexpected_first_char,
 
@@ -3504,6 +3507,15 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        variable_region_t * __region = nullptr;     // The region of the variables.
+        local_variable_t *  __variable = nullptr;   // The variable of the elements.
+        local_variable_t *  __array = nullptr;      // The array.
+        local_variable_t *  __index = nullptr;      // The index.
+
+        // Walks the analysis step: makes the statements.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

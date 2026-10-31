@@ -392,6 +392,10 @@ namespace X_ROOT_NS::modules::compile {
         name_t         variable  = name_t::null;    // Variable name.
         statement_t  * body      = nullptr;         // Body.
 
+        // The statements that do the work, made when the node is walked: a for statement
+        // that goes through the elements by an index.
+        statement_t  * lowered   = nullptr;
+
         // Compiles this statement.
         virtual void compile(statement_compile_context_t & ctx) override;
 
