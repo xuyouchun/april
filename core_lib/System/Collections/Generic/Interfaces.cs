@@ -1,8 +1,8 @@
 /*
  *  System.dll
  *
- *  The interfaces of the collections, like those of .NET. There are no interfaces that are not
- *  generic: use IEnumerable<Object> instead of IEnumerable.
+ *  The interfaces of the collections, like those of .NET. There are no interfaces that
+ *  are not generic: use IEnumerable<Object> instead of IEnumerable.
  *
  *  A type parameter that is only read is out (covariant), that is only written is in
  *  (contravariant): an IEnumerable<Dog> is an IEnumerable<Animal> and an IComparer<Animal>
@@ -10,41 +10,10 @@
  *  structs and strings.
  */
 
-////////// ////////// ////////// ////////// //////////
-
-// A type that releases its resources: the using statement calls Dispose() on exit, and
-// foreach calls it on its enumerator.
-public interface IDisposable
-{
-    Void Dispose();
-}
-
-////////// ////////// ////////// ////////// //////////
-
-// A type whose values are ordered.
-public interface IComparable<in T>
-{
-    // Returns a negative number if this is before other, zero if they are equal, a positive
-    // number otherwise.
-    Int32 CompareTo(T other);
-}
-
-////////// ////////// ////////// ////////// //////////
-
-// A type whose values are compared for equality.
-public interface IEquatable<in T>
-{
-    Boolean Equals(T other);
-}
-
-////////// ////////// ////////// ////////// //////////
-
 namespace Collections
 {
     namespace Generic
     {
-        ////////// ////////// ////////// ////////// //////////
-
         // Goes through the items of a collection.
         public interface IEnumerator<out T> : IDisposable
         {

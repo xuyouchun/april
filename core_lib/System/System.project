@@ -10,11 +10,17 @@
         </file>
 
         <file>
+            <path>Collections/Generic/*.cs</path>
+        </file>
+
+        <file>
             <path>Diagnostics/*.cs</path>
+        </file>
+
+        <file>
+            <path>Reflection/*.cs</path>
         </file>
 
     </files>
 
 </project>
-
-

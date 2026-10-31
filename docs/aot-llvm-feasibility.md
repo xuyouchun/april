@@ -17,7 +17,7 @@
 
 | 类别 | 数量 / 位置 | 说明 |
 |---|---|---|
-| 核心库泛型类型 | `Array<T>`、`Tuple<TItems...>`、`ITuple<TItems...>`、`Delegate<TReturn, TArgs...>`、`MulticastDelegate<TReturn, TArgs...>`（`core_lib/System/System.cs`） | 全部 `[Internal]`；后 4 个是**变参泛型** |
+| 核心库泛型类型 | `Array<T>`、`Tuple<TItems...>`、`ITuple<TItems...>`、`Delegate<TReturn, TArgs...>`、`MulticastDelegate<TReturn, TArgs...>`（`core_lib/System/ 下的 Object.cs、Array.cs、Tuple.cs、Delegate.cs 等`） | 全部 `[Internal]`；后 4 个是**变参泛型** |
 | 核心库泛型方法 | `Array.New<T>`、`ITuple.Get<T>`、`Internal.Array_GetValue<T>`、`Array_SetValue<T>`、`Delegate_Invoke<T>`、`MulticastDelegate_Get<TDelegate>` | `Internal.*` 均为 `extern`，由运行时实现 |
 | 用户代码泛型 | `test/unittest/interface/generic_interface.cs`（泛型接口）；`test/projects/Project1`（`Call2<T1>` → `Call3<T2>` 泛型方法链、`Call4<T>`） | 单元测试里仅 2 处 |
 | 泛型约束（`where`） | 0 处 | core_lib 与测试里都没有；约束检查在编译器里（最近的提交），不影响代码生成 |
