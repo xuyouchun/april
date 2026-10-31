@@ -2808,6 +2808,25 @@ namespace X_ROOT_NS::modules::core {
         }
 
         method->type_name->type = get_delegate_return_type(to);
+
+        // The params that have no types are those of the delegate.
+        if (method->lambda_implicit && method->params != nullptr)
+        {
+            generic_type_t * delegate_type = (generic_type_t *)to;
+            if (delegate_type->args.size() == method->params->size() + 1)
+            {
+                for (size_t index = 0, count = method->params->size(); index < count; index++)
+                {
+                    param_t * param = (*method->params)[index];
+                    if (param->type_name != nullptr
+                            && param->type_name->type == uncertain_type_t::instance())
+                    {
+                        param->type_name->type = delegate_type->type_at(index + 1);
+                    }
+                }
+            }
+        }
+
         variable->reset_type();
 
         // A lambda that returns a lambda: (int a) => (int b) => b.
@@ -2954,10 +2973,12 @@ namespace X_ROOT_NS::modules::core {
                 && from_generic->args.size() == to_generic->args.size()
                 && from_generic->type_at(0) == uncertain_type_t::instance())
             {
+                // The params of a lambda that have no types are any types.
                 bool same = true;
                 for (size_t index = 1, count = from_generic->args.size(); index < count; index++)
                 {
-                    if (from_generic->type_at(index) != to_generic->type_at(index))
+                    type_t * arg = from_generic->type_at(index);
+                    if (arg != uncertain_type_t::instance() && arg != to_generic->type_at(index))
                         same = false;
                 }
 

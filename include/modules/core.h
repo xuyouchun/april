@@ -3523,6 +3523,9 @@ namespace X_ROOT_NS::modules::core {
         // Whether it is the method of a lambda.
         bool is_lambda = false;
 
+        // The params of the lambda have no types: they are those of the delegate.
+        bool lambda_implicit = false;
+
         // The expression that is the body of a lambda, null for a block. It is a lambda too
         // when the lambda returns a lambda: (int a) => (int b) => b.
         expression_t * lambda_expression = nullptr;
@@ -6111,11 +6114,21 @@ namespace X_ROOT_NS::modules::core {
         // Returns current layer.
         __layer_t * current_layer() const { return __current_layer; }
 
+        // Added to the analysis steps of the nodes that are delayed: the body of a lambda that has
+        // no types of params is analyzed after the statements that give them.
+        int delay_bias = 0;
+
         // Delay walk specified node.
         // Push the node in the queue.
         void delay(ast_node_t * node, int step = 0, void * tag = nullptr)
         {
-            __walk_items.enque(__walk_item_t { __current_layer, node, step, tag }, step);
+            // The steps from the analysis to the post analysis: the node is walked later with
+            // its step.
+            int priory = step;
+            if (delay_bias != 0 && step >= 26 && step < 30)
+                priory += delay_bias;
+
+            __walk_items.enque(__walk_item_t { __current_layer, node, step, tag }, priory);
         }
 
         // Returns the parent mname.

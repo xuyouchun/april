@@ -4317,6 +4317,9 @@ namespace X_ROOT_NS::modules::compile {
     public:
         using __super_t::__super_t;
 
+        // Adds the name of a param that has no type.
+        void add_param_name(name_t name) { __param_names.push_back(name); }
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -4327,6 +4330,7 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
+        std::vector<name_t> __param_names;
 
         // Makes the method of the lambda.
         void __walk_default(ast_walk_context_t & context);
@@ -4451,7 +4455,12 @@ namespace X_ROOT_NS::modules::compile {
         // Makes this method the method of a lambda: its params and its body are those of
         // the lambda, the return type is the one of the delegate it is converted to.
         void init_lambda(name_t name, bool is_static, ast_node_t * params, ast_node_t * body,
-                    ast_node_t * expression_node, expression_t * expression, ast_node_t * lambda_node);
+                    ast_node_t * expression_node, expression_t * expression,
+                    ast_node_t * lambda_node, params_t * untyped_params = nullptr);
+
+        // The params of a lambda that has no types: the types are not known when the body is
+        // analyzed if the lambda is not converted to a delegate.
+        void __fix_implicit_lambda(ast_walk_context_t & context);
 
         // The node of the expression that is the body of a lambda, it is walked with the
         // method.

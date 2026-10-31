@@ -36,7 +36,9 @@ $new_array: new $type_name [ $array_lengths? ] ( [ ,* ] )* $array_initializer? ;
 
 # Lambda expression: (Int32 a, Int32 b) => a + b , or with a body: (String s) => { ... } .
 # The params have types, and the lambda uses no variable of the method that has it.
-$lambda: \( $params? \) => ($method_body | $expression) ;
+# The params of a lambda may have no types: (a, b) => a + b , x => x + 1 : the types are
+# those of the delegate that the lambda is converted to.
+$lambda: ( \( $params? \) | \( name (, name)* \) | name ) => ($method_body | $expression) ;
 
 # Typeof expression: typeof(T).
 $type_of: typeof \( $type_name \) ;

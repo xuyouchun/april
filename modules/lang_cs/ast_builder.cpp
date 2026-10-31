@@ -1220,7 +1220,15 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // lambda
 
-    __ApplyToken(lambda, token, args) { }
+    __ApplyToken(lambda, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(name):
+                __This->add_param_name(this->__to_name(token));
+                break;
+        }
+    }
 
     __ApplyAst(lambda, node, args)
     {

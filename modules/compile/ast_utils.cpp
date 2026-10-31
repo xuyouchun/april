@@ -1009,7 +1009,13 @@ namespace X_ROOT_NS::modules::compile {
             variable_t * variable;
             if (__region != nullptr && (variable = __region->get(name)) != nullptr)
             {
-                if (variable->this_type() == variable_type_t::method)
+                if (variable->this_type() == variable_type_t::method
+                        && ((method_variable_t *)variable)->method->is_lambda)
+                {
+                    // The name of a lambda is that of its method, nothing else has it.
+                    name_exp->set(variable);
+                }
+                else if (variable->this_type() == variable_type_t::method)
                 {
                     type_t * context_type;
 

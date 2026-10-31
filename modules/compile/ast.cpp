@@ -5822,17 +5822,37 @@ namespace X_ROOT_NS::modules::compile {
         static int lambda_count = 0;
         name_t name = __to_name(_F(_T("__lambda%1%"), ++lambda_count));
 
+        // The params that have no types.
+        params_t * untyped_params = nullptr;
+        if (!__param_names.empty())
+        {
+            untyped_params = __new_obj<params_t>();
+            for (name_t param_name : __param_names)
+            {
+                untyped_params->push_back(__new_obj<param_t>(
+                    __new_obj<type_name_t>(uncertain_type_t::instance()), param_name
+                ));
+            }
+        }
+
         method_ast_node_t * method = __new_obj<method_ast_node_t>(this->__context);
         method->init_lambda(name, outer->is_static(), this->child_at(__params__),
             this->child_at(__body__), this->child_at(__expression__),
-            __to_eobject<expression_t *>(__expression__), (ast_node_t *)this
+            __to_eobject<expression_t *>(__expression__), (ast_node_t *)this, untyped_params
         );
 
         ((general_type_t *)type)->append_member((method_t *)method);
 
+        // The body is analyzed after the statements that give the types of the params.
+        int saved_bias = context.delay_bias;
+        if (untyped_params != nullptr)
+            context.delay_bias = 1;
+
         auto * layer = context.enter_type_level();
         method->on_walk(context, (int)walk_step_t::default_, nullptr);
         context.leave_type_level(layer);
+
+        context.delay_bias = saved_bias;
 
         this->name = name;
     }
@@ -5982,7 +6002,7 @@ namespace X_ROOT_NS::modules::compile {
     // Makes this method the method of a lambda.
     void method_ast_node_t::init_lambda(name_t name, bool is_static, ast_node_t * params,
         ast_node_t * body, ast_node_t * expression_node, expression_t * expression,
-        ast_node_t * lambda_node)
+        ast_node_t * lambda_node, params_t * untyped_params)
     {
         if (params != nullptr)
             this->set_child(__params__, params);
@@ -5991,6 +6011,12 @@ namespace X_ROOT_NS::modules::compile {
             this->set_child(__body__, body);
 
         this->on_commit();
+
+        if (untyped_params != nullptr)
+        {
+            this->params = untyped_params;
+            this->lambda_implicit = true;
+        }
 
         this->name      = name;
         this->trait     = method_trait_t::normal;
@@ -6028,6 +6054,10 @@ namespace X_ROOT_NS::modules::compile {
                     }
                 }
 
+                // The types of the params of the lambda are checked before its body is analyzed.
+                if (this->lambda_implicit)
+                    this->__delay(context, walk_step_t::analysis, (void *)this->params);
+
                 __super_t::on_walk(context, step, tag);
 
                 // The expression that is the body of a lambda.
@@ -6061,6 +6091,12 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             case walk_step_t::analysis:
+                if (tag != nullptr)
+                {
+                    __fix_implicit_lambda(context);
+                    return true;
+                }
+
                 return __walk_analysis(context);
 
             case walk_step_t::post_analysis:
@@ -6321,6 +6357,30 @@ namespace X_ROOT_NS::modules::compile {
 
         this->body->push_front((statement_t *)dispatch);
 
+    }
+
+    // The params of a lambda that has no types are the ones of the delegate, if it is not
+    // converted to a delegate they have no types: they are objects, to analyze the body.
+    void method_ast_node_t::__fix_implicit_lambda(ast_walk_context_t & context)
+    {
+        bool logged = false;
+
+        for (param_t * param : *this->params)
+        {
+            if (param->type_name == nullptr
+                    || param->type_name->type != uncertain_type_t::instance())
+            {
+                continue;
+            }
+
+            if (!logged)
+            {
+                this->__log(this->lambda_node, __c_t::lambda_type_undetermined);
+                logged = true;
+            }
+
+            param->type_name->type = __XPool.get_object_type();
+        }
     }
 
     // Walks the analysis step of the method of a lambda: the return type is known now, the body
