@@ -2877,11 +2877,14 @@ namespace X_ROOT_NS::modules::compile {
         if (template_ != __XPool.get_delegate_type())
             __Failed("delegate type error, should be System.Deletate<...>, but not %1%", gtype);
 
-        __compile_variable(ctx, pool, variable, xil_type_t::ptr, this);
-
         analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
         method_t * method = (method_t *)gtype->get_member(args, true);
         _A(method != nullptr);
+
+        // A struct result needs a place to be written.
+        __pre_call_method(ctx, pool, this, method->get_type());
+
+        __compile_variable(ctx, pool, variable, xil_type_t::ptr, this);
 
         __compile_arguments(ctx, pool, this->arguments(), method);
 

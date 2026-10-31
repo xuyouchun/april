@@ -57,7 +57,9 @@ extern "C" {
     void * april_native_new_object(uint64_t size, void * type)
     {
         // A header of 16 bytes keeps the objects aligned; the type is its last word.
-        char * p = (char *)april_native_gc::alloc((size_t)size + 16, true);
+        // An object without fields still owns a byte: a reference points to its payload, which
+        // must not be the end of the block, or the collector takes it for the next block.
+        char * p = (char *)april_native_gc::alloc((size_t)(size > 0? size : 1) + 16, true);
 
         *(void **)(p + 8) = type;
         return p + 16;

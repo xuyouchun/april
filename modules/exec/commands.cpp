@@ -4563,12 +4563,13 @@ namespace X_ROOT_NS::modules::exec {
         typedef __command_base_t<_cv>           __super_t;
 
     public:
-        __delegate_call_command_base_t(msize_t this_offset)
-            : __this_offset(this_offset + __stack_stub_size)
+        __delegate_call_command_base_t(msize_t this_offset, bool struct_ret = false)
+            : __this_offset(this_offset + __stack_stub_size), __struct_ret(struct_ret)
         { }
 
     protected:
         const msize_t __this_offset;
+        const bool    __struct_ret;     // The delegate returns a custom struct.
 
         typedef command_execute_context_t       __ctx_t;
 
@@ -4645,6 +4646,19 @@ namespace X_ROOT_NS::modules::exec {
         }
 
         return method;
+    }
+
+    // Returns whether the method is static.
+    static bool __is_static_method(rt_method_base_t * method)
+    {
+        rt_method_t * general = nullptr;
+
+        if (method->this_type() == rt_member_type_t::general)
+            general = (rt_method_t *)method;
+        else if (method->this_type() == rt_member_type_t::generic)
+            general = ((rt_generic_method_t *)method)->template_;
+
+        return general != nullptr && ((decorate_value_t)(*general)->decorate).is_static;
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4771,6 +4785,24 @@ namespace X_ROOT_NS::modules::exec {
 
             exec_method_t * exec_method = ctx.env.exec_method_of(method);
 
+            // A static method has no `this`: it cannot take the frame of Invoke over,
+            // it is called with a copy of the arguments, and Invoke returns its result.
+            if (__is_static_method(method))
+            {
+                rt_stack_unit_t * args = (rt_stack_unit_t *)__ArgumentAddress(__This->__this_offset) + 1;
+                size_t count = __This->__this_offset - __stack_stub_size - 1;
+
+                // The address of the struct result, below the arguments.
+                if (__This->__struct_ret)
+                    ctx.stack.push(*(void **)__ArgumentAddress(__This->__this_offset + 1));
+
+                for (size_t k = 0; k < count; k++)
+                    ctx.stack.push(args[k]);
+
+                ctx.push_calling(exec_method);
+                return;
+            }
+
             __Argument(rt_object_t *, __this_offset) = object;
             ctx.switch_to(exec_method);
 
@@ -4790,10 +4822,11 @@ namespace X_ROOT_NS::modules::exec {
     struct __delegate_command_template_t
     {
         template<command_value_t _cv, typename ... args_t>
-        static auto new_command(memory_t * memory, msize_t this_offset, xil_call_command_t command)
+        static auto new_command(memory_t * memory, msize_t this_offset,
+                                xil_call_command_t command, bool struct_ret)
         {
             typedef __delegate_call_command_t<_cv> this_command_t;
-            return __new_command<this_command_t>(memory, this_offset);
+            return __new_command<this_command_t>(memory, this_offset, struct_ret);
         }
     };
 
@@ -4802,10 +4835,14 @@ namespace X_ROOT_NS::modules::exec {
     {
         static __command_manager_t<
             __delegate_command_template_t
-        >::with_args_t<msize_t, xil_call_command_t> __delegate_command_manager;
+        >::with_args_t<msize_t, xil_call_command_t, bool> __delegate_command_manager;
 
         msize_t this_offset = __offset_of_argument(ctx, 0);
-        return __delegate_command_manager.template get_command<_cv>(this_offset, xil.command);
+        bool struct_ret = is_custom_struct(ctx.env, ctx.method->get_return_type(ctx.env));
+
+        return __delegate_command_manager.template get_command<_cv>(
+            this_offset, xil.command, struct_ret
+        );
     }
 
     // Creates command delegate call command.
