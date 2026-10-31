@@ -218,6 +218,9 @@ namespace X_ROOT_NS::modules::compile {
         // For each statements go through arrays.
         X_D(for_each_type_not_supported, _T("foreach is not supported for type %1%"))
 
+        // The variable of a using statement must have Dispose().
+        X_D(using_type_not_disposable, _T("using requires a type with Dispose(): %1%"))
+
         // Unexpected first char in a name.
         X_D(name_unexpected_first_char,
                 _T("unexpected first character \"%1%\" in name \"%2%\""))
@@ -4426,6 +4429,54 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
+    // Returns null if the type has no Dispose().
+    statement_t * __utils_t::__make_dispose_try(ast_walk_context_t & context,
+                    local_variable_t * variable, type_t * type, statement_t * body)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        atypes_t no_atypes;
+        analyze_member_args_t dispose_args(
+            member_type_t::method, __to_name(_T("Dispose")), &no_atypes
+        );
+
+        if (type == nullptr || type->get_member(dispose_args, true) == nullptr)
+            return nullptr;
+
+        auto name_of = [&]() -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable->get_name());
+        };
+
+        auto * function = __new_obj<system_expression_t<function_expression_t>>();
+        function->set_namex(__new_obj<system_expression_t<name_expression_t>>(
+            __to_name(_T("Dispose"))
+        ));
+
+        expression_t * call = __new_obj<__binary_t>(
+            operator_t::member_point, name_of(), function
+        );
+
+        walk_expression(this->__context, context, call);
+        statement_t * dispose = __new_obj<expression_statement_t>(call);
+
+        ttype_t ttype = type->this_ttype();
+        if (ttype == ttype_t::class_ || ttype == ttype_t::interface_)
+        {
+            expression_t * condition = __new_obj<__binary_t>(
+                operator_t::not_equal, name_of(),
+                __new_obj<system_expression_t<cvalue_expression_t>>(
+                    __new_obj<cvalue_t>(nullptr)
+                )
+            );
+
+            walk_expression(this->__context, context, condition);
+            dispose = __new_obj<if_statement_t>(condition, dispose, nullptr);
+        }
+
+        return __new_obj<try_statement_t>(body, dispose);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // for_each_st
 
@@ -4580,10 +4631,16 @@ namespace X_ROOT_NS::modules::compile {
             nullptr, nullptr, condition, nullptr, loop_body
         );
 
+        // The enumerator is disposed when the loop exits.
+        statement_t * loop = this->__make_dispose_try(context, __array, enumerator_type,
+                                                                            for_statement);
+        if (loop == nullptr)
+            loop = for_statement;
+
         statement_group_t * lowered = __new_obj<statement_group_t>();
         lowered->variable_region = __region;
         lowered->push_back(__new_obj<expression_statement_t>(assign_enumerator));
-        lowered->push_back(for_statement);
+        lowered->push_back(loop);
 
         this->lowered = lowered;
         return true;
@@ -4690,6 +4747,105 @@ namespace X_ROOT_NS::modules::compile {
         lowered->push_back(__new_obj<expression_statement_t>(assign_array));
         lowered->push_back(__new_obj<expression_statement_t>(assign_index));
         lowered->push_back(for_statement);
+
+        this->lowered = lowered;
+        return true;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // using_st
+
+    // Set variables.
+    void using_st_ast_node_t::set_variable(name_t name, __el_t * el)
+    {
+        this->__assign_name(this->variable, name, el, _T("var"));
+    }
+
+    // Commits this node.
+    void using_st_ast_node_t::on_commit()
+    {
+        this->initializer = __to_eobject<expression_t *>(__initializer__);
+        this->type_name   = __to_eobject<type_name_t *>(__type_name__);
+        this->body        = __to_eobject<statement_t *>(__body__);
+    }
+
+    // Returns this eobject.
+    statement_t * using_st_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node.
+    bool using_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        if ((walk_step_t)step == walk_step_t::analysis)
+            return __walk_analysis(context);
+
+        this->__check_name_empty(this->variable, _T("variable"));
+        this->__check_empty(this->initializer, this, __c_t::iterator_missing, "using");
+        this->__check_empty(this->body, this, __c_t::body_missing, _T("using"));
+
+        context.push_new_region();
+        __region = context.current_region();
+
+        variable_defination_t vd(this->__context, context, (object_t *)(ast_node_t *)this);
+
+        __variable = vd.define_local(this->type_name, this->variable, false, nullptr,
+                                                                    (object_t *)(ast_node_t *)this);
+
+        // The analysis is delayed before the children are walked.
+        this->__delay(context, walk_step_t::analysis);
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.pop();
+        return r;
+    }
+
+    // Walks the analysis step:
+    //   { variable = initializer; try { body } finally { if (variable != null) variable.Dispose(); } }
+    bool using_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        if (this->initializer == nullptr || this->body == nullptr || __variable == nullptr)
+            return true;
+
+        if (!this->initializer->walked)
+            walk_expression(this->__context, context, this->initializer);
+
+        type_t * initializer_type = this->initializer->get_type();
+        if (initializer_type == nullptr)
+        {
+            this->__log(this, __c_t::invalid_expression, this->initializer);
+            return true;
+        }
+
+        if (__is_uncertain(__variable->type_name))
+            __variable->type_name->type = initializer_type;
+
+        type_t * variable_type = to_type(__variable->type_name);
+
+        expression_t * assign = __new_obj<__binary_t>(
+            operator_t::assign,
+            __new_obj<system_expression_t<name_expression_t>>(__variable->get_name()),
+            this->initializer
+        );
+
+        walk_expression(this->__context, context, assign);
+
+        statement_t * protected_body = this->__make_dispose_try(context, __variable,
+                                                                variable_type, this->body);
+        if (protected_body == nullptr)
+        {
+            this->__log(this, __c_t::using_type_not_disposable, variable_type);
+            return true;
+        }
+
+        statement_group_t * lowered = __new_obj<statement_group_t>();
+        lowered->variable_region = __region;
+        lowered->push_back(__new_obj<expression_statement_t>(assign));
+        lowered->push_back(protected_body);
 
         this->lowered = lowered;
         return true;

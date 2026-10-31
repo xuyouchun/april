@@ -220,6 +220,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(while_st)
             __Case(for_st)
             __Case(for_each_st)
+            __Case(using_st)
             __Case(if_st)
             __Case(switch_st)
             __Case_(case_, case)

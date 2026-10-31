@@ -244,6 +244,11 @@ namespace Collections
                 __index = -1;
             }
 
+            // Nothing to release.
+            public Void Dispose()
+            {
+            }
+
             private List<T> __list;
             private Int32 __index;
         }
@@ -451,6 +456,11 @@ namespace Collections
             public Void Reset()
             {
                 __index = -1;
+            }
+
+            // Nothing to release.
+            public Void Dispose()
+            {
             }
 
             private T[] __items;

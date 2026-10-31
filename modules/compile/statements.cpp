@@ -987,6 +987,33 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
+    void using_statement_t::compile(statement_compile_context_t & ctx)
+    {
+        _A(lowered != nullptr);
+        compile_statement(ctx, lowered);
+    }
+
+    // Returns exit type.
+    __exit_type_t using_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return lowered != nullptr? lowered->exit_type(ctx) : __exit_type_t::none;
+    }
+
+    X_DEFINE_TO_STRING(using_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("using (") << _str(type_name).c_str() << _T(" ") << _str(variable) <<
+            _T(" = ") << _str(initializer).c_str() << _T(")\n{\n");
+        ss << _str(body).c_str();
+        ss << _T("\n}\n");
+
+        return ss.str();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Compiles this statement.
     void for_each_statement_t::compile(statement_compile_context_t & ctx)
     {
         _A(lowered != nullptr);

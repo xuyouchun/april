@@ -12,6 +12,15 @@
 
 ////////// ////////// ////////// ////////// //////////
 
+// A type that releases its resources: the using statement calls Dispose() on exit, and
+// foreach calls it on its enumerator.
+public interface IDisposable
+{
+    Void Dispose();
+}
+
+////////// ////////// ////////// ////////// //////////
+
 // A type whose values are ordered.
 public interface IComparable<in T>
 {
@@ -37,7 +46,7 @@ namespace Collections
         ////////// ////////// ////////// ////////// //////////
 
         // Goes through the items of a collection.
-        public interface IEnumerator<out T>
+        public interface IEnumerator<out T> : IDisposable
         {
             // Goes to the next item, returns false when there is no one.
             Boolean MoveNext();

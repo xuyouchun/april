@@ -375,6 +375,33 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Using statement: { variable = initializer; try { body } finally { variable.Dispose(); } }
+    class using_statement_t : public statement_base_t
+    {
+    public:
+
+        // Constructors.
+        using_statement_t() = default;
+
+        expression_t * initializer = nullptr;       // Initializer.
+        type_name_t  * type_name   = nullptr;       // Type name.
+        name_t         variable    = name_t::null;  // Variable name.
+        statement_t  * body        = nullptr;       // Body.
+
+        // The statements that do the work, made when the node is walked.
+        statement_t  * lowered     = nullptr;
+
+        // Compiles this statement.
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     // For...each statement.
     class for_each_statement_t : public statement_base_t
     {

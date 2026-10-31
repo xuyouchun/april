@@ -1031,10 +1031,17 @@ namespace X_ROOT_NS::modules::native {
                 }
             }
 
+            // The exception that a finally block was entered with: it is not pending while the
+            // block runs (the calls in it would check it), and is raised again at the end.
+            std::vector<llb::value_t> saved_exception_slots(block_count);
+
             for (size_t b = 0; b < block_count; b++)
             {
                 if (xil_blocks[b].type == method_xil_block_type_t::finally_)
+                {
                     cont_slots[b] = f.alloca_entry("i32", "selector");
+                    saved_exception_slots[b] = f.alloca_entry("ptr", "saved_exc");
+                }
             }
 
             auto cont_id = [&](int b, const std::string & label) -> int {
@@ -2723,8 +2730,14 @@ namespace X_ROOT_NS::modules::native {
                 for (size_t k = 0; k < cont_targets[b].size(); k++)
                     cases.push_back({ (int64_t)k + 1, cont_targets[b][k] });
 
+                std::string reraise = f.new_block("reraise");
+
                 llb::value_t selector = f.load("i32", cont_slots[b]);
-                f.switch_(selector, dispatch_label(parent_of[b]), cases);
+                f.switch_(selector, reraise, cases);
+
+                f.set_block(reraise);
+                f.store(f.load("ptr", saved_exception_slots[b]), exception_global);
+                f.br(dispatch_label(parent_of[b]));
             }
 
             // The dispatch blocks: the handler of a pending exception. They may need other
@@ -2762,6 +2775,8 @@ namespace X_ROOT_NS::modules::native {
                     if (blk.type == method_xil_block_type_t::finally_)
                     {
                         // Runs the finally block, then goes on looking for the handler.
+                        f.store(f.load("ptr", exception_global), saved_exception_slots[b]);
+                        f.store(llb::const_null(), exception_global);
                         f.store(llb::const_int("i32", 0), cont_slots[b]);
                         f.br(entry_label_of(b));
                         continue;

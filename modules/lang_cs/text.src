@@ -295,6 +295,12 @@ $for_each_st:
     $statement
 ;
 
+# Using statement: using (IDisposable obj = new DisposableObject()) { ... }
+$using_st:
+    using \( $type_name name = $expression \)
+    $statement
+;
+
 # If statement.
 $if_st:
     if \( $expressions \)
@@ -368,7 +374,7 @@ $statement_group_st: { $statement * } ;
 
 # Statement.
 $statement:
-    $do_while_st | $while_st | $for_st | $for_each_st
+    $do_while_st | $while_st | $for_st | $for_each_st | $using_st
   | $if_st | $switch_st | $try_st | $empty_st
   | $break_st | $continue_st | $throw_st | $return_st | $goto_st
   | $expression_st | $defination_st | $type_def_st

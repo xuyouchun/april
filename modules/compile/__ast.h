@@ -146,6 +146,8 @@ namespace X_ROOT_NS::modules::compile {
 
         for_each_st,                // for ... each statement.
 
+        using_st,                   // using statement.
+
         if_st,                      // if ... else statement.
 
         switch_st,                  // switch ... case statement.
@@ -297,6 +299,8 @@ namespace X_ROOT_NS::modules::compile {
                                                                                         \
         for_each_st         =   __X_BRANCH_ENUM_ITEM(for_each_st),                      \
                                                                                         \
+        using_st            =   __X_BRANCH_ENUM_ITEM(using_st),                         \
+                                                                                        \
         if_st               =   __X_BRANCH_ENUM_ITEM(if_st),                            \
                                                                                         \
         switch_st           =   __X_BRANCH_ENUM_ITEM(switch_st),                        \
@@ -392,6 +396,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(while_st,               _T("while_st"))                                     \
         X_C(for_st,                 _T("for_st"))                                       \
         X_C(for_each_st,            _T("for_each_st"))                                  \
+        X_C(using_st,               _T("using_st"))                                     \
         X_C(if_st,                  _T("if_st"))                                        \
         X_C(switch_st,              _T("switch_st"))                                    \
         X_C(case_,                  _T("case"))                                         \
@@ -469,6 +474,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // The type of the expression of a for each statement is not supported.
         for_each_type_not_supported,
+
+        // The type of the variable of a using statement has no Dispose().
+        using_type_not_disposable,
 
         // Unexpected first char in a name.
         name_unexpected_first_char,
@@ -1218,6 +1226,11 @@ namespace X_ROOT_NS::modules::compile {
 
                 return true;
             }
+
+            // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
+            // Returns null if the type has no Dispose().
+            statement_t * __make_dispose_try(ast_walk_context_t & context,
+                            local_variable_t * variable, type_t * type, statement_t * body);
 
             // Check member duplicate or format correct.
             template<typename _code_element_t>
@@ -3529,6 +3542,54 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks the analysis step of an iterator that has GetEnumerator().
         bool __walk_analysis_enumerator(ast_walk_context_t & context, type_t * iterator_type);
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // using_st
+
+    Ast(using_st, __xcvalue_t::using_st)
+
+        // Typename
+        __type_name__,
+
+        // Initializer expression.
+        __initializer__,
+
+        // Body.
+        __body__,
+
+    EndAst(using_st)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Using statement ast node.
+    class using_st_ast_node_t : public __using_st_ast_node_t
+                              , public statement_ast_t
+                              , public __w_t<using_statement_t>
+    {
+        typedef __using_st_ast_node_t __super_t;
+
+    public:
+        using __using_st_ast_node_t::__using_st_ast_node_t;
+
+        // Sets variable.
+        void set_variable(name_t name, __el_t * el);
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual statement_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        variable_region_t * __region = nullptr;     // The region of the variable.
+        local_variable_t *  __variable = nullptr;   // The variable.
+
+        // Walks the analysis step: makes the statements.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

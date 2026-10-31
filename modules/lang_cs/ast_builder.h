@@ -404,6 +404,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     __SimpleBuilder(for_each_st)
 
     ////////// ////////// ////////// ////////// //////////
+    // using_st
+
+    __SimpleBuilder(using_st)
+
+    ////////// ////////// ////////// ////////// //////////
     // if_st
 
     __SimpleBuilder(if_st)

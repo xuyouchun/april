@@ -1520,6 +1520,39 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(for_each_st, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // using_st
+
+    __ApplyToken(using_st, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(name):
+                __This->set_variable(this->__to_name(token), token);
+                break;
+        }
+    }
+
+    __ApplyAst(using_st, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__initializer__, node);
+                break;
+
+            case __AstValue(type_name):
+                __This->set_child(__Type::__type_name__, node);
+                break;
+
+            case __AstValue(statement):
+                __This->set_child(__Type::__body__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(using_st, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // if_st
 
     __ApplyToken(if_st, token, args) { }
