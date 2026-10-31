@@ -2466,13 +2466,19 @@ namespace X_ROOT_NS::modules::core {
         if (!is_numberic_vtype(from) || !is_numberic_vtype(to))
             return false;
 
-        if ((int)to < (int)from)
-            return false;
-
         if (is_float_vtype(from))
-            return is_float_vtype(to);
+            return is_float_vtype(to) && (int)to >= (int)from;
 
-        return is_signed_vtype(from) == is_signed_vtype(to);
+        // An integer converts to any float.
+        if (is_float_vtype(to))
+            return true;
+
+        // Integers: to a type that holds all the values, as C# does.
+        if (is_signed_vtype(from) == is_signed_vtype(to))
+            return (int)to >= (int)from;
+
+        // An unsigned integer to a signed integer of more bits (byte to short, uint to long).
+        return is_unsigned_vtype(from) && get_vtype_size(to) > get_vtype_size(from);
     }
 
     // Returns whether the vtype is between v1 and v2.
@@ -2772,6 +2778,50 @@ namespace X_ROOT_NS::modules::core {
         return generic_type->args[0].type();
     }
 
+    // Returns whether a constant integer expression converts to an integer type that holds
+    // its value.
+    bool is_constant_compatible(expression_t * exp, type_t * to)
+    {
+        if (exp == nullptr || to == nullptr)
+            return false;
+
+        vtype_t from_vtype = exp->get_vtype(), to_vtype = to->this_vtype();
+        if (!is_integer_vtype(from_vtype) || !is_integer_vtype(to_vtype))
+            return false;
+
+        cvalue_t value = execute_expression(exp);
+        if (is_nan(value) || !is_number(value))
+            return false;
+
+        bool negative = false;
+        uint64_t magnitude;
+
+        if (is_signed_vtype(from_vtype))
+        {
+            int64_t v = (int64_t)value;
+            negative = v < 0;
+            magnitude = negative? (uint64_t)(-(v + 1)) + 1 : (uint64_t)v;
+        }
+        else
+        {
+            magnitude = (uint64_t)value;
+        }
+
+        // The range of the target.
+        int bits = (int)get_vtype_size(to_vtype) * 8;
+
+        if (is_signed_vtype(to_vtype))
+        {
+            uint64_t limit = (uint64_t)1 << (bits - 1);
+            return negative? magnitude <= limit : magnitude < limit;
+        }
+
+        if (negative)
+            return false;
+
+        return bits >= 64 || magnitude < ((uint64_t)1 << bits);
+    }
+
     bool is_type_compatible(type_t * from, type_t * to)
     {
         _A(from != nullptr);
@@ -2854,11 +2904,50 @@ namespace X_ROOT_NS::modules::core {
             size_t atype_count = al::size_of(atypes);
             size_t param_count = al::size_of(__params);
 
-            if (atype_count != param_count)
+            // The last param may take any arguments: params int[] values.
+            param_t * last = param_count > 0? __params->at(param_count - 1) : nullptr;
+            bool variadic = last != nullptr && last->ptype == param_type_t::params;
+            size_t fixed_count = variadic? param_count - 1 : param_count;
+
+            // The params that have no default value must have an argument.
+            size_t required_count = fixed_count;
+            while (required_count > 0 && __params->at(required_count - 1)->default_value != nullptr)
+                required_count--;
+
+            if (atype_count < required_count || (!variadic && atype_count > param_count))
                 return __member_compare_t::not_match;
 
             __member_compare_t r = __member_compare_t::equals;
-            for (size_t index = 0; index < param_count; index++)
+            size_t compare_count = std::min(atype_count, fixed_count);
+
+            // The last argument is an array for the params: it is the normal form.
+            if (variadic && atype_count == param_count && atypes->at(atype_count - 1).type != nullptr
+                    && is_type_compatible(atypes->at(atype_count - 1).type, last->get_type()))
+            {
+                compare_count = param_count;
+            }
+            else if (variadic)
+            {
+                // The expanded form: each argument is an element.
+                type_t * array_type = last->get_type();
+                if (array_type->this_gtype() != gtype_t::array)
+                    return __member_compare_t::not_match;
+
+                type_t * element_type = ((array_type_t *)array_type)->element_type;
+                for (size_t index = fixed_count; index < atype_count; index++)
+                {
+                    type_t * type = atypes->at(index).type;
+                    if (type == nullptr || !is_type_compatible(type, element_type))
+                        return __member_compare_t::not_match;
+
+                    r = __member_compare_t::match;
+                }
+
+                // An expanded form is worse than a method that takes the arguments as they are.
+                r = __member_compare_t::match;
+            }
+
+            for (size_t index = 0; index < compare_count; index++)
             {
                 param_t * param = __params->at(index);
 
@@ -2907,7 +2996,11 @@ namespace X_ROOT_NS::modules::core {
             if (param == nullptr || atype.type == nullptr)
                 return __member_compare_t::not_match;
 
-            if (param->ptype != atype.ptype)
+            // The argument of a params is not marked.
+            param_type_t ptype = param->ptype == param_type_t::params?
+                                            param_type_t::__default__ : param->ptype;
+
+            if (ptype != atype.ptype)
                 return __member_compare_t::not_match;
 
             type_t * param_type = param->get_type();
@@ -3166,11 +3259,8 @@ namespace X_ROOT_NS::modules::core {
         size_t atype_count = atypes->size();
         size_t param_count = method->param_count();
 
-        if (atype_count == 0)
-            return param_count == 0? __member_compare_t::equals : __member_compare_t::not_match;
-
-        if (atype_count != param_count)
-            return __member_compare_t::not_match;
+        if (atype_count == 0 && param_count == 0)
+            return __member_compare_t::equals;
 
         __argument_type_analyzer_t analyzer(method, generic_args);
         __member_compare_t r = analyzer.compare(atypes);
@@ -5483,9 +5573,7 @@ namespace X_ROOT_NS::modules::core {
     // Returns vtype of the param.
     vtype_t param_variable_t::get_vtype()
     {
-        if (param->ptype == param_type_t::params)
-            return vtype_t::ptr_;
-
+        // A params param is an array.
         return __get_vtype(param->type_name);
     }
 

@@ -2603,6 +2603,10 @@ namespace X_ROOT_NS::modules::core {
     // Returns T if the type is Nullable<T>, otherwise nullptr.
     type_t * get_nullable_underlying(type_t * type);
 
+    // Returns whether a constant integer expression converts to an integer type that holds
+    // its value: byte b = 5; uint u = 5;
+    bool is_constant_compatible(expression_t * exp, type_t * to);
+
     X_ALWAYS_INLINE bool is_null(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::null;
@@ -3436,6 +3440,10 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns vtype at specified index.
         vtype_t param_vtype_at(size_t index) const;
+
+        // Returns the param at the specified index (default value, params), nullptr if the
+        // types have no param objects.
+        virtual param_t * param_object_at(size_t index) const { return nullptr; }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -3555,6 +3563,12 @@ namespace X_ROOT_NS::modules::core {
         {
             _A(index < param_count());
             return (*params)[index];
+        }
+
+        // Returns the param at the specified index.
+        virtual param_t * param_object_at(size_t index) const override
+        {
+            return (params != nullptr && index < params->size())? (*params)[index] : nullptr;
         }
 
         // Finds the param by the specified name.
@@ -3701,6 +3715,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns param type of specified index.
         virtual typex_t param_type_at(size_t index) const override;
+
+        // Returns the param at the specified index.
+        virtual param_t * param_object_at(size_t index) const override
+        {
+            return __template()->param_object_at(index);
+        }
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() override

@@ -48,7 +48,8 @@ namespace X_ROOT_NS::modules::rtlib {
         rt_type_t * type = (rt_type_t *)args->get_object();
         rt_sid_t name = type->get_name(ctx.analyzer.env);
 
-        ctx.return_(new rt_string_t(_T("AAAA"), 4));
+        // The name is a string of the pool of the runtime, it lives as long as the program.
+        ctx.return_<const char_t *>(name.value != nullptr? name.value->s : _T(""));
     }
 
     ////////// ////////// ////////// ////////// //////////

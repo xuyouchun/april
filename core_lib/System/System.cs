@@ -16,6 +16,12 @@ public class Object
     {
         return Internal.Reflection_GetType(this);
     }
+
+    // Returns the text of the object: the name of its type, unless the type overrides it.
+    public virtual String ToString()
+    {
+        return GetType().Name;
+    }
 }
 
 ////////// ////////// ////////// ////////// //////////

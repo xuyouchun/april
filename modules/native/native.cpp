@@ -60,7 +60,7 @@ namespace X_ROOT_NS::modules::native {
         // Runtime library functions that need the metadata of the program (an assembly
         // analyzer), which native programs do not have yet.
         const char * const __metadata_libfuncs[] = {
-            "Tuple_SetRange", "Tuple_Get", "Tuple_GetCount", "Reflection_GetTypeName",
+            "Tuple_SetRange", "Tuple_Get", "Tuple_GetCount",
         };
 
         // Converts to a narrow string.
@@ -499,7 +499,8 @@ namespace X_ROOT_NS::modules::native {
                     // A ref / out argument is the address of a variable.
                     bool is_addr = is_addr_param(mt_param.param_type);
 
-                    if (mt_param.param_type != param_type_t::default_ && !is_addr)
+                    if (mt_param.param_type != param_type_t::default_ && !is_addr
+                            && mt_param.param_type != param_type_t::params)
                     {
                         throw _ED(__e_t::unsupported_method, fn.display,
                                   _T("ref / out / params / extends arguments"));
@@ -580,6 +581,20 @@ namespace X_ROOT_NS::modules::native {
                             __fn_t & callee, const std::vector<llb::value_t> & args)
         {
             std::string name = __narrow(callee.method->get_name().c_str());
+
+            // The type of an object is its descriptor, that holds the name of the type after
+            // the virtual functions: the number of them is the same for all the classes.
+            if (name == "Reflection_GetType")
+                return f.load("ptr", f.gep_bytes(args.at(0), -8));
+
+            if (name == "Reflection_GetTypeName")
+            {
+                llb::value_t count = f.load("i64", llb::value_t { llb::types::ptr, "@april.vcount" });
+                llb::value_t offset = f.binop("add", f.binop("mul", count, llb::const_int("i64", 8)),
+                                                     llb::const_int("i64", 32));
+
+                return f.load("ptr", f.gep(llb::types::i8, args.at(0), offset));
+            }
 
             // The arrays of native programs have their own layout (see native_abi.h):
             // the library functions that read it are replaced.
@@ -3018,13 +3033,23 @@ namespace X_ROOT_NS::modules::native {
                            + (it == c.vfunctions.end()? "null" : "@" + it->second->name);
                 }
 
+                // The name of the type.
+                string_t type_name_text = c.type->get_name(__env);
+                std::string type_name = __narrow(type_name_text.c_str());
+                std::u32string wide_name(type_name.begin(), type_name.end());
+                llb::value_t name_value = __module.add_wstring(wide_name, sizeof(char_t) * 8);
+
                 std::string vtype = "[" + std::to_string(vcount) + " x ptr]";
                 __module.add_global_line(
-                    "@" + c.name + " = private constant { ptr, i64, ptr, i64, " + vtype + " } { ptr "
+                    "@" + c.name + " = private constant { ptr, i64, ptr, i64, " + vtype + ", ptr } { ptr "
                     + table + ", i64 " + std::to_string(c.ifunctions.size()) + ", ptr " + casts
-                    + ", i64 " + std::to_string(cast_count) + ", " + vtype + " [" + vtext + "] }"
+                    + ", i64 " + std::to_string(cast_count) + ", " + vtype + " [" + vtext + "], ptr "
+                    + name_value.text + " }"
                 );
             }
+
+            __module.add_global_line("@april.vcount = private constant i64 "
+                                     + std::to_string(__max_virtual_offset + 1));
 
             for (size_t k = 0; k < __interfaces.size(); k++)
                 __module.add_global_line("@april.iface." + std::to_string(k) + " = private constant i8 0");

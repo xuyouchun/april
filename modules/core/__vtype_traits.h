@@ -658,7 +658,15 @@ namespace X_ROOT_NS::modules::core {
                                                                                             \
         /* Logic */                                                                         \
         __LogicBoolBinaryOps(logic_and)                                                     \
-        __LogicBoolBinaryOps(logic_or)
+        __LogicBoolBinaryOps(logic_or)                                                              \
+                                                                                                    \
+        /* & | ^ of booleans: not short-circuit, the result is a boolean. */                        \
+        __BoolOps(bit_and, vtype_t::bool_)                                                          \
+        __BoolOps(bit_or, vtype_t::bool_)                                                           \
+        __BoolOps(bit_xor, vtype_t::bool_)                                                          \
+        __BoolOps(bit_and_assign, vtype_t::bool_)                                                   \
+        __BoolOps(bit_or_assign, vtype_t::bool_)                                                    \
+        __BoolOps(bit_xor_assign, vtype_t::bool_)
 
         #define __BinaryOp    __DefineBinaryOperation
         X_DEFINE_BINARY_OPS

@@ -282,7 +282,8 @@ namespace X_ROOT_NS::algorithm {
                 __op_t op(__radix, __positive, numeric);
                 for (; p < p_end; p++)
                 {
-                    if (*p == _T('\''))
+                    // Digit separators: 1_000, 1'000.
+                    if (*p == _T('\'') || *p == _T('_'))
                         continue;
 
                     __e_t r = op.push(*p);
@@ -488,13 +489,10 @@ namespace X_ROOT_NS::algorithm {
             if (__radix == 0)
                 __radix = 10;
 
+            // The type of a number without suffix is the first of int, uint, long, ulong that
+            // holds it, in any radix.
             if (__ts == ts_unknown)
-            {
-                if (__radix == 16)
-                    __ts = ts_unsigned;
-                else
-                    __ts = ts_signed;
-            }
+                __ts = ts_signed;
 
             if (__tl == tl_unknown)
                 __tl = tl_default;
@@ -579,6 +577,11 @@ namespace X_ROOT_NS::algorithm {
 
                     case _T('\''):
                         if (!al::is_digit(*(__p - 1)))
+                            __set_error(__e_t::format_error);
+                        break;
+
+                    case _T('_'):       // A digit separator, between digits: 1_000.
+                        if (!al::is_digit(*(__p - 1), 16) || !al::is_digit(*(__p + 1), 16))
                             __set_error(__e_t::format_error);
                         break;
 

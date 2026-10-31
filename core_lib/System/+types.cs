@@ -17,7 +17,7 @@ public struct Void
 [Internal]
 public struct Int8
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.Int64_ToString(this);
     }
@@ -28,7 +28,7 @@ public struct Int8
 [Internal]
 public struct UInt8
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.UInt64_ToString(this);
     }
@@ -39,7 +39,7 @@ public struct UInt8
 [Internal]
 public struct Int16
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.Int64_ToString(this);
     }
@@ -50,7 +50,7 @@ public struct Int16
 [Internal]
 public struct UInt16
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.UInt64_ToString(this);
     }
@@ -61,7 +61,7 @@ public struct UInt16
 [Internal]
 public struct Int32
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.Int64_ToString(this);
     }
@@ -72,7 +72,7 @@ public struct Int32
 [Internal]
 public struct UInt32
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.UInt64_ToString(this);
     }
@@ -83,7 +83,7 @@ public struct UInt32
 [Internal]
 public struct Int64
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.Int64_ToString(this);
     }
@@ -94,7 +94,7 @@ public struct Int64
 [Internal]
 public struct UInt64
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.UInt64_ToString(this);
     }
@@ -110,7 +110,7 @@ public struct String
         get { return Internal.String_GetLength(this); }
     }
 
-    public String ToString()
+    public new String ToString()
     {
         return this;
     }
@@ -246,6 +246,23 @@ public struct String
         return Internal.String_Concat(a.ToString(), b);
     }
 
+    // An object is converted by its ToString.
+    public static String operator +(String a, Object b)
+    {
+        if (b == null)
+            return Internal.String_Concat(a, null);
+
+        return Internal.String_Concat(a, b.ToString());
+    }
+
+    public static String operator +(Object a, String b)
+    {
+        if (a == null)
+            return Internal.String_Concat(null, b);
+
+        return Internal.String_Concat(a.ToString(), b);
+    }
+
     public static Boolean operator ==(String a, String b)
     {
         return Internal.String_Equals(a, b);
@@ -283,7 +300,7 @@ public struct String
 [Internal]
 public struct Boolean
 {
-    public String ToString()
+    public new String ToString()
     {
         if (this)
             return "True";
@@ -297,7 +314,7 @@ public struct Boolean
 [Internal]
 public struct Char
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.Char_ToString(this);
     }
@@ -308,7 +325,7 @@ public struct Char
 [Internal]
 public struct Single
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.Single_ToString(this);
     }
@@ -319,7 +336,7 @@ public struct Single
 [Internal]
 public struct Double
 {
-    public String ToString()
+    public new String ToString()
     {
         return Internal.Double_ToString(this);
     }

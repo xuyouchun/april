@@ -3171,18 +3171,23 @@ namespace X_ROOT_NS::modules::rt {
             method_prototype_t prototype;
             get_prototype(method_ref, &prototype);
 
+            rt_assembly_t * base_assembly;
+
             do
             {
                 rt_type = rt_type->get_base_type(env);
                 if (rt_type == nullptr)
                     throw __RtAssemblyErrorF("virtual method '%1%' not found", method->get_name());
 
-                assembly_analyzer_t analyzer0(*this, rt_type->get_assembly());
+                base_assembly = rt_type->get_assembly();
+
+                assembly_analyzer_t analyzer0(*this, base_assembly);
                 method_ref = rt_type->search_method(analyzer0.env, prototype);
 
             } while (method_ref == ref_t::null);
 
-            return get_virtual_method_offset( method_ref);
+            // The ref is a ref of the assembly of the base type.
+            return assembly_analyzer_t(*this, base_assembly).get_virtual_method_offset(method_ref);
         }
 
         throw __RtAssemblyErrorF("virtual method '%1%' not found", method->get_name());

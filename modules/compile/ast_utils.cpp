@@ -1179,9 +1179,13 @@ namespace X_ROOT_NS::modules::compile {
                 type_t * type1 = exp->expression_at(0)->get_type();
                 type_t * type2 = exp->expression_at(1)->get_type();
 
-                if (!is_type_compatible(type2, type1))
+                if (!is_type_compatible(type2, type1)
+                        && !is_constant_compatible(exp->expression_at(1), type1))
+                {
                     ast_log(__cctx, exp, __c_t::invalid_type_cast, type2->to_prototype(),
                                                                    type1->to_prototype());
+                }
+
                 return;
             }
 
@@ -1289,15 +1293,27 @@ namespace X_ROOT_NS::modules::compile {
                 if (!is_object(atype.type) && !__is_string(atype.type))
                     continue;
 
-                method_t * method = find_method(
-                    atype.type, method_trait_t::default_, name, nullptr, &atypes
-                );
+                method_t * method = nullptr;
 
-                if (method == nullptr && other_name != name)
+                try
                 {
                     method = find_method(
-                        atype.type, method_trait_t::default_, other_name, nullptr, &atypes
+                        atype.type, method_trait_t::default_, name, nullptr, &atypes
                     );
+
+                    if (method == nullptr && other_name != name)
+                    {
+                        method = find_method(
+                            atype.type, method_trait_t::default_, other_name, nullptr, &atypes
+                        );
+                    }
+                }
+                catch (const method_compare_error_t & e)
+                {
+                    string_t s = al::join_str(atypes.begin(), atypes.end(), _T(", "));
+                    ast_log(__cctx, exp, __c_t::operator_overload_ambiguous, op_property->op, s);
+
+                    return;
                 }
 
                 if (method == nullptr)

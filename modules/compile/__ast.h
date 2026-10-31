@@ -464,6 +464,9 @@ namespace X_ROOT_NS::modules::compile {
         // The language has no goto statement.
         goto_not_supported,
 
+        // A constructor cannot call itself.
+        constructor_calls_itself,
+
         // The type of the expression of a for each statement is not supported.
         for_each_type_not_supported,
 
@@ -697,6 +700,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Operator overload not defined.
         operator_overload_not_defined,
+
+        // The operator is ambiguous: more than one method fits the operands.
+        operator_overload_ambiguous,
 
         // Cannot determine local type.
         cannot_determine_local_variable_type,
@@ -4227,6 +4233,9 @@ namespace X_ROOT_NS::modules::compile {
         // Sets trait.
         void set_trait(method_trait_t trait, __el_t * el);
 
+        // Sets that the constructor calls another constructor of the type: : this(...)
+        void set_ctor_this() { __ctor_this = true; }
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -4239,6 +4248,7 @@ namespace X_ROOT_NS::modules::compile {
     private:
         const operator_property_t * __op_property = nullptr;
         __el_t * __name_el = nullptr;
+        bool __ctor_this = false;
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context);

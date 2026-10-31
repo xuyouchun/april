@@ -902,6 +902,13 @@ namespace X_ROOT_NS::modules::compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
+        // Booleans: both are evaluated.
+        if (exp1->get_vtype() == vtype_t::bool_ && exp2->get_vtype() == vtype_t::bool_)
+        {
+            pool.append<x_logic_xil_t>(xil_logic_command_t::and_);
+            return;
+        }
+
         pool.append<x_bit_xil_t>(
             xil_bit_command_t::bit_and, __xil_type(exp1), __xil_type(exp2)
         );
@@ -929,6 +936,13 @@ namespace X_ROOT_NS::modules::compile {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
+        // Booleans: both are evaluated.
+        if (exp1->get_vtype() == vtype_t::bool_ && exp2->get_vtype() == vtype_t::bool_)
+        {
+            pool.append<x_logic_xil_t>(xil_logic_command_t::or_);
+            return;
+        }
+
         pool.append<x_bit_xil_t>(
             xil_bit_command_t::bit_or, __xil_type(exp1), __xil_type(exp2)
         );
@@ -940,6 +954,15 @@ namespace X_ROOT_NS::modules::compile {
     {
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
+
+        // Booleans: they are different.
+        if (exp1->get_vtype() == vtype_t::bool_ && exp2->get_vtype() == vtype_t::bool_)
+        {
+            pool.append<x_cmp_xil_t>(
+                xil_cmp_command_t::not_equal, xil_type_t::bool_, xil_type_t::bool_
+            );
+            return;
+        }
 
         pool.append<x_bit_xil_t>(
             xil_bit_command_t::bit_xor, __xil_type(exp1), __xil_type(exp2)
@@ -1353,15 +1376,86 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
                                                         param_types_t * param_types)
     {
-        if (arguments == nullptr)
+        int count = arguments != nullptr? arguments->size() : 0;
+
+        // The params that have default values, and the params array of the method.
+        size_t param_count = param_types != nullptr? param_types->param_count() : 0;
+        param_t * last = param_count > 0? param_types->param_object_at(param_count - 1) : nullptr;
+
+        bool variadic = last != nullptr && last->ptype == param_type_t::params;
+        int fixed_count = variadic? (int)param_count - 1 : (int)param_count;
+
+        if (param_types == nullptr || (!variadic && count >= fixed_count))
+        {
+            for (int index = 0; index < count; index++)
+                __compile_argument(ctx, pool, (*arguments)[index]->expression, param_types, index);
+
+            return;
+        }
+
+        // The arguments that are written, for the params before the params array.
+        for (int index = 0; index < count && index < fixed_count; index++)
+            __compile_argument(ctx, pool, (*arguments)[index]->expression, param_types, index);
+
+        // The default values of the others.
+        for (int index = count; index < fixed_count; index++)
+        {
+            param_t * param = param_types->param_object_at(index);
+            __FailedWhenNull(param, "param %1% of the method missing", index);
+            __FailedWhenNull(param->default_value, "argument %1% missing", index);
+
+            type_t * type = param->get_type();
+            if (__is_custom_struct_like(type))
+                __Failed("the default value of a struct param is not supported");
+
+            // The default value is a constant.
+            cvalue_t cvalue = __execute_expression(param->default_value);
+            if (is_nan(cvalue))
+                __Failed("the default value of the param '%1%' is not a constant", param->name);
+
+            __compile_cvalue(ctx, pool, cvalue, __environment_t(type));
+        }
+
+        if (!variadic)
             return;
 
-        for (int index = 0, count = arguments->size(); index < count; index++)
-        {
-            argument_t * argument = (*arguments)[index];
-            expression_t * exp = argument->expression;
+        // The params array: the argument is the array, or the arguments are its elements.
+        type_t * array_type = last->get_type();
+        if (array_type->this_gtype() != gtype_t::array)
+            __Failed("the type of the params '%1%' is not an array", last->name);
 
-            __compile_argument(ctx, pool, exp, param_types, index);
+        if (count == (int)param_count
+                && is_type_compatible((*arguments)[count - 1]->expression->get_type(), array_type))
+        {
+            __compile_argument(ctx, pool, (*arguments)[count - 1]->expression, param_types,
+                                                                                count - 1);
+            return;
+        }
+
+        type_t * element_type = ((array_type_t *)array_type)->element_type;
+        if (__is_custom_struct_like(element_type))
+            __Failed("params of structs are not supported");
+
+        xil_type_t dtype = __to_xil_type(element_type);
+        int element_count = count > fixed_count? count - fixed_count : 0;
+
+        pool.append<x_push_const_xil_t<int32_t>>(xil_type_t::int32, tvalue_t((int32_t)element_count));
+        pool.append<x_new_array_xil_t>(__ref_of(ctx, array_type));
+
+        if (element_count > 0)
+        {
+            pool.append<x_array_begin_xil_t>(dtype);
+
+            for (int index = fixed_count; index < count; index++)
+            {
+                expression_t * exp = (*arguments)[index]->expression;
+                if (!__try_compile_constant_expression(ctx, pool, exp, dtype))
+                    exp->compile(ctx, pool, element_type);
+
+                pool.append<x_array_element_xil_t>(dtype);
+            }
+
+            pool.append<x_array_end_xil_t>(dtype);
         }
     }
 

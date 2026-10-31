@@ -1799,6 +1799,10 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __TokenValue(bit_not):
                 __This->set_trait(method_trait_t::destructor, token);
                 break;
+
+            case __TokenValue(k_this):      // A constructor that calls another: : this(...)
+                __This->set_ctor_this();
+                break;
         }
     }
 

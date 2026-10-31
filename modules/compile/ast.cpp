@@ -212,6 +212,9 @@ namespace X_ROOT_NS::modules::compile {
         // The language has no goto statement.
         X_D(goto_not_supported, _T("goto statement is not supported"))
 
+        // A constructor cannot call itself.
+        X_D(constructor_calls_itself, _T("the constructor of %1% calls itself"))
+
         // For each statements go through arrays.
         X_D(for_each_type_not_supported, _T("foreach is not supported for type %1%"))
 
@@ -467,6 +470,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Operator overload not defined.
         X_D(operator_overload_not_defined, _T("Operator '%1%' not defined for %2%"))
+
+        // The operator is ambiguous.
+        X_D(operator_overload_ambiguous, _T("Operator '%1%' is ambiguous for %2%"))
 
         // Cannot determine local type.
         X_D(cannot_determine_local_variable_type,
@@ -2502,8 +2508,35 @@ namespace X_ROOT_NS::modules::compile {
         { }
 
         // Revise constructor.
-        void revise_constructor(method_t & method, arguments_t * args, __el_t * node = nullptr)
+        void revise_constructor(method_t & method, arguments_t * args, __el_t * node = nullptr,
+                                                               bool call_this = false)
         {
+            // : this(...): another constructor of the type does all the construction.
+            if (call_this)
+            {
+                type_t * type = __wctx.current_type();
+                method_t * ctor = find_constructor(this->__context, type, args);
+
+                if (ctor == nullptr)
+                    this->__log(node, __c_t::constructor_method_not_found, type, args);
+                else if (ctor == &method)
+                    this->__log(node, __c_t::constructor_calls_itself, type);
+                else
+                {
+                    __statements_t statements;
+                    statements.push_back(__new_expression_statement<function_expression_t>(
+                        ctor, args
+                    ));
+
+                    if (method.body == nullptr)
+                        method.body = __new_obj<method_body_t>(__wctx.current_region());
+
+                    method.body->push_front(statements);
+                }
+
+                return;
+            }
+
             method_t * base_ctor = __get_base_contructor(args, node);
             __statements_t statements;
 
@@ -4101,8 +4134,11 @@ namespace X_ROOT_NS::modules::compile {
                 type_t * type1 = var_item->variable->type_name->type;
                 type_t * type2 = var_item->expression->get_type();
 
-                if (!is_type_compatible(type2, type1))
+                if (!is_type_compatible(type2, type1)
+                        && !is_constant_compatible(var_item->expression, type1))
+                {
                     __L(invalid_type_cast, type2->to_prototype(), type1->to_prototype());
+                }
             }
         }
 
@@ -5438,7 +5474,7 @@ namespace X_ROOT_NS::modules::compile {
             case method_trait_t::constructor:
                 __method_utils_t(__context, context).revise_constructor(*this,
                     __to_eobject<arguments_t *>(__base_ctor_args__),
-                    this->child_at(__base_ctor_args__)
+                    this->child_at(__base_ctor_args__), __ctor_this
                 );
                 break;
 
