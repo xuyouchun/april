@@ -2822,6 +2822,83 @@ namespace X_ROOT_NS::modules::core {
         return bits >= 64 || magnitude < ((uint64_t)1 << bits);
     }
 
+    // Returns whether a type is a class or an interface: a reference.
+    static bool __is_class_or_interface(type_t * type)
+    {
+        ttype_t ttype = type->this_ttype();
+        return ttype == ttype_t::class_ || ttype == ttype_t::interface_;
+    }
+
+    // Returns whether a generic type can be used as another generic type of the same template,
+    // by the variance of the generic params: IProducer<String> as IProducer<Object> when T is out.
+    static bool __is_variant_of(generic_type_t * from, generic_type_t * to)
+    {
+        if (from->template_ != to->template_ || from->template_->params == nullptr
+                || from->args.size() != to->args.size())
+        {
+            return false;
+        }
+
+        generic_params_t * params = from->template_->params;
+        bool variant = false;
+
+        for (size_t index = 0, count = from->args.size(); index < count && index < params->size();
+                                                                                        index++)
+        {
+            type_t * a = from->args[index].type(), * b = to->args[index].type();
+            if (a == b)
+                continue;
+
+            if (a == nullptr || b == nullptr || !__is_class_or_interface(a)
+                                             || !__is_class_or_interface(b))
+            {
+                return false;
+            }
+
+            switch ((*params)[index]->param_type)
+            {
+                case generic_param_type_t::out:
+                    if (!is_type_compatible(a, b))
+                        return false;
+                    break;
+
+                case generic_param_type_t::in:
+                    if (!is_type_compatible(b, a))
+                        return false;
+                    break;
+
+                default:
+                    return false;
+            }
+
+            variant = true;
+        }
+
+        return variant;
+    }
+
+    // Returns whether a type is, or has as a super type, a generic type that can be used as
+    // the specified generic type by the variance.
+    static bool __has_variant_super_type(type_t * type, generic_type_t * to, int depth = 0)
+    {
+        if (depth > 16)
+            return false;
+
+        if (type->this_gtype() == gtype_t::generic
+                && __is_variant_of((generic_type_t *)type, to))
+        {
+            return true;
+        }
+
+        bool found = false;
+        type->each_super_type([&](type_t * super_type) {
+            found = __has_variant_super_type(super_type, to, depth + 1);
+            return !found;
+        });
+
+        return found;
+    }
+
     bool is_type_compatible(type_t * from, type_t * to)
     {
         _A(from != nullptr);
@@ -2844,7 +2921,18 @@ namespace X_ROOT_NS::modules::core {
             return __is_mobject(to) || from->this_gtype() == gtype_t::null;
 
         if (__is_mobject(from) || __is_mobject(to))
-            return is_super_type(from, to);
+        {
+            if (is_super_type(from, to))
+                return true;
+
+            // Every class and interface is an object.
+            if (to == __XPool.get_object_type() && __is_class_or_interface(from))
+                return true;
+
+            // IProducer<String> to IProducer<Object>.
+            return to->this_gtype() == gtype_t::generic
+                && __has_variant_super_type(from, (generic_type_t *)to);
+        }
 
         return is_vtype_compatible(from->this_vtype(), to->this_vtype());
     }

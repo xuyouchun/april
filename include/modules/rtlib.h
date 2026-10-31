@@ -138,6 +138,7 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(string_equals);
     __DefineFunc(string_compare);
     __DefineFunc(string_get_length);
+    __DefineFunc(string_get_hash_code);
     __DefineFunc(int64_to_string);
     __DefineFunc(uint64_to_string);
     __DefineFunc(double_to_string);

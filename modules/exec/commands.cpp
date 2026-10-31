@@ -4468,8 +4468,9 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             exec_method_t * method = __get_virtual_exec_method(ctx, __This->__this_offset,
-                [o=__This->__virtual_offset, t=__This->__interface_type] (rt_vtable_t * vtbl) {
-                    return vtbl->search_vtable_interface_function(t, o); 
+                [o=__This->__virtual_offset, t=__This->__interface_type, &env=ctx.env]
+                                                                        (rt_vtable_t * vtbl) {
+                    return vtbl->search_vtable_interface_function(env, t, o);
                 }
             );
 
@@ -5517,12 +5518,12 @@ namespace X_ROOT_NS::modules::exec {
     __DefineCmdValue_(__CastAsCmd)
 
     template<bool _to_type_is_interface>
-    bool __cast_test(rt_type_t * from_type, rt_type_t * to_type)
+    bool __cast_test(analyzer_env_t & env, rt_type_t * from_type, rt_type_t * to_type)
     {
         rt_vtable_t * vtbl = get_vtable(from_type);
         if constexpr (_to_type_is_interface)
         {
-            return vtbl->try_search_vtable_interface(to_type);
+            return vtbl->search_vtable_interface_variant(env, to_type) != nullptr;
         }
         else
         {
@@ -5564,7 +5565,7 @@ namespace X_ROOT_NS::modules::exec {
                 if (obj != nullptr)
                 {
                     rt_type_t * rt_type = __RtTypeOf(obj);
-                    if (!__cast_test<_is_interface>(rt_type, __type))
+                    if (!__cast_test<_is_interface>(ctx.env, rt_type, __type))
                         __RaiseInvalidCastException(ctx);
                 }
             }
@@ -5576,7 +5577,7 @@ namespace X_ROOT_NS::modules::exec {
                 if (obj != nullptr)
                 {
                     rt_type_t * rt_type = __RtTypeOf(obj);
-                    ctx.stack.replace(__cast_test<_is_interface>(rt_type, __type));
+                    ctx.stack.replace(__cast_test<_is_interface>(ctx.env, rt_type, __type));
                 }
                 else
                 {
@@ -5592,7 +5593,7 @@ namespace X_ROOT_NS::modules::exec {
                 {
                     rt_type_t * rt_type = __RtTypeOf(obj);
 
-                    if (!__cast_test<_is_interface>(rt_type, __type))
+                    if (!__cast_test<_is_interface>(ctx.env, rt_type, __type))
                         ctx.stack.replace_to_null();
                 }
             }

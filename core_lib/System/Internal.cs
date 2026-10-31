@@ -60,6 +60,9 @@ internal static class Internal
     public static extern Int32 String_GetLength(String s);
 
     [Internal]
+    public static extern Int32 String_GetHashCode(String s);
+
+    [Internal]
     public static extern String Int64_ToString(Int64 value);
 
     [Internal]

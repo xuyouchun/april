@@ -1621,8 +1621,9 @@ namespace X_ROOT_NS::modules::compile {
                 int index_count = index_var->arguments != nullptr? index_var->arguments->size() : 0;
                 __compile_argument(ctx, pool, exp2, method, index_count);
 
+                // A virtual setter, or the setter of an interface, is called by its object.
                 ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
+                pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
 
             }   break;
 

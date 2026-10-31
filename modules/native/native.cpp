@@ -2227,7 +2227,7 @@ namespace X_ROOT_NS::modules::native {
                             throw _ED(__e_t::unsupported_type, _T("(unresolved cast type)"));
 
                         ttype_t target_ttype = target->get_ttype(__env);
-                        if (target->get_kind() != rt_type_kind_t::general
+                        if ((target->get_kind() != rt_type_kind_t::general && target->get_kind() != rt_type_kind_t::generic)
                                 || (target_ttype != ttype_t::interface_ && target_ttype != ttype_t::class_))
                         {
                             throw _ED(__e_t::unsupported_type, target->get_name(__env));
@@ -2953,7 +2953,7 @@ namespace X_ROOT_NS::modules::native {
                     if (c.ifunctions.count(site))
                         continue;
 
-                    rt_vtable_interface_t * itf = vtbl->try_search_vtable_interface(
+                    rt_vtable_interface_t * itf = vtbl->search_vtable_interface_variant(__env,
                                                         __interfaces[site.first]);
                     if (itf == nullptr)
                         continue;
@@ -3004,7 +3004,7 @@ namespace X_ROOT_NS::modules::native {
                     for (size_t k = 0; k < __interfaces.size(); k++)
                     {
                         rt_type_t * key = __interfaces[k];
-                        bool is_a = c.type == key || vtbl->try_search_vtable_interface(key) != nullptr;
+                        bool is_a = c.type == key || vtbl->search_vtable_interface_variant(__env, key) != nullptr;
                         for (msize_t b = 0; !is_a && b < vtbl->base_type_count; b++)
                             is_a = vtbl->base_types[b] == key;
 

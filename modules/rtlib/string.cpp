@@ -115,6 +115,21 @@ namespace X_ROOT_NS::modules::rtlib {
         rstring_t   s;
     };
 
+    // String_GetHashCode: FNV-1a of the characters.
+    void string_get_hash_code(rtlib_context_t & ctx)
+    {
+        __string1_args_t * args = ctx.args<__string1_args_t>();
+        const char_t * s = *args->s;
+
+        uint32_t hash = 2166136261u;
+        for (size_t k = 0, length = __length_of(s); k < length; k++)
+        {
+            hash = (hash ^ (uint32_t)s[k]) * 16777619u;
+        }
+
+        ctx.return_<int32_t>((int32_t)(hash & 0x7fffffff));
+    }
+
     // String_GetLength
     void string_get_length(rtlib_context_t & ctx)
     {

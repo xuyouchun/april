@@ -73,6 +73,7 @@ namespace X_ROOT_NS::modules::rtlib {
             __append_libfunc(_T("String_Equals"),           string_equals);
             __append_libfunc(_T("String_Compare"),          string_compare);
             __append_libfunc(_T("String_GetLength"),        string_get_length);
+            __append_libfunc(_T("String_GetHashCode"),      string_get_hash_code);
             __append_libfunc(_T("Int64_ToString"),          int64_to_string);
             __append_libfunc(_T("UInt64_ToString"),         uint64_to_string);
             __append_libfunc(_T("Double_ToString"),         double_to_string);

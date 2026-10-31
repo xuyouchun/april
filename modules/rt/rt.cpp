@@ -264,9 +264,20 @@ namespace X_ROOT_NS::modules::rt {
         return get(key, [&]() {
 
             key = revise_key(key, (rt_type_t **)atypes, atype_count);
-            return memory_t::new_obj<rt_generic_type_t>(memory,
+            // The virtual table is stored just before the type, see set_vtable.
+            struct __wrap_t
+            {
+                __wrap_t(rt_general_type_t * template_, rt_type_t * host_type,
+                                            rt_type_t ** atypes, int atype_count)
+                    : type(template_, host_type, atypes, atype_count) { }
+
+                rt_vtable_t *       vtbl = nullptr;
+                rt_generic_type_t   type;
+            };
+
+            return &memory_t::new_obj<__wrap_t>(memory,
                 template_, host_type, key.types(), atype_count
-            );
+            )->type;
 
         });
     }
@@ -775,6 +786,118 @@ namespace X_ROOT_NS::modules::rt {
 
         al::assign_value(out_storage_type, layout.storage_type());
         return layout.type_size();
+    }
+
+    // Searches the interface of specified type, or an interface that can be used as it.
+    rt_vtable_interface_t * rt_vtable_t::search_vtable_interface_variant(
+                                    analyzer_env_t & env, rt_type_t * interface_type)
+    {
+        if (rt_vtable_interface_t * exact = try_search_vtable_interface(interface_type))
+            return exact;
+
+        if (interface_type->get_kind() != rt_type_kind_t::generic)
+            return nullptr;
+
+        rt_vtable_interface_t * item = interfaces->interfaces;
+        for (msize_t index = 0; index < interface_count; index++, item++)
+        {
+            rt_type_t * type = item->interface_type;
+            if (type->get_kind() == rt_type_kind_t::generic
+                    && ((rt_generic_type_t *)type)->is_variant_of(env, interface_type))
+            {
+                return item;
+            }
+        }
+
+        return nullptr;
+    }
+
+    // Searches function address of interface methods, with the variance.
+    rt_vfunction_t rt_vtable_t::search_vtable_interface_function(
+                            analyzer_env_t & env, rt_type_t * interface_type, int offset)
+    {
+        rt_vtable_interface_t * item = search_vtable_interface_variant(env, interface_type);
+        _A(item != nullptr);
+
+        return item->functions[offset];
+    }
+
+    // Returns whether a type can be used as another by the variance, the types are
+    // references.
+    static bool __is_ref_compatible(analyzer_env_t & env, rt_type_t * from, rt_type_t * to)
+    {
+        if (from == to)
+            return true;
+
+        ttype_t from_ttype = from->get_ttype(env), to_ttype = to->get_ttype(env);
+        if ((from_ttype != ttype_t::class_ && from_ttype != ttype_t::interface_)
+                || (to_ttype != ttype_t::class_ && to_ttype != ttype_t::interface_))
+        {
+            return false;
+        }
+
+        if (from->get_kind() == rt_type_kind_t::generic
+                && ((rt_generic_type_t *)from)->is_variant_of(env, to))
+        {
+            return true;
+        }
+
+        bool found = false;
+        from->each_super_type(env, [&](rt_type_t * super_type) {
+            found = __is_ref_compatible(env, super_type, to);
+            return !found;
+        });
+
+        return found;
+    }
+
+    // Returns whether a value of this generic type can be used as the other type.
+    bool rt_generic_type_t::is_variant_of(analyzer_env_t & env, rt_type_t * other)
+    {
+        if (other == nullptr || other->get_kind() != rt_type_kind_t::generic)
+            return false;
+
+        rt_generic_type_t * other_generic = (rt_generic_type_t *)other;
+        if (other_generic->template_ != this->template_
+                || other_generic->atype_count() != this->atype_count())
+        {
+            return false;
+        }
+
+        assembly_analyzer_t analyzer(env, this->template_->get_assembly());
+
+        bool variant = false;
+        for (int index = 0, count = this->atype_count(); index < count; index++)
+        {
+            rt_type_t * from = this->atypes[index], * to = other_generic->atypes[index];
+            if (from == to)
+                continue;
+
+            rt_generic_param_t * gp = analyzer.get_generic_param(
+                this->template_->mt->generic_params[index]
+            );
+            _A(gp != nullptr);
+
+            switch ((generic_param_type_t)(*gp)->param_type)
+            {
+                case generic_param_type_t::out:
+                    if (!__is_ref_compatible(env, from, to))
+                        return false;
+                    break;
+
+                case generic_param_type_t::in:
+                    if (!__is_ref_compatible(env, to, from))
+                        return false;
+                    break;
+
+                default:
+                    return false;
+            }
+
+            variant = true;
+        }
+
+        return variant;
     }
 
     // Returns generic param count.

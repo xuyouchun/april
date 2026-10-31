@@ -242,6 +242,15 @@ namespace X_ROOT_NS::modules::rt {
             return search_vtable_interface(interface_type)->functions[offset];
         }
 
+        // Searches the interface of specified type, or an interface that can be used as it
+        // by the variance of generic interfaces. Returns null if not exists.
+        rt_vtable_interface_t * search_vtable_interface_variant(analyzer_env_t & env,
+                                                                rt_type_t * interface_type);
+
+        // Searches function address of interface methods, with the variance.
+        rt_vfunction_t search_vtable_interface_function(analyzer_env_t & env,
+                                        rt_type_t * interface_type, int offset);
+
         // Returns true if specified type is a base type.
         X_ALWAYS_INLINE bool is_base_type(rt_type_t * base_type)
         {
@@ -1398,6 +1407,10 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets name.
         virtual rt_sid_t get_name(analyzer_env_t & env) override final;
+
+        // Returns whether a value of this generic type can be used as the other type by the
+        // variance of the generic params: IProducer<String> as IProducer<Object> when T is out.
+        bool is_variant_of(analyzer_env_t & env, rt_type_t * other);
 
         // Gets kind.
         virtual rt_type_kind_t get_kind() override final { return rt_type_kind_t::generic; }
