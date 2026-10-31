@@ -140,7 +140,10 @@ namespace X_ROOT_NS::modules::mm {
         dimension_t dimension = type->dimension;
 
         array_length_t length = *lengths;
-        size_t element_size = unit_align(1, type->element_type->get_size());
+        // A struct is as large as its fields: the elements are that far from each other.
+        size_t element_size = al::max<size_t>(
+            unit_align(1, type->element_type->get_size()), type->element_type->get_size()
+        );
         size_t size = _alignf(length * element_size, sizeof(rt_stack_unit_t));
 
         void * obj;

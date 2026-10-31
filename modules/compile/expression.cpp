@@ -263,7 +263,11 @@ namespace X_ROOT_NS::modules::compile {
         }
         else if (instance == nullptr)
         {
-            pool.append<x_push_this_ref_xil_t>();
+            // The environment of a lambda that uses local variables.
+            if (method_var->method->lambda_env_new != nullptr)
+                method_var->method->lambda_env_new->compile(ctx, pool);
+            else
+                pool.append<x_push_this_ref_xil_t>();
         }
         else
         {
@@ -2459,7 +2463,12 @@ namespace X_ROOT_NS::modules::compile {
                 if (!((method_variable_t *)variable)->method->is_static()
                         && !__is_right_member(owner_exp->parent, owner_exp))
                 {
-                    pool.append<x_push_this_ref_xil_t>();
+                    method_t * method = ((method_variable_t *)variable)->method;
+
+                    if (method->lambda_env_new != nullptr)
+                        method->lambda_env_new->compile(ctx, pool);
+                    else
+                        pool.append<x_push_this_ref_xil_t>();
                 }
 
                 __compile_method_variable(ctx, pool, (method_variable_t *)variable, env,

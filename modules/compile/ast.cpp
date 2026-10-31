@@ -232,6 +232,12 @@ namespace X_ROOT_NS::modules::compile {
         X_D(lambda_outside_method, _T("a lambda is only in a method"))
         X_D(lambda_type_undetermined,
             _T("the type of the lambda is not determined, it is converted to no delegate"))
+        X_D(lambda_capture_not_supported,
+            _T("a lambda that uses local variables is not supported %1%"))
+        X_D(lambda_capture_modified,
+            _T("the local variable \"%1%\" is used by a lambda, it cannot be modified"))
+        X_D(lambda_capture_member,
+            _T("a lambda that uses local variables cannot use the members of the object"))
 
         // Unexpected first char in a name.
         X_D(name_unexpected_first_char,
@@ -5801,8 +5807,53 @@ namespace X_ROOT_NS::modules::compile {
     {
         if ((walk_step_t)step == walk_step_t::default_)
             __walk_default(context);
+        else if ((walk_step_t)step == walk_step_t::end)
+            __walk_end(context);
 
         return true;
+    }
+
+    // Collects the expressions of an expression and those below it.
+    static void __collect_sub_expressions(expression_t * expression,
+                                          std::vector<expression_t *> & expressions)
+    {
+        if (expression == nullptr
+                || std::find(expressions.begin(), expressions.end(), expression)
+                                                                != expressions.end())
+        {
+            return;
+        }
+
+        expressions.push_back(expression);
+
+        for (size_t index = 0, count = expression->expression_count(); index < count; index++)
+        {
+            __collect_sub_expressions(expression->expression_at(index), expressions);
+        }
+    }
+
+    // Collects the expressions of a node and its children.
+    static void __collect_expressions(ast_node_t * node, std::vector<expression_t *> & expressions)
+    {
+        if (node == nullptr)
+            return;
+
+        if (expression_ast_t * expression_ast = as<expression_ast_t *>(node))
+            __collect_sub_expressions(expression_ast->to_eobject(), expressions);
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            __collect_expressions(node->child_at(index), expressions);
+        }
+    }
+
+    // Returns the type name of a local variable or a param.
+    static type_name_t * __type_name_of(variable_t * variable)
+    {
+        if (variable->this_type() == variable_type_t::param)
+            return ((param_variable_t *)variable)->param->type_name;
+
+        return ((local_variable_t *)variable)->type_name;
     }
 
     // Makes the method of the lambda, a method of the type that has the current method: it
@@ -5835,8 +5886,124 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        // The local variables of the method that has the lambda, that it uses.
+        __collect_expressions(this->child_at(__body__), __used);
+        __collect_expressions(this->child_at(__expression__), __used);
+
+        {
+            params_t * typed_params = __to_eobject<params_t *>(__params__);
+
+            auto is_param = [&](name_t used_name) {
+                for (name_t param_name : __param_names)
+                {
+                    if (param_name == used_name)
+                        return true;
+                }
+
+                if (typed_params != nullptr)
+                {
+                    for (param_t * param : *typed_params)
+                    {
+                        if (param->name == used_name)
+                            return true;
+                    }
+                }
+
+                return false;
+            };
+
+            variable_region_t * region = context.current_region();
+            for (expression_t * exp : __used)
+            {
+                if (exp->this_family() != expression_family_t::name || region == nullptr)
+                    continue;
+
+                name_t used_name = ((name_expression_t *)exp)->name;
+                if (used_name.empty() || is_param(used_name))
+                    continue;
+
+                // The params of the method are defined after its body is walked.
+                bool outer_param = false;
+                if (((method_t *)outer)->params != nullptr)
+                {
+                    for (param_t * param : *((method_t *)outer)->params)
+                        outer_param = outer_param || param->name == used_name;
+                }
+
+                variable_t * variable = region->get(used_name);
+                bool local = variable != nullptr
+                    && (variable->this_type() == variable_type_t::local
+                        || variable->this_type() == variable_type_t::param);
+
+                if (!local && !outer_param)
+                    continue;
+
+                if (std::find(__captured_names.begin(), __captured_names.end(), used_name)
+                                                                    == __captured_names.end())
+                {
+                    __captured_names.push_back(used_name);
+                }
+            }
+        }
+
+        // A lambda that has the variables of a lambda that has them too.
+        if (!__captured_names.empty() && ((method_t *)outer)->lambda_walk_inside)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                _T("in a lambda that uses local variables"));
+            __captured_names.clear();
+        }
+
+        if (!__captured_names.empty() && ((method_t *)outer)->iterator_info != nullptr)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                _T("in an iterator"));
+            __captured_names.clear();
+        }
+
+        // The class of the object that has the values of the variables.
+        if (!__captured_names.empty())
+        {
+            static int env_count = 0;
+
+            string_t env_name = _F(_T("__Env%1%"), ++env_count);
+            string_t fields_text, params_text, assigns_text;
+
+            for (size_t index = 0; index < __captured_names.size(); index++)
+            {
+                string_t i = _F(_T("%1%"), (int)index);
+                fields_text += _T(" public Object __c") + i + _T(";");
+                params_text += string_t(index > 0? _T(", ") : _T("")) + _T("Object p") + i;
+                assigns_text += _T(" this.__c") + i + _T(" = p") + i + _T(";");
+            }
+
+            string_t env_text = _T("public class ") + env_name + _T(" {") + fields_text
+                + _T(" public ") + env_name + _T("(") + params_text + _T(") {")
+                + assigns_text + _T(" } }");
+
+            ast_node_t * root = this->__parse_snippet(env_text);
+            if (root == nullptr || root->child_count() == 0)
+            {
+                this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                    _T("because its code cannot be made"));
+                __captured_names.clear();
+            }
+            else
+            {
+                type_ast_node_t * env_node = (type_ast_node_t *)root->child_at(0);
+
+                auto * env_layer = context.enter_type_level();
+                env_node->on_walk(context, (int)walk_step_t::default_, nullptr);
+                context.leave_type_level(env_layer);
+
+                __env_node = env_node;
+            }
+        }
+
+        bool captures = !__captured_names.empty();
+
         method_ast_node_t * method = __new_obj<method_ast_node_t>(this->__context);
-        method->init_lambda(name, outer->is_static(), this->child_at(__params__),
+        method->init_lambda(name, outer->is_static() && !captures, this->child_at(__params__),
             this->child_at(__body__), this->child_at(__expression__),
             __to_eobject<expression_t *>(__expression__), (ast_node_t *)this, untyped_params
         );
@@ -5848,13 +6015,263 @@ namespace X_ROOT_NS::modules::compile {
         if (untyped_params != nullptr)
             context.delay_bias = 1;
 
-        auto * layer = context.enter_type_level();
-        method->on_walk(context, (int)walk_step_t::default_, nullptr);
-        context.leave_type_level(layer);
+        if (captures)
+        {
+            // The variables of the method are seen by the lambda.
+            method->lambda_walk_inside = true;
+            method->on_walk(context, (int)walk_step_t::default_, nullptr);
+
+            {
+                auto * layer = context.enter_type_level();
+                variable_defination_t vd(this->__context, context, (method_t *)method);
+                vd.define_method(method);
+                context.leave_type_level(layer);
+            }
+
+            __method = method;
+            __outer  = outer;
+
+            this->__delay(context, walk_step_t::end);
+        }
+        else
+        {
+            auto * layer = context.enter_type_level();
+            method->on_walk(context, (int)walk_step_t::default_, nullptr);
+            context.leave_type_level(layer);
+        }
 
         context.delay_bias = saved_bias;
 
         this->name = name;
+    }
+
+    // The end of the lambda that uses local variables. The class of its environment has a
+    // field for each of them: they are the fields that the lambda uses, and the delegate has an
+    // object of that class that has the values of the variables when the lambda is made.
+    void lambda_ast_node_t::__walk_end(ast_walk_context_t & context)
+    {
+        if (__env_node == nullptr || __method == nullptr)
+            return;
+
+        general_type_t * env = __env_node;
+
+        // The variables: the params of the method are defined now.
+        variable_region_t * region = context.current_region();
+        for (name_t captured_name : __captured_names)
+        {
+            variable_t * variable = region != nullptr? region->get(captured_name) : nullptr;
+            if (variable == nullptr || (variable->this_type() != variable_type_t::local
+                                    && variable->this_type() != variable_type_t::param))
+            {
+                this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                    _T("because its code cannot be made"));
+                return;
+            }
+
+            __captured.push_back(variable);
+        }
+
+        // The fields and the constructor.
+        std::vector<field_t *> fields;
+        for (size_t index = 0; index < __captured.size(); index++)
+        {
+            name_t field_name = __to_name(_F(_T("__c%1%"), (int)index));
+            field_t * found = nullptr;
+
+            for (field_t * field : env->fields)
+            {
+                if (field->name == field_name)
+                    found = field;
+            }
+
+            fields.push_back(found);
+        }
+
+        method_t * constructor = nullptr;
+        for (method_t * method : env->methods)
+        {
+            if (method->trait == method_trait_t::constructor)
+                constructor = method;
+        }
+
+        bool complete = constructor != nullptr && constructor->params != nullptr
+                    && constructor->params->size() == __captured.size();
+
+        for (field_t * field : fields)
+            complete = complete && field != nullptr;
+
+        if (!complete)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                _T("because its code cannot be made"));
+            return;
+        }
+
+        // The types of the variables.
+        for (size_t index = 0; index < __captured.size(); index++)
+        {
+            type_name_t * type_name = __type_name_of(__captured[index]);
+
+            fields[index]->type_name = type_name;
+            (*constructor->params)[index]->type_name = type_name;
+        }
+
+        // The variables are not modified.
+        auto is_written = [&](expression_t * exp) -> bool {
+            expression_t * parent = exp->parent;
+            op_expression_base_t * op_exp = dynamic_cast<op_expression_base_t *>(parent);
+            if (op_exp == nullptr)
+                return false;
+
+            switch (op_exp->get_operator_property()->op)
+            {
+                case operator_t::assign:
+                case operator_t::add_assign: case operator_t::sub_assign:
+                case operator_t::mul_assign: case operator_t::div_assign:
+                case operator_t::mod_assign:
+                case operator_t::left_shift_assign: case operator_t::right_shift_assign:
+                case operator_t::bit_and_assign: case operator_t::bit_or_assign:
+                case operator_t::bit_xor_assign: case operator_t::null_coalescing_assign:
+                    return parent->expression_at(0) == exp;
+
+                case operator_t::left_increment: case operator_t::left_decrement:
+                case operator_t::right_increment: case operator_t::right_decrement:
+                    return true;
+
+                default:
+                    return false;
+            }
+        };
+
+        std::vector<expression_t *> all(__used);
+        method_ast_node_t * outer_ast = (method_ast_node_t *)__outer;
+        __collect_expressions(outer_ast->child_at(method_ast_node_t::__body__), all);
+
+        bool modified = false;
+        for (expression_t * exp : all)
+        {
+            if (modified || exp->this_family() != expression_family_t::name)
+                continue;
+
+            name_expression_t * name_exp = (name_expression_t *)exp;
+            if (name_exp->expression_type != name_expression_type_t::variable
+                    || name_exp->variable == nullptr || !is_written(exp))
+            {
+                continue;
+            }
+
+            if (std::find(__captured.begin(), __captured.end(), name_exp->variable)
+                                                                    != __captured.end())
+            {
+                this->__log((ast_node_t *)this, __c_t::lambda_capture_modified,
+                                                    _str(name_exp->variable->get_name()));
+                modified = true;
+            }
+        }
+
+        // The members of the object are not seen: the object of the lambda is the environment.
+        for (expression_t * exp : __used)
+        {
+            bool member = exp->this_family() == expression_family_t::this_
+                       || exp->this_family() == expression_family_t::base;
+
+            if (exp->this_family() == expression_family_t::name)
+            {
+                name_expression_t * name_exp = (name_expression_t *)exp;
+                variable_t * variable = name_exp->variable;
+
+                if (name_exp->expression_type == name_expression_type_t::variable
+                        && variable != nullptr)
+                {
+                    variable_type_t vt = variable->this_type();
+                    if (vt == variable_type_t::field || vt == variable_type_t::property
+                            || vt == variable_type_t::event || vt == variable_type_t::method)
+                    {
+                        member_t * relation = variable->get_relation_member();
+                        bool right = false;
+
+                        if (exp->parent != nullptr)
+                        {
+                            binary_expression_t * binary =
+                                        dynamic_cast<binary_expression_t *>(exp->parent);
+
+                            right = binary != nullptr
+                                    && binary->op() == operator_t::member_point
+                                    && binary->exp2() == exp;
+                        }
+
+                        bool lambda = vt == variable_type_t::method
+                                    && ((method_variable_t *)variable)->method != nullptr
+                                    && ((method_variable_t *)variable)->method->is_lambda;
+
+                        member = relation != nullptr && !relation->is_static()
+                                    && !right && !lambda;
+                    }
+                }
+            }
+
+            if (member)
+            {
+                this->__log((ast_node_t *)this, __c_t::lambda_capture_member);
+                break;
+            }
+        }
+
+        // The names are the fields.
+        for (expression_t * exp : __used)
+        {
+            if (exp->this_family() != expression_family_t::name)
+                continue;
+
+            name_expression_t * name_exp = (name_expression_t *)exp;
+            if (name_exp->expression_type != name_expression_type_t::variable)
+                continue;
+
+            for (size_t index = 0; index < __captured.size(); index++)
+            {
+                if (name_exp->variable != __captured[index])
+                    continue;
+
+                field_t * field = fields[index];
+                if (field->variable == nullptr)
+                    field->variable = __new_obj<field_variable_t>(field);
+
+                name_exp->variable = field->variable;
+            }
+        }
+
+        // The object of the delegate: new Env(variable, ...)
+        arguments_t * arguments = __new_obj<arguments_t>();
+        for (variable_t * variable : __captured)
+        {
+            argument_t * argument = __new_obj<argument_t>();
+            argument->expression = __new_obj<system_expression_t<name_expression_t>>(
+                variable->get_name()
+            );
+
+            arguments->push_back(argument);
+        }
+
+        auto * new_exp = __new_obj<system_expression_t<new_expression_t>>();
+        new_exp->type_name = __new_obj<type_name_t>((type_t *)env);
+        new_exp->set_arguments(arguments);
+
+        // The object is the value of an expression that is effective: it is not popped.
+        __new_obj<system_expression_t<binary_expression_t>>(operator_t::assign,
+            __new_obj<system_expression_t<name_expression_t>>(__captured[0]->get_name()), new_exp
+        );
+
+        walk_expression(this->__context, context, new_exp);
+
+        new_exp->constructor = find_constructor(this->__context, (type_t *)env, arguments);
+        if (new_exp->constructor == nullptr)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                _T("because its code cannot be made"));
+            return;
+        }
+
+        __method->lambda_env_new = new_exp;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -6081,7 +6498,7 @@ namespace X_ROOT_NS::modules::compile {
 
                 context.pop();
 
-                if (this->trait == method_trait_t::normal)
+                if (this->trait == method_trait_t::normal && !this->lambda_walk_inside)
                 {
                     variable_defination_t vd(this->__context, context, (method_t *)this);
                     vd.define_method(this);

@@ -3526,6 +3526,14 @@ namespace X_ROOT_NS::modules::core {
         // The params of the lambda have no types: they are those of the delegate.
         bool lambda_implicit = false;
 
+        // The lambda uses local variables of the method that has it: the object of its delegate
+        // is made by this expression, it is an object of a class that has the values of them.
+        expression_t * lambda_env_new = nullptr;
+
+        // The variable of the method is not defined when the method is walked: the lambda
+        // is walked where the variables of the method that has it are seen.
+        bool lambda_walk_inside = false;
+
         // The expression that is the body of a lambda, null for a block. It is a lambda too
         // when the lambda returns a lambda: (int a) => (int b) => b.
         expression_t * lambda_expression = nullptr;

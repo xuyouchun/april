@@ -503,6 +503,15 @@ namespace X_ROOT_NS::modules::compile {
         // The return type of a lambda is that of the delegate it is converted to.
         lambda_type_undetermined,
 
+        // A lambda that uses local variables is not supported here.
+        lambda_capture_not_supported,
+
+        // A local variable that a lambda uses is modified.
+        lambda_capture_modified,
+
+        // A lambda that uses local variables uses a member of the object.
+        lambda_capture_member,
+
         // Unexpected first char in a name.
         name_unexpected_first_char,
 
@@ -4332,8 +4341,20 @@ namespace X_ROOT_NS::modules::compile {
     private:
         std::vector<name_t> __param_names;
 
+        // The local variables of the method that has the lambda, that it uses: it is a method
+        // of the object of the class __env_node, that has a copy of them.
+        std::vector<name_t>         __captured_names;
+        std::vector<variable_t *>   __captured;
+        std::vector<expression_t *> __used;
+        general_type_t *            __env_node = nullptr;
+        method_t *                  __method = nullptr;
+        method_t *                  __outer = nullptr;
+
         // Makes the method of the lambda.
         void __walk_default(ast_walk_context_t & context);
+
+        // The end: the types of the variables are known, the environment is made.
+        void __walk_end(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
