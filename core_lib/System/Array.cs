@@ -30,7 +30,7 @@ public abstract class Array : Object
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public abstract class Array<T> : Array
+public abstract class Array<T> : Array, Collections.Generic.IEnumerable<T>
 {
     // Gets/Sets value of specified index.
     public T this[Int32 index]

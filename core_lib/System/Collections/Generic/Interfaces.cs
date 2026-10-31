@@ -108,3 +108,69 @@ public interface IEqualityComparer<in T>
     // The hash code of a value: the values that are equal have the same one.
     Int32 GetHashCode(T obj);
 }
+
+////////// ////////// ////////// ////////// //////////
+
+// A key and its value: the items that a dictionary goes through.
+public struct KeyValuePair<TKey, TValue>
+{
+    public KeyValuePair(TKey key, TValue value)
+    {
+        __key = key;
+        __value = value;
+    }
+
+    public TKey Key
+    {
+        get { return __key; }
+    }
+
+    public TValue Value
+    {
+        get { return __value; }
+    }
+
+    private TKey __key;
+    private TValue __value;
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// A dictionary that is read: a value is found by its key.
+public interface IReadOnlyDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>
+{
+    Int32 Count { get; }
+
+    // The value of the key, KeyNotFoundException if there is no one.
+    TValue this[TKey key] { get; }
+
+    Boolean ContainsKey(TKey key);
+
+    // Gets the value of the key, returns false if there is no one.
+    Boolean TryGetValue(TKey key, out TValue value);
+
+    // The keys, a copy of them.
+    IReadOnlyCollection<TKey> Keys { get; }
+
+    // The values, a copy of them.
+    IReadOnlyCollection<TValue> Values { get; }
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// A dictionary: the values are found, added and removed by their keys.
+public interface IDictionary<TKey, TValue> : IReadOnlyDictionary<TKey, TValue>
+{
+    Boolean IsReadOnly { get; }
+
+    // Adds a key, InvalidOperationException if it is in the dictionary already.
+    Void Add(TKey key, TValue value);
+
+    // Sets the value of the key, adds it if there is no one.
+    Void Set(TKey key, TValue value);
+
+    // Removes the key, returns false if there is no one.
+    Boolean Remove(TKey key);
+
+    Void Clear();
+}

@@ -3502,7 +3502,8 @@ namespace X_ROOT_NS::modules::compile {
         //_PF(_T("action value: %1%, %2%"), value1, value2);
         // __LessReturn(value2, value1);
 
-        return (void *)leaf1 < (void *)leaf2;
+        // The leaves are the same for the grammar: the first one created wins, in every run.
+        return (*leaf1)->serial < (*leaf2)->serial;
     };
 
     #undef __LessReturn
@@ -3743,7 +3744,12 @@ namespace X_ROOT_NS::modules::compile {
     template<typename stack_node_value_t>
     __AlwaysInline __stack_node_t * analyze_context_t::__new_stack_node(stack_node_value_t && value)
     {
-        return __stack_node_factory.new_obj(std::forward<stack_node_value_t>(value));
+        __stack_node_t * node = __stack_node_factory.new_obj(
+            std::forward<stack_node_value_t>(value)
+        );
+
+        (*node)->serial = ++__node_serial;
+        return node;
     }
 
     // Appends matched items.

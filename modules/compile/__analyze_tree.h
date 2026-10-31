@@ -600,6 +600,10 @@ namespace X_ROOT_NS::modules::compile {
         int weight = 0;                                 // Weight.
         __merge_identity_t merge_identity;              // Merge identity.
 
+        // The order the node was created in: it is the same in every run, unlike the
+        // address of the node, so the leaves that nothing else tells apart are ordered by it.
+        uint32_t serial = 0;
+
         // Returns analyze node.
         operator const analyze_node_t * () const { return node; }
 
@@ -1679,6 +1683,7 @@ namespace X_ROOT_NS::modules::compile {
 
         template<typename t> using __w_t = al::respool_wrapper_t<t>;
         __w_t<__stack_node_t> __stack_node_factory;
+        uint32_t __node_serial = 0;             // The serial of the last stack node.
         al::heap_t<__stack_node_assign_key_action_t> __assign_key_action_factory;
         al::heap_t<__stack_node_raise_matched_event_action_t> __raise_matched_event_action_factory;
 
