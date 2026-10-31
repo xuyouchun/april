@@ -72,7 +72,8 @@ def _all_files():
     result = []
     for directory in sorted(os.listdir(common.get_test_path())):
         path = os.path.join(common.get_test_path(), directory)
-        if not os.path.isdir(path) or directory.startswith((".", "_")):
+        # "errors" holds the programs that must be rejected, they have no output.
+        if not os.path.isdir(path) or directory.startswith((".", "_")) or directory == "errors":
             continue
 
         for name in sorted(os.listdir(path)):

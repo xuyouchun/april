@@ -461,6 +461,9 @@ namespace X_ROOT_NS::modules::compile {
         // Name empty.
         name_empty,
 
+        // The language has no goto statement.
+        goto_not_supported,
+
         // Unexpected first char in a name.
         name_unexpected_first_char,
 

@@ -259,57 +259,29 @@ namespace X_ROOT_NS::algorithm {
                 (_count) * sizeof(obj_t)                                                \
             )
 
+        // Moves an object, objects are relocated by copying their memory.
+        void __relocate(size_t to, size_t from)
+        {
+            quick_copy(&(*this)[to], &(*this)[from], sizeof(obj_t));
+        }
+
         // Move all objects to next from specified index.
         obj_t * __move_next(size_t index)
         {
+            size_t old_size = __size;
             obj_t * hole = __current_hole();    // Append a new hole at last.
 
-            int from_row = index / __row_size, from_col = index % __row_size;
-            int row = __current_row, col = __current_col - 1;
+            for (size_t k = old_size; k > index; k--)
+                __relocate(k, k - 1);
 
-            if (row > from_row)
-            {
-                __Copy(row, 1, row, 0, col);
-
-                for (row--; row > from_row; row--)
-                {
-                    __Copy(row + 1, 0, row, __row_size - 1, 1);
-                    __Copy(row, 1, row, 0, __row_size - 1);
-                }
-
-                __Copy(row + 1, 0, row, __row_size - 1, 1);
-                __Copy(row, from_col + 1, row, from_col, __row_size - from_col - 1);
-            }
-            else
-            {
-                __Copy(from_row, from_col + 1, from_row, from_col, col - from_col);
-            }
-
-            return __H(from_row, from_col);
+            return &(*this)[index];
         }
 
         // Move all objects to previous from specified index.
         void __move_previous(size_t index)
         {
-            int from_row = index / __row_size, from_col = index % __row_size;
-            int row = __current_row, col = __current_col - 1;
-
-            if (row > from_row)
-            {
-                __Copy(from_row, from_col - 1, from_row, from_col, __row_size - from_col);
-
-                for (size_t row1 = from_row + 1; row1 < row; row1++)
-                {
-                    __Copy(row1 - 1, __row_size - 1, row1, 0, 1);
-                    __Copy(row1, 0, row1, 1, __row_size - 1);
-                }
-
-                __Copy(row, 0, row, 1, col);
-            }
-            else
-            {
-                __Copy(from_row, from_col - 1, from_row, from_col, col - from_col + 1);
-            }
+            for (size_t k = index; k < __size; k++)
+                __relocate(k - 1, k);
 
             __size--;
             if (__current_col == 0)

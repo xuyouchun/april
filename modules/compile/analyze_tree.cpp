@@ -3148,7 +3148,8 @@ namespace X_ROOT_NS::modules::compile {
             }
             else
             {
-                if (__is_invisible(key))
+                // Only tokens can be invisible, e.g. comments.
+                if (key.type == __node_type_t::token && __is_invisible(key))
                 {
                     __path_node_stack_t stack(value.node, 1);
                     stack.normal_count = 1;
@@ -3755,8 +3756,9 @@ namespace X_ROOT_NS::modules::compile {
     // Clear actions.
     void analyze_context_t::__clear_actions()
     {
-        __assign_key_action_factory.clear();
-        __raise_matched_event_action_factory.clear();
+        // The actions are not released: a kept state (error recovery tries something, then
+        // restores the state) may still refer to them, reusing their memory made the
+        // restored action lists cyclic.
     }
 
     // Check end nodes in detecting next keys model.

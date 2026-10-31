@@ -209,6 +209,9 @@ namespace X_ROOT_NS::modules::compile {
         // Name empty.
         X_D(name_empty, _T("%1% name missing"))
 
+        // The language has no goto statement.
+        X_D(goto_not_supported, _T("goto statement is not supported"))
+
         // Unexpected first char in a name.
         X_D(name_unexpected_first_char,
                 _T("unexpected first character \"%1%\" in name \"%2%\""))
@@ -4180,7 +4183,9 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool goto_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        this->__check_name_empty(this->label, _T("label"));
+        // Jumping to a label is not part of the language: structured statements
+        // (loops, break, continue, return, try) do the job.
+        this->__log(this, __c_t::goto_not_supported);
 
         return __super_t::on_walk(context, step, tag);
     }
