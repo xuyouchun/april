@@ -417,8 +417,10 @@ namespace X_ROOT_NS::modules::compile {
             _A(type != nullptr);
         }
 
+        // The indices of an array are integers, not of the type of the elements.
         __static_param_types_t(array_index_variable_t * arr_var)
-            : __static_param_types_t(arr_var->get_type(), arr_var->dimension())
+            : __static_param_types_t(__XPool.get_internal_type(vtype_t::int32_),
+                                                                arr_var->dimension())
         { }
 
         // Returns type count
@@ -1400,9 +1402,11 @@ namespace X_ROOT_NS::modules::compile {
         // The default values of the others.
         for (int index = count; index < fixed_count; index++)
         {
+            // The setter of an indexer takes the value apart from the arguments: the params
+            // without default value are not the business of the arguments.
             param_t * param = param_types->param_object_at(index);
-            __FailedWhenNull(param, "param %1% of the method missing", index);
-            __FailedWhenNull(param->default_value, "argument %1% missing", index);
+            if (param == nullptr || param->default_value == nullptr)
+                return;
 
             type_t * type = param->get_type();
             if (__is_custom_struct_like(type))
@@ -1613,6 +1617,10 @@ namespace X_ROOT_NS::modules::compile {
 
                 __validate_set_method(ctx, method);
 
+                // The value is the argument that follows the indices.
+                int index_count = index_var->arguments != nullptr? index_var->arguments->size() : 0;
+                __compile_argument(ctx, pool, exp2, method, index_count);
+
                 ref_t method_ref = __search_method_ref(ctx, method);
                 pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
 
@@ -1643,7 +1651,8 @@ namespace X_ROOT_NS::modules::compile {
         {
             if (__is_custom_struct_like(type2))
             {
-                if (is_ref_type(type1))     // Box
+                // Box: a struct assigned to a reference. (A generic param is not boxed.)
+                if (is_ref_type(type1) && !is_generic_param(type1))
                 {
                     pool.append<x_new_xil_t>(__ref_of(ctx, type2));
                     pool.append<x_push_duplicate_xil_t>();
@@ -3506,7 +3515,15 @@ namespace X_ROOT_NS::modules::compile {
             );
 
             if (__need_object_copy(this))
-                __append_object_copy_xil(ctx, pool, array_type, xil_copy_kind_t::reverse);
+            {
+                // The element is copied to the destination that is below, or it is loaded into
+                // the stack when it is a generic param returned by value.
+                xil_copy_kind_t kind = is_generic_param(element_type)
+                                            && env.type_mark == type_mark_t::value?
+                                            xil_copy_kind_t::ret : xil_copy_kind_t::reverse;
+
+                __append_object_copy_xil(ctx, pool, element_type, kind);
+            }
         }
         else
         {

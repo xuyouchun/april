@@ -4492,6 +4492,103 @@ namespace X_ROOT_NS::modules::compile {
         return r;
     }
 
+    // Walks the analysis step of an iterator that has GetEnumerator(): the enumerator has
+    // MoveNext() and Current.
+    //   { enumerator = iterator.GetEnumerator();
+    //     for (; enumerator.MoveNext(); ) { variable = enumerator.Current; body } }
+    bool for_each_st_ast_node_t::__walk_analysis_enumerator(ast_walk_context_t & context,
+                                                            type_t * iterator_type)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        // The members of the type that foreach uses.
+        atypes_t no_atypes;
+        analyze_member_args_t get_enumerator_args(
+            member_type_t::method, __to_name(_T("GetEnumerator")), &no_atypes
+        );
+
+        method_t * get_enumerator = (method_t *)iterator_type->get_member(get_enumerator_args, true);
+        type_t * enumerator_type = get_enumerator != nullptr? get_enumerator->get_type() : nullptr;
+
+        analyze_member_args_t move_next_args(
+            member_type_t::method, __to_name(_T("MoveNext")), &no_atypes
+        );
+
+        analyze_member_args_t current_args(member_type_t::property, __to_name(_T("Current")));
+
+        method_t * move_next = nullptr;
+        property_t * current = nullptr;
+
+        if (enumerator_type != nullptr)
+        {
+            move_next = (method_t *)enumerator_type->get_member(move_next_args, true);
+            current = (property_t *)enumerator_type->get_member(current_args, true);
+        }
+
+        if (get_enumerator == nullptr || move_next == nullptr || current == nullptr)
+        {
+            this->__log(this, __c_t::for_each_type_not_supported, iterator_type);
+            return true;
+        }
+
+        type_t * element_type = to_type(current->type_name);
+
+        __array->type_name->type = enumerator_type;     // The enumerator.
+        if (__is_uncertain(__variable->type_name))
+            __variable->type_name->type = element_type;
+
+        auto name_of = [this](variable_t * variable) -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable->get_name());
+        };
+
+        auto call_of = [this](const char_t * name) -> expression_t * {
+            auto * function = __new_obj<system_expression_t<function_expression_t>>();
+            function->set_namex(__new_obj<system_expression_t<name_expression_t>>(__to_name(name)));
+            return function;
+        };
+
+        // enumerator = iterator.GetEnumerator()
+        expression_t * assign_enumerator = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__array),
+            __new_obj<__binary_t>(
+                operator_t::member_point, this->iterator, call_of(_T("GetEnumerator"))
+            )
+        );
+
+        // enumerator.MoveNext()
+        expression_t * condition = __new_obj<__binary_t>(
+            operator_t::member_point, name_of(__array), call_of(_T("MoveNext"))
+        );
+
+        // variable = enumerator.Current
+        expression_t * assign_variable = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__variable),
+            __new_obj<__binary_t>(
+                operator_t::member_point, name_of(__array),
+                __new_obj<system_expression_t<name_expression_t>>(__to_name(_T("Current")))
+            )
+        );
+
+        for (expression_t * exp : { assign_enumerator, condition, assign_variable })
+            walk_expression(this->__context, context, exp);
+
+        statement_group_t * loop_body = __new_obj<statement_group_t>();
+        loop_body->push_back(__new_obj<expression_statement_t>(assign_variable));
+        loop_body->push_back(this->body);
+
+        for_statement_t * for_statement = __new_obj<for_statement_t>(
+            nullptr, nullptr, condition, nullptr, loop_body
+        );
+
+        statement_group_t * lowered = __new_obj<statement_group_t>();
+        lowered->variable_region = __region;
+        lowered->push_back(__new_obj<expression_statement_t>(assign_enumerator));
+        lowered->push_back(for_statement);
+
+        this->lowered = lowered;
+        return true;
+    }
+
     // Walks the analysis step: a for statement that goes through an array by an index.
     //   { array = iterator; index = 0;
     //     for (; index < array.Length; index = index + 1) { variable = array[index]; body } }
@@ -4510,8 +4607,10 @@ namespace X_ROOT_NS::modules::compile {
             return true;
         }
 
-        if (iterator_type->this_gtype() != gtype_t::array
-                || ((array_type_t *)iterator_type)->dimension != 1)
+        if (iterator_type->this_gtype() != gtype_t::array)
+            return __walk_analysis_enumerator(context, iterator_type);
+
+        if (((array_type_t *)iterator_type)->dimension != 1)
         {
             this->__log(this, __c_t::for_each_type_not_supported, iterator_type);
             return true;

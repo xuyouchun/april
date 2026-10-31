@@ -3526,6 +3526,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks the analysis step: makes the statements.
         bool __walk_analysis(ast_walk_context_t & context);
+
+        // Walks the analysis step of an iterator that has GetEnumerator().
+        bool __walk_analysis_enumerator(ast_walk_context_t & context, type_t * iterator_type);
     };
 
     ////////// ////////// ////////// ////////// //////////
