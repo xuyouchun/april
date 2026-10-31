@@ -118,6 +118,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(dollar, _T("$"))        __C(ampersand, _T("@"))         // $ @
         __C(base_mark, _T(":"))     __C(double_colon, _T("::"))     // : ::
         __C(three_dots, _T("..."))                                  // ...
+        __C(arrow, _T("=>"))                                        // =>
 
     X_ENUM_INFO_END
 

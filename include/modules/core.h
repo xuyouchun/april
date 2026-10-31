@@ -2607,6 +2607,10 @@ namespace X_ROOT_NS::modules::core {
     // its value: byte b = 5; uint u = 5;
     bool is_constant_compatible(expression_t * exp, type_t * to);
 
+    // If the expression is a lambda that has no return type yet, and the type is a delegate
+    // type, the return type of the lambda is that of the delegate.
+    void bind_lambda_to_type(expression_t * exp, type_t * to);
+
     X_ALWAYS_INLINE bool is_null(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::null;
@@ -3509,6 +3513,13 @@ namespace X_ROOT_NS::modules::core {
 
         // Method inline type, inline, noinline or default.
         method_inline_type_t inline_type    = method_inline_type_t::default_;
+
+        // Whether it is the method of a lambda.
+        bool is_lambda = false;
+
+        // The expression that is the body of a lambda, null for a block. It is a lambda too
+        // when the lambda returns a lambda: (int a) => (int b) => b.
+        expression_t * lambda_expression = nullptr;
 
         // Relation property or event.
         member_t * relation_member = nullptr;
@@ -5645,6 +5656,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns type of the method.
         virtual type_t * get_type() override;
 
+        // The type is made again by the next call, after the return type of a lambda is known.
+        void reset_type() { __type = nullptr; }
+
         // Returns vtype.
         virtual vtype_t get_vtype() override;
 
@@ -5982,6 +5996,14 @@ namespace X_ROOT_NS::modules::core {
 
         // Pop the top element.
         void pop();
+
+        // Goes to the layer of the type, below that of the method, to walk a method that
+        // cannot see the variables of the one that has it: a lambda. Returns the layer to go
+        // back to with leave_type_level().
+        ast_walk_context_layer_t * enter_type_level();
+
+        // Goes back to the layer.
+        void leave_type_level(ast_walk_context_layer_t * layer) { __current_layer = layer; }
 
         assembly_t & assembly;
         logger_t &   logger;

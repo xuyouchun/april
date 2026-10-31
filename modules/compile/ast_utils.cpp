@@ -1168,6 +1168,13 @@ namespace X_ROOT_NS::modules::compile {
             const operator_property_t * op_property = exp->op_property;
             _A(op_property != nullptr);
 
+            // A lambda that is assigned to a delegate gets the return type of it.
+            if (_exp_count == 2 && op_property->op == operator_t::assign)
+            {
+                bind_lambda_to_type(exp->expression_at(1 % _exp_count),
+                                    exp->expression_at(0)->get_type());
+            }
+
             if (op_property->overload == operator_overload_model_t::no_check)
                 return;
 
@@ -1177,6 +1184,7 @@ namespace X_ROOT_NS::modules::compile {
                 _A(_exp_count == 2);
 
                 type_t * type1 = exp->expression_at(0)->get_type();
+                bind_lambda_to_type(exp->expression_at(1), type1);
                 type_t * type2 = exp->expression_at(1)->get_type();
 
                 if (!is_type_compatible(type2, type1)
@@ -1773,6 +1781,17 @@ namespace X_ROOT_NS::modules::compile {
                 al::copy(am_args.out_arg_types, std::back_inserter(tc));
             else
                 fill_type_collection(tc, function_exp->generic_args);
+
+            // The lambdas that are arguments are converted to the types of the params.
+            if (arguments != nullptr && tc.empty() && method->generic_params == nullptr)
+            {
+                for (size_t index = 0, count = std::min((size_t)arguments->size(),
+                                                (size_t)method->param_count()); index < count; index++)
+                {
+                    bind_lambda_to_type(arguments->at(index)->expression,
+                                        method->param_at(index)->get_type());
+                }
+            }
 
             if (tc.empty())
             {

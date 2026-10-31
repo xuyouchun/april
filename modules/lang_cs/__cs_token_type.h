@@ -119,6 +119,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         semicolon,      base_mark,              // ; :
         dollar,         ampersand,              // $ @
         three_dots,                             // ...
+        arrow,                                  // =>
 
     X_ENUM_END
 

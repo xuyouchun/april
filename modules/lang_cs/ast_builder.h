@@ -329,6 +329,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
+    // lambda
+
+    __SimpleBuilder(lambda)
+
+    ////////// ////////// ////////// ////////// //////////
     // default_value
 
     __SimpleBuilder(default_value)

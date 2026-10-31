@@ -182,6 +182,8 @@ namespace X_ROOT_NS::modules::compile {
 
         default_value,              // Default value. e.g. default(int).
 
+        lambda,                     // Lambda expression. e.g. (int x) => x + 1.
+
         __user_defined__ = __C_BRANCH_ENUM_ITEM(__user_defined__) + 1024,
 
     X_ENUM_END
@@ -335,6 +337,8 @@ namespace X_ROOT_NS::modules::compile {
                                                                                         \
         default_value       =   __X_BRANCH_ENUM_ITEM(default_value),                    \
                                                                                         \
+        lambda              =   __X_BRANCH_ENUM_ITEM(lambda),                           \
+                                                                                        \
         __user_defined__    =  __X_BRANCH_ENUM_ITEM(__user_defined__),
 
 
@@ -415,6 +419,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(array_lengths,          _T("array_lengths"))                                \
         X_C(new_array,              _T("new_array"))                                    \
         X_C(default_value,          _T("default_value"))                                \
+        X_C(lambda,                 _T("lambda"))                                       \
 
 
     #define X_BRANCH_ENUM_INFO_END  X_ENUM_INFO_END
@@ -477,6 +482,12 @@ namespace X_ROOT_NS::modules::compile {
 
         // The type of the variable of a using statement has no Dispose().
         using_type_not_disposable,
+
+        // A lambda is only in a method.
+        lambda_outside_method,
+
+        // The return type of a lambda is that of the delegate it is converted to.
+        lambda_type_undetermined,
 
         // Unexpected first char in a name.
         name_unexpected_first_char,
@@ -4199,6 +4210,51 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // lambda
+
+    // Lambda expression.
+    Ast(lambda, __xcvalue_t::lambda)
+
+        // Params.
+        __params__,
+
+        // Body, a block.
+        __body__,
+
+        // Body, an expression.
+        __expression__,
+
+    EndAst(lambda)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Lambda ast node. It is a name expression: the name of a method that is made when the
+    // node is walked, from its params and its body.
+    class lambda_ast_node_t : public __lambda_ast_node_t
+                            , public expression_ast_t
+                            , public __wexp_t<name_expression_t>
+    {
+        typedef __lambda_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+
+        // Makes the method of the lambda.
+        void __walk_default(ast_walk_context_t & context);
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // field
 
     // Field.
@@ -4314,6 +4370,19 @@ namespace X_ROOT_NS::modules::compile {
         // Sets that the constructor calls another constructor of the type: : this(...)
         void set_ctor_this() { __ctor_this = true; }
 
+        // Makes this method the method of a lambda: its params and its body are those of
+        // the lambda, the return type is the one of the delegate it is converted to.
+        void init_lambda(name_t name, bool is_static, ast_node_t * params, ast_node_t * body,
+                    ast_node_t * expression_node, expression_t * expression, ast_node_t * lambda_node);
+
+        // The node of the expression that is the body of a lambda, it is walked with the
+        // method.
+        ast_node_t * lambda_expression_node = nullptr;
+
+        // The node of the lambda, for the messages.
+        ast_node_t * lambda_node = nullptr;
+
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -4333,6 +4402,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks analysis step.
         bool __walk_analysis(ast_walk_context_t & context);
+
+        // Walks analysis step of the method of a lambda.
+        void __walk_lambda_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

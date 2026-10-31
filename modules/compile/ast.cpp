@@ -221,6 +221,11 @@ namespace X_ROOT_NS::modules::compile {
         // The variable of a using statement must have Dispose().
         X_D(using_type_not_disposable, _T("using requires a type with Dispose(): %1%"))
 
+        // Lambdas.
+        X_D(lambda_outside_method, _T("a lambda is only in a method"))
+        X_D(lambda_type_undetermined,
+            _T("the type of the lambda is not determined, it is converted to no delegate"))
+
         // Unexpected first char in a name.
         X_D(name_unexpected_first_char,
                 _T("unexpected first character \"%1%\" in name \"%2%\""))
@@ -4157,6 +4162,7 @@ namespace X_ROOT_NS::modules::compile {
             if (var_item->expression != nullptr)
             {
                 type_t * type1 = var_item->variable->type_name->type;
+                bind_lambda_to_type(var_item->expression, type1);
                 type_t * type2 = var_item->expression->get_type();
 
                 if (!is_type_compatible(type2, type1)
@@ -4290,11 +4296,21 @@ namespace X_ROOT_NS::modules::compile {
             case walk_step_t::default_:
                 if (__super_t::on_walk(context, step, tag))
                 {
+                    this->__delay(context, walk_step_t::analysis);
                     this->__delay(context, walk_step_t::post_analysis);
                     return true;
                 }
 
                 return false;
+
+            case walk_step_t::analysis: {
+                // return (int x) => x; : the lambda is converted to the return type.
+                method_t * method = context.current_method();
+                if (method != nullptr && this->expression != nullptr && method->type_name != nullptr)
+                    bind_lambda_to_type(this->expression, method->type_name->type);
+
+                return true;
+            }
 
             case walk_step_t::post_analysis:
                 return __walk_post_analysis(context);
@@ -5486,6 +5502,62 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // lambda
+
+    // Commits this node.
+    void lambda_ast_node_t::on_commit()
+    {
+    }
+
+    // Returns this eobject.
+    expression_t * lambda_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node: the params and the body are not walked as its children, but as those
+    // of the method that is made.
+    bool lambda_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        if ((walk_step_t)step == walk_step_t::default_)
+            __walk_default(context);
+
+        return true;
+    }
+
+    // Makes the method of the lambda, a method of the type that has the current method: it
+    // is static if that one is. It is walked as a method of the type, so it cannot see the
+    // variables of the method that has the lambda. The lambda is then the name of it.
+    void lambda_ast_node_t::__walk_default(ast_walk_context_t & context)
+    {
+        type_t * type = context.current_type();
+        method_t * outer = context.current_method();
+
+        if (type == nullptr || type->this_gtype() != gtype_t::general || outer == nullptr)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_outside_method);
+            return;
+        }
+
+        static int lambda_count = 0;
+        name_t name = __to_name(_F(_T("__lambda%1%"), ++lambda_count));
+
+        method_ast_node_t * method = __new_obj<method_ast_node_t>(this->__context);
+        method->init_lambda(name, outer->is_static(), this->child_at(__params__),
+            this->child_at(__body__), this->child_at(__expression__),
+            __to_eobject<expression_t *>(__expression__), (ast_node_t *)this
+        );
+
+        ((general_type_t *)type)->append_member((method_t *)method);
+
+        auto * layer = context.enter_type_level();
+        method->on_walk(context, (int)walk_step_t::default_, nullptr);
+        context.leave_type_level(layer);
+
+        this->name = name;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // field
 
     // Sets name.
@@ -5627,6 +5699,33 @@ namespace X_ROOT_NS::modules::compile {
         return this;
     }
 
+    // Makes this method the method of a lambda.
+    void method_ast_node_t::init_lambda(name_t name, bool is_static, ast_node_t * params,
+        ast_node_t * body, ast_node_t * expression_node, expression_t * expression,
+        ast_node_t * lambda_node)
+    {
+        if (params != nullptr)
+            this->set_child(__params__, params);
+
+        if (body != nullptr)
+            this->set_child(__body__, body);
+
+        this->on_commit();
+
+        this->name      = name;
+        this->trait     = method_trait_t::normal;
+        this->is_lambda = true;
+        this->lambda_expression = expression;
+        this->lambda_expression_node = expression_node;
+        this->lambda_node = lambda_node;
+
+        // The return type is the one of the delegate that the lambda is converted to.
+        this->type_name = __new_obj<type_name_t>(uncertain_type_t::instance());
+
+        this->decorate = __new_obj<decorate_t>(decorate_value_t::private_);
+        this->decorate->is_static = is_static;
+    }
+
     // Walks this node.
     bool method_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
@@ -5636,9 +5735,21 @@ namespace X_ROOT_NS::modules::compile {
                 context.push(this->to_eobject());
 
                 __super_t::on_walk(context, step, tag);
+
+                // The expression that is the body of a lambda.
+                if (this->lambda_expression_node != nullptr)
+                    this->lambda_expression_node->on_walk(context, step, tag);
+
                 bool r = __walk_default(context);
                 if (r)
+                {
                     this->__delay(context, walk_step_t::analysis);
+
+                    // The return type of a lambda is given by the statement that has it,
+                    // in its analysis step.
+                    if (this->is_lambda)
+                        this->__delay(context, walk_step_t::post_analysis);
+                }
 
                 context.pop();
 
@@ -5653,6 +5764,10 @@ namespace X_ROOT_NS::modules::compile {
 
             case walk_step_t::analysis:
                 return __walk_analysis(context);
+
+            case walk_step_t::post_analysis:
+                __walk_lambda_analysis(context);
+                return true;
 
             default: return true;
         }
@@ -5736,6 +5851,49 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         return true;
+    }
+
+    // Walks the analysis step of the method of a lambda: the return type is known now, the body
+    // of a lambda that is an expression is made.
+    void method_ast_node_t::__walk_lambda_analysis(ast_walk_context_t & context)
+    {
+        type_t * return_type = this->type_name != nullptr? this->type_name->type : nullptr;
+        if (return_type == nullptr || return_type == uncertain_type_t::instance())
+        {
+            this->__log(this->lambda_node, __c_t::lambda_type_undetermined);
+
+            return_type = __XPool.get_internal_type(vtype_t::void_);
+            this->type_name->type = return_type;
+        }
+
+        if (this->lambda_expression == nullptr)
+            return;
+
+        expression_t * exp = this->lambda_expression;
+        if (!exp->walked)
+            walk_expression(this->__context, context, exp);
+
+        method_body_t * body = __new_obj<method_body_t>(context.current_region());
+
+        if (is_void_type(return_type))
+        {
+            body->statements.push_back(__new_obj<expression_statement_t>(exp));
+            body->statements.push_back(__new_obj<return_statement_t>());
+        }
+        else
+        {
+            type_t * type = exp->get_type();
+            if (type == nullptr || (!is_type_compatible(type, return_type)
+                                    && !is_constant_compatible(exp, return_type)))
+            {
+                this->__log(this->lambda_node, __c_t::method_incompatible_return_value,
+                                                                    (method_t *)this);
+            }
+
+            body->statements.push_back(__new_obj<return_statement_t>(exp));
+        }
+
+        this->body = body;
     }
 
     // Walks the analysis step.

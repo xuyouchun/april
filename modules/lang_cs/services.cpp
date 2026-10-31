@@ -174,6 +174,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(array_initializer)
             __Case(array_lengths)
             __Case(default_value)
+            __Case(lambda)
             __Case(type_name_exp)
             __Case(type_cast_exp)
 

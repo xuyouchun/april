@@ -34,6 +34,10 @@ $array_lengths: $expression? (, $expression? )* ;
 # New array expression, such as: new int[] { 1, 2, 3 }.
 $new_array: new $type_name [ $array_lengths? ] ( [ ,* ] )* $array_initializer? ;
 
+# Lambda expression: (Int32 a, Int32 b) => a + b , or with a body: (String s) => { ... } .
+# The params have types, and the lambda uses no variable of the method that has it.
+$lambda: \( $params? \) => ($method_body | $expression) ;
+
 # Typeof expression: typeof(T).
 $type_of: typeof \( $type_name \) ;
 
@@ -50,7 +54,7 @@ $type_cast_exp: \( $type_name \) $_single_expression ;
 $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new | $new_array | $type_of | $type_cast_exp
-    | $default_value | $name_unit
+    | $default_value | $name_unit | $lambda
     | \( $_expression (, $_expression)* \)
   ) (. $__item )*
 #|

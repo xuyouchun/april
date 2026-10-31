@@ -2778,6 +2778,42 @@ namespace X_ROOT_NS::modules::core {
         return generic_type->args[0].type();
     }
 
+    // Gives the return type of the delegate type to a lambda.
+    void bind_lambda_to_type(expression_t * exp, type_t * to)
+    {
+        if (exp == nullptr || to == nullptr || exp->this_family() != expression_family_t::name)
+            return;
+
+        name_expression_t * name_exp = (name_expression_t *)exp;
+        if (name_exp->expression_type != name_expression_type_t::variable
+                || name_exp->variable == nullptr
+                || name_exp->variable->this_type() != variable_type_t::method)
+        {
+            return;
+        }
+
+        method_variable_t * variable = (method_variable_t *)name_exp->variable;
+        method_t * method = variable->method;
+
+        if (method == nullptr || !method->is_lambda || method->type_name == nullptr
+                || method->type_name->type != uncertain_type_t::instance())
+        {
+            return;
+        }
+
+        if (to->this_gtype() != gtype_t::generic
+                || ((generic_type_t *)to)->template_ != __XPool.get_delegate_type())
+        {
+            return;
+        }
+
+        method->type_name->type = get_delegate_return_type(to);
+        variable->reset_type();
+
+        // A lambda that returns a lambda: (int a) => (int b) => b.
+        bind_lambda_to_type(method->lambda_expression, method->type_name->type);
+    }
+
     // Returns whether a constant integer expression converts to an integer type that holds
     // its value.
     bool is_constant_compatible(expression_t * exp, type_t * to)
@@ -2906,6 +2942,29 @@ namespace X_ROOT_NS::modules::core {
 
         if (from == to)
             return true;
+
+        // A lambda has not its return type yet: Delegate<?, P ...> is any Delegate<R, P ...>.
+        if (from->this_gtype() == gtype_t::generic && to->this_gtype() == gtype_t::generic)
+        {
+            generic_type_t * from_generic = (generic_type_t *)from;
+            generic_type_t * to_generic = (generic_type_t *)to;
+
+            if (from_generic->template_ == __XPool.get_delegate_type()
+                && to_generic->template_ == __XPool.get_delegate_type()
+                && from_generic->args.size() == to_generic->args.size()
+                && from_generic->type_at(0) == uncertain_type_t::instance())
+            {
+                bool same = true;
+                for (size_t index = 1, count = from_generic->args.size(); index < count; index++)
+                {
+                    if (from_generic->type_at(index) != to_generic->type_at(index))
+                        same = false;
+                }
+
+                if (same)
+                    return true;
+            }
+        }
 
         // T is converted to T?, and null.
         if (type_t * underlying = get_nullable_underlying(to);
@@ -6954,6 +7013,23 @@ namespace X_ROOT_NS::modules::core {
         __current_layer = __current_layer->previous;
 
         _A(__current_layer != nullptr);
+    }
+
+    // Goes to the layer of the type.
+    ast_walk_context_layer_t * ast_walk_context_t::enter_type_level()
+    {
+        __layer_t * saved = __current_layer;
+
+        for (__layer_t * layer = __current_layer; layer != nullptr; layer = layer->previous)
+        {
+            if (layer->get(__layer_state_t::method) == nullptr)
+            {
+                __current_layer = layer;
+                break;
+            }
+        }
+
+        return saved;
     }
 
     // Returns parent of a mname.

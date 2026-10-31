@@ -1218,6 +1218,31 @@ namespace X_ROOT_NS::modules::lang_cs {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // lambda
+
+    __ApplyToken(lambda, token, args) { }
+
+    __ApplyAst(lambda, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(params):
+                __This->set_child(__Type::__params__, node);
+                break;
+
+            case __AstValue(method_body):
+                __This->set_child(__Type::__body__, node);
+                break;
+
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(lambda, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // default_value
 
     __ApplyToken(default_value, token, args) { }

@@ -2426,6 +2426,14 @@ namespace X_ROOT_NS::modules::compile {
             }   break;
 
             case variable_type_t::method:
+                // A method of the object, that is not that of an expression (obj.Method): the
+                // object is this.
+                if (!((method_variable_t *)variable)->method->is_static()
+                        && !__is_right_member(owner_exp->parent, owner_exp))
+                {
+                    pool.append<x_push_this_ref_xil_t>();
+                }
+
                 __compile_method_variable(ctx, pool, (method_variable_t *)variable, env,
                     __left_is_base(owner_exp->parent)? xil_call_type_t::instance
                                                      : xil_call_type_t::empty

@@ -495,6 +495,10 @@ namespace X_ROOT_NS::modules::lang_cs {
                         __p++;
                         return __Nw(equal);
 
+                    case _T('>'):
+                        __p++;
+                        return __Nw(arrow);                     // =>
+
                     default:
                         return __Nw(assign);
                 }
