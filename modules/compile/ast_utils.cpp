@@ -1154,6 +1154,12 @@ namespace X_ROOT_NS::modules::compile {
                 __walk(exp2);
         }
 
+        // Returns whether the type is string: its operators are methods of the type.
+        static bool __is_string(type_t * type)
+        {
+            return type != nullptr && type->this_vtype() == vtype_t::string_;
+        }
+
         // Walks binary expression.
         template<size_t _exp_count>
         void __walk_op_expression(op_expression_t<_exp_count> * exp)
@@ -1183,6 +1189,7 @@ namespace X_ROOT_NS::modules::compile {
             atypes_t atypes;
             bool exists_custom_type = false;
             bool exists_null = false;
+            bool exists_string = false;
 
             for (expression_t * exp : exp->exps)
             {
@@ -1191,6 +1198,8 @@ namespace X_ROOT_NS::modules::compile {
 
                 if (is_null(arg_type))
                     exists_null = true;
+                else if (__is_string(arg_type))
+                    exists_custom_type = exists_string = true;
                 else if (is_object(arg_type))
                     exists_custom_type = true;
 
@@ -1200,8 +1209,10 @@ namespace X_ROOT_NS::modules::compile {
             if (!exists_custom_type)
                 return;
 
-            // null types only support equal or not_equal operators.
-            if (exists_null && (op == operator_t::equal || op == operator_t::not_equal))
+            // null types only support equal or not_equal operators. (The operators of strings
+            // take null, as a null string.)
+            if (exists_null && !exists_string
+                    && (op == operator_t::equal || op == operator_t::not_equal))
                 return;
 
             if (op_property->overload == operator_overload_model_t::no_overloaded)
@@ -1210,8 +1221,35 @@ namespace X_ROOT_NS::modules::compile {
                 return;
             }
 
-            // Finds method.
-            const char_t * op_name = exp->op_property->name;
+            // Finds method. x += y is x = x + y: the method is that of the operator +.
+            const operator_property_t * name_property = exp->op_property;
+            switch (op)
+            {
+                case operator_t::add_assign:
+                    name_property = get_system_operator_property(operator_t::add);
+                    break;
+
+                case operator_t::sub_assign:
+                    name_property = get_system_operator_property(operator_t::sub);
+                    break;
+
+                case operator_t::mul_assign:
+                    name_property = get_system_operator_property(operator_t::mul);
+                    break;
+
+                case operator_t::div_assign:
+                    name_property = get_system_operator_property(operator_t::div);
+                    break;
+
+                case operator_t::mod_assign:
+                    name_property = get_system_operator_property(operator_t::mod);
+                    break;
+
+                default:
+                    break;
+            }
+
+            const char_t * op_name = name_property->name;
             _A(op_name != nullptr);
 
             name_t name = __to_name(_F(_T("op_%1%"), op_name));
@@ -1219,17 +1257,20 @@ namespace X_ROOT_NS::modules::compile {
             al::svector_t<method_t *> methods;
             for (atype_t atype : atypes)
             {
-                if (!is_object(atype.type))
+                if (!is_object(atype.type) && !__is_string(atype.type))
                     continue;
 
                 method_t * method = find_method(
                     atype.type, method_trait_t::default_, name, nullptr, &atypes
                 );
 
-                if (method != nullptr && method->is_static())
-                    break;
+                if (method == nullptr)
+                    continue;
 
+                // The operator method of an operand type: static, takes all the operands.
                 methods.push_back(method);
+                if (method->is_static())
+                    break;
             }
 
             if (methods.empty())

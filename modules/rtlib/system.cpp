@@ -74,6 +74,9 @@ namespace X_ROOT_NS::modules::rtlib {
         return std::wstring(negative? L"-" : L"") + std::wstring(result.begin(), result.end());
     }
 
+    std::wstring format_floating(double value) { return __format_floating(value); }
+    std::wstring format_floating(float value)  { return __format_floating(value); }
+
     // Write.
     template<typename _t> struct __write_args_t
     {

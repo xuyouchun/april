@@ -2160,7 +2160,18 @@ namespace X_ROOT_NS::modules::compile {
         // Operators overload.
         if (this->overload_method != nullptr)
         {
-            __compile_operator_overload(ctx, pool);
+            if (this->op_property->is_assign)
+            {
+                // x += y: x = x + y, the method is that of +.
+                __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
+                __compile_operator_overload(ctx, pool, false);
+                __compile_assign_to(ctx, pool, ca, exp2);
+            }
+            else
+            {
+                __compile_operator_overload(ctx, pool);
+            }
+
             return;
         }
 
@@ -2269,7 +2280,8 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Compiles operator overload..
-    void __sys_t<binary_expression_t>::__compile_operator_overload(__cctx_t & ctx, xil_pool_t & pool)
+    void __sys_t<binary_expression_t>::__compile_operator_overload(__cctx_t & ctx, xil_pool_t & pool,
+                                                                   bool pop_result)
     {
         method_t * method = this->overload_method;
 
@@ -2285,7 +2297,8 @@ namespace X_ROOT_NS::modules::compile {
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
 
-        __try_pop_empty_for_method(ctx, pool, method, this);
+        if (pop_result)
+            __try_pop_empty_for_method(ctx, pool, method, this);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -3485,15 +3498,20 @@ namespace X_ROOT_NS::modules::compile {
         if (!__is_this_effective(ctx, this))
             return;
 
-        if (__is_left_member(this->parent, this))
+        method_t * method = ctx.statement_ctx.method;
+        vtype_t vtype = method->host_type->this_vtype();
+
+        if (vtype == vtype_t::string_)
+        {
+            // A string is a pointer to its characters, not an object.
+            pool.append<x_push_this_xil_t>(xil_type_t::string);
+        }
+        else if (__is_left_member(this->parent, this))
         {
             pool.append<x_push_this_ref_xil_t>();
         }
         else
         {
-            method_t * method = ctx.statement_ctx.method;
-            vtype_t vtype = method->host_type->this_vtype();
-
             if (is_system_value_type(vtype))
             {
                 xil_type_t dtype = env.dtype;

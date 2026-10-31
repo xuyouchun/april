@@ -30,6 +30,12 @@ extern "C" {
     void april_native_init(void * stack_base)
     {
         april_native_gc::init(stack_base);
+
+        // The strings that programs make (e.g. concatenation) are collected like objects:
+        // they hold no references, and the references to them point to their start.
+        X_ROOT_NS::modules::rtlib::set_string_allocator([](uint64_t bytes) -> void * {
+            return april_native_gc::alloc(bytes, false);
+        });
     }
 
     void april_native_shutdown()
