@@ -83,13 +83,19 @@ $expression:  $_expression ;
 # Multipy expressions, such as (a + b, c + d).
 $expressions: $expression (, $expression)* ;
 
-# Namespace statement.
+# Namespace statement: namespace System.Text { ... } , or namespace System.Text; that
+# includes the rest of the file.
 $namespace:
     namespace $mname
-    {
+    (
+        {
+            $using*
+            ($namespace | $type | $type_def)*
+        }
+      | \;
         $using*
         ($namespace | $type | $type_def)*
-    }
+    )
 ;
 
 # Using statement: using System; .

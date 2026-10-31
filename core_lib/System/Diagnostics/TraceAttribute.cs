@@ -5,15 +5,14 @@
 
 ////////// ////////// ////////// ////////// //////////
 
-namespace Diagnostics
-{
-    // Trace Attribute.
-    [Internal, AttributeUsage]
-    public class TraceAttribute : Attribute
-    {
-        public TraceAttribute()
-        {
+namespace Diagnostics;
 
-        }
-    };
+// Trace Attribute.
+[Internal, AttributeUsage]
+public class TraceAttribute : Attribute
+{
+    public TraceAttribute()
+    {
+
+    }
 }

@@ -10,105 +10,101 @@
  *  structs and strings.
  */
 
-namespace Collections
+namespace Collections.Generic;
+
+// Goes through the items of a collection.
+public interface IEnumerator<out T> : IDisposable
 {
-    namespace Generic
-    {
-        // Goes through the items of a collection.
-        public interface IEnumerator<out T> : IDisposable
-        {
-            // Goes to the next item, returns false when there is no one.
-            Boolean MoveNext();
+    // Goes to the next item, returns false when there is no one.
+    Boolean MoveNext();
 
-            // The current item.
-            T Current { get; }
+    // The current item.
+    T Current { get; }
 
-            // Goes back to before the first item.
-            Void Reset();
-        }
+    // Goes back to before the first item.
+    Void Reset();
+}
 
-        ////////// ////////// ////////// ////////// //////////
+////////// ////////// ////////// ////////// //////////
 
-        // A collection that foreach goes through.
-        public interface IEnumerable<out T>
-        {
-            IEnumerator<T> GetEnumerator();
-        }
+// A collection that foreach goes through.
+public interface IEnumerable<out T>
+{
+    IEnumerator<T> GetEnumerator();
+}
 
-        ////////// ////////// ////////// ////////// //////////
+////////// ////////// ////////// ////////// //////////
 
-        // A collection of items that are read.
-        public interface IReadOnlyCollection<out T> : IEnumerable<T>
-        {
-            Int32 Count { get; }
-        }
+// A collection of items that are read.
+public interface IReadOnlyCollection<out T> : IEnumerable<T>
+{
+    Int32 Count { get; }
+}
 
-        ////////// ////////// ////////// ////////// //////////
+////////// ////////// ////////// ////////// //////////
 
-        // A collection of items that are read by an index.
-        public interface IReadOnlyList<out T> : IReadOnlyCollection<T>
-        {
-            T this[Int32 index] { get; }
-        }
+// A collection of items that are read by an index.
+public interface IReadOnlyList<out T> : IReadOnlyCollection<T>
+{
+    T this[Int32 index] { get; }
+}
 
-        ////////// ////////// ////////// ////////// //////////
+////////// ////////// ////////// ////////// //////////
 
-        // A collection of items.
-        public interface ICollection<T> : IEnumerable<T>
-        {
-            Int32 Count { get; }
+// A collection of items.
+public interface ICollection<T> : IEnumerable<T>
+{
+    Int32 Count { get; }
 
-            Boolean IsReadOnly { get; }
+    Boolean IsReadOnly { get; }
 
-            Void Add(T item);
+    Void Add(T item);
 
-            Void Clear();
+    Void Clear();
 
-            // Whether the collection has the item. The collections need an equality comparer
-            // to know it, a type has no default one.
-            Boolean Contains(T item);
+    // Whether the collection has the item. The collections need an equality comparer
+    // to know it, a type has no default one.
+    Boolean Contains(T item);
 
-            // Copies the items to an array, starting at the index of the array.
-            Void CopyTo(T[] array, Int32 arrayIndex);
+    // Copies the items to an array, starting at the index of the array.
+    Void CopyTo(T[] array, Int32 arrayIndex);
 
-            // Removes the first item that equals it, returns false if there is no one.
-            Boolean Remove(T item);
-        }
+    // Removes the first item that equals it, returns false if there is no one.
+    Boolean Remove(T item);
+}
 
-        ////////// ////////// ////////// ////////// //////////
+////////// ////////// ////////// ////////// //////////
 
-        // A collection of items that are read and written by an index.
-        public interface IList<T> : ICollection<T>
-        {
-            T this[Int32 index] { get; set; }
+// A collection of items that are read and written by an index.
+public interface IList<T> : ICollection<T>
+{
+    T this[Int32 index] { get; set; }
 
-            // The index of the first item that equals it, -1 if there is no one.
-            Int32 IndexOf(T item);
+    // The index of the first item that equals it, -1 if there is no one.
+    Int32 IndexOf(T item);
 
-            Void Insert(Int32 index, T item);
+    Void Insert(Int32 index, T item);
 
-            Void RemoveAt(Int32 index);
-        }
+    Void RemoveAt(Int32 index);
+}
 
-        ////////// ////////// ////////// ////////// //////////
+////////// ////////// ////////// ////////// //////////
 
-        // Orders the values of a type.
-        public interface IComparer<in T>
-        {
-            // Returns a negative number if x is before y, zero if they are equal, a positive
-            // number otherwise.
-            Int32 Compare(T x, T y);
-        }
+// Orders the values of a type.
+public interface IComparer<in T>
+{
+    // Returns a negative number if x is before y, zero if they are equal, a positive
+    // number otherwise.
+    Int32 Compare(T x, T y);
+}
 
-        ////////// ////////// ////////// ////////// //////////
+////////// ////////// ////////// ////////// //////////
 
-        // Compares the values of a type for equality.
-        public interface IEqualityComparer<in T>
-        {
-            Boolean Equals(T x, T y);
+// Compares the values of a type for equality.
+public interface IEqualityComparer<in T>
+{
+    Boolean Equals(T x, T y);
 
-            // The hash code of a value: the values that are equal have the same one.
-            Int32 GetHashCode(T obj);
-        }
-    }
+    // The hash code of a value: the values that are equal have the same one.
+    Int32 GetHashCode(T obj);
 }
