@@ -6561,6 +6561,10 @@ namespace X_ROOT_NS::modules::core {
         // The arithmetic raises on overflow, in checked(expression).
         bool checked = false;
 
+        // The operator expression (x += y, x++) whose method is called to make the value that
+        // is assigned: it is compiled as the value, without the assignment.
+        expression_t * overload_assign_value = nullptr;
+
         // Relation statement context.
         operator statement_compile_context_t & () const
         {

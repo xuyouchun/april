@@ -2221,16 +2221,21 @@ namespace X_ROOT_NS::modules::compile {
         // Operators overload.
         if (this->overload_method != nullptr)
         {
-            if (this->op_property->is_assign)
+            if (this->op_property->is_assign && ctx.overload_assign_value != this)
             {
                 // x += y: x = x + y, the method is that of +.
+                ctx.overload_assign_value = this;
+
                 __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
-                __compile_operator_overload(ctx, pool, false);
-                __compile_assign_to(ctx, pool, ca, exp2);
+                __compile_assign(ctx, pool, ca, this);
+
+                ctx.overload_assign_value = nullptr;
             }
             else
             {
-                __compile_operator_overload(ctx, pool);
+                // The value of x += y is made by the method, assigned by the caller.
+                bool is_value = ctx.overload_assign_value == this;
+                __compile_operator_overload(ctx, pool, !is_value, !is_value);
             }
 
             return;
@@ -2342,14 +2347,15 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles operator overload..
     void __sys_t<binary_expression_t>::__compile_operator_overload(__cctx_t & ctx, xil_pool_t & pool,
-                                                                   bool pop_result)
+                                                                   bool pop_result, bool pre_call)
     {
         method_t * method = this->overload_method;
 
         // Checks method prototype.
         __check_overload_prototype(ctx, method, 2, this->exps);
 
-        __pre_call_method(ctx, pool, this, method);
+        if (pre_call)
+            __pre_call_method(ctx, pool, this, method);
 
         // Compile arguments.
         __compile_argument(ctx, pool, expression_at(0), method, 0);
@@ -2418,7 +2424,31 @@ namespace X_ROOT_NS::modules::compile {
 
         if (this->overload_method != nullptr)
         {
-            __compile_operator_overload(ctx, pool);
+            if (this->op_property->is_assign && ctx.overload_assign_value != this)
+            {
+                // x++, ++x: x = operator(x). The value of x++ is the old value of x.
+                bool right = op() == operator_t::right_increment
+                                || op() == operator_t::right_decrement;
+
+                ctx.overload_assign_value = this;
+
+                __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp);
+
+                if (right && is_effective(ctx, this->parent))
+                    exp->compile(ctx, pool);
+
+                __compile_assign(ctx, pool, ca, this,
+                    right? __assign_to_type_t::pop : __assign_to_type_t::default_
+                );
+
+                ctx.overload_assign_value = nullptr;
+            }
+            else
+            {
+                bool is_value = ctx.overload_assign_value == this;
+                __compile_operator_overload(ctx, pool, !is_value, !is_value);
+            }
+
             return;
         }
 
@@ -2457,14 +2487,17 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles operator overload..
     void __sys_t<unitary_expression_t>::__compile_operator_overload(__cctx_t & ctx,
-                                                                    xil_pool_t & pool)
+                                                                    xil_pool_t & pool,
+                                                                    bool pop_result,
+                                                                    bool pre_call)
     {
         method_t * method = this->overload_method;
 
         // Checks method prototype.
         __check_overload_prototype(ctx, method, 1, this->exps);
 
-        __pre_call_method(ctx, pool, this, method);
+        if (pre_call)
+            __pre_call_method(ctx, pool, this, method);
 
         // Compile arguments.
         __compile_argument(ctx, pool, expression_at(0), method, 0);
@@ -2472,7 +2505,8 @@ namespace X_ROOT_NS::modules::compile {
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
 
-        __try_pop_empty_for_method(ctx, pool, method, this);
+        if (pop_result)
+            __try_pop_empty_for_method(ctx, pool, method, this);
     }
 
     ////////// ////////// ////////// ////////// //////////

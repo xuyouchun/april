@@ -1245,6 +1245,7 @@ namespace X_ROOT_NS::modules::compile {
                     name_property = get_system_operator_property(operator_t::mod);
                     break;
 
+
                 default:
                     break;
             }
@@ -1253,6 +1254,34 @@ namespace X_ROOT_NS::modules::compile {
             _A(op_name != nullptr);
 
             name_t name = __to_name(_F(_T("op_%1%"), op_name));
+
+            // One operator method does x++ and ++x: it is declared as operator ++.
+            name_t other_name = name;
+            switch (op)
+            {
+                case operator_t::left_increment:
+                    other_name = __to_name(_F(_T("op_%1%"),
+                        get_system_operator_property(operator_t::right_increment)->name));
+                    break;
+
+                case operator_t::right_increment:
+                    other_name = __to_name(_F(_T("op_%1%"),
+                        get_system_operator_property(operator_t::left_increment)->name));
+                    break;
+
+                case operator_t::left_decrement:
+                    other_name = __to_name(_F(_T("op_%1%"),
+                        get_system_operator_property(operator_t::right_decrement)->name));
+                    break;
+
+                case operator_t::right_decrement:
+                    other_name = __to_name(_F(_T("op_%1%"),
+                        get_system_operator_property(operator_t::left_decrement)->name));
+                    break;
+
+                default:
+                    break;
+            }
 
             al::svector_t<method_t *> methods;
             for (atype_t atype : atypes)
@@ -1263,6 +1292,13 @@ namespace X_ROOT_NS::modules::compile {
                 method_t * method = find_method(
                     atype.type, method_trait_t::default_, name, nullptr, &atypes
                 );
+
+                if (method == nullptr && other_name != name)
+                {
+                    method = find_method(
+                        atype.type, method_trait_t::default_, other_name, nullptr, &atypes
+                    );
+                }
 
                 if (method == nullptr)
                     continue;
