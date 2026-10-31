@@ -3132,6 +3132,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // search stacks
         __stack_items_t stack_items;
+
         for (const __node_key_t * p_key = push_args.keys; *p_key != __empty_node_key; p_key++)
         {
             const __node_key_t & key = *p_key;
@@ -3151,16 +3152,18 @@ namespace X_ROOT_NS::modules::compile {
                 // Only tokens can be invisible, e.g. comments.
                 if (key.type == __node_type_t::token && __is_invisible(key))
                 {
-                    __path_node_stack_t stack(value.node, 1);
-                    stack.normal_count = 1;
+                    // The stack is kept by the task, the path of the unit is its address.
+                    __invisible_stack_t & invisible = args.task.invisible_stacks.emplace_back(
+                        value.node
+                    );
 
-                    __stack_normal_buffer_t buffer = {
-                        const_cast<analyze_node_t *>(value.node),
-                        const_cast<analyze_node_t *>(value.node)
-                    };
+                    invisible.stack.normal_count = 1;
 
-                    stack.units[0] = __stack_unit_t(value.node, 0, &buffer, nullptr, key.value);
-                    stack_items.push_back(__stack_item_t { &stack, src });
+                    invisible.stack.units[0] = __stack_unit_t(
+                        value.node, 0, invisible.buffer, nullptr, key.value
+                    );
+
+                    stack_items.push_back(__stack_item_t { &invisible.stack, src });
                 }
             }
         }
@@ -3172,15 +3175,24 @@ namespace X_ROOT_NS::modules::compile {
     __AlwaysInline void analyze_context_t::__do_stack_grow(__stack_grow_args_t & args,
                             __stack_node_t * stack_node, const __stack_item_t & stack_item)
     {
-        __do_stack_grow(args, stack_node, __stack_items_t({ stack_item }));
+        __do_stack_grow(args, stack_node, &stack_item, 1);
     }
 
     // Do stack grow.
     __AlwaysInline void analyze_context_t::__do_stack_grow(__stack_grow_args_t & args,
                     __stack_node_t * stack_node, const __stack_items_t & stack_items)
     {
-        if (stack_items.size() == 0)
+        __do_stack_grow(args, stack_node, stack_items.begin(), stack_items.size());
+    }
+
+    // Do stack grow.
+    __AlwaysInline void analyze_context_t::__do_stack_grow(__stack_grow_args_t & args,
+            __stack_node_t * stack_node, const __stack_item_t * items, size_t count)
+    {
+        if (count == 0)
             return;
+
+        const __stack_item_t * items_end = items + count;
 
         args.found = false;
         __stack_push_args_t & push_args = args.task.push_args;
@@ -3188,8 +3200,9 @@ namespace X_ROOT_NS::modules::compile {
         //__holes_t holes = (*stack_node)->holes;
 
         // branch_switched stacks
-        for (__stack_item_t & stack_item : stack_items)
+        for (const __stack_item_t * p_item = items; p_item != items_end; p_item++)
         {
+            const __stack_item_t & stack_item = *p_item;
             for (const __stack_unit_t & unit :
                                     stack_item.stack->all(__stack_type_t::branch_switched))
             {
@@ -3222,8 +3235,9 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // normal stacks
-        for (__stack_item_t & stack_item : stack_items)
+        for (const __stack_item_t * p_item = items; p_item != items_end; p_item++)
         {
+            const __stack_item_t & stack_item = *p_item;
             for (const __stack_unit_t & unit : stack_item.stack->all(__stack_type_t::normal))
             {
                 if (!args.check_stack_unit(unit))
@@ -3421,9 +3435,6 @@ namespace X_ROOT_NS::modules::compile {
             __list_match_actions(leaf1, std::back_inserter(actions1));
             __list_match_actions(leaf2, std::back_inserter(actions2));
 
-            action_t ** p_action1 = actions1.end();
-            action_t ** p_action2 = actions2.end();
-
             for (action_t ** p_action1 = actions1.end() - 1, ** p_action2 = actions2.end() - 1;
                 ; --p_action1, --p_action2)
             {
@@ -3471,7 +3482,7 @@ namespace X_ROOT_NS::modules::compile {
         // action back track
         int back_track1 = __leaf_action_back_track(leaf1);
         int back_track2 = __leaf_action_back_track(leaf2);
-        _PF(_T("back track: %1%, %2%"), back_track1, back_track2);
+        __Tracef(_T("back track: %1%, %2%"), back_track1, back_track2);
         __LessReturn(back_track1, back_track2);
 
         // action index
@@ -3778,11 +3789,10 @@ namespace X_ROOT_NS::modules::compile {
         const __path_node_stack_t * ref_stack = ref_stacks->stack_of((*parent)->node);
         _A(ref_stack != nullptr);
 
+        al::copy(ref_path_node->all_subnode_keys(), std::back_inserter(out_keys));
+
         for (__stack_unit_t & ref_unit : ref_stack->all())
         {
-            __stack_items_t stack_items;
-            auto keys = ref_path_node->all_subnode_keys();
-            al::copy(keys, std::back_inserter(out_keys));
 
             auto ref_node = (const analyze_branch_ref_node_t *)ref_unit.node;
             __node_unit_t end_unit1;

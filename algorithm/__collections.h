@@ -1340,13 +1340,17 @@ namespace X_ROOT_NS::algorithm {
                 const __node_t * node = queue_pop(queue);
                 __data.push_back(node->value);
 
-                uint8_t count = 0;
+                size_t count = 0;
                 node->each_child([&](const __node_t * child) {
                     queue.push(child);
                     count++;
                 });
 
-                __node_counts.push_back(count);
+                // The counts are stored as uint16_t: a bigger one would be restored wrongly.
+                if (count > std::numeric_limits<uint16_t>::max())
+                    throw _EC(invalid_operation, _T("store lr_tree failed, too many children"));
+
+                __node_counts.push_back((uint16_t)count);
             }
         }
 
@@ -1374,7 +1378,7 @@ namespace X_ROOT_NS::algorithm {
 
             for (size_t index = 0, count = __node_counts.size(); index < count; index++)
             {
-                uint8_t child_count = __node_counts[index];
+                uint16_t child_count = __node_counts[index];
                 
                 if (queue.empty())
                     throw _EC(invalid_operation, _T("restore lr_tree failed, queue empty"));
@@ -1401,7 +1405,7 @@ namespace X_ROOT_NS::algorithm {
 
     private:
         __vector_t<_value_t>    __data;
-        __vector_t<uint8_t>     __node_counts;
+        __vector_t<uint16_t>    __node_counts;
 
         // Adapter to convert a creator to memory_t interface.
         class __memory_adapter_t : public object_t, public memory_t

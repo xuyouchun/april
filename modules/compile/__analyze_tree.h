@@ -1713,6 +1713,18 @@ namespace X_ROOT_NS::modules::compile {
 
         typedef size_t __stack_push_task_state_t;
 
+        // The stack made for an invisible token (a comment): its address is the path of the
+        // unit, that is compared while the task goes on, so it lives as long as the task.
+        struct __invisible_stack_t
+        {
+            __invisible_stack_t(const analyze_node_t * node)
+                : stack(node, 1), buffer { (void *)node, (void *)node }
+            { }
+
+            __path_node_stack_t     stack;
+            void *                  buffer[2];      // A stack normal buffer: from, to.
+        };
+
         // Stack push task.
         struct __stack_push_task_t
         {
@@ -1720,6 +1732,9 @@ namespace X_ROOT_NS::modules::compile {
             __stack_push_task_t(__stack_push_args_t & push_args) : push_args(push_args) { }
 
             __stack_push_args_t & push_args;    // Push arguments.
+
+            // The stacks of the invisible tokens, at stable addresses.
+            std::deque<__invisible_stack_t> invisible_stacks;
 
             al::svector_t<void *, 10> stack_paths;
             size_t record_stack_unit(const __stack_unit_t & unit);
@@ -1834,6 +1849,10 @@ namespace X_ROOT_NS::modules::compile {
         // Do stack grow.
         void __do_stack_grow(__stack_grow_args_t & args, __stack_node_t * stack_node,
                                                  const __stack_item_t & stack_item);
+
+        // Do stack grow with the items.
+        void __do_stack_grow(__stack_grow_args_t & args, __stack_node_t * stack_node,
+                                    const __stack_item_t * items, size_t count);
 
         // Check end node.
         void __check_end_node(__check_end_node_args_t & args, __stack_node_t * parent,
