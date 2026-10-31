@@ -222,6 +222,7 @@ namespace X_ROOT_NS::modules::compile {
         X_D(using_type_not_disposable, _T("using requires a type with Dispose(): %1%"))
 
         // Iterators.
+        X_D(iterator_not_supported, _T("the iterator %1% is not supported: %2%"))
         X_D(iterator_return_type_invalid,
             _T("%1%: a method that has yield statements returns IEnumerable<T> or IEnumerator<T>"))
         X_D(yield_outside_iterator,
@@ -2709,6 +2710,28 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
     // type
 
+    // Returns whether the node has a yield statement, the lambdas are other methods.
+    static bool __has_yield(ast_node_t * node)
+    {
+        if (node == nullptr)
+            return false;
+
+        ast_value_t value = node->value();
+        if (value == (ast_value_t)__xcvalue_t::yield_st)
+            return true;
+
+        if (value == (ast_value_t)__xcvalue_t::lambda)
+            return false;
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            if (__has_yield(node->child_at(index)))
+                return true;
+        }
+
+        return false;
+    }
+
     // Sets name.
     void type_ast_node_t::set_name(const name_t & name, __el_t * el)
     {
@@ -2823,6 +2846,9 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
         }
+
+        // The methods that have yield statements.
+        __lower_iterators(context);
 
         // Walk members.
         __super_t::on_walk(context, step, tag);
@@ -3559,6 +3585,200 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    // Returns whether a string ends with another.
+    static bool __ends_with(const string_t & s, const char_t * end)
+    {
+        size_t length = std::char_traits<char_t>::length(end);
+        return s.length() >= length && s.compare(s.length() - length, length, end) == 0;
+    }
+
+    // Makes the iterators of the methods that have yield statements.
+    void type_ast_node_t::__lower_iterators(ast_walk_context_t & context)
+    {
+        static int iterator_count = 0;
+
+        // The methods are found first: the iterators change the members.
+        std::vector<method_ast_node_t *> methods;
+        this->each_child_node<method_ast_node_t>(__methods__, [&](method_ast_node_t * method) {
+            if (method != nullptr
+                    && __has_yield(method->child_at(method_ast_node_t::__body__)))
+            {
+                methods.push_back(method);
+            }
+        });
+
+        for (method_ast_node_t * method : methods)
+        {
+            __lower_iterator(context, method, ++iterator_count);
+        }
+    }
+
+    // Makes the iterator of a method. The method that has yield statements makes an object of
+    // a class that is made here, the state, that has the params of the method, and is an
+    // IEnumerator<T> and an IEnumerable<T> that calls a delegate to go to the next item. The
+    // body of the method goes to a new method that is that delegate: its first param is the state
+    // object, its local variables are fields of it, and the yield statements are the places
+    // where it goes on (see method_ast_node_t::__walk_iterator_end).
+    void type_ast_node_t::__lower_iterator(ast_walk_context_t & context,
+                                           method_ast_node_t * method, int id)
+    {
+        #define __Fail(_reason)                                                         \
+            do {                                                                        \
+                this->__log((ast_node_t *)method, __c_t::iterator_not_supported,        \
+                                                    _str(method->name), _T(_reason));   \
+                return;                                                                 \
+            } while (false)
+
+        if (this->params != nullptr && this->params->size() > 0)
+            __Fail("in a generic type");
+
+        if (method->generic_params != nullptr && method->generic_params->size() > 0)
+            __Fail("a generic method");
+
+        // IEnumerable<T> or IEnumerator<T>.
+        string_t return_type = method->type_name != nullptr?
+                                        string_t(_str(method->type_name)) : string_t();
+
+        size_t lt = return_type.find(_T('<')), gt = return_type.rfind(_T('>'));
+        if (lt == string_t::npos || gt == string_t::npos || gt < lt)
+        {
+            this->__log((ast_node_t *)method, __c_t::iterator_return_type_invalid,
+                                                            (method_t *)method);
+            return;
+        }
+
+        string_t head = return_type.substr(0, lt);
+        string_t element = return_type.substr(lt + 1, gt - lt - 1);
+
+        if (!__ends_with(head, _T("IEnumerable")) && !__ends_with(head, _T("IEnumerator")))
+        {
+            this->__log((ast_node_t *)method, __c_t::iterator_return_type_invalid,
+                                                            (method_t *)method);
+            return;
+        }
+
+        // The params.
+        string_t params_text, ctor_params, ctor_assigns, fields_text, args_text;
+
+        if (method->params != nullptr)
+        {
+            for (param_t * param : *method->params)
+            {
+                if (param->ptype != param_type_t::__default__)
+                    __Fail("a ref, out or params param");
+
+                string_t type_text = _str(param->type_name);
+                string_t name_text = _str(param->name);
+
+                if (!params_text.empty())
+                {
+                    params_text += _T(", ");
+                    args_text += _T(", ");
+                }
+
+                params_text += type_text + _T(" ") + name_text;
+                args_text += name_text;
+
+                ctor_params += _T(", ") + type_text + _T(" p_") + name_text;
+                ctor_assigns += _T(" this.") + name_text + _T(" = p_") + name_text + _T(";");
+                fields_text += _T(" public ") + type_text + _T(" ") + name_text + _T(";");
+            }
+        }
+
+        string_t name = _str(method->name);
+        string_t id_text = _F(_T("%1%"), id);
+        string_t state_name = _T("__Iterator") + name + _T("_") + id_text;
+        string_t move_name = _T("__Move") + name + _T("_") + id_text;
+        bool is_static = method->is_static();
+
+        // The state class.
+        string_t state_text =
+            _T("public class ") + state_name + _T(" : IEnumerator<") + element
+            + _T(">, IEnumerable<") + element + _T("> {")
+            + _T(" public Int32 __state; public ") + element + _T(" __current;")
+            + _T(" public Delegate<Boolean, Object> __move;") + fields_text
+            + _T(" public ") + state_name + _T("(Delegate<Boolean, Object> move") + ctor_params
+            + _T(") { __move = move;") + ctor_assigns + _T(" }")
+            + _T(" public ") + element + _T(" Current { get { return __current; } }")
+            + _T(" public Boolean MoveNext() { return __move(this); }")
+            + _T(" public Void Reset() { throw new InvalidOperationException(")
+            + _T("\"The iterator cannot be reset.\"); }")
+            + _T(" public Void Dispose() { }")
+            + _T(" public Void __finish() { __state = -1; }")
+            + _T(" public IEnumerator<") + element + _T("> GetEnumerator() { return this; }")
+            + _T(" }");
+
+        // The method of the user, that makes the state object, and the method that does the work.
+        string_t methods_text =
+            string_t(_T("public class __Snippet { public ")) + return_type + _T(" ") + name + _T("(") + params_text + _T(") {")
+            + _T(" Delegate<Boolean, Object> __move = ") + move_name + _T(";")
+            + _T(" return new ") + state_name + _T("(__move")
+            + (args_text.empty()? string_t() : _T(", ") + args_text) + _T("); }")
+            + _T(" private ") + string_t(is_static? _T("static ") : _T(""))
+            + _T("Boolean ") + move_name + _T("(Object __iterator) {")
+            + _T(" ((") + state_name + _T(")__iterator).__finish(); return false; } }");
+
+        ast_node_t * state_root = __parse_snippet(state_text);
+        ast_node_t * methods_root = __parse_snippet(methods_text);
+
+        if (state_root == nullptr || methods_root == nullptr
+                    || state_root->child_count() == 0 || methods_root->child_count() == 0)
+        {
+            __Fail("its code cannot be made");
+        }
+
+        type_ast_node_t * state_node = (type_ast_node_t *)state_root->child_at(0);
+        type_ast_node_t * snippet = (type_ast_node_t *)methods_root->child_at(0);
+
+        ast_node_t * methods_node = snippet->child_at(__methods__);
+        if (state_node == nullptr || methods_node == nullptr || methods_node->child_count() < 2)
+            __Fail("its code cannot be made");
+
+        method_ast_node_t * new_method = (method_ast_node_t *)methods_node->child_at(0);
+        method_ast_node_t * move_method = (method_ast_node_t *)methods_node->child_at(1);
+
+        // The body of the method of the user goes to the method that does the work, and
+        // the method of the user has the body that makes the state object.
+        ast_node_t * old_body = method->child_at(method_ast_node_t::__body__);
+        method_body_t * old_body_object = method->body;
+
+        method->set_child(method_ast_node_t::__body__,
+                                    new_method->child_at(method_ast_node_t::__body__));
+        method->body = new_method->body;
+
+        // The end of the method that does the work: the iterator is finished.
+        method_body_ast_node_t * tail_node =
+                    (method_body_ast_node_t *)move_method->child_at(method_ast_node_t::__body__);
+        method_body_ast_node_t * old_body_node = (method_body_ast_node_t *)old_body;
+
+        tail_node->each_child_node<ast_node_t>(method_body_ast_node_t::__statements__,
+            [&](ast_node_t * statement) {
+                old_body_node->append_child(method_body_ast_node_t::__statements__, statement);
+            }
+        );
+
+        for (statement_t * statement : move_method->body->statements)
+        {
+            old_body_object->statements.push_back(statement);
+        }
+
+        move_method->set_child(method_ast_node_t::__body__, old_body);
+        move_method->body = old_body_object;
+
+        iterator_info_t * info = __new_obj<iterator_info_t>();
+        info->params = method->params;
+        info->state_type = state_node;
+        move_method->iterator_info = info;
+
+        this->append_child(__methods__, move_method);
+        this->methods.push_back((method_t *)move_method);
+
+        // The state class is walked, it is a class of the same namespace.
+        state_node->on_walk(context, (int)walk_step_t::default_, nullptr);
+
+        #undef __Fail
+    }
+
     // Appends default constructor.
     method_t * type_ast_node_t::__append_default_constructor(ast_walk_context_t & context)
     {
@@ -4128,6 +4348,11 @@ namespace X_ROOT_NS::modules::compile {
                 var_item->expression, var_item
             );
 
+            // The variable may be a field of the state object of an iterator.
+            method_t * current_method = context.current_method();
+            if (current_method != nullptr && current_method->iterator_info != nullptr)
+                ((iterator_info_t *)current_method->iterator_info)->defs.push_back(var_item);
+
             if (var_item->expression != nullptr && !__is_uncertain(type_name))
             {
                 var_item->expression->parent = __new_obj<type_cast_expression_t>(
@@ -4359,30 +4584,6 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
     // yield_st
 
-    // Makes the expression that is the result of an iterator: the list, or its enumerator.
-    static expression_t * __iterator_result(ast_context_t & ctx, ast_walk_context_t & context,
-                                                                        method_t * method)
-    {
-        typedef system_expression_t<binary_expression_t> __binary_t;
-
-        xpool_t & xpool = __XPool;
-        expression_t * list = ctx.compile_context.new_obj<system_expression_t<name_expression_t>>(
-            method->yield_list->get_name()
-        );
-
-        if (!method->yield_returns_enumerator)
-            return list;
-
-        auto * function = ctx.compile_context.new_obj<system_expression_t<function_expression_t>>();
-        function->set_namex(ctx.compile_context.new_obj<system_expression_t<name_expression_t>>(
-            xpool.to_name(_T("GetEnumerator"))
-        ));
-
-        return ctx.compile_context.new_obj<__binary_t>(
-            operator_t::member_point, list, function
-        );
-    }
-
     // Commits this node.
     void yield_st_ast_node_t::on_commit()
     {
@@ -4395,74 +4596,23 @@ namespace X_ROOT_NS::modules::compile {
         return this;
     }
 
-    // Walks this node.
+    // Walks this node: it is a statement of the method that does the work of an iterator, the
+    // method lists it, to make it when the types are known.
     bool yield_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        switch ((walk_step_t)step)
-        {
-            case walk_step_t::default_:
-                if (!this->is_break)
-                    this->__check_empty(this->expression, this, __c_t::expression_missing, "yield");
+        if ((walk_step_t)step != walk_step_t::default_)
+            return true;
 
-                this->__delay(context, walk_step_t::post_analysis);
-                return __super_t::on_walk(context, step, tag);
-
-            case walk_step_t::post_analysis:
-                return __walk_post_analysis(context);
-
-            default: return true;
-        }
-    }
-
-    // Makes the statement: yield return x; is list.Add(x); and yield break; is return list;
-    bool yield_st_ast_node_t::__walk_post_analysis(ast_walk_context_t & context)
-    {
-        typedef system_expression_t<binary_expression_t> __binary_t;
+        if (!this->is_break)
+            this->__check_empty(this->expression, this, __c_t::expression_missing, "yield");
 
         method_t * method = context.current_method();
-        if (method == nullptr || method->yield_list == nullptr)
-        {
+        if (method == nullptr || method->iterator_info == nullptr)
             this->__log(this, __c_t::yield_outside_iterator);
-            return true;
-        }
+        else
+            ((iterator_info_t *)method->iterator_info)->yields.push_back((yield_statement_t *)this);
 
-        if (method->yield_invalid)
-            return true;
-
-        if (this->is_break)
-        {
-            expression_t * result = __iterator_result(this->__context, context, method);
-            walk_expression(this->__context, context, result);
-
-            this->lowered = __new_obj<return_statement_t>(result);
-            return true;
-        }
-
-        if (this->expression == nullptr)
-            return true;
-
-        // list.Add(expression)
-        arguments_t * arguments = __new_obj<arguments_t>();
-        argument_t * argument = __new_obj<argument_t>();
-        argument->expression = this->expression;
-        arguments->push_back(argument);
-
-        auto * function = __new_obj<system_expression_t<function_expression_t>>();
-        function->set_namex(__new_obj<system_expression_t<name_expression_t>>(
-            __to_name(_T("Add"))
-        ));
-        function->set_arguments(arguments);
-
-        expression_t * call = __new_obj<__binary_t>(
-            operator_t::member_point,
-            __new_obj<system_expression_t<name_expression_t>>(method->yield_list->get_name()),
-            function
-        );
-
-        walk_expression(this->__context, context, call);
-
-        this->lowered = __new_obj<expression_statement_t>(call);
-        return true;
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4580,6 +4730,19 @@ namespace X_ROOT_NS::modules::compile {
         {
             return __super_t::on_walk(context, step, tag);
         }
+    }
+
+    // Parses a source text, returns the root node.
+    ast_node_t * __utils_t::__parse_snippet(const string_t & text)
+    {
+        global_context_t & global_context = __global_context();
+        lang_id_t lang = global_context.lang_id_of(_T("cs"));
+
+        code_t * code = __context.compile_context.new_obj<code_t>(
+            global_context, string_t(text), lang, (const code_file_t *)nullptr
+        );
+
+        return code->build_ast(__context.compile_context);
     }
 
     // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
@@ -5153,6 +5316,8 @@ namespace X_ROOT_NS::modules::compile {
 
         variable_defination_t vd(this->__context, context, __variable_el);
         this->variable = vd.define_local(this->type_name, this->name);
+        if (this->variable != nullptr && this->variable->this_type() == variable_type_t::local)
+            ((local_variable_t *)this->variable)->no_hoist = true;
 
         bool r = __super_t::on_walk(context, step, tag);
 
@@ -5808,28 +5973,6 @@ namespace X_ROOT_NS::modules::compile {
                                                                 (method_t *)this);
     }
 
-    // Returns whether the node has a yield statement, the lambdas are other methods.
-    static bool __has_yield(ast_node_t * node)
-    {
-        if (node == nullptr)
-            return false;
-
-        ast_value_t value = node->value();
-        if (value == (ast_value_t)__xcvalue_t::yield_st)
-            return true;
-
-        if (value == (ast_value_t)__xcvalue_t::lambda)
-            return false;
-
-        for (size_t index = 0, count = node->child_count(); index < count; index++)
-        {
-            if (__has_yield(node->child_at(index)))
-                return true;
-        }
-
-        return false;
-    }
-
     // Returns this eobject.
     method_t * method_ast_node_t::to_eobject()
     {
@@ -5871,17 +6014,18 @@ namespace X_ROOT_NS::modules::compile {
             case walk_step_t::default_: {
                 context.push(this->to_eobject());
 
-                // A method that has yield statements collects the items in a list.
-                if (__has_yield(this->child_at(__body__)))
+                // The method that does the work of an iterator: the params of the method of
+                // the user are local variables, that are fields of the state object.
+                if (this->iterator_info != nullptr && ((iterator_info_t *)this->iterator_info)->params != nullptr)
                 {
                     variable_defination_t vd(this->__context, context,
                                                         (object_t *)(ast_node_t *)this);
 
-                    this->yield_list = vd.define_local(
-                        __new_obj<type_name_t>(uncertain_type_t::instance()),
-                        __to_name(_T("__yield_list")), false, nullptr,
-                        (object_t *)(ast_node_t *)this
-                    );
+                    for (param_t * param : *((iterator_info_t *)this->iterator_info)->params)
+                    {
+                        vd.define_local(param->type_name, param->name, false, nullptr,
+                                                        (object_t *)(ast_node_t *)this);
+                    }
                 }
 
                 __super_t::on_walk(context, step, tag);
@@ -5899,6 +6043,10 @@ namespace X_ROOT_NS::modules::compile {
                     // in its analysis step.
                     if (this->is_lambda)
                         this->__delay(context, walk_step_t::post_analysis);
+
+                    // The iterator is made when all the types are known.
+                    if (this->iterator_info != nullptr)
+                        this->__delay(context, walk_step_t::end);
                 }
 
                 context.pop();
@@ -5917,6 +6065,10 @@ namespace X_ROOT_NS::modules::compile {
 
             case walk_step_t::post_analysis:
                 __walk_lambda_analysis(context);
+                return true;
+
+            case walk_step_t::end:
+                __walk_iterator_end(context);
                 return true;
 
             default: return true;
@@ -5980,7 +6132,11 @@ namespace X_ROOT_NS::modules::compile {
 
             for (param_t * param : *this->params)
             {
-                vd.define_param(param);
+                param_variable_t * variable = vd.define_param(param);
+
+                // The state object of an iterator: the first param.
+                if (this->iterator_info != nullptr && ((iterator_info_t *)this->iterator_info)->base == nullptr)
+                    ((iterator_info_t *)this->iterator_info)->base = variable;
             }
 
             switch (this->trait)
@@ -6001,6 +6157,170 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         return true;
+    }
+
+    // The end of the method that does the work of an iterator: all the types are known. The
+    // local variables are fields of the state object, the names of them are those fields, the
+    // yield statements are the places where the method goes on at the next call:
+    //     if (state == -1) return false;
+    //     if (state == 1) goto label1; ...
+    //     ... current = x; state = 1; return true; label1: ...
+    //     state = -1; return false;
+    void method_ast_node_t::__walk_iterator_end(ast_walk_context_t & context)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        iterator_info_t * info = (iterator_info_t *)this->iterator_info;
+        general_type_t * state = info->state_type;
+
+        if (info->base == nullptr || state == nullptr || this->body == nullptr)
+            return;
+
+        auto find_field = [&](name_t name) -> field_t * {
+            for (field_t * field : state->fields)
+            {
+                if (field->name == name)
+                    return field;
+            }
+
+            return nullptr;
+        };
+
+        // The variable of a field of the state object: the object is the first param.
+        auto variable_of = [&](field_t * field) -> field_variable_t * {
+            auto * variable = __new_obj<field_variable_t>(field);
+            variable->hoist_base = info->base;
+            return variable;
+        };
+
+        auto name_of = [&](field_t * field) -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable_of(field));
+        };
+
+        auto assign_of = [&](field_t * field, expression_t * value) -> expression_t * {
+            expression_t * assign = __new_obj<__binary_t>(operator_t::assign,
+                                                          name_of(field), value);
+            walk_expression(this->__context, context, assign);
+            return assign;
+        };
+
+        // The local variables are fields.
+        int index = 0;
+        for (local_variable_t * variable : info->locals)
+        {
+            if (variable->no_hoist)
+                continue;
+
+            field_t * field = find_field(variable->name);   // The params.
+            if (field == nullptr)
+            {
+                field = __new_obj<field_t>();
+                field->name = __to_name(_F(_T("__local%1%_%2%"), ++index, _str(variable->name)));
+                field->type_name = variable->type_name;
+                field->decorate = __new_obj<decorate_t>(decorate_value_t::public_);
+                field->host_type = state;
+                field->variable = __new_obj<field_variable_t>(field);
+
+                state->append_member(field);
+            }
+
+            variable->hoisted = variable_of(field);
+        }
+
+        // The names are the fields.
+        for (name_expression_t * name_exp : info->refs)
+        {
+            if (name_exp->variable == nullptr
+                    || name_exp->variable->this_type() != variable_type_t::local)
+            {
+                continue;
+            }
+
+            local_variable_t * variable = (local_variable_t *)name_exp->variable;
+            if (variable->hoisted != nullptr)
+                name_exp->variable = variable->hoisted;
+        }
+
+        // The initial values are assigned to the fields.
+        for (defination_statement_item_t * item : info->defs)
+        {
+            if (item->variable == nullptr || item->variable->hoisted == nullptr
+                    || item->expression == nullptr)
+            {
+                continue;
+            }
+
+            expression_t * assign = __new_obj<__binary_t>(operator_t::assign,
+                __new_obj<system_expression_t<name_expression_t>>(item->variable->hoisted),
+                item->expression
+            );
+
+            walk_expression(this->__context, context, assign);
+            item->hoist_assign = assign;
+        }
+
+        // The yield statements.
+        field_t * state_field = find_field(__to_name(_T("__state")));
+        field_t * current_field = find_field(__to_name(_T("__current")));
+        if (state_field == nullptr || current_field == nullptr)
+            return;
+
+        auto value_of = [&](int32_t value) -> expression_t * {
+            return __to_value_expression(value);
+        };
+
+        auto return_of = [&](bool value) -> statement_t * {
+            return __new_obj<return_statement_t>(__to_value_expression(value));
+        };
+
+        auto statement_of = [&](expression_t * exp) -> statement_t * {
+            return __new_obj<expression_statement_t>(exp);
+        };
+
+        iterator_dispatch_statement_t * dispatch = __new_obj<iterator_dispatch_statement_t>();
+        int state_index = 0;
+
+        for (yield_statement_t * yield : info->yields)
+        {
+            statement_group_t * group = __new_obj<statement_group_t>();
+            group->variable_region = this->body->variable_region;
+
+            if (yield->is_break)
+            {
+                group->push_back(statement_of(assign_of(state_field, value_of(-1))));
+                group->push_back(return_of(false));
+            }
+            else
+            {
+                yield->state = ++state_index;
+
+                group->push_back(statement_of(assign_of(current_field, yield->expression)));
+                group->push_back(statement_of(assign_of(state_field, value_of(yield->state))));
+                group->push_back(return_of(true));
+
+                expression_t * condition = __new_obj<__binary_t>(operator_t::equal,
+                    name_of(state_field), value_of(yield->state)
+                );
+
+                walk_expression(this->__context, context, condition);
+
+                dispatch->yields.push_back(yield);
+                dispatch->conditions.push_back(condition);
+            }
+
+            yield->lowered = group;
+        }
+
+        // if (state == -1) return false;
+        expression_t * ended = __new_obj<__binary_t>(operator_t::equal,
+            name_of(state_field), value_of(-1)
+        );
+
+        walk_expression(this->__context, context, ended);
+        dispatch->end_check = __new_obj<if_statement_t>(ended, return_of(false), nullptr);
+
+        this->body->push_front((statement_t *)dispatch);
+
     }
 
     // Walks the analysis step of the method of a lambda: the return type is known now, the body
@@ -6046,69 +6366,9 @@ namespace X_ROOT_NS::modules::compile {
         this->body = body;
     }
 
-    // Walks the analysis step of a method that has yield statements: the items are collected in
-    // a list, that is the result of the method. The list is made at the beginning, and returned
-    // at the end. A yield statement adds an item, or returns the list.
-    void method_ast_node_t::__walk_iterator_analysis(ast_walk_context_t & context)
-    {
-        typedef system_expression_t<binary_expression_t> __binary_t;
-
-        type_t * return_type = this->type_name != nullptr? this->type_name->type : nullptr;
-        generic_type_t * generic = nullptr;
-
-        if (return_type != nullptr && return_type->this_gtype() == gtype_t::generic)
-            generic = (generic_type_t *)return_type;
-
-        bool is_enumerable = generic != nullptr
-                                && generic->template_ == __XPool.get_ienumerable_type();
-        bool is_enumerator = generic != nullptr
-                                && generic->template_ == __XPool.get_ienumerator_type();
-
-        if (!is_enumerable && !is_enumerator)
-        {
-            this->__log(this, __c_t::iterator_return_type_invalid, (method_t *)this);
-            this->yield_invalid = true;
-            return;
-        }
-
-        this->yield_returns_enumerator = is_enumerator;
-
-        type_collection_t types = { generic->type_at(0) };
-        type_t * list_type = __XPool.new_generic_type(__XPool.get_list_type(), types, nullptr);
-        context.commit_types();
-        this->yield_list->type_name->type = list_type;
-
-        // list = new List<T>();
-        atypes_t no_atypes;
-        auto * new_exp = __new_obj<system_expression_t<new_expression_t>>();
-        new_exp->type_name = __new_obj<type_name_t>(list_type);
-        new_exp->constructor = find_constructor(list_type, &no_atypes);
-
-        expression_t * assign = __new_obj<__binary_t>(
-            operator_t::assign,
-            __new_obj<system_expression_t<name_expression_t>>(this->yield_list->get_name()),
-            new_exp
-        );
-
-        walk_expression(this->__context, context, assign);
-
-        // return list;
-        expression_t * result = __iterator_result(this->__context, context, this);
-        walk_expression(this->__context, context, result);
-
-        if (this->body == nullptr)
-            this->body = __new_obj<method_body_t>(context.current_region());
-
-        this->body->push_front(__new_obj<expression_statement_t>(assign));
-        this->body->statements.push_back(__new_obj<return_statement_t>(result));
-    }
-
     // Walks the analysis step.
     bool method_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        if (this->yield_list != nullptr)
-            __walk_iterator_analysis(context);
-
         // Construct, static constructor, destructor.
         switch (this->trait)
         {

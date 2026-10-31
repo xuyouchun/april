@@ -518,6 +518,13 @@ namespace X_ROOT_NS::modules::compile {
         {
             _A(item->variable != nullptr);
 
+            // The variable is a field of the state object of an iterator.
+            if (item->hoist_assign != nullptr)
+            {
+                append_expression(ctx, item->hoist_assign, false);
+                continue;
+            }
+
             append_xilx<local_define_xilx_t>(ctx, item->variable);
 
             if (!item->variable->constant && item->expression != nullptr)
@@ -991,12 +998,42 @@ namespace X_ROOT_NS::modules::compile {
     {
         _A(lowered != nullptr);
         compile_statement(ctx, lowered);
+
+        // The iterator goes on from here, at the next call.
+        if (!is_break)
+        {
+            _A(label >= 0);
+            append_local_label(ctx, label);
+        }
     }
 
-    // Returns exit type.
+    // Compiles this statement.
+    void iterator_dispatch_statement_t::compile(statement_compile_context_t & ctx)
+    {
+        if (end_check != nullptr)
+            compile_statement(ctx, end_check);
+
+        for (size_t index = 0; index < yields.size(); index++)
+        {
+            yields[index]->label = ctx.next_local_label();
+
+            append_expression(ctx, conditions[index]);
+            append_jmp(ctx, yields[index]->label, xil_jmp_model_t::true_);
+        }
+    }
+
+    X_DEFINE_TO_STRING(iterator_dispatch_statement_t)
+    {
+        return _T("iterator dispatch");
+    }
+
+    // Returns exit type: yield return goes on at the next call, yield break returns.
     __exit_type_t yield_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        return lowered != nullptr? lowered->exit_type(ctx) : __exit_type_t::none;
+        if (is_break && lowered != nullptr)
+            return lowered->exit_type(ctx);
+
+        return __exit_type_t::none;
     }
 
     X_DEFINE_TO_STRING(yield_statement_t)

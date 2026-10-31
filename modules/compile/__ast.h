@@ -497,6 +497,9 @@ namespace X_ROOT_NS::modules::compile {
         // A yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>.
         yield_outside_iterator,
 
+        // The iterator cannot be made.
+        iterator_not_supported,
+
         // The return type of a lambda is that of the delegate it is converted to.
         lambda_type_undetermined,
 
@@ -1248,6 +1251,9 @@ namespace X_ROOT_NS::modules::compile {
 
                 return true;
             }
+
+            // Parses a source text, returns the root node.
+            ast_node_t * __parse_snippet(const string_t & text);
 
             // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
             // Returns null if the type has no Dispose().
@@ -3022,6 +3028,8 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
     // type
 
+    class method_ast_node_t;
+
     // Type
     Ast(type, __cvalue_t::type)
 
@@ -3114,6 +3122,12 @@ namespace X_ROOT_NS::modules::compile {
 
         // Check circle base types.
         bool __check_circle_base_types(std::set<type_t *> & types, type_t * super_type);
+
+        // Makes the iterators of the methods that have yield statements.
+        void __lower_iterators(ast_walk_context_t & context);
+
+        // Makes the iterator of a method: a class for the state, and a method that does the work.
+        void __lower_iterator(ast_walk_context_t & context, method_ast_node_t * method, int id);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3381,6 +3395,23 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
     // yield_st
 
+    // The information of the method that does the work of an iterator: the walking of its
+    // body records the things that are changed at the end, when the types are known.
+    class iterator_info_t : public object_t
+    {
+    public:
+        general_type_t *    state_type = nullptr;       // The class of the state object.
+        params_t *          params = nullptr;           // The params of the method of the user.
+        param_variable_t *  base = nullptr;             // The state object, it is a param.
+
+        std::vector<local_variable_t *>             locals;     // The local variables.
+        std::vector<name_expression_t *>            refs;       // The names of local variables.
+        std::vector<defination_statement_item_t *>  defs;       // The initial values.
+        std::vector<yield_statement_t *>            yields;     // The yield statements.
+
+        X_TO_STRING_IMPL(_T("iterator_info_t"))
+    };
+
     // Yield statement.
     Ast(yield_st, __xcvalue_t::yield_st)
 
@@ -3412,10 +3443,6 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
-
-    private:
-        // Walks the post analysis step: makes the statement.
-        bool __walk_post_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4457,8 +4484,8 @@ namespace X_ROOT_NS::modules::compile {
         // Walks analysis step of the method of a lambda.
         void __walk_lambda_analysis(ast_walk_context_t & context);
 
-        // Walks analysis step of a method that has yield statements.
-        void __walk_iterator_analysis(ast_walk_context_t & context);
+        // Walks the end step of the method that does the work of an iterator.
+        void __walk_iterator_end(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -1041,6 +1041,15 @@ namespace X_ROOT_NS::modules::compile {
                 else
                 {
                     name_exp->set(variable);
+
+                    // The names of the local variables of the method that does the work of an
+                    // iterator are the fields of the state object.
+                    method_t * current = __wctx.current_method();
+                    if (variable->this_type() == variable_type_t::local
+                            && current != nullptr && current->iterator_info != nullptr)
+                    {
+                        ((iterator_info_t *)current->iterator_info)->refs.push_back(name_exp);
+                    }
                 }
             }
             else
@@ -1949,7 +1958,15 @@ namespace X_ROOT_NS::modules::compile {
 
         try
         {
-            return __region->define_local(type_name, name, constant, expression);
+            local_variable_t * variable = __region->define_local(type_name, name, constant,
+                                                                              expression);
+
+            // The local variables of the method that does the work of an iterator are fields.
+            method_t * method = __wctx.current_method();
+            if (method != nullptr && method->iterator_info != nullptr)
+                ((iterator_info_t *)method->iterator_info)->locals.push_back(variable);
+
+            return variable;
         }
         catch (const logic_error_t<ast_error_t> & e)
         {

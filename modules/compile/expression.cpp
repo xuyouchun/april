@@ -354,12 +354,29 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Pushes the object of a field: the instance, or the static data.
+    // Pushes the state object of an iterator, when the variable is a field of it.
+    static bool __push_hoist_base(__cctx_t & ctx, xil_pool_t & pool, variable_t * variable)
+    {
+        if (variable == nullptr || variable->this_type() != variable_type_t::field)
+            return false;
+
+        variable_t * base = ((field_variable_t *)variable)->hoist_base;
+        if (base == nullptr)
+            return false;
+
+        pool.append<x_push_argument_xil_t>(
+            xil_type_t::object, __param_index(ctx, (param_variable_t *)base)
+        );
+
+        return true;
+    }
+
     static void __push_field_owner(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
                                                                       variable_t * variable)
     {
         if (__is_static_field(variable))
             __push_static_data(ctx, pool, ((field_variable_t *)variable)->field);
-        else
+        else if (!__push_hoist_base(ctx, pool, variable))
             __push_this(ctx, pool, exp);
     }
 
@@ -2309,6 +2326,14 @@ namespace X_ROOT_NS::modules::compile {
         if (variable == nullptr || (member = variable->get_relation_member()) == nullptr)
             return;
 
+        // The fields of the state object of an iterator have their object.
+        if (variable->this_type() == variable_type_t::field
+                && ((field_variable_t *)variable)->hoist_base != nullptr)
+        {
+            al::assign_value(out_member_is_static, false);
+            return;
+        }
+
         expression_t * left_exp;
         bool has_instance, is_member_access = false;
 
@@ -2341,7 +2366,10 @@ namespace X_ROOT_NS::modules::compile {
         __check_static_member(ctx, owner_exp, variable);
 
         if (owner_exp != nullptr && !__is_right_member(owner_exp->parent, owner_exp))
-            pool.append<x_push_this_ref_xil_t>();
+        {
+            if (!__push_hoist_base(ctx, pool, variable))
+                pool.append<x_push_this_ref_xil_t>();
+        }
     }
 
     // Pushes this with check for function.

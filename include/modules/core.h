@@ -3060,6 +3060,7 @@ namespace X_ROOT_NS::modules::core {
     //-------- ---------- ---------- ---------- ----------
 
     class local_variable_t;
+    class iterator_info_t;
     class xil_buffer_t;
     class xil_pool_t;
 
@@ -3526,15 +3527,9 @@ namespace X_ROOT_NS::modules::core {
         // when the lambda returns a lambda: (int a) => (int b) => b.
         expression_t * lambda_expression = nullptr;
 
-        // The method has yield statements: the list that holds the items, a local variable
-        // that is made when the method is walked.
-        local_variable_t * yield_list = nullptr;
-
-        // The method returns an IEnumerator<T>, not an IEnumerable<T>.
-        bool yield_returns_enumerator = false;
-
-        // The return type of the method that has yield statements is not valid.
-        bool yield_invalid = false;
+        // The method that does the work of an iterator, see type_ast_node_t: the local
+        // variables are fields of the state object, that is its first param.
+        object_t * iterator_info = nullptr;       // An iterator_info_t of the compiler.
 
         // Relation property or event.
         member_t * relation_member = nullptr;
@@ -5395,6 +5390,8 @@ namespace X_ROOT_NS::modules::core {
 
         type_name_t *  type_name    = nullptr;          // Type of the variable.
         name_t         name         = name_t::null;     // Name of the variable.
+        field_variable_t * hoisted  = nullptr;          // The field of the state object that holds it.
+        bool           no_hoist     = false;            // It stays a local variable.
         msize_t        identity     = unknown_msize;    // Identity of the variable.
         msize_t        index        = unknown_msize;    // Index of the variable.
         bool           constant     = false;            // A constant variable.
@@ -5470,6 +5467,10 @@ namespace X_ROOT_NS::modules::core {
 
         // Relation field.
         field_t * field = nullptr;
+
+        // The variable that is the object of the field, for the field of the state object of an
+        // iterator: it is the first param of the method that does the work. (Null: this.)
+        variable_t * hoist_base = nullptr;
 
         // Returns type of the field.
         virtual type_t * get_type() override
