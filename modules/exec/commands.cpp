@@ -6858,8 +6858,9 @@ namespace X_ROOT_NS::modules::exec {
 
     public:
 
-        __memory_copy_command_ex_t(size_t size, xil_copy_kind_t kind) _NE
-            : __size(size), __kind(kind) { }
+        __memory_copy_command_ex_t(size_t size, xil_copy_kind_t kind,
+                                   msize_t struct_ret_offset = 0) _NE
+            : __size(size), __kind(kind), __struct_ret_offset(struct_ret_offset) { }
 
         __BeginExecute(ctx)
             
@@ -6881,6 +6882,15 @@ namespace X_ROOT_NS::modules::exec {
             {
                 void * p = ctx.stack.pop<void *>();
                 al::quick_zero(p, __This->__size);
+            }
+            else if(__This->__kind == xil_copy_kind_t::ret && __This->__struct_ret_offset != 0)
+            {
+                // A custom struct is returned, written at the address of the caller,
+                // that is below the arguments.
+                void * src = ctx.stack.pop<void *>();
+                void * dst = __Argument(void *, __This->__struct_ret_offset);
+
+                al::quick_copy(dst, src, __This->__size);
             }
             else if(__This->__kind == xil_copy_kind_t::ret)
             {
@@ -6904,6 +6914,8 @@ namespace X_ROOT_NS::modules::exec {
     private:
         size_t          __size;
         xil_copy_kind_t __kind;
+        msize_t         __struct_ret_offset;    // Returns a custom struct: the offset of the
+                                                //   address of the result, otherwise 0.
     };
 
     struct __memory_copy_command_template_t
@@ -6929,6 +6941,18 @@ namespace X_ROOT_NS::modules::exec {
     };
 
     //-------- ---------- ---------- ---------- ----------
+
+    // Creates the command that returns a generic param whose argument is a custom struct.
+    static command_t * __get_struct_ret_copy_command(size_t size, msize_t struct_ret_offset)
+    {
+        static __command_manager_t<
+            __memory_copy_command_ex_template_t
+        >::with_args_t<size_t, xil_copy_kind_t, msize_t> __struct_ret_copy_manager;
+
+        return __struct_ret_copy_manager.template get_command<__CopyCmdEx>(
+            size, xil_copy_kind_t::ret, struct_ret_offset
+        );
+    }
 
     static command_t * __get_object_copy_command(size_t size, xil_copy_kind_t kind)
     {
@@ -7012,6 +7036,14 @@ namespace X_ROOT_NS::modules::exec {
                 rt_type_t * type = ctx.get_type(type_ref);
                 msize_t size = type->get_variable_size(ctx.env);
                 xil_copy_kind_t kind = xil.copy_kind();
+
+                // The generic param is a custom struct: it is returned like a struct.
+                if (kind == xil_copy_kind_t::ret && is_custom_struct(ctx.env, type))
+                {
+                    return __get_struct_ret_copy_command(
+                        size, __offset_of_argument(ctx, XIL_CALLING_BOTTOM_IDENTITY) + __stack_stub_size
+                    );
+                }
 
                 return __get_object_copy_command(size, kind);
 

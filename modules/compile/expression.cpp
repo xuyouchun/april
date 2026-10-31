@@ -1832,7 +1832,9 @@ namespace X_ROOT_NS::modules::compile {
     {
         _A(method != nullptr);
 
-        type_t * ret_type = method->get_original_type();
+        // The result is as the caller sees it: a generic param of the callee is replaced by
+        // its argument, the callee knows nothing of the local variable of the caller.
+        type_t * ret_type = method->get_type();
         __pre_call_method(ctx, pool, exp, ret_type);
     }
 

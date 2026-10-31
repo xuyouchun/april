@@ -2301,8 +2301,20 @@ namespace X_ROOT_NS::modules::native {
                         {
                             llb::value_t address = pop_value("load source");
                             std::string ll = __ll_type_of(type);
-                            if (ll[0] == '[' || address.type != "ptr")
+                            if (address.type != "ptr")
                                 throw _ED(__e_t::unsupported_type, type->get_name(__env));
+
+                            // A custom struct: written at the address of the caller.
+                            if (ll[0] == '[')
+                            {
+                                if (!fn.returns_struct)
+                                    throw _ED(__e_t::bad_stack, fn.display, _T("no return address"));
+
+                                __uses_memcpy = true;
+                                f.call("void", "llvm.memcpy.p0.p0.i64", { f.param(0), address,
+                                    llb::const_int("i64", (int64_t)type_size), llb::const_bool(false) });
+                                break;
+                            }
 
                             stack.push_back(f.load(ll, address));
                             break;
