@@ -600,6 +600,10 @@ namespace X_ROOT_NS::modules::compile {
         int weight = 0;                                 // Weight.
         __merge_identity_t merge_identity;              // Merge identity.
 
+        // The order the node was created in: it is the same in every run, unlike the
+        // address of the node, so the leaves that nothing else tells apart are ordered by it.
+        uint32_t serial = 0;
+
         // Returns analyze node.
         operator const analyze_node_t * () const { return node; }
 
@@ -1653,6 +1657,10 @@ namespace X_ROOT_NS::modules::compile {
         // Reset state.
         void reset();
 
+        // The first ambiguity that the analyzer found: two ways to match the elements, that
+        // nothing else tells apart. Empty for none.
+        string_t ambiguity;
+
         // Returns current analyze tree.
         __stack_node_t * current_analyze_tree() { return __stack_root; }
 
@@ -1679,6 +1687,10 @@ namespace X_ROOT_NS::modules::compile {
 
         template<typename t> using __w_t = al::respool_wrapper_t<t>;
         __w_t<__stack_node_t> __stack_node_factory;
+        uint32_t __node_serial = 0;             // The serial of the last stack node.
+
+        // Checks whether two leaves, one is removed, are two ways to match the elements.
+        void __check_ambiguity(__stack_node_t * kept, __stack_node_t * removed);
         al::heap_t<__stack_node_assign_key_action_t> __assign_key_action_factory;
         al::heap_t<__stack_node_raise_matched_event_action_t> __raise_matched_event_action_factory;
 
@@ -1713,6 +1725,18 @@ namespace X_ROOT_NS::modules::compile {
 
         typedef size_t __stack_push_task_state_t;
 
+        // The stack made for an invisible token (a comment): its address is the path of the
+        // unit, that is compared while the task goes on, so it lives as long as the task.
+        struct __invisible_stack_t
+        {
+            __invisible_stack_t(const analyze_node_t * node)
+                : stack(node, 1), buffer { (void *)node, (void *)node }
+            { }
+
+            __path_node_stack_t     stack;
+            void *                  buffer[2];      // A stack normal buffer: from, to.
+        };
+
         // Stack push task.
         struct __stack_push_task_t
         {
@@ -1720,6 +1744,9 @@ namespace X_ROOT_NS::modules::compile {
             __stack_push_task_t(__stack_push_args_t & push_args) : push_args(push_args) { }
 
             __stack_push_args_t & push_args;    // Push arguments.
+
+            // The stacks of the invisible tokens, at stable addresses.
+            std::deque<__invisible_stack_t> invisible_stacks;
 
             al::svector_t<void *, 10> stack_paths;
             size_t record_stack_unit(const __stack_unit_t & unit);
@@ -1834,6 +1861,10 @@ namespace X_ROOT_NS::modules::compile {
         // Do stack grow.
         void __do_stack_grow(__stack_grow_args_t & args, __stack_node_t * stack_node,
                                                  const __stack_item_t & stack_item);
+
+        // Do stack grow with the items.
+        void __do_stack_grow(__stack_grow_args_t & args, __stack_node_t * stack_node,
+                                    const __stack_item_t * items, size_t count);
 
         // Check end node.
         void __check_end_node(__check_end_node_args_t & args, __stack_node_t * parent,

@@ -47,6 +47,8 @@ namespace X_ROOT_NS::modules::core {
     // Common types.
     #define CoreType_Type         _T("Type")
     #define CoreType_Exception    _T("Exception")
+    #define CoreType_Checked      _T("Checked")
+    #define CoreType_Nullable     _T("Nullable<>")
     #define CoreType_Void         _T("Void")
     #define CoreType_Object       _T("Object")
     #define CoreType_Ptr          _T("Ptr")
@@ -88,9 +90,16 @@ namespace X_ROOT_NS::modules::core {
     #define CoreType_NullReferenceException     _T("NullReferenceException")
     #define CoreType_InvalidCastException       _T("InvalidCastException")
     #define CoreType_OutOfRangeException        _T("OutOfRangeException")
+    #define CoreType_DivideByZeroException      _T("DivideByZeroException")
+    #define CoreType_OverflowException          _T("OverflowException")
 
     // Attributes.
     #define CoreType_TraceAttribute     _T("Diagnostics.TraceAttribute")
+
+    // Collections.
+    #define CoreType_List               _T("Collections.Generic.List<>")
+    #define CoreType_IEnumerable        _T("Collections.Generic.IEnumerable<>")
+    #define CoreType_IEnumerator        _T("Collections.Generic.IEnumerator<>")
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -2596,6 +2605,17 @@ namespace X_ROOT_NS::modules::core {
     bool is_tuple(type_t * type);
 
     // Returns whether it's a null type.
+    // Returns T if the type is Nullable<T>, otherwise nullptr.
+    type_t * get_nullable_underlying(type_t * type);
+
+    // Returns whether a constant integer expression converts to an integer type that holds
+    // its value: byte b = 5; uint u = 5;
+    bool is_constant_compatible(expression_t * exp, type_t * to);
+
+    // If the expression is a lambda that has no return type yet, and the type is a delegate
+    // type, the return type of the lambda is that of the delegate.
+    void bind_lambda_to_type(expression_t * exp, type_t * to);
+
     X_ALWAYS_INLINE bool is_null(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::null;
@@ -3040,6 +3060,7 @@ namespace X_ROOT_NS::modules::core {
     //-------- ---------- ---------- ---------- ----------
 
     class local_variable_t;
+    class iterator_info_t;
     class xil_buffer_t;
     class xil_pool_t;
 
@@ -3429,6 +3450,10 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns vtype at specified index.
         vtype_t param_vtype_at(size_t index) const;
+
+        // Returns the param at the specified index (default value, params), nullptr if the
+        // types have no param objects.
+        virtual param_t * param_object_at(size_t index) const { return nullptr; }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -3495,6 +3520,28 @@ namespace X_ROOT_NS::modules::core {
         // Method inline type, inline, noinline or default.
         method_inline_type_t inline_type    = method_inline_type_t::default_;
 
+        // Whether it is the method of a lambda.
+        bool is_lambda = false;
+
+        // The params of the lambda have no types: they are those of the delegate.
+        bool lambda_implicit = false;
+
+        // The lambda uses local variables of the method that has it: the object of its delegate
+        // is made by this expression, it is an object of a class that has the values of them.
+        expression_t * lambda_env_new = nullptr;
+
+        // The variable of the method is not defined when the method is walked: the lambda
+        // is walked where the variables of the method that has it are seen.
+        bool lambda_walk_inside = false;
+
+        // The expression that is the body of a lambda, null for a block. It is a lambda too
+        // when the lambda returns a lambda: (int a) => (int b) => b.
+        expression_t * lambda_expression = nullptr;
+
+        // The method that does the work of an iterator, see type_ast_node_t: the local
+        // variables are fields of the state object, that is its first param.
+        object_t * iterator_info = nullptr;       // An iterator_info_t of the compiler.
+
         // Relation property or event.
         member_t * relation_member = nullptr;
 
@@ -3548,6 +3595,12 @@ namespace X_ROOT_NS::modules::core {
         {
             _A(index < param_count());
             return (*params)[index];
+        }
+
+        // Returns the param at the specified index.
+        virtual param_t * param_object_at(size_t index) const override
+        {
+            return (params != nullptr && index < params->size())? (*params)[index] : nullptr;
         }
 
         // Finds the param by the specified name.
@@ -3694,6 +3747,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns param type of specified index.
         virtual typex_t param_type_at(size_t index) const override;
+
+        // Returns the param at the specified index.
+        virtual param_t * param_object_at(size_t index) const override
+        {
+            return __template()->param_object_at(index);
+        }
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() override
@@ -5018,8 +5077,23 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.MulticastDelegate type.
         general_type_t * get_multicast_delegate_type();
 
+        // Returns System.Collections.Generic.List<> type.
+        general_type_t * get_list_type();
+
+        // Returns System.Collections.Generic.IEnumerable<> type.
+        general_type_t * get_ienumerable_type();
+
+        // Returns System.Collections.Generic.IEnumerator<> type.
+        general_type_t * get_ienumerator_type();
+
         // Returns System.Exception type.
         general_type_t * get_exception_type();
+
+        // Returns System.Checked type: the arithmetic that raises on overflow.
+        general_type_t * get_checked_type();
+
+        // Returns System.Nullable<T> type: the type of int? and the others.
+        general_type_t * get_nullable_type();
 
         // Returns System.Tuple<...> type.
         general_type_t * get_tuple_type();
@@ -5111,8 +5185,13 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __ptr_type         = nullptr;
         general_type_t * __delegate_type    = nullptr;
         general_type_t * __multicast_delegate_type = nullptr;
+        general_type_t * __list_type        = nullptr;
+        general_type_t * __ienumerable_type = nullptr;
+        general_type_t * __ienumerator_type = nullptr;
 
         general_type_t * __exception_type   = nullptr;
+        general_type_t * __checked_type     = nullptr;
+        general_type_t * __nullable_type    = nullptr;
         general_type_t * __tuple_type       = nullptr;
         general_type_t * __ituple_type      = nullptr;
         general_type_t * __trace_attribute_type = nullptr;
@@ -5322,6 +5401,8 @@ namespace X_ROOT_NS::modules::core {
 
         type_name_t *  type_name    = nullptr;          // Type of the variable.
         name_t         name         = name_t::null;     // Name of the variable.
+        field_variable_t * hoisted  = nullptr;          // The field of the state object that holds it.
+        bool           no_hoist     = false;            // It stays a local variable.
         msize_t        identity     = unknown_msize;    // Identity of the variable.
         msize_t        index        = unknown_msize;    // Index of the variable.
         bool           constant     = false;            // A constant variable.
@@ -5397,6 +5478,10 @@ namespace X_ROOT_NS::modules::core {
 
         // Relation field.
         field_t * field = nullptr;
+
+        // The variable that is the object of the field, for the field of the state object of an
+        // iterator: it is the first param of the method that does the work. (Null: this.)
+        variable_t * hoist_base = nullptr;
 
         // Returns type of the field.
         virtual type_t * get_type() override
@@ -5609,6 +5694,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns type of the method.
         virtual type_t * get_type() override;
+
+        // The type is made again by the next call, after the return type of a lambda is known.
+        void reset_type() { __type = nullptr; }
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
@@ -5948,6 +6036,14 @@ namespace X_ROOT_NS::modules::core {
         // Pop the top element.
         void pop();
 
+        // Goes to the layer of the type, below that of the method, to walk a method that
+        // cannot see the variables of the one that has it: a lambda. Returns the layer to go
+        // back to with leave_type_level().
+        ast_walk_context_layer_t * enter_type_level();
+
+        // Goes back to the layer.
+        void leave_type_level(ast_walk_context_layer_t * layer) { __current_layer = layer; }
+
         assembly_t & assembly;
         logger_t &   logger;
 
@@ -6026,11 +6122,21 @@ namespace X_ROOT_NS::modules::core {
         // Returns current layer.
         __layer_t * current_layer() const { return __current_layer; }
 
+        // Added to the analysis steps of the nodes that are delayed: the body of a lambda that has
+        // no types of params is analyzed after the statements that give them.
+        int delay_bias = 0;
+
         // Delay walk specified node.
         // Push the node in the queue.
         void delay(ast_node_t * node, int step = 0, void * tag = nullptr)
         {
-            __walk_items.enque(__walk_item_t { __current_layer, node, step, tag }, step);
+            // The steps from the analysis to the post analysis: the node is walked later with
+            // its step.
+            int priory = step;
+            if (delay_bias != 0 && step >= 26 && step < 30)
+                priory += delay_bias;
+
+            __walk_items.enque(__walk_item_t { __current_layer, node, step, tag }, priory);
         }
 
         // Returns the parent mname.
@@ -6550,6 +6656,13 @@ namespace X_ROOT_NS::modules::core {
 
         // Defines a local variable.
         local_variable_t * define_temp_local(type_t * type);
+
+        // The arithmetic raises on overflow, in checked(expression).
+        bool checked = false;
+
+        // The operator expression (x += y, x++) whose method is called to make the value that
+        // is assigned: it is compiled as the value, without the assignment.
+        expression_t * overload_assign_value = nullptr;
 
         // Relation statement context.
         operator statement_compile_context_t & () const
@@ -7456,6 +7569,10 @@ namespace X_ROOT_NS::modules::core {
 
         variable,
 
+        checked_,       // checked(expression): arithmetic of the expression raises on overflow.
+
+        unchecked_,     // unchecked(expression)
+
     X_ENUM_END
 
     // Function expression.
@@ -7473,6 +7590,7 @@ namespace X_ROOT_NS::modules::core {
             : __super_t(arguments)
         {
             _A(method != nullptr);
+            this->set_method(method);
         }
 
         expression_t    * namex         = nullptr;      // Name
@@ -7492,6 +7610,18 @@ namespace X_ROOT_NS::modules::core {
 
         // Gets variable.
         variable_t * get_variable() const _NE;
+
+        // Makes it checked(expression) or unchecked(expression): it has no function.
+        void set_checked(bool checked) _NE;
+
+        // Returns whether it's checked(expression) or unchecked(expression).
+        bool is_checked_expression() const _NE
+        {
+            return get_ftype() == __ftype_t::checked_ || get_ftype() == __ftype_t::unchecked_;
+        }
+
+        // Returns the expression of checked(expression) or unchecked(expression).
+        expression_t * checked_expression() const;
 
         // Returns function expression relation object type.
         __ftype_t get_ftype() const _NE { return (__ftype_t)__relation_data; }
@@ -8436,6 +8566,10 @@ namespace X_ROOT_NS::modules::core {
         statement_compile_context_t(method_compile_context_t & mctx, method_t * method);
 
         method_compile_context_t & mctx;        // Method compile context.
+
+        // The variables of the exception of the catch blocks that are being compiled,
+        // the innermost last: `throw;` throws the one of the innermost.
+        std::vector<variable_t *> catch_variables;
 
         method_t *              method;                 // Method.
         jmp_manager_t           jmp_manager;            // Jmp manager.

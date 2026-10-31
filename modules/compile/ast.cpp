@@ -209,6 +209,36 @@ namespace X_ROOT_NS::modules::compile {
         // Name empty.
         X_D(name_empty, _T("%1% name missing"))
 
+        // The language has no goto statement.
+        X_D(goto_not_supported, _T("goto statement is not supported"))
+
+        // A constructor cannot call itself.
+        X_D(constructor_calls_itself, _T("the constructor of %1% calls itself"))
+
+        // For each statements go through arrays.
+        X_D(for_each_type_not_supported, _T("foreach is not supported for type %1%"))
+
+        // The variable of a using statement must have Dispose().
+        X_D(using_type_not_disposable, _T("using requires a type with Dispose(): %1%"))
+
+        // Iterators.
+        X_D(iterator_not_supported, _T("the iterator %1% is not supported: %2%"))
+        X_D(iterator_return_type_invalid,
+            _T("%1%: a method that has yield statements returns IEnumerable<T> or IEnumerator<T>"))
+        X_D(yield_outside_iterator,
+            _T("a yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>"))
+
+        // Lambdas.
+        X_D(lambda_outside_method, _T("a lambda is only in a method"))
+        X_D(lambda_type_undetermined,
+            _T("the type of the lambda is not determined, it is converted to no delegate"))
+        X_D(lambda_capture_not_supported,
+            _T("a lambda that uses local variables is not supported %1%"))
+        X_D(lambda_capture_modified,
+            _T("the local variable \"%1%\" is used by a lambda, it cannot be modified"))
+        X_D(lambda_capture_member,
+            _T("a lambda that uses local variables cannot use the members of the object"))
+
         // Unexpected first char in a name.
         X_D(name_unexpected_first_char,
                 _T("unexpected first character \"%1%\" in name \"%2%\""))
@@ -461,6 +491,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Operator overload not defined.
         X_D(operator_overload_not_defined, _T("Operator '%1%' not defined for %2%"))
+
+        // The operator is ambiguous.
+        X_D(operator_overload_ambiguous, _T("Operator '%1%' is ambiguous for %2%"))
 
         // Cannot determine local type.
         X_D(cannot_determine_local_variable_type,
@@ -1270,7 +1303,20 @@ namespace X_ROOT_NS::modules::compile {
     bool general_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
         if (this->type == nullptr)
+        {
             this->type = __ascertain_type(context, (general_type_name_t *)this);
+
+            // T? is Nullable<T>.
+            if (__nullable && this->type != nullptr)
+            {
+                type_collection_t types = { typex_t(this->type) };
+                xtype_collection_t xtypes(types);
+
+                this->type = context.assembly.types.new_generic_type(
+                    __XPool.get_nullable_type(), xtypes, nullptr
+                );
+            }
+        }
 
         return true;
     }
@@ -2441,6 +2487,28 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
     // namespace
 
+    // Appends a member of the namespace.
+    bool namespace_ast_node_t::append_member(ast_node_t * node)
+    {
+        switch ((element_value_t)node->value())
+        {
+            case (element_value_t)__cvalue_t::type:
+                this->append_child(__types__, node);
+                return true;
+
+            case (element_value_t)__xcvalue_t::namespace_:
+                this->append_child(__namespaces__, node);
+                return true;
+
+            case (element_value_t)__xcvalue_t::type_def:
+                this->append_child(__type_defs__, node);
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     // Commits this node.
     void namespace_ast_node_t::on_commit()
     {
@@ -2483,8 +2551,35 @@ namespace X_ROOT_NS::modules::compile {
         { }
 
         // Revise constructor.
-        void revise_constructor(method_t & method, arguments_t * args, __el_t * node = nullptr)
+        void revise_constructor(method_t & method, arguments_t * args, __el_t * node = nullptr,
+                                                               bool call_this = false)
         {
+            // : this(...): another constructor of the type does all the construction.
+            if (call_this)
+            {
+                type_t * type = __wctx.current_type();
+                method_t * ctor = find_constructor(this->__context, type, args);
+
+                if (ctor == nullptr)
+                    this->__log(node, __c_t::constructor_method_not_found, type, args);
+                else if (ctor == &method)
+                    this->__log(node, __c_t::constructor_calls_itself, type);
+                else
+                {
+                    __statements_t statements;
+                    statements.push_back(__new_expression_statement<function_expression_t>(
+                        ctor, args
+                    ));
+
+                    if (method.body == nullptr)
+                        method.body = __new_obj<method_body_t>(__wctx.current_region());
+
+                    method.body->push_front(statements);
+                }
+
+                return;
+            }
+
             method_t * base_ctor = __get_base_contructor(args, node);
             __statements_t statements;
 
@@ -2497,7 +2592,7 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             // Initialize fields.
-            __init_fields(statements, method);
+            __init_fields(statements, method, false);
 
             // Appends to method body.
             if (statements.size() > 0)
@@ -2518,6 +2613,21 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
             */
+        }
+
+        // Revise static constructor: initializes the static fields.
+        void revise_static_constructor(method_t & method)
+        {
+            __statements_t statements;
+            __init_fields(statements, method, true);
+
+            if (statements.size() > 0)
+            {
+                if (method.body == nullptr)
+                    method.body = __new_obj<method_body_t>(__wctx.current_region());
+
+                method.body->push_front(statements);
+            }
         }
 
     private:
@@ -2547,7 +2657,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // Initialize fields.
-        void __init_fields(__statements_t & statements, method_t & method)
+        void __init_fields(__statements_t & statements, method_t & method, bool is_static)
         {
             // fields initialize
             type_t * type = __wctx.current_type();
@@ -2559,6 +2669,12 @@ namespace X_ROOT_NS::modules::compile {
             for (member_t * member : members_args.out_members)
             {
                 field_t * field = (field_t *)member;
+
+                // Static fields are initialized by the static constructor, constants
+                // have no storage to initialize.
+                if (field->is_static() != is_static || field->is_const())
+                    continue;
+
                 expression_t * init_exp = field->init_value;
                 type_t * field_type = to_type(field->type_name);
 
@@ -2588,8 +2704,39 @@ namespace X_ROOT_NS::modules::compile {
         }
     };
 
+    // Tag of the delayed analysis of a synthesized static constructor.
+    class __static_ctor_tag_t : public object_t
+    {
+    public:
+        __static_ctor_tag_t(method_t * method) : method(method) { }
+
+        method_t * method;
+    };
+
     ////////// ////////// ////////// ////////// //////////
     // type
+
+    // Returns whether the node has a yield statement, the lambdas are other methods.
+    static bool __has_yield(ast_node_t * node)
+    {
+        if (node == nullptr)
+            return false;
+
+        ast_value_t value = node->value();
+        if (value == (ast_value_t)__xcvalue_t::yield_st)
+            return true;
+
+        if (value == (ast_value_t)__xcvalue_t::lambda)
+            return false;
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            if (__has_yield(node->child_at(index)))
+                return true;
+        }
+
+        return false;
+    }
 
     // Sets name.
     void type_ast_node_t::set_name(const name_t & name, __el_t * el)
@@ -2706,6 +2853,9 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        // The methods that have yield statements.
+        __lower_iterators(context);
+
         // Walk members.
         __super_t::on_walk(context, step, tag);
 
@@ -2720,8 +2870,9 @@ namespace X_ROOT_NS::modules::compile {
 
             if (it == std::end(this->methods))  // no constructor
             {
+                // The tag is read back as an object_t: convert before it becomes a void *.
                 method_t * method = __append_default_constructor(context);
-                this->__delay(context, walk_step_t::analysis, method);
+                this->__delay(context, walk_step_t::analysis, (object_t *)method);
             }
             else
             {
@@ -2737,7 +2888,36 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
-        this->__delay(context, walk_step_t::analysis, new_default_constructor);
+        this->__delay(context, walk_step_t::analysis, (object_t *)new_default_constructor);
+
+        // Static fields with initial values need a static constructor.
+        if (al::in(type->this_ttype(), ttype_t::class_, ttype_t::struct_))
+        {
+            bool has_static_ctor = al::any_of(this->methods, [](method_t * m) {
+                return m->trait == method_trait_t::static_constructor;
+            });
+
+            bool has_static_init = al::any_of(this->fields, [](field_t * f) {
+                return f->is_static() && !f->is_const() && f->init_value != nullptr;
+            });
+
+            if (!has_static_ctor && has_static_init)
+            {
+                method_t * method = __new_obj<method_t>();
+
+                method->name     = this->name;
+                method->decorate = __new_obj<decorate_t>();
+                method->decorate->access    = access_value_t::private_;
+                method->decorate->is_static = true;
+                method->trait    = method_trait_t::static_constructor;
+                method->body     = __new_obj<method_body_t>(context.current_region());
+                method->body->push_back(__new_obj<return_statement_t>());
+
+                this->methods.push_back(method);
+                this->__delay(context, walk_step_t::analysis,
+                                    (object_t *)__new_obj<__static_ctor_tag_t>(method));
+            }
+        }
 
         return true;
     }
@@ -3317,7 +3497,17 @@ namespace X_ROOT_NS::modules::compile {
         method_t * new_default_constructor = nullptr;
         __fields_init_stub_t * fields_init_stub = nullptr;
 
-        dynamic_cast_tie(tag_obj, &new_default_constructor, &fields_init_stub);
+        __static_ctor_tag_t * static_ctor_tag = nullptr;
+
+        dynamic_cast_tie(tag_obj, &new_default_constructor, &fields_init_stub,
+                                                            &static_ctor_tag);
+
+        if (static_ctor_tag != nullptr)
+        {
+            __method_utils_t(__context, context).revise_static_constructor(
+                                                            *static_ctor_tag->method);
+            return true;
+        }
 
         // Revise constructor.
         if (new_default_constructor != nullptr)
@@ -3399,6 +3589,200 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         return true;
+    }
+
+    // Returns whether a string ends with another.
+    static bool __ends_with(const string_t & s, const char_t * end)
+    {
+        size_t length = std::char_traits<char_t>::length(end);
+        return s.length() >= length && s.compare(s.length() - length, length, end) == 0;
+    }
+
+    // Makes the iterators of the methods that have yield statements.
+    void type_ast_node_t::__lower_iterators(ast_walk_context_t & context)
+    {
+        static int iterator_count = 0;
+
+        // The methods are found first: the iterators change the members.
+        std::vector<method_ast_node_t *> methods;
+        this->each_child_node<method_ast_node_t>(__methods__, [&](method_ast_node_t * method) {
+            if (method != nullptr
+                    && __has_yield(method->child_at(method_ast_node_t::__body__)))
+            {
+                methods.push_back(method);
+            }
+        });
+
+        for (method_ast_node_t * method : methods)
+        {
+            __lower_iterator(context, method, ++iterator_count);
+        }
+    }
+
+    // Makes the iterator of a method. The method that has yield statements makes an object of
+    // a class that is made here, the state, that has the params of the method, and is an
+    // IEnumerator<T> and an IEnumerable<T> that calls a delegate to go to the next item. The
+    // body of the method goes to a new method that is that delegate: its first param is the state
+    // object, its local variables are fields of it, and the yield statements are the places
+    // where it goes on (see method_ast_node_t::__walk_iterator_end).
+    void type_ast_node_t::__lower_iterator(ast_walk_context_t & context,
+                                           method_ast_node_t * method, int id)
+    {
+        #define __Fail(_reason)                                                         \
+            do {                                                                        \
+                this->__log((ast_node_t *)method, __c_t::iterator_not_supported,        \
+                                                    _str(method->name), _T(_reason));   \
+                return;                                                                 \
+            } while (false)
+
+        if (this->params != nullptr && this->params->size() > 0)
+            __Fail("in a generic type");
+
+        if (method->generic_params != nullptr && method->generic_params->size() > 0)
+            __Fail("a generic method");
+
+        // IEnumerable<T> or IEnumerator<T>.
+        string_t return_type = method->type_name != nullptr?
+                                        string_t(_str(method->type_name)) : string_t();
+
+        size_t lt = return_type.find(_T('<')), gt = return_type.rfind(_T('>'));
+        if (lt == string_t::npos || gt == string_t::npos || gt < lt)
+        {
+            this->__log((ast_node_t *)method, __c_t::iterator_return_type_invalid,
+                                                            (method_t *)method);
+            return;
+        }
+
+        string_t head = return_type.substr(0, lt);
+        string_t element = return_type.substr(lt + 1, gt - lt - 1);
+
+        if (!__ends_with(head, _T("IEnumerable")) && !__ends_with(head, _T("IEnumerator")))
+        {
+            this->__log((ast_node_t *)method, __c_t::iterator_return_type_invalid,
+                                                            (method_t *)method);
+            return;
+        }
+
+        // The params.
+        string_t params_text, ctor_params, ctor_assigns, fields_text, args_text;
+
+        if (method->params != nullptr)
+        {
+            for (param_t * param : *method->params)
+            {
+                if (param->ptype != param_type_t::__default__)
+                    __Fail("a ref, out or params param");
+
+                string_t type_text = _str(param->type_name);
+                string_t name_text = _str(param->name);
+
+                if (!params_text.empty())
+                {
+                    params_text += _T(", ");
+                    args_text += _T(", ");
+                }
+
+                params_text += type_text + _T(" ") + name_text;
+                args_text += name_text;
+
+                ctor_params += _T(", ") + type_text + _T(" p_") + name_text;
+                ctor_assigns += _T(" this.") + name_text + _T(" = p_") + name_text + _T(";");
+                fields_text += _T(" public ") + type_text + _T(" ") + name_text + _T(";");
+            }
+        }
+
+        string_t name = _str(method->name);
+        string_t id_text = _F(_T("%1%"), id);
+        string_t state_name = _T("__Iterator") + name + _T("_") + id_text;
+        string_t move_name = _T("__Move") + name + _T("_") + id_text;
+        bool is_static = method->is_static();
+
+        // The state class.
+        string_t state_text =
+            _T("public class ") + state_name + _T(" : IEnumerator<") + element
+            + _T(">, IEnumerable<") + element + _T("> {")
+            + _T(" public Int32 __state; public ") + element + _T(" __current;")
+            + _T(" public Delegate<Boolean, Object> __move;") + fields_text
+            + _T(" public ") + state_name + _T("(Delegate<Boolean, Object> move") + ctor_params
+            + _T(") { __move = move;") + ctor_assigns + _T(" }")
+            + _T(" public ") + element + _T(" Current { get { return __current; } }")
+            + _T(" public Boolean MoveNext() { return __move(this); }")
+            + _T(" public Void Reset() { throw new InvalidOperationException(")
+            + _T("\"The iterator cannot be reset.\"); }")
+            + _T(" public Void Dispose() { }")
+            + _T(" public Void __finish() { __state = -1; }")
+            + _T(" public IEnumerator<") + element + _T("> GetEnumerator() { return this; }")
+            + _T(" }");
+
+        // The method of the user, that makes the state object, and the method that does the work.
+        string_t methods_text =
+            string_t(_T("public class __Snippet { public ")) + return_type + _T(" ") + name + _T("(") + params_text + _T(") {")
+            + _T(" Delegate<Boolean, Object> __move = ") + move_name + _T(";")
+            + _T(" return new ") + state_name + _T("(__move")
+            + (args_text.empty()? string_t() : _T(", ") + args_text) + _T("); }")
+            + _T(" private ") + string_t(is_static? _T("static ") : _T(""))
+            + _T("Boolean ") + move_name + _T("(Object __iterator) {")
+            + _T(" ((") + state_name + _T(")__iterator).__finish(); return false; } }");
+
+        ast_node_t * state_root = __parse_snippet(state_text);
+        ast_node_t * methods_root = __parse_snippet(methods_text);
+
+        if (state_root == nullptr || methods_root == nullptr
+                    || state_root->child_count() == 0 || methods_root->child_count() == 0)
+        {
+            __Fail("its code cannot be made");
+        }
+
+        type_ast_node_t * state_node = (type_ast_node_t *)state_root->child_at(0);
+        type_ast_node_t * snippet = (type_ast_node_t *)methods_root->child_at(0);
+
+        ast_node_t * methods_node = snippet->child_at(__methods__);
+        if (state_node == nullptr || methods_node == nullptr || methods_node->child_count() < 2)
+            __Fail("its code cannot be made");
+
+        method_ast_node_t * new_method = (method_ast_node_t *)methods_node->child_at(0);
+        method_ast_node_t * move_method = (method_ast_node_t *)methods_node->child_at(1);
+
+        // The body of the method of the user goes to the method that does the work, and
+        // the method of the user has the body that makes the state object.
+        ast_node_t * old_body = method->child_at(method_ast_node_t::__body__);
+        method_body_t * old_body_object = method->body;
+
+        method->set_child(method_ast_node_t::__body__,
+                                    new_method->child_at(method_ast_node_t::__body__));
+        method->body = new_method->body;
+
+        // The end of the method that does the work: the iterator is finished.
+        method_body_ast_node_t * tail_node =
+                    (method_body_ast_node_t *)move_method->child_at(method_ast_node_t::__body__);
+        method_body_ast_node_t * old_body_node = (method_body_ast_node_t *)old_body;
+
+        tail_node->each_child_node<ast_node_t>(method_body_ast_node_t::__statements__,
+            [&](ast_node_t * statement) {
+                old_body_node->append_child(method_body_ast_node_t::__statements__, statement);
+            }
+        );
+
+        for (statement_t * statement : move_method->body->statements)
+        {
+            old_body_object->statements.push_back(statement);
+        }
+
+        move_method->set_child(method_ast_node_t::__body__, old_body);
+        move_method->body = old_body_object;
+
+        iterator_info_t * info = __new_obj<iterator_info_t>();
+        info->params = method->params;
+        info->state_type = state_node;
+        move_method->iterator_info = info;
+
+        this->append_child(__methods__, move_method);
+        this->methods.push_back((method_t *)move_method);
+
+        // The state class is walked, it is a class of the same namespace.
+        state_node->on_walk(context, (int)walk_step_t::default_, nullptr);
+
+        #undef __Fail
     }
 
     // Appends default constructor.
@@ -3970,6 +4354,11 @@ namespace X_ROOT_NS::modules::compile {
                 var_item->expression, var_item
             );
 
+            // The variable may be a field of the state object of an iterator.
+            method_t * current_method = context.current_method();
+            if (current_method != nullptr && current_method->iterator_info != nullptr)
+                ((iterator_info_t *)current_method->iterator_info)->defs.push_back(var_item);
+
             if (var_item->expression != nullptr && !__is_uncertain(type_name))
             {
                 var_item->expression->parent = __new_obj<type_cast_expression_t>(
@@ -4010,10 +4399,14 @@ namespace X_ROOT_NS::modules::compile {
             if (var_item->expression != nullptr)
             {
                 type_t * type1 = var_item->variable->type_name->type;
+                bind_lambda_to_type(var_item->expression, type1);
                 type_t * type2 = var_item->expression->get_type();
 
-                if (!is_type_compatible(type2, type1))
+                if (!is_type_compatible(type2, type1)
+                        && !is_constant_compatible(var_item->expression, type1))
+                {
                     __L(invalid_type_cast, type2->to_prototype(), type1->to_prototype());
+                }
             }
         }
 
@@ -4110,7 +4503,9 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool goto_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        this->__check_name_empty(this->label, _T("label"));
+        // Jumping to a label is not part of the language: structured statements
+        // (loops, break, continue, return, try) do the job.
+        this->__log(this, __c_t::goto_not_supported);
 
         return __super_t::on_walk(context, step, tag);
     }
@@ -4138,11 +4533,21 @@ namespace X_ROOT_NS::modules::compile {
             case walk_step_t::default_:
                 if (__super_t::on_walk(context, step, tag))
                 {
+                    this->__delay(context, walk_step_t::analysis);
                     this->__delay(context, walk_step_t::post_analysis);
                     return true;
                 }
 
                 return false;
+
+            case walk_step_t::analysis: {
+                // return (int x) => x; : the lambda is converted to the return type.
+                method_t * method = context.current_method();
+                if (method != nullptr && this->expression != nullptr && method->type_name != nullptr)
+                    bind_lambda_to_type(this->expression, method->type_name->type);
+
+                return true;
+            }
 
             case walk_step_t::post_analysis:
                 return __walk_post_analysis(context);
@@ -4180,6 +4585,40 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         return true;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // yield_st
+
+    // Commits this node.
+    void yield_st_ast_node_t::on_commit()
+    {
+        this->expression = __to_eobject<expression_t *>(__expression__);
+    }
+
+    // Returns this eobject.
+    statement_t * yield_st_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node: it is a statement of the method that does the work of an iterator, the
+    // method lists it, to make it when the types are known.
+    bool yield_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        if ((walk_step_t)step != walk_step_t::default_)
+            return true;
+
+        if (!this->is_break)
+            this->__check_empty(this->expression, this, __c_t::expression_missing, "yield");
+
+        method_t * method = context.current_method();
+        if (method == nullptr || method->iterator_info == nullptr)
+            this->__log(this, __c_t::yield_outside_iterator);
+        else
+            ((iterator_info_t *)method->iterator_info)->yields.push_back((yield_statement_t *)this);
+
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4299,6 +4738,67 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // Parses a source text, returns the root node.
+    ast_node_t * __utils_t::__parse_snippet(const string_t & text)
+    {
+        global_context_t & global_context = __global_context();
+        lang_id_t lang = global_context.lang_id_of(_T("cs"));
+
+        code_t * code = __context.compile_context.new_obj<code_t>(
+            global_context, string_t(text), lang, (const code_file_t *)nullptr
+        );
+
+        return code->build_ast(__context.compile_context);
+    }
+
+    // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
+    // Returns null if the type has no Dispose().
+    statement_t * __utils_t::__make_dispose_try(ast_walk_context_t & context,
+                    local_variable_t * variable, type_t * type, statement_t * body)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        atypes_t no_atypes;
+        analyze_member_args_t dispose_args(
+            member_type_t::method, __to_name(_T("Dispose")), &no_atypes
+        );
+
+        if (type == nullptr || type->get_member(dispose_args, true) == nullptr)
+            return nullptr;
+
+        auto name_of = [&]() -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable->get_name());
+        };
+
+        auto * function = __new_obj<system_expression_t<function_expression_t>>();
+        function->set_namex(__new_obj<system_expression_t<name_expression_t>>(
+            __to_name(_T("Dispose"))
+        ));
+
+        expression_t * call = __new_obj<__binary_t>(
+            operator_t::member_point, name_of(), function
+        );
+
+        walk_expression(this->__context, context, call);
+        statement_t * dispose = __new_obj<expression_statement_t>(call);
+
+        ttype_t ttype = type->this_ttype();
+        if (ttype == ttype_t::class_ || ttype == ttype_t::interface_)
+        {
+            expression_t * condition = __new_obj<__binary_t>(
+                operator_t::not_equal, name_of(),
+                __new_obj<system_expression_t<cvalue_expression_t>>(
+                    __new_obj<cvalue_t>(nullptr)
+                )
+            );
+
+            walk_expression(this->__context, context, condition);
+            dispose = __new_obj<if_statement_t>(condition, dispose, nullptr);
+        }
+
+        return __new_obj<try_statement_t>(body, dispose);
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // for_each_st
 
@@ -4325,11 +4825,352 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool for_each_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        if ((walk_step_t)step == walk_step_t::analysis)
+            return __walk_analysis(context);
+
         this->__check_name_empty(this->variable, _T("variable"));
         this->__check_empty(this->iterator, this, __c_t::iterator_missing, "for each");
         this->__check_empty(this->body, this, __c_t::body_missing, _T("for each"));
 
-        return __super_t::on_walk(context, step, tag);
+        // The variables are those of the statement: the element, and the array and the
+        // index it goes through.
+        static int for_each_count = 0;
+        int number = ++for_each_count;
+
+        context.push_new_region();
+        __region = context.current_region();
+
+        variable_defination_t vd(this->__context, context, (object_t *)(ast_node_t *)this);
+
+        __variable = vd.define_local(this->type_name, this->variable, false, nullptr,
+                                                                    (object_t *)(ast_node_t *)this);
+
+        __array = vd.define_local(
+            __new_obj<type_name_t>(uncertain_type_t::instance()),
+            __to_name(_F(_T("__foreach_array%1%"), number)), false, nullptr, (object_t *)(ast_node_t *)this
+        );
+
+        __index = vd.define_local(
+            __new_obj<type_name_t>(__XPool.get_internal_type(vtype_t::int32_)),
+            __to_name(_F(_T("__foreach_index%1%"), number)), false, nullptr, (object_t *)(ast_node_t *)this
+        );
+
+        // The analysis is delayed before the children are walked: it comes before the analysis
+        // of the body, that needs the type of the variable (var).
+        this->__delay(context, walk_step_t::analysis);
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.pop();
+        return r;
+    }
+
+    // Walks the analysis step of an iterator that has GetEnumerator(): the enumerator has
+    // MoveNext() and Current.
+    //   { enumerator = iterator.GetEnumerator();
+    //     for (; enumerator.MoveNext(); ) { variable = enumerator.Current; body } }
+    bool for_each_st_ast_node_t::__walk_analysis_enumerator(ast_walk_context_t & context,
+                                                            type_t * iterator_type)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        // The members of the type that foreach uses.
+        atypes_t no_atypes;
+        analyze_member_args_t get_enumerator_args(
+            member_type_t::method, __to_name(_T("GetEnumerator")), &no_atypes
+        );
+
+        method_t * get_enumerator = (method_t *)iterator_type->get_member(get_enumerator_args, true);
+        type_t * enumerator_type = get_enumerator != nullptr? get_enumerator->get_type() : nullptr;
+
+        analyze_member_args_t move_next_args(
+            member_type_t::method, __to_name(_T("MoveNext")), &no_atypes
+        );
+
+        analyze_member_args_t current_args(member_type_t::property, __to_name(_T("Current")));
+
+        method_t * move_next = nullptr;
+        property_t * current = nullptr;
+
+        if (enumerator_type != nullptr)
+        {
+            move_next = (method_t *)enumerator_type->get_member(move_next_args, true);
+            current = (property_t *)enumerator_type->get_member(current_args, true);
+        }
+
+        if (get_enumerator == nullptr || move_next == nullptr || current == nullptr)
+        {
+            this->__log(this, __c_t::for_each_type_not_supported, iterator_type);
+            return true;
+        }
+
+        type_t * element_type = to_type(current->type_name);
+
+        __array->type_name->type = enumerator_type;     // The enumerator.
+        if (__is_uncertain(__variable->type_name))
+            __variable->type_name->type = element_type;
+
+        auto name_of = [this](variable_t * variable) -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable->get_name());
+        };
+
+        auto call_of = [this](const char_t * name) -> expression_t * {
+            auto * function = __new_obj<system_expression_t<function_expression_t>>();
+            function->set_namex(__new_obj<system_expression_t<name_expression_t>>(__to_name(name)));
+            return function;
+        };
+
+        // enumerator = iterator.GetEnumerator()
+        expression_t * assign_enumerator = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__array),
+            __new_obj<__binary_t>(
+                operator_t::member_point, this->iterator, call_of(_T("GetEnumerator"))
+            )
+        );
+
+        // enumerator.MoveNext()
+        expression_t * condition = __new_obj<__binary_t>(
+            operator_t::member_point, name_of(__array), call_of(_T("MoveNext"))
+        );
+
+        // variable = enumerator.Current
+        expression_t * assign_variable = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__variable),
+            __new_obj<__binary_t>(
+                operator_t::member_point, name_of(__array),
+                __new_obj<system_expression_t<name_expression_t>>(__to_name(_T("Current")))
+            )
+        );
+
+        for (expression_t * exp : { assign_enumerator, condition, assign_variable })
+            walk_expression(this->__context, context, exp);
+
+        statement_group_t * loop_body = __new_obj<statement_group_t>();
+        loop_body->push_back(__new_obj<expression_statement_t>(assign_variable));
+        loop_body->push_back(this->body);
+
+        for_statement_t * for_statement = __new_obj<for_statement_t>(
+            nullptr, nullptr, condition, nullptr, loop_body
+        );
+
+        // The enumerator is disposed when the loop exits.
+        statement_t * loop = this->__make_dispose_try(context, __array, enumerator_type,
+                                                                            for_statement);
+        if (loop == nullptr)
+            loop = for_statement;
+
+        statement_group_t * lowered = __new_obj<statement_group_t>();
+        lowered->variable_region = __region;
+        lowered->push_back(__new_obj<expression_statement_t>(assign_enumerator));
+        lowered->push_back(loop);
+
+        this->lowered = lowered;
+        return true;
+    }
+
+    // Walks the analysis step: a for statement that goes through an array by an index.
+    //   { array = iterator; index = 0;
+    //     for (; index < array.Length; index = index + 1) { variable = array[index]; body } }
+    bool for_each_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        if (this->iterator == nullptr || this->body == nullptr || __variable == nullptr)
+            return true;
+
+        if (!this->iterator->walked)
+            walk_expression(this->__context, context, this->iterator);
+
+        type_t * iterator_type = this->iterator->get_type();
+        if (iterator_type == nullptr)
+        {
+            this->__log(this, __c_t::invalid_expression, this->iterator);
+            return true;
+        }
+
+        if (iterator_type->this_gtype() != gtype_t::array)
+            return __walk_analysis_enumerator(context, iterator_type);
+
+        if (((array_type_t *)iterator_type)->dimension != 1)
+        {
+            this->__log(this, __c_t::for_each_type_not_supported, iterator_type);
+            return true;
+        }
+
+        type_t * element_type = ((array_type_t *)iterator_type)->element_type;
+
+        __array->type_name->type = iterator_type;
+        if (__is_uncertain(__variable->type_name))
+            __variable->type_name->type = element_type;
+
+        // The names are resolved like the names of the programs.
+        auto name_of = [this](variable_t * variable) -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable->get_name());
+        };
+
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        // array = iterator
+        expression_t * assign_array = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__array), this->iterator
+        );
+
+        // index = 0
+        expression_t * assign_index = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__index), __to_value_expression((int32_t)0)
+        );
+
+        // index < array.Length
+        expression_t * condition = __new_obj<__binary_t>(
+            operator_t::less, name_of(__index),
+            __new_obj<__binary_t>(
+                operator_t::member_point, name_of(__array),
+                __new_obj<system_expression_t<name_expression_t>>(__to_name(_T("Length")))
+            )
+        );
+
+        // index = index + 1
+        expression_t * increase = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__index),
+            __new_obj<__binary_t>(
+                operator_t::add, name_of(__index), __to_value_expression((int32_t)1)
+            )
+        );
+
+        // variable = array[index]
+        arguments_t * arguments = __new_obj<arguments_t>();
+        argument_t * argument = __new_obj<argument_t>();
+        argument->expression = name_of(__index);
+        arguments->push_back(argument);
+
+        auto * element = __new_obj<system_expression_t<index_expression_t>>();
+        element->set_namex(name_of(__array));
+        element->set_arguments(arguments);
+
+        expression_t * assign_variable = __new_obj<__binary_t>(
+            operator_t::assign, name_of(__variable), element
+        );
+
+        for (expression_t * exp : { assign_array, assign_index, condition, increase,
+                                    assign_variable })
+        {
+            walk_expression(this->__context, context, exp);
+        }
+
+        // The body of the loop, one element at a time.
+        statement_group_t * loop_body = __new_obj<statement_group_t>();
+        loop_body->push_back(__new_obj<expression_statement_t>(assign_variable));
+        loop_body->push_back(this->body);
+
+        for_statement_t * for_statement = __new_obj<for_statement_t>(
+            nullptr, nullptr, condition, increase, loop_body
+        );
+
+        statement_group_t * lowered = __new_obj<statement_group_t>();
+        lowered->variable_region = __region;
+        lowered->push_back(__new_obj<expression_statement_t>(assign_array));
+        lowered->push_back(__new_obj<expression_statement_t>(assign_index));
+        lowered->push_back(for_statement);
+
+        this->lowered = lowered;
+        return true;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // using_st
+
+    // Set variables.
+    void using_st_ast_node_t::set_variable(name_t name, __el_t * el)
+    {
+        this->__assign_name(this->variable, name, el, _T("var"));
+    }
+
+    // Commits this node.
+    void using_st_ast_node_t::on_commit()
+    {
+        this->initializer = __to_eobject<expression_t *>(__initializer__);
+        this->type_name   = __to_eobject<type_name_t *>(__type_name__);
+        this->body        = __to_eobject<statement_t *>(__body__);
+    }
+
+    // Returns this eobject.
+    statement_t * using_st_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node.
+    bool using_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        if ((walk_step_t)step == walk_step_t::analysis)
+            return __walk_analysis(context);
+
+        this->__check_name_empty(this->variable, _T("variable"));
+        this->__check_empty(this->initializer, this, __c_t::iterator_missing, "using");
+        this->__check_empty(this->body, this, __c_t::body_missing, _T("using"));
+
+        context.push_new_region();
+        __region = context.current_region();
+
+        variable_defination_t vd(this->__context, context, (object_t *)(ast_node_t *)this);
+
+        __variable = vd.define_local(this->type_name, this->variable, false, nullptr,
+                                                                    (object_t *)(ast_node_t *)this);
+
+        // The analysis is delayed before the children are walked.
+        this->__delay(context, walk_step_t::analysis);
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.pop();
+        return r;
+    }
+
+    // Walks the analysis step:
+    //   { variable = initializer; try { body } finally { if (variable != null) variable.Dispose(); } }
+    bool using_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        if (this->initializer == nullptr || this->body == nullptr || __variable == nullptr)
+            return true;
+
+        if (!this->initializer->walked)
+            walk_expression(this->__context, context, this->initializer);
+
+        type_t * initializer_type = this->initializer->get_type();
+        if (initializer_type == nullptr)
+        {
+            this->__log(this, __c_t::invalid_expression, this->initializer);
+            return true;
+        }
+
+        if (__is_uncertain(__variable->type_name))
+            __variable->type_name->type = initializer_type;
+
+        type_t * variable_type = to_type(__variable->type_name);
+
+        expression_t * assign = __new_obj<__binary_t>(
+            operator_t::assign,
+            __new_obj<system_expression_t<name_expression_t>>(__variable->get_name()),
+            this->initializer
+        );
+
+        walk_expression(this->__context, context, assign);
+
+        statement_t * protected_body = this->__make_dispose_try(context, __variable,
+                                                                variable_type, this->body);
+        if (protected_body == nullptr)
+        {
+            this->__log(this, __c_t::using_type_not_disposable, variable_type);
+            return true;
+        }
+
+        statement_group_t * lowered = __new_obj<statement_group_t>();
+        lowered->variable_region = __region;
+        lowered->push_back(__new_obj<expression_statement_t>(assign));
+        lowered->push_back(protected_body);
+
+        this->lowered = lowered;
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4481,6 +5322,8 @@ namespace X_ROOT_NS::modules::compile {
 
         variable_defination_t vd(this->__context, context, __variable_el);
         this->variable = vd.define_local(this->type_name, this->name);
+        if (this->variable != nullptr && this->variable->this_type() == variable_type_t::local)
+            ((local_variable_t *)this->variable)->no_hoist = true;
 
         bool r = __super_t::on_walk(context, step, tag);
 
@@ -4945,6 +5788,493 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // lambda
+
+    // Commits this node.
+    void lambda_ast_node_t::on_commit()
+    {
+    }
+
+    // Returns this eobject.
+    expression_t * lambda_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node: the params and the body are not walked as its children, but as those
+    // of the method that is made.
+    bool lambda_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        if ((walk_step_t)step == walk_step_t::default_)
+            __walk_default(context);
+        else if ((walk_step_t)step == walk_step_t::end)
+            __walk_end(context);
+
+        return true;
+    }
+
+    // Collects the expressions of an expression and those below it.
+    static void __collect_sub_expressions(expression_t * expression,
+                                          std::vector<expression_t *> & expressions)
+    {
+        if (expression == nullptr
+                || std::find(expressions.begin(), expressions.end(), expression)
+                                                                != expressions.end())
+        {
+            return;
+        }
+
+        expressions.push_back(expression);
+
+        for (size_t index = 0, count = expression->expression_count(); index < count; index++)
+        {
+            __collect_sub_expressions(expression->expression_at(index), expressions);
+        }
+    }
+
+    // Collects the expressions of a node and its children.
+    static void __collect_expressions(ast_node_t * node, std::vector<expression_t *> & expressions)
+    {
+        if (node == nullptr)
+            return;
+
+        if (expression_ast_t * expression_ast = as<expression_ast_t *>(node))
+            __collect_sub_expressions(expression_ast->to_eobject(), expressions);
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            __collect_expressions(node->child_at(index), expressions);
+        }
+    }
+
+    // Returns the type name of a local variable or a param.
+    static type_name_t * __type_name_of(variable_t * variable)
+    {
+        if (variable->this_type() == variable_type_t::param)
+            return ((param_variable_t *)variable)->param->type_name;
+
+        return ((local_variable_t *)variable)->type_name;
+    }
+
+    // Makes the method of the lambda, a method of the type that has the current method: it
+    // is static if that one is. It is walked as a method of the type, so it cannot see the
+    // variables of the method that has the lambda. The lambda is then the name of it.
+    void lambda_ast_node_t::__walk_default(ast_walk_context_t & context)
+    {
+        type_t * type = context.current_type();
+        method_t * outer = context.current_method();
+
+        if (type == nullptr || type->this_gtype() != gtype_t::general || outer == nullptr)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_outside_method);
+            return;
+        }
+
+        static int lambda_count = 0;
+        name_t name = __to_name(_F(_T("__lambda%1%"), ++lambda_count));
+
+        // The params that have no types.
+        params_t * untyped_params = nullptr;
+        if (!__param_names.empty())
+        {
+            untyped_params = __new_obj<params_t>();
+            for (name_t param_name : __param_names)
+            {
+                untyped_params->push_back(__new_obj<param_t>(
+                    __new_obj<type_name_t>(uncertain_type_t::instance()), param_name
+                ));
+            }
+        }
+
+        // The local variables of the method that has the lambda, that it uses.
+        __collect_expressions(this->child_at(__body__), __used);
+        __collect_expressions(this->child_at(__expression__), __used);
+
+        {
+            params_t * typed_params = __to_eobject<params_t *>(__params__);
+
+            auto is_param = [&](name_t used_name) {
+                for (name_t param_name : __param_names)
+                {
+                    if (param_name == used_name)
+                        return true;
+                }
+
+                if (typed_params != nullptr)
+                {
+                    for (param_t * param : *typed_params)
+                    {
+                        if (param->name == used_name)
+                            return true;
+                    }
+                }
+
+                return false;
+            };
+
+            variable_region_t * region = context.current_region();
+            for (expression_t * exp : __used)
+            {
+                if (exp->this_family() != expression_family_t::name || region == nullptr)
+                    continue;
+
+                name_t used_name = ((name_expression_t *)exp)->name;
+                if (used_name.empty() || is_param(used_name))
+                    continue;
+
+                // The params of the method are defined after its body is walked.
+                bool outer_param = false;
+                if (((method_t *)outer)->params != nullptr)
+                {
+                    for (param_t * param : *((method_t *)outer)->params)
+                        outer_param = outer_param || param->name == used_name;
+                }
+
+                variable_t * variable = region->get(used_name);
+                bool local = variable != nullptr
+                    && (variable->this_type() == variable_type_t::local
+                        || variable->this_type() == variable_type_t::param);
+
+                if (!local && !outer_param)
+                    continue;
+
+                if (std::find(__captured_names.begin(), __captured_names.end(), used_name)
+                                                                    == __captured_names.end())
+                {
+                    __captured_names.push_back(used_name);
+                }
+            }
+        }
+
+        // A lambda that has the variables of a lambda that has them too.
+        if (!__captured_names.empty() && ((method_t *)outer)->lambda_walk_inside)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                _T("in a lambda that uses local variables"));
+            __captured_names.clear();
+        }
+
+        if (!__captured_names.empty() && ((method_t *)outer)->iterator_info != nullptr)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                _T("in an iterator"));
+            __captured_names.clear();
+        }
+
+        // The class of the object that has the values of the variables.
+        if (!__captured_names.empty())
+        {
+            static int env_count = 0;
+
+            string_t env_name = _F(_T("__Env%1%"), ++env_count);
+            string_t fields_text, params_text, assigns_text;
+
+            for (size_t index = 0; index < __captured_names.size(); index++)
+            {
+                string_t i = _F(_T("%1%"), (int)index);
+                fields_text += _T(" public Object __c") + i + _T(";");
+                params_text += string_t(index > 0? _T(", ") : _T("")) + _T("Object p") + i;
+                assigns_text += _T(" this.__c") + i + _T(" = p") + i + _T(";");
+            }
+
+            string_t env_text = _T("public class ") + env_name + _T(" {") + fields_text
+                + _T(" public ") + env_name + _T("(") + params_text + _T(") {")
+                + assigns_text + _T(" } }");
+
+            ast_node_t * root = this->__parse_snippet(env_text);
+            if (root == nullptr || root->child_count() == 0)
+            {
+                this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                    _T("because its code cannot be made"));
+                __captured_names.clear();
+            }
+            else
+            {
+                type_ast_node_t * env_node = (type_ast_node_t *)root->child_at(0);
+
+                auto * env_layer = context.enter_type_level();
+                env_node->on_walk(context, (int)walk_step_t::default_, nullptr);
+                context.leave_type_level(env_layer);
+
+                __env_node = env_node;
+            }
+        }
+
+        bool captures = !__captured_names.empty();
+
+        method_ast_node_t * method = __new_obj<method_ast_node_t>(this->__context);
+        method->init_lambda(name, outer->is_static() && !captures, this->child_at(__params__),
+            this->child_at(__body__), this->child_at(__expression__),
+            __to_eobject<expression_t *>(__expression__), (ast_node_t *)this, untyped_params
+        );
+
+        ((general_type_t *)type)->append_member((method_t *)method);
+
+        // The body is analyzed after the statements that give the types of the params.
+        int saved_bias = context.delay_bias;
+        if (untyped_params != nullptr)
+            context.delay_bias = 1;
+
+        if (captures)
+        {
+            // The variables of the method are seen by the lambda.
+            method->lambda_walk_inside = true;
+            method->on_walk(context, (int)walk_step_t::default_, nullptr);
+
+            {
+                auto * layer = context.enter_type_level();
+                variable_defination_t vd(this->__context, context, (method_t *)method);
+                vd.define_method(method);
+                context.leave_type_level(layer);
+            }
+
+            __method = method;
+            __outer  = outer;
+
+            this->__delay(context, walk_step_t::end);
+        }
+        else
+        {
+            auto * layer = context.enter_type_level();
+            method->on_walk(context, (int)walk_step_t::default_, nullptr);
+            context.leave_type_level(layer);
+        }
+
+        context.delay_bias = saved_bias;
+
+        this->name = name;
+    }
+
+    // The end of the lambda that uses local variables. The class of its environment has a
+    // field for each of them: they are the fields that the lambda uses, and the delegate has an
+    // object of that class that has the values of the variables when the lambda is made.
+    void lambda_ast_node_t::__walk_end(ast_walk_context_t & context)
+    {
+        if (__env_node == nullptr || __method == nullptr)
+            return;
+
+        general_type_t * env = __env_node;
+
+        // The variables: the params of the method are defined now.
+        variable_region_t * region = context.current_region();
+        for (name_t captured_name : __captured_names)
+        {
+            variable_t * variable = region != nullptr? region->get(captured_name) : nullptr;
+            if (variable == nullptr || (variable->this_type() != variable_type_t::local
+                                    && variable->this_type() != variable_type_t::param))
+            {
+                this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                    _T("because its code cannot be made"));
+                return;
+            }
+
+            __captured.push_back(variable);
+        }
+
+        // The fields and the constructor.
+        std::vector<field_t *> fields;
+        for (size_t index = 0; index < __captured.size(); index++)
+        {
+            name_t field_name = __to_name(_F(_T("__c%1%"), (int)index));
+            field_t * found = nullptr;
+
+            for (field_t * field : env->fields)
+            {
+                if (field->name == field_name)
+                    found = field;
+            }
+
+            fields.push_back(found);
+        }
+
+        method_t * constructor = nullptr;
+        for (method_t * method : env->methods)
+        {
+            if (method->trait == method_trait_t::constructor)
+                constructor = method;
+        }
+
+        bool complete = constructor != nullptr && constructor->params != nullptr
+                    && constructor->params->size() == __captured.size();
+
+        for (field_t * field : fields)
+            complete = complete && field != nullptr;
+
+        if (!complete)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                _T("because its code cannot be made"));
+            return;
+        }
+
+        // The types of the variables.
+        for (size_t index = 0; index < __captured.size(); index++)
+        {
+            type_name_t * type_name = __type_name_of(__captured[index]);
+
+            fields[index]->type_name = type_name;
+            (*constructor->params)[index]->type_name = type_name;
+        }
+
+        // The variables are not modified.
+        auto is_written = [&](expression_t * exp) -> bool {
+            expression_t * parent = exp->parent;
+            op_expression_base_t * op_exp = dynamic_cast<op_expression_base_t *>(parent);
+            if (op_exp == nullptr)
+                return false;
+
+            switch (op_exp->get_operator_property()->op)
+            {
+                case operator_t::assign:
+                case operator_t::add_assign: case operator_t::sub_assign:
+                case operator_t::mul_assign: case operator_t::div_assign:
+                case operator_t::mod_assign:
+                case operator_t::left_shift_assign: case operator_t::right_shift_assign:
+                case operator_t::bit_and_assign: case operator_t::bit_or_assign:
+                case operator_t::bit_xor_assign: case operator_t::null_coalescing_assign:
+                    return parent->expression_at(0) == exp;
+
+                case operator_t::left_increment: case operator_t::left_decrement:
+                case operator_t::right_increment: case operator_t::right_decrement:
+                    return true;
+
+                default:
+                    return false;
+            }
+        };
+
+        std::vector<expression_t *> all(__used);
+        method_ast_node_t * outer_ast = (method_ast_node_t *)__outer;
+        __collect_expressions(outer_ast->child_at(method_ast_node_t::__body__), all);
+
+        bool modified = false;
+        for (expression_t * exp : all)
+        {
+            if (modified || exp->this_family() != expression_family_t::name)
+                continue;
+
+            name_expression_t * name_exp = (name_expression_t *)exp;
+            if (name_exp->expression_type != name_expression_type_t::variable
+                    || name_exp->variable == nullptr || !is_written(exp))
+            {
+                continue;
+            }
+
+            if (std::find(__captured.begin(), __captured.end(), name_exp->variable)
+                                                                    != __captured.end())
+            {
+                this->__log((ast_node_t *)this, __c_t::lambda_capture_modified,
+                                                    _str(name_exp->variable->get_name()));
+                modified = true;
+            }
+        }
+
+        // The members of the object are not seen: the object of the lambda is the environment.
+        for (expression_t * exp : __used)
+        {
+            bool member = exp->this_family() == expression_family_t::this_
+                       || exp->this_family() == expression_family_t::base;
+
+            if (exp->this_family() == expression_family_t::name)
+            {
+                name_expression_t * name_exp = (name_expression_t *)exp;
+                variable_t * variable = name_exp->variable;
+
+                if (name_exp->expression_type == name_expression_type_t::variable
+                        && variable != nullptr)
+                {
+                    variable_type_t vt = variable->this_type();
+                    if (vt == variable_type_t::field || vt == variable_type_t::property
+                            || vt == variable_type_t::event || vt == variable_type_t::method)
+                    {
+                        member_t * relation = variable->get_relation_member();
+                        bool right = false;
+
+                        if (exp->parent != nullptr)
+                        {
+                            binary_expression_t * binary =
+                                        dynamic_cast<binary_expression_t *>(exp->parent);
+
+                            right = binary != nullptr
+                                    && binary->op() == operator_t::member_point
+                                    && binary->exp2() == exp;
+                        }
+
+                        bool lambda = vt == variable_type_t::method
+                                    && ((method_variable_t *)variable)->method != nullptr
+                                    && ((method_variable_t *)variable)->method->is_lambda;
+
+                        member = relation != nullptr && !relation->is_static()
+                                    && !right && !lambda;
+                    }
+                }
+            }
+
+            if (member)
+            {
+                this->__log((ast_node_t *)this, __c_t::lambda_capture_member);
+                break;
+            }
+        }
+
+        // The names are the fields.
+        for (expression_t * exp : __used)
+        {
+            if (exp->this_family() != expression_family_t::name)
+                continue;
+
+            name_expression_t * name_exp = (name_expression_t *)exp;
+            if (name_exp->expression_type != name_expression_type_t::variable)
+                continue;
+
+            for (size_t index = 0; index < __captured.size(); index++)
+            {
+                if (name_exp->variable != __captured[index])
+                    continue;
+
+                field_t * field = fields[index];
+                if (field->variable == nullptr)
+                    field->variable = __new_obj<field_variable_t>(field);
+
+                name_exp->variable = field->variable;
+            }
+        }
+
+        // The object of the delegate: new Env(variable, ...)
+        arguments_t * arguments = __new_obj<arguments_t>();
+        for (variable_t * variable : __captured)
+        {
+            argument_t * argument = __new_obj<argument_t>();
+            argument->expression = __new_obj<system_expression_t<name_expression_t>>(
+                variable->get_name()
+            );
+
+            arguments->push_back(argument);
+        }
+
+        auto * new_exp = __new_obj<system_expression_t<new_expression_t>>();
+        new_exp->type_name = __new_obj<type_name_t>((type_t *)env);
+        new_exp->set_arguments(arguments);
+
+        // The object is the value of an expression that is effective: it is not popped.
+        __new_obj<system_expression_t<binary_expression_t>>(operator_t::assign,
+            __new_obj<system_expression_t<name_expression_t>>(__captured[0]->get_name()), new_exp
+        );
+
+        walk_expression(this->__context, context, new_exp);
+
+        new_exp->constructor = find_constructor(this->__context, (type_t *)env, arguments);
+        if (new_exp->constructor == nullptr)
+        {
+            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
+                _T("because its code cannot be made"));
+            return;
+        }
+
+        __method->lambda_env_new = new_exp;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // field
 
     // Sets name.
@@ -5086,6 +6416,39 @@ namespace X_ROOT_NS::modules::compile {
         return this;
     }
 
+    // Makes this method the method of a lambda.
+    void method_ast_node_t::init_lambda(name_t name, bool is_static, ast_node_t * params,
+        ast_node_t * body, ast_node_t * expression_node, expression_t * expression,
+        ast_node_t * lambda_node, params_t * untyped_params)
+    {
+        if (params != nullptr)
+            this->set_child(__params__, params);
+
+        if (body != nullptr)
+            this->set_child(__body__, body);
+
+        this->on_commit();
+
+        if (untyped_params != nullptr)
+        {
+            this->params = untyped_params;
+            this->lambda_implicit = true;
+        }
+
+        this->name      = name;
+        this->trait     = method_trait_t::normal;
+        this->is_lambda = true;
+        this->lambda_expression = expression;
+        this->lambda_expression_node = expression_node;
+        this->lambda_node = lambda_node;
+
+        // The return type is the one of the delegate that the lambda is converted to.
+        this->type_name = __new_obj<type_name_t>(uncertain_type_t::instance());
+
+        this->decorate = __new_obj<decorate_t>(decorate_value_t::private_);
+        this->decorate->is_static = is_static;
+    }
+
     // Walks this node.
     bool method_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
@@ -5094,14 +6457,48 @@ namespace X_ROOT_NS::modules::compile {
             case walk_step_t::default_: {
                 context.push(this->to_eobject());
 
+                // The method that does the work of an iterator: the params of the method of
+                // the user are local variables, that are fields of the state object.
+                if (this->iterator_info != nullptr && ((iterator_info_t *)this->iterator_info)->params != nullptr)
+                {
+                    variable_defination_t vd(this->__context, context,
+                                                        (object_t *)(ast_node_t *)this);
+
+                    for (param_t * param : *((iterator_info_t *)this->iterator_info)->params)
+                    {
+                        vd.define_local(param->type_name, param->name, false, nullptr,
+                                                        (object_t *)(ast_node_t *)this);
+                    }
+                }
+
+                // The types of the params of the lambda are checked before its body is analyzed.
+                if (this->lambda_implicit)
+                    this->__delay(context, walk_step_t::analysis, (void *)this->params);
+
                 __super_t::on_walk(context, step, tag);
+
+                // The expression that is the body of a lambda.
+                if (this->lambda_expression_node != nullptr)
+                    this->lambda_expression_node->on_walk(context, step, tag);
+
                 bool r = __walk_default(context);
                 if (r)
+                {
                     this->__delay(context, walk_step_t::analysis);
+
+                    // The return type of a lambda is given by the statement that has it,
+                    // in its analysis step.
+                    if (this->is_lambda)
+                        this->__delay(context, walk_step_t::post_analysis);
+
+                    // The iterator is made when all the types are known.
+                    if (this->iterator_info != nullptr)
+                        this->__delay(context, walk_step_t::end);
+                }
 
                 context.pop();
 
-                if (this->trait == method_trait_t::normal)
+                if (this->trait == method_trait_t::normal && !this->lambda_walk_inside)
                 {
                     variable_defination_t vd(this->__context, context, (method_t *)this);
                     vd.define_method(this);
@@ -5111,7 +6508,21 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             case walk_step_t::analysis:
+                if (tag != nullptr)
+                {
+                    __fix_implicit_lambda(context);
+                    return true;
+                }
+
                 return __walk_analysis(context);
+
+            case walk_step_t::post_analysis:
+                __walk_lambda_analysis(context);
+                return true;
+
+            case walk_step_t::end:
+                __walk_iterator_end(context);
+                return true;
 
             default: return true;
         }
@@ -5174,7 +6585,11 @@ namespace X_ROOT_NS::modules::compile {
 
             for (param_t * param : *this->params)
             {
-                vd.define_param(param);
+                param_variable_t * variable = vd.define_param(param);
+
+                // The state object of an iterator: the first param.
+                if (this->iterator_info != nullptr && ((iterator_info_t *)this->iterator_info)->base == nullptr)
+                    ((iterator_info_t *)this->iterator_info)->base = variable;
             }
 
             switch (this->trait)
@@ -5197,6 +6612,237 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    // The end of the method that does the work of an iterator: all the types are known. The
+    // local variables are fields of the state object, the names of them are those fields, the
+    // yield statements are the places where the method goes on at the next call:
+    //     if (state == -1) return false;
+    //     if (state == 1) goto label1; ...
+    //     ... current = x; state = 1; return true; label1: ...
+    //     state = -1; return false;
+    void method_ast_node_t::__walk_iterator_end(ast_walk_context_t & context)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        iterator_info_t * info = (iterator_info_t *)this->iterator_info;
+        general_type_t * state = info->state_type;
+
+        if (info->base == nullptr || state == nullptr || this->body == nullptr)
+            return;
+
+        auto find_field = [&](name_t name) -> field_t * {
+            for (field_t * field : state->fields)
+            {
+                if (field->name == name)
+                    return field;
+            }
+
+            return nullptr;
+        };
+
+        // The variable of a field of the state object: the object is the first param.
+        auto variable_of = [&](field_t * field) -> field_variable_t * {
+            auto * variable = __new_obj<field_variable_t>(field);
+            variable->hoist_base = info->base;
+            return variable;
+        };
+
+        auto name_of = [&](field_t * field) -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable_of(field));
+        };
+
+        auto assign_of = [&](field_t * field, expression_t * value) -> expression_t * {
+            expression_t * assign = __new_obj<__binary_t>(operator_t::assign,
+                                                          name_of(field), value);
+            walk_expression(this->__context, context, assign);
+            return assign;
+        };
+
+        // The local variables are fields.
+        int index = 0;
+        for (local_variable_t * variable : info->locals)
+        {
+            if (variable->no_hoist)
+                continue;
+
+            field_t * field = find_field(variable->name);   // The params.
+            if (field == nullptr)
+            {
+                field = __new_obj<field_t>();
+                field->name = __to_name(_F(_T("__local%1%_%2%"), ++index, _str(variable->name)));
+                field->type_name = variable->type_name;
+                field->decorate = __new_obj<decorate_t>(decorate_value_t::public_);
+                field->host_type = state;
+                field->variable = __new_obj<field_variable_t>(field);
+
+                state->append_member(field);
+            }
+
+            variable->hoisted = variable_of(field);
+        }
+
+        // The names are the fields.
+        for (name_expression_t * name_exp : info->refs)
+        {
+            if (name_exp->variable == nullptr
+                    || name_exp->variable->this_type() != variable_type_t::local)
+            {
+                continue;
+            }
+
+            local_variable_t * variable = (local_variable_t *)name_exp->variable;
+            if (variable->hoisted != nullptr)
+                name_exp->variable = variable->hoisted;
+        }
+
+        // The initial values are assigned to the fields.
+        for (defination_statement_item_t * item : info->defs)
+        {
+            if (item->variable == nullptr || item->variable->hoisted == nullptr
+                    || item->expression == nullptr)
+            {
+                continue;
+            }
+
+            expression_t * assign = __new_obj<__binary_t>(operator_t::assign,
+                __new_obj<system_expression_t<name_expression_t>>(item->variable->hoisted),
+                item->expression
+            );
+
+            walk_expression(this->__context, context, assign);
+            item->hoist_assign = assign;
+        }
+
+        // The yield statements.
+        field_t * state_field = find_field(__to_name(_T("__state")));
+        field_t * current_field = find_field(__to_name(_T("__current")));
+        if (state_field == nullptr || current_field == nullptr)
+            return;
+
+        auto value_of = [&](int32_t value) -> expression_t * {
+            return __to_value_expression(value);
+        };
+
+        auto return_of = [&](bool value) -> statement_t * {
+            return __new_obj<return_statement_t>(__to_value_expression(value));
+        };
+
+        auto statement_of = [&](expression_t * exp) -> statement_t * {
+            return __new_obj<expression_statement_t>(exp);
+        };
+
+        iterator_dispatch_statement_t * dispatch = __new_obj<iterator_dispatch_statement_t>();
+        int state_index = 0;
+
+        for (yield_statement_t * yield : info->yields)
+        {
+            statement_group_t * group = __new_obj<statement_group_t>();
+            group->variable_region = this->body->variable_region;
+
+            if (yield->is_break)
+            {
+                group->push_back(statement_of(assign_of(state_field, value_of(-1))));
+                group->push_back(return_of(false));
+            }
+            else
+            {
+                yield->state = ++state_index;
+
+                group->push_back(statement_of(assign_of(current_field, yield->expression)));
+                group->push_back(statement_of(assign_of(state_field, value_of(yield->state))));
+                group->push_back(return_of(true));
+
+                expression_t * condition = __new_obj<__binary_t>(operator_t::equal,
+                    name_of(state_field), value_of(yield->state)
+                );
+
+                walk_expression(this->__context, context, condition);
+
+                dispatch->yields.push_back(yield);
+                dispatch->conditions.push_back(condition);
+            }
+
+            yield->lowered = group;
+        }
+
+        // if (state == -1) return false;
+        expression_t * ended = __new_obj<__binary_t>(operator_t::equal,
+            name_of(state_field), value_of(-1)
+        );
+
+        walk_expression(this->__context, context, ended);
+        dispatch->end_check = __new_obj<if_statement_t>(ended, return_of(false), nullptr);
+
+        this->body->push_front((statement_t *)dispatch);
+
+    }
+
+    // The params of a lambda that has no types are the ones of the delegate, if it is not
+    // converted to a delegate they have no types: they are objects, to analyze the body.
+    void method_ast_node_t::__fix_implicit_lambda(ast_walk_context_t & context)
+    {
+        bool logged = false;
+
+        for (param_t * param : *this->params)
+        {
+            if (param->type_name == nullptr
+                    || param->type_name->type != uncertain_type_t::instance())
+            {
+                continue;
+            }
+
+            if (!logged)
+            {
+                this->__log(this->lambda_node, __c_t::lambda_type_undetermined);
+                logged = true;
+            }
+
+            param->type_name->type = __XPool.get_object_type();
+        }
+    }
+
+    // Walks the analysis step of the method of a lambda: the return type is known now, the body
+    // of a lambda that is an expression is made.
+    void method_ast_node_t::__walk_lambda_analysis(ast_walk_context_t & context)
+    {
+        type_t * return_type = this->type_name != nullptr? this->type_name->type : nullptr;
+        if (return_type == nullptr || return_type == uncertain_type_t::instance())
+        {
+            this->__log(this->lambda_node, __c_t::lambda_type_undetermined);
+
+            return_type = __XPool.get_internal_type(vtype_t::void_);
+            this->type_name->type = return_type;
+        }
+
+        if (this->lambda_expression == nullptr)
+            return;
+
+        expression_t * exp = this->lambda_expression;
+        if (!exp->walked)
+            walk_expression(this->__context, context, exp);
+
+        method_body_t * body = __new_obj<method_body_t>(context.current_region());
+
+        if (is_void_type(return_type))
+        {
+            body->statements.push_back(__new_obj<expression_statement_t>(exp));
+            body->statements.push_back(__new_obj<return_statement_t>());
+        }
+        else
+        {
+            type_t * type = exp->get_type();
+            if (type == nullptr || (!is_type_compatible(type, return_type)
+                                    && !is_constant_compatible(exp, return_type)))
+            {
+                this->__log(this->lambda_node, __c_t::method_incompatible_return_value,
+                                                                    (method_t *)this);
+            }
+
+            body->statements.push_back(__new_obj<return_statement_t>(exp));
+        }
+
+        this->body = body;
+    }
+
     // Walks the analysis step.
     bool method_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
@@ -5204,12 +6850,13 @@ namespace X_ROOT_NS::modules::compile {
         switch (this->trait)
         {
             case method_trait_t::static_constructor:
+                __method_utils_t(__context, context).revise_static_constructor(*this);
                 break;
 
             case method_trait_t::constructor:
                 __method_utils_t(__context, context).revise_constructor(*this,
                     __to_eobject<arguments_t *>(__base_ctor_args__),
-                    this->child_at(__base_ctor_args__)
+                    this->child_at(__base_ctor_args__), __ctor_this
                 );
                 break;
 

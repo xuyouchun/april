@@ -259,57 +259,29 @@ namespace X_ROOT_NS::algorithm {
                 (_count) * sizeof(obj_t)                                                \
             )
 
+        // Moves an object, objects are relocated by copying their memory.
+        void __relocate(size_t to, size_t from)
+        {
+            quick_copy(&(*this)[to], &(*this)[from], sizeof(obj_t));
+        }
+
         // Move all objects to next from specified index.
         obj_t * __move_next(size_t index)
         {
+            size_t old_size = __size;
             obj_t * hole = __current_hole();    // Append a new hole at last.
 
-            int from_row = index / __row_size, from_col = index % __row_size;
-            int row = __current_row, col = __current_col - 1;
+            for (size_t k = old_size; k > index; k--)
+                __relocate(k, k - 1);
 
-            if (row > from_row)
-            {
-                __Copy(row, 1, row, 0, col);
-
-                for (row--; row > from_row; row--)
-                {
-                    __Copy(row + 1, 0, row, __row_size - 1, 1);
-                    __Copy(row, 1, row, 0, __row_size - 1);
-                }
-
-                __Copy(row + 1, 0, row, __row_size - 1, 1);
-                __Copy(row, from_col + 1, row, from_col, __row_size - from_col - 1);
-            }
-            else
-            {
-                __Copy(from_row, from_col + 1, from_row, from_col, col - from_col);
-            }
-
-            return __H(from_row, from_col);
+            return &(*this)[index];
         }
 
         // Move all objects to previous from specified index.
         void __move_previous(size_t index)
         {
-            int from_row = index / __row_size, from_col = index % __row_size;
-            int row = __current_row, col = __current_col - 1;
-
-            if (row > from_row)
-            {
-                __Copy(from_row, from_col - 1, from_row, from_col, __row_size - from_col);
-
-                for (size_t row1 = from_row + 1; row1 < row; row1++)
-                {
-                    __Copy(row1 - 1, __row_size - 1, row1, 0, 1);
-                    __Copy(row1, 0, row1, 1, __row_size - 1);
-                }
-
-                __Copy(row, 0, row, 1, col);
-            }
-            else
-            {
-                __Copy(from_row, from_col - 1, from_row, from_col, col - from_col + 1);
-            }
+            for (size_t k = index; k < __size; k++)
+                __relocate(k - 1, k);
 
             __size--;
             if (__current_col == 0)
@@ -427,7 +399,7 @@ namespace X_ROOT_NS::algorithm {
 
     class xheap_t : public object_t, public memory_t
     {
-        typedef int16_t __size_t;
+        typedef int16_t __row_size_t;
 
     public:
     
@@ -457,7 +429,7 @@ namespace X_ROOT_NS::algorithm {
         struct __row_t
         {
             byte_t * buffer;
-            __size_t object_count;
+            __row_size_t object_count;
         };
 
         // A row collection structure for recording a row array.
@@ -465,8 +437,8 @@ namespace X_ROOT_NS::algorithm {
         {
             std::vector<__row_t> rows;
             __row_t * current_row;
-            __size_t  capacity;
-            __size_t  bytes_count;
+            __row_size_t  capacity;
+            __row_size_t  bytes_count;
         };
 
         __row_collection_t __row_collections[__large_object_size / sizeof(int)];
@@ -1368,13 +1340,17 @@ namespace X_ROOT_NS::algorithm {
                 const __node_t * node = queue_pop(queue);
                 __data.push_back(node->value);
 
-                uint8_t count = 0;
+                size_t count = 0;
                 node->each_child([&](const __node_t * child) {
                     queue.push(child);
                     count++;
                 });
 
-                __node_counts.push_back(count);
+                // The counts are stored as uint16_t: a bigger one would be restored wrongly.
+                if (count > std::numeric_limits<uint16_t>::max())
+                    throw _EC(invalid_operation, _T("store lr_tree failed, too many children"));
+
+                __node_counts.push_back((uint16_t)count);
             }
         }
 
@@ -1402,7 +1378,7 @@ namespace X_ROOT_NS::algorithm {
 
             for (size_t index = 0, count = __node_counts.size(); index < count; index++)
             {
-                uint8_t child_count = __node_counts[index];
+                uint16_t child_count = __node_counts[index];
                 
                 if (queue.empty())
                     throw _EC(invalid_operation, _T("restore lr_tree failed, queue empty"));
@@ -1429,7 +1405,7 @@ namespace X_ROOT_NS::algorithm {
 
     private:
         __vector_t<_value_t>    __data;
-        __vector_t<uint8_t>     __node_counts;
+        __vector_t<uint16_t>    __node_counts;
 
         // Adapter to convert a creator to memory_t interface.
         class __memory_adapter_t : public object_t, public memory_t

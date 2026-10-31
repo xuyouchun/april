@@ -103,7 +103,7 @@ namespace X_ROOT_NS::modules::core {
         // Enums all general types.
         template<typename callback_t> void each_general_types(callback_t callback)
         {
-            __each_types(__general_types, callback);
+            __each_types(__general_type_list, callback);
         }
 
         // Gets typedef of specified namespace and name.
@@ -113,7 +113,7 @@ namespace X_ROOT_NS::modules::core {
         // Enums all typedefs.
         template<typename callback_t> void each_type_defs(callback_t callback)
         {
-            __each_types(__type_defs, callback);
+            __each_types(__type_def_list, callback);
         }
 
         // Gets the generic type of specified template and types and host type.
@@ -123,7 +123,7 @@ namespace X_ROOT_NS::modules::core {
         // Enums all generic types.
         template<typename callback_t> void each_generic_types(callback_t callback)
         {
-            __each_types(__generic_types, callback);
+            __each_types(__generic_type_list, callback);
         }
 
         // Creates a new generic type.
@@ -136,7 +136,7 @@ namespace X_ROOT_NS::modules::core {
         // Enums all array types.
         template<typename callback_t> void each_array_types(callback_t callback)
         {
-            __each_types(__array_types, callback);
+            __each_types(__array_type_list, callback);
         }
 
         X_TO_STRING_IMPL(_T("types_t"))
@@ -167,11 +167,21 @@ namespace X_ROOT_NS::modules::core {
         std::map<__array_type_key_t,   array_type_t *>   __array_types;
         std::map<__type_def_key_t,     type_def_t *>     __type_defs;
 
-        // Enums types in the map.
-        template<typename _key_t, typename _type_t, typename callback_t>
-        void __each_types(std::map<_key_t, _type_t *> & map, callback_t callback)
+        // The types in the order they were added: the keys of the maps have the addresses of
+        // types, so the order of a map changes in every run, and the order of the output with it.
+        std::vector<general_type_t *>   __general_type_list;
+        std::vector<generic_type_t *>   __generic_type_list;
+        std::vector<array_type_t *>     __array_type_list;
+        std::vector<type_def_t *>       __type_def_list;
+
+        // Enums types of the list. (The callbacks may add types: the list is walked by index.)
+        template<typename _type_t, typename callback_t>
+        void __each_types(std::vector<_type_t *> & list, callback_t callback)
         {
-            al::for_each(map, [&callback](auto & it) { callback(it.second); });
+            for (size_t index = 0; index < list.size(); index++)
+            {
+                callback(list[index]);
+            }
         }
     };
 

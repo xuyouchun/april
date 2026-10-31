@@ -73,6 +73,9 @@ namespace X_ROOT_NS::modules::lang_cs {
         // keywords: w...
         k_while,        k_where,
 
+        // keywords: y...
+        k_yield,
+
         __keyword_end,
         //-------- ---------- ---------- ---------- ----------
         __operator_begin,
@@ -119,6 +122,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         semicolon,      base_mark,              // ; :
         dollar,         ampersand,              // $ @
         three_dots,                             // ...
+        arrow,                                  // =>
 
     X_ENUM_END
 

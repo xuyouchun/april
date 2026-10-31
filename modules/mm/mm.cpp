@@ -140,7 +140,10 @@ namespace X_ROOT_NS::modules::mm {
         dimension_t dimension = type->dimension;
 
         array_length_t length = *lengths;
-        size_t element_size = unit_align(1, type->element_type->get_size());
+        // A struct is as large as its fields: the elements are that far from each other.
+        size_t element_size = al::max<size_t>(
+            unit_align(1, type->element_type->get_size()), type->element_type->get_size()
+        );
         size_t size = _alignf(length * element_size, sizeof(rt_stack_unit_t));
 
         void * obj;
@@ -162,6 +165,11 @@ namespace X_ROOT_NS::modules::mm {
             {
                 length *= *l;
             }
+
+            // Recomputes the total size with all dimensions multiplied:
+            // it was computed from the first dimension only, which
+            // under-allocated multi-dimensional arrays.
+            size = _alignf(length * element_size, sizeof(rt_stack_unit_t));
 
             // type info + length of each dimensions + array length.
             const size_t extern_size = _alignf(

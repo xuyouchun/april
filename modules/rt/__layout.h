@@ -292,10 +292,22 @@ namespace X_ROOT_NS::modules::rt {
         // Returns unit size of variables.
         msize_t unit_size() { return __local_unit_size; }
 
+        // Returns the units region [begin, end) that holds nothing but value-typed
+        // variables, which never hold references; empty (0, 0) if there is none.
+        // Valid after commit(), used by gc to skip the region.
+        void value_region(msize_t * out_begin_unit, msize_t * out_end_unit)
+        {
+            *out_begin_unit = __value_begin_unit;
+            *out_end_unit   = __value_end_unit;
+        }
+
         // Converts to a string.
         operator string_t() const;
 
     private:
+
+        msize_t __value_begin_unit = 0;     // Value region begin, in units.
+        msize_t __value_end_unit   = 0;     // Value region end, in units.
 
         // A local variable item.
         struct __item_t
@@ -365,6 +377,9 @@ namespace X_ROOT_NS::modules::rt {
 
         typedef typename __vector_t<__item_t *>::iterator __item_iterator_t;
         al::heap_t<__partial_t> __partial_heap;
+
+        // Finds the region that holds nothing but value variables.
+        void __commit_value_region();
 
         // Finds reset index.
         msize_t __find_reset_index(msize_t index, storage_type_t storage_type);

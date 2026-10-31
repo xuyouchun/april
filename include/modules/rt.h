@@ -242,6 +242,15 @@ namespace X_ROOT_NS::modules::rt {
             return search_vtable_interface(interface_type)->functions[offset];
         }
 
+        // Searches the interface of specified type, or an interface that can be used as it
+        // by the variance of generic interfaces. Returns null if not exists.
+        rt_vtable_interface_t * search_vtable_interface_variant(analyzer_env_t & env,
+                                                                rt_type_t * interface_type);
+
+        // Searches function address of interface methods, with the variance.
+        rt_vfunction_t search_vtable_interface_function(analyzer_env_t & env,
+                                        rt_type_t * interface_type, int offset);
+
         // Returns true if specified type is a base type.
         X_ALWAYS_INLINE bool is_base_type(rt_type_t * base_type)
         {
@@ -322,6 +331,44 @@ namespace X_ROOT_NS::modules::rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Gc root source: supplies roots for garbage collection,
+    // implemented by execution contexts.
+    X_INTERFACE gc_root_source_t
+    {
+        // Enumerates conservative root ranges, e.g. the execution stack.
+        virtual void each_gc_root_ranges(
+                const std::function<void (void **, void **)> & f) = 0;
+
+        // Enumerates precise roots, e.g. the exception chain.
+        virtual void each_gc_roots(const std::function<void (rt_ref_t)> & f) = 0;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Describes which parts of an object's payload may hold references.
+    // Computed lazily by the gc type resolver, cached by the heap.
+    struct gc_scan_info_t
+    {
+        enum class kind_t : uint8_t
+        {
+            conservative,       // Unknown layout: scans the whole payload (always safe).
+            none,               // No references: the payload is never scanned.
+            ranges,             // Scans only the listed byte ranges.
+        };
+
+        kind_t kind = kind_t::conservative;
+
+        // Byte ranges (offset from the object start, size), kind == ranges.
+        std::vector<std::pair<uint32_t, uint32_t>> ranges;
+    };
+
+    // Resolves gc scan info of a runtime type; returns false (or throws) when it
+    // cannot tell, then the type is scanned conservatively.
+    typedef std::function<bool (rt_type_t * type, gc_scan_info_t & info)>
+                                                                    gc_type_resolver_t;
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Rt heap.
     X_INTERFACE rt_heap_t
     {
@@ -336,6 +383,20 @@ namespace X_ROOT_NS::modules::rt {
 
         // free a memory space.
         virtual void free(void * ptr) = 0;
+
+        // Registers a gc root source, do nothing by default.
+        virtual void add_root_source(gc_root_source_t * source) { }
+
+        // Removes a gc root source, do nothing by default.
+        virtual void remove_root_source(gc_root_source_t * source) { }
+
+        // Sets the gc type resolver (nullptr to clear), do nothing by default.
+        // Without a resolver every object is scanned conservatively.
+        virtual void set_gc_type_resolver(const gc_type_resolver_t & resolver) { }
+
+        // Executes a garbage collection, do nothing by default.
+        // Returns bytes collected.
+        virtual size_t collect() { return 0; }
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -431,10 +492,14 @@ namespace X_ROOT_NS::modules::rt {
         // Returns whether it's empty.
         bool empty() const { return value == nullptr; }
 
-        bool operator == (const string_t & str)
+        bool operator == (const string_t & str) const
         {
             return (string_t)(*this) == str;
         }
+
+        // Exact-match overloads, avoid ambiguity with the string_t conversion (C++20).
+        bool operator == (const rt_sid_t & other) const { return value == other.value; }
+        bool operator != (const rt_sid_t & other) const { return value != other.value; }
 
         static const rt_sid_t null;
     };
@@ -456,7 +521,7 @@ namespace X_ROOT_NS::modules::rt {
         X_TO_STRING_IMPL(_T("rt_spool_t"))
 
     private:
-        std::set<const rt_string_t> __string_set;
+        std::set<rt_string_t> __string_set;
         al::heap_t<char_t[]> __heap;
     };
 
@@ -1342,6 +1407,10 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets name.
         virtual rt_sid_t get_name(analyzer_env_t & env) override final;
+
+        // Returns whether a value of this generic type can be used as the other type by the
+        // variance of the generic params: IProducer<String> as IProducer<Object> when T is out.
+        bool is_variant_of(analyzer_env_t & env, rt_type_t * other);
 
         // Gets kind.
         virtual rt_type_kind_t get_kind() override final { return rt_type_kind_t::generic; }

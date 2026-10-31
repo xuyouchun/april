@@ -83,10 +83,15 @@ namespace X_ROOT_NS::lib {
  
     //-------- ---------- ---------- ---------- ----------
 
+    // Character traits of a string for reading.
+    template<typename c_t> struct __traits_s { typedef std::char_traits<c_t> type; };
+    template<> struct __traits_s<byte_t> { typedef byte_traits_t type; };
+    template<typename c_t> using __traits_t = typename __traits_s<c_t>::type;
+
     // Read all text from a text file.
     template<
         typename istream_t, typename c_t = typename istream_t::char_type,
-        typename s_t = std::basic_string<c_t>
+        typename s_t = std::basic_string<c_t, __traits_t<c_t>>
     >
     s_t __read_all(istream_t & stream)
     {
@@ -106,7 +111,7 @@ namespace X_ROOT_NS::lib {
     // Read all text from a text file.
     template<
         typename istream_t, typename c_t = typename istream_t::char_type,
-        typename s_t = std::basic_string<c_t>
+        typename s_t = std::basic_string<c_t, __traits_t<c_t>>
     >
     s_t __read_all(const path_t & file)
     {
@@ -388,7 +393,11 @@ namespace X_ROOT_NS::lib {
     bool split_path_filter(const path_t & path, path_t & out_dir, string_t & out_filter)
     {
         string_t spath = to_str(path);
+    #ifdef _WIN32
+        size_t index = spath.find_last_of(_T("/\\"));
+    #else
         size_t index = spath.find_last_of(_T("/"));
+    #endif
 
         auto npos = string_t::npos;
         if (index == npos || spath.find_first_of(_T("?*"), index + 1) == npos)

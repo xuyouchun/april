@@ -1142,7 +1142,7 @@ namespace X_ROOT_NS::modules::core {
         return decorate == nullptr? empty_access_value : decorate->access;
     }
 
-    decorate_t * with_decorate_object_t::__decorate()
+    decorate_t * with_decorate_object_t::__decorate() _NE
     {
         return decorate != nullptr? decorate :
             (decorate = __XPool.new_obj<decorate_t>(decorate_value_t::default_value));
@@ -2466,13 +2466,19 @@ namespace X_ROOT_NS::modules::core {
         if (!is_numberic_vtype(from) || !is_numberic_vtype(to))
             return false;
 
-        if ((int)to < (int)from)
-            return false;
-
         if (is_float_vtype(from))
-            return is_float_vtype(to);
+            return is_float_vtype(to) && (int)to >= (int)from;
 
-        return is_signed_vtype(from) == is_signed_vtype(to);
+        // An integer converts to any float.
+        if (is_float_vtype(to))
+            return true;
+
+        // Integers: to a type that holds all the values, as C# does.
+        if (is_signed_vtype(from) == is_signed_vtype(to))
+            return (int)to >= (int)from;
+
+        // An unsigned integer to a signed integer of more bits (byte to short, uint to long).
+        return is_unsigned_vtype(from) && get_vtype_size(to) > get_vtype_size(from);
     }
 
     // Returns whether the vtype is between v1 and v2.
@@ -2759,6 +2765,195 @@ namespace X_ROOT_NS::modules::core {
     // Returns whether two type are compatiable.
     // Determines whether a type can convert to another type.
     // E.g. int32 -> int64. System.String -> System.Object.
+    // Returns T if the type is Nullable<T>, otherwise nullptr.
+    type_t * get_nullable_underlying(type_t * type)
+    {
+        if (type == nullptr || type->this_gtype() != gtype_t::generic)
+            return nullptr;
+
+        generic_type_t * generic_type = (generic_type_t *)type;
+        if (generic_type->template_ != __XPool.get_nullable_type() || generic_type->args.empty())
+            return nullptr;
+
+        return generic_type->args[0].type();
+    }
+
+    // Gives the return type of the delegate type to a lambda.
+    void bind_lambda_to_type(expression_t * exp, type_t * to)
+    {
+        if (exp == nullptr || to == nullptr || exp->this_family() != expression_family_t::name)
+            return;
+
+        name_expression_t * name_exp = (name_expression_t *)exp;
+        if (name_exp->expression_type != name_expression_type_t::variable
+                || name_exp->variable == nullptr
+                || name_exp->variable->this_type() != variable_type_t::method)
+        {
+            return;
+        }
+
+        method_variable_t * variable = (method_variable_t *)name_exp->variable;
+        method_t * method = variable->method;
+
+        if (method == nullptr || !method->is_lambda || method->type_name == nullptr
+                || method->type_name->type != uncertain_type_t::instance())
+        {
+            return;
+        }
+
+        if (to->this_gtype() != gtype_t::generic
+                || ((generic_type_t *)to)->template_ != __XPool.get_delegate_type())
+        {
+            return;
+        }
+
+        method->type_name->type = get_delegate_return_type(to);
+
+        // The params that have no types are those of the delegate.
+        if (method->lambda_implicit && method->params != nullptr)
+        {
+            generic_type_t * delegate_type = (generic_type_t *)to;
+            if (delegate_type->args.size() == method->params->size() + 1)
+            {
+                for (size_t index = 0, count = method->params->size(); index < count; index++)
+                {
+                    param_t * param = (*method->params)[index];
+                    if (param->type_name != nullptr
+                            && param->type_name->type == uncertain_type_t::instance())
+                    {
+                        param->type_name->type = delegate_type->type_at(index + 1);
+                    }
+                }
+            }
+        }
+
+        variable->reset_type();
+
+        // A lambda that returns a lambda: (int a) => (int b) => b.
+        bind_lambda_to_type(method->lambda_expression, method->type_name->type);
+    }
+
+    // Returns whether a constant integer expression converts to an integer type that holds
+    // its value.
+    bool is_constant_compatible(expression_t * exp, type_t * to)
+    {
+        if (exp == nullptr || to == nullptr)
+            return false;
+
+        vtype_t from_vtype = exp->get_vtype(), to_vtype = to->this_vtype();
+        if (!is_integer_vtype(from_vtype) || !is_integer_vtype(to_vtype))
+            return false;
+
+        cvalue_t value = execute_expression(exp);
+        if (is_nan(value) || !is_number(value))
+            return false;
+
+        bool negative = false;
+        uint64_t magnitude;
+
+        if (is_signed_vtype(from_vtype))
+        {
+            int64_t v = (int64_t)value;
+            negative = v < 0;
+            magnitude = negative? (uint64_t)(-(v + 1)) + 1 : (uint64_t)v;
+        }
+        else
+        {
+            magnitude = (uint64_t)value;
+        }
+
+        // The range of the target.
+        int bits = (int)get_vtype_size(to_vtype) * 8;
+
+        if (is_signed_vtype(to_vtype))
+        {
+            uint64_t limit = (uint64_t)1 << (bits - 1);
+            return negative? magnitude <= limit : magnitude < limit;
+        }
+
+        if (negative)
+            return false;
+
+        return bits >= 64 || magnitude < ((uint64_t)1 << bits);
+    }
+
+    // Returns whether a type is a class or an interface: a reference.
+    static bool __is_class_or_interface(type_t * type)
+    {
+        ttype_t ttype = type->this_ttype();
+        return ttype == ttype_t::class_ || ttype == ttype_t::interface_;
+    }
+
+    // Returns whether a generic type can be used as another generic type of the same template,
+    // by the variance of the generic params: IProducer<String> as IProducer<Object> when T is out.
+    static bool __is_variant_of(generic_type_t * from, generic_type_t * to)
+    {
+        if (from->template_ != to->template_ || from->template_->params == nullptr
+                || from->args.size() != to->args.size())
+        {
+            return false;
+        }
+
+        generic_params_t * params = from->template_->params;
+        bool variant = false;
+
+        for (size_t index = 0, count = from->args.size(); index < count && index < params->size();
+                                                                                        index++)
+        {
+            type_t * a = from->args[index].type(), * b = to->args[index].type();
+            if (a == b)
+                continue;
+
+            if (a == nullptr || b == nullptr || !__is_class_or_interface(a)
+                                             || !__is_class_or_interface(b))
+            {
+                return false;
+            }
+
+            switch ((*params)[index]->param_type)
+            {
+                case generic_param_type_t::out:
+                    if (!is_type_compatible(a, b))
+                        return false;
+                    break;
+
+                case generic_param_type_t::in:
+                    if (!is_type_compatible(b, a))
+                        return false;
+                    break;
+
+                default:
+                    return false;
+            }
+
+            variant = true;
+        }
+
+        return variant;
+    }
+
+    // Returns whether a type is, or has as a super type, a generic type that can be used as
+    // the specified generic type by the variance.
+    static bool __has_variant_super_type(type_t * type, generic_type_t * to, int depth = 0)
+    {
+        if (depth > 16)
+            return false;
+
+        if (type->this_gtype() == gtype_t::generic
+                && __is_variant_of((generic_type_t *)type, to))
+        {
+            return true;
+        }
+
+        bool found = false;
+        type->each_super_type([&](type_t * super_type) {
+            found = __has_variant_super_type(super_type, to, depth + 1);
+            return !found;
+        });
+
+        return found;
+    }
+
     bool is_type_compatible(type_t * from, type_t * to)
     {
         _A(from != nullptr);
@@ -2767,6 +2962,38 @@ namespace X_ROOT_NS::modules::core {
         if (from == to)
             return true;
 
+        // A lambda has not its return type yet: Delegate<?, P ...> is any Delegate<R, P ...>.
+        if (from->this_gtype() == gtype_t::generic && to->this_gtype() == gtype_t::generic)
+        {
+            generic_type_t * from_generic = (generic_type_t *)from;
+            generic_type_t * to_generic = (generic_type_t *)to;
+
+            if (from_generic->template_ == __XPool.get_delegate_type()
+                && to_generic->template_ == __XPool.get_delegate_type()
+                && from_generic->args.size() == to_generic->args.size()
+                && from_generic->type_at(0) == uncertain_type_t::instance())
+            {
+                // The params of a lambda that have no types are any types.
+                bool same = true;
+                for (size_t index = 1, count = from_generic->args.size(); index < count; index++)
+                {
+                    type_t * arg = from_generic->type_at(index);
+                    if (arg != uncertain_type_t::instance() && arg != to_generic->type_at(index))
+                        same = false;
+                }
+
+                if (same)
+                    return true;
+            }
+        }
+
+        // T is converted to T?, and null.
+        if (type_t * underlying = get_nullable_underlying(to);
+                underlying != nullptr && get_nullable_underlying(from) == nullptr)
+        {
+            return from->this_gtype() == gtype_t::null || is_type_compatible(from, underlying);
+        }
+
         if (from->this_gtype() == gtype_t::null)
             return __is_mobject(from) || from->this_gtype() == gtype_t::null;
 
@@ -2774,7 +3001,18 @@ namespace X_ROOT_NS::modules::core {
             return __is_mobject(to) || from->this_gtype() == gtype_t::null;
 
         if (__is_mobject(from) || __is_mobject(to))
-            return is_super_type(from, to);
+        {
+            if (is_super_type(from, to))
+                return true;
+
+            // Every class and interface is an object.
+            if (to == __XPool.get_object_type() && __is_class_or_interface(from))
+                return true;
+
+            // IProducer<String> to IProducer<Object>.
+            return to->this_gtype() == gtype_t::generic
+                && __has_variant_super_type(from, (generic_type_t *)to);
+        }
 
         return is_vtype_compatible(from->this_vtype(), to->this_vtype());
     }
@@ -2834,11 +3072,50 @@ namespace X_ROOT_NS::modules::core {
             size_t atype_count = al::size_of(atypes);
             size_t param_count = al::size_of(__params);
 
-            if (atype_count != param_count)
+            // The last param may take any arguments: params int[] values.
+            param_t * last = param_count > 0? __params->at(param_count - 1) : nullptr;
+            bool variadic = last != nullptr && last->ptype == param_type_t::params;
+            size_t fixed_count = variadic? param_count - 1 : param_count;
+
+            // The params that have no default value must have an argument.
+            size_t required_count = fixed_count;
+            while (required_count > 0 && __params->at(required_count - 1)->default_value != nullptr)
+                required_count--;
+
+            if (atype_count < required_count || (!variadic && atype_count > param_count))
                 return __member_compare_t::not_match;
 
             __member_compare_t r = __member_compare_t::equals;
-            for (size_t index = 0; index < param_count; index++)
+            size_t compare_count = std::min(atype_count, fixed_count);
+
+            // The last argument is an array for the params: it is the normal form.
+            if (variadic && atype_count == param_count && atypes->at(atype_count - 1).type != nullptr
+                    && is_type_compatible(atypes->at(atype_count - 1).type, last->get_type()))
+            {
+                compare_count = param_count;
+            }
+            else if (variadic)
+            {
+                // The expanded form: each argument is an element.
+                type_t * array_type = last->get_type();
+                if (array_type->this_gtype() != gtype_t::array)
+                    return __member_compare_t::not_match;
+
+                type_t * element_type = ((array_type_t *)array_type)->element_type;
+                for (size_t index = fixed_count; index < atype_count; index++)
+                {
+                    type_t * type = atypes->at(index).type;
+                    if (type == nullptr || !is_type_compatible(type, element_type))
+                        return __member_compare_t::not_match;
+
+                    r = __member_compare_t::match;
+                }
+
+                // An expanded form is worse than a method that takes the arguments as they are.
+                r = __member_compare_t::match;
+            }
+
+            for (size_t index = 0; index < compare_count; index++)
             {
                 param_t * param = __params->at(index);
 
@@ -2887,7 +3164,11 @@ namespace X_ROOT_NS::modules::core {
             if (param == nullptr || atype.type == nullptr)
                 return __member_compare_t::not_match;
 
-            if (param->ptype != atype.ptype)
+            // The argument of a params is not marked.
+            param_type_t ptype = param->ptype == param_type_t::params?
+                                            param_type_t::__default__ : param->ptype;
+
+            if (ptype != atype.ptype)
                 return __member_compare_t::not_match;
 
             type_t * param_type = param->get_type();
@@ -3146,11 +3427,8 @@ namespace X_ROOT_NS::modules::core {
         size_t atype_count = atypes->size();
         size_t param_count = method->param_count();
 
-        if (atype_count == 0)
-            return param_count == 0? __member_compare_t::equals : __member_compare_t::not_match;
-
-        if (atype_count != param_count)
-            return __member_compare_t::not_match;
+        if (atype_count == 0 && param_count == 0)
+            return __member_compare_t::equals;
 
         __argument_type_analyzer_t analyzer(method, generic_args);
         __member_compare_t r = analyzer.compare(atypes);
@@ -3924,6 +4202,11 @@ namespace X_ROOT_NS::modules::core {
                 // Check method duplicate.
                 return __search_member(methods, name, (method_t *)member, owner_type,
                                                                 [&](method_t * method) {
+                    // A static constructor never duplicates an instance constructor.
+                    if ((method->trait == method_trait_t::static_constructor)
+                            != (((method_t *)member)->trait == method_trait_t::static_constructor))
+                        return false;
+
                     return __is_params_equals(
                         ((method_t *)member)->params, ((method_t *)member)->generic_params,
                         method->params, method->generic_params
@@ -5458,9 +5741,7 @@ namespace X_ROOT_NS::modules::core {
     // Returns vtype of the param.
     vtype_t param_variable_t::get_vtype()
     {
-        if (param->ptype == param_type_t::params)
-            return vtype_t::ptr_;
-
+        // A params param is an array.
         return __get_vtype(param->type_name);
     }
 
@@ -5868,6 +6149,24 @@ namespace X_ROOT_NS::modules::core {
         return __get_specified_type(__CoreTypeName(CoreType_Delegate), __delegate_type);
     }
 
+    // Returns System.Collections.Generic.List<> type.
+    general_type_t * xpool_t::get_list_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_List), __list_type);
+    }
+
+    // Returns System.Collections.Generic.IEnumerable<> type.
+    general_type_t * xpool_t::get_ienumerable_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_IEnumerable), __ienumerable_type);
+    }
+
+    // Returns System.Collections.Generic.IEnumerator<> type.
+    general_type_t * xpool_t::get_ienumerator_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_IEnumerator), __ienumerator_type);
+    }
+
     // Returns System.MulticastDelegate type.
     general_type_t * xpool_t::get_multicast_delegate_type()
     {
@@ -5880,6 +6179,18 @@ namespace X_ROOT_NS::modules::core {
     general_type_t * xpool_t::get_exception_type()
     {
         return __get_specified_type(__CoreTypeName(CoreType_Exception), __exception_type);
+    }
+
+    // Returns System.Checked type.
+    general_type_t * xpool_t::get_checked_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Checked), __checked_type);
+    }
+
+    // Returns System.Nullable<T> type.
+    general_type_t * xpool_t::get_nullable_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Nullable), __nullable_type);
     }
 
     // Returns System.Tuple<...> type.
@@ -6743,6 +7054,23 @@ namespace X_ROOT_NS::modules::core {
         _A(__current_layer != nullptr);
     }
 
+    // Goes to the layer of the type.
+    ast_walk_context_layer_t * ast_walk_context_t::enter_type_level()
+    {
+        __layer_t * saved = __current_layer;
+
+        for (__layer_t * layer = __current_layer; layer != nullptr; layer = layer->previous)
+        {
+            if (layer->get(__layer_state_t::method) == nullptr)
+            {
+                __current_layer = layer;
+                break;
+            }
+        }
+
+        return saved;
+    }
+
     // Returns parent of a mname.
     const mname_t * ast_walk_context_t::parent_of(const mname_t * mname)
     {
@@ -7529,6 +7857,10 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(variable,   _T("variable"))
 
+        X_C(checked_,   _T("checked"))
+
+        X_C(unchecked_, _T("unchecked"))
+
     X_ENUM_INFO_END
 
     // Sets namex, namex maybe a name or an expression.
@@ -7568,6 +7900,21 @@ namespace X_ROOT_NS::modules::core {
         return (variable_t *)__relation_data;
     }
 
+    // Makes it checked(expression) or unchecked(expression): it has no function.
+    void function_expression_t::set_checked(bool checked) _NE
+    {
+        __relation_data.set(this, checked? __ftype_t::checked_ : __ftype_t::unchecked_);
+    }
+
+    // Returns the expression of checked(expression) or unchecked(expression).
+    expression_t * function_expression_t::checked_expression() const
+    {
+        _A(is_checked_expression());
+
+        arguments_t * args = arguments();
+        return (args != nullptr && args->size() == 1)? (*args)[0]->expression : nullptr;
+    }
+
     // Returns name of function_expression.
     name_t function_expression_t::get_name() const
     {
@@ -7602,6 +7949,12 @@ namespace X_ROOT_NS::modules::core {
     {
         switch (get_ftype())
         {
+            case __ftype_t::checked_:
+            case __ftype_t::unchecked_: {
+                expression_t * exp = checked_expression();
+                return exp != nullptr? exp->get_type() : nullptr;
+            }
+
             case __ftype_t::method:
                 return get_method()->get_type();
 
@@ -8115,7 +8468,20 @@ namespace X_ROOT_NS::modules::core {
 
             case operator_t::null_coalescing:
                 if (type_t * type = exp1()->get_type(); !is_null(type))
+                {
+                    // x ?? y of a nullable x: the value, when y is not nullable.
+                    if (type_t * underlying = get_nullable_underlying(type); underlying != nullptr)
+                    {
+                        type_t * type2 = exp2()->get_type();
+                        if (type2 != nullptr && get_nullable_underlying(type2) == nullptr
+                                && !is_null(type2))
+                        {
+                            return underlying;
+                        }
+                    }
+
                     return type;
+                }
                 return exp2()->get_type();
 
             default:

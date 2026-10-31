@@ -518,6 +518,13 @@ namespace X_ROOT_NS::modules::compile {
         {
             _A(item->variable != nullptr);
 
+            // The variable is a field of the state object of an iterator.
+            if (item->hoist_assign != nullptr)
+            {
+                append_expression(ctx, item->hoist_assign, false);
+                continue;
+            }
+
             append_xilx<local_define_xilx_t>(ctx, item->variable);
 
             if (!item->variable->constant && item->expression != nullptr)
@@ -609,7 +616,15 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            append_xilx<rethrow_xilx_t>(ctx);
+            // Throws the exception of the catch block again.
+            if (ctx.catch_variables.empty())
+                __Failed("throw without an expression is only allowed in a catch block");
+
+            expression_t * exception = ctx.new_obj<system_expression_t<name_expression_t>>(
+                ctx.catch_variables.back());
+
+            append_expression(ctx, exception, true);
+            append_xilx<throw_xilx_t>(ctx);
         }
     }
 
@@ -648,17 +663,15 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles this statement.
     void return_statement_t::compile(statement_compile_context_t & ctx) 
     {
-        // Insert leave command before return in protected regions.
-        if (__need_leave(ctx))
-            xilx::append_xilx<leave_ret_xilx_t>(ctx);
-
         if (expression != nullptr)
         {
             __walk_variables(expression);
             set_assign_parent(expression);
         }
 
-        append_xilx<return_xilx_t>(ctx, expression);
+        // In protected regions, a leave command is inserted before the return, after the
+        // value of the expression.
+        append_xilx<return_xilx_t>(ctx, expression, __need_leave(ctx));
     }
 
     // Returns exit type.
@@ -981,18 +994,93 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
+    void yield_statement_t::compile(statement_compile_context_t & ctx)
+    {
+        _A(lowered != nullptr);
+        compile_statement(ctx, lowered);
+
+        // The iterator goes on from here, at the next call.
+        if (!is_break)
+        {
+            _A(label >= 0);
+            append_local_label(ctx, label);
+        }
+    }
+
+    // Compiles this statement.
+    void iterator_dispatch_statement_t::compile(statement_compile_context_t & ctx)
+    {
+        if (end_check != nullptr)
+            compile_statement(ctx, end_check);
+
+        for (size_t index = 0; index < yields.size(); index++)
+        {
+            yields[index]->label = ctx.next_local_label();
+
+            append_expression(ctx, conditions[index]);
+            append_jmp(ctx, yields[index]->label, xil_jmp_model_t::true_);
+        }
+    }
+
+    X_DEFINE_TO_STRING(iterator_dispatch_statement_t)
+    {
+        return _T("iterator dispatch");
+    }
+
+    // Returns exit type: yield return goes on at the next call, yield break returns.
+    __exit_type_t yield_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        if (is_break && lowered != nullptr)
+            return lowered->exit_type(ctx);
+
+        return __exit_type_t::none;
+    }
+
+    X_DEFINE_TO_STRING(yield_statement_t)
+    {
+        return is_break? string_t(_T("yield break")) : _F(_T("yield return %1%"), expression);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Compiles this statement.
+    void using_statement_t::compile(statement_compile_context_t & ctx)
+    {
+        _A(lowered != nullptr);
+        compile_statement(ctx, lowered);
+    }
+
+    // Returns exit type.
+    __exit_type_t using_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return lowered != nullptr? lowered->exit_type(ctx) : __exit_type_t::none;
+    }
+
+    X_DEFINE_TO_STRING(using_statement_t)
+    {
+        stringstream_t ss;
+
+        ss << _T("using (") << _str(type_name).c_str() << _T(" ") << _str(variable) <<
+            _T(" = ") << _str(initializer).c_str() << _T(")\n{\n");
+        ss << _str(body).c_str();
+        ss << _T("\n}\n");
+
+        return ss.str();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Compiles this statement.
     void for_each_statement_t::compile(statement_compile_context_t & ctx)
     {
-        // TODO
-        X_UNEXPECTED();
+        _A(lowered != nullptr);
+        compile_statement(ctx, lowered);
     }
 
     // Returns exit type.
     __exit_type_t for_each_statement_t::exit_type(__exit_type_context_t & ctx)
     {
-        // TODO
-        X_UNEXPECTED();
-        return __exit_type_t::none;
+        return lowered != nullptr? lowered->exit_type(ctx) : __exit_type_t::none;
     }
 
     X_DEFINE_TO_STRING(for_each_statement_t)
@@ -1621,7 +1709,10 @@ namespace X_ROOT_NS::modules::compile {
 
             append_local_label(ctx, label_catch);
             xilx::append_xilx<pop_variable_xilx_t>(ctx, c->variable);
+
+            ctx.catch_variables.push_back(c->variable);
             compile_statement(ctx, c->body);
+            ctx.catch_variables.pop_back();
 
             if (__statement_pass(ctx, c->body))
             {
@@ -1666,16 +1757,33 @@ namespace X_ROOT_NS::modules::compile {
         if (et_finally != __exit_type_t::none && !et_finally.has(__exit_type_t::pass))
             return et_finally;
 
-        __e_exit_type_t et = __exit_type_of(ctx, try_statement);
-        if (!et.has(__exit_type_t::throw_))
-            return et;
+        // The statement is left the way the try block is left, or a catch block: the
+        // handlers run when the try block throws. An empty block passes.
+        __e_exit_type_t et = __exit_type(ctx, try_statement);
+        if (!et)
+            et = __exit_type_t::pass;
 
+        bool catch_all = false;
         general_type_t * exception_type = __XPool.get_exception_type();
+
         for (catch_t * c : catches)
         {
-            if (c != nullptr && to_type(c->type_name) == exception_type)
-                et.remove(__exit_type_t::throw_);
+            if (c == nullptr)
+                continue;
+
+            __e_exit_type_t et_catch = __exit_type(ctx, c->body);
+            if (!et_catch)
+                et_catch = __exit_type_t::pass;
+
+            et = et | et_catch;
+
+            if (to_type(c->type_name) == exception_type)
+                catch_all = true;
         }
+
+        // Every exception is caught.
+        if (catch_all)
+            et.remove(__exit_type_t::throw_);
 
         return *et;
     }

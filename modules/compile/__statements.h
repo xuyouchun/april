@@ -126,6 +126,10 @@ namespace X_ROOT_NS::modules::compile {
 
         local_variable_t * variable;                // Local variable.
 
+        // The assignment of the field that holds the variable, when it is a field of the state
+        // object of an iterator.
+        expression_t * hoist_assign = nullptr;
+
         // Converts to string.
         X_TO_STRING
     };
@@ -375,6 +379,89 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Yield statement of an iterator, see type_ast_node_t. yield return x; is:
+    //     current = x; state = n; return true; label n:
+    // the iterator starts there at the next call.
+    class yield_statement_t : public statement_base_t
+    {
+    public:
+
+        // Constructors.
+        yield_statement_t() = default;
+
+        expression_t * expression = nullptr;    // The item.
+        bool           is_break   = false;      // yield break;
+
+        // The statements that do the work, made when the method is walked.
+        statement_t  * lowered    = nullptr;
+
+        int  state = 0;                         // The state of the iterator after it.
+        int  label = -1;                        // The label, made by the dispatch statement.
+
+        // Compiles this statement.
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // The first statement of the method that does the work of an iterator: it goes to the
+    // place of the last yield statement.
+    class iterator_dispatch_statement_t : public statement_base_t
+    {
+    public:
+
+        // The yield statements, their conditions (state == n), and the statement that is done
+        // when the iterator has ended: if (state == -1) return false;
+        std::vector<yield_statement_t *> yields;
+        std::vector<expression_t *>      conditions;
+        statement_t *                    end_check = nullptr;
+
+        // Compiles this statement.
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override
+        {
+            return statement_exit_type_t::none;
+        }
+
+        X_TO_STRING
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Using statement: { variable = initializer; try { body } finally { variable.Dispose(); } }
+    class using_statement_t : public statement_base_t
+    {
+    public:
+
+        // Constructors.
+        using_statement_t() = default;
+
+        expression_t * initializer = nullptr;       // Initializer.
+        type_name_t  * type_name   = nullptr;       // Type name.
+        name_t         variable    = name_t::null;  // Variable name.
+        statement_t  * body        = nullptr;       // Body.
+
+        // The statements that do the work, made when the node is walked.
+        statement_t  * lowered     = nullptr;
+
+        // Compiles this statement.
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     // For...each statement.
     class for_each_statement_t : public statement_base_t
     {
@@ -391,6 +478,10 @@ namespace X_ROOT_NS::modules::compile {
         type_name_t  * type_name = nullptr;         // Type name.
         name_t         variable  = name_t::null;    // Variable name.
         statement_t  * body      = nullptr;         // Body.
+
+        // The statements that do the work, made when the node is walked: a for statement
+        // that goes through the elements by an index.
+        statement_t  * lowered   = nullptr;
 
         // Compiles this statement.
         virtual void compile(statement_compile_context_t & ctx) override;

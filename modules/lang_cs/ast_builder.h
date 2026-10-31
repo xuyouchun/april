@@ -306,7 +306,13 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // new_array
 
-    __SimpleBuilder(new_array)
+    __Builder(new_array)
+
+        int                 __closed = 0;       // The count of the closed brackets.
+        int                 __rank = 0;         // The rank of the current rank specifier.
+        std::vector<int>    __ranks;            // The ranks of the rank specifiers: new T[n][][,]
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // array_initializer
@@ -321,6 +327,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         ast_node_t * __last_exp = nullptr;
 
     __EndBuilder
+
+    ////////// ////////// ////////// ////////// //////////
+    // lambda
+
+    __SimpleBuilder(lambda)
 
     ////////// ////////// ////////// ////////// //////////
     // default_value
@@ -378,6 +389,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     __SimpleBuilder(return_st)
 
     ////////// ////////// ////////// ////////// //////////
+    // yield_st
+
+    __SimpleBuilder(yield_st)
+
+    ////////// ////////// ////////// ////////// //////////
     // do_while_st
 
     __SimpleBuilder(do_while_st)
@@ -396,6 +412,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     // for_each_st
 
     __SimpleBuilder(for_each_st)
+
+    ////////// ////////// ////////// ////////// //////////
+    // using_st
+
+    __SimpleBuilder(using_st)
 
     ////////// ////////// ////////// ////////// //////////
     // if_st

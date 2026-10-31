@@ -25,6 +25,10 @@
 #include <algorithm.h>
 #include <cmath>
 
+// <stdlib.h> on Windows defines __max / __min as function-like macros.
+#undef __max
+#undef __min
+
 namespace X_ROOT_NS::algorithm {
 
     #define __AlwaysInline  X_ALWAYS_INLINE
@@ -148,6 +152,9 @@ namespace X_ROOT_NS::algorithm {
             // Pushes a char to continue parse operation.
             __AlwaysInline __e_t push(char_t c)
             {
+                // The text is converted at the end, which is exact.
+                __text += (char)c;
+
                 switch (c)
                 {
                     case _T('.'):
@@ -206,6 +213,15 @@ namespace X_ROOT_NS::algorithm {
             // Commits to completed the paring operation.
             __AlwaysInline __e_t commit()
             {
+                if (!__text.empty())
+                {
+                    __numeric = (_numeric_t)std::strtold(__text.c_str(), nullptr);
+                    if (std::isinf(__numeric))
+                        return __e_t::overflow;
+
+                    return __e_t::success;
+                }
+
                 if (__pow != 0)
                 {
                     if (__point_zero_count > 0)
@@ -218,10 +234,10 @@ namespace X_ROOT_NS::algorithm {
                     if (std::isinf(ev))
                         return __e_t::overflow;
 
-                    if (__ec == _T('+'))
-                        __numeric *= ev;
-                    else
+                    if (__ec == _T('-'))
                         __numeric /= ev;
+                    else
+                        __numeric *= ev;
 
                     if (std::isinf(__numeric))
                         return __e_t::overflow;
@@ -232,6 +248,7 @@ namespace X_ROOT_NS::algorithm {
 
         private:
             _numeric_t & __numeric;
+            std::string  __text;
             bool         __point = false;
             _numeric_t   __point_mod = (_numeric_t)0.1;
             bool         __e = false;
@@ -265,7 +282,8 @@ namespace X_ROOT_NS::algorithm {
                 __op_t op(__radix, __positive, numeric);
                 for (; p < p_end; p++)
                 {
-                    if (*p == _T('\''))
+                    // Digit separators: 1_000, 1'000.
+                    if (*p == _T('\'') || *p == _T('_'))
                         continue;
 
                     __e_t r = op.push(*p);
@@ -471,13 +489,10 @@ namespace X_ROOT_NS::algorithm {
             if (__radix == 0)
                 __radix = 10;
 
+            // The type of a number without suffix is the first of int, uint, long, ulong that
+            // holds it, in any radix.
             if (__ts == ts_unknown)
-            {
-                if (__radix == 16)
-                    __ts = ts_unsigned;
-                else
-                    __ts = ts_signed;
-            }
+                __ts = ts_signed;
 
             if (__tl == tl_unknown)
                 __tl = tl_default;
@@ -505,20 +520,23 @@ namespace X_ROOT_NS::algorithm {
                         break;
 
                     case _T('E'): case _T('e'):
-                        if (__radix == 10)
+                        // The radix is not set yet for a decimal number (0): 'e' is a digit
+                        // of a hexadecimal number, the exponent of a decimal one.
+                        if (__radix == 10 || __radix == 0)
                         {
                             __set_e(__p);
-                            if (*++__p != _T('+') && *__p != _T('-'))
+
+                            // The sign of the exponent is optional.
+                            if (*(__p + 1) == _T('+') || *(__p + 1) == _T('-'))
+                                ++__p;
+
+                            if (!is_digit(*(__p + 1)))
                             {
                                 __set_error(__e_t::format_error);
                                 goto label_default;
                             }
 
-                            if (!is_digit(*++__p))
-                            {
-                                __set_error(__e_t::format_error);
-                                goto label_default;
-                            }
+                            ++__p;
                         }
                         else
                         {
@@ -559,6 +577,11 @@ namespace X_ROOT_NS::algorithm {
 
                     case _T('\''):
                         if (!al::is_digit(*(__p - 1)))
+                            __set_error(__e_t::format_error);
+                        break;
+
+                    case _T('_'):       // A digit separator, between digits: 1_000.
+                        if (!al::is_digit(*(__p - 1), 16) || !al::is_digit(*(__p + 1), 16))
                             __set_error(__e_t::format_error);
                         break;
 

@@ -136,6 +136,8 @@ namespace X_ROOT_NS::modules::compile {
 
         return_st,                  // A return statement, e.g. return 1;
 
+        yield_st,                   // yield statement.
+
         do_while_st,                // do ... while statement, e.g. do { } while (...);
 
         loop_until_st,              // loop ... unit statememt.
@@ -145,6 +147,8 @@ namespace X_ROOT_NS::modules::compile {
         for_st,                     // for statement.
 
         for_each_st,                // for ... each statement.
+
+        using_st,                   // using statement.
 
         if_st,                      // if ... else statement.
 
@@ -179,6 +183,8 @@ namespace X_ROOT_NS::modules::compile {
         new_array,                  // New array.
 
         default_value,              // Default value. e.g. default(int).
+
+        lambda,                     // Lambda expression. e.g. (int x) => x + 1.
 
         __user_defined__ = __C_BRANCH_ENUM_ITEM(__user_defined__) + 1024,
 
@@ -287,6 +293,8 @@ namespace X_ROOT_NS::modules::compile {
                                                                                         \
         return_st           =   __X_BRANCH_ENUM_ITEM(return_st),                        \
                                                                                         \
+        yield_st            =   __X_BRANCH_ENUM_ITEM(yield_st),                         \
+                                                                                        \
         do_while_st         =   __X_BRANCH_ENUM_ITEM(do_while_st),                      \
                                                                                         \
         loop_until_st       =   __X_BRANCH_ENUM_ITEM(loop_until_st),                    \
@@ -296,6 +304,8 @@ namespace X_ROOT_NS::modules::compile {
         for_st              =   __X_BRANCH_ENUM_ITEM(for_st),                           \
                                                                                         \
         for_each_st         =   __X_BRANCH_ENUM_ITEM(for_each_st),                      \
+                                                                                        \
+        using_st            =   __X_BRANCH_ENUM_ITEM(using_st),                         \
                                                                                         \
         if_st               =   __X_BRANCH_ENUM_ITEM(if_st),                            \
                                                                                         \
@@ -330,6 +340,8 @@ namespace X_ROOT_NS::modules::compile {
         new_array           =   __X_BRANCH_ENUM_ITEM(new_array),                        \
                                                                                         \
         default_value       =   __X_BRANCH_ENUM_ITEM(default_value),                    \
+                                                                                        \
+        lambda              =   __X_BRANCH_ENUM_ITEM(lambda),                           \
                                                                                         \
         __user_defined__    =  __X_BRANCH_ENUM_ITEM(__user_defined__),
 
@@ -387,11 +399,13 @@ namespace X_ROOT_NS::modules::compile {
         X_C(throw_st,               _T("throw_st"))                                     \
         X_C(goto_st,                _T("goto_st"))                                      \
         X_C(return_st,              _T("return_st"))                                    \
+        X_C(yield_st,               _T("yield_st"))                                     \
         X_C(do_while_st,            _T("do_while_st"))                                  \
         X_C(loop_until_st,          _T("loop_until_st"))                                \
         X_C(while_st,               _T("while_st"))                                     \
         X_C(for_st,                 _T("for_st"))                                       \
         X_C(for_each_st,            _T("for_each_st"))                                  \
+        X_C(using_st,               _T("using_st"))                                     \
         X_C(if_st,                  _T("if_st"))                                        \
         X_C(switch_st,              _T("switch_st"))                                    \
         X_C(case_,                  _T("case"))                                         \
@@ -410,6 +424,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(array_lengths,          _T("array_lengths"))                                \
         X_C(new_array,              _T("new_array"))                                    \
         X_C(default_value,          _T("default_value"))                                \
+        X_C(lambda,                 _T("lambda"))                                       \
 
 
     #define X_BRANCH_ENUM_INFO_END  X_ENUM_INFO_END
@@ -460,6 +475,42 @@ namespace X_ROOT_NS::modules::compile {
 
         // Name empty.
         name_empty,
+
+        // The language has no goto statement.
+        goto_not_supported,
+
+        // A constructor cannot call itself.
+        constructor_calls_itself,
+
+        // The type of the expression of a for each statement is not supported.
+        for_each_type_not_supported,
+
+        // The type of the variable of a using statement has no Dispose().
+        using_type_not_disposable,
+
+        // A lambda is only in a method.
+        lambda_outside_method,
+
+        // A method with yield returns IEnumerable<T> or IEnumerator<T>.
+        iterator_return_type_invalid,
+
+        // A yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>.
+        yield_outside_iterator,
+
+        // The iterator cannot be made.
+        iterator_not_supported,
+
+        // The return type of a lambda is that of the delegate it is converted to.
+        lambda_type_undetermined,
+
+        // A lambda that uses local variables is not supported here.
+        lambda_capture_not_supported,
+
+        // A local variable that a lambda uses is modified.
+        lambda_capture_modified,
+
+        // A lambda that uses local variables uses a member of the object.
+        lambda_capture_member,
 
         // Unexpected first char in a name.
         name_unexpected_first_char,
@@ -691,6 +742,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Operator overload not defined.
         operator_overload_not_defined,
+
+        // The operator is ambiguous: more than one method fits the operands.
+        operator_overload_ambiguous,
 
         // Cannot determine local type.
         cannot_determine_local_variable_type,
@@ -1206,6 +1260,14 @@ namespace X_ROOT_NS::modules::compile {
 
                 return true;
             }
+
+            // Parses a source text, returns the root node.
+            ast_node_t * __parse_snippet(const string_t & text);
+
+            // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
+            // Returns null if the type has no Dispose().
+            statement_t * __make_dispose_try(ast_walk_context_t & context,
+                            local_variable_t * variable, type_t * type, statement_t * body);
 
             // Check member duplicate or format correct.
             template<typename _code_element_t>
@@ -1867,6 +1929,9 @@ namespace X_ROOT_NS::modules::compile {
         // Set if it's a extends type.
         void set_extends(bool extends);
 
+        // Sets that it's a nullable type, e.g. int?.
+        void set_nullable() { __nullable = true; }
+
         // On commits it.
         virtual void on_commit() override;
 
@@ -1877,6 +1942,7 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
+        bool __nullable = false;
 
         // Walks confirm step.
         bool __walk_confirm(ast_walk_context_t & context);
@@ -2944,6 +3010,17 @@ namespace X_ROOT_NS::modules::compile {
     public:
         using __namespace_ast_node_t::__namespace_ast_node_t;
 
+        // Sets that the namespace has no body: namespace A.B; , the members follow it in the
+        // file.
+        void set_file_scoped() { __file_scoped = true; }
+
+        // Returns whether the namespace has no body.
+        bool is_file_scoped() const { return __file_scoped; }
+
+        // Appends a member of the namespace: a type, a namespace or a typedef. Returns
+        // false for the other nodes.
+        bool append_member(ast_node_t * node);
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -2952,10 +3029,15 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        bool __file_scoped = false;
     };
 
     ////////// ////////// ////////// ////////// //////////
     // type
+
+    class method_ast_node_t;
 
     // Type
     Ast(type, __cvalue_t::type)
@@ -3049,6 +3131,12 @@ namespace X_ROOT_NS::modules::compile {
 
         // Check circle base types.
         bool __check_circle_base_types(std::set<type_t *> & types, type_t * super_type);
+
+        // Makes the iterators of the methods that have yield statements.
+        void __lower_iterators(ast_walk_context_t & context);
+
+        // Makes the iterator of a method: a class for the state, and a method that does the work.
+        void __lower_iterator(ast_walk_context_t & context, method_ast_node_t * method, int id);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3314,6 +3402,59 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // yield_st
+
+    // The information of the method that does the work of an iterator: the walking of its
+    // body records the things that are changed at the end, when the types are known.
+    class iterator_info_t : public object_t
+    {
+    public:
+        general_type_t *    state_type = nullptr;       // The class of the state object.
+        params_t *          params = nullptr;           // The params of the method of the user.
+        param_variable_t *  base = nullptr;             // The state object, it is a param.
+
+        std::vector<local_variable_t *>             locals;     // The local variables.
+        std::vector<name_expression_t *>            refs;       // The names of local variables.
+        std::vector<defination_statement_item_t *>  defs;       // The initial values.
+        std::vector<yield_statement_t *>            yields;     // The yield statements.
+
+        X_TO_STRING_IMPL(_T("iterator_info_t"))
+    };
+
+    // Yield statement.
+    Ast(yield_st, __xcvalue_t::yield_st)
+
+        // Expression.
+        __expression__,
+
+    EndAst(yield_st)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Yield statement ast node.
+    class yield_st_ast_node_t : public __yield_st_ast_node_t
+                              , public statement_ast_t
+                              , public __w_t<yield_statement_t>
+    {
+        typedef __yield_st_ast_node_t __super_t;
+
+    public:
+        using __yield_st_ast_node_t::__yield_st_ast_node_t;
+
+        // Sets that it is yield break.
+        void set_break() { this->is_break = true; }
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual statement_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // do_while_st
 
     Ast(do_while_st, __xcvalue_t::do_while_st)
@@ -3501,6 +3642,66 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        variable_region_t * __region = nullptr;     // The region of the variables.
+        local_variable_t *  __variable = nullptr;   // The variable of the elements.
+        local_variable_t *  __array = nullptr;      // The array.
+        local_variable_t *  __index = nullptr;      // The index.
+
+        // Walks the analysis step: makes the statements.
+        bool __walk_analysis(ast_walk_context_t & context);
+
+        // Walks the analysis step of an iterator that has GetEnumerator().
+        bool __walk_analysis_enumerator(ast_walk_context_t & context, type_t * iterator_type);
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // using_st
+
+    Ast(using_st, __xcvalue_t::using_st)
+
+        // Typename
+        __type_name__,
+
+        // Initializer expression.
+        __initializer__,
+
+        // Body.
+        __body__,
+
+    EndAst(using_st)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Using statement ast node.
+    class using_st_ast_node_t : public __using_st_ast_node_t
+                              , public statement_ast_t
+                              , public __w_t<using_statement_t>
+    {
+        typedef __using_st_ast_node_t __super_t;
+
+    public:
+        using __using_st_ast_node_t::__using_st_ast_node_t;
+
+        // Sets variable.
+        void set_variable(name_t name, __el_t * el);
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual statement_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        variable_region_t * __region = nullptr;     // The region of the variable.
+        local_variable_t *  __variable = nullptr;   // The variable.
+
+        // Walks the analysis step: makes the statements.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4096,6 +4297,67 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // lambda
+
+    // Lambda expression.
+    Ast(lambda, __xcvalue_t::lambda)
+
+        // Params.
+        __params__,
+
+        // Body, a block.
+        __body__,
+
+        // Body, an expression.
+        __expression__,
+
+    EndAst(lambda)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Lambda ast node. It is a name expression: the name of a method that is made when the
+    // node is walked, from its params and its body.
+    class lambda_ast_node_t : public __lambda_ast_node_t
+                            , public expression_ast_t
+                            , public __wexp_t<name_expression_t>
+    {
+        typedef __lambda_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Adds the name of a param that has no type.
+        void add_param_name(name_t name) { __param_names.push_back(name); }
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        std::vector<name_t> __param_names;
+
+        // The local variables of the method that has the lambda, that it uses: it is a method
+        // of the object of the class __env_node, that has a copy of them.
+        std::vector<name_t>         __captured_names;
+        std::vector<variable_t *>   __captured;
+        std::vector<expression_t *> __used;
+        general_type_t *            __env_node = nullptr;
+        method_t *                  __method = nullptr;
+        method_t *                  __outer = nullptr;
+
+        // Makes the method of the lambda.
+        void __walk_default(ast_walk_context_t & context);
+
+        // The end: the types of the variables are known, the environment is made.
+        void __walk_end(ast_walk_context_t & context);
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // field
 
     // Field.
@@ -4208,6 +4470,27 @@ namespace X_ROOT_NS::modules::compile {
         // Sets trait.
         void set_trait(method_trait_t trait, __el_t * el);
 
+        // Sets that the constructor calls another constructor of the type: : this(...)
+        void set_ctor_this() { __ctor_this = true; }
+
+        // Makes this method the method of a lambda: its params and its body are those of
+        // the lambda, the return type is the one of the delegate it is converted to.
+        void init_lambda(name_t name, bool is_static, ast_node_t * params, ast_node_t * body,
+                    ast_node_t * expression_node, expression_t * expression,
+                    ast_node_t * lambda_node, params_t * untyped_params = nullptr);
+
+        // The params of a lambda that has no types: the types are not known when the body is
+        // analyzed if the lambda is not converted to a delegate.
+        void __fix_implicit_lambda(ast_walk_context_t & context);
+
+        // The node of the expression that is the body of a lambda, it is walked with the
+        // method.
+        ast_node_t * lambda_expression_node = nullptr;
+
+        // The node of the lambda, for the messages.
+        ast_node_t * lambda_node = nullptr;
+
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -4220,12 +4503,19 @@ namespace X_ROOT_NS::modules::compile {
     private:
         const operator_property_t * __op_property = nullptr;
         __el_t * __name_el = nullptr;
+        bool __ctor_this = false;
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context);
 
         // Walks analysis step.
         bool __walk_analysis(ast_walk_context_t & context);
+
+        // Walks analysis step of the method of a lambda.
+        void __walk_lambda_analysis(ast_walk_context_t & context);
+
+        // Walks the end step of the method that does the work of an iterator.
+        void __walk_iterator_end(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

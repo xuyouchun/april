@@ -31,6 +31,11 @@
 #include <limits>
 #include <codecvt>
 #include <type_traits>
+#include <cstdint>
+#include <iomanip>
+#include <cstring>
+#include <mutex>
+#include <condition_variable>
 #include <thread>
 #include <chrono>
 #include <functional>
@@ -210,7 +215,60 @@ namespace X_ROOT_NS {
     typedef bool             bool_t;
     typedef uint8_t          byte_t;
 
-    typedef ::std::basic_string<byte_t>    bytes_t;
+    // Character traits of byte_t. (std::char_traits<unsigned char> is not
+    // provided by recent standard libraries.)
+    struct byte_traits_t
+    {
+        typedef byte_t                      char_type;
+        typedef int                         int_type;
+        typedef ::std::streamoff            off_type;
+        typedef ::std::streampos            pos_type;
+        typedef ::std::mbstate_t            state_type;
+
+        static void assign(char_type & r, const char_type & c) noexcept { r = c; }
+        static bool eq(char_type a, char_type b) noexcept { return a == b; }
+        static bool lt(char_type a, char_type b) noexcept { return a < b; }
+
+        static int compare(const char_type * a, const char_type * b, size_t n)
+        {
+            return n == 0? 0 : ::std::memcmp(a, b, n);
+        }
+
+        static size_t length(const char_type * s)
+        {
+            size_t n = 0;
+            while (s[n] != 0) n++;
+            return n;
+        }
+
+        static const char_type * find(const char_type * s, size_t n, const char_type & c)
+        {
+            return n == 0? nullptr : (const char_type *)::std::memchr(s, c, n);
+        }
+
+        static char_type * move(char_type * d, const char_type * s, size_t n)
+        {
+            return n == 0? d : (char_type *)::std::memmove(d, s, n);
+        }
+
+        static char_type * copy(char_type * d, const char_type * s, size_t n)
+        {
+            return n == 0? d : (char_type *)::std::memcpy(d, s, n);
+        }
+
+        static char_type * assign(char_type * d, size_t n, char_type c)
+        {
+            return n == 0? d : (char_type *)::std::memset(d, c, n);
+        }
+
+        static char_type to_char_type(int_type c) noexcept { return (char_type)c; }
+        static int_type to_int_type(char_type c) noexcept { return (int_type)c; }
+        static bool eq_int_type(int_type a, int_type b) noexcept { return a == b; }
+        static int_type eof() noexcept { return -1; }
+        static int_type not_eof(int_type c) noexcept { return c == eof()? 0 : c; }
+    };
+
+    typedef ::std::basic_string<byte_t, byte_traits_t>    bytes_t;
 
     //-------- ---------- ---------- ---------- ----------
     // Time, from std library.
@@ -1925,11 +1983,40 @@ namespace X_ROOT_NS {
             );
 
             if constexpr (std::is_base_of_v<object_t, obj_t>)
-                bit_add_flag(flag, memory_flag_t::is_object);
+            {
+                // The heaps run the destructor of an object through the object_t at the start
+                // of its memory. With multiple inheritance, where object_t is not the first
+                // base, that would call another virtual function of the class: such an
+                // object is not registered, its destructor is not run.
+                if (__object_offset<obj_t>() == 0)
+                    bit_add_flag(flag, memory_flag_t::is_object);
+                else
+                    bit_remove_flag(flag, memory_flag_t::is_object);
+            }
             else
+            {
                 bit_remove_flag(flag, memory_flag_t::is_object);
+            }
 
             return flag;
+        }
+
+        // Returns the offset of the object_t in the object, -1 if it is not known (the
+        // class has more than one object_t).
+        template<typename obj_t>
+        static ptrdiff_t __object_offset()
+        {
+            if constexpr (std::is_convertible_v<obj_t *, object_t *>)
+            {
+                alignas(obj_t) static char buffer[sizeof(obj_t)];
+                obj_t * p = reinterpret_cast<obj_t *>(buffer);
+
+                return (char *)static_cast<object_t *>(p) - (char *)p;
+            }
+            else
+            {
+                return 0;
+            }
         }
     };
 
@@ -2498,13 +2585,13 @@ namespace X_ROOT_NS {
         // Assigns a value.
         constexpr __self_t operator = (_enum_t v) _NE
         {
-            this->value = v;
+            return this->value = v, *this;
         }
 
         // Assigns a value.
         constexpr __self_t operator = (__self_t v) _NE
         {
-            this->value = v.value;
+            return this->value = v.value, *this;
         }
 
         // Equals.

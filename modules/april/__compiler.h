@@ -93,6 +93,13 @@ namespace X_ROOT_NS::modules::april {
         // Run the specified assembly.
         bool run(const string_t & execute_assembly = _T(""));
 
+        // Compiles, then generates the LLVM IR (.ll) of the specified assembly,
+        // next to the assembly file. Returns true if succeed.
+        // With options.native_build the executable is built with clang; with
+        // options.native_run it is also run, and the process exits with its exit code.
+        bool native(const string_t & execute_assembly = _T(""),
+                    const april_options_t::run_options_t * native_options = nullptr);
+
         X_TO_STRING_IMPL(_T("april_xcompiler_t"))
 
     private:
@@ -136,7 +143,11 @@ namespace X_ROOT_NS::modules::april {
         __project_cassembly_t * __record_project(project_t * project);
 
         // Runs the specified assembly.
-        void __run(const string_t & execute_assembly);
+        bool __run(const string_t & execute_assembly);
+
+        // Generates the LLVM IR of the specified assembly.
+        void __native(const string_t & execute_assembly,
+                      const april_options_t::run_options_t * native_options);
 
         // Memory manager.
         xheap_t __xheap;

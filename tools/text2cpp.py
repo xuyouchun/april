@@ -102,9 +102,26 @@ def _is_cmd_line(s):
 #////////// ////////// ////////// ////////// //////////
 
 def __main():
-    lines = [line.rstrip('\r\n') for line in sys.stdin.readlines()]
+    # Usage: text2cpp.py [input] [output]
+    #   No arguments: read stdin, write stdout (legacy tools/csec mode).
+    #   With arguments: read/write files; a leading '#!' line is skipped.
+    if len(sys.argv) > 1:
+        with open(sys.argv[1], 'r') as f:
+            lines = f.readlines()
+        if lines and lines[0].startswith('#!'):
+            lines = lines[1:]
+    else:
+        lines = sys.stdin.readlines()
+
+    lines = [line.rstrip('\r\n') for line in lines]
     converter = Converter(lines)
-    print(converter.convert())
+    result = converter.convert()
+
+    if len(sys.argv) > 2:
+        with open(sys.argv[2], 'w') as f:
+            f.write(result + '\n')
+    else:
+        print(result)
 
 __main()
 

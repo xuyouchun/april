@@ -1,8 +1,81 @@
 #include <rtlib.h>
+#include <charconv>
 
 namespace X_ROOT_NS::modules::rtlib {
 
     ////////// ////////// ////////// ////////// //////////
+
+    // Formats a floating point number like .NET: the shortest text that reads back to the
+    // same number, in scientific notation when the exponent is 15 or more or below -5.
+    template<typename _float_t> static std::wstring __format_floating(_float_t value)
+    {
+        if (value != value)
+            return L"NaN";
+
+        if (value == std::numeric_limits<_float_t>::infinity())
+            return L"Infinity";
+
+        if (value == -std::numeric_limits<_float_t>::infinity())
+            return L"-Infinity";
+
+        bool negative = std::signbit(value);
+        if (negative)
+            value = -value;
+
+        if (value == 0)
+            return negative? L"-0" : L"0";
+
+        // The shortest scientific form: d.ddde+XX
+        char buffer[64];
+        auto r = std::to_chars(buffer, buffer + sizeof(buffer), value,
+                                                    std::chars_format::scientific);
+        std::string text(buffer, r.ptr);
+
+        size_t e_pos = text.find('e');
+        std::string mantissa = text.substr(0, e_pos);
+        int exponent = std::atoi(text.c_str() + e_pos + 1);
+
+        std::string digits;
+        for (char c : mantissa)
+        {
+            if (c != '.')
+                digits += c;
+        }
+
+        std::string result;
+        if (exponent >= 15 || exponent < -5)
+        {
+            result = digits.substr(0, 1);
+            if (digits.size() > 1)
+                result += "." + digits.substr(1);
+
+            char exp_text[16];
+            std::snprintf(exp_text, sizeof(exp_text), "E%c%02d",
+                                        exponent < 0? '-' : '+', std::abs(exponent));
+            result += exp_text;
+        }
+        else if (exponent >= 0)
+        {
+            size_t int_count = (size_t)exponent + 1;
+            if (digits.size() <= int_count)
+            {
+                result = digits + std::string(int_count - digits.size(), '0');
+            }
+            else
+            {
+                result = digits.substr(0, int_count) + "." + digits.substr(int_count);
+            }
+        }
+        else
+        {
+            result = "0." + std::string((size_t)(-exponent - 1), '0') + digits;
+        }
+
+        return std::wstring(negative? L"-" : L"") + std::wstring(result.begin(), result.end());
+    }
+
+    std::wstring format_floating(double value) { return __format_floating(value); }
+    std::wstring format_floating(float value)  { return __format_floating(value); }
 
     // Write.
     template<typename _t> struct __write_args_t
@@ -10,12 +83,21 @@ namespace X_ROOT_NS::modules::rtlib {
         _t  value;
     };
 
+    // Writes a value: floating point numbers are formatted like .NET.
+    template<typename _t, typename _v_t> static void __write_value(_v_t v)
+    {
+        if constexpr (std::is_floating_point<_v_t>::value)
+            std::wcout << __format_floating(v);
+        else
+            std::wcout << v;
+    }
+
     template<typename _t> void __console_write(rtlib_context_t & ctx)
     {
         typedef __write_args_t<_t> args_t;
 
         args_t * arg = ctx.args<args_t>();
-        std::wcout << *arg->value;
+        __write_value<_t>(*arg->value);
     }
 
     template<typename _t> void __console_write_line(rtlib_context_t & ctx)
@@ -23,7 +105,8 @@ namespace X_ROOT_NS::modules::rtlib {
         typedef __write_args_t<_t> args_t;
 
         args_t * arg = ctx.args<args_t>();
-        std::wcout << *arg->value << std::endl;
+        __write_value<_t>(*arg->value);
+        std::wcout << std::endl;
     }
 
 

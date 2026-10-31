@@ -45,6 +45,39 @@ internal static class Internal
     public static extern Int32 Tuple_GetCount(Type type);
 
 
+    // String
+
+    [Internal]
+    public static extern String String_Concat(String a, String b);
+
+    [Internal]
+    public static extern Boolean String_Equals(String a, String b);
+
+    [Internal]
+    public static extern Int32 String_Compare(String a, String b);
+
+    [Internal]
+    public static extern Int32 String_GetLength(String s);
+
+    [Internal]
+    public static extern Int32 String_GetHashCode(String s);
+
+    [Internal]
+    public static extern String Int64_ToString(Int64 value);
+
+    [Internal]
+    public static extern String UInt64_ToString(UInt64 value);
+
+    [Internal]
+    public static extern String Double_ToString(Double value);
+
+    [Internal]
+    public static extern String Single_ToString(Single value);
+
+    [Internal]
+    public static extern String Char_ToString(Char value);
+
+
     // Console
 
     [Internal]

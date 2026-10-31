@@ -48,7 +48,7 @@ class Program
         // Out ref type.
         {
             Class1 obj;
-            __OutClass(ref obj);
+            __OutClass(out obj);
 
             Console.WriteLine(obj.Value);
         }
@@ -86,7 +86,7 @@ class Program
         obj.Value = 333;
     }
 
-    private static void __OutClass(ref Class1 obj)
+    private static void __OutClass(out Class1 obj)
     {
         obj = new Class1();
         obj.Value = 444;

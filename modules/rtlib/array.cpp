@@ -22,6 +22,9 @@ namespace X_ROOT_NS::modules::rtlib {
     void array_get_rank(rtlib_context_t & ctx)
     {
         __array_get_rank_args_t * args = ctx.args<__array_get_rank_args_t>();
+        if (args->get_array() == nullptr)
+            return ctx.ret_code = rtlib_ret_null_reference, void();
+
         int32_t rank = mm::get_array_dimension(args->get_array());
 
         ctx.return_(rank);
@@ -35,6 +38,9 @@ namespace X_ROOT_NS::modules::rtlib {
     void array_get_length(rtlib_context_t & ctx)
     {
         __array_get_length_args_t * args = ctx.args<__array_get_length_args_t>();
+        if (args->get_array() == nullptr)
+            return ctx.ret_code = rtlib_ret_null_reference, void();
+
         array_length_t length = mm::get_array_length(args->get_array());
 
         ctx.return_(length);
@@ -52,6 +58,8 @@ namespace X_ROOT_NS::modules::rtlib {
     {
         typedef __array_get_length_of_dimension_args_t args_t;
         args_t * args = ctx.args<args_t>();
+        if (args->get_array() == nullptr)
+            return ctx.ret_code = rtlib_ret_null_reference, void();
 
         array_length_t length = mm::get_array_length_of_dimension(
             args->get_array(), *args->dimension

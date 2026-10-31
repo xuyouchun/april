@@ -1009,7 +1009,13 @@ namespace X_ROOT_NS::modules::compile {
             variable_t * variable;
             if (__region != nullptr && (variable = __region->get(name)) != nullptr)
             {
-                if (variable->this_type() == variable_type_t::method)
+                if (variable->this_type() == variable_type_t::method
+                        && ((method_variable_t *)variable)->method->is_lambda)
+                {
+                    // The name of a lambda is that of its method, nothing else has it.
+                    name_exp->set(variable);
+                }
+                else if (variable->this_type() == variable_type_t::method)
                 {
                     type_t * context_type;
 
@@ -1041,6 +1047,15 @@ namespace X_ROOT_NS::modules::compile {
                 else
                 {
                     name_exp->set(variable);
+
+                    // The names of the local variables of the method that does the work of an
+                    // iterator are the fields of the state object.
+                    method_t * current = __wctx.current_method();
+                    if (variable->this_type() == variable_type_t::local
+                            && current != nullptr && current->iterator_info != nullptr)
+                    {
+                        ((iterator_info_t *)current->iterator_info)->refs.push_back(name_exp);
+                    }
                 }
             }
             else
@@ -1154,6 +1169,12 @@ namespace X_ROOT_NS::modules::compile {
                 __walk(exp2);
         }
 
+        // Returns whether the type is string: its operators are methods of the type.
+        static bool __is_string(type_t * type)
+        {
+            return type != nullptr && type->this_vtype() == vtype_t::string_;
+        }
+
         // Walks binary expression.
         template<size_t _exp_count>
         void __walk_op_expression(op_expression_t<_exp_count> * exp)
@@ -1161,6 +1182,13 @@ namespace X_ROOT_NS::modules::compile {
             // Check operator.
             const operator_property_t * op_property = exp->op_property;
             _A(op_property != nullptr);
+
+            // A lambda that is assigned to a delegate gets the return type of it.
+            if (_exp_count == 2 && op_property->op == operator_t::assign)
+            {
+                bind_lambda_to_type(exp->expression_at(1 % _exp_count),
+                                    exp->expression_at(0)->get_type());
+            }
 
             if (op_property->overload == operator_overload_model_t::no_check)
                 return;
@@ -1171,11 +1199,16 @@ namespace X_ROOT_NS::modules::compile {
                 _A(_exp_count == 2);
 
                 type_t * type1 = exp->expression_at(0)->get_type();
+                bind_lambda_to_type(exp->expression_at(1), type1);
                 type_t * type2 = exp->expression_at(1)->get_type();
 
-                if (!is_type_compatible(type2, type1))
+                if (!is_type_compatible(type2, type1)
+                        && !is_constant_compatible(exp->expression_at(1), type1))
+                {
                     ast_log(__cctx, exp, __c_t::invalid_type_cast, type2->to_prototype(),
                                                                    type1->to_prototype());
+                }
+
                 return;
             }
 
@@ -1183,6 +1216,7 @@ namespace X_ROOT_NS::modules::compile {
             atypes_t atypes;
             bool exists_custom_type = false;
             bool exists_null = false;
+            bool exists_string = false;
 
             for (expression_t * exp : exp->exps)
             {
@@ -1191,6 +1225,8 @@ namespace X_ROOT_NS::modules::compile {
 
                 if (is_null(arg_type))
                     exists_null = true;
+                else if (__is_string(arg_type))
+                    exists_custom_type = exists_string = true;
                 else if (is_object(arg_type))
                     exists_custom_type = true;
 
@@ -1200,8 +1236,10 @@ namespace X_ROOT_NS::modules::compile {
             if (!exists_custom_type)
                 return;
 
-            // null types only support equal or not_equal operators.
-            if (exists_null && (op == operator_t::equal || op == operator_t::not_equal))
+            // null types only support equal or not_equal operators. (The operators of strings
+            // take null, as a null string.)
+            if (exists_null && !exists_string
+                    && (op == operator_t::equal || op == operator_t::not_equal))
                 return;
 
             if (op_property->overload == operator_overload_model_t::no_overloaded)
@@ -1210,26 +1248,104 @@ namespace X_ROOT_NS::modules::compile {
                 return;
             }
 
-            // Finds method.
-            const char_t * op_name = exp->op_property->name;
+            // Finds method. x += y is x = x + y: the method is that of the operator +.
+            const operator_property_t * name_property = exp->op_property;
+            switch (op)
+            {
+                case operator_t::add_assign:
+                    name_property = get_system_operator_property(operator_t::add);
+                    break;
+
+                case operator_t::sub_assign:
+                    name_property = get_system_operator_property(operator_t::sub);
+                    break;
+
+                case operator_t::mul_assign:
+                    name_property = get_system_operator_property(operator_t::mul);
+                    break;
+
+                case operator_t::div_assign:
+                    name_property = get_system_operator_property(operator_t::div);
+                    break;
+
+                case operator_t::mod_assign:
+                    name_property = get_system_operator_property(operator_t::mod);
+                    break;
+
+
+                default:
+                    break;
+            }
+
+            const char_t * op_name = name_property->name;
             _A(op_name != nullptr);
 
             name_t name = __to_name(_F(_T("op_%1%"), op_name));
 
+            // One operator method does x++ and ++x: it is declared as operator ++.
+            name_t other_name = name;
+            switch (op)
+            {
+                case operator_t::left_increment:
+                    other_name = __to_name(_F(_T("op_%1%"),
+                        get_system_operator_property(operator_t::right_increment)->name));
+                    break;
+
+                case operator_t::right_increment:
+                    other_name = __to_name(_F(_T("op_%1%"),
+                        get_system_operator_property(operator_t::left_increment)->name));
+                    break;
+
+                case operator_t::left_decrement:
+                    other_name = __to_name(_F(_T("op_%1%"),
+                        get_system_operator_property(operator_t::right_decrement)->name));
+                    break;
+
+                case operator_t::right_decrement:
+                    other_name = __to_name(_F(_T("op_%1%"),
+                        get_system_operator_property(operator_t::left_decrement)->name));
+                    break;
+
+                default:
+                    break;
+            }
+
             al::svector_t<method_t *> methods;
             for (atype_t atype : atypes)
             {
-                if (!is_object(atype.type))
+                if (!is_object(atype.type) && !__is_string(atype.type))
                     continue;
 
-                method_t * method = find_method(
-                    atype.type, method_trait_t::default_, name, nullptr, &atypes
-                );
+                method_t * method = nullptr;
 
-                if (method != nullptr && method->is_static())
-                    break;
+                try
+                {
+                    method = find_method(
+                        atype.type, method_trait_t::default_, name, nullptr, &atypes
+                    );
 
+                    if (method == nullptr && other_name != name)
+                    {
+                        method = find_method(
+                            atype.type, method_trait_t::default_, other_name, nullptr, &atypes
+                        );
+                    }
+                }
+                catch (const method_compare_error_t & e)
+                {
+                    string_t s = al::join_str(atypes.begin(), atypes.end(), _T(", "));
+                    ast_log(__cctx, exp, __c_t::operator_overload_ambiguous, op_property->op, s);
+
+                    return;
+                }
+
+                if (method == nullptr)
+                    continue;
+
+                // The operator method of an operand type: static, takes all the operands.
                 methods.push_back(method);
+                if (method->is_static())
+                    break;
             }
 
             if (methods.empty())
@@ -1544,6 +1660,14 @@ namespace X_ROOT_NS::modules::compile {
                         function_exp->set_variable(variable);
                         __walk_arguments(function_exp->arguments());
                     }
+                    else if (type == nullptr && __is_checked_name(name_exp->name)
+                                && function_exp->arguments() != nullptr
+                                && function_exp->arguments()->size() == 1)
+                    {
+                        // checked(expression), unchecked(expression)
+                        function_exp->set_checked(name_exp->name == __to_name(_T("checked")));
+                        __walk_arguments(function_exp->arguments());
+                    }
                     else
                     {
                         __walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
@@ -1586,6 +1710,12 @@ namespace X_ROOT_NS::modules::compile {
                     __walk_arguments(function_exp->arguments());
                     break;
             }
+        }
+
+        // Returns whether the name is checked or unchecked.
+        bool __is_checked_name(name_t name)
+        {
+            return name == __to_name(_T("checked")) || name == __to_name(_T("unchecked"));
         }
 
         // Tries to get method.
@@ -1666,6 +1796,17 @@ namespace X_ROOT_NS::modules::compile {
                 al::copy(am_args.out_arg_types, std::back_inserter(tc));
             else
                 fill_type_collection(tc, function_exp->generic_args);
+
+            // The lambdas that are arguments are converted to the types of the params.
+            if (arguments != nullptr && tc.empty() && method->generic_params == nullptr)
+            {
+                for (size_t index = 0, count = std::min((size_t)arguments->size(),
+                                                (size_t)method->param_count()); index < count; index++)
+                {
+                    bind_lambda_to_type(arguments->at(index)->expression,
+                                        method->param_at(index)->get_type());
+                }
+            }
 
             if (tc.empty())
             {
@@ -1823,7 +1964,15 @@ namespace X_ROOT_NS::modules::compile {
 
         try
         {
-            return __region->define_local(type_name, name, constant, expression);
+            local_variable_t * variable = __region->define_local(type_name, name, constant,
+                                                                              expression);
+
+            // The local variables of the method that does the work of an iterator are fields.
+            method_t * method = __wctx.current_method();
+            if (method != nullptr && method->iterator_info != nullptr)
+                ((iterator_info_t *)method->iterator_info)->locals.push_back(variable);
+
+            return variable;
         }
         catch (const logic_error_t<ast_error_t> & e)
         {

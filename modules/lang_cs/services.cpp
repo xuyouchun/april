@@ -174,6 +174,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(array_initializer)
             __Case(array_lengths)
             __Case(default_value)
+            __Case(lambda)
             __Case(type_name_exp)
             __Case(type_cast_exp)
 
@@ -214,12 +215,14 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(goto_st)
             __Case(throw_st)
             __Case(return_st)
+            __Case(yield_st)
 
             __Case(statements)
             __Case(do_while_st)
             __Case(while_st)
             __Case(for_st)
             __Case(for_each_st)
+            __Case(using_st)
             __Case(if_st)
             __Case(switch_st)
             __Case_(case_, case)

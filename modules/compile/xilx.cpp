@@ -486,11 +486,20 @@ namespace X_ROOT_NS::modules::compile {
                 expression_compile_context_t cctx(ctx);
                 __do_custom_struct_return(cctx, pool, expression, type);
             }
+            else if (is_generic_param(type))
+            {
+                // The value of a generic param is returned in the stack.
+                __compile_expression(ctx, pool, expression, __environment_t(type, false));
+            }
             else
             {
                 __compile_expression(ctx, pool, expression, type);
             }
         }
+
+        // The finally blocks run after the value was computed.
+        if (leave)
+            xil::append_jmp_xil(pool, xil_jmp_model_t::leave);
 
         xil::append_ret(pool);
     }

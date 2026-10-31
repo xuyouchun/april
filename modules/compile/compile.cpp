@@ -879,6 +879,34 @@ namespace X_ROOT_NS::modules::compile {
         return compile(memory, solution, writer);
     }
 
+    // Calls the static constructors of all types at the beginning of the entry point.
+    static void __call_static_constructors(compile_context_t & context, assembly_t * assembly)
+    {
+        method_t * entry_point = assembly->entry_point;
+        if (entry_point == nullptr || entry_point->body == nullptr)
+            return;
+
+        statements_t calls;
+        assembly->types.each_general_types([&](general_type_t * type) {
+
+            if (type->params != nullptr && type->params->size() > 0)   // generic template
+                return;
+
+            for (method_t * method : type->methods)
+            {
+                if (method->trait != method_trait_t::static_constructor)
+                    continue;
+
+                calls.push_back(context.new_obj<expression_statement_t>(
+                    context.new_obj<system_expression_t<function_expression_t>>(method, nullptr)
+                ));
+            }
+        });
+
+        if (calls.size() > 0)
+            entry_point->body->push_front(calls);
+    }
+
     // Compiles project.
     compiler_t::__assembly_t * compiler_t::__compile_project(__building_context_t & bctx,
         compile_context_t & context, ast_project_t * cproject, assembly_loader_t * assembly_loader)
@@ -903,6 +931,8 @@ namespace X_ROOT_NS::modules::compile {
         ast_walk<__module_ast_node_t>(walk_context, nodes);
         if (context.error_count() == 0)
         {
+            __call_static_constructors(context, assembly);
+
             xostream_t * stream = nullptr;
             if (assembly->name == nullptr || assembly->name->sid == sid_t::null)
                 context.log(__l_t::warning, __c_t::no_assembly_name);

@@ -223,6 +223,10 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __global_type = global_type_t::global;
                 break;
 
+            case __TokenValue(question_mark):
+                __This->set_nullable();
+                break;
+
             case __TokenValue(double_colon):
                 if (__global_type == global_type_t::__default__)
                     __global_type = global_type_t::root;
@@ -1093,7 +1097,30 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // new_array
 
-    __ApplyToken(new_array, token, args) { }
+    __ApplyToken(new_array, token, args)
+    {
+        // The brackets of the lengths belong to the first group, the others are
+        // rank specifiers of the array type of the elements.
+        switch (token->value)
+        {
+            case __TokenValue(left_square):
+                if (__closed > 0)
+                    __rank = 1;
+                break;
+
+            case __TokenValue(comma):
+                if (__closed > 0)
+                    __rank++;
+                break;
+
+            case __TokenValue(right_square):
+                if (__closed > 0)
+                    __ranks.push_back(__rank);
+
+                __closed++;
+                break;
+        }
+    }
 
     __ApplyAst(new_array, node, args)
     {
@@ -1115,6 +1142,26 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __OnCompleted(new_array, args)
     {
+        // new T[n][][,]: the elements are arrays, the first rank specifier is the outermost.
+        if (!__ranks.empty())
+        {
+            ast_node_t * element = __This->child_at(__Type::__type_name__);
+
+            for (int k = (int)__ranks.size() - 1; k >= 0; k--)
+            {
+                auto * array_type = this->template __new_ast<array_type_name_ast_node_t>();
+                array_type->set_child(array_type_name_ast_node_t::__element_type_name__, element);
+
+                for (int d = 0; d < __ranks[k]; d++)
+                    array_type->append_child(array_type_name_ast_node_t::__dimensions__, nullptr);
+
+                array_type->on_commit();
+                element = array_type;
+            }
+
+            __This->set_child(__Type::__type_name__, element);
+        }
+
         if (!__This->has_child(__Type::__lengths__))
         {
             __This->set_child(__Type::__lengths__,
@@ -1169,6 +1216,39 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         __This->append_child(__Type::__lengths__, __last_exp);
     }
+
+    ////////// ////////// ////////// ////////// //////////
+    // lambda
+
+    __ApplyToken(lambda, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(name):
+                __This->add_param_name(this->__to_name(token));
+                break;
+        }
+    }
+
+    __ApplyAst(lambda, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(params):
+                __This->set_child(__Type::__params__, node);
+                break;
+
+            case __AstValue(method_body):
+                __This->set_child(__Type::__body__, node);
+                break;
+
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(lambda, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // default_value
@@ -1359,6 +1439,31 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(return_st, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // yield_st
+
+    __ApplyToken(yield_st, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(k_break):
+                __This->set_break();
+                break;
+        }
+    }
+
+    __ApplyAst(yield_st, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(yield_st, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // do_while_st
 
     __ApplyToken(do_while_st, token, args) { }
@@ -1471,6 +1576,39 @@ namespace X_ROOT_NS::modules::lang_cs {
     }
 
     __OnCompleted(for_each_st, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
+    // using_st
+
+    __ApplyToken(using_st, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(name):
+                __This->set_variable(this->__to_name(token), token);
+                break;
+        }
+    }
+
+    __ApplyAst(using_st, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__initializer__, node);
+                break;
+
+            case __AstValue(type_name):
+                __This->set_child(__Type::__type_name__, node);
+                break;
+
+            case __AstValue(statement):
+                __This->set_child(__Type::__body__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(using_st, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // if_st
@@ -1751,6 +1889,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case __TokenValue(bit_not):
                 __This->set_trait(method_trait_t::destructor, token);
+                break;
+
+            case __TokenValue(k_this):      // A constructor that calls another: : this(...)
+                __This->set_ctor_this();
                 break;
         }
     }
@@ -2171,7 +2313,15 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // namespace
 
-    __ApplyToken(namespace, token, args) { }
+    __ApplyToken(namespace, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(semicolon):
+                __This->set_file_scoped();
+                break;
+        }
+    }
 
     __ApplyAst(namespace, node, args)
     {

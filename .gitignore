@@ -5,6 +5,8 @@
 *.apl
 libs/
 bin/
+build/
+CMakeUserPresets.json
 include/config.h
 Makefile.options.me
 test/projects/Project1/
@@ -12,4 +14,4 @@ test/projects/Project1/
 __pycache__
 *.pyc
 
-.DS_Store
+.*

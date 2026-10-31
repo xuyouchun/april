@@ -73,6 +73,9 @@ namespace X_ROOT_NS::modules::rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Return codes of runtime lib functions.
+    const int rtlib_ret_null_reference = 1;     // A null reference was used.
+
     // Runtime lib context.
     struct rtlib_context_t
     {
@@ -129,6 +132,28 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(console_write_uint64_line);
     __DefineFunc(console_write_float_line);
     __DefineFunc(console_write_double_line);
+
+    // String functions.
+    __DefineFunc(string_concat);
+    __DefineFunc(string_equals);
+    __DefineFunc(string_compare);
+    __DefineFunc(string_get_length);
+    __DefineFunc(string_get_hash_code);
+    __DefineFunc(int64_to_string);
+    __DefineFunc(uint64_to_string);
+    __DefineFunc(double_to_string);
+    __DefineFunc(float_to_string);
+    __DefineFunc(char_to_string);
+
+    // The allocator of the memory of the strings that programs make (e.g. concatenation).
+    // Without one, the memory is never freed.
+    typedef void * (* string_allocator_t)(uint64_t bytes);
+    void set_string_allocator(string_allocator_t allocator);
+    void * allocate_string_memory(size_t bytes);
+
+    // Formats a floating point number like .NET: the shortest text that reads back exactly.
+    std::wstring format_floating(double value);
+    std::wstring format_floating(float value);
 
     // Array functions.
     __DefineFunc(array_get_rank);

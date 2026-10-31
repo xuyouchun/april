@@ -3132,6 +3132,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // search stacks
         __stack_items_t stack_items;
+
         for (const __node_key_t * p_key = push_args.keys; *p_key != __empty_node_key; p_key++)
         {
             const __node_key_t & key = *p_key;
@@ -3148,18 +3149,21 @@ namespace X_ROOT_NS::modules::compile {
             }
             else
             {
-                if (__is_invisible(key))
+                // Only tokens can be invisible, e.g. comments.
+                if (key.type == __node_type_t::token && __is_invisible(key))
                 {
-                    __path_node_stack_t stack(value.node, 1);
-                    stack.normal_count = 1;
+                    // The stack is kept by the task, the path of the unit is its address.
+                    __invisible_stack_t & invisible = args.task.invisible_stacks.emplace_back(
+                        value.node
+                    );
 
-                    __stack_normal_buffer_t buffer = {
-                        const_cast<analyze_node_t *>(value.node),
-                        const_cast<analyze_node_t *>(value.node)
-                    };
+                    invisible.stack.normal_count = 1;
 
-                    stack.units[0] = __stack_unit_t(value.node, 0, &buffer, nullptr, key.value);
-                    stack_items.push_back(__stack_item_t { &stack, src });
+                    invisible.stack.units[0] = __stack_unit_t(
+                        value.node, 0, invisible.buffer, nullptr, key.value
+                    );
+
+                    stack_items.push_back(__stack_item_t { &invisible.stack, src });
                 }
             }
         }
@@ -3171,15 +3175,24 @@ namespace X_ROOT_NS::modules::compile {
     __AlwaysInline void analyze_context_t::__do_stack_grow(__stack_grow_args_t & args,
                             __stack_node_t * stack_node, const __stack_item_t & stack_item)
     {
-        __do_stack_grow(args, stack_node, __stack_items_t({ stack_item }));
+        __do_stack_grow(args, stack_node, &stack_item, 1);
     }
 
     // Do stack grow.
     __AlwaysInline void analyze_context_t::__do_stack_grow(__stack_grow_args_t & args,
                     __stack_node_t * stack_node, const __stack_items_t & stack_items)
     {
-        if (stack_items.size() == 0)
+        __do_stack_grow(args, stack_node, stack_items.begin(), stack_items.size());
+    }
+
+    // Do stack grow.
+    __AlwaysInline void analyze_context_t::__do_stack_grow(__stack_grow_args_t & args,
+            __stack_node_t * stack_node, const __stack_item_t * items, size_t count)
+    {
+        if (count == 0)
             return;
+
+        const __stack_item_t * items_end = items + count;
 
         args.found = false;
         __stack_push_args_t & push_args = args.task.push_args;
@@ -3187,8 +3200,9 @@ namespace X_ROOT_NS::modules::compile {
         //__holes_t holes = (*stack_node)->holes;
 
         // branch_switched stacks
-        for (__stack_item_t & stack_item : stack_items)
+        for (const __stack_item_t * p_item = items; p_item != items_end; p_item++)
         {
+            const __stack_item_t & stack_item = *p_item;
             for (const __stack_unit_t & unit :
                                     stack_item.stack->all(__stack_type_t::branch_switched))
             {
@@ -3221,8 +3235,9 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // normal stacks
-        for (__stack_item_t & stack_item : stack_items)
+        for (const __stack_item_t * p_item = items; p_item != items_end; p_item++)
         {
+            const __stack_item_t & stack_item = *p_item;
             for (const __stack_unit_t & unit : stack_item.stack->all(__stack_type_t::normal))
             {
                 if (!args.check_stack_unit(unit))
@@ -3400,6 +3415,9 @@ namespace X_ROOT_NS::modules::compile {
             if ((v2) < (v1)) return false;                                              \
         } while (0)
 
+    // Set when two leaves are ordered by their serial: nothing else tells them apart.
+    static bool __leaf_tie_by_serial = false;
+
     // Returns whether a leaf is less than another leaf.
     __AlwaysInline static bool __leaf_less(__stack_node_t * leaf1, __stack_node_t * leaf2)
     {
@@ -3419,9 +3437,6 @@ namespace X_ROOT_NS::modules::compile {
             al::svector_t<action_t *, 8> actions1 = { nullptr }, actions2 = { nullptr };
             __list_match_actions(leaf1, std::back_inserter(actions1));
             __list_match_actions(leaf2, std::back_inserter(actions2));
-
-            action_t ** p_action1 = actions1.end();
-            action_t ** p_action2 = actions2.end();
 
             for (action_t ** p_action1 = actions1.end() - 1, ** p_action2 = actions2.end() - 1;
                 ; --p_action1, --p_action2)
@@ -3470,7 +3485,7 @@ namespace X_ROOT_NS::modules::compile {
         // action back track
         int back_track1 = __leaf_action_back_track(leaf1);
         int back_track2 = __leaf_action_back_track(leaf2);
-        _PF(_T("back track: %1%, %2%"), back_track1, back_track2);
+        __Tracef(_T("back track: %1%, %2%"), back_track1, back_track2);
         __LessReturn(back_track1, back_track2);
 
         // action index
@@ -3490,7 +3505,9 @@ namespace X_ROOT_NS::modules::compile {
         //_PF(_T("action value: %1%, %2%"), value1, value2);
         // __LessReturn(value2, value1);
 
-        return (void *)leaf1 < (void *)leaf2;
+        // The leaves are the same for the grammar: the first one created wins, in every run.
+        __leaf_tie_by_serial = true;
+        return (*leaf1)->serial < (*leaf2)->serial;
     };
 
     #undef __LessReturn
@@ -3529,6 +3546,40 @@ namespace X_ROOT_NS::modules::compile {
         });
     }
 
+    // Two leaves that are the same for everything but the actions that they have: the grammar
+    // has two ways to match the elements, and the first one created is taken.
+    __AlwaysInline void analyze_context_t::__check_ambiguity(__stack_node_t * kept,
+                                                             __stack_node_t * removed)
+    {
+        typedef __stack_node_raise_matched_event_action_t __action_t;
+
+        __leaf_tie_by_serial = false;
+        __leaf_less(kept, removed);
+        __leaf_less(removed, kept);
+
+        if (!__leaf_tie_by_serial)
+            return;
+
+        al::svector_t<__action_t *, 8> actions1, actions2;
+        __list_match_actions(kept, std::back_inserter(actions1));
+        __list_match_actions(removed, std::back_inserter(actions2));
+
+        bool same = actions1.size() == actions2.size();
+        for (size_t index = 0; same && index < actions1.size(); index++)
+            same = actions1[index]->equals(*actions2[index]);
+
+        if (!same)
+        {
+            if (!ambiguity.empty())
+                return;
+
+            ambiguity = _F(_T("%1% or %2%"),
+                actions1.empty()? string_t(_T("(none)")) : _str(actions1[actions1.size() - 1]),
+                actions2.empty()? string_t(_T("(none)")) : _str(actions2[actions2.size() - 1])
+            );
+        }
+    }
+
     // Merges leaves.
     __AlwaysInline void analyze_context_t::__merge_leaves()
     {
@@ -3543,8 +3594,19 @@ namespace X_ROOT_NS::modules::compile {
 #endif
 
         __merge_identity_t last = __I(__leaves[0]);
-        __leaves.walk([&last, this](__stack_node_t * n) {
-            return (__I(n) == last)?  (__remove_leaf(n), false) : (last = __I(n), true);
+        __stack_node_t * kept = __leaves[0];
+
+        __leaves.walk([&last, &kept, this](__stack_node_t * n) {
+            if (__I(n) == last)
+            {
+                __check_ambiguity(kept, n);
+                __remove_leaf(n);
+                return false;
+            }
+
+            last = __I(n);
+            kept = n;
+            return true;
         }, 1);
 
 #if __EnableTrace >= 3
@@ -3731,7 +3793,12 @@ namespace X_ROOT_NS::modules::compile {
     template<typename stack_node_value_t>
     __AlwaysInline __stack_node_t * analyze_context_t::__new_stack_node(stack_node_value_t && value)
     {
-        return __stack_node_factory.new_obj(std::forward<stack_node_value_t>(value));
+        __stack_node_t * node = __stack_node_factory.new_obj(
+            std::forward<stack_node_value_t>(value)
+        );
+
+        (*node)->serial = ++__node_serial;
+        return node;
     }
 
     // Appends matched items.
@@ -3755,8 +3822,9 @@ namespace X_ROOT_NS::modules::compile {
     // Clear actions.
     void analyze_context_t::__clear_actions()
     {
-        __assign_key_action_factory.clear();
-        __raise_matched_event_action_factory.clear();
+        // The actions are not released: a kept state (error recovery tries something, then
+        // restores the state) may still refer to them, reusing their memory made the
+        // restored action lists cyclic.
     }
 
     // Check end nodes in detecting next keys model.
@@ -3776,11 +3844,10 @@ namespace X_ROOT_NS::modules::compile {
         const __path_node_stack_t * ref_stack = ref_stacks->stack_of((*parent)->node);
         _A(ref_stack != nullptr);
 
+        al::copy(ref_path_node->all_subnode_keys(), std::back_inserter(out_keys));
+
         for (__stack_unit_t & ref_unit : ref_stack->all())
         {
-            __stack_items_t stack_items;
-            auto keys = ref_path_node->all_subnode_keys();
-            al::copy(keys, std::back_inserter(out_keys));
 
             auto ref_node = (const analyze_branch_ref_node_t *)ref_unit.node;
             __node_unit_t end_unit1;
@@ -4342,6 +4409,16 @@ namespace X_ROOT_NS::modules::compile {
                 throw _E(analyze_tree_error_t::unknown_element_type,
                     sprintf(_T("unknown element type: %1%"), element->type)
                 );
+        }
+
+        // The grammar has two ways to match the elements that nothing tells apart: the one
+        // that is taken is not chosen by the program. It is an error of the grammar, it is
+        // reported when the program is compiled.
+        if (!__context.ambiguity.empty())
+        {
+            __log_format_error(_F(_T("ambiguous syntax: %1%"), __context.ambiguity), *element,
+                                                                                    nullptr);
+            __context.ambiguity.clear();
         }
     }
 

@@ -85,7 +85,6 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __Eqk(case);
                 __Eqk(catch);
                 __Eqk(char);
-                __Eqk(checked);
                 __Eqk(class);
                 __Eqk(const);
                 __Eqk(continue);
@@ -191,7 +190,6 @@ namespace X_ROOT_NS::modules::lang_cs {
             case _T('u'):
                 __Eqk(uint);
                 __Eqk(ulong);
-                __Eqk(unchecked);
                 __Eqk(unsafe);
                 __Eqk(ushort);
                 __Eqk(using);
@@ -207,6 +205,10 @@ namespace X_ROOT_NS::modules::lang_cs {
             case _T('w'):
                 __Eqk(while);
                 __Eqks(where, __Wt(k_where), __Wt(name));
+                break;
+
+            case _T('y'):
+                __Eqks(yield, __Wt(k_yield), __Wt(name));
                 break;
 
             case _T('('):   // (
@@ -496,6 +498,10 @@ namespace X_ROOT_NS::modules::lang_cs {
                     case _T('='):
                         __p++;
                         return __Nw(equal);
+
+                    case _T('>'):
+                        __p++;
+                        return __Nw(arrow);                     // =>
 
                     default:
                         return __Nw(assign);

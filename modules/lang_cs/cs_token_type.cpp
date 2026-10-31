@@ -70,6 +70,9 @@ namespace X_ROOT_NS::modules::lang_cs {
         // keywords: w...
         __K(while)      __K(where)
 
+        // keywords: y...
+        __K(yield)
+
         // algorithm
         __C(add, _T("+"))  __C(sub, _T("-"))   __C(mul, _T("*"))   __C(div, _T("/"))
         __C(mod, _T("%"))                                           // + - * / %
@@ -118,6 +121,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(dollar, _T("$"))        __C(ampersand, _T("@"))         // $ @
         __C(base_mark, _T(":"))     __C(double_colon, _T("::"))     // : ::
         __C(three_dots, _T("..."))                                  // ...
+        __C(arrow, _T("=>"))                                        // =>
 
     X_ENUM_INFO_END
 

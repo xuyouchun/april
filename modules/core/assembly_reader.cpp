@@ -120,7 +120,7 @@ namespace X_ROOT_NS::modules::core {
         {
             typedef __list_t<attribute_t *> __super_t;
             typedef __self_t                __owner_t;
-            typedef size_type               __size_t;
+            typedef size_type               __row_size_t;
 
         public:
 
@@ -128,7 +128,7 @@ namespace X_ROOT_NS::modules::core {
             __attribute_list_t(__owner_t * owner) : __owner(owner) { }
 
             // Returns attribute at specified pos.
-            attribute_t * operator [] (__size_t pos)
+            attribute_t * operator [] (__row_size_t pos)
             {
                 attribute_t * attr = __super_t::operator[](pos);
                 if (__owner->__is_compile_time_attribute(attr))
@@ -505,6 +505,14 @@ namespace X_ROOT_NS::modules::core {
             __import_event_refs();
 
             __build<__tidx_t::type>(__general_types, __Bind(__build_general_type));
+            __build<__tidx_t::generic_param>(__generic_params, __Bind(__build_generic_param));
+
+            // The types are known before the types of the members are built: a field of an
+            // array type needs System.Array<T>, wherever the field is.
+            for (general_type_t * type : __general_types)
+            {
+                __XPool.append_new_type(type);
+            }
 
             __load_constants();
             __load_super_types();
@@ -521,7 +529,6 @@ namespace X_ROOT_NS::modules::core {
             __build<__tidx_t::type_def_param>(__type_def_params, __Bind(__build_type_def_param));
 
             __build<__tidx_t::param>(__params, __Bind(__build_param));
-            __build<__tidx_t::generic_param>(__generic_params, __Bind(__build_generic_param));
 
             __build<__tidx_t::attribute_argument>(__attribute_arguments,
                                                 __Bind(__build_attribute_argument));
@@ -1270,11 +1277,6 @@ namespace X_ROOT_NS::modules::core {
         // Commits general types.
         void __commit_general_types()
         {
-            for (general_type_t * type : __general_types)
-            {
-                __XPool.append_new_type(type);
-            }
-
             eobject_commit_context_t ctx(__logger);
 
             for (general_type_t * type : __general_types)
