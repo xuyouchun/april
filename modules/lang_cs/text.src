@@ -12,7 +12,7 @@ $import: (from from:$mname)? import import:$mname (as name)? \; ;
 $cvalue: cvalue | true | false | null;
 
 # Array index or Property index.
-$index:  $_single_expression [ $arguments? ] ;
+$index:  $_single_expression [ $arguments ] ;
 
 # Function name, Can be a real name or any expressions.
 $_function_name_expression: (
@@ -32,7 +32,7 @@ $array_initializer: { ($__item: $array_initializer | $expression) (, $__item)* ,
 $array_lengths: $expression? (, $expression? )* ;
 
 # New array expression, such as: new int[] { 1, 2, 3 }.
-$new_array: new $type_name [ $array_lengths? ] $array_initializer? ;
+$new_array: new $type_name [ $array_lengths? ] ( [ ,* ] )* $array_initializer? ;
 
 # Typeof expression: typeof(T).
 $type_of: typeof \( $type_name \) ;

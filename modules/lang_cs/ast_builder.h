@@ -306,7 +306,13 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // new_array
 
-    __SimpleBuilder(new_array)
+    __Builder(new_array)
+
+        int                 __closed = 0;       // The count of the closed brackets.
+        int                 __rank = 0;         // The rank of the current rank specifier.
+        std::vector<int>    __ranks;            // The ranks of the rank specifiers: new T[n][][,]
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // array_initializer

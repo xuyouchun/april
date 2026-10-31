@@ -2271,7 +2271,9 @@ namespace X_ROOT_NS::modules::native {
 
                                 llb::value_t cursor = stack.back();
                                 f.store(v, cursor);
-                                stack.back() = f.gep_bytes(cursor, (int64_t)size_of(init->dtype()));
+                                // The element is as large as the value stored: a reference is an address.
+                                int64_t element_size = v.type == "ptr"? 8 : (int64_t)size_of(init->dtype());
+                                stack.back() = f.gep_bytes(cursor, element_size);
                             }   break;
 
                             case xil_init_type_t::array_end:

@@ -7164,6 +7164,10 @@ namespace X_ROOT_NS::modules::exec {
             return 0;
         }
 
+        // References are runtime addresses: the size in an assembly is that of a metadata ref.
+        if (al::in(xil.dtype(), xil_type_t::object, xil_type_t::string, xil_type_t::ptr))
+            return rt_ref_size;
+
         return size_of(xil.dtype());
     }
 

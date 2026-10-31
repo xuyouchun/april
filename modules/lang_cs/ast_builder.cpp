@@ -1093,7 +1093,30 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // new_array
 
-    __ApplyToken(new_array, token, args) { }
+    __ApplyToken(new_array, token, args)
+    {
+        // The brackets of the lengths belong to the first group, the others are
+        // rank specifiers of the array type of the elements.
+        switch (token->value)
+        {
+            case __TokenValue(left_square):
+                if (__closed > 0)
+                    __rank = 1;
+                break;
+
+            case __TokenValue(comma):
+                if (__closed > 0)
+                    __rank++;
+                break;
+
+            case __TokenValue(right_square):
+                if (__closed > 0)
+                    __ranks.push_back(__rank);
+
+                __closed++;
+                break;
+        }
+    }
 
     __ApplyAst(new_array, node, args)
     {
@@ -1115,6 +1138,26 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __OnCompleted(new_array, args)
     {
+        // new T[n][][,]: the elements are arrays, the first rank specifier is the outermost.
+        if (!__ranks.empty())
+        {
+            ast_node_t * element = __This->child_at(__Type::__type_name__);
+
+            for (int k = (int)__ranks.size() - 1; k >= 0; k--)
+            {
+                auto * array_type = this->template __new_ast<array_type_name_ast_node_t>();
+                array_type->set_child(array_type_name_ast_node_t::__element_type_name__, element);
+
+                for (int d = 0; d < __ranks[k]; d++)
+                    array_type->append_child(array_type_name_ast_node_t::__dimensions__, nullptr);
+
+                array_type->on_commit();
+                element = array_type;
+            }
+
+            __This->set_child(__Type::__type_name__, element);
+        }
+
         if (!__This->has_child(__Type::__lengths__))
         {
             __This->set_child(__Type::__lengths__,
