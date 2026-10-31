@@ -2469,6 +2469,28 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
     // namespace
 
+    // Appends a member of the namespace.
+    bool namespace_ast_node_t::append_member(ast_node_t * node)
+    {
+        switch ((element_value_t)node->value())
+        {
+            case (element_value_t)__cvalue_t::type:
+                this->append_child(__types__, node);
+                return true;
+
+            case (element_value_t)__xcvalue_t::namespace_:
+                this->append_child(__namespaces__, node);
+                return true;
+
+            case (element_value_t)__xcvalue_t::type_def:
+                this->append_child(__type_defs__, node);
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     // Commits this node.
     void namespace_ast_node_t::on_commit()
     {

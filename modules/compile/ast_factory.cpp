@@ -40,14 +40,32 @@ namespace X_ROOT_NS::modules::compile {
         // Applies ast node.
         virtual void apply_ast(ast_node_t * node, __apply_ast_args_t & args) override
         {
+            // The members that follow namespace A.B; belong to it.
+            if (__file_namespace != nullptr && __file_namespace->append_member(node))
+                return;
+
             (*this)->append(node);
+
+            if (node->value() == (ast_value_t)__xcvalue_t::namespace_)
+            {
+                auto * ns = (namespace_ast_node_t *)node;
+                if (ns->is_file_scoped() && __file_namespace == nullptr)
+                    __file_namespace = ns;
+            }
         }
 
         // Completed.
         virtual void completed(__completed_args_t & args) override
         {
+            // The namespace was committed with no member.
+            if (__file_namespace != nullptr)
+                __file_namespace->on_commit();
+
             (*this)->on_commit();
         }
+
+    private:
+        namespace_ast_node_t * __file_namespace = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////

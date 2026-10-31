@@ -2255,7 +2255,15 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // namespace
 
-    __ApplyToken(namespace, token, args) { }
+    __ApplyToken(namespace, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(semicolon):
+                __This->set_file_scoped();
+                break;
+        }
+    }
 
     __ApplyAst(namespace, node, args)
     {

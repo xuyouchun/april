@@ -1983,11 +1983,40 @@ namespace X_ROOT_NS {
             );
 
             if constexpr (std::is_base_of_v<object_t, obj_t>)
-                bit_add_flag(flag, memory_flag_t::is_object);
+            {
+                // The heaps run the destructor of an object through the object_t at the start
+                // of its memory. With multiple inheritance, where object_t is not the first
+                // base, that would call another virtual function of the class: such an
+                // object is not registered, its destructor is not run.
+                if (__object_offset<obj_t>() == 0)
+                    bit_add_flag(flag, memory_flag_t::is_object);
+                else
+                    bit_remove_flag(flag, memory_flag_t::is_object);
+            }
             else
+            {
                 bit_remove_flag(flag, memory_flag_t::is_object);
+            }
 
             return flag;
+        }
+
+        // Returns the offset of the object_t in the object, -1 if it is not known (the
+        // class has more than one object_t).
+        template<typename obj_t>
+        static ptrdiff_t __object_offset()
+        {
+            if constexpr (std::is_convertible_v<obj_t *, object_t *>)
+            {
+                alignas(obj_t) static char buffer[sizeof(obj_t)];
+                obj_t * p = reinterpret_cast<obj_t *>(buffer);
+
+                return (char *)static_cast<object_t *>(p) - (char *)p;
+            }
+            else
+            {
+                return 0;
+            }
         }
     };
 

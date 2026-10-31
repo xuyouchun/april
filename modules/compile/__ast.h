@@ -2973,6 +2973,17 @@ namespace X_ROOT_NS::modules::compile {
     public:
         using __namespace_ast_node_t::__namespace_ast_node_t;
 
+        // Sets that the namespace has no body: namespace A.B; , the members follow it in the
+        // file.
+        void set_file_scoped() { __file_scoped = true; }
+
+        // Returns whether the namespace has no body.
+        bool is_file_scoped() const { return __file_scoped; }
+
+        // Appends a member of the namespace: a type, a namespace or a typedef. Returns
+        // false for the other nodes.
+        bool append_member(ast_node_t * node);
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -2981,6 +2992,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        bool __file_scoped = false;
     };
 
     ////////// ////////// ////////// ////////// //////////

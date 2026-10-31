@@ -83,8 +83,9 @@ $expression:  $_expression ;
 # Multipy expressions, such as (a + b, c + d).
 $expressions: $expression (, $expression)* ;
 
-# Namespace statement: namespace System.Text { ... } , or namespace System.Text; that
-# includes the rest of the file.
+# Namespace statement: namespace System.Text { ... } , or namespace System.Text; that has
+# no body: the types and namespaces that follow it in the file are its members. (The ast
+# factory moves them, the grammar is not ambiguous.)
 $namespace:
     namespace $mname
     (
@@ -93,8 +94,6 @@ $namespace:
             ($namespace | $type | $type_def)*
         }
       | \;
-        $using*
-        ($namespace | $type | $type_def)*
     )
 ;
 
@@ -388,6 +387,6 @@ $statement:
 ;
 
 # Root, entrypoint of code analyzer.
-$: $import* $using* ($namespace | $type | $type_def)* ;
+$: $import* ($using | $namespace | $type | $type_def)* ;
 
 
