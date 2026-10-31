@@ -2,6 +2,11 @@
 #include <april.h>
 #include "util.h"
 
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+
 namespace X_ROOT_NS::modules::april {
 
     using namespace core;
@@ -254,6 +259,129 @@ namespace X_ROOT_NS::modules::april {
         return true;
     }
 
+    // Compiles, then generates the LLVM IR of the specified assembly.
+    bool april_xcompiler_t::native(const string_t & execute_assembly,
+                                   const april_options_t::run_options_t * native_options)
+    {
+        try
+        {
+            if (!this->compile())
+                return false;
+        }
+        catch (const logic_error_t<__e_t> & e)
+        {
+            if (e.code != __e_t::no_files)
+                throw e;
+        }
+
+        this->__native(execute_assembly, native_options);
+        return true;
+    }
+
+    // Generates the LLVM IR of the specified assembly, next to the assembly file;
+    // optionally builds and runs the executable.
+    void april_xcompiler_t::__native(const string_t & execute_assembly,
+                                     const april_options_t::run_options_t * native_options)
+    {
+        __cassembly_t * main_cassembly;
+
+        if (execute_assembly.empty())
+            main_cassembly = __pick_default_execute_assembly();
+        else
+            main_cassembly = __get_assembly(execute_assembly);
+
+        __rt_assembly_provider_t provider(main_cassembly->get_assembly_path());
+
+        for (__cassembly_t * ca : __cassemblies)
+        {
+            provider.append(ca->name, ca->get_assembly_path());
+        }
+
+        // Only reads metadata: no managed objects are created, any heap will do.
+        rt_context_t rt_ctx(&__xheap, create_heap(&__xheap), &provider);
+        std::string ir = native::generate_ir(rt_ctx);
+
+        lib::path_t ir_path = main_cassembly->get_assembly_path();
+        ir_path.replace_extension(_T(".ll"));
+
+        std::ofstream out(ir_path.string(), std::ios::binary);
+        if (!out)
+            throw _ED(__e_t::open_file_failed, ir_path.wstring());
+
+        out << ir;
+        out.close();
+
+        bool build = native_options != nullptr
+                        && (native_options->native_build || native_options->native_run);
+        bool run   = native_options != nullptr && native_options->native_run;
+
+        if (!build)
+        {
+            std::wcout << _T("native: wrote ") << ir_path.wstring() << std::endl
+                       << _T("native: add --build to build the executable, or use ")
+                       << _T("tools/april-native-link.sh ") << ir_path.wstring() << std::endl;
+            return;
+        }
+
+        // `april run --native` is quiet about the build steps, like `april run`.
+        if (!run)
+            std::wcout << _T("native: wrote ") << ir_path.wstring() << std::endl;
+
+        native::build_options_t bo;
+        bo.ir_path  = ir_path.string();
+        bo.optimize = this->__options.optimize;
+        bo.no_pie   = native_options->native_no_pie;
+        bo.clang    = string_convert<char_t, char>(native_options->native_clang);
+        bo.libs_dir = string_convert<char_t, char>(native_options->native_libs);
+
+        if (!run)
+            bo.log = [](const std::string & cmd) { std::cout << "native: " << cmd << std::endl; };
+
+        // The default output of a program built to run: next to the assembly, ".native".
+        std::string exe_path;
+        try
+        {
+            exe_path = native::build_executable(bo);
+        }
+        catch (const native::driver_error_t & e)
+        {
+            std::cerr << "native: error: " << e.what() << std::endl;
+            std::exit(1);
+        }
+
+        // -o names the executable if given.
+        if (!this->__options.output_path.empty() && !run)
+        {
+            std::string o = string_convert<char_t, char>(this->__options.output_path);
+            std::error_code ec;
+            std::filesystem::rename(exe_path, o, ec);
+            if (ec)
+                std::cerr << "native: cannot move to '" << o << "': " << ec.message() << std::endl;
+            else
+                exe_path = o;
+        }
+
+        if (!run)
+        {
+            std::cout << "native: built " << exe_path << std::endl;
+            return;
+        }
+
+        int code;
+        try
+        {
+            code = native::run_executable(exe_path);
+        }
+        catch (const native::driver_error_t & e)
+        {
+            std::cerr << "native: error: " << e.what() << std::endl;
+            std::exit(1);
+        }
+
+        if (code != 0)
+            std::exit(code);
+    }
+
     // Runs specified assembly.
     void april_xcompiler_t::__run(const string_t & execute_assembly)
     {
@@ -271,7 +399,14 @@ namespace X_ROOT_NS::modules::april {
             provider.append(ca->name, ca->get_assembly_path());
         }
 
-        rt_context_t rt_ctx(&__xheap, create_heap(&__xheap), &provider);
+        // Uses the garbage collected heap by default;
+        // APRIL_GC=0 switches back to the never-freeing default heap.
+        const char * gc_env = std::getenv("APRIL_GC");
+        rt_heap_t * heap = (gc_env != nullptr && *gc_env == '0')
+                ? create_heap(&__xheap)
+                : create_gc_heap(&__xheap);
+
+        rt_context_t rt_ctx(&__xheap, heap, &provider);
         exec::execute(rt_ctx);
     }
 

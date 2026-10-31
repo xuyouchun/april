@@ -907,6 +907,11 @@ namespace X_ROOT_NS::modules::exec {
         msize_t     stack_unit_size;
         msize_t     this_offset;
 
+        // Units [gc_value_begin, gc_value_end) of the local variables hold nothing but
+        // value-typed variables: the gc does not scan them. Empty when both are 0.
+        msize_t     gc_value_begin = 0;
+        msize_t     gc_value_end   = 0;
+
     private:
         // Commands.
         union
@@ -936,6 +941,7 @@ namespace X_ROOT_NS::modules::exec {
 
     // Context of command executing.
     class command_execute_context_t : public object_t, public no_copy_ctor_t
+                                    , public gc_root_source_t
     {
     public:
 
@@ -947,6 +953,25 @@ namespace X_ROOT_NS::modules::exec {
             , heap(heap), env(env)
         {
             _A(heap != nullptr);
+
+            heap->add_root_source(this);
+        }
+
+        // Enumerates conservative gc root ranges: the execution stack, minus the
+        // value-only regions of local variables of every calling frame.
+        // (gc_root_source_t)
+        virtual void each_gc_root_ranges(
+                const std::function<void (void **, void **)> & f) override;
+
+        // Enumerates precise gc roots: the exception chain.
+        // (gc_root_source_t)
+        virtual void each_gc_roots(const std::function<void (rt_ref_t)> & f) override
+        {
+            for (exception_node_t * node = exception_stack.head; node != nullptr;
+                                                node = node->next)
+            {
+                f(node->exception);
+            }
         }
 
         executor_stack_t    stack;              // Stack.
@@ -1052,6 +1077,7 @@ namespace X_ROOT_NS::modules::exec {
         // Destructor.
         virtual ~command_execute_context_t() override
         {
+            heap->remove_root_source(this);
             heap->free(__stack_buffer);
         }
 
@@ -1216,6 +1242,25 @@ namespace X_ROOT_NS::modules::exec {
 
     private:
         rt_context_t & __ctx;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // Gc type resolving.
+
+    // Resolves which parts of an object of the specified type may hold references.
+    // Returns false when it cannot tell for sure; the collector then scans
+    // such objects conservatively.
+    bool resolve_gc_scan_info(analyzer_env_t & env, rt_type_t * type, gc_scan_info_t & info);
+
+    // Installs the gc type resolver of an environment into a heap while alive.
+    class gc_type_resolver_scope_t : public no_copy_ctor_t
+    {
+    public:
+        gc_type_resolver_scope_t(rt_heap_t * heap, analyzer_env_t & env);
+        ~gc_type_resolver_scope_t();
+
+    private:
+        rt_heap_t * __heap;
     };
 
     ////////// ////////// ////////// ////////// //////////

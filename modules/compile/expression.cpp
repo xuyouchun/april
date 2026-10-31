@@ -1092,8 +1092,6 @@ namespace X_ROOT_NS::modules::compile {
             ref_t type_ref = __ref_of(ctx, atype);
             pool.append<x_stack_alloc_xil_t>(type_ref);
 
-            _PP(atype);
-
             exp->compile(ctx, pool);
         }
         else

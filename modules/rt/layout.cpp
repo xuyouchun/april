@@ -550,6 +550,52 @@ namespace X_ROOT_NS::modules::rt {
         }
 
         __local_unit_size = unit_align(offset, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
+
+        __commit_value_region();
+    }
+
+    // Finds the region that holds nothing but value variables, computed from the
+    // real item placements (not from group boundaries) and double checked: if any
+    // other variable overlaps it, there is no such region.
+    void locals_layout_t::__commit_value_region()
+    {
+        const msize_t unit = sizeof(rt_stack_unit_t);
+
+        __value_begin_unit = __value_end_unit = 0;
+
+        msize_t begin = __empty_msize, end = 0;
+        for (size_t k = 0, count = __items.size(); k < count; k++)
+        {
+            __item_t & it = __items[k];
+            if (it.storage_type != storage_type_t::value || it.size == 0)
+                continue;
+
+            begin = al::min(begin, it.offset);
+            end   = al::max(end, (msize_t)(it.offset + it.size));
+        }
+
+        if (begin == __empty_msize || begin >= end)
+            return;
+
+        for (size_t k = 0, count = __items.size(); k < count; k++)
+        {
+            __item_t & it = __items[k];
+            if (it.storage_type == storage_type_t::value)
+                continue;
+
+            if (it.offset < end && (msize_t)(it.offset + it.size) > begin)
+                return;                     // Overlapped: do not trust it.
+        }
+
+        // Shrinks to whole units: partially covered units are still scanned.
+        msize_t begin_unit = (begin + unit - 1) / unit;
+        msize_t end_unit   = end / unit;
+
+        if (begin_unit < end_unit && end_unit <= __local_unit_size)
+        {
+            __value_begin_unit = begin_unit;
+            __value_end_unit   = end_unit;
+        }
     }
 
     // Arrange variables.

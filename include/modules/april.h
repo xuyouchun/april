@@ -12,6 +12,7 @@
 #include <modules/lang_cs.h>
 #include <modules/lang_lq.h>
 #include <modules/exec.h>
+#include <modules/native.h>
 
 #include <external/cmdline/cmdline.h>
 
@@ -37,6 +38,9 @@ namespace X_ROOT_NS::modules::april {
 
         // Run.
         run,
+
+        // Generates LLVM IR of the program (native back end).
+        native,
 
         // Version.
         version,
@@ -239,6 +243,14 @@ namespace X_ROOT_NS::modules::april {
         struct run_options_t : compile_options_t
         {
             string_t execute_assembly;
+
+            // Native back end. `april native` generates the LLVM IR, with `--build` it
+            // also builds the executable; `april run --native` builds and runs it.
+            bool     native_build   = false;
+            bool     native_run     = false;
+            bool     native_no_pie  = false;
+            string_t native_clang;          // The clang++ driver, default: $CLANG, clang++.
+            string_t native_libs;           // The directory of the static libraries.
         };
 
         //-------- ---------- ---------- ---------- ----------
@@ -318,6 +330,9 @@ namespace X_ROOT_NS::modules::april {
 
         // Executes running command.
         void __execute_run(const __t::run_options_t & options);
+
+        // Executes native command.
+        void __execute_native(const __t::run_options_t & options);
 
         // Executes helping command.
         void __execute_help(const __t::help_options_t & options);

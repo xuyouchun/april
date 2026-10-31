@@ -17,6 +17,9 @@ namespace X_ROOT_NS::modules::april {
         // Run command.
         X_C(run,            _T("run"))
 
+        // Native command.
+        X_C(native,         _T("native"))
+
         // Help command.
         X_C(help,           _T("help"))
 
@@ -145,6 +148,7 @@ The commands are:                                                           \n\
                                                                             \n\
         build       compile packages and dependencies                       \n\
         run         compile and run April program                           \n\
+        native      compile, generate LLVM IR (.ll); --build: make executable\n\
         version     print April version                                     \n\
                                                                             \n\
 Use \"april help [command] ...\" for more information about a command.      \n\
@@ -158,6 +162,9 @@ Use \"april help [command] ...\" for more information about a command.      \n\
 
         if (al::equals(cmd, _T("run")))
             return april_command_t::run;
+
+        if (al::equals(cmd, _T("native")))
+            return april_command_t::native;
 
         if (al::equals(cmd, _T("version")))
             return april_command_t::version;
@@ -269,6 +276,7 @@ Use \"april help [command] ...\" for more information about a command.      \n\
         switch (command)
         {
             case april_command_t::run:
+            case april_command_t::native:
                 return __parse_run(parser, argc, argv);
 
             case april_command_t::compile:
@@ -291,6 +299,16 @@ Use \"april help [command] ...\" for more information about a command.      \n\
         __init_compile_parser(parser);
         parser.add<std::string>("execute", 'e', "execute assembly name", false, "");
 
+        bool is_native = this->command == april_command_t::native;
+        if (is_native)
+            parser.add("build", 'b', "build the native executable with clang");
+        else
+            parser.add("native", 'n', "build a native executable and run it");
+
+        parser.add<std::string>("clang", 0, "clang++ driver for native builds", false, "");
+        parser.add<std::string>("libs", 0, "directory of april static libraries", false, "");
+        parser.add("no-pie", 0, "link native executables with -no-pie");
+
         if (argc == 0)
             return true;
 
@@ -298,6 +316,12 @@ Use \"april help [command] ...\" for more information about a command.      \n\
 
         run_options_t & options = init_options<run_options_t>();
         options.execute_assembly = __read_string(parser, "execute");
+
+        options.native_build  = is_native && parser.exist("build");
+        options.native_run    = !is_native && parser.exist("native");
+        options.native_no_pie = parser.exist("no-pie");
+        options.native_clang  = __read_string(parser, "clang");
+        options.native_libs   = __read_string(parser, "libs");
 
         return __read_compile_options(parser, options);
     }
@@ -410,6 +434,10 @@ Use \"april help [command] ...\" for more information about a command.      \n\
                 __execute_run(__options.get<__t::run_options_t>());
                 break;
 
+            case april_command_t::native:
+                __execute_native(__options.get<__t::run_options_t>());
+                break;
+
             case april_command_t::help:
                 __execute_help(__options.get<__t::help_options_t>());
                 break;
@@ -432,7 +460,19 @@ Use \"april help [command] ...\" for more information about a command.      \n\
     // Executes run command.
     void april_t::__execute_run(const __t::run_options_t & options)
     {
+        if (options.native_run)
+        {
+            april_xcompiler_t(options).native(options.execute_assembly, &options);
+            return;
+        }
+
         april_xcompiler_t(options).run(options.execute_assembly);
+    }
+
+    // Executes native command.
+    void april_t::__execute_native(const __t::run_options_t & options)
+    {
+        april_xcompiler_t(options).native(options.execute_assembly, &options);
     }
 
     // Executes help command.

@@ -32,6 +32,7 @@
 #include <codecvt>
 #include <type_traits>
 #include <cstdint>
+#include <iomanip>
 #include <cstring>
 #include <mutex>
 #include <condition_variable>

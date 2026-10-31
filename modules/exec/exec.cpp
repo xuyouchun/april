@@ -258,6 +258,9 @@ namespace X_ROOT_NS::modules::exec {
             new_end_command(),
         };
 
+        // Lets the gc tell which parts of objects hold references.
+        gc_type_resolver_scope_t gc_resolver_scope(__ctx.heap, env);
+
         command_execute_context_t exec_ctx(__ctx.heap, env);
         execute_commands(exec_ctx, commands);
 

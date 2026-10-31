@@ -50,6 +50,44 @@ namespace X_ROOT_NS::modules::mm {
     // Creates heap.
     rt_heap_t * create_heap(memory_t * memory);
 
+    //-------- ---------- ---------- ---------- ----------
+
+    // Garbage collection parameters.
+    struct gc_params_t
+    {
+        // Bytes allocated before the first collection; also the floor
+        // of the dynamic threshold.
+        size_t  initial_threshold   = 16 * 1024 * 1024;
+
+        // Next threshold = live_bytes * growth_factor (but at least
+        // initial_threshold).
+        double  growth_factor       = 2.0;
+
+        // Collects on every allocation; for debugging, also enabled by
+        // the environment variable APRIL_GC_STRESS=1.
+        bool    stress              = false;
+
+        // Conservatively scans the native thread stack: required for
+        // correctness while command implementations hold references in
+        // C++ locals across allocations; only tests may turn it off.
+        bool    scan_native_stack   = true;
+
+        // Verify mode (also APRIL_GC_VERIFY=1): while marking, words in the
+        // regions that precise scan infos skip are checked, and the ones that
+        // point to gc objects are reported to stderr: a hint that a scan info
+        // is wrong. Slow, for debugging only.
+        bool    verify              = false;
+
+        // Prints one line of statistics per collection to stderr
+        // (also APRIL_GC_TRACE=1).
+        bool    trace               = false;
+    };
+
+    // Creates a garbage collected heap: new_obj / new_array allocations are
+    // reclaimed by a stop-the-world mark-sweep collector; alloc / free keep
+    // manual semantics.
+    rt_heap_t * create_gc_heap(memory_t * memory, const gc_params_t & params = gc_params_t());
+
     ////////// ////////// ////////// ////////// //////////
 
     // Gets object runtime type.

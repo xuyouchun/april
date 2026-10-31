@@ -322,6 +322,44 @@ namespace X_ROOT_NS::modules::rt {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Gc root source: supplies roots for garbage collection,
+    // implemented by execution contexts.
+    X_INTERFACE gc_root_source_t
+    {
+        // Enumerates conservative root ranges, e.g. the execution stack.
+        virtual void each_gc_root_ranges(
+                const std::function<void (void **, void **)> & f) = 0;
+
+        // Enumerates precise roots, e.g. the exception chain.
+        virtual void each_gc_roots(const std::function<void (rt_ref_t)> & f) = 0;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Describes which parts of an object's payload may hold references.
+    // Computed lazily by the gc type resolver, cached by the heap.
+    struct gc_scan_info_t
+    {
+        enum class kind_t : uint8_t
+        {
+            conservative,       // Unknown layout: scans the whole payload (always safe).
+            none,               // No references: the payload is never scanned.
+            ranges,             // Scans only the listed byte ranges.
+        };
+
+        kind_t kind = kind_t::conservative;
+
+        // Byte ranges (offset from the object start, size), kind == ranges.
+        std::vector<std::pair<uint32_t, uint32_t>> ranges;
+    };
+
+    // Resolves gc scan info of a runtime type; returns false (or throws) when it
+    // cannot tell, then the type is scanned conservatively.
+    typedef std::function<bool (rt_type_t * type, gc_scan_info_t & info)>
+                                                                    gc_type_resolver_t;
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Rt heap.
     X_INTERFACE rt_heap_t
     {
@@ -336,6 +374,20 @@ namespace X_ROOT_NS::modules::rt {
 
         // free a memory space.
         virtual void free(void * ptr) = 0;
+
+        // Registers a gc root source, do nothing by default.
+        virtual void add_root_source(gc_root_source_t * source) { }
+
+        // Removes a gc root source, do nothing by default.
+        virtual void remove_root_source(gc_root_source_t * source) { }
+
+        // Sets the gc type resolver (nullptr to clear), do nothing by default.
+        // Without a resolver every object is scanned conservatively.
+        virtual void set_gc_type_resolver(const gc_type_resolver_t & resolver) { }
+
+        // Executes a garbage collection, do nothing by default.
+        // Returns bytes collected.
+        virtual size_t collect() { return 0; }
     };
 
     //-------- ---------- ---------- ---------- ----------

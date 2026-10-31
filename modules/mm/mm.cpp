@@ -163,6 +163,11 @@ namespace X_ROOT_NS::modules::mm {
                 length *= *l;
             }
 
+            // Recomputes the total size with all dimensions multiplied:
+            // it was computed from the first dimension only, which
+            // under-allocated multi-dimensional arrays.
+            size = _alignf(length * element_size, sizeof(rt_stack_unit_t));
+
             // type info + length of each dimensions + array length.
             const size_t extern_size = _alignf(
                 sizeof(rt_type_t *) + sizeof(array_length_t) * dimension + sizeof(array_length_t),

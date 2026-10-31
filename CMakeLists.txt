@@ -37,13 +37,17 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
 endif()
 
-# CONFIG_OPTIMIZE for config.h (legacy: OPTIMIZE=<0|1|2|3>)
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CONFIG_OPTIMIZE 3)
-elseif(CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo|MinSizeRel")
-    set(CONFIG_OPTIMIZE 2)
-else()
-    set(CONFIG_OPTIMIZE 0)
+# CONFIG_OPTIMIZE for config.h (legacy: OPTIMIZE=<0|1|2|3>).
+#
+# CONFIG_OPTIMIZE != 0 turns X_DEBUG off (noexcept, no assertions, unchecked casts); that
+# configuration crashes at run time, so every build type keeps CONFIG_OPTIMIZE at 0: the
+# compiler still optimizes (Release: -O3), only the run-time checks stay. Set
+# APRIL_CONFIG_OPTIMIZE (0..3) to override.
+set(CONFIG_OPTIMIZE 0)
+
+set(APRIL_CONFIG_OPTIMIZE "" CACHE STRING "Override CONFIG_OPTIMIZE of config.h (0..3)")
+if(NOT APRIL_CONFIG_OPTIMIZE STREQUAL "")
+    set(CONFIG_OPTIMIZE ${APRIL_CONFIG_OPTIMIZE})
 endif()
 
 # Generated config.h (legacy: written by Makefile.rule into include/config.h)
@@ -86,6 +90,15 @@ target_include_directories(april_options INTERFACE
     "${CMAKE_BINARY_DIR}/generated"
 )
 
+# MinGW defaults to the MSVC bit-field layout, which does not pack adjacent bit-fields of
+# different types into one storage unit (see analyze_node_key_t). Use the Itanium layout.
+if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(april_options INTERFACE -mno-ms-bitfields)
+endif()
+
+# The code type-puns (e.g. analyze_node_key_t -> its underlying integer).
+target_compile_options(april_options INTERFACE -fno-strict-aliasing)
+
 if(NOT WIN32)
     target_compile_definitions(april_options INTERFACE
         BOOST_LOG_DYN_LINK
@@ -126,12 +139,13 @@ april_add_module(lang_lq "modules/lang_lq")
 april_add_module(rtlib   "modules/rtlib")
 april_add_module(exec    "modules/exec")
 april_add_module(rt      "modules/rt")
+april_add_module(native  "modules/native")   # LLVM IR back end + native runtime support
 
 # Same archive order as the legacy link line; wrapped in --start-group /
 # --end-group on Linux so cross-archive references never depend on ordering.
 set(APRIL_MODULE_LIBS
     global common algorithm arch os lib
-    mm compile core lang_cs lang_lq rtlib exec rt
+    mm compile core lang_cs lang_lq rtlib exec rt native
 )
 
 function(april_link_modules TARGET)

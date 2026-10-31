@@ -393,7 +393,11 @@ namespace X_ROOT_NS::lib {
     bool split_path_filter(const path_t & path, path_t & out_dir, string_t & out_filter)
     {
         string_t spath = to_str(path);
+    #ifdef _WIN32
+        size_t index = spath.find_last_of(_T("/\\"));
+    #else
         size_t index = spath.find_last_of(_T("/"));
+    #endif
 
         auto npos = string_t::npos;
         if (index == npos || spath.find_first_of(_T("?*"), index + 1) == npos)

@@ -203,6 +203,8 @@ namespace X_ROOT_NS::modules::exec {
         __exec_method->ref_objects = ref_objects;
         __exec_method->stack_unit_size = locals_layout.unit_size();
         __exec_method->this_offset = this_offset;
+
+        locals_layout.value_region(&__exec_method->gc_value_begin, &__exec_method->gc_value_end);
     }
 
     // Parse method commands.
