@@ -135,10 +135,12 @@ $name_unit: name $generic_args? ;
 
 # General type name.
 $general_type_name:
+    (
         (global? \:\:)? $name_unit (. $name_unit)*
      |  void | object
      |  char | string | byte | sbyte | short | ushort | int | uint | long | ulong | bool
      |  double | float | decimal
+    ) \??                                      # T? is Nullable<T>
 ;
 
 # Array type name, such as int[].

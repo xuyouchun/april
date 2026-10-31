@@ -1873,6 +1873,9 @@ namespace X_ROOT_NS::modules::compile {
         // Set if it's a extends type.
         void set_extends(bool extends);
 
+        // Sets that it's a nullable type, e.g. int?.
+        void set_nullable() { __nullable = true; }
+
         // On commits it.
         virtual void on_commit() override;
 
@@ -1883,6 +1886,7 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
+        bool __nullable = false;
 
         // Walks confirm step.
         bool __walk_confirm(ast_walk_context_t & context);

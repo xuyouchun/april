@@ -48,6 +48,7 @@ namespace X_ROOT_NS::modules::core {
     #define CoreType_Type         _T("Type")
     #define CoreType_Exception    _T("Exception")
     #define CoreType_Checked      _T("Checked")
+    #define CoreType_Nullable     _T("Nullable<>")
     #define CoreType_Void         _T("Void")
     #define CoreType_Object       _T("Object")
     #define CoreType_Ptr          _T("Ptr")
@@ -2599,6 +2600,9 @@ namespace X_ROOT_NS::modules::core {
     bool is_tuple(type_t * type);
 
     // Returns whether it's a null type.
+    // Returns T if the type is Nullable<T>, otherwise nullptr.
+    type_t * get_nullable_underlying(type_t * type);
+
     X_ALWAYS_INLINE bool is_null(type_t * type)
     {
         return type != nullptr && type->this_gtype() == gtype_t::null;
@@ -5027,6 +5031,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.Checked type: the arithmetic that raises on overflow.
         general_type_t * get_checked_type();
 
+        // Returns System.Nullable<T> type: the type of int? and the others.
+        general_type_t * get_nullable_type();
+
         // Returns System.Tuple<...> type.
         general_type_t * get_tuple_type();
 
@@ -5120,6 +5127,7 @@ namespace X_ROOT_NS::modules::core {
 
         general_type_t * __exception_type   = nullptr;
         general_type_t * __checked_type     = nullptr;
+        general_type_t * __nullable_type    = nullptr;
         general_type_t * __tuple_type       = nullptr;
         general_type_t * __ituple_type      = nullptr;
         general_type_t * __trace_attribute_type = nullptr;

@@ -223,6 +223,10 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __global_type = global_type_t::global;
                 break;
 
+            case __TokenValue(question_mark):
+                __This->set_nullable();
+                break;
+
             case __TokenValue(double_colon):
                 if (__global_type == global_type_t::__default__)
                     __global_type = global_type_t::root;

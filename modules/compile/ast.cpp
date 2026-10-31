@@ -1276,7 +1276,20 @@ namespace X_ROOT_NS::modules::compile {
     bool general_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
         if (this->type == nullptr)
+        {
             this->type = __ascertain_type(context, (general_type_name_t *)this);
+
+            // T? is Nullable<T>.
+            if (__nullable && this->type != nullptr)
+            {
+                type_collection_t types = { typex_t(this->type) };
+                xtype_collection_t xtypes(types);
+
+                this->type = context.assembly.types.new_generic_type(
+                    __XPool.get_nullable_type(), xtypes, nullptr
+                );
+            }
+        }
 
         return true;
     }

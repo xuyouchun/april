@@ -341,6 +341,18 @@ public class InvalidCastException : SystemException
 
 ////////// ////////// ////////// ////////// //////////
 
+// InvalidOperationException: an operation is not valid in the state of the object.
+public class InvalidOperationException : SystemException
+{
+    // Default constructor.
+    public InvalidOperationException() { }
+
+    // Constructor with message.
+    public InvalidOperationException(String message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
 // CoreType_OutOfRangeException
 [Internal]
 public class OutOfRangeException : SystemException

@@ -380,14 +380,29 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    static bool __try_compile_nullable_value(__cctx_t & ctx, xil_pool_t & pool, type_t * to,
+                                                                        expression_t * exp);
+
+    static bool __try_compile_nullable_null_compare(__cctx_t & ctx, xil_pool_t & pool,
+                            expression_t * exp1, expression_t * exp2, bool equal);
+
     // Pre append custom struct for return.
     void __do_custom_struct_return(expression_compile_context_t & ctx, xil_pool_t & pool,
         expression_t * expression, const __environment_t & env)
     {
         _A(expression != nullptr);
-        _A(__is_custom_struct_like(expression->get_type()));
 
         pool.append<x_push_calling_bottom_xil_t>();
+
+        // A value, or null, returned as a nullable.
+        if (get_nullable_underlying(env.type) != nullptr
+                && get_nullable_underlying(expression->get_type()) == nullptr)
+        {
+            __try_compile_nullable_value(ctx, pool, env.type, expression);
+            return;
+        }
+
+        _A(__is_custom_struct_like(expression->get_type()));
         expression->compile(ctx, pool, env);
     }
 
@@ -1119,6 +1134,9 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_equal(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__try_compile_nullable_null_compare(ctx, pool, exp1, exp2, true))
+            return;
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
@@ -1131,6 +1149,9 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_not_equal(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        if (__try_compile_nullable_null_compare(ctx, pool, exp1, exp2, false))
+            return;
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
@@ -1160,6 +1181,47 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Compile argument.
+    // Converts an expression to a nullable type: the address of the destination is on the top
+    // of the stack, and it is consumed. Returns false if it is not a conversion to Nullable<T>.
+    static bool __try_compile_nullable_value(__cctx_t & ctx, xil_pool_t & pool, type_t * to,
+                                                                        expression_t * exp)
+    {
+        type_t * underlying = get_nullable_underlying(to);
+        if (underlying == nullptr)
+            return false;
+
+        type_t * from = exp->get_type();
+        if (get_nullable_underlying(from) != nullptr)
+            return false;
+
+        // null: no value.
+        if (from->this_gtype() == gtype_t::null)
+        {
+            pool.append<x_object_copy_xil_t>(__ref_of(ctx, to), xil_copy_kind_t::zero);
+            return true;
+        }
+
+        if (__is_custom_struct_like(underlying))
+            __Failed("a nullable type of the struct '%1%' is not supported", underlying);
+
+        // The constructor takes the value.
+        atypes_t atypes = { atype_t(underlying) };
+
+        analyze_member_args_t args(member_type_t::method, name_t::null, &atypes);
+        args.method_trait = method_trait_t::constructor;
+
+        method_t * constructor = (method_t *)to->get_member(args, true);
+        __FailedWhenNull(constructor, "constructor of '%1%' not found", to);
+
+        exp->compile(ctx, pool, underlying);
+
+        pool.append<x_method_call_xil_t>(
+            xil_call_type_t::instance, __search_method_ref(ctx, constructor)
+        );
+
+        return true;
+    }
+
     static void __compile_argument(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
         param_types_t * param_types, int index)
     {
@@ -1200,9 +1262,26 @@ namespace X_ROOT_NS::modules::compile {
         if (__is_custom_struct_like(atype))
         {
             ref_t type_ref = __ref_of(ctx, atype);
-            pool.append<x_stack_alloc_xil_t>(type_ref);
 
-            exp->compile(ctx, pool);
+            // A value, or null, for a nullable argument: it is made in a local variable
+            // that is copied, like the other structs.
+            if (get_nullable_underlying(atype) != nullptr
+                    && get_nullable_underlying(exp->get_type()) == nullptr)
+            {
+                local_variable_t * temp = ctx.define_temp_local(atype);
+
+                __push_variable_address(ctx, pool, temp);
+                __try_compile_nullable_value(ctx, pool, atype, exp);
+
+                pool.append<x_stack_alloc_xil_t>(type_ref);
+                __push_variable_address(ctx, pool, temp);
+                pool.append<x_object_copy_xil_t>(type_ref, xil_copy_kind_t::reverse);
+            }
+            else
+            {
+                pool.append<x_stack_alloc_xil_t>(type_ref);
+                exp->compile(ctx, pool);
+            }
         }
         else
         {
@@ -1215,6 +1294,59 @@ namespace X_ROOT_NS::modules::compile {
             if (!__try_compile_constant_expression(ctx, pool, exp, xil_type))
                 exp->compile(ctx, pool, atype);
         }
+    }
+
+    // Calls the getter of a property of a nullable type: the address of the value is on the
+    // top of the stack.
+    static void __call_nullable_getter(__cctx_t & ctx, xil_pool_t & pool, type_t * type,
+                                                                        const char_t * name)
+    {
+        analyze_member_args_t args(member_type_t::property, __XPool.to_name(name));
+        property_t * property = (property_t *)type->get_member(args, true);
+        __FailedWhenNull(property, "property '%1%' of nullable type '%2%' not found", name, type);
+
+        pool.append<x_method_call_xil_t>(
+            xil_call_type_t::instance, __search_method_ref(ctx, property->get_method)
+        );
+    }
+
+    // Holds the value of a nullable expression in a local variable, and pushes the address
+    // of the variable.
+    static void __push_nullable_address(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
+    {
+        local_variable_t * temp = ctx.define_temp_local(exp->get_type());
+
+        compile_assign(ctx, pool, temp, exp);
+        __push_variable_address(ctx, pool, temp);
+    }
+
+    // Pushes whether a nullable expression has a value.
+    static void __compile_nullable_has_value(__cctx_t & ctx, xil_pool_t & pool,
+                                                                expression_t * exp)
+    {
+        __push_nullable_address(ctx, pool, exp);
+        __call_nullable_getter(ctx, pool, exp->get_type(), _T("HasValue"));
+    }
+
+    // Compiles x == null, x != null of a nullable x. Returns false if it is not.
+    static bool __try_compile_nullable_null_compare(__cctx_t & ctx, xil_pool_t & pool,
+                            expression_t * exp1, expression_t * exp2, bool equal)
+    {
+        expression_t * nullable_exp;
+        if (get_nullable_underlying(exp1->get_type()) != nullptr && is_null(exp2->get_type()))
+            nullable_exp = exp1;
+        else if (get_nullable_underlying(exp2->get_type()) != nullptr && is_null(exp1->get_type()))
+            nullable_exp = exp2;
+        else
+            return false;
+
+        __compile_nullable_has_value(ctx, pool, nullable_exp);
+
+        // The value is null when it has no value.
+        if (equal)
+            pool.append<x_logic_xil_t>(xil_logic_command_t::not_);
+
+        return true;
     }
 
     // Compile arguments.
@@ -1404,6 +1536,15 @@ namespace X_ROOT_NS::modules::compile {
         type_t * type1 = ca.var->get_type();
         type_t * type2 = exp2->get_type();
 
+        // A value, or null, assigned to a nullable variable.
+        if (is_real_variable(ca.var) && get_nullable_underlying(type1) != nullptr
+                && get_nullable_underlying(type2) == nullptr)
+        {
+            __push_variable_address(ctx, pool, ca.var, ca.this_);
+            __try_compile_nullable_value(ctx, pool, type1, exp2);
+            return;
+        }
+
         if (is_real_variable(ca.var))
         {
             if (__is_custom_struct_like(type2))
@@ -1584,6 +1725,36 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_null_coalescing(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        // x ?? y of a nullable x: x.HasValue? x.Value : y
+        if (type_t * underlying = get_nullable_underlying(exp1->get_type()); underlying != nullptr)
+        {
+            if (get_nullable_underlying(exp2->get_type()) != nullptr)
+                __Failed("null coalescing of two nullable types is not supported");
+
+            statement_compile_context_t & sctx = ctx.statement_ctx;
+
+            // The value is held in a local variable, read by the methods of the type.
+            local_variable_t * temp = ctx.define_temp_local(exp1->get_type());
+            compile_assign(ctx, pool, temp, exp1);
+
+            __push_variable_address(ctx, pool, temp);
+            __call_nullable_getter(ctx, pool, exp1->get_type(), _T("HasValue"));
+
+            jmp_xil_t * else_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
+
+            __push_variable_address(ctx, pool, temp);
+            __call_nullable_getter(ctx, pool, exp1->get_type(), _T("Value"));
+
+            jmp_xil_t * finally_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
+
+            // No value: y is the result.
+            xil::append_label_xil(sctx, pool, else_jmp_xil);
+            exp2->compile(ctx, pool, underlying);
+
+            xil::append_label_xil(sctx, pool, finally_jmp_xil);
+            return;
+        }
+
         __expect_ref_type(exp1);
         __expect_ref_type(exp2);
 
@@ -3083,6 +3254,31 @@ namespace X_ROOT_NS::modules::compile {
         type_t * exp_type = exp->get_type();
         __FailedWhenNull(exp_type, _T("type empty"));
 
+        // (T)x of a nullable x: the value, it raises if there is none.
+        if (type_t * underlying = get_nullable_underlying(exp_type);
+                underlying != nullptr && get_nullable_underlying(type) == nullptr)
+        {
+            __push_nullable_address(ctx, pool, exp);
+            __call_nullable_getter(ctx, pool, exp_type, _T("Value"));
+
+            __post_compile_expression(ctx, pool, this, env);
+            return;
+        }
+
+        // (T?)x: the value is held in a local variable.
+        if (get_nullable_underlying(type) != nullptr && get_nullable_underlying(exp_type) == nullptr)
+        {
+            local_variable_t * temp = ctx.define_temp_local(type);
+
+            __push_variable_address(ctx, pool, temp);
+            __try_compile_nullable_value(ctx, pool, type, exp);
+
+            // The destination, that is below, takes the value like the other structs.
+            __push_variable_address(ctx, pool, temp);
+            pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
+            return;
+        }
+
         if (is_ref_type(type))
         {
             if (is_value_type(exp_type))    // Box.
@@ -3362,8 +3558,8 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            // Pop the address of struct object.
-            pool.append<x_pop_empty_xil_t>(xil_type_t::ptr);
+            // The struct has no constructor: its memory is zero, like a new object.
+            pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::zero);
         }
 
         if (this->arguments() != nullptr)

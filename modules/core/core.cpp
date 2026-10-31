@@ -2759,6 +2759,19 @@ namespace X_ROOT_NS::modules::core {
     // Returns whether two type are compatiable.
     // Determines whether a type can convert to another type.
     // E.g. int32 -> int64. System.String -> System.Object.
+    // Returns T if the type is Nullable<T>, otherwise nullptr.
+    type_t * get_nullable_underlying(type_t * type)
+    {
+        if (type == nullptr || type->this_gtype() != gtype_t::generic)
+            return nullptr;
+
+        generic_type_t * generic_type = (generic_type_t *)type;
+        if (generic_type->template_ != __XPool.get_nullable_type() || generic_type->args.empty())
+            return nullptr;
+
+        return generic_type->args[0].type();
+    }
+
     bool is_type_compatible(type_t * from, type_t * to)
     {
         _A(from != nullptr);
@@ -2766,6 +2779,13 @@ namespace X_ROOT_NS::modules::core {
 
         if (from == to)
             return true;
+
+        // T is converted to T?, and null.
+        if (type_t * underlying = get_nullable_underlying(to);
+                underlying != nullptr && get_nullable_underlying(from) == nullptr)
+        {
+            return from->this_gtype() == gtype_t::null || is_type_compatible(from, underlying);
+        }
 
         if (from->this_gtype() == gtype_t::null)
             return __is_mobject(from) || from->this_gtype() == gtype_t::null;
@@ -5893,6 +5913,12 @@ namespace X_ROOT_NS::modules::core {
         return __get_specified_type(__CoreTypeName(CoreType_Checked), __checked_type);
     }
 
+    // Returns System.Nullable<T> type.
+    general_type_t * xpool_t::get_nullable_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_Nullable), __nullable_type);
+    }
+
     // Returns System.Tuple<...> type.
     general_type_t * xpool_t::get_tuple_type()
     {
@@ -8151,7 +8177,20 @@ namespace X_ROOT_NS::modules::core {
 
             case operator_t::null_coalescing:
                 if (type_t * type = exp1()->get_type(); !is_null(type))
+                {
+                    // x ?? y of a nullable x: the value, when y is not nullable.
+                    if (type_t * underlying = get_nullable_underlying(type); underlying != nullptr)
+                    {
+                        type_t * type2 = exp2()->get_type();
+                        if (type2 != nullptr && get_nullable_underlying(type2) == nullptr
+                                && !is_null(type2))
+                        {
+                            return underlying;
+                        }
+                    }
+
                     return type;
+                }
                 return exp2()->get_type();
 
             default:
