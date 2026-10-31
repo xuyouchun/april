@@ -6128,6 +6128,24 @@ namespace X_ROOT_NS::modules::core {
         return __get_specified_type(__CoreTypeName(CoreType_Delegate), __delegate_type);
     }
 
+    // Returns System.Collections.Generic.List<> type.
+    general_type_t * xpool_t::get_list_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_List), __list_type);
+    }
+
+    // Returns System.Collections.Generic.IEnumerable<> type.
+    general_type_t * xpool_t::get_ienumerable_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_IEnumerable), __ienumerable_type);
+    }
+
+    // Returns System.Collections.Generic.IEnumerator<> type.
+    general_type_t * xpool_t::get_ienumerator_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_IEnumerator), __ienumerator_type);
+    }
+
     // Returns System.MulticastDelegate type.
     general_type_t * xpool_t::get_multicast_delegate_type()
     {

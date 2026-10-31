@@ -96,6 +96,11 @@ namespace X_ROOT_NS::modules::core {
     // Attributes.
     #define CoreType_TraceAttribute     _T("Diagnostics.TraceAttribute")
 
+    // Collections.
+    #define CoreType_List               _T("Collections.Generic.List<>")
+    #define CoreType_IEnumerable        _T("Collections.Generic.IEnumerable<>")
+    #define CoreType_IEnumerator        _T("Collections.Generic.IEnumerator<>")
+
     ////////// ////////// ////////// ////////// //////////
 
     // Version for assembly.
@@ -3521,6 +3526,16 @@ namespace X_ROOT_NS::modules::core {
         // when the lambda returns a lambda: (int a) => (int b) => b.
         expression_t * lambda_expression = nullptr;
 
+        // The method has yield statements: the list that holds the items, a local variable
+        // that is made when the method is walked.
+        local_variable_t * yield_list = nullptr;
+
+        // The method returns an IEnumerator<T>, not an IEnumerable<T>.
+        bool yield_returns_enumerator = false;
+
+        // The return type of the method that has yield statements is not valid.
+        bool yield_invalid = false;
+
         // Relation property or event.
         member_t * relation_member = nullptr;
 
@@ -5056,6 +5071,15 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.MulticastDelegate type.
         general_type_t * get_multicast_delegate_type();
 
+        // Returns System.Collections.Generic.List<> type.
+        general_type_t * get_list_type();
+
+        // Returns System.Collections.Generic.IEnumerable<> type.
+        general_type_t * get_ienumerable_type();
+
+        // Returns System.Collections.Generic.IEnumerator<> type.
+        general_type_t * get_ienumerator_type();
+
         // Returns System.Exception type.
         general_type_t * get_exception_type();
 
@@ -5155,6 +5179,9 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __ptr_type         = nullptr;
         general_type_t * __delegate_type    = nullptr;
         general_type_t * __multicast_delegate_type = nullptr;
+        general_type_t * __list_type        = nullptr;
+        general_type_t * __ienumerable_type = nullptr;
+        general_type_t * __ienumerator_type = nullptr;
 
         general_type_t * __exception_type   = nullptr;
         general_type_t * __checked_type     = nullptr;

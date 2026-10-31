@@ -221,6 +221,12 @@ namespace X_ROOT_NS::modules::compile {
         // The variable of a using statement must have Dispose().
         X_D(using_type_not_disposable, _T("using requires a type with Dispose(): %1%"))
 
+        // Iterators.
+        X_D(iterator_return_type_invalid,
+            _T("%1%: a method that has yield statements returns IEnumerable<T> or IEnumerator<T>"))
+        X_D(yield_outside_iterator,
+            _T("a yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>"))
+
         // Lambdas.
         X_D(lambda_outside_method, _T("a lambda is only in a method"))
         X_D(lambda_type_undetermined,
@@ -4351,6 +4357,115 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // yield_st
+
+    // Makes the expression that is the result of an iterator: the list, or its enumerator.
+    static expression_t * __iterator_result(ast_context_t & ctx, ast_walk_context_t & context,
+                                                                        method_t * method)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        xpool_t & xpool = __XPool;
+        expression_t * list = ctx.compile_context.new_obj<system_expression_t<name_expression_t>>(
+            method->yield_list->get_name()
+        );
+
+        if (!method->yield_returns_enumerator)
+            return list;
+
+        auto * function = ctx.compile_context.new_obj<system_expression_t<function_expression_t>>();
+        function->set_namex(ctx.compile_context.new_obj<system_expression_t<name_expression_t>>(
+            xpool.to_name(_T("GetEnumerator"))
+        ));
+
+        return ctx.compile_context.new_obj<__binary_t>(
+            operator_t::member_point, list, function
+        );
+    }
+
+    // Commits this node.
+    void yield_st_ast_node_t::on_commit()
+    {
+        this->expression = __to_eobject<expression_t *>(__expression__);
+    }
+
+    // Returns this eobject.
+    statement_t * yield_st_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node.
+    bool yield_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        switch ((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                if (!this->is_break)
+                    this->__check_empty(this->expression, this, __c_t::expression_missing, "yield");
+
+                this->__delay(context, walk_step_t::post_analysis);
+                return __super_t::on_walk(context, step, tag);
+
+            case walk_step_t::post_analysis:
+                return __walk_post_analysis(context);
+
+            default: return true;
+        }
+    }
+
+    // Makes the statement: yield return x; is list.Add(x); and yield break; is return list;
+    bool yield_st_ast_node_t::__walk_post_analysis(ast_walk_context_t & context)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        method_t * method = context.current_method();
+        if (method == nullptr || method->yield_list == nullptr)
+        {
+            this->__log(this, __c_t::yield_outside_iterator);
+            return true;
+        }
+
+        if (method->yield_invalid)
+            return true;
+
+        if (this->is_break)
+        {
+            expression_t * result = __iterator_result(this->__context, context, method);
+            walk_expression(this->__context, context, result);
+
+            this->lowered = __new_obj<return_statement_t>(result);
+            return true;
+        }
+
+        if (this->expression == nullptr)
+            return true;
+
+        // list.Add(expression)
+        arguments_t * arguments = __new_obj<arguments_t>();
+        argument_t * argument = __new_obj<argument_t>();
+        argument->expression = this->expression;
+        arguments->push_back(argument);
+
+        auto * function = __new_obj<system_expression_t<function_expression_t>>();
+        function->set_namex(__new_obj<system_expression_t<name_expression_t>>(
+            __to_name(_T("Add"))
+        ));
+        function->set_arguments(arguments);
+
+        expression_t * call = __new_obj<__binary_t>(
+            operator_t::member_point,
+            __new_obj<system_expression_t<name_expression_t>>(method->yield_list->get_name()),
+            function
+        );
+
+        walk_expression(this->__context, context, call);
+
+        this->lowered = __new_obj<expression_statement_t>(call);
+        return true;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // do_while_st
 
     // Commits this node.
@@ -5693,6 +5808,28 @@ namespace X_ROOT_NS::modules::compile {
                                                                 (method_t *)this);
     }
 
+    // Returns whether the node has a yield statement, the lambdas are other methods.
+    static bool __has_yield(ast_node_t * node)
+    {
+        if (node == nullptr)
+            return false;
+
+        ast_value_t value = node->value();
+        if (value == (ast_value_t)__xcvalue_t::yield_st)
+            return true;
+
+        if (value == (ast_value_t)__xcvalue_t::lambda)
+            return false;
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            if (__has_yield(node->child_at(index)))
+                return true;
+        }
+
+        return false;
+    }
+
     // Returns this eobject.
     method_t * method_ast_node_t::to_eobject()
     {
@@ -5733,6 +5870,19 @@ namespace X_ROOT_NS::modules::compile {
         {
             case walk_step_t::default_: {
                 context.push(this->to_eobject());
+
+                // A method that has yield statements collects the items in a list.
+                if (__has_yield(this->child_at(__body__)))
+                {
+                    variable_defination_t vd(this->__context, context,
+                                                        (object_t *)(ast_node_t *)this);
+
+                    this->yield_list = vd.define_local(
+                        __new_obj<type_name_t>(uncertain_type_t::instance()),
+                        __to_name(_T("__yield_list")), false, nullptr,
+                        (object_t *)(ast_node_t *)this
+                    );
+                }
 
                 __super_t::on_walk(context, step, tag);
 
@@ -5896,9 +6046,69 @@ namespace X_ROOT_NS::modules::compile {
         this->body = body;
     }
 
+    // Walks the analysis step of a method that has yield statements: the items are collected in
+    // a list, that is the result of the method. The list is made at the beginning, and returned
+    // at the end. A yield statement adds an item, or returns the list.
+    void method_ast_node_t::__walk_iterator_analysis(ast_walk_context_t & context)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        type_t * return_type = this->type_name != nullptr? this->type_name->type : nullptr;
+        generic_type_t * generic = nullptr;
+
+        if (return_type != nullptr && return_type->this_gtype() == gtype_t::generic)
+            generic = (generic_type_t *)return_type;
+
+        bool is_enumerable = generic != nullptr
+                                && generic->template_ == __XPool.get_ienumerable_type();
+        bool is_enumerator = generic != nullptr
+                                && generic->template_ == __XPool.get_ienumerator_type();
+
+        if (!is_enumerable && !is_enumerator)
+        {
+            this->__log(this, __c_t::iterator_return_type_invalid, (method_t *)this);
+            this->yield_invalid = true;
+            return;
+        }
+
+        this->yield_returns_enumerator = is_enumerator;
+
+        type_collection_t types = { generic->type_at(0) };
+        type_t * list_type = __XPool.new_generic_type(__XPool.get_list_type(), types, nullptr);
+        context.commit_types();
+        this->yield_list->type_name->type = list_type;
+
+        // list = new List<T>();
+        atypes_t no_atypes;
+        auto * new_exp = __new_obj<system_expression_t<new_expression_t>>();
+        new_exp->type_name = __new_obj<type_name_t>(list_type);
+        new_exp->constructor = find_constructor(list_type, &no_atypes);
+
+        expression_t * assign = __new_obj<__binary_t>(
+            operator_t::assign,
+            __new_obj<system_expression_t<name_expression_t>>(this->yield_list->get_name()),
+            new_exp
+        );
+
+        walk_expression(this->__context, context, assign);
+
+        // return list;
+        expression_t * result = __iterator_result(this->__context, context, this);
+        walk_expression(this->__context, context, result);
+
+        if (this->body == nullptr)
+            this->body = __new_obj<method_body_t>(context.current_region());
+
+        this->body->push_front(__new_obj<expression_statement_t>(assign));
+        this->body->statements.push_back(__new_obj<return_statement_t>(result));
+    }
+
     // Walks the analysis step.
     bool method_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
+        if (this->yield_list != nullptr)
+            __walk_iterator_analysis(context);
+
         // Construct, static constructor, destructor.
         switch (this->trait)
         {

@@ -987,6 +987,26 @@ namespace X_ROOT_NS::modules::compile {
     ////////// ////////// ////////// ////////// //////////
 
     // Compiles this statement.
+    void yield_statement_t::compile(statement_compile_context_t & ctx)
+    {
+        _A(lowered != nullptr);
+        compile_statement(ctx, lowered);
+    }
+
+    // Returns exit type.
+    __exit_type_t yield_statement_t::exit_type(__exit_type_context_t & ctx)
+    {
+        return lowered != nullptr? lowered->exit_type(ctx) : __exit_type_t::none;
+    }
+
+    X_DEFINE_TO_STRING(yield_statement_t)
+    {
+        return is_break? string_t(_T("yield break")) : _F(_T("yield return %1%"), expression);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Compiles this statement.
     void using_statement_t::compile(statement_compile_context_t & ctx)
     {
         _A(lowered != nullptr);

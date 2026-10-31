@@ -207,6 +207,10 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __Eqks(where, __Wt(k_where), __Wt(name));
                 break;
 
+            case _T('y'):
+                __Eqks(yield, __Wt(k_yield), __Wt(name));
+                break;
+
             case _T('('):   // (
                 return __Nw(left_bracket);
 

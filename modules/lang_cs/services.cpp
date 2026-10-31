@@ -215,6 +215,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(goto_st)
             __Case(throw_st)
             __Case(return_st)
+            __Case(yield_st)
 
             __Case(statements)
             __Case(do_while_st)

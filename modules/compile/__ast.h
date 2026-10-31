@@ -136,6 +136,8 @@ namespace X_ROOT_NS::modules::compile {
 
         return_st,                  // A return statement, e.g. return 1;
 
+        yield_st,                   // yield statement.
+
         do_while_st,                // do ... while statement, e.g. do { } while (...);
 
         loop_until_st,              // loop ... unit statememt.
@@ -291,6 +293,8 @@ namespace X_ROOT_NS::modules::compile {
                                                                                         \
         return_st           =   __X_BRANCH_ENUM_ITEM(return_st),                        \
                                                                                         \
+        yield_st            =   __X_BRANCH_ENUM_ITEM(yield_st),                         \
+                                                                                        \
         do_while_st         =   __X_BRANCH_ENUM_ITEM(do_while_st),                      \
                                                                                         \
         loop_until_st       =   __X_BRANCH_ENUM_ITEM(loop_until_st),                    \
@@ -395,6 +399,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(throw_st,               _T("throw_st"))                                     \
         X_C(goto_st,                _T("goto_st"))                                      \
         X_C(return_st,              _T("return_st"))                                    \
+        X_C(yield_st,               _T("yield_st"))                                     \
         X_C(do_while_st,            _T("do_while_st"))                                  \
         X_C(loop_until_st,          _T("loop_until_st"))                                \
         X_C(while_st,               _T("while_st"))                                     \
@@ -485,6 +490,12 @@ namespace X_ROOT_NS::modules::compile {
 
         // A lambda is only in a method.
         lambda_outside_method,
+
+        // A method with yield returns IEnumerable<T> or IEnumerator<T>.
+        iterator_return_type_invalid,
+
+        // A yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>.
+        yield_outside_iterator,
 
         // The return type of a lambda is that of the delegate it is converted to.
         lambda_type_undetermined,
@@ -3368,6 +3379,46 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // yield_st
+
+    // Yield statement.
+    Ast(yield_st, __xcvalue_t::yield_st)
+
+        // Expression.
+        __expression__,
+
+    EndAst(yield_st)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Yield statement ast node.
+    class yield_st_ast_node_t : public __yield_st_ast_node_t
+                              , public statement_ast_t
+                              , public __w_t<yield_statement_t>
+    {
+        typedef __yield_st_ast_node_t __super_t;
+
+    public:
+        using __yield_st_ast_node_t::__yield_st_ast_node_t;
+
+        // Sets that it is yield break.
+        void set_break() { this->is_break = true; }
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual statement_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        // Walks the post analysis step: makes the statement.
+        bool __walk_post_analysis(ast_walk_context_t & context);
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // do_while_st
 
     Ast(do_while_st, __xcvalue_t::do_while_st)
@@ -4405,6 +4456,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks analysis step of the method of a lambda.
         void __walk_lambda_analysis(ast_walk_context_t & context);
+
+        // Walks analysis step of a method that has yield statements.
+        void __walk_iterator_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////

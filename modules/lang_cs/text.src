@@ -375,6 +375,9 @@ $return_st:     return $expression? \; ;
 # Goto statement.
 $goto_st:       goto name \; ;
 
+# Yield statement: yield return x; , yield break; .
+$yield_st:      yield (return $expression | break) \; ;
+
 # A empty statement.
 $empty_st:      \; ;
 
@@ -385,7 +388,7 @@ $statement_group_st: { $statement * } ;
 $statement:
     $do_while_st | $while_st | $for_st | $for_each_st | $using_st
   | $if_st | $switch_st | $try_st | $empty_st
-  | $break_st | $continue_st | $throw_st | $return_st | $goto_st
+  | $break_st | $continue_st | $throw_st | $return_st | $goto_st | $yield_st
   | $expression_st | $defination_st | $type_def_st
   | $statement_group_st
 ;

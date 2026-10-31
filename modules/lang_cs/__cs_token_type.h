@@ -73,6 +73,9 @@ namespace X_ROOT_NS::modules::lang_cs {
         // keywords: w...
         k_while,        k_where,
 
+        // keywords: y...
+        k_yield,
+
         __keyword_end,
         //-------- ---------- ---------- ---------- ----------
         __operator_begin,

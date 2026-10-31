@@ -375,6 +375,32 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Yield statement. The iterator collects the items in a list: yield return x; is
+    // list.Add(x); and yield break; is return list; , see method_ast_node_t.
+    class yield_statement_t : public statement_base_t
+    {
+    public:
+
+        // Constructors.
+        yield_statement_t() = default;
+
+        expression_t * expression = nullptr;    // The item.
+        bool           is_break   = false;      // yield break;
+
+        // The statement that does the work, made when the node is walked.
+        statement_t  * lowered    = nullptr;
+
+        // Compiles this statement.
+        virtual void compile(statement_compile_context_t & ctx) override;
+
+        // Returns exit type.
+        virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        X_TO_STRING
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Using statement: { variable = initializer; try { body } finally { variable.Dispose(); } }
     class using_statement_t : public statement_base_t
     {

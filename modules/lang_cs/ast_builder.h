@@ -389,6 +389,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     __SimpleBuilder(return_st)
 
     ////////// ////////// ////////// ////////// //////////
+    // yield_st
+
+    __SimpleBuilder(yield_st)
+
+    ////////// ////////// ////////// ////////// //////////
     // do_while_st
 
     __SimpleBuilder(do_while_st)

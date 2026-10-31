@@ -1431,6 +1431,31 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(return_st, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // yield_st
+
+    __ApplyToken(yield_st, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(k_break):
+                __This->set_break();
+                break;
+        }
+    }
+
+    __ApplyAst(yield_st, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(yield_st, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // do_while_st
 
     __ApplyToken(do_while_st, token, args) { }
