@@ -783,7 +783,7 @@ namespace X_ROOT_NS::modules::april {
             cas.push_back(__record_project(project));
         }
 
-        bool r = compiler.compile(__options.output_path);
+        bool r = compiler.compile(__output_path());
         cas.commit();
 
         return r;
@@ -804,7 +804,7 @@ namespace X_ROOT_NS::modules::april {
                 );
         });
 
-        bool r = compiler.compile(__options.output_path);
+        bool r = compiler.compile(__output_path());
         cas.commit();
 
         return r;
@@ -826,13 +826,45 @@ namespace X_ROOT_NS::modules::april {
         return __record_project(project);
     }
 
+    // The first file that is compiled (not an assembly).
+    lib::path_t april_xcompiler_t::__first_file()
+    {
+        __path_t first;
+
+        __each_files([&](const __path_t & path) {
+            if (first.empty() && file_type_of(path) != compile_file_type_t::assembly)
+                first = path;
+        });
+
+        return first;
+    }
+
+    // The directory of the output: -o, or the directory of the first file.
+    string_t april_xcompiler_t::__output_path()
+    {
+        if (!__options.output_path.empty())
+            return __options.output_path;
+
+        __path_t first = __first_file();
+        if (first.empty())
+            return string_t();
+
+        std::error_code ec;
+        return string_convert<char, char_t>(
+            fs::absolute(fs::path(first.string()), ec).parent_path().string()
+        );
+    }
+
     // Compiles sources.
     bool april_xcompiler_t::__compile_sources()
     {
         april_compiler_t compiler;
         __init_compiler(compiler);
 
-        project_t * project = compiler.begin_project();
+        // The assembly is named after the first file.
+        project_t * project = compiler.begin_project(
+            string_convert<char, char_t>(__first_file().stem().string())
+        );
 
         for (const string_t & file : __options.files)
         {
@@ -842,7 +874,7 @@ namespace X_ROOT_NS::modules::april {
         compiler.commit_project();
         __project_cassembly_t * ca = __record_project(project);
 
-        bool r = compiler.compile(__options.output_path);
+        bool r = compiler.compile(__output_path());
         ca->commit();
 
         return r;

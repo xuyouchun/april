@@ -32,6 +32,9 @@ public abstract class Array : Object
 [Internal]
 public abstract class Array<T> : Array, Collections.Generic.IEnumerable<T>
 {
+    // Declared for the interface; the enumeration of the arrays is made by the compiler.
+    public abstract Collections.Generic.IEnumerator<T> GetEnumerator();
+
     // Gets/Sets value of specified index.
     public T this[Int32 index]
     {

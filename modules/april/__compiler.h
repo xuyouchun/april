@@ -142,6 +142,12 @@ namespace X_ROOT_NS::modules::april {
         // Compiles sources.
         bool __compile_sources();
 
+        // The first file that is compiled (not an assembly).
+        lib::path_t __first_file();
+
+        // The directory of the output: -o, or the directory of the first file.
+        string_t __output_path();
+
         // Initialize compiler.
         void __init_compiler(april_compiler_t & compiler);
 

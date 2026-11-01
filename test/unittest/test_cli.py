@@ -194,3 +194,19 @@ def test_compile_makes_assemblies(tmp_path):
     r = _april_run(["compile", "-o", str(out), str(source)], tmp_path / "cache", tmp_path)
     assert r.returncode == 0, r.stdout
     assert list(out.glob("*.apl"))
+
+
+def test_compile_default_output_is_next_to_the_first_file(tmp_path):
+    src = tmp_path / "src"
+    other = tmp_path / "other"
+    src.mkdir()
+    other.mkdir()
+
+    source = src / "prog.cs"
+    _write(source, 1)
+
+    # Without -o: the assembly is named after the first file, and written next to it.
+    r = _april_run(["compile", str(source)], tmp_path / "cache", other)
+    assert r.returncode == 0, r.stdout
+    assert (src / "prog.apl").is_file()
+    assert not list(other.iterdir())
