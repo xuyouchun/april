@@ -46,6 +46,11 @@ def get_april_path():
 def get_test_path():
     return get_absolute_path("test/unittest")
 
+""" Returns the code files (*.cs) of a directory of test files, sorted by name """
+def code_files(directory):
+    path = os.path.join(get_test_path(), directory)
+    return sorted(f for f in os.listdir(path) if f.endswith('.cs'))
+
 """ Runs a code file or project file or solution file """
 def run_file(file):
     april_path = get_april_path()
