@@ -5850,6 +5850,29 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    // Returns whether the node has a return statement that returns a value, the lambdas in it
+    // are other methods.
+    static bool __has_return_value(ast_node_t * node)
+    {
+        if (node == nullptr)
+            return false;
+
+        ast_value_t value = node->value();
+        if (value == (ast_value_t)__xcvalue_t::return_st)
+            return node->child_count() > 0 && node->child_at(0) != nullptr;
+
+        if (value == (ast_value_t)__xcvalue_t::lambda)
+            return false;
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            if (__has_return_value(node->child_at(index)))
+                return true;
+        }
+
+        return false;
+    }
+
     // Collects the expressions of an expression and those below it.
     static void __collect_sub_expressions(expression_t * expression,
                                           std::vector<expression_t *> & expressions)
@@ -6044,6 +6067,8 @@ namespace X_ROOT_NS::modules::compile {
 
         method_ast_node_t * method = __new_obj<method_ast_node_t>(this->__context);
         method->checked_mode = context.checked_mode;
+        method->lambda_no_value = this->child_at(__body__) != nullptr
+                                    && !__has_return_value(this->child_at(__body__));
         method->init_lambda(name, outer->is_static() && !captures, this->child_at(__params__),
             this->child_at(__body__), this->child_at(__expression__),
             __to_eobject<expression_t *>(__expression__), (ast_node_t *)this, untyped_params

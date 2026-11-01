@@ -15,8 +15,10 @@ $cvalue: cvalue | true | false | null;
 $index:  $_single_expression [ $arguments ] ;
 
 # Function name, Can be a real name or any expressions.
+# A lambda in brackets is called at once: ((Int32 x) => x + 1)(2) .
 $_function_name_expression: (
     name $generic_args? | base | this | $index | $function | $new | $type_cast_exp
+    | \( $lambda \)
 );
 
 # Function calling expression.

@@ -3348,7 +3348,16 @@ namespace X_ROOT_NS::modules::compile {
                 __pre_call_method(ctx, pool, this, method);
 
                 if (!is_static)
-                    pool.append<x_push_this_ref_xil_t>();
+                {
+                    // A lambda that uses variables is called at once: its object is the
+                    // environment.
+                    method_t * lambda = dynamic_cast<method_t *>(method);
+
+                    if (lambda != nullptr && lambda->lambda_env_new != nullptr)
+                        lambda->lambda_env_new->compile(ctx, pool);
+                    else
+                        pool.append<x_push_this_ref_xil_t>();
+                }
             }
             
             __compile_arguments(ctx, pool, this->arguments(), method);

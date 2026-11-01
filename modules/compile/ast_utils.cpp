@@ -1660,6 +1660,11 @@ namespace X_ROOT_NS::modules::compile {
                         function_exp->set_variable(variable);
                         __walk_arguments(function_exp->arguments());
                     }
+                    else if (type == nullptr && variable != nullptr
+                                && ((method_variable_t *)variable)->method->is_lambda)
+                    {
+                        __walk_lambda_call(function_exp, ((method_variable_t *)variable)->method);
+                    }
                     else
                     {
                         __walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
@@ -1697,11 +1702,95 @@ namespace X_ROOT_NS::modules::compile {
                     }
                 }   break;
 
+                case expression_family_t::function:
+                    // f(1)(2), Type.Method(1)(2): the method is a member of the type, if there is one,
+                    // and the delegate that it returns is called.
+                    __avoid_walk(namex_exp);
+                    __walk_function((function_expression_t *)namex_exp, type);
+                    __walk_arguments(function_exp->arguments());
+                    break;
+
                 default:
                     __walk(namex_exp);
                     __walk_arguments(function_exp->arguments());
                     break;
             }
+        }
+
+        // Walks a lambda that is called at once: ((Int32 x) => x + 1)(2). It has no delegate that
+        // gives its return type, it is the type of its body, if it is an expression. The types of
+        // its params, if they have none, are those of the arguments.
+        void __walk_lambda_call(function_expression_t * function_exp, method_t * method)
+        {
+            arguments_t * arguments = function_exp->arguments();
+            __walk_arguments(arguments);
+
+            size_t count = arguments == nullptr? 0 : arguments->size();
+            if (count != method->param_count())
+            {
+                ast_log(__cctx, function_exp, __c_t::method_not_match, method->get_name(),
+                                                                       method->host_type);
+                return;
+            }
+
+            for (size_t index = 0; index < count; index++)
+            {
+                param_t * param = (*method->params)[index];
+                type_t * arg_type = arguments->at(index)->expression->get_type();
+
+                if (method->lambda_implicit && param->type_name != nullptr
+                        && param->type_name->type == uncertain_type_t::instance()
+                        && arg_type != nullptr && !is_null(arg_type))
+                {
+                    param->type_name->type = arg_type;
+                }
+            }
+
+            if (method->type_name != nullptr
+                    && method->type_name->type == uncertain_type_t::instance()
+                    && method->lambda_expression != nullptr)
+            {
+                // The body is walked now, with the params: its type is the return type.
+                __wctx.push(method);
+
+                variable_defination_t vd(__cctx, __wctx, method);
+                if (method->params != nullptr)
+                {
+                    for (param_t * param : *method->params)
+                        vd.define_param(param);
+                }
+
+                walk_expression(__cctx, __wctx, method->lambda_expression);
+                __wctx.pop();
+
+                type_t * body_type = method->lambda_expression->get_type();
+                if (body_type != nullptr && body_type != uncertain_type_t::instance())
+                {
+                    method->type_name->type = body_type;
+                    if (method->variable != nullptr)
+                        method->variable->reset_type();
+                }
+            }
+
+            // A block that returns no value.
+            if (method->type_name != nullptr
+                    && method->type_name->type == uncertain_type_t::instance()
+                    && method->lambda_no_value)
+            {
+                method->type_name->type = __XPool.get_internal_type(vtype_t::void_);
+                if (method->variable != nullptr)
+                    method->variable->reset_type();
+            }
+
+            // A block that returns a value: nothing tells its type.
+            if (method->type_name != nullptr
+                    && method->type_name->type == uncertain_type_t::instance())
+            {
+                ast_log(__cctx, function_exp, __c_t::lambda_type_undetermined);
+                method->type_name->type = __XPool.get_object_type();
+            }
+
+            function_exp->set_method(method);
         }
 
         // Tries to get method.

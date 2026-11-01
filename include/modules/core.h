@@ -3533,6 +3533,10 @@ namespace X_ROOT_NS::modules::core {
         // is walked where the variables of the method that has it are seen.
         bool lambda_walk_inside = false;
 
+        // The body of the lambda is a block that returns no value: a lambda that is called at once
+        // returns void.
+        bool lambda_no_value = false;
+
         // The names of the variables that the lambda uses: a lambda in it uses them too.
         std::vector<name_t> lambda_captured_names;
 
