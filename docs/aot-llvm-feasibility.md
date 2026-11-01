@@ -153,6 +153,8 @@ bin/april compile --native simple.cs                      # 生成可执行文�
 bin/april compile --native -o prog -O2 simple.cs          # -o 指定可执行文件，-O 为 clang 优化级别
 ```
 
+**JIT（LLVM）**：`bin/april_jit.dll`（Linux 为 `libapril_jit.so`）是链接 LLVM 的共享库，CMake 找到 LLVM（`find_package(LLVM)`，15+）时构建；运行时由 april 加载（先 `$APRIL_JIT`，再 april 同目录、`../lib`）。`april run` 优先用它：IR 文本在内存里交给 `LLVMParseIRInContext`，`default<O2>` 优化，生成宿主机的目标文件（缓存目录里的 `program.o`），再用 ORC JIT 在 april 进程内运行，native 运行时的符号（`april_native_*`）由 april 提供，不需要 clang，也不需要静态库。库缺失、LLVM 的动态库不在 PATH、或者程序用到 native 后端不支持的功能时，依次退到 clang 构建的可执行文件、解释器（`--verbose` 说明原因）。`compile --native` 仍用 clang 做最后的链接。
+
 System.apl 默认包含，不能在命令行里指定（找不到时设置 `APRIL_SYSTEM`；依次找 `$APRIL_SYSTEM`、`<april>/System.apl`、`<april>/../System.apl`、`<april>/../lib/System.apl`、`./System.apl`）。`april run` 的构建放在缓存目录（`$APRIL_CACHE`，默认 Windows 为 `%LOCALAPPDATA%\april\cache`，否则 `$XDG_CACHE_HOME/april` 或 `~/.cache/april`），以源文件内容、编译器、System.apl、静态库和选项为键，没有变化就不重新编译。程序用到 native 后端还不支持的功能，或没有 clang，会在 stderr 提示后回退到解释器。
 
 选项：`--clang <path>`（默认 `$CLANG`，再默认 `clang++`）、`--libs <dir>`（静态库目录，默认依次找 `$APRIL_LIBS`、`<april>/../libs`、`<april>/../build`）、`--no-pie`（链接报重定位错误时使用）。构建时会打印执行的 clang 命令；clang 对 `.ll` 的报错带行号。需要 clang 15+（版本不够会直接报错）。

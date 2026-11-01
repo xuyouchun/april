@@ -249,8 +249,12 @@ namespace X_ROOT_NS::modules::native {
         {
             std::string name = it->path().filename().string();
 
+            // The import libraries of shared libraries (libx.dll.a) are not static libraries.
+            bool import_library = name.size() > 6
+                                    && name.compare(name.size() - 6, 6, ".dll.a") == 0;
+
             if (name.size() > 5 && name.compare(0, 3, "lib") == 0
-                    && name.compare(name.size() - 2, 2, ".a") == 0
+                    && name.compare(name.size() - 2, 2, ".a") == 0 && !import_library
                     && it->is_regular_file(ec))
             {
                 libs.push_back(it->path().string());

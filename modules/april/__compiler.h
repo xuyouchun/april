@@ -168,6 +168,13 @@ namespace X_ROOT_NS::modules::april {
         // Returns the path of the executable of the build, it is built if it was not.
         std::string __native_executable(const __build_t & build);
 
+        // Returns the LLVM IR of the build, and writes it next to it.
+        std::string __generate_ir(const __build_t & build);
+
+        // Returns the path of the object file of the build, that the JIT runs: it is made
+        // if it was not.
+        std::string __native_object(const __build_t & build, native::jit_backend_t * jit);
+
         // Runs the main assembly of the build with the interpreter.
         bool __run_interpreter(const __build_t & build);
 

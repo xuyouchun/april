@@ -145,6 +145,30 @@ april_add_module(native  "modules/native")   # LLVM IR back end + native runtime
 # with them: it is searched when nothing else tells where they are.
 target_compile_definitions(native PRIVATE APRIL_BUILD_LIBS_DIR="${CMAKE_BINARY_DIR}")
 
+# The JIT back end: a shared library with LLVM, that april loads when it is there. Without LLVM it
+# is not built, and the programs are built with clang, or run with the interpreter.
+find_package(LLVM CONFIG QUIET)
+if(LLVM_FOUND)
+    message(STATUS "LLVM ${LLVM_PACKAGE_VERSION} found: building april_jit (${LLVM_DIR})")
+
+    add_library(april_jit SHARED "${CMAKE_SOURCE_DIR}/modules/jit/april_jit.cpp")
+    target_include_directories(april_jit PRIVATE ${LLVM_INCLUDE_DIRS})
+    target_compile_definitions(april_jit PRIVATE ${LLVM_DEFINITIONS})
+    target_compile_features(april_jit PRIVATE cxx_std_17)
+    target_link_libraries(april_jit PRIVATE LLVM)
+
+    # Next to the april executable, where april looks for it (april_jit.dll on Windows).
+    set_target_properties(april_jit PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
+
+    if(WIN32)
+        set_target_properties(april_jit PROPERTIES PREFIX "")
+    endif()
+else()
+    message(STATUS "LLVM not found: april_jit is not built")
+endif()
+
 # Same archive order as the legacy link line; wrapped in --start-group /
 # --end-group on Linux so cross-archive references never depend on ordering.
 set(APRIL_MODULE_LIBS
@@ -159,6 +183,9 @@ function(april_link_modules TARGET)
     else()
         target_link_libraries(${TARGET} PRIVATE ${APRIL_MODULE_LIBS})
     endif()
+
+    # dlopen: the JIT library is loaded when it is there.
+    target_link_libraries(${TARGET} PRIVATE ${CMAKE_DL_LIBS})
 endfunction()
 
 #---------- ---------- ---------- ---------- ----------

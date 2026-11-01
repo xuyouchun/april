@@ -326,6 +326,11 @@ namespace X_ROOT_NS::modules::april {
         hasher.add(string_convert<char_t, char>(__options.native_clang));
         hasher.add(string_convert<char_t, char>(__options.native_libs));
 
+        // The JIT library: the object files are those of its LLVM.
+        std::string jit = native::jit_library_path();
+        if (!jit.empty())
+            __add_stamp(hasher, jit);
+
         // The libraries of the executables.
         try
         {
@@ -456,6 +461,54 @@ namespace X_ROOT_NS::modules::april {
         return true;
     }
 
+    // Returns the LLVM IR of the build, and writes it next to it.
+    std::string april_xcompiler_t::__generate_ir(const __build_t & build)
+    {
+        __rt_assembly_provider_t provider(build.main);
+        for (auto & assembly : build.assemblies)
+            provider.append(assembly.first, assembly.second);
+
+        // Only reads metadata: no managed objects are created, any heap will do.
+        rt_context_t rt_ctx(&__xheap, create_heap(&__xheap), &provider);
+        std::string ir = native::generate_ir(rt_ctx);
+
+        fs::path ir_path = fs::path(build.dir.string()) / "program.ll";
+
+        std::ofstream out(ir_path.string(), std::ios::binary);
+        if (!out)
+            throw _ED(__e_t::open_file_failed, ir_path.wstring());
+
+        out << ir;
+        return ir;
+    }
+
+    // Returns the object file of the build, for the JIT.
+    std::string april_xcompiler_t::__native_object(const __build_t & build,
+                                                   native::jit_backend_t * jit)
+    {
+        fs::path object = fs::path(build.dir.string()) / "program.o";
+        std::error_code ec;
+
+        if (fs::is_regular_file(object, ec))
+            return object.string();
+
+        std::string ir = __generate_ir(build);
+
+        // The file appears when it is complete.
+        fs::path partial = object;
+        partial += ".tmp";
+
+        std::string error;
+        if (!jit->compile(ir, __options.native_optimize, partial.string(), error))
+            throw native::driver_error_t(error);
+
+        fs::rename(partial, object, ec);
+        if (ec)
+            throw native::driver_error_t("cannot make '" + object.string() + "': " + ec.message());
+
+        return object.string();
+    }
+
     // Returns the executable of the build.
     std::string april_xcompiler_t::__native_executable(const __build_t & build)
     {
@@ -472,22 +525,8 @@ namespace X_ROOT_NS::modules::april {
                 return exe;
         }
 
-        __rt_assembly_provider_t provider(build.main);
-        for (auto & assembly : build.assemblies)
-            provider.append(assembly.first, assembly.second);
-
-        // Only reads metadata: no managed objects are created, any heap will do.
-        rt_context_t rt_ctx(&__xheap, create_heap(&__xheap), &provider);
-        std::string ir = native::generate_ir(rt_ctx);
-
+        __generate_ir(build);
         fs::path ir_path = dir / "program.ll";
-
-        std::ofstream out(ir_path.string(), std::ios::binary);
-        if (!out)
-            throw _ED(__e_t::open_file_failed, ir_path.wstring());
-
-        out << ir;
-        out.close();
 
         native::build_options_t bo;
         bo.ir_path  = ir_path.string();
@@ -520,6 +559,31 @@ namespace X_ROOT_NS::modules::april {
 
             try
             {
+                // The JIT: the program is run in this process.
+                std::string reason;
+                native::jit_backend_t * jit = native::jit_backend_t::load(reason);
+
+                if (jit != nullptr)
+                {
+                    std::string object = __native_object(build, jit);
+
+                    int code = 0;
+                    std::string error;
+
+                    if (jit->run(object, code, error))
+                    {
+                        if (code != 0)
+                            std::exit(code);
+
+                        return true;
+                    }
+
+                    throw native::driver_error_t(error);
+                }
+
+                if (__options.verbose)
+                    std::cerr << "native: no JIT: " << reason << std::endl;
+
                 exe = __native_executable(build);
             }
             catch (const logic_error_t<native::native_error_code_t> & e)

@@ -36,7 +36,15 @@ def _native_available():
     return clang is not None and _libs_dir() is not None
 
 
-native = pytest.mark.skipif(not _native_available(), reason="clang++ or libnative.a not found")
+def _jit_available():
+    name = "april_jit.dll" if sys.platform == "win32" else "libapril_jit.so"
+    return os.path.isfile(os.path.join(os.path.dirname(_april()), name))
+
+
+# `april run` is native with the JIT (LLVM), or with clang; the executables need clang.
+native = pytest.mark.skipif(not (_native_available() or _jit_available()),
+                            reason="neither the JIT (april_jit) nor clang++ and libnative.a")
+clang = pytest.mark.skipif(not _native_available(), reason="clang++ or libnative.a not found")
 
 PROGRAM = """import System;
 
@@ -83,9 +91,14 @@ def test_run_is_native_and_cached(tmp_path):
     entries = _entries(cache)
     assert len(entries) == 1
 
-    # The executable is in the build: a second run uses it.
-    marker = cache / entries[0] / "native.txt"
-    exe = marker.read_text().strip()
+    # The program is in the build (the object file of the JIT, or the executable): a second run
+    # uses it.
+    entry = cache / entries[0]
+    if (entry / "program.o").is_file():
+        exe = str(entry / "program.o")
+    else:
+        exe = (entry / "native.txt").read_text().strip()
+
     assert os.path.isfile(exe)
     stamp = os.path.getmtime(exe)
 
@@ -112,6 +125,7 @@ def test_run_interpret(tmp_path):
     # Only the assemblies were built.
     entry = cache / _entries(cache)[0]
     assert not (entry / "native.txt").exists()
+    assert not (entry / "program.o").exists()
 
     # The assemblies are not written to the current directory.
     assert not list(tmp_path.glob("*.apl"))
@@ -145,7 +159,7 @@ def test_native_command_is_gone(tmp_path):
     assert "unknown command" in r.stdout
 
 
-@native
+@clang
 def test_compile_native(tmp_path):
     source = tmp_path / "main.cs"
     cache = tmp_path / "cache"

@@ -8,6 +8,9 @@
 // The clang driver (build / run the executable); standard library only.
 #include "../../modules/native/driver.h"
 
+// The JIT back end (LLVM, a shared library that april loads when it is there).
+#include "../../modules/native/jit_host.h"
+
 // The native back end: generates LLVM IR (textual .ll) from the XIL of a program, which
 // clang / llc turn into a native executable, linked with the native runtime support
 // (modules/native/native_rt.cpp) and the runtime libraries.
