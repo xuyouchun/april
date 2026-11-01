@@ -2957,8 +2957,9 @@ namespace X_ROOT_NS::modules::core {
 
     bool is_type_compatible(type_t * from, type_t * to)
     {
-        _A(from != nullptr);
-        _A(to != nullptr);
+        // A type that is undefined has been reported: it is not reported again.
+        if (from == nullptr || to == nullptr)
+            return true;
 
         if (from == to)
             return true;
@@ -3172,11 +3173,12 @@ namespace X_ROOT_NS::modules::core {
             if (ptype != atype.ptype)
                 return __member_compare_t::not_match;
 
+            // A type that is undefined has been reported.
             type_t * param_type = param->get_type();
-            _A(param_type != nullptr);
+            if (param_type == nullptr)
+                return __member_compare_t::not_match;
 
             type_t * argument_type = atype.type;
-            _A(argument_type != nullptr);
 
             __member_compare_t r;
             param_type = __to_real_type(param_type, argument_type, &r);
@@ -4109,7 +4111,8 @@ namespace X_ROOT_NS::modules::core {
             _A(p1 != nullptr && p2 != nullptr);
 
             type_t * type1 = p1->get_type(), * type2 = p2->get_type();
-            _A(type1 != nullptr && type2 != nullptr);
+            if (type1 == nullptr || type2 == nullptr)   // Undefined types have been reported.
+                return false;
 
             if (type1 != type2)
                 return false;
@@ -4143,7 +4146,8 @@ namespace X_ROOT_NS::modules::core {
             _A(p1 != nullptr && p2 != nullptr);
 
             type_t * type1 = p1->get_type(), * type2 = p2->get_type();
-            _A(type1 != nullptr && type2 != nullptr);
+            if (type1 == nullptr || type2 == nullptr)   // Undefined types have been reported.
+                return false;
 
             if (type1->this_gtype() == gtype_t::generic_param)
             {

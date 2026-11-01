@@ -1202,6 +1202,10 @@ namespace X_ROOT_NS::modules::compile {
                 bind_lambda_to_type(exp->expression_at(1), type1);
                 type_t * type2 = exp->expression_at(1)->get_type();
 
+                // An operand of undefined type has been reported.
+                if (type1 == nullptr || type2 == nullptr)
+                    return;
+
                 if (!is_type_compatible(type2, type1)
                         && !is_constant_compatible(exp->expression_at(1), type1))
                 {
@@ -1221,7 +1225,10 @@ namespace X_ROOT_NS::modules::compile {
             for (expression_t * exp : exp->exps)
             {
                 type_t * arg_type = exp->get_type();
-                _A(arg_type != nullptr);
+
+                // An operand of undefined type has been reported: the operator is not analyzed.
+                if (arg_type == nullptr)
+                    return;
 
                 if (is_null(arg_type))
                     exists_null = true;
