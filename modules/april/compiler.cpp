@@ -675,6 +675,9 @@ namespace X_ROOT_NS::modules::april {
             target = target / (name + ext);
         }
 
+        // No "." or ".." in the path.
+        target = fs::absolute(target, ec).lexically_normal();
+
         fs::copy_file(exe, target, fs::copy_options::overwrite_existing, ec);
         if (ec)
         {
