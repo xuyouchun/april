@@ -953,6 +953,9 @@ namespace X_ROOT_NS::modules::april {
     april_xcompiler_t::__cassembly_executable_t
         april_xcompiler_t::__raw_cassembly_t::is_executable()
     {
+        // Reading an assembly needs the pool of the types of a compiler.
+        april_compiler_t compiler;
+
         if (get_assembly_type(path.wstring()) == assembly_type_t::executable)
             return __executable_yes;
 

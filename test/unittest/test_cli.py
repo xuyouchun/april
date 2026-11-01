@@ -211,3 +211,17 @@ def test_compile_default_output_is_next_to_the_first_file(tmp_path):
     assert (src / "prog.apl").is_file()
     assert "built " + str(src / "prog.apl").replace("\\", "/") in r.stdout.replace("\\", "/")
     assert not list(other.iterdir())
+
+
+def test_run_an_assembly(tmp_path):
+    source = tmp_path / "prog.cs"
+    _write(source, 7)
+
+    r = _april_run(["compile", str(source)], tmp_path / "cache", tmp_path)
+    assert r.returncode == 0, r.stdout
+
+    # An assembly (.apl) is run as it is, with the interpreter and native.
+    for args in (["run", "--interpret"], ["run"]):
+        r = _april_run(args + [str(tmp_path / "prog.apl")], tmp_path / "cache", tmp_path)
+        assert r.returncode == 0, r.stdout
+        assert r.stdout.strip() == "7"
