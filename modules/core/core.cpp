@@ -6418,6 +6418,8 @@ namespace X_ROOT_NS::modules::core {
     {
         if (method != nullptr)
         {
+            __method_root = true;
+
             __local_variable_t ** head_addr = method->__local_variables.head_addr();
             __last_local_variable = *head_addr == nullptr?
                 al::incorp((void *)head_addr, false) : al::incorp((void *)*head_addr, true);
@@ -6534,8 +6536,11 @@ namespace X_ROOT_NS::modules::core {
     msize_t & variable_region_t::__current_local_identity()
     {
         variable_region_t * root = this;
-        while (root->previous != nullptr && root->previous->__is_local_supported())
+        while (!root->__method_root && root->previous != nullptr
+                                    && root->previous->__is_local_supported())
+        {
             root = root->previous;
+        }
 
         return root->__local_identity;
     }
@@ -6545,7 +6550,7 @@ namespace X_ROOT_NS::modules::core {
     {
         if (__local_index == __empty_index)
         {
-            if (previous != nullptr && previous->__is_local_supported())
+            if (!__method_root && previous != nullptr && previous->__is_local_supported())
                 __local_index = previous->__current_local_index();
             else
                 __local_index = 0;
@@ -8926,6 +8931,8 @@ namespace X_ROOT_NS::modules::core {
         : mctx(mctx), method(method), __xheap(_T("statement_compile_context"))
     {
         _A(method != nullptr && method->body != nullptr);
+
+        checked = method->checked_mode == 1;
 
         auto * region = begin_region<root_statement_region_t>();
         region->variable_region = method->body->variable_region;

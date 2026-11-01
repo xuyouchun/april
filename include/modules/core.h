@@ -3533,6 +3533,10 @@ namespace X_ROOT_NS::modules::core {
         // is walked where the variables of the method that has it are seen.
         bool lambda_walk_inside = false;
 
+        // The arithmetic of the method raises on overflow: a lambda in checked(...) or
+        // checked { ... }, 0 is not set, 1 is checked, 2 is unchecked.
+        int checked_mode = 0;
+
         // The expression that is the body of a lambda, null for a block. It is a lambda too
         // when the lambda returns a lambda: (int a) => (int b) => b.
         expression_t * lambda_expression = nullptr;
@@ -5778,6 +5782,10 @@ namespace X_ROOT_NS::modules::core {
 
         void * __last_local_variable; // The last local variable node.
 
+        // The region of a method: its local variables are counted from 0, even if it is below
+        // the region of another method, a lambda that sees the variables of the one that has it.
+        bool __method_root = false;
+
         static const msize_t __empty_index = unknown_msize;
         msize_t __local_index = __empty_index, __local_identity = 0;
 
@@ -6120,6 +6128,10 @@ namespace X_ROOT_NS::modules::core {
         // Added to the analysis steps of the nodes that are delayed: the body of a lambda that has
         // no types of params is analyzed after the statements that give them.
         int delay_bias = 0;
+
+        // The arithmetic of the node that is walked: 0 is not set by checked or unchecked, 1 is
+        // checked, 2 is unchecked. The lambda has that of the place where it is.
+        int checked_mode = 0;
 
         // Delay walk specified node.
         // Push the node in the queue.

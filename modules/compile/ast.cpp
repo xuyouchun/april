@@ -5370,9 +5370,15 @@ namespace X_ROOT_NS::modules::compile {
     {
         context.push_new_region();
 
+        // The lambdas in checked { ... } are checked, or not.
+        int saved = context.checked_mode;
+        if (this->has_checked)
+            context.checked_mode = this->checked? 1 : 2;
+
         this->variable_region = context.current_region();
         bool r = __super_t::on_walk(context, step, tag);
 
+        context.checked_mode = saved;
         context.pop();
 
         return r;
@@ -5439,7 +5445,14 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool checked_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        return __super_t::on_walk(context, step, tag);
+        // The lambdas in it are checked, or not.
+        int saved = context.checked_mode;
+        context.checked_mode = this->checked? 1 : 2;
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.checked_mode = saved;
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -6027,6 +6040,7 @@ namespace X_ROOT_NS::modules::compile {
         bool captures = !__captured_names.empty();
 
         method_ast_node_t * method = __new_obj<method_ast_node_t>(this->__context);
+        method->checked_mode = context.checked_mode;
         method->init_lambda(name, outer->is_static() && !captures, this->child_at(__params__),
             this->child_at(__body__), this->child_at(__expression__),
             __to_eobject<expression_t *>(__expression__), (ast_node_t *)this, untyped_params

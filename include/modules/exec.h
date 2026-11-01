@@ -618,6 +618,10 @@ namespace X_ROOT_NS::modules::exec {
                 }
             }
 
+            // No block contains the point: there is no parent either.
+            if (block >= block_end)
+                return;
+
             while ((block = block->parent) != nullptr)
             {
                 if (__MatchBlockType(block) && !f(block))
