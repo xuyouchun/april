@@ -68,7 +68,7 @@ namespace X_ROOT_NS::modules::april {
         }
         else
         {
-            throw _ED(__e_t::file_not_exists, path);
+            throw _ED(__e_t::file_not_exists, lib::to_str(path));
         }
     }
 
