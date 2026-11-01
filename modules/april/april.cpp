@@ -513,6 +513,10 @@ Use \"april help [command] ...\" for more information about a command.      \n\
         {
             _P(_str(err));
         }
+        catch (const std::exception & e)
+        {
+            std::cerr << "error: " << e.what() << std::endl;
+        }
 
         return 1;
     }
@@ -526,9 +530,66 @@ Use \"april help [command] ...\" for more information about a command.      \n\
 
 namespace __april = __root_ns::modules::april;
 
+#ifdef _WIN32
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <shellapi.h>
+
+#include <codecvt>
+#include <locale>
+
+// Main function. The arguments are in UTF-8, as the rest of april expects (those of main are in
+// the code page of the system, that the paths with other characters would not survive).
+int main(int argc, char ** argv)
+{
+    // The narrow strings of the paths are UTF-8, not the code page of the system.
+    ::boost::filesystem::path::imbue(
+        std::locale(std::locale(), new std::codecvt_utf8<wchar_t>())
+    );
+
+    // The wide streams write UTF-8 (they stop at the first character that is not ASCII, else).
+    std::locale utf8(std::locale(), new std::codecvt_utf8<wchar_t>());
+    std::wcout.imbue(utf8);
+    std::wcerr.imbue(utf8);
+
+    int wargc = 0;
+    LPWSTR * wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+
+    if (wargv == nullptr || wargc != argc)
+        return __april::__main(argc, argv);
+
+    std::vector<std::string> args;
+    for (int k = 0; k < wargc; k++)
+    {
+        int n = WideCharToMultiByte(CP_UTF8, 0, wargv[k], -1, nullptr, 0, nullptr, nullptr);
+        std::string arg(n > 0? n - 1 : 0, '\0');
+
+        if (n > 1)
+            WideCharToMultiByte(CP_UTF8, 0, wargv[k], -1, &arg[0], n, nullptr, nullptr);
+
+        args.push_back(std::move(arg));
+    }
+
+    LocalFree(wargv);
+
+    std::vector<char *> pointers;
+    for (std::string & arg : args)
+        pointers.push_back(&arg[0]);
+
+    pointers.push_back(nullptr);
+    return __april::__main(argc, pointers.data());
+}
+
+#else
+
 // Main function
 int main(int argc, char ** argv)
 {
     return __april::__main(argc, argv);
 }
+
+#endif
 

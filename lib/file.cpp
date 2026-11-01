@@ -3,7 +3,27 @@
 #include <boost/filesystem/fstream.hpp>
 #include <algorithm.h>
 
+#ifdef _WIN32
+#include <codecvt>
+#include <locale>
+#endif
+
 namespace X_ROOT_NS::lib {
+
+#ifdef _WIN32
+    namespace
+    {
+        // The narrow strings of the paths are UTF-8 (as the rest of april), not the code page of
+        // the system. Every module that has its own copy of boost sets it for itself.
+        const bool __path_utf8 = [] {
+            ::boost::filesystem::path::imbue(
+                std::locale(std::locale(), new std::codecvt_utf8<wchar_t>())
+            );
+
+            return true;
+        }();
+    }
+#endif
 
     ////////// ////////// ////////// ////////// //////////
 

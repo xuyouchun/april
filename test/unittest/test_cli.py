@@ -225,3 +225,25 @@ def test_run_an_assembly(tmp_path):
         r = _april_run(args + [str(tmp_path / "prog.apl")], tmp_path / "cache", tmp_path)
         assert r.returncode == 0, r.stdout
         assert r.stdout.strip() == "7"
+
+
+def test_paths_with_unicode_characters(tmp_path):
+    source = tmp_path / "\u4f60\u597d.cs"
+    _write(source, 9)
+
+    # The arguments and the paths are UTF-8 (not the code page of the system).
+    r = _april_run(["compile", str(source)], tmp_path / "cache", tmp_path)
+    assert r.returncode == 0, r.stdout
+    assert (tmp_path / "\u4f60\u597d.apl").is_file()
+
+    r = _april_run(["run", "--interpret", str(tmp_path / "\u4f60\u597d.apl")],
+                   tmp_path / "cache", tmp_path)
+    assert r.returncode == 0, r.stdout
+    assert r.stdout.strip() == "9"
+
+    # A file that is not there is an error, with its name: april does not crash.
+    r = _april_run(["run", "\u201c" + str(tmp_path / "x.apl") + "\u201d"],
+                   tmp_path / "cache", tmp_path)
+    assert r.returncode == 1
+    assert "not exists" in r.stdout
+    assert "terminating" not in r.stdout
