@@ -4367,6 +4367,13 @@ namespace X_ROOT_NS::modules::compile {
         // Adds the name of a param that has no type.
         void add_param_name(name_t name) { __param_names.push_back(name); }
 
+        // Returns the expression that makes the object of the delegate, if the lambda uses
+        // variables.
+        expression_t * env_new() const
+        {
+            return __method != nullptr? __method->lambda_env_new : nullptr;
+        }
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -4383,7 +4390,8 @@ namespace X_ROOT_NS::modules::compile {
         // of the object of the class __env_node, that has a copy of them.
         std::vector<name_t>         __captured_names;
         std::vector<variable_t *>   __captured;
-        std::vector<expression_t *> __used;
+        std::vector<expression_t *> __used;     // Those of the lambdas in it too.
+        std::vector<expression_t *> __own;      // Not those of the lambdas in it.
         general_type_t *            __env_node = nullptr;
         method_t *                  __method = nullptr;
         method_t *                  __outer = nullptr;

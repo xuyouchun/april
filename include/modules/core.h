@@ -3533,6 +3533,9 @@ namespace X_ROOT_NS::modules::core {
         // is walked where the variables of the method that has it are seen.
         bool lambda_walk_inside = false;
 
+        // The names of the variables that the lambda uses: a lambda in it uses them too.
+        std::vector<name_t> lambda_captured_names;
+
         // The arithmetic of the method raises on overflow: a lambda in checked(...) or
         // checked { ... }, 0 is not set, 1 is checked, 2 is unchecked.
         int checked_mode = 0;

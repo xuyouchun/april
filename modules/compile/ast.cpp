@@ -5869,8 +5869,10 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
-    // Collects the expressions of a node and its children.
-    static void __collect_expressions(ast_node_t * node, std::vector<expression_t *> & expressions)
+    // Collects the expressions of a node and its children. The expressions of the lambdas that
+    // are in it are collected too, if deep is true, or the lambdas only.
+    static void __collect_expressions(ast_node_t * node, std::vector<expression_t *> & expressions,
+                                                                         bool deep = true)
     {
         if (node == nullptr)
             return;
@@ -5878,9 +5880,12 @@ namespace X_ROOT_NS::modules::compile {
         if (expression_ast_t * expression_ast = as<expression_ast_t *>(node))
             __collect_sub_expressions(expression_ast->to_eobject(), expressions);
 
+        if (!deep && node->value() == (ast_value_t)__xcvalue_t::lambda)
+            return;
+
         for (size_t index = 0, count = node->child_count(); index < count; index++)
         {
-            __collect_expressions(node->child_at(index), expressions);
+            __collect_expressions(node->child_at(index), expressions, deep);
         }
     }
 
@@ -5926,6 +5931,8 @@ namespace X_ROOT_NS::modules::compile {
         // The local variables of the method that has the lambda, that it uses.
         __collect_expressions(this->child_at(__body__), __used);
         __collect_expressions(this->child_at(__expression__), __used);
+        __collect_expressions(this->child_at(__body__), __own, false);
+        __collect_expressions(this->child_at(__expression__), __own, false);
 
         {
             params_t * typed_params = __to_eobject<params_t *>(__params__);
@@ -5967,6 +5974,10 @@ namespace X_ROOT_NS::modules::compile {
                         outer_param = outer_param || param->name == used_name;
                 }
 
+                // The variables of the method that has the lambda that has this one.
+                for (name_t outer_name : ((method_t *)outer)->lambda_captured_names)
+                    outer_param = outer_param || outer_name == used_name;
+
                 variable_t * variable = region->get(used_name);
                 bool local = variable != nullptr
                     && (variable->this_type() == variable_type_t::local
@@ -5981,14 +5992,6 @@ namespace X_ROOT_NS::modules::compile {
                     __captured_names.push_back(used_name);
                 }
             }
-        }
-
-        // A lambda that has the variables of a lambda that has them too.
-        if (!__captured_names.empty() && ((method_t *)outer)->lambda_walk_inside)
-        {
-            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
-                _T("in a lambda that uses local variables"));
-            __captured_names.clear();
         }
 
         if (!__captured_names.empty() && ((method_t *)outer)->iterator_info != nullptr)
@@ -6051,12 +6054,13 @@ namespace X_ROOT_NS::modules::compile {
         // The body is analyzed after the statements that give the types of the params.
         int saved_bias = context.delay_bias;
         if (untyped_params != nullptr)
-            context.delay_bias = 1;
+            context.delay_bias = saved_bias + 1;
 
         if (captures)
         {
             // The variables of the method are seen by the lambda.
             method->lambda_walk_inside = true;
+            method->lambda_captured_names = __captured_names;
             method->on_walk(context, (int)walk_step_t::default_, nullptr);
 
             {
@@ -6079,6 +6083,11 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         context.delay_bias = saved_bias;
+
+        // The name is that of the method: a lambda that is returned by a lambda is bound to the
+        // type of the delegate when the one that has it is, before it is analyzed.
+        if (method->variable != nullptr)
+            this->set(method->variable);
 
         this->name = name;
     }
@@ -6207,8 +6216,24 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        // The expressions of the lambda, not those of the lambdas in it: they have their own
+        // environment, that is made here with the values of the variables of this one.
+        std::vector<expression_t *> own(__own);
+        for (expression_t * exp : __own)
+        {
+            lambda_ast_node_t * nested = dynamic_cast<lambda_ast_node_t *>(exp);
+            expression_t * env_new = nested != nullptr? nested->env_new() : nullptr;
+
+            if (env_new != nullptr && env_new->this_family() == expression_family_t::new_)
+            {
+                arguments_t * nested_args = ((new_expression_t *)env_new)->arguments();
+                for (argument_t * argument : *nested_args)
+                    own.push_back(argument->expression);
+            }
+        }
+
         // The members of the object are not seen: the object of the lambda is the environment.
-        for (expression_t * exp : __used)
+        for (expression_t * exp : own)
         {
             bool member = exp->this_family() == expression_family_t::this_
                        || exp->this_family() == expression_family_t::base;
@@ -6256,7 +6281,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // The names are the fields.
-        for (expression_t * exp : __used)
+        for (expression_t * exp : own)
         {
             if (exp->this_family() != expression_family_t::name)
                 continue;
