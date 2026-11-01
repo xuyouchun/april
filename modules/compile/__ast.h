@@ -3420,6 +3420,7 @@ namespace X_ROOT_NS::modules::compile {
 
         std::vector<local_variable_t *>             locals;     // The local variables.
         std::vector<name_expression_t *>            refs;       // The names of local variables.
+        std::vector<function_expression_t *>        calls;      // The calls of delegates that are local variables.
         std::vector<defination_statement_item_t *>  defs;       // The initial values.
         std::vector<yield_statement_t *>            yields;     // The yield statements.
 

@@ -6052,13 +6052,6 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
-        if (!__captured_names.empty() && ((method_t *)outer)->iterator_info != nullptr)
-        {
-            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
-                _T("in an iterator"));
-            __captured_names.clear();
-        }
-
         // The class of the object that has the values of the variables.
         if (!__captured_names.empty())
         {
@@ -6831,6 +6824,17 @@ namespace X_ROOT_NS::modules::compile {
             local_variable_t * variable = (local_variable_t *)name_exp->variable;
             if (variable->hoisted != nullptr)
                 name_exp->variable = variable->hoisted;
+        }
+
+        // The delegates that are called.
+        for (function_expression_t * call : info->calls)
+        {
+            variable_t * called = call->get_variable();
+            if (called != nullptr && called->this_type() == variable_type_t::local
+                    && ((local_variable_t *)called)->hoisted != nullptr)
+            {
+                call->set_variable(((local_variable_t *)called)->hoisted);
+            }
         }
 
         // The initial values are assigned to the fields.

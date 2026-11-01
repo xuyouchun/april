@@ -1659,6 +1659,15 @@ namespace X_ROOT_NS::modules::compile {
                     {
                         function_exp->set_variable(variable);
                         __walk_arguments(function_exp->arguments());
+
+                        // The local variables of the method that does the work of an iterator
+                        // are the fields of the state object, the delegates that are called too.
+                        method_t * current = __wctx.current_method();
+                        if (variable->this_type() == variable_type_t::local
+                                && current != nullptr && current->iterator_info != nullptr)
+                        {
+                            ((iterator_info_t *)current->iterator_info)->calls.push_back(function_exp);
+                        }
                     }
                     else if (type == nullptr && variable != nullptr
                                 && ((method_variable_t *)variable)->method->is_lambda)
