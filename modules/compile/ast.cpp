@@ -4597,11 +4597,13 @@ namespace X_ROOT_NS::modules::compile {
                 type_t * method_type = method->type_name->type;
 
                 // The type of a lambda that is not converted to a delegate: that of the
-                // first value that it returns.
+                // first value that it returns, the type of null is object.
                 if (method->is_lambda && method_type == uncertain_type_t::instance()
-                        && return_type != nullptr && !is_null(return_type)
-                        && return_type != uncertain_type_t::instance())
+                        && return_type != nullptr && return_type != uncertain_type_t::instance())
                 {
+                    if (is_null(return_type))
+                        return_type = __XPool.get_object_type();
+
                     method->type_name->type = method_type = return_type;
                     if (method->variable != nullptr)
                         method->variable->reset_type();
@@ -6952,12 +6954,13 @@ namespace X_ROOT_NS::modules::compile {
                 if (!this->lambda_expression->walked)
                     walk_expression(this->__context, context, this->lambda_expression);
 
+                // The type of null is object.
                 inferred = this->lambda_expression->get_type();
-                if (inferred != nullptr && (is_null(inferred)
-                                    || inferred == uncertain_type_t::instance()))
-                {
+                if (inferred != nullptr && is_null(inferred))
+                    inferred = __XPool.get_object_type();
+
+                if (inferred == uncertain_type_t::instance())
                     inferred = nullptr;
-                }
             }
             else if (this->lambda_no_value)
             {
