@@ -604,6 +604,14 @@ namespace X_ROOT_NS::modules::compile {
         X_D(interface_members_cannot_have_defination,
                 _T("'%1%': interface members cannot have a defination"))
 
+        // A non-abstract type does not implement an inherited abstract member.
+        X_D(abstract_member_not_implemented,
+                _T("'%1%' does not implement inherited abstract member '%2%'"))
+
+        // A non-abstract type does not implement an interface member.
+        X_D(interface_member_not_implemented,
+                _T("'%1%' does not implement interface member '%2%'"))
+
         // Interfaces cannot contain instance fields.
         X_D(interfaces_cannot_contain_instance_fields,
                 _T("interfaces cannot contain instance fields"))
@@ -3486,6 +3494,155 @@ namespace X_ROOT_NS::modules::compile {
         return c.check();
     }
 
+    namespace
+    {
+        // Whether two methods have the same signature. The types that depend on generic
+        // arguments are not compared (they are equal as far as it is known).
+        bool __same_signature(method_t * m1, method_t * m2)
+        {
+            if (m1->name != m2->name || m1->generic_param_count() != m2->generic_param_count())
+                return false;
+
+            size_t count = m1->param_count();
+            if (count != m2->param_count())
+                return false;
+
+            for (size_t index = 0; index < count; index++)
+            {
+                param_t * p1 = m1->param_at(index), * p2 = m2->param_at(index);
+                type_t * t1 = p1->get_type(), * t2 = p2->get_type();
+
+                if (t1 == nullptr || t2 == nullptr)
+                    continue;
+
+                if (t1 == t2)
+                {
+                    if (p1->ptype != p2->ptype)
+                        return false;
+
+                    continue;
+                }
+
+                if (!is_general(t1) || !is_general(t2))
+                    continue;
+
+                return false;
+            }
+
+            return true;
+        }
+
+        // Whether a method of the type or its base types implements the method.
+        // The owner of an explicit implementation is its interface.
+        bool __is_implemented(type_t * type, method_t * method, type_t * interface_type)
+        {
+            for (type_t * t = type; t != nullptr; t = t->get_base_type())
+            {
+                auto * like = dynamic_cast<__general_type_like_base_t *>(t);
+                if (like == nullptr)
+                    return true;    // Unknown: not judged.
+
+                for (method_t * m : like->methods)
+                {
+                    if (m == method || m->is_static())
+                        continue;
+
+                    type_t * owner = m->get_owner_type();
+                    if (owner != nullptr && owner != interface_type)
+                        continue;
+
+                    if (__same_signature(m, method))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    // Checks that the abstract members and the interface members are implemented.
+    void type_ast_node_t::__check_members_implemented()
+    {
+        general_type_t * type = (general_type_t *)this;
+
+        if (!al::in(type->this_ttype(), ttype_t::class_, ttype_t::struct_))
+            return;
+
+        // The abstract members of the base types: an abstract type needs not implement them.
+        for (type_t * base = this->is_abstract()? nullptr : type->get_base_type();
+                                            base != nullptr; base = base->get_base_type())
+        {
+            auto * like = dynamic_cast<__general_type_like_base_t *>(base);
+            if (like == nullptr)
+                break;
+
+            for (method_t * method : like->methods)
+            {
+                if (!method->is_abstract())
+                    continue;
+
+                // It is overridden in the type, or in a type between.
+                bool found = false;
+                for (type_t * t = type; t != base && t != nullptr && !found; t = t->get_base_type())
+                {
+                    auto * like1 = dynamic_cast<__general_type_like_base_t *>(t);
+                    if (like1 == nullptr)
+                        break;
+
+                    for (method_t * m : like1->methods)
+                    {
+                        if (m->is_override() && __same_signature(m, method))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!found)
+                {
+                    this->__log(__name_el, __c_t::abstract_member_not_implemented,
+                        type->to_full_name(), method->to_prototype());
+
+                    return;
+                }
+            }
+        }
+
+        // The interface members: the interfaces of the type, and of its base types. An abstract
+        // type declares them abstract if it does not implement them.
+        std::set<type_t *> walked;
+        bool failed = false;
+
+        std::function<bool (type_t *)> check_interface = [&](type_t * interface_type) -> bool {
+
+            if (interface_type == nullptr || interface_type->this_ttype() != ttype_t::interface_
+                    || !walked.insert(interface_type).second)
+                return true;
+
+            if (auto * like = dynamic_cast<__general_type_like_base_t *>(interface_type))
+            {
+                for (method_t * method : like->methods)
+                {
+                    if (!__is_implemented(type, method, interface_type))
+                    {
+                        this->__log(__name_el, __c_t::interface_member_not_implemented,
+                            type->to_full_name(), method->to_prototype());
+
+                        failed = true;
+                        return false;
+                    }
+                }
+            }
+
+            interface_type->each_super_type(check_interface);
+            return !failed;
+        };
+
+        for (type_t * t = type; t != nullptr && !failed; t = t->get_base_type())
+            t->each_super_type(check_interface);
+    }
+
     // Walks analysis step.
     bool type_ast_node_t::__walk_analysis(ast_walk_context_t & context, void * tag)
     {
@@ -3499,6 +3656,10 @@ namespace X_ROOT_NS::modules::compile {
                     this->to_full_name(), circle_type->to_full_name()
                 );
             }
+
+            // Check the abstract members and the interface members are implemented.
+            if (circle_type == nullptr)
+                __check_members_implemented();
 
             // Check constraints.
             if (this->constraints != nullptr && this->constraints->size() > 0)

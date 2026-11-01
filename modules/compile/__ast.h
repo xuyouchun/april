@@ -835,6 +835,12 @@ namespace X_ROOT_NS::modules::compile {
         // Interfaces cannot contain instance fields.
         interfaces_cannot_contain_instance_fields,
 
+        // A non-abstract type does not implement an inherited abstract member.
+        abstract_member_not_implemented,
+
+        // A non-abstract type does not implement an interface member.
+        interface_member_not_implemented,
+
         // Cannot implicitly convert a type to another type.
         invalid_type_cast,
 
@@ -3130,6 +3136,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks init fields.
         bool __walk_analysis_init_fields(ast_walk_context_t & context);
+
+        // Checks that the abstract members and the interface members are implemented.
+        void __check_members_implemented();
 
         // Check circle base types.
         type_t * __check_circle_base_types();
