@@ -137,7 +137,7 @@ def test_native(code_file, tools, tmp_path):
 
     # Run normally, and with a collection at every allocation: a live object that the
     # collector frees changes the output (or crashes).
-    for extra in ({}, {"APRIL_GC_STRESS": "1"}):
+    for extra in ({}, {"APRIL_GC_STRESS": "1", "APRIL_GC_POISON": "1"}):
         env = dict(os.environ)
         env.update(extra)
 

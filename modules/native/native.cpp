@@ -372,6 +372,7 @@ namespace X_ROOT_NS::modules::native {
 
             // Maps a runtime type to an LLVM type, or throws.
             std::string __ll_type_of(rt_type_t * type);
+            static std::string __block_type_of(size_t size);
 
             // Maps a runtime type to a xil type.
             xil_type_t __xil_type_of(rt_type_t * type);
@@ -441,7 +442,7 @@ namespace X_ROOT_NS::modules::native {
                         return "ptr";
 
                     if (type->get_ttype(__env) == ttype_t::struct_)
-                        return "[" + std::to_string(type->get_size(__env)) + " x i8]";
+                        return __block_type_of(type->get_size(__env));
 
                     break;
 
@@ -450,6 +451,17 @@ namespace X_ROOT_NS::modules::native {
             }
 
             throw _ED(__e_t::unsupported_type, type->get_name(__env));
+        }
+
+        // The type of a block of bytes that holds a struct. A pointer in it must stay a word when the
+        // block is passed by value: LLVM splits an array to its elements, the bytes of a pointer
+        // would be apart, and the collector (that looks for words) would not find the object.
+        std::string __generator_t::__block_type_of(size_t size)
+        {
+            if (size > 0 && size % sizeof(void *) == 0)
+                return "[" + std::to_string(size / sizeof(void *)) + " x i64]";
+
+            return "[" + std::to_string(size) + " x i8]";
         }
 
         // Maps a runtime type to a xil type.
@@ -2284,7 +2296,7 @@ namespace X_ROOT_NS::modules::native {
                         // A struct, or a value of the (concrete) type of a generic param.
                         msize_t size = type->get_ttype(__env) == ttype_t::struct_?
                                             type->get_size(__env) : type->get_variable_size(__env);
-                        std::string ll = "[" + std::to_string(size) + " x i8]";
+                        std::string ll = __block_type_of(size);
 
                         // The interpreter reserves the units on its stack and pushes their
                         // address: the region stays below, as the value of a struct argument.

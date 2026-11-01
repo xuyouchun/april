@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <csetjmp>
 #include <map>
 #include <vector>
@@ -22,6 +23,8 @@
 //      APRIL_GC_THRESHOLD=n    collects when n bytes were allocated since the last time
 //      APRIL_GC_TRACE=1        prints a line for every collection
 //      APRIL_GC_STATS=1        prints a summary when the program ends
+//      APRIL_GC_POISON=1       fills the blocks that are freed with 0xDD: a live block that was
+//                              freed by mistake shows up at once, not by the luck of the heap
 
 namespace april_native_gc {
 
@@ -51,6 +54,7 @@ namespace april_native_gc {
         bool        __stress = false;
         bool        __trace = false;
         bool        __stats = false;
+        bool        __poison = false;
 
         bool __env_flag(const char * name)
         {
@@ -136,6 +140,9 @@ namespace april_native_gc {
                 else
                 {
                     __live_bytes -= it->second.size;
+                    if (__poison)
+                        std::memset((void *)it->first, 0xDD, it->second.size);
+
                     std::free((void *)it->first);
                     it = __blocks.erase(it);
                 }
@@ -160,6 +167,7 @@ namespace april_native_gc {
         __stress = __env_flag("APRIL_GC_STRESS");
         __trace  = __env_flag("APRIL_GC_TRACE");
         __stats  = __env_flag("APRIL_GC_STATS");
+        __poison = __env_flag("APRIL_GC_POISON");
 
         if (const char * value = std::getenv("APRIL_GC_THRESHOLD"))
         {

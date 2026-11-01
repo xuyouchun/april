@@ -50,7 +50,7 @@ def jit(tmp_path_factory):
 def test_jit(code_file, jit):
     source = os.path.join(common.get_test_path(), code_file)
 
-    for extra in ({}, {"APRIL_GC_STRESS": "1"}):
+    for extra in ({}, {"APRIL_GC_STRESS": "1", "APRIL_GC_POISON": "1"}):
         result = _run([source], jit, extra)
 
         if "the program is run with the interpreter" in result.stderr:
