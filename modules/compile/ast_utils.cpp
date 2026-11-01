@@ -1888,6 +1888,13 @@ namespace X_ROOT_NS::modules::compile {
             {
                 generic_method_t * generic_method = __XPool.new_generic_method(method, tc, type);
                 function_exp->set_method(generic_method);
+
+                // The types of the params and the return type that are made from the arguments.
+                generic_method->get_type();
+                for (size_t k = 0, count = generic_method->param_count(); k < count; k++)
+                    generic_method->param_type_at(k);
+
+                __wctx.commit_types();
             }
 
             if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)

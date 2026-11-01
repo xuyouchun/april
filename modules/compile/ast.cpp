@@ -807,7 +807,7 @@ namespace X_ROOT_NS::modules::compile {
                 member->is_const()?     _T("const") :
                 member->is_readonly()?  _T("readonly") :
                 member->is_extern()?    _T("extern") :
-                member->has_access_modifier()? _T("access modifier") : nullptr
+                (member->has_access_modifier() && !static_method)? _T("access modifier") : nullptr
             ;
 
             if (modifier != nullptr)
@@ -3627,6 +3627,10 @@ namespace X_ROOT_NS::modules::compile {
             {
                 for (method_t * method : like->methods)
                 {
+                    // A static method of an interface is not implemented.
+                    if (method->is_static())
+                        continue;
+
                     if (!__is_implemented(type, method, interface_type))
                     {
                         this->__log(__name_el, __c_t::interface_member_not_implemented,

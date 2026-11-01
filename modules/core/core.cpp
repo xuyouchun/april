@@ -2113,19 +2113,63 @@ namespace X_ROOT_NS::modules::core {
         return __template()->get_type();
     }
 
+    // Returns the count of the types of the params generic parameter, -1 if the last param
+    // is not the items of one.
+    int generic_method_t::__pack_count() const
+    {
+        method_t * template_ = __template();
+
+        generic_params_t * gps = template_->generic_params;
+        if (gps == nullptr || gps->empty()
+                || (*gps)[gps->size() - 1]->param_type != generic_param_type_t::params)
+            return -1;
+
+        size_t count = template_->param_count();
+        if (count == 0 || template_->param_object_at(count - 1)->ptype != param_type_t::extends)
+            return -1;
+
+        return (int)args.size() - (int)(gps->size() - 1);
+    }
+
     // Returns param count.
     size_t generic_method_t::param_count() const
     {
-        return __template()->param_count();
+        size_t count = __template()->param_count();
+
+        // The items of a params generic parameter are many params.
+        int pack_count = __pack_count();
+        if (pack_count >= 0)
+            return count - 1 + pack_count;
+
+        return count;
     }
 
     // Returns param type of specified index.
     typex_t generic_method_t::param_type_at(size_t index) const
     {
+        size_t template_count = __template()->param_count();
+
+        if (__pack_count() >= 0 && index >= template_count - 1)
+        {
+            size_t pack_start = __template()->generic_params->size() - 1;
+            return typex_t(args[pack_start + (index - (template_count - 1))],
+                                                            param_type_t::__default__);
+        }
+
         typex_t typex = __template()->param_type_at(index);
         type_t * type = (type_t *)typex;
 
         return typex_t(__revise_type(type), (param_type_t)typex);
+    }
+
+    // Returns the param at the specified index.
+    param_t * generic_method_t::param_object_at(size_t index) const
+    {
+        size_t template_count = __template()->param_count();
+        if (__pack_count() >= 0 && index >= template_count)
+            index = template_count - 1;
+
+        return __template()->param_object_at(index);
     }
 
     // Finds real type of generic param.
@@ -2186,6 +2230,25 @@ namespace X_ROOT_NS::modules::core {
 
             for (type_t * type : generic_type->args)
             {
+                // The arguments of a params generic parameter are many.
+                if (is_generic_param(type)
+                    && ((generic_param_t *)type)->param_type == generic_param_type_t::params)
+                {
+                    generic_params_t * gps = __template()->generic_params;
+                    for (size_t k = 0; k < gps->size(); k++)
+                    {
+                        if ((*gps)[k]->name == ((generic_param_t *)type)->name)
+                        {
+                            for (size_t m = k; m < args.size(); m++)
+                                types.push_back(args[m]);
+
+                            break;
+                        }
+                    }
+
+                    continue;
+                }
+
                 types.push_back(__revise_type(type));
             }
 
@@ -3052,21 +3115,42 @@ namespace X_ROOT_NS::modules::core {
 
             if (generic_args != nullptr)
             {
-                if (generic_args->size() != method->generic_param_count())
+                int count = method->generic_param_count();
+                bool has_pack = count > 0 && method->generic_params->at(count - 1)->param_type
+                                                        == generic_param_type_t::params;
+
+                if (has_pack? (int)generic_args->size() < count - 1
+                            : (int)generic_args->size() != count)
                     throw _ECF(argument_error, _T("invalid generic argument count"));
 
-                for (int index = 0, count = method->generic_param_count();
-                                                    index < count; index++)
+                for (int index = 0; index < count; index++)
                 {
-                    generic_arg_t * ga = generic_args->at(index);
-                    _A(ga != nullptr);
-
                     generic_param_t * gp = method->generic_params->at(index);
                     _A(gp != nullptr);
+
+                    // The types of a params generic parameter are all that are left.
+                    if (has_pack && index == count - 1)
+                    {
+                        std::vector<type_t *> & types = __packs[gp->name];
+                        for (int k = index, ga_count = generic_args->size(); k < ga_count; k++)
+                            types.push_back(generic_args->at(k)->get_type());
+
+                        break;
+                    }
+
+                    generic_arg_t * ga = generic_args->at(index);
+                    _A(ga != nullptr);
 
                     __generic_param_map[gp->name] = ga->get_type();
                 }
             }
+        }
+
+        // Gets the types of a params generic parameter, null if they are not known.
+        const std::vector<type_t *> * get_pack(generic_param_t * gp)
+        {
+            auto it = __packs.find(gp->name);
+            return it == __packs.end()? nullptr : &it->second;
         }
 
         // Gets real type of specified generic type name.
@@ -3095,14 +3179,18 @@ namespace X_ROOT_NS::modules::core {
             // The last param may take any arguments: params int[] values.
             param_t * last = param_count > 0? __params->at(param_count - 1) : nullptr;
             bool variadic = last != nullptr && last->ptype == param_type_t::params;
-            size_t fixed_count = variadic? param_count - 1 : param_count;
+
+            // The last param is the items of a params generic parameter: Create<T ...>(T ... items).
+            bool extends = last != nullptr && last->ptype == param_type_t::extends;
+            size_t fixed_count = (variadic || extends)? param_count - 1 : param_count;
 
             // The params that have no default value must have an argument.
             size_t required_count = fixed_count;
             while (required_count > 0 && __params->at(required_count - 1)->default_value != nullptr)
                 required_count--;
 
-            if (atype_count < required_count || (!variadic && atype_count > param_count))
+            if (atype_count < required_count
+                    || (!variadic && !extends && atype_count > param_count))
                 return __member_compare_t::not_match;
 
             __member_compare_t r = __member_compare_t::equals;
@@ -3162,6 +3250,52 @@ namespace X_ROOT_NS::modules::core {
                 }
             }
 
+            // The arguments of the items: the types of the generic parameter are those that are
+            // given, or those of the arguments.
+            if (extends)
+            {
+                type_t * pack_type = last->get_type();
+                if (!is_generic_param(pack_type))
+                    return __member_compare_t::not_match;
+
+                name_t name = ((generic_param_t *)pack_type)->name;
+                auto it = __packs.find(name);
+
+                if (it != __packs.end() && __generic_args != nullptr)
+                {
+                    std::vector<type_t *> & types = it->second;
+                    if (atype_count - fixed_count != types.size())
+                        return __member_compare_t::not_match;
+
+                    for (size_t k = 0; k < types.size(); k++)
+                    {
+                        atype_t & atype = atypes->at(fixed_count + k);
+                        if (atype.type == nullptr || atype.ptype != param_type_t::__default__
+                                || !is_type_compatible(atype.type, types[k]))
+                            return __member_compare_t::not_match;
+
+                        if (atype.type != types[k] && r == __member_compare_t::equals)
+                            r = __member_compare_t::match;
+                    }
+                }
+                else
+                {
+                    std::vector<type_t *> & types = __packs[name];
+                    types.clear();
+
+                    for (size_t index = fixed_count; index < atype_count; index++)
+                    {
+                        atype_t & atype = atypes->at(index);
+                        if (atype.type == nullptr || atype.ptype != param_type_t::__default__)
+                            return __member_compare_t::not_match;
+
+                        types.push_back(atype.type);
+                    }
+
+                    r = __member_compare_t::auto_determined;
+                }
+            }
+
             return r;
         }
 
@@ -3169,6 +3303,7 @@ namespace X_ROOT_NS::modules::core {
         generic_args_t * __generic_args = nullptr;
         params_t * __params;
         std::map<name_t, type_t *> __generic_param_map;
+        std::map<name_t, std::vector<type_t *>> __packs;
 
         typedef std::map<generic_param_t *, type_t *> __generic_map_t;
 
@@ -3442,6 +3577,13 @@ namespace X_ROOT_NS::modules::core {
             if (generic_args == nullptr || method->generic_param_count() == generic_args->size())
                 return __member_compare_t::same_name;
 
+            // A params generic parameter takes any count of arguments.
+            size_t gp_count = method->generic_param_count();
+            if (gp_count > 0 && generic_args->size() + 1 >= gp_count
+                    && method->generic_params->at(gp_count - 1)->param_type
+                                                        == generic_param_type_t::params)
+                return __member_compare_t::same_name;
+
             return __member_compare_t::not_match;
         }
 
@@ -3458,6 +3600,18 @@ namespace X_ROOT_NS::modules::core {
         {
             for (generic_param_t * gp : *method->generic_params)
             {
+                if (gp->param_type == generic_param_type_t::params)
+                {
+                    const std::vector<type_t *> * pack = analyzer.get_pack(gp);
+                    if (pack == nullptr)
+                        return __member_compare_t::auto_determined_failed;
+
+                    for (type_t * type : *pack)
+                        out_arg_types.push_back(type);
+
+                    continue;
+                }
+
                 type_t * type = analyzer.get_type(gp);
                 if (type == nullptr)
                     return __member_compare_t::auto_determined_failed;
@@ -3645,11 +3799,19 @@ namespace X_ROOT_NS::modules::core {
             else
                 __methods.each(__args.method_trait, analyze_method);
 
-            if (__not_found() && generic_args_count == 0)
+            // Methods of generic params that are determined by the arguments, or of a params
+            // generic parameter that takes any count of generic arguments.
+            if (__not_found())
             {
-                __methods.each(__args.name, __unknown_size, [this](method_t * method) {
-                    if (method->generic_param_count() > 0)
+                __methods.each(__args.name, __unknown_size, [this, generic_args_count](method_t * method) {
+                    size_t count = method->generic_param_count();
+                    if (count == 0)
+                        return true;
+
+                    if (generic_args_count == 0 || (*method->generic_params)[count - 1]->param_type
+                                                        == generic_param_type_t::params)
                         return __analyze(method);
+
                     return true;
                 });
             }
@@ -6042,7 +6204,11 @@ namespace X_ROOT_NS::modules::core {
                                 xtype_collection_t & types, type_t * host_type)
     {
         _A(template_ != nullptr);
-        _A(template_->generic_param_count() == types.size());
+        // A params generic parameter takes any count of types.
+        _A(template_->generic_param_count() == types.size()
+            || (template_->generic_param_count() > 0 && types.size() + 1 >= template_->generic_param_count()
+                && (*template_->generic_params)[template_->generic_param_count() - 1]->param_type
+                                                        == generic_param_type_t::params));
 
         generic_method_cache_key_t key(template_, types.get_tcid(), host_type);
         generic_method_t * method = generic_method_cache->get(key);

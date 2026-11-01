@@ -17,6 +17,12 @@ public interface ITuple
 
     // Returns the item of the index, a value is boxed.
     Object Get(Int32 index);
+
+    // Makes a tuple in the heap, as a reference type: it is never boxed.
+    public static ITuple<TItems ...> Create<TItems ...>(TItems ... items)
+    {
+        return (ITuple<TItems ...>)Internal.Tuple_Create(typeof(Tuple<TItems ...>), items);
+    }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -24,11 +30,6 @@ public interface ITuple
 [Internal]
 public interface ITuple<TItems ...> : ITuple
 {
-    // Makes a tuple in the heap, as a reference type.
-    static ITuple<TItems ...> Create(TItems ... items)
-    {
-        return (ITuple<TItems ...>)Internal.Tuple_Create(typeof(Tuple<TItems ...>), items);
-    }
 }
 
 ////////// ////////// ////////// ////////// //////////

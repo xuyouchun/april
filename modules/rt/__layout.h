@@ -192,6 +192,22 @@ namespace X_ROOT_NS::modules::rt {
         // Returns types position of specified name, for generic params.
         bool types_of(rt_sid_t name, int * out_index, int * out_count) const;
 
+        // Returns whether a params generic parameter starts at the index, with the count of its
+        // types: a generic param that is written by its index.
+        bool pack_at_index(int index, int * out_count) const
+        {
+            for (auto & it : __named_atypes)
+            {
+                if (std::get<0>(it.value) == index)
+                {
+                    *out_count = std::get<1>(it.value);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         // Append types of specified name to a container.
         template<typename _itor_t>
         bool pick_types(rt_sid_t name, _itor_t itor) const

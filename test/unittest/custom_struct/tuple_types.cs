@@ -63,7 +63,7 @@ class Program
         Console.WriteLine((bool)t.Get(2));
 
         // Create makes the tuple in the heap.
-        ITuple<int, String, bool> c = ITuple<int, String, bool>.Create(7, "hi", false);
+        ITuple<int, String, bool> c = ITuple.Create(7, "hi", false);
         Console.WriteLine(c.Count);
         Console.WriteLine(c.Item1);
         Console.WriteLine(c.Item2);

@@ -438,6 +438,9 @@ namespace X_ROOT_NS::modules::rt {
     }
 
     // Returns whether it's a place holder.
+    // Returns the place holder of the index (layout.cpp).
+    rt_type_t * __get_type_place_holder(int index);
+
     bool is_place_holder(rt_type_t * type)
     {
         _A(type != nullptr);
@@ -682,6 +685,23 @@ namespace X_ROOT_NS::modules::rt {
     {
         int offset = method_ref - mt->methods;
         _A(offset >= 0);
+
+        // The static methods of an interface are not virtual, they have no slot in the virtual
+        // table: the offset is the index among the others.
+        if (get_ttype(env) == ttype_t::interface_)
+        {
+            assembly_analyzer_t analyzer = __analyzer(env);
+
+            int index = 0;
+            for (int k = 0; k < offset; k++)
+            {
+                rt_method_base_t * method = analyzer.get_method(mt->methods[k]);
+                if (!method->is_static())
+                    index++;
+            }
+
+            return index;
+        }
 
         return offset;
     }
@@ -1139,16 +1159,9 @@ namespace X_ROOT_NS::modules::rt {
             if (method_ref == ref_t::null)
                 return true;
 
-            // The static methods of the interfaces are not virtual: their slots are empty.
+            // The static methods of the interfaces are not virtual: they have no slot.
             if (method->is_static())
-            {
-                _A(index <= vfs.size());
-                if (index == vfs.size())
-                    vfs.push_back(__rt_interface_vfunction_t { nullptr, 0, 0 });
-
-                index++;
                 return true;
-            }
 
             method_prototype_t prototype;
             analyzer.get_prototype(method_ref, &prototype);
@@ -2140,6 +2153,10 @@ namespace X_ROOT_NS::modules::rt {
         if (g1->template_ != g2->template_)
             return false;
 
+        // The types of a params generic parameter of a method are not known.
+        if (g1->atype_count() != g2->atype_count())
+            return true;
+
         for (int k = 0, count = g1->atype_count(); k < count; k++)
         {
             if (is_place_holder(g1->atypes[k]))
@@ -2289,7 +2306,8 @@ namespace X_ROOT_NS::modules::rt {
         _A(template_ != nullptr);
         _A(host_type != nullptr);
 
-        _A(__atype_count >= template_->generic_param_count());
+        // A params generic parameter takes any count of types, none too.
+        _A(__atype_count + 1 >= template_->generic_param_count());
     }
 
     // Returns host type.
@@ -2878,11 +2896,20 @@ namespace X_ROOT_NS::modules::rt {
                     ref_t atype_ref = (*ga)->type;
 
                     rt_generic_param_t * gp;
+                    int pack_count;
+
                     if (is_generic_params(atype_ref, &gp))
                     {
                         rt_sid_t name = to_sid((*gp)->name);
                         _A(gp_manager != nullptr);
                         gp_manager->pick_types(name, std::back_inserter(atypes));
+                    }
+                    else if ((mt_type_extra_t)atype_ref.extra == mt_type_extra_t::generic_param_index
+                            && gp_manager->pack_at_index(atype_ref.index, &pack_count))
+                    {
+                        // A params generic parameter that is written by its index.
+                        for (int k = 0; k < pack_count; k++)
+                            atypes.push_back(gp_manager->type_at(atype_ref.index + k));
                     }
                     else
                     {
@@ -2907,6 +2934,12 @@ namespace X_ROOT_NS::modules::rt {
 
             case mt_type_extra_t::generic_param_index: {
                 int index = type_ref.index;
+
+                // The generic params of a generic method that is to be found are not known: the
+                // type is a place holder.
+                if (index >= (int)gp_manager->size())
+                    return __get_type_place_holder(index);
+
                 return gp_manager->type_at(index);
             }
 
@@ -3559,7 +3592,7 @@ namespace X_ROOT_NS::modules::rt {
 
             key = ctx.rpool.revise_key(key, (rt_type_t **)atypes, atype_count);
             return memory_t::new_obj<rt_generic_method_t>(
-                ctx.memory, template_, host_type, key.types()
+                ctx.memory, template_, host_type, key.types(), atype_count
             );
 
         });

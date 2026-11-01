@@ -3763,10 +3763,7 @@ namespace X_ROOT_NS::modules::core {
         virtual typex_t param_type_at(size_t index) const override;
 
         // Returns the param at the specified index.
-        virtual param_t * param_object_at(size_t index) const override
-        {
-            return __template()->param_object_at(index);
-        }
+        virtual param_t * param_object_at(size_t index) const override;
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() override
@@ -3793,6 +3790,9 @@ namespace X_ROOT_NS::modules::core {
         type_t * host_type = nullptr;
 
     private:
+
+        // Returns the count of the types of the params generic parameter, -1 if there is none.
+        int __pack_count() const;
 
         // Returns general template.
         method_t * __template() const
