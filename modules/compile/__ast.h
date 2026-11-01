@@ -4367,6 +4367,10 @@ namespace X_ROOT_NS::modules::compile {
         // Adds the name of a param that has no type.
         void add_param_name(name_t name) { __param_names.push_back(name); }
 
+        // Walks the items of the lambda that were kept apart: its body is analyzed, and its return
+        // type is known.
+        void analyze_now(ast_walk_context_t & context);
+
         // Returns the expression that makes the object of the delegate, if the lambda uses
         // variables.
         expression_t * env_new() const
@@ -4395,6 +4399,7 @@ namespace X_ROOT_NS::modules::compile {
         general_type_t *            __env_node = nullptr;
         method_t *                  __method = nullptr;
         method_t *                  __outer = nullptr;
+        ast_walk_context_t::pending_t * __pending = nullptr;
 
         // Makes the method of the lambda.
         void __walk_default(ast_walk_context_t & context);

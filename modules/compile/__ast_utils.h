@@ -87,6 +87,10 @@ namespace X_ROOT_NS::modules::compile {
                 generic_args_t * generic_args, arguments_t * arguments);
 
     // Finds constructor.
+    // Walks the items of a lambda that were kept apart, if the expression is a lambda: its return
+    // type is known after that.
+    void analyze_lambda_now(ast_walk_context_t & context, expression_t * expression);
+
     method_t * find_constructor(type_t * type, atypes_t * atypes);
 
     // Finds constructors.

@@ -2214,6 +2214,15 @@ namespace X_ROOT_NS::modules::compile {
             method_t * method = context.current_method();
             _A(method != nullptr);
 
+            // A lambda that is not converted to a delegate, with no value to return, is void.
+            if (method->is_lambda && method->lambda_no_value && method->type_name != nullptr
+                    && method->type_name->type == uncertain_type_t::instance())
+            {
+                method->type_name->type = __XPool.get_internal_type(vtype_t::void_);
+                if (method->variable != nullptr)
+                    method->variable->reset_type();
+            }
+
             if (method->type_name == nullptr || method->type_name->type == nullptr
                                              || is_void_type(method->type_name->type))
             {
@@ -4386,7 +4395,12 @@ namespace X_ROOT_NS::modules::compile {
             {
                 type_t * type = nullptr;
                 if (var_item->expression != nullptr)
+                {
+                    // The type of a lambda is that of the delegate that has the type of its body.
+                    analyze_lambda_now(context, var_item->expression);
+
                     type = var_item->expression->get_type();
+                }
 
                 if (type == nullptr)
                     __Log(cannot_determine_local_variable_type, var_item->name);
@@ -4581,6 +4595,17 @@ namespace X_ROOT_NS::modules::compile {
             {
                 type_t * return_type = this->expression->get_type();
                 type_t * method_type = method->type_name->type;
+
+                // The type of a lambda that is not converted to a delegate: that of the
+                // first value that it returns.
+                if (method->is_lambda && method_type == uncertain_type_t::instance()
+                        && return_type != nullptr && !is_null(return_type)
+                        && return_type != uncertain_type_t::instance())
+                {
+                    method->type_name->type = method_type = return_type;
+                    if (method->variable != nullptr)
+                        method->variable->reset_type();
+                }
 
                 if (return_type != nullptr && !is_type_compatible(return_type, method_type))
                     this->__log(this, __c_t::method_incompatible_return_value, method);
@@ -5844,10 +5869,18 @@ namespace X_ROOT_NS::modules::compile {
     {
         if ((walk_step_t)step == walk_step_t::default_)
             __walk_default(context);
+        else if ((walk_step_t)step == walk_step_t::analysis)
+            analyze_now(context);
         else if ((walk_step_t)step == walk_step_t::end)
             __walk_end(context);
 
         return true;
+    }
+
+    // Walks the items of the lambda that were kept apart.
+    void lambda_ast_node_t::analyze_now(ast_walk_context_t & context)
+    {
+        context.run_pending(__pending);
     }
 
     // Returns whether the node has a return statement that returns a value, the lambdas in it
@@ -6086,7 +6119,10 @@ namespace X_ROOT_NS::modules::compile {
             // The variables of the method are seen by the lambda.
             method->lambda_walk_inside = true;
             method->lambda_captured_names = __captured_names;
+
+            __pending = context.begin_pending();
             method->on_walk(context, (int)walk_step_t::default_, nullptr);
+            context.end_pending(__pending);
 
             {
                 auto * layer = context.enter_type_level();
@@ -6103,10 +6139,23 @@ namespace X_ROOT_NS::modules::compile {
         else
         {
             auto * layer = context.enter_type_level();
+
+            __pending = context.begin_pending();
             method->on_walk(context, (int)walk_step_t::default_, nullptr);
+            context.end_pending(__pending);
+
             context.leave_type_level(layer);
         }
 
+        context.delay_bias = saved_bias;
+
+        // The body is analyzed after the statement that has the lambda: it gives the type of the
+        // delegate that it is converted to, or the types of the params. Or earlier, when the
+        // type of the lambda is needed.
+        method->lambda_pending = __pending;
+
+        context.delay_bias = saved_bias + (untyped_params != nullptr? 2 : 1);
+        context.delay(this, (int)walk_step_t::analysis);
         context.delay_bias = saved_bias;
 
         // The name is that of the method: a lambda that is returned by a lambda is bound to the
@@ -6895,10 +6944,39 @@ namespace X_ROOT_NS::modules::compile {
         type_t * return_type = this->type_name != nullptr? this->type_name->type : nullptr;
         if (return_type == nullptr || return_type == uncertain_type_t::instance())
         {
-            this->__log(this->lambda_node, __c_t::lambda_type_undetermined);
+            // The type of the body, an expression, or void for a block that returns no value.
+            type_t * inferred = nullptr;
 
-            return_type = __XPool.get_internal_type(vtype_t::void_);
-            this->type_name->type = return_type;
+            if (this->lambda_expression != nullptr)
+            {
+                if (!this->lambda_expression->walked)
+                    walk_expression(this->__context, context, this->lambda_expression);
+
+                inferred = this->lambda_expression->get_type();
+                if (inferred != nullptr && (is_null(inferred)
+                                    || inferred == uncertain_type_t::instance()))
+                {
+                    inferred = nullptr;
+                }
+            }
+            else if (this->lambda_no_value)
+            {
+                inferred = __XPool.get_internal_type(vtype_t::void_);
+            }
+
+            if (inferred != nullptr)
+            {
+                return_type = this->type_name->type = inferred;
+                if (this->variable != nullptr)
+                    this->variable->reset_type();
+            }
+            else
+            {
+                this->__log(this->lambda_node, __c_t::lambda_type_undetermined);
+
+                return_type = __XPool.get_internal_type(vtype_t::void_);
+                this->type_name->type = return_type;
+            }
         }
 
         if (this->lambda_expression == nullptr)

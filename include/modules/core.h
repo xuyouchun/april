@@ -3537,6 +3537,9 @@ namespace X_ROOT_NS::modules::core {
         // returns void.
         bool lambda_no_value = false;
 
+        // The items of the walk of the lambda, that are walked when its type is needed.
+        void * lambda_pending = nullptr;
+
         // The names of the variables that the lambda uses: a lambda in it uses them too.
         std::vector<name_t> lambda_captured_names;
 
@@ -6140,6 +6143,20 @@ namespace X_ROOT_NS::modules::core {
         // checked, 2 is unchecked. The lambda has that of the place where it is.
         int checked_mode = 0;
 
+        // The items of a lambda, that are delayed while it is walked: they are kept apart, and
+        // walked together, when the type of the lambda is needed (a lambda that is called at once,
+        // the type of a variable), or at the time of the lambda.
+        class pending_t;
+
+        // The items that are delayed after it are kept apart, till end_pending().
+        pending_t * begin_pending();
+
+        // Ends the items that are kept apart.
+        void end_pending(pending_t * pending);
+
+        // Walks the items that are kept apart, if they were not.
+        void run_pending(pending_t * pending);
+
         // Delay walk specified node.
         // Push the node in the queue.
         void delay(ast_node_t * node, int step = 0, void * tag = nullptr)
@@ -6150,7 +6167,13 @@ namespace X_ROOT_NS::modules::core {
             if (delay_bias != 0 && step >= 26 && step < 30)
                 priory += delay_bias;
 
-            __walk_items.enque(__walk_item_t { __current_layer, node, step, tag }, priory);
+            __walk_item_t item { __current_layer, node, step, tag };
+
+            // The steps before the analysis give the types of the params and the variables.
+            if (__redirect != nullptr && priory >= 26 && priory < 30)
+                __enque_pending(priory, item);
+            else
+                __walk_items.enque(item, priory);
         }
 
         // Returns the parent mname.
@@ -6183,6 +6206,9 @@ namespace X_ROOT_NS::modules::core {
             int             step;       // The step identity.
             void *          tag;        // Argument.
         };
+
+        pending_t * __redirect = nullptr;                   // The items are kept apart.
+        void __enque_pending(int priory, const __walk_item_t & item);
 
         xheap_t __xheap;                                    // Memory management.
         __layer_t * __current_layer = nullptr;              // Current layer.

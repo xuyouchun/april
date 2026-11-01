@@ -1746,30 +1746,11 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
 
+            // The body is analyzed now: its type is the return type.
             if (method->type_name != nullptr
-                    && method->type_name->type == uncertain_type_t::instance()
-                    && method->lambda_expression != nullptr)
+                    && method->type_name->type == uncertain_type_t::instance())
             {
-                // The body is walked now, with the params: its type is the return type.
-                __wctx.push(method);
-
-                variable_defination_t vd(__cctx, __wctx, method);
-                if (method->params != nullptr)
-                {
-                    for (param_t * param : *method->params)
-                        vd.define_param(param);
-                }
-
-                walk_expression(__cctx, __wctx, method->lambda_expression);
-                __wctx.pop();
-
-                type_t * body_type = method->lambda_expression->get_type();
-                if (body_type != nullptr && body_type != uncertain_type_t::instance())
-                {
-                    method->type_name->type = body_type;
-                    if (method->variable != nullptr)
-                        method->variable->reset_type();
-                }
+                __wctx.run_pending((ast_walk_context_t::pending_t *)method->lambda_pending);
             }
 
             // A block that returns no value.
@@ -1926,6 +1907,25 @@ namespace X_ROOT_NS::modules::compile {
 
         #undef __CheckWalk
     };
+
+    // Walks the items of a lambda that were kept apart.
+    void analyze_lambda_now(ast_walk_context_t & context, expression_t * expression)
+    {
+        if (expression == nullptr || expression->this_family() != expression_family_t::name)
+            return;
+
+        name_expression_t * name_exp = (name_expression_t *)expression;
+        if (name_exp->expression_type != name_expression_type_t::variable
+                || name_exp->variable == nullptr
+                || name_exp->variable->this_type() != variable_type_t::method)
+        {
+            return;
+        }
+
+        method_t * method = ((method_variable_t *)name_exp->variable)->method;
+        if (method != nullptr && method->is_lambda && method->lambda_pending != nullptr)
+            context.run_pending((ast_walk_context_t::pending_t *)method->lambda_pending);
+    }
 
     // Walks expression.
     void walk_expression(ast_context_t & cctx, ast_walk_context_t & wctx,

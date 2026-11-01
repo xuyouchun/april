@@ -7119,6 +7119,76 @@ namespace X_ROOT_NS::modules::core {
         );
     }
 
+    // The items of a lambda that are kept apart, in the order of their steps.
+    class ast_walk_context_t::pending_t : public object_t
+    {
+    public:
+        std::multimap<int, __walk_item_t> items;
+        pending_t * previous = nullptr;
+        bool running = false;
+
+        X_TO_STRING_IMPL(_T("pending_t"))
+    };
+
+    // The items that are delayed after it are kept apart.
+    ast_walk_context_t::pending_t * ast_walk_context_t::begin_pending()
+    {
+        pending_t * pending = memory_t::new_obj<pending_t>(&__xheap);
+
+        pending->previous = __redirect;
+        __redirect = pending;
+
+        return pending;
+    }
+
+    // Ends the items that are kept apart.
+    void ast_walk_context_t::end_pending(pending_t * pending)
+    {
+        _A(pending != nullptr && __redirect == pending);
+
+        __redirect = pending->previous;
+    }
+
+    // Keeps an item apart.
+    void ast_walk_context_t::__enque_pending(int priory, const __walk_item_t & item)
+    {
+        __redirect->items.insert(std::make_pair(priory, item));
+    }
+
+    // Walks the items that are kept apart. The new items of them are kept apart, and walked
+    // too.
+    void ast_walk_context_t::run_pending(pending_t * pending)
+    {
+        if (pending == nullptr || pending->running)
+            return;
+
+        pending->running = true;
+
+        __layer_t * saved_layer = __current_layer;
+        pending_t * saved_redirect = __redirect;
+        int saved_bias = delay_bias, saved_checked = checked_mode;
+
+        __redirect = pending;
+        delay_bias = 0;
+        checked_mode = 0;
+
+        while (!pending->items.empty())
+        {
+            __walk_item_t item = pending->items.begin()->second;
+            pending->items.erase(pending->items.begin());
+
+            __current_layer = item.layer;
+            item.node->on_walk(*this, item.step, item.tag);
+        }
+
+        __redirect = saved_redirect;
+        __current_layer = saved_layer;
+        delay_bias = saved_bias;
+        checked_mode = saved_checked;
+
+        pending->running = false;
+    }
+
     // Walk
     void ast_walk_context_t::__walk()
     {
