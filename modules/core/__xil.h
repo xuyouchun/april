@@ -87,6 +87,16 @@ namespace X_ROOT_NS::modules::core {
 
         positive        = 7,        // +
 
+        // The arithmetic that raises OverflowException when the result does not fit its
+        // type: checked(expression), checked { ... } .
+        checked_add     = 8,        // +
+
+        checked_sub     = 9,        // -
+
+        checked_mul     = 10,       // *
+
+        checked_minus   = 11,       // -
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------

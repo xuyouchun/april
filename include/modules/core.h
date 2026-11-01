@@ -47,7 +47,6 @@ namespace X_ROOT_NS::modules::core {
     // Common types.
     #define CoreType_Type         _T("Type")
     #define CoreType_Exception    _T("Exception")
-    #define CoreType_Checked      _T("Checked")
     #define CoreType_Nullable     _T("Nullable<>")
     #define CoreType_Void         _T("Void")
     #define CoreType_Object       _T("Object")
@@ -5089,9 +5088,6 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.Exception type.
         general_type_t * get_exception_type();
 
-        // Returns System.Checked type: the arithmetic that raises on overflow.
-        general_type_t * get_checked_type();
-
         // Returns System.Nullable<T> type: the type of int? and the others.
         general_type_t * get_nullable_type();
 
@@ -5190,7 +5186,6 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __ienumerator_type = nullptr;
 
         general_type_t * __exception_type   = nullptr;
-        general_type_t * __checked_type     = nullptr;
         general_type_t * __nullable_type    = nullptr;
         general_type_t * __tuple_type       = nullptr;
         general_type_t * __ituple_type      = nullptr;
@@ -6657,7 +6652,7 @@ namespace X_ROOT_NS::modules::core {
         // Defines a local variable.
         local_variable_t * define_temp_local(type_t * type);
 
-        // The arithmetic raises on overflow, in checked(expression).
+        // The arithmetic raises on overflow, in checked(expression) and checked { ... }.
         bool checked = false;
 
         // The operator expression (x += y, x++) whose method is called to make the value that
@@ -6688,7 +6683,7 @@ namespace X_ROOT_NS::modules::core {
 
         new_, new_array, default_value, type_of, type_name, type_cast,
 
-        this_, base, name_unit, is, as,
+        this_, base, name_unit, is, as, checked,
 
     X_ENUM_END
 
@@ -7181,6 +7176,56 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // checked(expression), unchecked(expression): the arithmetic of the expression raises
+    // OverflowException when the result does not fit its type, or it does not.
+    class checked_expression_t : public texpression_t<1>
+    {
+        typedef texpression_t<1> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Constructor.
+        checked_expression_t(bool checked, expression_t * expression) _NE
+                : __super_t(expression), checked(checked)
+        { }
+
+        // checked or unchecked.
+        bool checked = true;
+
+        // Expression.
+        expression_t * expression() const _NE { return exps[0]; }
+
+        // Set expression.
+        void set_expression(expression_t * expression);
+
+        // Returns this family.
+        virtual expression_family_t this_family() const _NE override
+        {
+            return expression_family_t::checked;
+        }
+
+        // Returns vtype.
+        virtual vtype_t get_vtype() const override;
+
+        // Returns type.
+        virtual type_t * get_type() const override;
+
+        // Returns behaviour: that of the expression.
+        virtual expression_behaviour_t get_behaviour() const override;
+
+        // Executes the expression.
+        virtual cvalue_t execute() override;
+
+        // Converts to string.
+        virtual const string_t to_string() const override
+        {
+            return _F(_T("%1%(%2%)"), checked? _T("checked") : _T("unchecked"), expression());
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Constant value expression.
     class cvalue_expression_t : public __simple_expression_base_t
     {
@@ -7569,10 +7614,6 @@ namespace X_ROOT_NS::modules::core {
 
         variable,
 
-        checked_,       // checked(expression): arithmetic of the expression raises on overflow.
-
-        unchecked_,     // unchecked(expression)
-
     X_ENUM_END
 
     // Function expression.
@@ -7610,18 +7651,6 @@ namespace X_ROOT_NS::modules::core {
 
         // Gets variable.
         variable_t * get_variable() const _NE;
-
-        // Makes it checked(expression) or unchecked(expression): it has no function.
-        void set_checked(bool checked) _NE;
-
-        // Returns whether it's checked(expression) or unchecked(expression).
-        bool is_checked_expression() const _NE
-        {
-            return get_ftype() == __ftype_t::checked_ || get_ftype() == __ftype_t::unchecked_;
-        }
-
-        // Returns the expression of checked(expression) or unchecked(expression).
-        expression_t * checked_expression() const;
 
         // Returns function expression relation object type.
         __ftype_t get_ftype() const _NE { return (__ftype_t)__relation_data; }
@@ -8279,6 +8308,10 @@ namespace X_ROOT_NS::modules::core {
     // Interface for xilx.
     X_INTERFACE xilx_t : object_t
     {
+        // The arithmetic raises on overflow: it is in checked(...) or checked { ... }, when the
+        // xilx is made. It is written after the statements are compiled.
+        bool checked = false;
+
         // Write to a pool.
         virtual void write(xilx_write_context_t & ctx, xil_pool_t & pool) = 0;
 
@@ -8572,6 +8605,10 @@ namespace X_ROOT_NS::modules::core {
         std::vector<variable_t *> catch_variables;
 
         method_t *              method;                 // Method.
+
+        // The arithmetic raises on overflow: in checked { ... }.
+        bool                    checked = false;
+
         jmp_manager_t           jmp_manager;            // Jmp manager.
         switch_manager_t        switch_manager;         // Switch-case manager.
 
@@ -8624,6 +8661,7 @@ namespace X_ROOT_NS::modules::core {
         _xilx_t * append_xilx(args_t && ... args)
         {
             _xilx_t * xilx = new_obj<_xilx_t>(std::forward<args_t>(args) ...);
+            xilx->checked = this->checked;
             current_region()->append_xilx(xilx);
 
             return xilx;

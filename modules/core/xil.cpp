@@ -100,6 +100,14 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(positive,       _T("positive"))
 
+        X_C(checked_add,    _T("checked_add"))
+
+        X_C(checked_sub,    _T("checked_sub"))
+
+        X_C(checked_mul,    _T("checked_mul"))
+
+        X_C(checked_minus,  _T("checked_minus"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

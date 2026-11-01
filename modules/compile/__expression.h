@@ -164,6 +164,20 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Checked expression: checked(x), unchecked(x).
+    __SystemExpressionT(checked_expression_t)
+
+        // Execute the expression.
+        virtual cvalue_t execute() override;
+
+        // Compile the expression.
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
+
+    __EndSystemExpressionT
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Type name expression.
     __SystemExpressionT(type_name_expression_t)
 

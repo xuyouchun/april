@@ -174,6 +174,9 @@ namespace X_ROOT_NS::modules::compile {
         // Default value expression.
         X_C(default_value,              _T("default_value"))
 
+        // Checked expression.
+        X_C(checked_exp,                _T("checked_exp"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -5414,6 +5417,27 @@ namespace X_ROOT_NS::modules::compile {
 
     // Walks this node.
     bool type_cast_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        return __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // checked_exp
+
+    // Commits this node.
+    void checked_exp_ast_node_t::on_commit()
+    {
+        this->set_expression(__to_eobject<expression_t *>(__expression__));
+    }
+
+    // Returns this eobject.
+    expression_t * checked_exp_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node.
+    bool checked_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         return __super_t::on_walk(context, step, tag);
     }

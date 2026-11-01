@@ -184,6 +184,8 @@ namespace X_ROOT_NS::modules::compile {
 
         default_value,              // Default value. e.g. default(int).
 
+        checked_exp,                // Checked expression. e.g. checked(a + b).
+
         lambda,                     // Lambda expression. e.g. (int x) => x + 1.
 
         __user_defined__ = __C_BRANCH_ENUM_ITEM(__user_defined__) + 1024,
@@ -341,6 +343,8 @@ namespace X_ROOT_NS::modules::compile {
                                                                                         \
         default_value       =   __X_BRANCH_ENUM_ITEM(default_value),                    \
                                                                                         \
+        checked_exp         =   __X_BRANCH_ENUM_ITEM(checked_exp),                      \
+                                                                                        \
         lambda              =   __X_BRANCH_ENUM_ITEM(lambda),                           \
                                                                                         \
         __user_defined__    =  __X_BRANCH_ENUM_ITEM(__user_defined__),
@@ -424,6 +428,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(array_lengths,          _T("array_lengths"))                                \
         X_C(new_array,              _T("new_array"))                                    \
         X_C(default_value,          _T("default_value"))                                \
+        X_C(checked_exp,            _T("checked_exp"))                                  \
         X_C(lambda,                 _T("lambda"))                                       \
 
 
@@ -4282,6 +4287,39 @@ namespace X_ROOT_NS::modules::compile {
                                    , public __wexp_t<default_value_expression_t>
     {
         typedef __default_value_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // checked_exp
+
+    // Checked expression: checked(x), unchecked(x).
+    Ast(checked_exp, __xcvalue_t::checked_exp)
+
+        // Expression.
+        __expression__,
+
+    EndAst(checked_exp)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Checked expression ast node.
+    class checked_exp_ast_node_t : public __checked_exp_ast_node_t
+                                 , public expression_ast_t
+                                 , public __wexp_t<checked_expression_t>
+    {
+        typedef __checked_exp_ast_node_t __super_t;
 
     public:
         using __super_t::__super_t;

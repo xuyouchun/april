@@ -46,6 +46,10 @@ $type_of: typeof \( $type_name \) ;
 # Default value expression: default(T).
 $default_value: default \( $type_name \) ;
 
+# Checked expression: checked(a + b), unchecked(a + b): the arithmetic of the expression raises
+# OverflowException when the result does not fit its type, or not.
+$checked_exp: (checked | unchecked) \( $expression \) ;
+
 # Type name expression: System.Int32.
 $type_name_exp: $type_name ;
 
@@ -56,7 +60,7 @@ $type_cast_exp: \( $type_name \) $_single_expression ;
 $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new | $new_array | $type_of | $type_cast_exp
-    | $default_value | $name_unit | $lambda
+    | $default_value | $checked_exp | $name_unit | $lambda
     | \( $_expression (, $_expression)* \)
   ) (. $__item )*
 #|
@@ -383,8 +387,9 @@ $yield_st:      yield (return $expression | break) \; ;
 # A empty statement.
 $empty_st:      \; ;
 
-# Statement group.
-$statement_group_st: { $statement * } ;
+# Statement group, checked { ... } and unchecked { ... } too: the arithmetic of the statements
+# raises OverflowException when the result does not fit its type, or not.
+$statement_group_st: (checked | unchecked)? { $statement * } ;
 
 # Statement.
 $statement:

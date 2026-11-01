@@ -712,18 +712,35 @@ namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Returns whether a command raises OverflowException when the result does not fit.
+    constexpr bool is_checked_command(xil_al_command_t cmd)
+    {
+        return cmd == xil_al_command_t::checked_add || cmd == xil_al_command_t::checked_sub
+            || cmd == xil_al_command_t::checked_mul || cmd == xil_al_command_t::checked_minus;
+    }
+
+    // The other commands are not checked.
+    template<typename _command_t>
+    constexpr bool is_checked_command(_command_t)
+    {
+        return false;
+    }
+
     // Returns operator of a xil_al_command.
     constexpr operator_t to_operator(xil_al_command_t cmd)
     {
         switch (cmd)
         {
             case xil_al_command_t::add:
+            case xil_al_command_t::checked_add:
                 return operator_t::add;
 
             case xil_al_command_t::sub:
+            case xil_al_command_t::checked_sub:
                 return operator_t::sub;
 
             case xil_al_command_t::mul:
+            case xil_al_command_t::checked_mul:
                 return operator_t::mul;
 
             case xil_al_command_t::div:
@@ -733,6 +750,7 @@ namespace X_ROOT_NS::modules::core {
                 return operator_t::mod;
 
             case xil_al_command_t::minus:
+            case xil_al_command_t::checked_minus:
                 return operator_t::minus;
 
             case xil_al_command_t::positive:

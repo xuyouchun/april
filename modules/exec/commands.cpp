@@ -5118,11 +5118,36 @@ namespace X_ROOT_NS::modules::exec {
                 }
             }
 
-            ctx.stack.push(
-                binary_operator_t<to_operator(_op), vtype1, vtype2>()(
+            if constexpr (is_checked_command(_op))
+            {
+                // The result raises OverflowException when it does not fit its type.
+                typedef decltype(binary_operator_t<to_operator(_op), vtype1, vtype2>()(
                     *(t1 *)top, *(t2 *)(top + unit_size1)
-                )
-            );
+                )) r_t;
+
+                r_t a = (r_t)*(t1 *)top, b = (r_t)*(t2 *)(top + unit_size1), r;
+                bool overflow;
+
+                if constexpr (to_operator(_op) == operator_t::add)
+                    overflow = __builtin_add_overflow(a, b, &r);
+                else if constexpr (to_operator(_op) == operator_t::sub)
+                    overflow = __builtin_sub_overflow(a, b, &r);
+                else
+                    overflow = __builtin_mul_overflow(a, b, &r);
+
+                if (overflow)
+                    __RaiseOverflowException(ctx);
+
+                ctx.stack.push(r);
+            }
+            else
+            {
+                ctx.stack.push(
+                    binary_operator_t<to_operator(_op), vtype1, vtype2>()(
+                        *(t1 *)top, *(t2 *)(top + unit_size1)
+                    )
+                );
+            }
 
         __EndExecute()
 
@@ -5150,6 +5175,10 @@ namespace X_ROOT_NS::modules::exec {
     __CaseFloatBinaries(div)
 
     __CaseBinaries(mod)
+
+    __CaseBinaries(checked_add)
+    __CaseBinaries(checked_sub)
+    __CaseBinaries(checked_mul)
 
     #undef __CaseBinary
 
@@ -5234,9 +5263,23 @@ namespace X_ROOT_NS::modules::exec {
             typedef vnum_t<vtype> t;
             t v = ctx.stack.pop<t>();
 
-            ctx.stack.push(
-                unitary_operator_t<to_operator(_op), vtype>()(v)
-            );
+            if constexpr (is_checked_command(_op))
+            {
+                // - x raises OverflowException when the result does not fit its type.
+                typedef decltype(unitary_operator_t<to_operator(_op), vtype>()(v)) r_t;
+
+                r_t r;
+                if (__builtin_sub_overflow((r_t)0, (r_t)v, &r))
+                    __RaiseOverflowException(ctx);
+
+                ctx.stack.push(r);
+            }
+            else
+            {
+                ctx.stack.push(
+                    unitary_operator_t<to_operator(_op), vtype>()(v)
+                );
+            }
 
         __EndExecute()
 
@@ -5254,6 +5297,8 @@ namespace X_ROOT_NS::modules::exec {
 
     __CaseUnitaries(minus)
     __CaseFloatUnitaries(minus)
+
+    __CaseUnitaries(checked_minus)
 
     __CaseUnitaries(positive)
     __CaseFloatUnitaries(positive)
@@ -5318,6 +5363,10 @@ namespace X_ROOT_NS::modules::exec {
 
             __CaseBinaries(mod)
 
+            __CaseBinaries(checked_add)
+            __CaseBinaries(checked_sub)
+            __CaseBinaries(checked_mul)
+
             #undef __CaseBinary
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -5331,6 +5380,8 @@ namespace X_ROOT_NS::modules::exec {
 
             __CaseUnitaries(minus)
             __CaseFloatUnitaries(minus)
+
+            __CaseUnitaries(checked_minus)
 
             __CaseUnitaries(positive)
             __CaseFloatUnitaries(positive)
@@ -7759,8 +7810,12 @@ namespace X_ROOT_NS::modules::exec {
             __SwitchCommands_CaseBinaries(al, div)                                      \
             __SwitchCommands_CaseFloatBinaries(al, div)                                 \
             __SwitchCommands_CaseBinaries(al, mod)                                      \
+            __SwitchCommands_CaseBinaries(al, checked_add)                              \
+            __SwitchCommands_CaseBinaries(al, checked_sub)                              \
+            __SwitchCommands_CaseBinaries(al, checked_mul)                              \
             __SwitchCommands_CaseUnitaries(al, minus)                                   \
             __SwitchCommands_CaseFloatUnitaries(al, minus)                              \
+            __SwitchCommands_CaseUnitaries(al, checked_minus)                           \
             __SwitchCommands_CaseUnitaries(al, positive)                                \
             __SwitchCommands_CaseFloatUnitaries(al, positive)                           \
                                                                                         \

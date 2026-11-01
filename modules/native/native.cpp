@@ -317,6 +317,10 @@ namespace X_ROOT_NS::modules::native {
             size_t                  __fn_index = 0;
             bool                    __uses_memcpy = false;
             bool                    __uses_memset = false;
+
+            // The intrinsics of the arithmetic that raises on overflow, with their integer types:
+            // llvm.sadd.with.overflow.i32 -> i32 .
+            std::map<std::string, std::string> __overflow_intrinsics;
             bool                    __uses_new_object = false;
 
             // The objects that hold the static fields of types: a global of each, which is
@@ -2456,6 +2460,24 @@ namespace X_ROOT_NS::modules::native {
                         const al_xil_t * al = static_cast<const al_xil_t *>(xil);
                         xil_al_command_t cmd = al->cmd();
 
+                        // The arithmetic that raises OverflowException: the operation, and
+                        // the check.
+                        bool checked = cmd == xil_al_command_t::checked_add
+                                    || cmd == xil_al_command_t::checked_sub
+                                    || cmd == xil_al_command_t::checked_mul
+                                    || cmd == xil_al_command_t::checked_minus;
+
+                        if (checked)
+                        {
+                            switch (cmd)
+                            {
+                                case xil_al_command_t::checked_add:   cmd = xil_al_command_t::add;   break;
+                                case xil_al_command_t::checked_sub:   cmd = xil_al_command_t::sub;   break;
+                                case xil_al_command_t::checked_mul:   cmd = xil_al_command_t::mul;   break;
+                                default:                              cmd = xil_al_command_t::minus; break;
+                            }
+                        }
+
                         // Unitary.
                         if (cmd == xil_al_command_t::minus || cmd == xil_al_command_t::positive)
                         {
@@ -2468,6 +2490,17 @@ namespace X_ROOT_NS::modules::native {
 
                             if (cmd == xil_al_command_t::minus)
                             {
+                                // - MIN does not fit.
+                                if (checked && !__num_of(rt).is_float && __num_of(rt).is_signed)
+                                {
+                                    int bits = __num_of(rt).bits;
+                                    int64_t min_value = bits >= 64? INT64_MIN
+                                                                  : -((int64_t)1 << (bits - 1));
+
+                                    raise_if(f.icmp("eq", v, llb::const_int(v.type, min_value)),
+                                             CoreType_OverflowException);
+                                }
+
                                 if (__num_of(rt).is_float)
                                     v = f.binop("fsub", rt == xil_type_t::float_? llb::const_float(-0.0f) : llb::const_double(-0.0), v);
                                 else
@@ -2536,6 +2569,28 @@ namespace X_ROOT_NS::modules::native {
                                     f.icmp("eq", b, llb::const_int(b.type, -1))
                                 ), CoreType_OverflowException);
                             }
+                        }
+
+                        // Add, sub, mul of integers: the intrinsics tell whether it overflows.
+                        if (checked && !n.is_float)
+                        {
+                            const char * name = cmd == xil_al_command_t::add? "add"
+                                              : cmd == xil_al_command_t::sub? "sub" : "mul";
+
+                            std::string intrinsic = std::string("llvm.") + (n.is_signed? "s" : "u")
+                                + name + ".with.overflow." + a.type;
+
+                            __overflow_intrinsics[intrinsic] = a.type;
+
+                            std::string pair_type = "{ " + a.type + ", i1 }";
+                            llb::value_t pair = f.call(pair_type, intrinsic, { a, b });
+
+                            llb::value_t value = f.extract_value(pair, 0, a.type);
+                            llb::value_t overflow = f.extract_value(pair, 1, "i1");
+
+                            raise_if(overflow, CoreType_OverflowException);
+                            stack.push_back(value);
+                            break;
                         }
 
                         stack.push_back(f.binop(op, a, b));
@@ -3114,6 +3169,9 @@ namespace X_ROOT_NS::modules::native {
 
             if (__uses_memset)
                 __module.declare("llvm.memset.p0.i64", "void", { "ptr", "i8", "i64", "i1" });
+
+            for (auto && it : __overflow_intrinsics)
+                __module.declare(it.first, "{ " + it.second + ", i1 }", { it.second, it.second });
 
             // Globals of the library function pointers, resolved at startup by name.
             for (const std::string & name : __used_libfuncs)

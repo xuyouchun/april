@@ -241,6 +241,19 @@ namespace X_ROOT_NS::modules::native::ll {
             return value_t { to, r };
         }
 
+        // extractvalue <aggregate>, <index>: a field of the value that a call returns, such as
+        // { i32, i1 } of llvm.sadd.with.overflow.i32 .
+        value_t extract_value(const value_t & aggregate, int index, const std::string & type)
+        {
+            __expect_value(aggregate);
+
+            std::string r = __temp();
+            __emit(r + " = extractvalue " + aggregate.type + " " + aggregate.text + ", "
+                   + std::to_string(index));
+
+            return value_t { type, r };
+        }
+
         // getelementptr inbounds <elem>, ptr <base>, i64 <index>
         value_t gep(const std::string & element_type, const value_t & base,
                     const value_t & index)
