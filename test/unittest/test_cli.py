@@ -209,4 +209,5 @@ def test_compile_default_output_is_next_to_the_first_file(tmp_path):
     r = _april_run(["compile", str(source)], tmp_path / "cache", other)
     assert r.returncode == 0, r.stdout
     assert (src / "prog.apl").is_file()
+    assert "built " + str(src / "prog.apl") in r.stdout
     assert not list(other.iterdir())

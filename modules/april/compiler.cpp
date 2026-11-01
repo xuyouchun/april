@@ -227,7 +227,21 @@ namespace X_ROOT_NS::modules::april {
     // Compiles.
     bool april_xcompiler_t::compile()
     {
-        return __compile_type(__prepare());
+        if (!__compile_type(__prepare()))
+            return false;
+
+        // Tells where the assemblies are.
+        for (__cassembly_t * ca : __cassemblies)
+        {
+            if (ca->from != __from_project)
+                continue;
+
+            std::error_code ec;
+            std::filesystem::path path = std::filesystem::absolute(std::filesystem::path(ca->get_assembly_path().string()), ec);
+            std::cout << "compile: built " << path.lexically_normal().string() << std::endl;
+        }
+
+        return true;
     }
 
     // Compiles the files of the type.
