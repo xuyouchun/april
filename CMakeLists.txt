@@ -198,6 +198,49 @@ else()
     message(STATUS "LLVM not found: april_jit is not built")
 endif()
 
+# The toolchain that is bundled (Windows): ld.lld and a small sysroot next to april, so that
+# `april compile --native` links the object file of the JIT library without a compiler.
+# <bin>/native/lib is searched by modules/native/driver.cpp.
+if(WIN32 AND LLVM_FOUND)
+    get_filename_component(__clang_root "${LLVM_TOOLS_BINARY_DIR}/.." ABSOLUTE)
+    file(GLOB __builtins "${__clang_root}/lib/clang/*/lib/windows/libclang_rt.builtins-x86_64.a")
+    find_program(__ld_lld ld.lld HINTS "${LLVM_TOOLS_BINARY_DIR}")
+
+    if(__ld_lld AND __builtins)
+        list(GET __builtins -1 __builtins)
+        set(__sysroot "${CMAKE_SOURCE_DIR}/bin/native/lib")
+        set(__sys_files crt2.o crtbegin.o crtend.o libc++.a libunwind.a libmingw32.a libmingwex.a
+            libmoldname.a libmsvcrt.a libkernel32.a libadvapi32.a libshell32.a libuser32.a
+            libole32.a liboleaut32.a libpsapi.a libsecur32.a libws2_32.a libmswsock.a
+            libsynchronization.a libbcrypt.a libpthread.a libwinpthread.a
+            libboost_log-mt.a libboost_thread-mt.a libboost_date_time-mt.a libboost_container-mt.a
+            libboost_chrono-mt.a libboost_filesystem-mt.a libboost_atomic-mt.a)
+
+        set(__copy_commands
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${__sysroot}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${__ld_lld}" "${CMAKE_SOURCE_DIR}/bin"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${__builtins}" "${__sysroot}")
+
+        foreach(__f ${__sys_files})
+            list(APPEND __copy_commands COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            "${__clang_root}/lib/${__f}" "${__sysroot}")
+        endforeach()
+
+        set(__april_libs native rtlib rt core common algorithm lib mm os arch global)
+        foreach(__l ${__april_libs})
+            list(APPEND __copy_commands COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            "$<TARGET_FILE:${__l}>" "${__sysroot}")
+        endforeach()
+
+        add_custom_target(april_native_toolchain ALL ${__copy_commands}
+            DEPENDS ${__april_libs}
+            COMMENT "Copying the linker and the libraries of the native programs"
+            VERBATIM)
+    else()
+        message(STATUS "ld.lld or the builtins of clang not found: no bundled linker")
+    endif()
+endif()
+
 # Same archive order as the legacy link line; wrapped in --start-group /
 # --end-group on Linux so cross-archive references never depend on ordering.
 set(APRIL_MODULE_LIBS

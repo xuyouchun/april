@@ -530,6 +530,14 @@ namespace X_ROOT_NS::modules::april {
 
         native::build_options_t bo;
         bo.ir_path  = ir_path.string();
+
+        // The object file of the JIT library: no clang is needed to compile.
+        {
+            std::string reason;
+            if (native::jit_backend_t * jit = native::jit_backend_t::load(reason))
+                bo.object_path = __native_object(build, jit);
+        }
+
         bo.optimize = __options.native_optimize;
         bo.no_pie   = __options.native_no_pie;
         bo.clang    = string_convert<char_t, char>(__options.native_clang);

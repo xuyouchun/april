@@ -49,6 +49,75 @@ namespace X_ROOT_NS::modules::native {
         };
     #endif
 
+    #ifdef _WIN32
+        // The toolchain that is bundled with april (Windows): ld.lld next to april, and a small
+        // sysroot (<april dir>/native/lib) with the C++ runtime, MinGW and the libraries of
+        // april. With it, no compiler is needed to make an executable from an object file.
+        bool __bundled_toolchain(const build_options_t & options, std::string & linker,
+                                                                  std::string & sysroot)
+        {
+            std::string exe = options.april_path.empty()? executable_path() : options.april_path;
+            if (exe.empty())
+                return false;
+
+            std::error_code ec;
+            fs::path dir = fs::path(exe).parent_path();
+
+            fs::path ld = dir / "ld.lld.exe";
+            fs::path root = dir / "native" / "lib";
+
+            if (!fs::is_regular_file(ld, ec) || !fs::is_regular_file(root / "crt2.o", ec))
+                return false;
+
+            linker = ld.string();
+            sysroot = root.string();
+            return true;
+        }
+
+        // The command line of linking with the bundled ld.lld (the object file is that of the
+        // JIT library).
+        std::vector<std::string> __bundled_link_command(const std::string & linker,
+                    const std::string & sysroot, const std::string & object_path,
+                    const std::string & output_path)
+        {
+            auto lib = [&](const std::string & name) {
+                return (fs::path(sysroot) / name).string();
+            };
+
+            std::vector<std::string> argv = {
+                linker, "-m", "i386pep", "-Bdynamic", "-o", output_path,
+                lib("crt2.o"), lib("crtbegin.o"), "-L" + sysroot, object_path,
+                "--start-group",
+            };
+
+            for (const char * name : { "native", "rtlib", "rt", "core", "common", "algorithm",
+                                       "lib", "mm", "os", "arch", "global" })
+            {
+                argv.push_back(lib(std::string("lib") + name + ".a"));
+            }
+
+            argv.push_back("--end-group");
+
+            const std::vector<std::string> runtime = {
+                lib("libc++.a"), lib("libmingw32.a"), lib("libclang_rt.builtins-x86_64.a"),
+                lib("libunwind.a"), lib("libmoldname.a"), lib("libmingwex.a"), lib("libmsvcrt.a"),
+                "-ladvapi32", "-lshell32", "-luser32", "-lkernel32", "-lmingw32",
+                lib("libclang_rt.builtins-x86_64.a"), lib("libunwind.a"), lib("libmoldname.a"),
+                lib("libmingwex.a"), lib("libmsvcrt.a"), "-lkernel32", lib("crtend.o"),
+                "-Bstatic",
+                "-lboost_log-mt", "-lboost_thread-mt", "-lboost_date_time-mt",
+                "-lboost_container-mt", "-lboost_chrono-mt", "-lboost_filesystem-mt",
+                "-lboost_atomic-mt",
+                "-Bdynamic",
+                "-lole32", "-loleaut32", "-lpsapi", "-lsecur32", "-lws2_32", "-lmswsock",
+                "-ladvapi32", "-lsynchronization", "-lbcrypt", "-lpthread",
+            };
+
+            argv.insert(argv.end(), runtime.begin(), runtime.end());
+            return argv;
+        }
+    #endif
+
     #ifndef _WIN32
         // Returns the exit code of a wait status.
         int __exit_code_of(int status)
@@ -526,6 +595,33 @@ namespace X_ROOT_NS::modules::native {
         if (!fs::is_regular_file(options.ir_path, ec))
             throw driver_error_t("IR file '" + options.ir_path + "' not found");
 
+        std::string output_path = options.output_path.empty()?
+                            default_output_path(options.ir_path) : options.output_path;
+
+    #ifdef _WIN32
+        // The object file is given, and the toolchain is there: no compiler is needed.
+        {
+            std::string linker, sysroot;
+            if (!options.object_path.empty() && __bundled_toolchain(options, linker, sysroot))
+            {
+                std::vector<std::string> argv = __bundled_link_command(
+                    linker, sysroot, options.object_path, output_path
+                );
+
+                log(argv);
+                int code = run_process(argv);
+
+                if (code != 0)
+                {
+                    throw driver_error_t("linking '" + output_path + "' failed (exit code "
+                                         + std::to_string(code) + ")");
+                }
+
+                return output_path;
+            }
+        }
+    #endif
+
         // The clang driver.
         std::string clang = options.clang;
         if (clang.empty())
@@ -555,13 +651,15 @@ namespace X_ROOT_NS::modules::native {
         std::string libs_dir = find_libs_dir(options);
         std::vector<std::string> libs = list_static_libs(libs_dir);
 
-        std::string output_path = options.output_path.empty()?
-                            default_output_path(options.ir_path) : options.output_path;
-
         fs::path object_path = fs::path(output_path);
         object_path += ".o";
 
-        // Compile.
+        // Compile (unless the object file is given).
+        if (!options.object_path.empty())
+        {
+            object_path = options.object_path;
+        }
+        else
         {
             std::vector<std::string> argv = compile_command(
                 clang, options.ir_path, object_path.string(), options.optimize
@@ -595,7 +693,7 @@ namespace X_ROOT_NS::modules::native {
             }
         }
 
-        if (!options.keep_object)
+        if (!options.keep_object && options.object_path.empty())
             fs::remove(object_path, ec);
 
         return output_path;
