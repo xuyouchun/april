@@ -174,6 +174,26 @@ if(LLVM_FOUND)
     if(WIN32)
         set_target_properties(april_jit PROPERTIES PREFIX "")
     endif()
+
+    # The library of LLVM that it loads is next to it: the library is found without a PATH.
+    add_custom_command(TARGET april_jit POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:LLVM>" "$<TARGET_FILE_DIR:april_jit>"
+        COMMENT "Copying the library of LLVM"
+        VERBATIM)
+
+    # The libraries that it uses, with the C++ library of the compiler: april does not need the
+    # PATH of the compiler to run.
+    if(WIN32)
+        foreach(__dll libc++.dll libffi-8.dll libiconv-2.dll libxml2-16.dll libzstd.dll zlib1.dll)
+            if(EXISTS "${LLVM_TOOLS_BINARY_DIR}/${__dll}")
+                add_custom_command(TARGET april_jit POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            "${LLVM_TOOLS_BINARY_DIR}/${__dll}" "$<TARGET_FILE_DIR:april_jit>"
+                    VERBATIM)
+            endif()
+        endforeach()
+    endif()
 else()
     message(STATUS "LLVM not found: april_jit is not built")
 endif()
