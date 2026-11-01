@@ -10,6 +10,9 @@ True
 2
 0
 5
+10
+x
+True
 
 */
 
@@ -35,5 +38,11 @@ class Program
 
         Tuple<int> one = new Tuple<int>(5);
         Console.WriteLine(one.Item1);
+
+        // The items are read through the interface of the boxed tuple.
+        ITuple<int, String, bool> it = t;
+        Console.WriteLine(it.Item1);
+        Console.WriteLine(it.Item2);
+        Console.WriteLine(it.Item3);
     }
 }

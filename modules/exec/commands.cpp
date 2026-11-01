@@ -4165,6 +4165,10 @@ namespace X_ROOT_NS::modules::exec {
         rt_method_base_t * method = ctx.get_method(method_ref);
         _A(method != nullptr);
 
+        // The item of a tuple, read through its interface: the method of the tuple is called.
+        if (method->this_type() == rt_member_type_t::dynamic)
+            return __new_instance_call_command(ctx, method);
+
         rt_type_t * host_type = method->get_host_type();
         _A(host_type != nullptr);
 

@@ -2592,6 +2592,7 @@ namespace X_ROOT_NS::modules::core {
     X_ENUM_INFO(mtype_t)
 
         X_C(tuple,          _T("tuple"))
+        X_C(tuple_interface,    _T("tuple_interface"))
 
     X_ENUM_INFO_END
 
@@ -5090,6 +5091,8 @@ namespace X_ROOT_NS::modules::core {
 
         if (this == __XPool.get_tuple_type())
             mtype = mtype_t::tuple;
+        else if (this == __XPool.get_ituple_type())
+            mtype = mtype_t::tuple_interface;
     }
 
     // Returns vsize.

@@ -1491,6 +1491,13 @@ namespace X_ROOT_NS::modules::rt {
         // It's a tuple type?
         bool __is_tuple();
 
+        // It's the interface of the tuples (ITuple<...>)?
+        bool __is_tuple_interface();
+
+        // Returns the dynamic methods of the tuple that has the same types: the items of
+        // a tuple are read through its interface by them.
+        rt_dynamic_method_t * __get_interface_dynamic_methods(analyzer_env_t & env);
+
         // Ensure field offset initialzed.
         void __ensure_field_offset_initialized(analyzer_env_t & env);
 

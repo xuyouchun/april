@@ -2108,6 +2108,7 @@ namespace X_ROOT_NS::modules::core {
     X_ENUM(mtype_t)
 
         tuple,          // Tuple
+        tuple_interface,    // ITuple, the interface of the tuples
 
     X_ENUM_END
 

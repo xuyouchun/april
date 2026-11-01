@@ -1434,6 +1434,26 @@ namespace X_ROOT_NS::modules::rt {
         return  (mtype_t)(*template_)->mtype == mtype_t::tuple;
     }
 
+    // It's the interface of the tuples?
+    bool rt_generic_type_t::__is_tuple_interface()
+    {
+        return  (mtype_t)(*template_)->mtype == mtype_t::tuple_interface;
+    }
+
+    // Returns the dynamic methods of the tuple that has the same types.
+    rt_dynamic_method_t * rt_generic_type_t::__get_interface_dynamic_methods(analyzer_env_t & env)
+    {
+        _A(__is_tuple_interface());
+
+        assembly_analyzer_t analyzer = __analyzer(env);
+        rt_generic_type_t * tuple_type = analyzer.to_generic_type(
+            env.get_tuple_type(), nullptr, atypes, atype_count()
+        );
+
+        _A(tuple_type != nullptr && tuple_type->__is_tuple());
+        return tuple_type->__get_dynamic_methods(env);
+    }
+
     // Returns tuple fields.
     rt_tuple_field_t * rt_generic_type_t::__get_tuple_fields(analyzer_env_t & env)
     {
@@ -1523,6 +1543,17 @@ namespace X_ROOT_NS::modules::rt {
         if (__is_tuple())
         {
             rt_dynamic_method_t * methods = __get_dynamic_methods(env);
+            for (int k = 0, count = atype_count(); k < count; k++)
+            {
+                f(ref_t::null, methods + k);
+            }
+        }
+
+        // The items of a tuple are read through its interface by the methods of the tuple (the
+        // interface of a tuple is always implemented by a tuple), that are not virtual.
+        if (__is_tuple_interface())
+        {
+            rt_dynamic_method_t * methods = __get_interface_dynamic_methods(env);
             for (int k = 0, count = atype_count(); k < count; k++)
             {
                 f(ref_t::null, methods + k);
