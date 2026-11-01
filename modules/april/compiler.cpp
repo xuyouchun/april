@@ -653,15 +653,27 @@ namespace X_ROOT_NS::modules::april {
         fs::path target = string_convert<char_t, char>(output);
         std::error_code ec;
 
-        std::string name = build.main.stem().string();
+        // By default: next to the first source file or project file, with its name.
+        fs::path first;
+        __each_files([&](const __path_t & path) {
+            if (first.empty() && file_type_of(path) != compile_file_type_t::assembly)
+                first = fs::path(path.string());
+        });
+
+        std::string name = (first.empty()? fs::path(build.main.string()) : first).stem().string();
         std::string ext = fs::path(exe).extension().string();
         if (ext != ".exe")
             ext.clear();
 
         if (target.empty())
-            target = fs::current_path() / (name + ext);
+        {
+            fs::path dir = fs::absolute(first, ec).parent_path();
+            target = (first.empty()? fs::current_path() : dir) / (name + ext);
+        }
         else if (fs::is_directory(target, ec))
+        {
             target = target / (name + ext);
+        }
 
         fs::copy_file(exe, target, fs::copy_options::overwrite_existing, ec);
         if (ec)

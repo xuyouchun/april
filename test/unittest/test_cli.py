@@ -173,10 +173,16 @@ def test_compile_native(tmp_path):
     out = subprocess.run([str(exe)], stdout=subprocess.PIPE, universal_newlines=True)
     assert out.stdout.strip() == "5"
 
-    # Without -o: the executable is written to the current directory, named after the assembly.
-    r = _april_run(["compile", "--native", str(source)], cache, tmp_path)
+    # Without -o: the executable is named after the first source file, and written next to it
+    # (not to the current directory).
+    other = tmp_path / "other"
+    other.mkdir()
+    exe.unlink()
+
+    r = _april_run(["compile", "--native", str(source)], cache, other)
     assert r.returncode == 0, r.stdout
-    assert [p for p in tmp_path.iterdir() if p.stem == tmp_path.name]
+    assert [p for p in tmp_path.iterdir() if p.stem == source.stem and p.suffix != ".cs"]
+    assert not list(other.iterdir())
 
 
 def test_compile_makes_assemblies(tmp_path):
