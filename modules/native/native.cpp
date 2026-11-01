@@ -321,6 +321,7 @@ namespace X_ROOT_NS::modules::native {
             // The intrinsics of the arithmetic that raises on overflow, with their integer types:
             // llvm.sadd.with.overflow.i32 -> i32 .
             std::map<std::string, std::string> __overflow_intrinsics;
+            bool                    __uses_trunc = false;       // llvm.trunc.f64
             bool                    __uses_new_object = false;
 
             // The objects that hold the static fields of types: a global of each, which is
@@ -1696,7 +1697,8 @@ namespace X_ROOT_NS::modules::native {
                                 stack.push_back(stack.back());
                                 break;
 
-                            case xil_storage_type_t::convert: {
+                            case xil_storage_type_t::convert:
+                            case xil_storage_type_t::checked_convert: {
                                 llb::value_t v = pop_value("convert");
 
                                 // The interpreter reads the top of the stack as the source
@@ -1709,6 +1711,69 @@ namespace X_ROOT_NS::modules::native {
                                 {
                                     int bits = std::stoi(v.type.substr(1));
                                     v = f.cast(bits > from_num.bits? "trunc" : "zext", v, from_num.ll);
+                                }
+
+                                // checked: the value must fit the type.
+                                __num_t cf = __conv_num_of(push->dtype());
+                                __num_t ct = __conv_num_of(push->dtype2());
+
+                                if (push->stype() == xil_storage_type_t::checked_convert
+                                    && cf.valid && ct.valid && v.type == cf.ll
+                                    && push->dtype() != xil_type_t::bool_
+                                    && push->dtype2() != xil_type_t::bool_
+                                    && push->dtype() != push->dtype2() && !ct.is_float)
+                                {
+                                    llb::value_t fail;
+
+                                    if (cf.is_float)
+                                    {
+                                        // The value is truncated, and it must be in the range.
+                                        llb::value_t d = cf.bits == 32? f.cast("fpext", v, "double") : v;
+                                        __uses_trunc = true;
+                                        d = f.call("double", "llvm.trunc.f64", { d });
+
+                                        double lo = ct.is_signed? -std::ldexp(1.0, ct.bits - 1) : 0.0;
+                                        double hi = std::ldexp(1.0, ct.is_signed? ct.bits - 1 : ct.bits);
+
+                                        // The unordered conditions are also true for NaN.
+                                        fail = f.binop("or",
+                                            f.fcmp("ult", d, llb::const_double(lo)),
+                                            f.fcmp("uge", d, llb::const_double(hi))
+                                        );
+                                    }
+                                    else
+                                    {
+                                        llb::value_t n = v;
+                                        if (ct.bits > cf.bits)
+                                            n = f.cast(cf.is_signed? "sext" : "zext", v, ct.ll);
+                                        else if (ct.bits < cf.bits)
+                                            n = f.cast("trunc", v, ct.ll);
+
+                                        fail = llb::const_int("i1", 0);
+
+                                        // Narrower: the value changes when it is converted back.
+                                        if (ct.bits < cf.bits)
+                                        {
+                                            llb::value_t back = f.cast(ct.is_signed? "sext" : "zext", n, cf.ll);
+                                            fail = f.icmp("ne", back, v);
+                                        }
+
+                                        // A negative number is not an unsigned number, and an
+                                        // unsigned number that is too large is negative.
+                                        if (cf.is_signed && !ct.is_signed)
+                                        {
+                                            fail = f.binop("or", fail,
+                                                f.icmp("slt", v, llb::const_int(cf.ll, 0)));
+                                        }
+
+                                        if (!cf.is_signed && ct.is_signed)
+                                        {
+                                            fail = f.binop("or", fail,
+                                                f.icmp("slt", n, llb::const_int(ct.ll, 0)));
+                                        }
+                                    }
+
+                                    raise_if(fail, CoreType_OverflowException);
                                 }
 
                                 llb::value_t r = __convert_any(f, v, push->dtype(), push->dtype2());
@@ -3169,6 +3234,9 @@ namespace X_ROOT_NS::modules::native {
 
             if (__uses_memset)
                 __module.declare("llvm.memset.p0.i64", "void", { "ptr", "i8", "i64", "i1" });
+
+            if (__uses_trunc)
+                __module.declare("llvm.trunc.f64", "double", { "double" });
 
             for (auto && it : __overflow_intrinsics)
                 __module.declare(it.first, "{ " + it.second + ", i1 }", { it.second, it.second });

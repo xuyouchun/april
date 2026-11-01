@@ -416,6 +416,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(unbox,              _T("unbox"))
 
+        X_C(checked_convert,    _T("checked_convert"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -617,6 +619,9 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_storage_type_t::convert:
                 return _F(_T("convert %1%=>%2%"), dtype(), dtype2());
+
+            case xil_storage_type_t::checked_convert:
+                return _F(_T("checked_convert %1%=>%2%"), dtype(), dtype2());
 
             case xil_storage_type_t::box:
                 if (get_box_type() == xil_box_type_t::__default__)

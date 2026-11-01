@@ -740,6 +740,148 @@ namespace X_ROOT_NS::modules::compile {
         return is_optimize(ctx, compile_optimize_code_t::optimize_basic_algorighm);
     }
 
+    // Returns the range of an integer type.
+    static bool __integer_range(vtype_t vtype, __int128 & lo, __int128 & hi)
+    {
+        switch (vtype)
+        {
+            case vtype_t::int8_:    lo = INT8_MIN;  hi = INT8_MAX;      return true;
+            case vtype_t::uint8_:   lo = 0;         hi = UINT8_MAX;     return true;
+            case vtype_t::int16_:   lo = INT16_MIN; hi = INT16_MAX;     return true;
+            case vtype_t::uint16_:  lo = 0;         hi = UINT16_MAX;    return true;
+            case vtype_t::int32_:   lo = INT32_MIN; hi = INT32_MAX;     return true;
+            case vtype_t::uint32_:  lo = 0;         hi = UINT32_MAX;    return true;
+            case vtype_t::int64_:   lo = INT64_MIN; hi = INT64_MAX;     return true;
+            case vtype_t::uint64_:  lo = 0;         hi = UINT64_MAX;    return true;
+            default:                return false;
+        }
+    }
+
+    // Wraps a value to an integer type, like unchecked.
+    static __int128 __wrap_integer(vtype_t vtype, __int128 value)
+    {
+        uint64_t u = (uint64_t)value;
+
+        switch (vtype)
+        {
+            case vtype_t::int8_:    return (int8_t)u;
+            case vtype_t::uint8_:   return (uint8_t)u;
+            case vtype_t::int16_:   return (int16_t)u;
+            case vtype_t::uint16_:  return (uint16_t)u;
+            case vtype_t::int32_:   return (int32_t)u;
+            case vtype_t::uint32_:  return (uint32_t)u;
+            case vtype_t::int64_:   return (int64_t)u;
+            default:                return u;
+        }
+    }
+
+    // Calculates the value of a constant integer expression: + - * of constants.
+    // Returns false if it is not such an expression. `overflow` is set if the value of the
+    // expression or of one of its parts, in checked, does not fit the type.
+    static bool __constant_integer(expression_t * exp, __int128 & value, bool & overflow)
+    {
+        __int128 lo, hi;
+        if (exp == nullptr || !__integer_range(exp->get_vtype(), lo, hi))
+            return false;
+
+        switch (exp->this_family())
+        {
+            case expression_family_t::checked: {
+                checked_expression_t * checked_exp = (checked_expression_t *)exp;
+
+                bool inner_overflow = false;
+                if (!__constant_integer(checked_exp->expression(), value, inner_overflow))
+                    return false;
+
+                if (checked_exp->checked)
+                    overflow = overflow || inner_overflow;
+                else
+                    value = __wrap_integer(exp->get_vtype(), value);
+
+                return true;
+            }
+
+            case expression_family_t::binary: {
+                binary_expression_t * binary_exp = (binary_expression_t *)exp;
+                operator_t op = binary_exp->op();
+
+                if (op != operator_t::add && op != operator_t::sub && op != operator_t::mul)
+                    break;
+
+                __int128 a, b;
+                if (!__constant_integer(binary_exp->exp1(), a, overflow)
+                        || !__constant_integer(binary_exp->exp2(), b, overflow))
+                {
+                    return false;
+                }
+
+                value = op == operator_t::add? a + b : op == operator_t::sub? a - b : a * b;
+                overflow = overflow || value < lo || value > hi;
+                return true;
+            }
+
+            case expression_family_t::unitary: {
+                unitary_expression_t * unitary_exp = (unitary_expression_t *)exp;
+                if (unitary_exp->op() != operator_t::minus)
+                    break;
+
+                __int128 a;
+                if (!__constant_integer(unitary_exp->expression_at(0), a, overflow))
+                    return false;
+
+                value = -a;
+                overflow = overflow || value < lo || value > hi;
+                return true;
+            }
+
+            default:
+                break;
+        }
+
+        cvalue_t cvalue = __execute_expression(exp);
+        if (!is_number(cvalue))
+            return false;
+
+        value = is_signed_vtype(exp->get_vtype())? (__int128)(int64_t)cvalue
+                                                  : (__int128)(uint64_t)cvalue;
+        return true;
+    }
+
+    // In checked, the operation of constants that does not fit its type is an error.
+    static void __check_constant_overflow(__cctx_t & ctx, operator_t op,
+                                          expression_t * exp1, expression_t * exp2 = nullptr)
+    {
+        if (!ctx.checked)
+            return;
+
+        __int128 a, b = 0, value, lo, hi;
+        bool overflow = false;
+
+        if (!__constant_integer(exp1, a, overflow)
+                || (exp2 != nullptr && !__constant_integer(exp2, b, overflow)))
+        {
+            return;
+        }
+
+        if (exp2 == nullptr)    // - a
+        {
+            // The minimum of a signed type has no opposite.
+            if (__integer_range(exp1->get_vtype(), lo, hi) && lo != 0 && a == lo)
+                overflow = true;
+        }
+        else
+        {
+            vtype_t vtype = get_binary_vtype(op, exp1->get_vtype(), exp2->get_vtype());
+            if (!__integer_range(vtype, lo, hi))
+                return;
+
+            value = op == operator_t::add? a + b : op == operator_t::sub? a - b : a * b;
+            overflow = overflow || value < lo || value > hi;
+        }
+
+        __FailedWhen(overflow, "The operation overflows at compile time in checked mode");
+    }
+
     // Returns the command of an arithmetic: the one that raises OverflowException when it is in
     // checked(expression) or checked { ... }, and the operands are integers.
     static xil_al_command_t __al_command(__cctx_t & ctx, xil_al_command_t cmd,
@@ -783,6 +925,8 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        __check_constant_overflow(ctx, operator_t::add, exp1, exp2);
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
@@ -814,6 +958,8 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        __check_constant_overflow(ctx, operator_t::sub, exp1, exp2);
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
@@ -843,6 +989,8 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // TODO x * 0 || 0 * x
+
+        __check_constant_overflow(ctx, operator_t::mul, exp1, exp2);
 
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
@@ -2672,6 +2820,8 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles minus expression.
     void __compile_minus(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
     {
+        __check_constant_overflow(ctx, operator_t::minus, exp);
+
         exp->compile(ctx, pool);
 
         pool.append<x_al_xil_t>(
@@ -3373,6 +3523,21 @@ namespace X_ROOT_NS::modules::compile {
         return __super_t::execute();
     }
     
+    // Returns whether it is a conversion between numbers of different types.
+    static bool __is_numeric_cast(type_t * from, type_t * to)
+    {
+        if (from == nullptr || to == nullptr)
+            return false;
+
+        vtype_t vt1 = from->this_vtype(), vt2 = to->this_vtype();
+
+        auto is_number_vtype = [](vtype_t vt) {
+            return is_numberic_vtype(vt) || vt == vtype_t::char_;
+        };
+
+        return vt1 != vt2 && is_number_vtype(vt1) && is_number_vtype(vt2);
+    }
+
     // Compiles type cast expression.
     void __sys_t<type_cast_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                         const __environment_t & env)
@@ -3457,6 +3622,21 @@ namespace X_ROOT_NS::modules::compile {
                     exp->compile(ctx, pool);
                     pool.append<x_push_unbox_xil_t>(__ref_of(ctx, type));
                 }
+            }
+            else if (ctx.checked && __is_numeric_cast(exp_type, type))
+            {
+                // The value must fit the type: (int)longValue raises OverflowException.
+                __int128 value, lo, hi;
+                bool overflow = false;
+
+                if (__constant_integer(exp, value, overflow) && __integer_range(type->this_vtype(), lo, hi))
+                {
+                    __FailedWhen(overflow || value < lo || value > hi,
+                        "The conversion overflows at compile time in checked mode");
+                }
+
+                exp->compile(ctx, pool);
+                pool.append<x_push_convert_xil_t>(__xil_type(exp), to_xil_type(type->this_vtype()), true);
             }
             else
             {

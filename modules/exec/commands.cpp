@@ -1160,12 +1160,95 @@ namespace X_ROOT_NS::modules::exec {
     __EachXilTypePairs()
     #undef __CaseXilTypePair
 
+    //-------- ---------- ---------- ---------- ----------
+    // Push checked convert commands: OverflowException when the value does not fit the type.
+
+    namespace
+    {
+        // Returns whether a number fits a numeric type, a floating point number is truncated.
+        template<typename _to_t, typename _from_t>
+        bool __number_fits(_from_t value)
+        {
+            if constexpr (std::is_same<_to_t, bool>::value || std::is_same<_from_t, bool>::value)
+            {
+                return true;
+            }
+            else if constexpr (std::is_integral<_to_t>::value)
+            {
+                typedef std::numeric_limits<_to_t> limits_t;
+
+                if constexpr (std::is_floating_point<_from_t>::value)
+                {
+                    if (value != value)
+                        return false;
+
+                    double t = std::trunc((double)value);
+                    double lo = limits_t::is_signed? -std::ldexp(1.0, limits_t::digits) : 0.0;
+                    double hi = std::ldexp(1.0, limits_t::digits);
+
+                    return t >= lo && t < hi;
+                }
+                else
+                {
+                    __int128 v = (__int128)value;
+                    return v >= (__int128)limits_t::min() && v <= (__int128)limits_t::max();
+                }
+            }
+            else
+            {
+                return true;
+            }
+        }
+    }
+
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t<_cv, xil_storage_type_t::checked_convert, _xt1, _xt2>
+        : public __command_base_t<_cv>
+    {
+        typedef __push_command_t    __self_t;
+        typedef __vnum_t<_xt1>      __value1_t;
+        typedef __vnum_t<_xt2>      __value2_t;
+
+    public:
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("push checked convert %1%=>%2%"), _xt1, _xt2);
+        __EndToString()
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            if constexpr (!std::is_same<__value1_t, __value2_t>::value)
+            {
+                __value1_t value = ctx.stack.pop<__value1_t>();
+
+                if constexpr (std::is_arithmetic<__value1_t>::value
+                                && std::is_arithmetic<__value2_t>::value)
+                {
+                    if (!__number_fits<__value2_t>(value))
+                        __RaiseOverflowException(ctx);
+                }
+
+                ctx.stack.push(static_cast<__value2_t>(value));
+            }
+
+        __EndExecute()
+    };
+
+    #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, checked_convert, _xt1, _xt2)
+    __EachXilTypePairs()
+    #undef __CaseXilTypePair
+
+    template<xil_storage_type_t _st>
     struct __push_convert_command_template_t
     {
         template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, typename ... _args_t>
         static auto new_command(memory_t * memory, _args_t && ... args)
         {
-            typedef __push_command_t<_cv, xil_storage_type_t::convert, _xt1, _xt2> this_command_t;
+            typedef __push_command_t<_cv, _st, _xt1, _xt2> this_command_t;
             return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
         }
     };
@@ -2147,8 +2230,14 @@ namespace X_ROOT_NS::modules::exec {
         >::with_args_t<dimension_t> __push_array_element_command_manager;
 
         static __command_manager_t<
-            __push_convert_command_template_t, xil_type_t, xil_type_t
+            __push_convert_command_template_t<xil_storage_type_t::convert>,
+            xil_type_t, xil_type_t
         >::with_args_t<> __convert_command_manager;
+
+        static __command_manager_t<
+            __push_convert_command_template_t<xil_storage_type_t::checked_convert>,
+            xil_type_t, xil_type_t
+        >::with_args_t<> __checked_convert_command_manager;
 
         xil_storage_type_t stype = args.stype;
         xil_type_t xt1 = args.xt1, xt2 = args.xt2;
@@ -2683,6 +2772,45 @@ namespace X_ROOT_NS::modules::exec {
             __CaseConvert(string, string)
             __CaseConvert(ptr,    ptr)
 
+            // Push Checked Convert
+
+            #define __CaseCheckedConvert(_xt1, _xt2)                                    \
+                case __V(xil_storage_type_t::checked_convert, xil_type_t::_xt1, xil_type_t::_xt2):  \
+                    return __checked_convert_command_manager.template get_command<      \
+                        __StCmd(push, checked_convert, _xt1, _xt2),                     \
+                        xil_type_t::_xt1, xil_type_t::_xt2                              \
+                    >();
+
+            #define __CaseCheckedConverts(_xt2)                                         \
+                __CaseCheckedConvert(int8,       _xt2)                                  \
+                __CaseCheckedConvert(uint8,      _xt2)                                  \
+                __CaseCheckedConvert(int16,      _xt2)                                  \
+                __CaseCheckedConvert(uint16,     _xt2)                                  \
+                __CaseCheckedConvert(int32,      _xt2)                                  \
+                __CaseCheckedConvert(uint32,     _xt2)                                  \
+                __CaseCheckedConvert(int64,      _xt2)                                  \
+                __CaseCheckedConvert(uint64,     _xt2)                                  \
+                __CaseCheckedConvert(float_,     _xt2)                                  \
+                __CaseCheckedConvert(double_,    _xt2)                                  \
+                __CaseCheckedConvert(char_,      _xt2)                                  \
+                __CaseCheckedConvert(bool_,      _xt2)
+
+            __CaseCheckedConverts(int8)
+            __CaseCheckedConverts(uint8)
+            __CaseCheckedConverts(int16)
+            __CaseCheckedConverts(uint16)
+            __CaseCheckedConverts(int32)
+            __CaseCheckedConverts(uint32)
+            __CaseCheckedConverts(int64)
+            __CaseCheckedConverts(uint64)
+            __CaseCheckedConverts(float_)
+            __CaseCheckedConverts(double_)
+            __CaseCheckedConverts(char_)
+            __CaseCheckedConverts(bool_)
+            __CaseCheckedConvert(object, object)
+            __CaseCheckedConvert(string, string)
+            __CaseCheckedConvert(ptr,    ptr)
+
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
             default:
@@ -2782,6 +2910,7 @@ namespace X_ROOT_NS::modules::exec {
             }   break;
 
             case xil_storage_type_t::convert:
+            case xil_storage_type_t::checked_convert:
                 xt1 = xil.dtype();
                 xt2 = xil.dtype2();
                 break;
@@ -7746,6 +7875,7 @@ namespace X_ROOT_NS::modules::exec {
             __SwitchCommands_CaseSts(push, argument)                                    \
             __SwitchCommands_CaseSts(push, field)                                       \
             __SwitchCommands_CaseSts(push, convert)                                     \
+            __SwitchCommands_CaseSts(push, checked_convert)                             \
             __SwitchCommands_CaseArrays(push, 0)                                        \
             __SwitchCommands_CaseArrays(push, 1)                                        \
             __SwitchCommands_CaseArrays(push, 2)                                        \

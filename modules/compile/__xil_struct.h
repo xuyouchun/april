@@ -456,8 +456,9 @@ namespace X_ROOT_NS::modules::compile {
     {
         typedef xil_extra_t<push_xil_t> __super_t;
 
-        x_push_convert_xil_t(xil_type_t dtype1, xil_type_t dtype2)
-            : __super_t(xil_storage_type_t::convert)
+        x_push_convert_xil_t(xil_type_t dtype1, xil_type_t dtype2, bool checked = false)
+            : __super_t(checked? xil_storage_type_t::checked_convert
+                               : xil_storage_type_t::convert)
         {
             this->set_dtype(dtype1);
             this->set_dtype2(dtype2);

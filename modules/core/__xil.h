@@ -356,6 +356,9 @@ namespace X_ROOT_NS::modules::core {
 
         unbox           = 21,       // Converts an ref object to value object.
 
+        checked_convert = 22,       // Like convert, raises OverflowException when the value does
+                                    // not fit the type: (int)longValue in checked.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
@@ -925,6 +928,7 @@ namespace X_ROOT_NS::modules::core {
                 break;
 
             case xil_storage_type_t::convert:
+            case xil_storage_type_t::checked_convert:
                 size += 1;                              // xil_type_t
                 break;
 
