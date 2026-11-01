@@ -1769,6 +1769,15 @@ namespace X_ROOT_NS::modules::compile {
                 __wctx.run_pending((ast_walk_context_t::pending_t *)method->lambda_pending);
             }
 
+            // A block that returns only null: its type is object.
+            if (method->type_name != nullptr && method->lambda_return_inferred
+                    && is_null(method->type_name->type))
+            {
+                method->type_name->type = __XPool.get_object_type();
+                if (method->variable != nullptr)
+                    method->variable->reset_type();
+            }
+
             // A block that returns no value.
             if (method->type_name != nullptr
                     && method->type_name->type == uncertain_type_t::instance()

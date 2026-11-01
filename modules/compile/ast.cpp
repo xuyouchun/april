@@ -4764,17 +4764,34 @@ namespace X_ROOT_NS::modules::compile {
                 type_t * return_type = this->expression->get_type();
                 type_t * method_type = method->type_name->type;
 
-                // The type of a lambda that is not converted to a delegate: that of the
-                // first value that it returns, the type of null is object.
-                if (method->is_lambda && method_type == uncertain_type_t::instance()
-                        && return_type != nullptr && return_type != uncertain_type_t::instance())
+                // The type of a lambda that is not converted to a delegate: the type that all the
+                // values that it returns are converted to (null and String: String, int and long:
+                // long). The type of null alone is object, when the body is walked.
+                if (method->is_lambda && return_type != nullptr
+                        && return_type != uncertain_type_t::instance()
+                        && (method_type == uncertain_type_t::instance()
+                                || method->lambda_return_inferred))
                 {
-                    if (is_null(return_type))
-                        return_type = __XPool.get_object_type();
+                    type_t * common = method_type == uncertain_type_t::instance()?
+                                return_type : get_compatible_type(method_type, return_type);
 
-                    method->type_name->type = method_type = return_type;
-                    if (method->variable != nullptr)
-                        method->variable->reset_type();
+                    if (common == nullptr)
+                    {
+                        this->__log(this, __c_t::method_incompatible_return_value, method);
+                        return true;
+                    }
+
+                    method->lambda_return_inferred = true;
+
+                    if (common != method_type)
+                    {
+                        method->type_name->type = method_type = common;
+                        if (method->variable != nullptr)
+                            method->variable->reset_type();
+
+                        // The type that is made (T? of null and a number).
+                        context.commit_types();
+                    }
                 }
 
                 if (return_type != nullptr && !is_type_compatible(return_type, method_type))
@@ -7115,6 +7132,15 @@ namespace X_ROOT_NS::modules::compile {
     // of a lambda that is an expression is made.
     void method_ast_node_t::__walk_lambda_analysis(ast_walk_context_t & context)
     {
+        // A block that returns only null: its type is object.
+        if (this->lambda_return_inferred && this->type_name != nullptr
+                && is_null(this->type_name->type))
+        {
+            this->type_name->type = __XPool.get_object_type();
+            if (this->variable != nullptr)
+                this->variable->reset_type();
+        }
+
         type_t * return_type = this->type_name != nullptr? this->type_name->type : nullptr;
         if (return_type == nullptr || return_type == uncertain_type_t::instance())
         {

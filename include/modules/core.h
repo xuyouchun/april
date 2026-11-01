@@ -2514,6 +2514,11 @@ namespace X_ROOT_NS::modules::core {
     // E.g. int32 -> int64. System.String -> System.Object.
     bool is_type_compatible(type_t * from, type_t * to);
 
+    // Returns the type that both types are converted to, null if there is none:
+    // int and long: long. null and String: String. int and uint: long. null and int: int?.
+    // Two classes: their nearest common base class. A type that is null (not known) takes the other.
+    type_t * get_compatible_type(type_t * type1, type_t * type2);
+
     // Returns whether a type is a void type.
     bool is_void_type(type_t * type);
 
@@ -3537,6 +3542,10 @@ namespace X_ROOT_NS::modules::core {
         // The body of the lambda is a block that returns no value: a lambda that is called at once
         // returns void.
         bool lambda_no_value = false;
+
+        // The return type of a lambda that is not converted to a delegate is made from what its
+        // returns return: it is the type that all of them are converted to.
+        bool lambda_return_inferred = false;
 
         // The items of the walk of the lambda, that are walked when its type is needed.
         void * lambda_pending = nullptr;

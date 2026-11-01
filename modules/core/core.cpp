@@ -3036,6 +3036,25 @@ namespace X_ROOT_NS::modules::core {
         return found;
     }
 
+    // Returns whether null can be converted to the type: a reference (class, interface, string,
+    // array, delegate); not a number, a bool, a char, an enum or a struct.
+    static bool __is_nullable_reference(type_t * type)
+    {
+        if (type == nullptr)
+            return false;
+
+        if (type->this_gtype() == gtype_t::array)
+            return true;
+
+        if (type->this_gtype() == gtype_t::generic_param)
+            return false;
+
+        if (type->this_vtype() == vtype_t::string_)
+            return true;
+
+        return __is_class_or_interface(type);
+    }
+
     bool is_type_compatible(type_t * from, type_t * to)
     {
         // A type that is undefined has been reported: it is not reported again.
@@ -3077,11 +3096,17 @@ namespace X_ROOT_NS::modules::core {
             return from->this_gtype() == gtype_t::null || is_type_compatible(from, underlying);
         }
 
+        // null is converted to the types that can be null: not to numbers, bools, chars, enums
+        // and structs (T? takes it, see above); nothing is converted to the type of null.
         if (from->this_gtype() == gtype_t::null)
-            return __is_mobject(from) || from->this_gtype() == gtype_t::null;
+            return __is_nullable_reference(to);
 
         if (to->this_gtype() == gtype_t::null)
-            return __is_mobject(to) || from->this_gtype() == gtype_t::null;
+            return false;
+
+        // An enum is converted to its own type, not to another enum.
+        if (is_enum(from) && is_enum(to))
+            return false;
 
         if (__is_mobject(from) || __is_mobject(to))
         {
@@ -3529,43 +3554,82 @@ namespace X_ROOT_NS::modules::core {
         }
     };
 
-    // Returns compatible type of two types.
-    static type_t * __get_compatible_type(type_t * type1, type_t * type2)
+    // Returns the type that both types are converted to: the one that the other is converted to
+    // (int and long: long; null and String: String), else a type that both are converted to
+    // (int and uint: long; two classes: the nearest base class that they have). Returns null if
+    // there is none. A type that is not known (null pointer) takes the other.
+    type_t * get_compatible_type(type_t * type1, type_t * type2)
     {
+        if (type1 == nullptr)
+            return type2;
+
+        if (type2 == nullptr)
+            return type1;
+
         if (type1 == type2)
             return type1;
 
-        if (type1 == nullptr || type2 == nullptr)
-            return nullptr;
-
-        vtype_t vtype1 = type1->this_vtype(), vtype2 = type2->this_vtype();
-        if (is_numberic_vtype(vtype1) && is_numberic_vtype(vtype2))
-            return (int)vtype1 > (int)vtype2? type1 : type2;
-
-        if (type1->has_super_type(type2))
-            return type2;
-
-        if (type2->has_super_type(type1))
-            return type1;
-
-        return nullptr;
-    }
-
-    // Returns compatible type of types.
-    static type_t * __get_compatible_type(svector_t<type_t *> & types)
-    {
-        if (types.empty())
-            return nullptr;
-
-        type_t * type = types[0];
-        for (size_t index = 1, count = types.size(); index < count; index++)
+        // null: a type that can be null, or T? for a number.
+        if (is_null(type1) || is_null(type2))
         {
-            type = __get_compatible_type(type, types[index]);
-            if (type == nullptr)
-                break;
+            type_t * other = is_null(type1)? type2 : type1;
+
+            if (__is_nullable_reference(other) || get_nullable_underlying(other) != nullptr)
+                return other;
+
+            if (other->this_gtype() == gtype_t::general
+                    && is_system_value_type(other->this_vtype()) && !is_enum(other))
+            {
+                type_collection_t types = { typex_t(other) };
+                xtype_collection_t xtypes(types);
+
+                return __XPool.new_generic_type(__XPool.get_nullable_type(), xtypes, nullptr);
+            }
+
+            return nullptr;
         }
 
-        return type;
+        // One of them is converted to the other.
+        bool to_type2 = is_type_compatible(type1, type2);
+        bool to_type1 = is_type_compatible(type2, type1);
+
+        if (to_type2 && !to_type1)
+            return type2;
+
+        if (to_type1)
+            return type1;
+
+        // Signed and unsigned integers that none holds: the signed one of the double size.
+        vtype_t vtype1 = type1->this_vtype(), vtype2 = type2->this_vtype();
+        if (is_integer_vtype(vtype1) && is_integer_vtype(vtype2)
+                && type1->this_gtype() == gtype_t::general
+                && type2->this_gtype() == gtype_t::general
+                && is_signed_vtype(vtype1) != is_signed_vtype(vtype2))
+        {
+            vtype_t unsigned_vtype = is_unsigned_vtype(vtype1)? vtype1 : vtype2;
+            switch (get_vtype_size(unsigned_vtype))
+            {
+                case 1:     return __XPool.get_internal_type(vtype_t::int16_);
+                case 2:     return __XPool.get_internal_type(vtype_t::int32_);
+                case 4:     return __XPool.get_internal_type(vtype_t::int64_);
+                default:    return nullptr;
+            }
+        }
+
+        // References: the nearest base class that both have, not Object (it has no meaning).
+        if (__is_nullable_reference(type1) && __is_nullable_reference(type2)
+                && type1->this_gtype() != gtype_t::array && type2->this_gtype() != gtype_t::array)
+        {
+            type_t * object_type = __XPool.get_object_type();
+            for (type_t * type = type1->get_base_type(); type != nullptr && type != object_type;
+                                                            type = type->get_base_type())
+            {
+                if (is_type_compatible(type2, type))
+                    return type;
+            }
+        }
+
+        return nullptr;
     }
 
     // Compare method.
