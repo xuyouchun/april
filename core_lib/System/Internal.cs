@@ -35,8 +35,9 @@ internal static class Internal
 
     // Tuple
 
+    // Sets the items of the tuple that is made by the constructor that calls it (its this).
     [Internal]
-    public static extern Void Tuple_SetRange(Type type, Object tuple, Ptr data);
+    public static extern Void Tuple_SetRange(Type type, Ptr data);
 
     [Internal]
     public static extern Ptr Tuple_Get(Type type, Object tuple, Int32 index);

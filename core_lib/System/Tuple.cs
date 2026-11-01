@@ -25,7 +25,7 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
 
     public Tuple(TItems ... items)
     {
-        Internal.Tuple_SetRange(typeof(__SelfType), this, items);
+        Internal.Tuple_SetRange(typeof(__SelfType), items);
     }
 
     public Int32 Count

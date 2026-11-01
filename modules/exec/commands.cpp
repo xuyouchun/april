@@ -3596,12 +3596,13 @@ namespace X_ROOT_NS::modules::exec {
         typedef __internal_call_command_t   __self_t;
 
     public:
-        __internal_call_command_t(__libfunc_t func, int param_unit_size, int ret_unit_size
+        __internal_call_command_t(__libfunc_t func, msize_t this_offset, int param_unit_size,
+                                  int ret_unit_size
     #if EXEC_TRACE
             , rt_sid_t method_name
     #endif  // EXEC_TRACE
         )
-            : __func(func), __param_unit_size(param_unit_size)
+            : __func(func), __this_offset(this_offset), __param_unit_size(param_unit_size)
             , __pop_unit_size(param_unit_size - ret_unit_size)
 
         #if EXEC_TRACE
@@ -3616,6 +3617,10 @@ namespace X_ROOT_NS::modules::exec {
             rtlib_context_t context(
                 (assembly_analyzer_t &)ctx, ctx.stack.top() - __This->__param_unit_size
             );
+
+            context.caller_this = __This->__this_offset == __no_this_offset? nullptr
+                    : *(void **)((rt_stack_unit_t *)ctx.stack.lp() - __This->__this_offset
+                                                               - __stack_stub_size);
 
             __This->__func(context);
 
@@ -3636,6 +3641,9 @@ namespace X_ROOT_NS::modules::exec {
 
     private:
 
+        static constexpr msize_t __no_this_offset = (msize_t)-1;
+
+        msize_t __this_offset;
         int __param_unit_size, __pop_unit_size;
         __libfunc_t __func;
 
@@ -3647,7 +3655,7 @@ namespace X_ROOT_NS::modules::exec {
     struct __internal_call_command_template_t
     {
         template<command_value_t _cv, typename ... _args_t>
-        static auto new_command(memory_t * memory, __libfunc_t libfunc,
+        static auto new_command(memory_t * memory, __libfunc_t libfunc, msize_t this_offset,
                         __context_t & ctx, rt_method_t * rt_method)
         {
             typedef __internal_call_command_t this_command_t;
@@ -3656,7 +3664,7 @@ namespace X_ROOT_NS::modules::exec {
             __get_method_unit_size(ctx, rt_method, &param_unit_size, &ret_unit_size);
 
             this_command_t * cmd = __new_command<this_command_t>(
-                memory, libfunc, param_unit_size, ret_unit_size
+                memory, libfunc, this_offset, param_unit_size, ret_unit_size
     #if EXEC_TRACE
                 , rt_method->get_name()
     #endif
@@ -3685,7 +3693,7 @@ namespace X_ROOT_NS::modules::exec {
     {
         static __command_manager_t<
             __internal_call_command_template_t
-        >::with_args_t<__libfunc_t> __internal_call_command_manager;
+        >::with_args_t<__libfunc_t, msize_t> __internal_call_command_manager;
 
         ref_t method_ref = (ref_t)xil.method;
 
@@ -3696,8 +3704,13 @@ namespace X_ROOT_NS::modules::exec {
         if (libfunc == nullptr)
             throw _ED(exec_error_code_t::internal_function_not_found, method_name);
 
+        // The this of the calling method: a function can use it (the constructor of a tuple).
+        msize_t this_offset = (msize_t)-1;
+        if (ctx.params_layout.unit_size() > 0)
+            this_offset = __offset_of_this_argument(ctx);
+
         command_t * cmd = __internal_call_command_manager.template
-            get_command<__CallCmd(internal)>(libfunc, ctx, rt_method);
+            get_command<__CallCmd(internal)>(libfunc, this_offset, ctx, rt_method);
 
         return cmd;
     }

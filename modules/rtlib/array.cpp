@@ -153,7 +153,7 @@ namespace X_ROOT_NS::modules::rtlib {
     } __tuple_field_info_manager;
 
     // Tuple_SetRange
-    struct __tuple_set_range_args_t : __tuple_args_t
+    struct __tuple_set_range_args_t : __tuple_type_args_t
     {
         rptr_t      arguments;
     };
@@ -163,14 +163,14 @@ namespace X_ROOT_NS::modules::rtlib {
         typedef __tuple_set_range_args_t args_t;
         args_t * args = ctx.args<args_t>();
 
-        rt_ref_t tuple = *args->tuple;
-        _A(tuple != nullptr);
+        // The tuple is the this of the constructor that calls it, the struct itself.
+        byte_t * ptr = (byte_t *)ctx.caller_this;
+        _A(ptr != nullptr);
 
         rt_type_t * rt_type = args->type;
         _A(rt::is_tuple_type(rt_type));
 
         int position = 0;
-        byte_t * ptr = (byte_t *)tuple;
         rt_stack_unit_t * argument = (rt_stack_unit_t *)*args->arguments;
 
         __tuple_field_info_group_t * g = __tuple_field_info_manager.get_field_infos(ctx, rt_type);

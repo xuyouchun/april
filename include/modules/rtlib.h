@@ -85,6 +85,8 @@ namespace X_ROOT_NS::modules::rtlib {
 
         assembly_analyzer_t & analyzer;
         rt_stack_unit_t     * argument;
+        // The this of the method that calls the function (the struct that a constructor makes).
+        void                * caller_this     = nullptr;
         int                   ret_code        = 0;
         string_t              ret_message;
 
