@@ -1393,7 +1393,9 @@ namespace X_ROOT_NS::modules::rt {
     // Pre new object.
     void rt_generic_type_t::pre_new(analyzer_env_t & env)
     {
-        if (__size != unknown_msize)
+        // The size is known when a struct is made in a variable, before any object of the type.
+        rt_vtable_t * vtbl = get_vtable(this);
+        if (__size != unknown_msize && vtbl != nullptr)
             return;
 
         assembly_analyzer_t analyzer = __analyzer(env);
@@ -1407,7 +1409,8 @@ namespace X_ROOT_NS::modules::rt {
         msize_t size = this->get_size(env);
 
         // build_vtbl;
-        this->__build_vtbl(env, &gp_mgr);
+        if (vtbl == nullptr)
+            this->__build_vtbl(env, &gp_mgr);
 
         // execute static constructor
         this->pre_static_call(env);

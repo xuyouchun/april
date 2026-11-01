@@ -730,6 +730,16 @@ namespace X_ROOT_NS::modules::exec {
         return is_host_type_template(type, template_);
     }
 
+    // The type of a generic template that is in its own methods (the this of a struct) is the
+    // type of the instance that is executing.
+    static rt_type_t * __instance_of_template(__context_t & ctx, rt_type_t * type)
+    {
+        if (is_general(type) && ((rt_general_type_t *)type)->is_generic_template())
+            return ctx.to_generic_type((rt_general_type_t *)type);
+
+        return type;
+    }
+
     // Returns field type.
     static rt_type_t * __field_type(__context_t & ctx, ref_t field_ref)
     {
@@ -2211,6 +2221,14 @@ namespace X_ROOT_NS::modules::exec {
             (args.constant.dtype == xil_type_t::empty? default_value_of<const char_t *>()   \
                 : ctx.to_cstr(args.constant.get_data<res_t>()))
 
+        // The this of a struct is pushed as a pointer: an argument of an object type is the same
+        // stack unit.
+        if (stype == xil_storage_type_t::argument && xt1 == xil_type_t::object
+                                                  && xt2 == xil_type_t::ptr)
+        {
+            xt1 = xil_type_t::ptr;
+        }
+
         switch (__V(stype, xt1, xt2))
         {
             // Constant values.
@@ -2691,12 +2709,12 @@ namespace X_ROOT_NS::modules::exec {
                 break;
 
             case xil_storage_type_t::box:
-                args.box.type     = ctx.get_type(xil.get_ref());
+                args.box.type     = __instance_of_template(ctx, ctx.get_type(xil.get_ref()));
                 args.box.box_type = xil.get_box_type();
                 break;
 
             case xil_storage_type_t::unbox:
-                args.unbox.type     = ctx.get_type(xil.get_ref());
+                args.unbox.type     = __instance_of_template(ctx, ctx.get_type(xil.get_ref()));
                 args.unbox.box_type = xil.get_box_type();
                 break;
 
@@ -6203,6 +6221,8 @@ namespace X_ROOT_NS::modules::exec {
 
         if (type == nullptr)
             throw _ED(exec_error_code_t::type_not_found, type_ref);
+
+        type = __instance_of_template(ctx, type);
 
         switch (xil.new_type())
         {

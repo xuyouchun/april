@@ -1965,9 +1965,26 @@ namespace X_ROOT_NS::modules::core {
         type_t * __transform_generic_type(generic_type_t * type)
         {
             type_collection_t type_args;
-            al::transform(type->args, std::back_inserter(type_args),
-                [this](type_t * arg_type) { return transform_type(arg_type); }
-            );
+            for (type_t * arg_type : type->args)
+            {
+                // The arguments of a params generic parameter (Tuple<TItems ...>) are many.
+                if constexpr (requires (name_t name, std::function<void (type_t *)> f) {
+                    __func.types_at(name, f);
+                })
+                {
+                    if (is_generic_param(arg_type)
+                        && ((generic_param_t *)arg_type)->param_type == generic_param_type_t::params)
+                    {
+                        __func.types_at(((generic_param_t *)arg_type)->name,
+                            [&](type_t * type_arg) { type_args.push_back(type_arg); }
+                        );
+
+                        continue;
+                    }
+                }
+
+                type_args.push_back(transform_type(arg_type));
+            }
 
             generic_type_t * new_type = __XPool.new_generic_type(
                 type->template_, type_args, type->host_type
@@ -4404,6 +4421,14 @@ namespace X_ROOT_NS::modules::core {
         type_t * operator() (name_t name)
         {
             return __type_at(name);
+        }
+
+        // Enums the types of a params generic parameter.
+        void types_at(name_t name, std::function<void (type_t *)> f)
+        {
+            __owner_object->__types_at(template_, args, name,
+                [&](typex_t typex) { f((type_t *)typex); }
+            );
         }
 
         // Transform type.
