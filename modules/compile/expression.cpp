@@ -2617,7 +2617,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // When need to box.
-        if (is_value_type(__ExpType) && env.is_ref())
+        if ((is_value_type(__ExpType) || is_enum(__ExpType)) && env.is_ref())
         {
             pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
             return;
@@ -3590,7 +3590,7 @@ namespace X_ROOT_NS::modules::compile {
 
         if (is_ref_type(type))
         {
-            if (is_value_type(exp_type))    // Box.
+            if (is_value_type(exp_type) || is_enum(exp_type))    // Box.
             {
                 expression_behaviour_t behaviour = exp->get_behaviour();
                 if (behaviour == expression_behaviour_t::new_)

@@ -3104,9 +3104,15 @@ namespace X_ROOT_NS::modules::core {
         if (to->this_gtype() == gtype_t::null)
             return false;
 
-        // An enum is converted to its own type, not to another enum.
-        if (is_enum(from) && is_enum(to))
+        // An enum is converted to its own type, not to another enum, nor to a number (and a
+        // number is not converted to an enum): the cast tells what is meant. It is boxed.
+        if (is_enum(from) || is_enum(to))
+        {
+            if (is_enum(from) && to == __XPool.get_object_type())
+                return true;
+
             return false;
+        }
 
         if (__is_mobject(from) || __is_mobject(to))
         {
