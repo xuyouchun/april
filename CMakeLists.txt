@@ -141,6 +141,10 @@ april_add_module(exec    "modules/exec")
 april_add_module(rt      "modules/rt")
 april_add_module(native  "modules/native")   # LLVM IR back end + native runtime support
 
+# The directory of the static libraries, where the executables of the native programs are linked
+# with them: it is searched when nothing else tells where they are.
+target_compile_definitions(native PRIVATE APRIL_BUILD_LIBS_DIR="${CMAKE_BINARY_DIR}")
+
 # Same archive order as the legacy link line; wrapped in --start-group /
 # --end-group on Linux so cross-archive references never depend on ordering.
 set(APRIL_MODULE_LIBS

@@ -496,6 +496,9 @@ namespace X_ROOT_NS::modules::april {
         bo.clang    = string_convert<char_t, char>(__options.native_clang);
         bo.libs_dir = string_convert<char_t, char>(__options.native_libs);
 
+        if (__options.verbose)
+            bo.log = [](const std::string & cmd) { std::cerr << "native: " << cmd << std::endl; };
+
         std::string exe = native::build_executable(bo);
 
         std::ofstream marker_out(marker.string(), std::ios::binary);
@@ -521,14 +524,23 @@ namespace X_ROOT_NS::modules::april {
             }
             catch (const logic_error_t<native::native_error_code_t> & e)
             {
-                std::wcerr << _T("native: ") << e.get_message()
-                           << _T(", the program is run with the interpreter") << std::endl;
+                // The output of the program is its own: tell why only when it is asked.
+                if (__options.verbose)
+                {
+                    std::wcerr << _T("native: ") << e.get_message()
+                               << _T("; the program is run with the interpreter") << std::endl;
+                }
+
                 interpret = true;
             }
             catch (const native::driver_error_t & e)
             {
-                std::cerr << "native: " << e.what()
-                          << ", the program is run with the interpreter" << std::endl;
+                if (__options.verbose)
+                {
+                    std::cerr << "native: " << e.what()
+                              << "; the program is run with the interpreter" << std::endl;
+                }
+
                 interpret = true;
             }
 

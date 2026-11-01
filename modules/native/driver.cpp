@@ -218,6 +218,11 @@ namespace X_ROOT_NS::modules::native {
             candidates.push_back(fs::path(dir) / ".." / "build");
         }
 
+    #ifdef APRIL_BUILD_LIBS_DIR
+        // The directory where april was built.
+        candidates.push_back(APRIL_BUILD_LIBS_DIR);
+    #endif
+
         candidates.push_back("libs");
         candidates.push_back("build");
 

@@ -386,6 +386,7 @@ Use \"april help [command] ...\" for more information about a command.      \n\
         parser.add<std::string>("clang", 0, "clang++ driver for native builds", false, "");
         parser.add<std::string>("libs", 0, "directory of april static libraries", false, "");
         parser.add("no-pie", 0, "link native executables with -no-pie");
+        parser.add("verbose", 'v', "tell why a program is not run native, show the commands of the build");
     }
 
     // Reads compile options.
@@ -401,6 +402,7 @@ Use \"april help [command] ...\" for more information about a command.      \n\
 
         options.execute_assembly = __read_string(parser, "execute");
         options.native_no_pie    = parser.exist("no-pie");
+        options.verbose          = parser.exist("verbose");
         options.native_clang     = __read_string(parser, "clang");
         options.native_libs      = __read_string(parser, "libs");
 

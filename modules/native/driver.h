@@ -92,7 +92,8 @@ namespace X_ROOT_NS::modules::native {
     std::string default_output_path(const std::string & ir_path);
 
     // Finds the directory of the static libraries: the first of
-    //   $APRIL_LIBS, <april dir>/../libs, <april dir>/../build, ./libs, ./build
+    //   $APRIL_LIBS, <april dir>/../libs, <april dir>/../build, the directory where april was built,
+    //   ./libs, ./build
     // that contains libnative.a. Throws driver_error_t listing what was tried.
     std::string find_libs_dir(const build_options_t & options);
 
