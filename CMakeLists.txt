@@ -114,11 +114,20 @@ target_link_libraries(april_options INTERFACE
 )
 
 #---------- ---------- ---------- ---------- ----------
-# Modules: april_add_module(<name> <source dir>) -> static library
+# Modules: april_add_module(<name> <source dir>) -> the objects (<name>_objects, compiled once) and a
+# static library of them: the native programs are linked with the static libraries. With
+# APRIL_SHARED_MODULES the objects of the modules are also made into shared libraries, which the
+# april executable uses (see below).
+
+option(APRIL_SHARED_MODULES "Build the modules of april as shared libraries (DLL, .so)" ON)
 
 function(april_add_module NAME DIR)
     file(GLOB __sources CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/${DIR}/*.cpp")
-    add_library(${NAME} STATIC ${__sources})
+    add_library(${NAME}_objects OBJECT ${__sources})
+    target_link_libraries(${NAME}_objects PUBLIC april_options)
+    set_target_properties(${NAME}_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+    add_library(${NAME} STATIC $<TARGET_OBJECTS:${NAME}_objects>)
     target_link_libraries(${NAME} PUBLIC april_options)
 endfunction()
 
@@ -143,7 +152,7 @@ april_add_module(native  "modules/native")   # LLVM IR back end + native runtime
 
 # The directory of the static libraries, where the executables of the native programs are linked
 # with them: it is searched when nothing else tells where they are.
-target_compile_definitions(native PRIVATE APRIL_BUILD_LIBS_DIR="${CMAKE_BINARY_DIR}")
+target_compile_definitions(native_objects PRIVATE APRIL_BUILD_LIBS_DIR="${CMAKE_BINARY_DIR}")
 
 # The JIT back end: a shared library with LLVM, that april loads when it is there. Without LLVM it
 # is not built, and the programs are built with clang, or run with the interpreter.
@@ -176,7 +185,46 @@ set(APRIL_MODULE_LIBS
     mm compile core lang_cs lang_lq rtlib exec rt native
 )
 
+# The shared libraries: the modules that the others are built on are one library, the compiler
+# (core, compile and the languages), the runtime (rt, rtlib). exec (many thousands of symbols
+# of templates) and native are in the executable.
+if(APRIL_SHARED_MODULES)
+    function(april_add_shared NAME)
+        set(__objects "")
+        foreach(__module IN LISTS ARGN)
+            list(APPEND __objects $<TARGET_OBJECTS:${__module}_objects>)
+        endforeach()
+
+        add_library(${NAME} SHARED ${__objects})
+        target_link_libraries(${NAME} PUBLIC april_options)
+
+        # Next to the april executable.
+        set_target_properties(${NAME} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
+
+        if(WIN32)
+            set_target_properties(${NAME} PROPERTIES PREFIX "")
+        endif()
+    endfunction()
+
+    april_add_shared(april_base     global common algorithm arch os lib mm)
+    april_add_shared(april_compiler core compile lang_cs lang_lq)
+    april_add_shared(april_runtime  rt rtlib)
+
+    target_link_libraries(april_compiler PUBLIC april_base)
+    target_link_libraries(april_runtime  PUBLIC april_compiler)
+endif()
+
 function(april_link_modules TARGET)
+    if(APRIL_SHARED_MODULES)
+        target_sources(${TARGET} PRIVATE
+            $<TARGET_OBJECTS:exec_objects> $<TARGET_OBJECTS:native_objects>)
+        target_link_libraries(${TARGET} PRIVATE april_runtime april_compiler april_base)
+        target_link_libraries(${TARGET} PRIVATE ${CMAKE_DL_LIBS})
+        return()
+    endif()
+
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(${TARGET} PRIVATE
             -Wl,--start-group ${APRIL_MODULE_LIBS} -Wl,--end-group)
@@ -205,9 +253,9 @@ add_custom_command(
     VERBATIM
 )
 
-target_sources(lang_cs PRIVATE "${__csec_file}")
+target_sources(lang_cs_objects PRIVATE "${__csec_file}")
 set_source_files_properties("${__csec_file}" PROPERTIES HEADER_FILE_ONLY TRUE)
-target_include_directories(lang_cs PRIVATE "${__csec_dir}")
+target_include_directories(lang_cs_objects PRIVATE "${__csec_dir}")
 
 #---------- ---------- ---------- ---------- ----------
 # Executables
