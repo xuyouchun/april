@@ -3890,6 +3890,16 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
+            // Used by its members (new S().X): there is no destination, it is a temp variable.
+            if (__is_left_member(this))
+            {
+                local_variable_t * variable = ctx.define_temp_local(type);
+                __compile_local_variable(ctx, pool, variable);
+
+                if (is_effective(ctx, this->parent))
+                    pool.append<x_push_duplicate_xil_t>();
+            }
+
             // The struct has no constructor: its memory is zero, like a new object.
             pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::zero);
         }

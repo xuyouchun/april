@@ -1424,7 +1424,7 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             ctx.stack.push<rt_stack_unit_t *>(
-                (rt_stack_unit_t *)ctx.stack.lp() - __This->__offset - 1
+                (rt_stack_unit_t *)ctx.stack.lp() - __This->__offset - __stack_stub_size
             );
 
         __EndExecute()
@@ -3618,6 +3618,8 @@ namespace X_ROOT_NS::modules::exec {
                 (assembly_analyzer_t &)ctx, ctx.stack.top() - __This->__param_unit_size
             );
 
+            context.heap = ctx.heap;
+            context.exec_env = &ctx.env;
             context.caller_this = __This->__this_offset == __no_this_offset? nullptr
                     : *(void **)((rt_stack_unit_t *)ctx.stack.lp() - __This->__this_offset
                                                                - __stack_stub_size);

@@ -39,8 +39,13 @@ internal static class Internal
     [Internal]
     public static extern Void Tuple_SetRange(Type type, Ptr data);
 
+    // Makes a tuple in the heap, from the items.
     [Internal]
-    public static extern Ptr Tuple_Get(Type type, Object tuple, Int32 index);
+    public static extern Object Tuple_Create(Type type, Ptr data);
+
+    // Returns the item of the tuple that is the this of the method that calls it.
+    [Internal]
+    public static extern Object Tuple_Get(Type type, Int32 index);
 
     [Internal]
     public static extern Int32 Tuple_GetCount(Type type);

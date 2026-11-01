@@ -796,9 +796,12 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             // Modifier not valid for interface members.
+            // A static method (with a body) is allowed: a function of the interface, like Create.
+            bool static_method = member_type == m_t::method && member->is_static();
+
             const char_t * modifier = 
                 member->is_virtual()?   _T("virtual") :
-                member->is_static()?    _T("static") :
+                (member->is_static() && !static_method)?    _T("static") :
                 member->is_abstract()?  _T("abstract") :
                 member->is_sealed()?    _T("sealed") :
                 member->is_const()?     _T("const") :
@@ -817,7 +820,7 @@ namespace X_ROOT_NS::modules::compile {
             if (member_type == m_t::method)
             {
                 method_t * method = (method_t *)member;
-                if (method->body != nullptr)
+                if (method->body != nullptr && !method->is_static())
                 {
                     this->__log(ce, c_t::interface_members_cannot_have_defination);
                     return false;

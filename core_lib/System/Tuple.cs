@@ -6,14 +6,29 @@
 
 ////////// ////////// ////////// ////////// //////////
 
-[Internal]
-public interface ITuple<TItems ...>
+// The tuples of any count and types: Tuple<TItems ...> is a struct, ITuple<TItems ...> is its
+// interface, that is a reference type: a tuple that is made by ITuple<TItems ...>.Create is made
+// in the heap, and it is never boxed.
+
+// The base of all tuples, to use a tuple without knowing its items.
+public interface ITuple
 {
     Int32 Count { get; }
 
+    // Returns the item of the index, a value is boxed.
     Object Get(Int32 index);
+}
 
-    T Get<T>(Int32 index);
+////////// ////////// ////////// ////////// //////////
+
+[Internal]
+public interface ITuple<TItems ...> : ITuple
+{
+    // Makes a tuple in the heap, as a reference type.
+    static ITuple<TItems ...> Create(TItems ... items)
+    {
+        return (ITuple<TItems ...>)Internal.Tuple_Create(typeof(Tuple<TItems ...>), items);
+    }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -35,11 +50,9 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
 
     public Object Get(Int32 index)
     {
-        return null;
-    }
+        if (index < 0 || index >= Count)
+            throw new OutOfRangeException();
 
-    public T Get<T>(Int32 index)
-    {
-        return default(T);
+        return Internal.Tuple_Get(typeof(__SelfType), index);
     }
 }

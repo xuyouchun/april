@@ -60,7 +60,7 @@ namespace X_ROOT_NS::modules::native {
         // Runtime library functions that need the metadata of the program (an assembly
         // analyzer), which native programs do not have yet.
         const char * const __metadata_libfuncs[] = {
-            "Tuple_SetRange", "Tuple_Get", "Tuple_GetCount",
+            "Tuple_SetRange", "Tuple_Create", "Tuple_Get", "Tuple_GetCount",
         };
 
         // Converts to a narrow string.

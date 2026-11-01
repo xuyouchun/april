@@ -5,6 +5,8 @@
 5
 6
 7
+9
+7
 
 */
 
@@ -21,6 +23,13 @@ struct S
         Object o = this;
         return o;
     }
+}
+
+struct Point
+{
+    public int X;
+
+    public int Twice() { return 7; }
 }
 
 struct G<T>
@@ -64,5 +73,9 @@ class Program
         impl.Value = 7;
         IGet<String> iget = impl;
         Console.WriteLine(iget.Get());
+
+        // A struct that is made and used at once, without a variable.
+        Console.WriteLine(new Point().X + 9);
+        Console.WriteLine(new Point().Twice());
     }
 }

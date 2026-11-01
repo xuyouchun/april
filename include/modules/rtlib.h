@@ -87,6 +87,12 @@ namespace X_ROOT_NS::modules::rtlib {
         rt_stack_unit_t     * argument;
         // The this of the method that calls the function (the struct that a constructor makes).
         void                * caller_this     = nullptr;
+
+        // The heap that the objects are allocated in.
+        rt_heap_t           * heap            = nullptr;
+
+        // The environment of the execution (the analyzer is that of the calling assembly).
+        analyzer_env_t      * exec_env        = nullptr;
         int                   ret_code        = 0;
         string_t              ret_message;
 
@@ -164,6 +170,7 @@ namespace X_ROOT_NS::modules::rtlib {
 
     // Tuple functions.
     __DefineFunc(tuple_set_range);
+    __DefineFunc(tuple_create);
     __DefineFunc(tuple_get);
     __DefineFunc(tuple_get_count);
 

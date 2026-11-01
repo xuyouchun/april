@@ -1312,6 +1312,9 @@ namespace X_ROOT_NS::modules::rt {
         // Returns whether it's a override method.
         virtual bool is_override() = 0;
 
+        // Returns whether it's a static method.
+        virtual bool is_static() = 0;
+
         // Compares to prototype, returns true if equals.
         virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
                                             const generic_param_manager_t * gp_mgr) = 0;
@@ -1363,6 +1366,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns whether it's a override method.
         virtual bool is_override() override { return false; }
+
+        // Returns whether it's a static method.
+        virtual bool is_static() override { return false; }
 
         // Compares to prototype, returns true if equals.
         virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
@@ -1661,6 +1667,9 @@ namespace X_ROOT_NS::modules::rt {
         // Returns whether it's a override method.
         virtual bool is_override() override;
 
+        // Returns whether it's a static method.
+        virtual bool is_static() override;
+
         // Compares to prototype, returns true if equals.
         virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
                                             const generic_param_manager_t * gp_mgr) override;
@@ -1718,6 +1727,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns whether it's a override method.
         virtual bool is_override() override;
+
+        // Returns whether it's a static method.
+        virtual bool is_static() override;
 
         // Compares to prototype, returns true if equals.
         virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,

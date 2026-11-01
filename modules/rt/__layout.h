@@ -481,7 +481,7 @@ namespace X_ROOT_NS::modules::rt {
         __items_t __items;
 
         msize_t __current_offset = 0;
-        msize_t __extends_params_offset = -1;
+        int __extends_params_offset = -1;
     };
 
     ////////// ////////// ////////// ////////// //////////

@@ -1139,6 +1139,17 @@ namespace X_ROOT_NS::modules::rt {
             if (method_ref == ref_t::null)
                 return true;
 
+            // The static methods of the interfaces are not virtual: their slots are empty.
+            if (method->is_static())
+            {
+                _A(index <= vfs.size());
+                if (index == vfs.size())
+                    vfs.push_back(__rt_interface_vfunction_t { nullptr, 0, 0 });
+
+                index++;
+                return true;
+            }
+
             method_prototype_t prototype;
             analyzer.get_prototype(method_ref, &prototype);
 
@@ -2104,6 +2115,40 @@ namespace X_ROOT_NS::modules::rt {
         return __is_override((decorate_t)(*this)->decorate);
     }
 
+    // Returns whether it's a static method.
+    bool rt_method_t::is_static()
+    {
+        return ((decorate_t)(*this)->decorate).is_static;
+    }
+
+    // Returns whether the return types are the same: when the types of the arguments of a generic
+    // type are params (ITuple<TItems ...>), the prototype has a place holder instead of them, it
+    // is the same type if the templates are the same.
+    static bool __is_same_return_type(rt_type_t * prototype_type, rt_type_t * type)
+    {
+        if (prototype_type == type)
+            return true;
+
+        if (prototype_type == nullptr || type == nullptr
+                || prototype_type->get_kind() != rt_type_kind_t::generic
+                || type->get_kind() != rt_type_kind_t::generic)
+            return false;
+
+        rt_generic_type_t * g1 = (rt_generic_type_t *)prototype_type;
+        rt_generic_type_t * g2 = (rt_generic_type_t *)type;
+
+        if (g1->template_ != g2->template_)
+            return false;
+
+        for (int k = 0, count = g1->atype_count(); k < count; k++)
+        {
+            if (is_place_holder(g1->atypes[k]))
+                return true;
+        }
+
+        return false;
+    }
+
     // Compares to prototype, returns true if equals.
     bool rt_method_t::compare_to(analyzer_env_t & env, method_prototype_t & prototype,
                                         const generic_param_manager_t * gp_mgr)
@@ -2122,7 +2167,7 @@ namespace X_ROOT_NS::modules::rt {
 
         assembly_analyzer_t analyzer(env, rt_assembly, gp_mgr);
 
-        if (prototype.return_type != analyzer.get_type(mt.type))
+        if (!__is_same_return_type(prototype.return_type, analyzer.get_type(mt.type)))
             return false;
 
         if (prototype.param_count() > 0)
@@ -2305,6 +2350,14 @@ namespace X_ROOT_NS::modules::rt {
         _A(template_ != nullptr);
 
         return template_->is_override();
+    }
+
+    // Returns whether it's a static method.
+    bool rt_generic_method_t::is_static()
+    {
+        _A(template_ != nullptr);
+
+        return template_->is_static();
     }
 
     // Returns a description of this method.

@@ -87,6 +87,7 @@ namespace X_ROOT_NS::modules::rtlib {
 
             // Tuple functions.
             __append_libfunc(_T("Tuple_SetRange"),          tuple_set_range);
+            __append_libfunc(_T("Tuple_Create"),            tuple_create);
             __append_libfunc(_T("Tuple_Get"),               tuple_get);
             __append_libfunc(_T("Tuple_GetCount"),          tuple_get_count);
 
