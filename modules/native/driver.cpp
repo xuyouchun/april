@@ -74,25 +74,32 @@ namespace X_ROOT_NS::modules::native {
         }
     #endif
 
+        // Returns the path of the running executable.
+        std::string __executable_path()
+        {
+            std::string path;
+            char buffer[4096];
+
+        #ifdef _WIN32
+            DWORD n = GetModuleFileNameA(nullptr, buffer, (DWORD)sizeof(buffer));
+            if (n > 0 && n < sizeof(buffer))
+                path.assign(buffer, (size_t)n);
+        #else
+            ssize_t n = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
+            if (n > 0)
+                path.assign(buffer, (size_t)n);
+        #endif
+
+            return path;
+        }
+
         // Returns the directory of the running april executable.
         std::string __april_dir(const build_options_t & options)
         {
             std::string path = options.april_path;
 
             if (path.empty())
-            {
-                char buffer[4096];
-
-            #ifdef _WIN32
-                DWORD n = GetModuleFileNameA(nullptr, buffer, (DWORD)sizeof(buffer));
-                if (n > 0 && n < sizeof(buffer))
-                    path.assign(buffer, (size_t)n);
-            #else
-                ssize_t n = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
-                if (n > 0)
-                    path.assign(buffer, (size_t)n);
-            #endif
-            }
+                path = __executable_path();
 
             if (path.empty())
                 return std::string();
@@ -161,6 +168,12 @@ namespace X_ROOT_NS::modules::native {
         }
 
         return digits > 0? major : -1;
+    }
+
+    // Returns the path of the running executable.
+    std::string executable_path()
+    {
+        return __executable_path();
     }
 
     // "dir/name.ll" -> "dir/name.native".
@@ -249,6 +262,7 @@ namespace X_ROOT_NS::modules::native {
     {
         return {
             clang, "-c", "-x", "ir", ir_path,
+            "-Wno-override-module",     // The triple of the IR is that of the host.
             "-O" + std::to_string(std::min(3, std::max(0, optimize))),
             "-o", object_path,
         };

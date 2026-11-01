@@ -216,15 +216,24 @@ namespace X_ROOT_NS::modules::april {
     ////////// ////////// ////////// ////////// /////////
     // april_xcompiler_t
 
+    // Gets assembly name.
+    static string_t __get_assembly_name(const lib::path_t & path);
+
     // Constructor.
     april_xcompiler_t::april_xcompiler_t(const __compile_options_t & options)
-        : __options(options), __xheap(_T("april_xcompiler")), __controller(options)
+        : __options(options), __xheap(_T("april_xcompiler")), __controller(__options)
     { }
 
     // Compiles.
     bool april_xcompiler_t::compile()
     {
-        switch (__determine_compile_type())
+        return __compile_type(__prepare());
+    }
+
+    // Compiles the files of the type.
+    bool april_xcompiler_t::__compile_type(compile_file_type_t type)
+    {
+        switch (type)
         {
             case compile_file_type_t::solution:
                 return __compile_solutions();
@@ -241,67 +250,236 @@ namespace X_ROOT_NS::modules::april {
         }
     }
 
-    // Runs specified assembly.
-    bool april_xcompiler_t::run(const string_t & execute_assembly)
+    // Determines the compile type, and adds System.apl.
+    compile_file_type_t april_xcompiler_t::__prepare()
     {
-        try
-        {
-            if (!this->compile())
-                return false;
-        }
-        catch (const logic_error_t<__e_t> & e)
-        {
-            if (e.code != __e_t::no_files)
-                throw e;
-        }
+        compile_file_type_t type = __determine_compile_type();
 
-        return this->__run(execute_assembly);
+        if (!__is_system_project())
+            __record_assembly(lib::path_t(find_system_assembly().string()));
+
+        return type;
     }
 
-    // Compiles, then generates the LLVM IR of the specified assembly.
-    bool april_xcompiler_t::native(const string_t & execute_assembly,
-                                   const april_options_t::run_options_t * native_options)
+    // Returns whether it is the project System that is compiled.
+    bool april_xcompiler_t::__is_system_project()
     {
-        try
-        {
-            if (!this->compile())
-                return false;
-        }
-        catch (const logic_error_t<__e_t> & e)
-        {
-            if (e.code != __e_t::no_files)
-                throw e;
-        }
+        bool found = false;
 
-        this->__native(execute_assembly, native_options);
-        return true;
+        __each_files([&](const __path_t & path) {
+            compile_file_type_t type = file_type_of(path);
+
+            if (type == compile_file_type_t::project)
+            {
+                project_config_t * config = (project_config_t *)parse_config(&__xheap, path);
+                found = found || config->name == _T("System");
+            }
+            else if (type == compile_file_type_t::solution)
+            {
+                solution_config_t * config = (solution_config_t *)parse_config(&__xheap, path);
+                for (project_config_t * project_config : config->projects)
+                    found = found || project_config->name == _T("System");
+            }
+        });
+
+        return found;
     }
 
-    // Generates the LLVM IR of the specified assembly, next to the assembly file;
-    // optionally builds and runs the executable.
-    void april_xcompiler_t::__native(const string_t & execute_assembly,
-                                     const april_options_t::run_options_t * native_options)
+    ////////// ////////// ////////// ////////// /////////
+    // The builds of the programs that are run, or that are built native.
+
+    namespace fs = std::filesystem;
+
+    // The time of a file as a number.
+    static uint64_t __stamp_of(const fs::path & path)
     {
-        __cassembly_t * main_cassembly;
+        std::error_code ec;
+        auto time = fs::last_write_time(path, ec);
 
-        if (execute_assembly.empty())
-            main_cassembly = __pick_default_execute_assembly();
-        else
-            main_cassembly = __get_assembly(execute_assembly);
+        return ec? 0 : (uint64_t)time.time_since_epoch().count();
+    }
 
-        __rt_assembly_provider_t provider(main_cassembly->get_assembly_path());
+    // Adds the size and the time of a file.
+    static void __add_stamp(hasher_t & hasher, const fs::path & path)
+    {
+        std::error_code ec;
+        hasher.add(path.filename().string());
+        hasher.add((uint64_t)fs::file_size(path, ec));
+        hasher.add(__stamp_of(path));
+    }
+
+    // Returns the key of the build.
+    std::string april_xcompiler_t::__cache_key(compile_file_type_t type)
+    {
+        hasher_t hasher;
+        hasher.add(std::string("april-build-1"));
+
+        // The compiler: a program that is built by another one is built again.
+        std::string exe = native::executable_path();
+        if (!exe.empty())
+            __add_stamp(hasher, exe);
+
+        hasher.add((uint64_t)__options.optimize);
+        hasher.add(string_convert<char_t, char>(__options.execute_assembly));
+        hasher.add((uint64_t)__options.native_no_pie);
+        hasher.add(string_convert<char_t, char>(__options.native_clang));
+        hasher.add(string_convert<char_t, char>(__options.native_libs));
+
+        // The libraries of the executables.
+        try
+        {
+            native::build_options_t bo;
+            bo.libs_dir = string_convert<char_t, char>(__options.native_libs);
+
+            for (const std::string & lib : native::list_static_libs(native::find_libs_dir(bo)))
+                __add_stamp(hasher, lib);
+        }
+        catch (const native::driver_error_t &)
+        {
+            // There is no native build then.
+        }
+
+        // The assemblies that are given, and System.apl.
+        for (const lib::path_t & path : __assemblies)
+            hasher.add_file(path.string());
+
+        // The sources: the files, and the files of the projects and of the solutions.
+        __each_files([&](const __path_t & path) {
+            compile_file_type_t file_type = file_type_of(path);
+            if (file_type == compile_file_type_t::assembly)
+                return;
+
+            hasher.add_file(path.string());
+
+            if (file_type == compile_file_type_t::source)
+                return;
+
+            std::vector<std::string> sources;
+            std::error_code ec;
+
+            for (fs::recursive_directory_iterator it(fs::path(path.string()).parent_path(), ec), end;
+                        !ec && it != end; it.increment(ec))
+            {
+                std::string ext = it->path().extension().string();
+                if (it->is_regular_file(ec) && (ext == ".cs" || ext == ".lq"))
+                    sources.push_back(it->path().string());
+            }
+
+            std::sort(sources.begin(), sources.end());
+            for (const std::string & source : sources)
+                hasher.add_file(source);
+        });
+
+        return hasher.hex();
+    }
+
+    // Compiles into the directory of the builds.
+    bool april_xcompiler_t::__prepare_build(__build_t & build)
+    {
+        compile_file_type_t type = __prepare();
+
+        fs::path dir = cache_root() / __cache_key(type);
+        fs::path manifest = dir / "manifest.txt";
+        std::error_code ec;
+
+        if (!fs::is_regular_file(manifest, ec))
+        {
+            fs::remove_all(dir, ec);
+            fs::create_directories(dir, ec);
+
+            if (ec)
+                throw _ED(__e_t::cache_directory_failed, dir.wstring());
+
+            if (type != compile_file_type_t::none)
+            {
+                __options.output_path = dir.wstring();
+
+                if (!__compile_type(type))
+                {
+                    fs::remove_all(dir, ec);
+                    return false;
+                }
+            }
+
+            // The assembly that is run, and the assemblies that are made.
+            __cassembly_t * main_cassembly;
+            if (__options.execute_assembly.empty())
+                main_cassembly = __pick_default_execute_assembly();
+            else
+                main_cassembly = __get_assembly(__options.execute_assembly);
+
+            std::ofstream out(manifest.string(), std::ios::binary);
+            out << "main=" << main_cassembly->get_assembly_path().string() << "\n";
+
+            for (__cassembly_t * ca : __cassemblies)
+            {
+                if (ca->from == __from_project)
+                {
+                    out << "asm=" << string_convert<char_t, char>(ca->name) << "\t"
+                        << ca->get_assembly_path().string() << "\n";
+                }
+            }
+        }
+
+        // The build: the assemblies of the manifest, and those that were given.
+        build.dir = lib::path_t(dir.string());
+
+        std::ifstream in(manifest.string(), std::ios::binary);
+        std::string line;
+
+        while (std::getline(in, line))
+        {
+            if (line.compare(0, 5, "main=") == 0)
+            {
+                build.main = lib::path_t(line.substr(5));
+            }
+            else if (line.compare(0, 4, "asm=") == 0)
+            {
+                size_t tab = line.find('\t');
+                if (tab != std::string::npos)
+                {
+                    build.assemblies.push_back(std::make_pair(
+                        string_convert<char, char_t>(line.substr(4, tab - 4)),
+                        lib::path_t(line.substr(tab + 1))
+                    ));
+                }
+            }
+        }
 
         for (__cassembly_t * ca : __cassemblies)
         {
-            provider.append(ca->name, ca->get_assembly_path());
+            if (ca->from == __from_assembly)
+                build.assemblies.push_back(std::make_pair(ca->name, ca->get_assembly_path()));
         }
+
+        return true;
+    }
+
+    // Returns the executable of the build.
+    std::string april_xcompiler_t::__native_executable(const __build_t & build)
+    {
+        fs::path dir(build.dir.string());
+        fs::path marker = dir / "native.txt";
+        std::error_code ec;
+
+        // It was built.
+        {
+            std::ifstream in(marker.string(), std::ios::binary);
+            std::string exe;
+
+            if (std::getline(in, exe) && fs::is_regular_file(exe, ec))
+                return exe;
+        }
+
+        __rt_assembly_provider_t provider(build.main);
+        for (auto & assembly : build.assemblies)
+            provider.append(assembly.first, assembly.second);
 
         // Only reads metadata: no managed objects are created, any heap will do.
         rt_context_t rt_ctx(&__xheap, create_heap(&__xheap), &provider);
         std::string ir = native::generate_ir(rt_ctx);
 
-        lib::path_t ir_path = main_cassembly->get_assembly_path();
-        ir_path.replace_extension(_T(".ll"));
+        fs::path ir_path = dir / "program.ll";
 
         std::ofstream out(ir_path.string(), std::ios::binary);
         if (!out)
@@ -310,93 +488,115 @@ namespace X_ROOT_NS::modules::april {
         out << ir;
         out.close();
 
-        bool build = native_options != nullptr
-                        && (native_options->native_build || native_options->native_run);
-        bool run   = native_options != nullptr && native_options->native_run;
-
-        if (!build)
-        {
-            std::wcout << _T("native: wrote ") << ir_path.wstring() << std::endl
-                       << _T("native: add --build to build the executable, or use ")
-                       << _T("tools/april-native-link.sh ") << ir_path.wstring() << std::endl;
-            return;
-        }
-
-        // `april run --native` is quiet about the build steps, like `april run`.
-        if (!run)
-            std::wcout << _T("native: wrote ") << ir_path.wstring() << std::endl;
-
         native::build_options_t bo;
         bo.ir_path  = ir_path.string();
-        bo.optimize = this->__options.optimize;
-        bo.no_pie   = native_options->native_no_pie;
-        bo.clang    = string_convert<char_t, char>(native_options->native_clang);
-        bo.libs_dir = string_convert<char_t, char>(native_options->native_libs);
+        bo.optimize = __options.optimize;
+        bo.no_pie   = __options.native_no_pie;
+        bo.clang    = string_convert<char_t, char>(__options.native_clang);
+        bo.libs_dir = string_convert<char_t, char>(__options.native_libs);
 
-        if (!run)
-            bo.log = [](const std::string & cmd) { std::cout << "native: " << cmd << std::endl; };
+        std::string exe = native::build_executable(bo);
 
-        // The default output of a program built to run: next to the assembly, ".native".
-        std::string exe_path;
-        try
-        {
-            exe_path = native::build_executable(bo);
-        }
-        catch (const native::driver_error_t & e)
-        {
-            std::cerr << "native: error: " << e.what() << std::endl;
-            std::exit(1);
-        }
+        std::ofstream marker_out(marker.string(), std::ios::binary);
+        marker_out << exe << "\n";
 
-        // -o names the executable if given.
-        if (!this->__options.output_path.empty() && !run)
-        {
-            std::string o = string_convert<char_t, char>(this->__options.output_path);
-            std::error_code ec;
-            std::filesystem::rename(exe_path, o, ec);
-            if (ec)
-                std::cerr << "native: cannot move to '" << o << "': " << ec.message() << std::endl;
-            else
-                exe_path = o;
-        }
-
-        if (!run)
-        {
-            std::cout << "native: built " << exe_path << std::endl;
-            return;
-        }
-
-        int code;
-        try
-        {
-            code = native::run_executable(exe_path);
-        }
-        catch (const native::driver_error_t & e)
-        {
-            std::cerr << "native: error: " << e.what() << std::endl;
-            std::exit(1);
-        }
-
-        if (code != 0)
-            std::exit(code);
+        return exe;
     }
 
-    // Runs specified assembly.
-    bool april_xcompiler_t::__run(const string_t & execute_assembly)
+    // Runs the program.
+    bool april_xcompiler_t::run(bool interpret)
     {
-        __cassembly_t * main_cassembly;
+        __build_t build;
+        if (!__prepare_build(build))
+            return false;
 
-        if (execute_assembly.empty())
-            main_cassembly = __pick_default_execute_assembly();
-        else
-            main_cassembly = __get_assembly(execute_assembly);
-
-        __rt_assembly_provider_t provider(main_cassembly->get_assembly_path());
-
-        for (__cassembly_t * ca : __cassemblies)
+        if (!interpret)
         {
-            provider.append(ca->name, ca->get_assembly_path());
+            std::string exe;
+
+            try
+            {
+                exe = __native_executable(build);
+            }
+            catch (const logic_error_t<native::native_error_code_t> & e)
+            {
+                std::wcerr << _T("native: ") << e.get_message()
+                           << _T(", the program is run with the interpreter") << std::endl;
+                interpret = true;
+            }
+            catch (const native::driver_error_t & e)
+            {
+                std::cerr << "native: " << e.what()
+                          << ", the program is run with the interpreter" << std::endl;
+                interpret = true;
+            }
+
+            if (!interpret)
+            {
+                int code = native::run_executable(exe);
+                if (code != 0)
+                    std::exit(code);
+
+                return true;
+            }
         }
+
+        return __run_interpreter(build);
+    }
+
+    // Compiles, and builds a native executable.
+    bool april_xcompiler_t::compile_native()
+    {
+        string_t output = __options.output_path;
+
+        __build_t build;
+        if (!__prepare_build(build))
+            return false;
+
+        std::string exe;
+        try
+        {
+            exe = __native_executable(build);
+        }
+        catch (const native::driver_error_t & e)
+        {
+            std::cerr << "native: error: " << e.what() << std::endl;
+            return false;
+        }
+
+        // -o is the executable, or the directory of it.
+        fs::path target = string_convert<char_t, char>(output);
+        std::error_code ec;
+
+        std::string name = build.main.stem().string();
+        std::string ext = fs::path(exe).extension().string();
+        if (ext != ".exe")
+            ext.clear();
+
+        if (target.empty())
+            target = fs::current_path() / (name + ext);
+        else if (fs::is_directory(target, ec))
+            target = target / (name + ext);
+
+        fs::copy_file(exe, target, fs::copy_options::overwrite_existing, ec);
+        if (ec)
+        {
+            std::cerr << "native: cannot write '" << target.string() << "': "
+                      << ec.message() << std::endl;
+            return false;
+        }
+
+        std::cout << "native: built " << target.string() << std::endl;
+        return true;
+    }
+
+    // Runs the main assembly of the build with the interpreter.
+    bool april_xcompiler_t::__run_interpreter(const __build_t & build)
+    {
+        __rt_assembly_provider_t provider(build.main);
+
+        for (auto & assembly : build.assemblies)
+            provider.append(assembly.first, assembly.second);
 
         // Uses the garbage collected heap by default;
         // APRIL_GC=0 switches back to the never-freeing default heap.
@@ -419,6 +619,10 @@ namespace X_ROOT_NS::modules::april {
             compile_file_type_t file_type0 = file_type_of(path);
             if (file_type0 == compile_file_type_t::assembly)
             {
+                // System.apl is used by every program, it is added by the compiler.
+                if (__get_assembly_name(path) == _T("System"))
+                    throw _ED(__e_t::system_assembly_specified, path);
+
                 __record_assembly(path);
             }
             else

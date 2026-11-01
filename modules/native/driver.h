@@ -85,6 +85,9 @@ namespace X_ROOT_NS::modules::native {
     // ("clang version 17.0.6 ..."); returns -1 if it does not look like clang.
     int parse_clang_major_version(const std::string & version_output);
 
+    // Returns the path of the running executable ("" if it cannot be known).
+    std::string executable_path();
+
     // Returns the default executable path of an IR path: "dir/name.ll" -> "dir/name.native".
     std::string default_output_path(const std::string & ir_path);
 

@@ -54,7 +54,7 @@
 ```
 april compile --native
   .cs ─► XIL (现有) ─► 闭包+单态化 ─► LLVM IR ─► 优化 ─► .o ─► 链接 (runtime 静态库) ─► 可执行文件
-april run          （解释器，保留作开发模式与差分测试基准）
+april run          （默认：编译成 native 后运行，构建结果缓存；`--interpret` 用解释器，保留作开发模式与差分测试基准）
 ```
 
 ### 4.2 XIL → LLVM IR
@@ -137,21 +137,23 @@ AOT 调用点：`alloca [N x i64]` → 按声明顺序存入各参数 → 调用
 | IR 生成器（只依赖标准库，带结构校验） | `modules/native/ll_builder.h` | 完成，`test/native_standalone` 35 项断言通过（ASAN/UBSAN） |
 | 原生运行时支撑（C ABI：init / 按名查 rtlib 函数 / 调用） | `modules/native/native_abi.h`、`native_rt.cpp` | 完成，通过编译检查，**未运行** |
 | XIL → IR 降级 + 可达方法闭包 | `modules/native/native.cpp`、`include/modules/native.h` | 完成，通过编译检查，**未运行** |
-| CLI：`april native <源文件/项目>` → 在程序集旁生成 `.ll` | `modules/april/*` | 完成，通过编译检查，**未运行** |
+| CLI：`april compile --native`：生成 `.ll` 并构建可执行文件（中间产物在缓存目录） | `modules/april/*` | 完成，已运行 |
 | 链接脚本（备用） | `tools/april-native-link.sh` | 完成，**未运行** |
 | 构建/运行驱动：clang 版本检查、编译 `.ll`、链接静态库、运行并转发退出码 | `modules/native/driver.{h,cpp}` | 完成，`test/native_standalone/driver_test.cpp`（假 clang++ 脚本）48 项通过；真实 clang **未运行** |
-| CLI：`april native --build`、`april run --native` | `modules/april/*` | 完成，通过编译检查，**未运行** |
+| CLI：`april run` 默认 native（缓存），不支持的程序回退到解释器 | `modules/april/*` | 完成，已运行 |
 
 **M1 支持的子集**：静态方法；基本类型（整数、浮点、bool、char）与字符串；局部变量与实参；`push`（常量/实参/局部）、`pop`（局部/实参/丢弃）、静态调用、内部函数（`Console_*`、`Math_*` 等 rtlib）调用、`ret`。其余一律在编译期报错，错误信息指出不支持的 XIL，例如 `native: unsupported xil: push field`。
 
 **用法**（需要先构建 april，且本机有 clang 15+）：
 
 ```sh
-bin/april native test/unittest/basic/simple.cs            # 只生成 .ll（位置见输出）
-bin/april native --build test/unittest/basic/simple.cs    # 生成 .ll → clang++ 编译 → 链接，得到 <程序集>.native
-bin/april native --build -o prog -O2 simple.cs            # -o 指定可执行文件，-O 为 clang 优化级别
-bin/april run --native simple.cs                          # 构建并运行，转发退出码
+bin/april run test/unittest/basic/simple.cs               # 构建（有缓存则跳过）并运行，转发退出码
+bin/april run --interpret simple.cs                       # 用解释器运行
+bin/april compile --native simple.cs                      # 生成可执行文件 <程序集名>(.exe) 在当前目录
+bin/april compile --native -o prog -O2 simple.cs          # -o 指定可执行文件，-O 为 clang 优化级别
 ```
+
+System.apl 默认包含，不能在命令行里指定（找不到时设置 `APRIL_SYSTEM`；依次找 `$APRIL_SYSTEM`、`<april>/System.apl`、`<april>/../System.apl`、`<april>/../lib/System.apl`、`./System.apl`）。`april run` 的构建放在缓存目录（`$APRIL_CACHE`，默认 Windows 为 `%LOCALAPPDATA%\april\cache`，否则 `$XDG_CACHE_HOME/april` 或 `~/.cache/april`），以源文件内容、编译器、System.apl、静态库和选项为键，没有变化就不重新编译。程序用到 native 后端还不支持的功能，或没有 clang，会在 stderr 提示后回退到解释器。
 
 选项：`--clang <path>`（默认 `$CLANG`，再默认 `clang++`）、`--libs <dir>`（静态库目录，默认依次找 `$APRIL_LIBS`、`<april>/../libs`、`<april>/../build`）、`--no-pie`（链接报重定位错误时使用）。构建时会打印执行的 clang 命令；clang 对 `.ll` 的报错带行号。需要 clang 15+（版本不够会直接报错）。
 

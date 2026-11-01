@@ -87,18 +87,17 @@ namespace X_ROOT_NS::modules::april {
         // Constructor.
         april_xcompiler_t(const __compile_options_t & options);
 
-        // Compiles, returns true if succeed.
+        // Compiles, returns true if succeed: the assemblies are made in the output directory.
         bool compile();
 
-        // Run the specified assembly.
-        bool run(const string_t & execute_assembly = _T(""));
+        // Compiles and builds a native executable: the output is its path. Returns true if
+        // succeed.
+        bool compile_native();
 
-        // Compiles, then generates the LLVM IR (.ll) of the specified assembly,
-        // next to the assembly file. Returns true if succeed.
-        // With options.native_build the executable is built with clang; with
-        // options.native_run it is also run, and the process exits with its exit code.
-        bool native(const string_t & execute_assembly = _T(""),
-                    const april_options_t::run_options_t * native_options = nullptr);
+        // Runs the program: it is built, native, in the directory of the builds, and it is
+        // built again only when the sources (or the compiler) have changed. It is run with
+        // the interpreter if `interpret` is true, or when it cannot be built native.
+        bool run(bool interpret = false);
 
         X_TO_STRING_IMPL(_T("april_xcompiler_t"))
 
@@ -108,11 +107,21 @@ namespace X_ROOT_NS::modules::april {
         class __project_cassembly_t;
         class __method_compile_controller_t;
 
-        const __compile_options_t & __options;
+        __compile_options_t __options;
         std::vector<lib::path_t> __assemblies;
 
-        // Determines the compile type.
+        // Determines the compile type: the assemblies that are given are recorded.
         compile_file_type_t __determine_compile_type();
+
+        // Determines the compile type, and adds System.apl, that every program uses, except
+        // when it is what is compiled.
+        compile_file_type_t __prepare();
+
+        // Returns whether it is the project System that is compiled.
+        bool __is_system_project();
+
+        // Compiles the files of the type.
+        bool __compile_type(compile_file_type_t type);
 
         // Enums all files.
         template<typename f_t> void __each_files(f_t f);
@@ -142,12 +151,25 @@ namespace X_ROOT_NS::modules::april {
         // Records a project.
         __project_cassembly_t * __record_project(project_t * project);
 
-        // Runs the specified assembly.
-        bool __run(const string_t & execute_assembly);
+        // A build in the directory of the builds: the assemblies, and the executable.
+        struct __build_t
+        {
+            lib::path_t     dir;                // The directory of the build.
+            lib::path_t     main;               // The assembly that is run.
+            std::vector<std::pair<string_t, lib::path_t>> assemblies;   // All the assemblies.
+        };
 
-        // Generates the LLVM IR of the specified assembly.
-        void __native(const string_t & execute_assembly,
-                      const april_options_t::run_options_t * native_options);
+        // Returns the key of the build: it is the same when the sources are.
+        std::string __cache_key(compile_file_type_t type);
+
+        // Compiles into the directory of the builds, if it was not, returns false if it fails.
+        bool __prepare_build(__build_t & build);
+
+        // Returns the path of the executable of the build, it is built if it was not.
+        std::string __native_executable(const __build_t & build);
+
+        // Runs the main assembly of the build with the interpreter.
+        bool __run_interpreter(const __build_t & build);
 
         // Memory manager.
         xheap_t __xheap;

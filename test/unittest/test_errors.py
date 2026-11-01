@@ -21,7 +21,7 @@ class TestErrors:
         path = os.path.join(common.get_test_path(), 'errors', code_file)
         pattern = re.search(r'EXPECT_ERROR (.*?) \*/', open(path).read()).group(1)
 
-        command = [common.get_april_path(), 'run', path, common.get_absolute_path('System.apl')]
+        command = [common.get_april_path(), 'run', '--interpret', path]
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 universal_newlines=True, errors='replace')
 

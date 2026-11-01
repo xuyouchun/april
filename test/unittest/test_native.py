@@ -1,7 +1,7 @@
 #! /usr/bin/python
 
 # Tests of the native back end: every test program is built to an executable with
-# `april native --build`, run, and its output compared with the EXPECT block, like
+# `april compile --native`, run, and its output compared with the EXPECT block, like
 # the interpreter tests do.
 #
 # Programs that use something the back end does not support yet are reported as xfail
@@ -111,10 +111,11 @@ def _build(code_file, tmp_path, tools):
     april, clang, libs, system_apl = tools
     source = os.path.join(common.get_test_path(), code_file)
 
-    # Every program is built in its own directory: the assembly is named after the
-    # directory of the source, and written to the current directory.
+    # The executable is written to the directory of the test.
+    exe_path = tmp_path / ("program.exe" if sys.platform == "win32" else "program")
     result = subprocess.run(
-        [april, "native", "--build", "--clang", clang, "--libs", libs, source, system_apl],
+        [april, "compile", "--native", "--clang", clang, "--libs", libs, "-o", str(exe_path),
+         source],
         cwd=str(tmp_path), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         universal_newlines=True, errors="replace")
 
@@ -124,12 +125,10 @@ def _build(code_file, tmp_path, tools):
         first = [l for l in log.splitlines() if l.startswith("native:")][-1]
         pytest.xfail(re.sub(r" \[.*\]$", "", first))
 
-    assert result.returncode == 0, "april native failed:\n" + log
+    assert result.returncode == 0, "april compile --native failed:\n" + log
+    assert exe_path.is_file(), "no executable was built:\n" + log
 
-    exe = [p for p in tmp_path.iterdir() if p.suffix in (".exe", ".native")]
-    assert len(exe) == 1, "no executable was built:\n" + log
-
-    return source, exe[0]
+    return source, exe_path
 
 
 @pytest.mark.parametrize("code_file", _all_files())

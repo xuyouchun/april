@@ -39,9 +39,6 @@ namespace X_ROOT_NS::modules::april {
         // Run.
         run,
 
-        // Generates LLVM IR of the program (native back end).
-        native,
-
         // Version.
         version,
 
@@ -105,6 +102,15 @@ namespace X_ROOT_NS::modules::april {
 
         // Optimize argument error.
         optimize_argument_error,
+
+        // System.apl is given: every program has it.
+        system_assembly_specified,
+
+        // System.apl is not found.
+        system_assembly_not_found,
+
+        // The directory of the builds cannot be made.
+        cache_directory_failed,
 
     X_ENUM_END
 
@@ -235,22 +241,24 @@ namespace X_ROOT_NS::modules::april {
             std::vector<string_t>   files;
             string_t                output_path;
             int                     optimize;
+
+            // The assembly to build or to run, when there is more than one executable.
+            string_t                execute_assembly;
+
+            // `april compile --native`: builds a native executable, the output is its path.
+            bool                    native = false;
+            bool                    native_no_pie = false;
+            string_t                native_clang;       // The clang++ driver, default: $CLANG, clang++.
+            string_t                native_libs;        // The directory of the static libraries.
         };
 
         //-------- ---------- ---------- ---------- ----------
 
-        // Running options.
+        // Running options: the program is built native, in the cache, and run.
         struct run_options_t : compile_options_t
         {
-            string_t execute_assembly;
-
-            // Native back end. `april native` generates the LLVM IR, with `--build` it
-            // also builds the executable; `april run --native` builds and runs it.
-            bool     native_build   = false;
-            bool     native_run     = false;
-            bool     native_no_pie  = false;
-            string_t native_clang;          // The clang++ driver, default: $CLANG, clang++.
-            string_t native_libs;           // The directory of the static libraries.
+            // Runs the program with the interpreter, not native.
+            bool interpret = false;
         };
 
         //-------- ---------- ---------- ---------- ----------
@@ -330,9 +338,6 @@ namespace X_ROOT_NS::modules::april {
 
         // Executes running command.
         bool __execute_run(const __t::run_options_t & options);
-
-        // Executes native command.
-        bool __execute_native(const __t::run_options_t & options);
 
         // Executes helping command.
         void __execute_help(const __t::help_options_t & options);

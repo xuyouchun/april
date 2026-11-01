@@ -59,7 +59,9 @@ def run_file(file):
     if not os.path.exists(test_file):
         raise RuntimeError("Code file " + test_file + " not exists")
 
-    command = april_path + " run " + file + " " + get_absolute_path("System.apl")
+    # The programs of the tests run with the interpreter: they are the tests of it, and of the
+    # compiler. The native back end has its own tests.
+    command = april_path + " run --interpret " + file
     print(colorize(36, command))
 
     code, ret = subprocess.getstatusoutput(command)

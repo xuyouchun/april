@@ -18,6 +18,11 @@ cmake --build build -j        # 产物: bin/april
 # 运行单元测试（需先构建，并在仓库根目录准备好 System.apl）
 ctest --test-dir build --output-on-failure
 
+# 命令行：System.apl 默认包含（不要在命令行里写）
+bin/april run hello.cs                      # native 构建（缓存）并运行；--interpret 用解释器
+bin/april compile --native -o hello hello.cs # 生成可执行文件
+bin/april compile core_lib/System/System.project -o .   # 编译 System.apl
+
 # 传统 Makefile 方式仍然可用
 ./make
 ```
