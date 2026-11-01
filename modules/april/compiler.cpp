@@ -320,6 +320,7 @@ namespace X_ROOT_NS::modules::april {
             __add_stamp(hasher, exe);
 
         hasher.add((uint64_t)__options.optimize);
+        hasher.add((uint64_t)__options.native_optimize);
         hasher.add(string_convert<char_t, char>(__options.execute_assembly));
         hasher.add((uint64_t)__options.native_no_pie);
         hasher.add(string_convert<char_t, char>(__options.native_clang));
@@ -490,7 +491,7 @@ namespace X_ROOT_NS::modules::april {
 
         native::build_options_t bo;
         bo.ir_path  = ir_path.string();
-        bo.optimize = __options.optimize;
+        bo.optimize = __options.native_optimize;
         bo.no_pie   = __options.native_no_pie;
         bo.clang    = string_convert<char_t, char>(__options.native_clang);
         bo.libs_dir = string_convert<char_t, char>(__options.native_libs);

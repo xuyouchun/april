@@ -395,6 +395,10 @@ Use \"april help [command] ...\" for more information about a command.      \n\
         __copy_strings(parser.rest(), options.files);
         options.optimize    = parser.get<int>("optimize");
 
+        // The native code is optimized by default.
+        if (parser.exist("optimize"))
+            options.native_optimize = options.optimize;
+
         options.execute_assembly = __read_string(parser, "execute");
         options.native_no_pie    = parser.exist("no-pie");
         options.native_clang     = __read_string(parser, "clang");

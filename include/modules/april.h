@@ -248,6 +248,7 @@ namespace X_ROOT_NS::modules::april {
             // `april compile --native`: builds a native executable, the output is its path.
             bool                    native = false;
             bool                    native_no_pie = false;
+            int                     native_optimize = 2;    // The -O of clang: -O2, or --optimize.
             string_t                native_clang;       // The clang++ driver, default: $CLANG, clang++.
             string_t                native_libs;        // The directory of the static libraries.
         };
