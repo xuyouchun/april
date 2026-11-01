@@ -228,31 +228,19 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    namespace
+    // The number type of a xil type: the objects, the strings and the pointers are references.
+    template<xil_type_t _xil_type>
+    constexpr auto __vnum_type()
     {
-        template<xil_type_t _xil_type> struct __vnum_traits_t
-        {
-            typedef vnum_t<to_vtype(_xil_type)> num_t;
-        };
-
-        template<> struct __vnum_traits_t<xil_type_t::string>
-        {
-            typedef rt_ref_t num_t;
-        };
-
-        template<> struct __vnum_traits_t<xil_type_t::object>
-        {
-            typedef rt_ref_t num_t;
-        };
-
-        template<> struct __vnum_traits_t<xil_type_t::ptr>
-        {
-            typedef rt_ref_t num_t;
-        };
+        if constexpr (_xil_type == xil_type_t::string || _xil_type == xil_type_t::object
+                                                      || _xil_type == xil_type_t::ptr)
+            return std::type_identity<rt_ref_t>();
+        else
+            return std::type_identity<vnum_t<to_vtype(_xil_type)>>();
     }
 
     template<xil_type_t _xil_type>
-    using __vnum_t = typename __vnum_traits_t<_xil_type>::num_t;
+    using __vnum_t = typename decltype(__vnum_type<_xil_type>())::type;
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -526,8 +514,11 @@ namespace X_ROOT_NS::modules::exec {
     ////////// ////////// ////////// ////////// //////////
     // Class __push_command_t
 
-    template<command_value_t _cv, xil_storage_type_t, xil_type_t, xil_type_t>
-    class __push_command_t { };
+    // Push commands: the constants, the local variables, the arguments (and their contents), the
+    // fields, and the conversions of the value at the top of the stack. The type of the value
+    // that is read is _xt1, the type of the value that is pushed is _xt2.
+    template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t;
 
     struct __push_command_template_t
     {
@@ -543,24 +534,20 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    namespace
+    // The number type of a constant: a string is a pointer of chars, an object is a pointer.
+    template<xil_type_t _xil_type>
+    constexpr auto __const_vnum_type()
     {
-        template<xil_type_t _xil_type>
-        struct __const_vnum_traits_t : __vnum_traits_t<_xil_type> { };
-
-        template<> struct __const_vnum_traits_t<xil_type_t::string>
-        {
-            typedef const char_t * num_t;
-        };
-
-        template<> struct __const_vnum_traits_t<xil_type_t::object>
-        {
-            typedef void * num_t;
-        };
+        if constexpr (_xil_type == xil_type_t::string)
+            return std::type_identity<const char_t *>();
+        else if constexpr (_xil_type == xil_type_t::object)
+            return std::type_identity<void *>();
+        else
+            return std::type_identity<__vnum_t<_xil_type>>();
     }
 
     template<xil_type_t _xil_type>
-    using __const_vnum_t = typename __const_vnum_traits_t<_xil_type>::num_t;
+    using __const_vnum_t = typename decltype(__const_vnum_type<_xil_type>())::type;
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -675,53 +662,9 @@ namespace X_ROOT_NS::modules::exec {
     #define __LocalAddress(offset)      ((void *)((byte_t *)ctx.stack.lp() + offset))
     #define __Local(type_t, offset)     (*((type_t *)__LocalAddress(offset)))
 
-    #if EXEC_TRACE
-
-    #define __PushCommand_ToString(_st, _xt1, _xt2, _v)                                 \
-                                                                                        \
-        __BeginToString()                                                               \
-                                                                                        \
-            if (_xt1 == _xt2)                                                           \
-                return _F(_T("push %1% %2% [%3%]"), xil_storage_type_t::_st,            \
-                    _xt1, __This->_v);                                                  \
-                                                                                        \
-            return _F(_T("push %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
-                _xt1, _xt2, __This->_v);                                                \
-                                                                                        \
-        __EndToString()
-
-    #else
-
-        #define __PushCommand_ToString(_st, _xt1, _xt2, _v)
-
-    #endif
 
     //-------- ---------- ---------- ---------- ----------
     // Push constants
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<_cv, xil_storage_type_t::constant, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __push_command_t        __self_t;
-        typedef __command_base_t<_cv>   __super_t;
-        typedef __const_vnum_t<_xt1>    __value1_t;
-        typedef __const_vnum_t<_xt2>    __value2_t;
-
-    public:
-        __push_command_t(__value1_t value) : __value(value) { }
-
-        __BeginExecute(ctx)
-
-            ctx.stack.push(static_cast<__value2_t>(__This->__value));
-
-        __EndExecute()
-
-        __PushCommand_ToString(constant, _xt1, _xt2, __value)
-
-    private:
-        __value1_t __value;
-    };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, constant, _xt1, _xt2)
     __EachXilTypePairs()
@@ -730,29 +673,6 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Push local commands.
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<_cv, xil_storage_type_t::local, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __push_command_t    __self_t;
-        typedef __vnum_t<_xt1>      __value1_t;
-        typedef __vnum_t<_xt2>      __value2_t;
-
-    public:
-        __push_command_t(__offset_t offset) : __offset(offset) { }
-
-        __PushCommand_ToString(local, _xt1, _xt2, __offset)
-
-        __BeginExecute(ctx)
-
-            ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __This->__offset)));
-
-        __EndExecute()
-
-    private:
-        __offset_t __offset;
-    };
-
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, local, _xt1, _xt2)
     __EachXilTypePairs()
     #undef __CaseXilTypePair
@@ -760,47 +680,12 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Push local address commands.
 
-    template<xil_storage_type_t _stype> class __push_address_command_t { };
+    __DefineStAddrCmdValue(push, argument_addr)
+    __DefineStAddrCmdValue(push, field_addr)
+    template<xil_storage_type_t _st> class __push_address_command_t;
 
-    #if EXEC_TRACE
-
-    #define __PushAddressCommand_ToString(_st, _v)                                      \
-                                                                                        \
-        __BeginToString()                                                               \
-                                                                                        \
-            return _F(_T("push %1% address [%2%]"), xil_storage_type_t::_st,            \
-                                                __This->_v);                            \
-                                                                                        \
-        __EndToString()                                                                 \
-   
-    #else
-
-        #define __PushAddressCommand_ToString(_st, _v)
-
-    #endif // EXEC_TRACE
 
     __DefineStAddrCmdValue(push, local_addr)
-
-    template<>
-    class __push_address_command_t<xil_storage_type_t::local_addr>
-        : public __command_base_t<__StAddrCmd(push, local_addr)>
-    {
-        typedef __push_address_command_t    __self_t;
-
-    public:
-        __push_address_command_t(__offset_t offset) : __offset(offset) { }
-
-        __PushAddressCommand_ToString(local_addr, __offset)
-
-        __BeginExecute(ctx)
-
-            ctx.stack.push(__LocalAddress(__This->__offset));
-
-        __EndExecute()
-
-    private:
-        __offset_t __offset;
-    };
 
     struct __push_address_command_template_t
     {
@@ -818,32 +703,6 @@ namespace X_ROOT_NS::modules::exec {
     #define __ArgumentAddress(offset) ((void *)((rt_stack_unit_t *)ctx.stack.lp() - (offset)))
     #define __Argument(type_t, offset) (*(type_t *)__ArgumentAddress(offset))
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<_cv, xil_storage_type_t::argument, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __push_command_t    __self_t;
-        typedef __vnum_t<_xt1>      __value1_t;
-        typedef __vnum_t<_xt2>      __value2_t;
-
-    public:
-        __push_command_t(__offset_t offset)
-            : __real_offset(offset + __stack_stub_size) { }
-
-        __PushCommand_ToString(argument, _xt1, _xt2, __real_offset - __stack_stub_size)
-
-        __BeginExecute(ctx)
-
-            ctx.stack.push(static_cast<__value2_t>(
-                __Argument(__value1_t, __This->__real_offset)
-            ));
-
-        __EndExecute()
-
-    private:
-        __offset_t __real_offset;
-    };
-
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, argument, _xt1, _xt2)
     __EachXilTypePairs()
     #undef __CaseXilTypePair
@@ -851,57 +710,9 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Push argument address commands.
 
-    __DefineStAddrCmdValue(push, argument_addr)
-
-    template<>
-    class __push_address_command_t<xil_storage_type_t::argument_addr>
-        : public __command_base_t<__StAddrCmd(push, argument_addr)>
-    {
-        typedef __push_address_command_t    __self_t;
-
-    public:
-        __push_address_command_t(__offset_t offset) : __offset(offset) { }
-
-        __PushAddressCommand_ToString(argument_addr, __offset)
-
-        __BeginExecute(ctx)
-
-            ctx.stack.push(__ArgumentAddress(__This->__offset + __stack_stub_size));
-
-        __EndExecute()
-
-    private:
-        __offset_t __offset;
-    };
 
     //-------- ---------- ---------- ---------- ----------
     // Push argument content.
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<_cv, xil_storage_type_t::argument_content, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __push_command_t    __self_t;
-        typedef __vnum_t<_xt1>      __value1_t;
-        typedef __vnum_t<_xt2>      __value2_t;
-
-    public:
-        __push_command_t(__offset_t offset)
-            : __real_offset(offset + __stack_stub_size) { }
-
-        __PushCommand_ToString(argument, _xt1, _xt2, __real_offset - __stack_stub_size)
-
-        __BeginExecute(ctx)
-
-            ctx.stack.push(static_cast<__value2_t>(
-                *(__value1_t *)__Argument(void *, __This->__real_offset)
-            ));
-
-        __EndExecute()
-
-    private:
-        __offset_t __real_offset;
-    };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, argument_content, _xt1, _xt2)
     __EachXilTypePairs()
@@ -1036,35 +847,6 @@ namespace X_ROOT_NS::modules::exec {
     #define __FieldAddress(p, offset)       ((void *)((byte_t *)p + offset))
     #define __Field(type_t, p, offset)      (*(type_t *)__FieldAddress(p, offset))
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<_cv, xil_storage_type_t::field, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __push_command_t        __self_t;
-        typedef __command_base_t<_cv>   __super_t;
-        typedef __const_vnum_t<_xt1>    __value1_t;
-        typedef __const_vnum_t<_xt2>    __value2_t;
-
-    public:
-        __push_command_t(__offset_t offset) : __offset(offset) { }
-
-        __BeginExecute(ctx)
-
-            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
-            __CheckNullReference(ctx, obj);
-
-            ctx.stack.push(static_cast<__value2_t>(
-                __Field(__value1_t, obj, __This->__offset)
-            ));
-
-        __EndExecute()
-
-        __PushCommand_ToString(field, _xt1, _xt2, __offset)
-
-    private:
-        __offset_t __offset;
-    };
-
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, field, _xt1, _xt2)
     __EachXilTypePairs()
     #undef __CaseXilTypePair
@@ -1072,25 +854,45 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Push field address commands.
 
-    __DefineStAddrCmdValue(push, field_addr)
 
-    template<>
-    class __push_address_command_t<xil_storage_type_t::field_addr>
-        : public __command_base_t<__StAddrCmd(push, field_addr)>
+    // Push address commands: of a local variable, an argument, a field.
+    template<xil_storage_type_t _st>
+    class __push_address_command_t : public __command_base_t<
+        _st == xil_storage_type_t::local_addr?    __StAddrCmd(push, local_addr)
+      : _st == xil_storage_type_t::argument_addr? __StAddrCmd(push, argument_addr)
+                                                : __StAddrCmd(push, field_addr)
+    >
     {
         typedef __push_address_command_t    __self_t;
 
     public:
         __push_address_command_t(__offset_t offset) : __offset(offset) { }
 
-        __PushAddressCommand_ToString(field_addr, __offset)
+        #if EXEC_TRACE
+
+        __BeginToString()
+            return _F(_T("push %1% address [%2%]"), _st, __This->__offset);
+        __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx)
 
-            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
-            __CheckNullReference(ctx, obj);
+            if constexpr (_st == xil_storage_type_t::local_addr)
+            {
+                ctx.stack.push(__LocalAddress(__This->__offset));
+            }
+            else if constexpr (_st == xil_storage_type_t::argument_addr)
+            {
+                ctx.stack.push(__ArgumentAddress(__This->__offset + __stack_stub_size));
+            }
+            else    // field_addr
+            {
+                rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+                __CheckNullReference(ctx, obj);
 
-            ctx.stack.push(__FieldAddress(obj, __This->__offset));
+                ctx.stack.push(__FieldAddress(obj, __This->__offset));
+            }
 
         __EndExecute()
 
@@ -1125,36 +927,6 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
     // Push convert commands..
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<_cv, xil_storage_type_t::convert, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __push_command_t    __self_t;
-        typedef __vnum_t<_xt1>      __value1_t;
-        typedef __vnum_t<_xt2>      __value2_t;
-
-    public:
-
-        #if EXEC_TRACE
-
-        __BeginToString()
-            return _F(_T("push convert %1%=>%2%"), _xt1, _xt2);
-        __EndToString()
-
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            if constexpr (!std::is_same<__value1_t, __value2_t>::value)
-            {
-                ctx.stack.push(static_cast<__value2_t>(
-                    ctx.stack.pop<__value1_t>()
-                ));
-            }
-
-        __EndExecute()
-    };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, convert, _xt1, _xt2)
     __EachXilTypePairs()
@@ -1201,41 +973,108 @@ namespace X_ROOT_NS::modules::exec {
         }
     }
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __push_command_t<_cv, xil_storage_type_t::checked_convert, _xt1, _xt2>
-        : public __command_base_t<_cv>
+    template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
+    class __push_command_t : public __command_base_t<_cv>
     {
         typedef __push_command_t    __self_t;
-        typedef __vnum_t<_xt1>      __value1_t;
-        typedef __vnum_t<_xt2>      __value2_t;
+
+        static constexpr bool __is_constant = _st == xil_storage_type_t::constant;
+        static constexpr bool __is_argument = _st == xil_storage_type_t::argument
+                                           || _st == xil_storage_type_t::argument_content;
+        static constexpr bool __is_convert  = _st == xil_storage_type_t::convert
+                                           || _st == xil_storage_type_t::checked_convert;
+
+        // The constants and the fields have the number types of the constants.
+        static constexpr bool __const_types = __is_constant || _st == xil_storage_type_t::field;
+
+        typedef std::conditional_t<__const_types, __const_vnum_t<_xt1>, __vnum_t<_xt1>> __value1_t;
+        typedef std::conditional_t<__const_types, __const_vnum_t<_xt2>, __vnum_t<_xt2>> __value2_t;
+
+        // The constant, or the offset of the variable. The conversions have no data.
+        typedef std::conditional_t<__is_constant, __value1_t, __offset_t> __data_t;
+
+        // The arguments are after the stub of the calling.
+        static __data_t __to_data(__data_t data)
+        {
+            if constexpr (__is_argument)
+                return data + __stack_stub_size;
+            else
+                return data;
+        }
 
     public:
+        __push_command_t(__data_t data = __data_t()) : __data(__to_data(data)) { }
 
         #if EXEC_TRACE
 
         __BeginToString()
-            return _F(_T("push checked convert %1%=>%2%"), _xt1, _xt2);
+
+            if constexpr (__is_convert)
+                return _F(_T("push %1% %2%=>%3%"), _st, _xt1, _xt2);
+            else if constexpr (_xt1 == _xt2)
+                return _F(_T("push %1% %2% [%3%]"), _st, _xt1, __This->__data);
+            else
+                return _F(_T("push %1% %2%=>%3% [%4%]"), _st, _xt1, _xt2, __This->__data);
+
         __EndToString()
 
         #endif  // EXEC_TRACE
 
         __BeginExecute(ctx)
 
-            if constexpr (!std::is_same<__value1_t, __value2_t>::value)
+            if constexpr (_st == xil_storage_type_t::constant)
             {
-                __value1_t value = ctx.stack.pop<__value1_t>();
+                ctx.stack.push(static_cast<__value2_t>(__This->__data));
+            }
+            else if constexpr (_st == xil_storage_type_t::local)
+            {
+                ctx.stack.push(static_cast<__value2_t>(__Local(__value1_t, __This->__data)));
+            }
+            else if constexpr (_st == xil_storage_type_t::argument)
+            {
+                ctx.stack.push(static_cast<__value2_t>(__Argument(__value1_t, __This->__data)));
+            }
+            else if constexpr (_st == xil_storage_type_t::argument_content)
+            {
+                ctx.stack.push(static_cast<__value2_t>(
+                    *(__value1_t *)__Argument(void *, __This->__data)
+                ));
+            }
+            else if constexpr (_st == xil_storage_type_t::field)
+            {
+                rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+                __CheckNullReference(ctx, obj);
 
-                if constexpr (std::is_arithmetic<__value1_t>::value
-                                && std::is_arithmetic<__value2_t>::value)
+                ctx.stack.push(static_cast<__value2_t>(__Field(__value1_t, obj, __This->__data)));
+            }
+            else if constexpr (_st == xil_storage_type_t::convert)
+            {
+                if constexpr (!std::is_same<__value1_t, __value2_t>::value)
                 {
-                    if (!__number_fits<__value2_t>(value))
-                        __RaiseOverflowException(ctx);
+                    ctx.stack.push(static_cast<__value2_t>(ctx.stack.pop<__value1_t>()));
                 }
+            }
+            else    // checked_convert: OverflowException when the value does not fit the type.
+            {
+                if constexpr (!std::is_same<__value1_t, __value2_t>::value)
+                {
+                    __value1_t value = ctx.stack.pop<__value1_t>();
 
-                ctx.stack.push(static_cast<__value2_t>(value));
+                    if constexpr (std::is_arithmetic<__value1_t>::value
+                                    && std::is_arithmetic<__value2_t>::value)
+                    {
+                        if (!__number_fits<__value2_t>(value))
+                            __RaiseOverflowException(ctx);
+                    }
+
+                    ctx.stack.push(static_cast<__value2_t>(value));
+                }
             }
 
         __EndExecute()
+
+    private:
+        __data_t __data;
     };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, checked_convert, _xt1, _xt2)
@@ -1267,15 +1106,10 @@ namespace X_ROOT_NS::modules::exec {
             {
                 X_ALWAYS_INLINE __l_t operator()(__stack_t & stack, __l_t * ls)
                 {
-                    return stack.pop<__l_t>() * (*ls) + __mul_t<_d - 1>()(stack, ls - 1);
-                }
-            };
-
-            template<> struct __mul_t<0>
-            {
-                X_ALWAYS_INLINE __l_t operator()(__stack_t & stack, __l_t * p)
-                {
-                    return 0;
+                    if constexpr (_d == 0)
+                        return 0;
+                    else
+                        return stack.pop<__l_t>() * (*ls) + __mul_t<_d - 1>()(stack, ls - 1);
                 }
             };
         }
@@ -1328,29 +1162,44 @@ namespace X_ROOT_NS::modules::exec {
 
     #define __RtTypeOf(rt_ref)  (mm::get_object_type(rt_ref))
 
-    template<command_value_t _cv, xil_type_t _xil_type1, xil_type_t _xil_type2,
+    // The commands of the elements of arrays: the element is pushed, or the value at the top of the
+    // stack is written to it, it is popped (pop) or it stays in the stack (pick). The type of
+    // the elements is _xt1, the type of the value is _xt2. The dimension 0 is for the arrays that
+    // have more dimensions than the ones that are known: the dimension is given to the command.
+    enum class __array_element_op_t { push, pop, pick };
+
+    template<command_value_t _cv, __array_element_op_t _op, xil_type_t _xt1, xil_type_t _xt2,
             dimension_t _dimension>
-    class __push_array_element_command_t : public __command_base_t<_cv>
+    class __array_element_command_t : public __command_base_t<_cv>
     {
-        typedef __push_array_element_command_t  __self_t;
-        typedef __vnum_t<_xil_type1>            __value1_t;
-        typedef __vnum_t<_xil_type2>            __value2_t;
+        typedef __array_element_command_t   __self_t;
+        typedef __vnum_t<_xt1>              __value1_t;
+        typedef __vnum_t<_xt2>              __value2_t;
 
     public:
 
+        __array_element_command_t(dimension_t dimension = 0) : __dimension(dimension) { }
+
         #if EXEC_TRACE
 
-        __ToString(_T("push array element"));
+        __ToString(_op == __array_element_op_t::push? _T("push array element")
+                 : _op == __array_element_op_t::pop?  _T("pop array element")
+                                                     : _T("pick array element"));
 
         #endif  // EXEC_TRACE
 
         __BeginExecute(ctx)
 
-            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>();
             __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
 
-            if constexpr (_dimension >= 2)
+            if constexpr (_dimension == 0)
+            {
+                array_length_t * lengths = mm::get_array_lengths(array_ref);
+                index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
+            }
+            else if constexpr (_dimension >= 2)
             {
                 array_length_t * lengths = mm::get_array_lengths(array_ref);
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
@@ -1359,54 +1208,42 @@ namespace X_ROOT_NS::modules::exec {
             if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
                 __RaiseOutOfRangeException(ctx);
 
-            ctx.stack.push<__value2_t>(static_cast<__value2_t>(
-                mm::get_array_element<__value1_t>(array_ref, index)
-            ));
-
-        __EndExecute()
-    };
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __push_array_element_command_t<_cv, _xt1, _xt2, 0>
-        : public __command_base_t<_cv>
-    {
-        typedef __vnum_t<_xt1>                  __value1_t;
-        typedef __vnum_t<_xt2>                  __value2_t;
-        typedef __push_array_element_command_t  __self_t;
-
-    public:
-
-        __push_array_element_command_t(dimension_t dimension) : __dimension(dimension) { }
-
-        #if EXEC_TRACE
-
-        __ToString(_T("push array element"));
-
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
-            __CheckNullReference(ctx, array_ref);
-            array_length_t index = ctx.stack.pop<array_length_t>();
-            array_length_t * lengths = mm::get_array_lengths(array_ref);
-
-            index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
-
-            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
-                __RaiseOutOfRangeException(ctx);
-
-            ctx.stack.push<__value2_t>(static_cast<__value2_t>(
-                mm::get_array_element<__value1_t>(array_ref, index)
-            ));
+            if constexpr (_op == __array_element_op_t::push)
+            {
+                ctx.stack.push<__value2_t>(static_cast<__value2_t>(
+                    mm::get_array_element<__value1_t>(array_ref, index)
+                ));
+            }
+            else if constexpr (_op == __array_element_op_t::pop)
+            {
+                mm::set_array_element<__value1_t>(
+                    array_ref, index, static_cast<__value1_t>(ctx.stack.pop<__value2_t>())
+                );
+            }
+            else
+            {
+                mm::set_array_element<__value1_t>(
+                    array_ref, index, static_cast<__value1_t>(ctx.stack.pick<__value2_t>())
+                );
+            }
 
         __EndExecute()
 
     private:
         dimension_t __dimension;
     };
+
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, dimension_t _dimension>
+    using __push_array_element_command_t =
+        __array_element_command_t<_cv, __array_element_op_t::push, _xt1, _xt2, _dimension>;
+
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, dimension_t _dimension>
+    using __pop_array_element_command_t =
+        __array_element_command_t<_cv, __array_element_op_t::pop, _xt1, _xt2, _dimension>;
+
+    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, dimension_t _dimension>
+    using __pick_array_element_command_t =
+        __array_element_command_t<_cv, __array_element_op_t::pick, _xt1, _xt2, _dimension>;
 
     #define __CaseDimensionXilTypePair( _xt1, _xt2, _dimension )                        \
         __DefineStArrayCmdValue(push,_xt1, _xt2, _dimension)
@@ -1454,6 +1291,12 @@ namespace X_ROOT_NS::modules::exec {
             : __element_size(element_size)
         { }
 
+        // The dimension 0 is for the arrays that have more dimensions than the ones that are
+        // known: the dimension is given to the command.
+        __push_array_element_address_command_t(dimension_t dimension, msize_t element_size)
+            : __dimension(dimension), __element_size(element_size)
+        { }
+
         #if EXEC_TRACE
 
             __ToString(_T("push array element address"));
@@ -1462,11 +1305,16 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>();
             __CheckNullReference(ctx, array_ref);
             array_length_t index = ctx.stack.pop<array_length_t>();
 
-            if constexpr (_dimension >= 2)
+            if constexpr (_dimension == 0)
+            {
+                array_length_t * lengths = mm::get_array_lengths(array_ref);
+                index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
+            }
+            else if constexpr (_dimension >= 2)
             {
                 array_length_t * lengths = mm::get_array_lengths(array_ref);
                 index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
@@ -1477,48 +1325,10 @@ namespace X_ROOT_NS::modules::exec {
 
             ctx.stack.push(array_ref + index * __element_size);
 
-        __EndExecute();
-
-    private:
-        msize_t     __element_size;
-    };
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    template<command_value_t _cv>
-    class __push_array_element_address_command_t<_cv, 0> : public __command_base_t<_cv>
-    {
-        typedef __push_array_element_address_command_t  __self_t;
-
-    public:
-
-        __push_array_element_address_command_t(dimension_t dimension, msize_t element_size)
-            : __dimension(dimension), __element_size(element_size) { }
-
-        #if EXEC_TRACE
-
-            __ToString(_T("push array element address"));
-
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
-            __CheckNullReference(ctx, array_ref);
-            array_length_t index = ctx.stack.pop<array_length_t>();
-            array_length_t * lengths = mm::get_array_lengths(array_ref);
-
-            index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
-
-            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
-                __RaiseOutOfRangeException(ctx);
-
-            ctx.stack.push(array_ref + index * __element_size);
-
         __EndExecute()
 
     private:
-        dimension_t __dimension;
+        dimension_t __dimension = 0;
         msize_t     __element_size;
     };
 
@@ -1660,15 +1470,27 @@ namespace X_ROOT_NS::modules::exec {
         }
     }
 
+    // The number type of the value of a box: a struct that is not an internal type is copied.
+    template<msize_t _size>
+    constexpr auto __box_value_type()
+    {
+        if constexpr (_size == __CustomStructSize)
+            return std::type_identity<void *>();
+        else
+            return std::type_identity<uint_type_t<_size>>();
+    }
+
     template<command_value_t _cv, msize_t _size, xil_box_type_t _box_type>
     class __push_box_command_t : public __command_base_t<_cv>
     {
         typedef __push_box_command_t    __self_t;
-        typedef __command_base_t<_cv>   __super_t;
-        typedef uint_type_t<_size>      __value_t;
+        typedef typename decltype(__box_value_type<_size>())::type  __value_t;
+
+        static constexpr bool __is_struct = _size == __CustomStructSize;
 
     public:
-        __push_box_command_t(rt_type_t * type) : __type(type) { }
+        // The size is that of the struct, if it is a custom one.
+        __push_box_command_t(rt_type_t * type, msize_t size = 0) : __type(type), __size(size) { }
 
         #if EXEC_TRACE
 
@@ -1678,47 +1500,26 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            __value_t value = __fetch_box_addr<_box_type, __value_t>(ctx);
+            if constexpr (__is_struct)
+            {
+                void * addr = __fetch_box_addr<_box_type, void *>(ctx);
 
-            __pre_new(ctx, __type);
-            rt_ref_t obj = ctx.heap->new_obj(__type);
+                __pre_new(ctx, __type);
+                rt_ref_t obj = ctx.heap->new_obj(__type);
 
-            *(__value_t *)(void *)obj = value;
-            ctx.stack.push<rt_ref_t>(obj);
+                al::quick_copy((void *)obj, addr, __size);
+                ctx.stack.push<rt_ref_t>(obj);
+            }
+            else
+            {
+                __value_t value = __fetch_box_addr<_box_type, __value_t>(ctx);
 
-        __EndExecute()
+                __pre_new(ctx, __type);
+                rt_ref_t obj = ctx.heap->new_obj(__type);
 
-    private:
-        rt_type_t * __type;
-    };
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    template<command_value_t _cv, xil_box_type_t _box_type>
-    class __push_box_command_t<_cv, __CustomStructSize, _box_type> : public __command_base_t<_cv>
-    {
-        typedef __push_box_command_t    __self_t;
-        typedef __command_base_t<_cv>   __super_t;
-
-    public:
-        __push_box_command_t(rt_type_t * type, msize_t size)
-            : __type(type), __size(size) { }
-
-        #if EXEC_TRACE
-
-        __ToString(_FT("box [%1%]", _box_type));
-
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            void * addr = __fetch_box_addr<_box_type, void *>(ctx);
-
-            __pre_new(ctx, __type);
-            rt_ref_t obj = ctx.heap->new_obj(__type);
-
-            al::quick_copy((void *)obj, addr, __size);
-            ctx.stack.push<rt_ref_t>(obj);
+                *(__value_t *)(void *)obj = value;
+                ctx.stack.push<rt_ref_t>(obj);
+            }
 
         __EndExecute()
 
@@ -1774,11 +1575,13 @@ namespace X_ROOT_NS::modules::exec {
     class __push_unbox_command_t : public __command_base_t<_cv>
     {
         typedef __push_unbox_command_t      __self_t;
-        typedef __command_base_t<_cv>       __super_t;
-        typedef uint_type_t<_size>          __value_t;
+        typedef typename decltype(__box_value_type<_size>())::type  __value_t;
+
+        static constexpr bool __is_struct = _size == __CustomStructSize;
 
     public:
-        __push_unbox_command_t(rt_type_t * type) : __type(type) { }
+        // The size is that of the struct, if it is a custom one.
+        __push_unbox_command_t(rt_type_t * type, msize_t size = 0) : __type(type), __size(size) { }
 
         #if EXEC_TRACE
 
@@ -1789,49 +1592,21 @@ namespace X_ROOT_NS::modules::exec {
         __BeginExecute(ctx)
 
             rt_ref_t obj = __fetch_box_addr<_box_type, rt_ref_t>(ctx);
-            __CheckNullReference(ctx, obj); 
+            __CheckNullReference(ctx, obj);
 
             rt_type_t * type = __RtTypeOf(obj);
             if (type != __type)
                 __RaiseInvalidCastException(ctx);
 
-            ctx.stack.push<__value_t>(*(__value_t *)(void *)obj);
-
-        __EndExecute()
-
-    private:
-        rt_type_t * __type;
-    };
-    
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    template<command_value_t _cv, xil_box_type_t _box_type>
-    class __push_unbox_command_t<_cv, __CustomStructSize, _box_type> : public __command_base_t<_cv>
-    {
-        typedef __push_unbox_command_t          __self_t;
-        typedef __command_base_t<_cv>           __super_t;
-
-    public:
-        __push_unbox_command_t(rt_type_t * type, msize_t size)
-            : __type(type), __size(size) { }
-
-        #if EXEC_TRACE
-
-        __ToString(_FT("unbox [%1%]", _box_type));
-
-        #endif      // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            rt_ref_t obj = __fetch_box_addr<_box_type, rt_ref_t>(ctx);
-            __CheckNullReference(ctx, obj); 
-
-            rt_type_t * type = __RtTypeOf(obj);
-            if (type != __type)
-                __RaiseInvalidCastException(ctx);
-
-            void * val = ctx.stack.pop<void *>();
-            al::quick_copy(val, (void *)obj, __size);
+            if constexpr (__is_struct)
+            {
+                void * val = ctx.stack.pop<void *>();
+                al::quick_copy(val, (void *)obj, __size);
+            }
+            else
+            {
+                ctx.stack.push<__value_t>(*(__value_t *)(void *)obj);
+            }
 
         __EndExecute()
 
@@ -2939,56 +2714,96 @@ namespace X_ROOT_NS::modules::exec {
     ////////// ////////// ////////// ////////// //////////
     // Class __pop_command_t
 
-    template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_command_t { };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    #if EXEC_TRACE
-
-    #define __PopCommand_ToString(_st, _xt1, _xt2, _v)                                  \
-        __BeginToString()                                                               \
-                                                                                        \
-            if (_xt1 == _xt2)                                                           \
-                return _F(_T("pop  %1% %2% [%3%]"), xil_storage_type_t::_st, _xt1, _v); \
-                                                                                        \
-            return _F(_T("pop  %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
-                        _xt2, _xt1, _v);                                                \
-        __EndToString()
-
-    #else
-        
-    #define __PopCommand_ToString(_st, _xt1, _xt2, _v)
-
-    #endif  // EXEC_TRACE
-
-    //-------- ---------- ---------- ---------- ----------
-    // Pop local commands
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_command_t<_cv, xil_storage_type_t::local, _xt1, _xt2>
-        : public __command_base_t<_cv>
+    // Pop commands, and pick commands: the value at the top of the stack is written to a local
+    // variable, an argument (or its address), or a field. A pick command leaves it in the
+    // stack. The type of the variable is _xt1, the type of the value is _xt2.
+    template<command_value_t _cv, bool _pick, xil_storage_type_t _st,
+                                                xil_type_t _xt1, xil_type_t _xt2>
+    class __store_command_t : public __command_base_t<_cv>
     {
-        typedef __pop_command_t     __self_t;
+        typedef __store_command_t   __self_t;
         typedef __vnum_t<_xt1>      __value1_t;
         typedef __vnum_t<_xt2>      __value2_t;
 
-    public:
-        __pop_command_t(__offset_t offset) : __offset(offset) { }
+        static constexpr bool __is_argument = _st == xil_storage_type_t::argument
+                                           || _st == xil_storage_type_t::argument_addr;
 
-        __PopCommand_ToString(local, _xt1, _xt2, __This->__offset)
+        // The arguments are after the stub of the calling.
+        static __offset_t __to_offset(__offset_t offset)
+        {
+            if constexpr (__is_argument)
+                return offset + __stack_stub_size;
+            else
+                return offset;
+        }
+
+        // The value at the top of the stack.
+        static __value1_t __value(command_execute_context_t & ctx)
+        {
+            if constexpr (_pick)
+                return static_cast<__value1_t>(ctx.stack.pick<__value2_t>());
+            else
+                return static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
+        }
+
+    public:
+        __store_command_t(__offset_t offset) : __offset(__to_offset(offset)) { }
+
+        #if EXEC_TRACE
+
+        __BeginToString()
+
+            if constexpr (_xt1 == _xt2)
+                return _F(_T("%1% %2% %3% [%4%]"), _pick? _T("pick") : _T("pop "), _st, _xt1,
+                                                                            __This->__offset);
+            else
+                return _F(_T("%1% %2% %3%=>%4% [%5%]"), _pick? _T("pick") : _T("pop "), _st,
+                                                        _xt2, _xt1, __This->__offset);
+
+        __EndToString()
+
+        #endif  // EXEC_TRACE
 
         __BeginExecute(ctx)
 
-            __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(
-                ctx.stack.pop<__value2_t>()
-            );
+            if constexpr (_st == xil_storage_type_t::local)
+            {
+                __Local(__value1_t, __This->__offset) = __value(ctx);
+            }
+            else if constexpr (_st == xil_storage_type_t::argument)
+            {
+                __Argument(__value1_t, __This->__offset) = __value(ctx);
+            }
+            else if constexpr (_st == xil_storage_type_t::argument_addr)
+            {
+                *(__value1_t *)__Argument(void *, __This->__offset) = __value(ctx);
+            }
+            else    // field
+            {
+                rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+                __CheckNullReference(ctx, obj);
+
+                void * field = __FieldAddress(obj, __This->__offset);
+                *(__value1_t *)field = __value(ctx);
+            }
 
         __EndExecute()
 
     private:
         __offset_t __offset;
     };
+
+    template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
+    using __pop_command_t = __store_command_t<_cv, false, _st, _xt1, _xt2>;
+
+    template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
+    using __pick_command_t = __store_command_t<_cv, true, _st, _xt1, _xt2>;
+
+    //-------- ---------- ---------- ---------- ----------
+
+
+    //-------- ---------- ---------- ---------- ----------
+    // Pop local commands
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, local, _xt1, _xt2)
     __EachXilTypePairs()
@@ -2997,30 +2812,6 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Pop argument commands
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_command_t<_cv, xil_storage_type_t::argument, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __pop_command_t     __self_t;
-        typedef __vnum_t<_xt1>      __value1_t;
-        typedef __vnum_t<_xt2>      __value2_t;
-
-    public:
-        __pop_command_t(__offset_t offset) : __real_offset(offset + __stack_stub_size) { }
-
-        __PopCommand_ToString(argument, _xt1, _xt2, __This->__real_offset - __stack_stub_size)
-
-        __BeginExecute(ctx)
-
-            __Argument(__value1_t, __This->__real_offset) =
-                static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
-
-        __EndExecute()
-
-    private:
-        __offset_t __real_offset;
-    };
-
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, argument, _xt1, _xt2)
     __EachXilTypePairs()
     #undef __CaseXilTypePair
@@ -3028,62 +2819,11 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Pop argument_addr commands
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_command_t<_cv, xil_storage_type_t::argument_addr, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __pop_command_t     __self_t;
-        typedef __vnum_t<_xt1>      __value1_t;
-        typedef __vnum_t<_xt2>      __value2_t;
-
-    public:
-        __pop_command_t(__offset_t offset) : __real_offset(offset + __stack_stub_size) { }
-
-        __PopCommand_ToString(argument, _xt1, _xt2, __This->__real_offset - __stack_stub_size)
-
-        __BeginExecute(ctx)
-
-            *(__value1_t *)__Argument(void *, __This->__real_offset) =
-                static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
-            
-        __EndExecute()
-
-    private:
-        __offset_t __real_offset;
-    };
-
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, argument_addr, _xt1, _xt2)
     __EachXilTypePairs()
     #undef __CaseXilTypePair
 
     //-------- ---------- ---------- ---------- ----------
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_command_t<_cv, xil_storage_type_t::field, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __pop_command_t     __self_t;
-        typedef __vnum_t<_xt1>      __value1_t;
-        typedef __vnum_t<_xt2>      __value2_t;
-
-    public:
-        __pop_command_t(__offset_t offset) : __offset(offset) { }
-
-        __PopCommand_ToString(field, _xt1, _xt2, __This->__offset)
-
-        __BeginExecute(ctx)
-
-            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
-            __CheckNullReference(ctx, obj);
-
-            void * field = __FieldAddress(obj, __This->__offset);
-            *(__value1_t *)field = static_cast<__value1_t>(ctx.stack.pop<__value2_t>());
-
-        __EndExecute()
-
-    private:
-        __offset_t __offset;
-    };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pop, field, _xt1, _xt2)
     __EachXilTypePairs()
@@ -3104,82 +2844,6 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, int _dimension>
-    class __pop_array_element_command_t : public __command_base_t<_cv>
-    {
-        typedef __vnum_t<_xt1> __value1_t;
-        typedef __vnum_t<_xt2> __value2_t;
-
-    public:
-
-        #if EXEC_TRACE
-
-        __ToString(_T("pop array element"));
-
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
-            __CheckNullReference(ctx, array_ref);
-            array_length_t index = ctx.stack.pop<array_length_t>();
-
-            if (_dimension >= 2)
-            {
-                array_length_t * lengths = mm::get_array_lengths(array_ref);
-                index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
-            }
-
-            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
-                __RaiseOutOfRangeException(ctx);
-
-            mm::set_array_element<__value1_t>(
-                array_ref, index, static_cast<__value1_t>(ctx.stack.pop<__value2_t>())
-            );
-
-        __EndExecute()
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pop_array_element_command_t<_cv, _xt1, _xt2, 0> : public __command_base_t<_cv>
-    {
-        typedef __pop_array_element_command_t   __self_t;
-        typedef __vnum_t<_xt1>                  __value1_t;
-        typedef __vnum_t<_xt2>                  __value2_t;
-
-    public:
-
-        __pop_array_element_command_t(dimension_t dimension) : __dimension(dimension) { }
-
-        #if EXEC_TRACE
-
-        __ToString(_T("pop array element"));
-
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
-            __CheckNullReference(ctx, array_ref);
-            array_length_t index = ctx.stack.pop<array_length_t>();
-            array_length_t * lengths = mm::get_array_lengths(array_ref);
-
-            index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
-
-            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
-                __RaiseOutOfRangeException(ctx);
-
-            mm::set_array_element<__value1_t>(
-                array_ref, index, static_cast<__value1_t>(ctx.stack.pop<__value2_t>())
-            );
-
-        __EndExecute()
-
-    private:
-        dimension_t __dimension;
-    };
 
     #define __CaseDimensionXilTypePair( _xt1, _xt2, _dimension )                       \
         __DefineStArrayCmdValue(pop, _xt1, _xt2, _dimension)
@@ -3548,58 +3212,12 @@ namespace X_ROOT_NS::modules::exec {
     ////////// ////////// ////////// ////////// //////////
     // Class __pick_command_t
 
-    template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
-    class __pick_command_t { };
 
     //-------- ---------- ---------- ---------- ----------
 
-    #if EXEC_TRACE
-
-    #define __PickCommand_ToString(_st, _xt1, _xt2, _v)                                 \
-                                                                                        \
-        __BeginToString()                                                               \
-                                                                                        \
-            if (_xt1 == _xt2)                                                           \
-                return _F(_T("pick %1% %2% [%3%]"), xil_storage_type_t::_st,_xt1, _v);  \
-                                                                                        \
-            return _F(_T("pick %1% %2%=>%3% [%4%]"), xil_storage_type_t::_st,           \
-                        _xt2, _xt1, _v);                                                \
-                                                                                        \
-        __EndToString()                                                                 \
-
-    #else
-
-    #define __PickCommand_ToString(_st, _xt1, _xt2, _v)
-
-    #endif  // EXEC_TRACE
 
     //-------- ---------- ---------- ---------- ----------
     // Pick local commands
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pick_command_t<_cv, xil_storage_type_t::local, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __pick_command_t        __self_t;
-        typedef __vnum_t<_xt1>          __value1_t;
-        typedef __vnum_t<_xt2>          __value2_t;
-
-    public:
-        __pick_command_t(__offset_t offset) : __offset(offset) { }
-
-        __PickCommand_ToString(local, _xt1, _xt2, __This->__offset)
-
-        __BeginExecute(ctx)
-
-            __Local(__value1_t, __This->__offset) = static_cast<__value1_t>(
-                ctx.stack.pick<__value2_t>()
-            );
-
-        __EndExecute()
-
-    private:
-        __offset_t __offset;
-    };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pick, local, _xt1, _xt2)
     __EachXilTypePairs()
@@ -3608,63 +3226,12 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
     // Pick argument commands
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pick_command_t<_cv, xil_storage_type_t::argument, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __pick_command_t        __self_t;
-        typedef __vnum_t<_xt1>          __value1_t;
-        typedef __vnum_t<_xt2>          __value2_t;
-
-    public:
-        __pick_command_t(__offset_t offset) : __offset(offset) { }
-
-        __PickCommand_ToString(argument, _xt1, _xt2, __This->__offset)
-
-        __BeginExecute(ctx)
-
-            __Argument(__value1_t, __This->__offset + __stack_stub_size) =
-                static_cast<__value1_t>(ctx.stack.pick<__value2_t>());
-
-        __EndExecute()
-
-    private:
-        __offset_t __offset;
-    };
-
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pick, argument, _xt1, _xt2)
     __EachXilTypePairs()
     #undef __CaseXilTypePair
 
     //-------- ---------- ---------- ---------- ----------
     // Pick field commands
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pick_command_t<_cv, xil_storage_type_t::field, _xt1, _xt2>
-        : public __command_base_t<_cv>
-    {
-        typedef __pick_command_t        __self_t;
-        typedef __vnum_t<_xt1>          __value1_t;
-        typedef __vnum_t<_xt2>          __value2_t;
-
-    public:
-        __pick_command_t(__offset_t offset) : __offset(offset) { }
-
-        __PickCommand_ToString(field, _xt1, _xt2, __This->__offset)
-
-        __BeginExecute(ctx)
-
-            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
-            __CheckNullReference(ctx, obj);
-
-            void * field = __FieldAddress(obj, __This->__offset);
-            *(__value1_t *)field = static_cast<__value1_t>(ctx.stack.pick<__value2_t>());
-
-        __EndExecute()
-
-    private:
-        __offset_t __offset;
-    };
 
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(pick, field, _xt1, _xt2)
     __EachXilTypePairs()
@@ -3685,80 +3252,6 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2, int _dimension>
-    class __pick_array_element_command_t : public __command_base_t<_cv>
-    {
-        typedef __pick_array_element_command_t  __self_t;
-        typedef __vnum_t<_xt1>                  __value1_t;
-        typedef __vnum_t<_xt2>                  __value2_t;
-
-    public:
-
-        #if EXEC_TRACE
-
-        __ToString(_T("pick array element"));
-
-        #endif      // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
-            __CheckNullReference(ctx, array_ref);
-            array_length_t index = ctx.stack.pop<array_length_t>();
-
-            if (_dimension >= 2)
-            {
-                array_length_t * lengths = mm::get_array_lengths(array_ref);
-                index += __mul_array_index<_dimension - 1>(ctx.stack, lengths);
-            }
-
-            mm::set_array_element<__value1_t>(
-                array_ref, index, static_cast<__value1_t>(ctx.stack.pick<__value2_t>())
-            );
-
-        __EndExecute()
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<command_value_t _cv, xil_type_t _xt1, xil_type_t _xt2>
-    class __pick_array_element_command_t<_cv, _xt1, _xt2, 0> : public __command_base_t<_cv>
-    {
-        typedef __pick_array_element_command_t  __self_t;
-        typedef __vnum_t<_xt1>                  __value1_t;
-        typedef __vnum_t<_xt2>                  __value2_t;
-
-    public:
-
-        __pick_array_element_command_t(dimension_t dimension) : __dimension(dimension) { }
-
-        #if EXEC_TRACE
-
-        __ToString(_T("pick array element"));
-
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>(); 
-            __CheckNullReference(ctx, array_ref);
-            array_length_t index = ctx.stack.pop<array_length_t>();
-            array_length_t * lengths = mm::get_array_lengths(array_ref);
-
-            index += __array_index(ctx.stack, __This->__dimension - 1, lengths);
-
-            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
-                __RaiseOutOfRangeException(ctx);
-
-            mm::set_array_element<__value1_t>(
-                array_ref, index, static_cast<__value1_t>(ctx.stack.pick<__value2_t>())
-            );
-
-        __EndExecute()
-
-    private:
-        dimension_t __dimension;
-    };
 
     #define __CaseDimensionXilTypePair( _xt1, _xt2, _dimension )                        \
         __DefineStArrayCmdValue(pick, _xt1, _xt2, _dimension)
@@ -4794,157 +4287,99 @@ namespace X_ROOT_NS::modules::exec {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
     // delegate invoke init command.
 
-    template<command_value_t _cv> class __delegate_call_command_t { };
-
-    template<>
-    class __delegate_call_command_t<__CallCmd(delegate_init)>
-        : public __delegate_call_command_base_t<__CallCmd(delegate_init)>
+    // The commands of the delegates: the init of the object, the init with a call type, and the
+    // invoke.
+    template<command_value_t _cv>
+    class __delegate_call_command_t : public __delegate_call_command_base_t<_cv>
     {
-        typedef __delegate_call_command_t       __self_t;
-        typedef __delegate_call_command_base_t<__CallCmd(delegate_init)>  __super_t;
+        typedef __delegate_call_command_t                   __self_t;
+        typedef __delegate_call_command_base_t<_cv>         __super_t;
 
     public:
         using __super_t::__super_t;
 
         __BeginExecute(ctx)
 
-            rt_object_t * self = __This->__get_self(ctx);
-
-            // A virtual method is bound to the implementation of the instance.
-            rt_object_t * instance = __get_instance_argument(ctx);
-            rt_method_base_t * method = __resolve_delegate_method(
-                ctx, instance, __get_method_argument(ctx)
-            );
-
-            __This->__set_instance(ctx, self, instance);
-            __This->__set_method(ctx, self, method);
-
-        __EndExecute()
-
-        #if EXEC_TRACE
-
-        __ToString(_T("call delegate init"));
-
-        #endif  // EXEC_TRACE
-
-    private:
-
-        rt_object_t * __get_instance_argument(__ctx_t & ctx) _NE
-        {
-            return __Argument(rt_object_t *, __delegate_instance_argument_offset);
-        }
-
-        rt_method_base_t * __get_method_argument(__ctx_t & ctx) _NE
-        {
-            return __Argument(rt_method_base_t *, __delegate_method_argument_offset);
-        }
-    };
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // delegate invoke init with call type command.
-
-    template<>
-    class __delegate_call_command_t<__CallCmd(delegate_init_with_call_type)>
-        : public __delegate_call_command_base_t<__CallCmd(delegate_init_with_call_type)>
-    {
-        typedef __delegate_call_command_t       __self_t;
-        typedef __delegate_call_command_base_t<__CallCmd(delegate_init_with_call_type)> 
-                                                __super_t;
-    public:
-        using __super_t::__super_t;
-
-        __BeginExecute(ctx)
-
-            rt_object_t * self = __This->__get_self(ctx);
-
-            __This->__set_instance(ctx, self, __get_instance_argument(ctx));
-            __This->__set_method(ctx, self,
-                al::incorp(__get_method_argument(ctx), __get_call_type_argument(ctx))
-            );
-
-        __EndExecute()
-
-        #if EXEC_TRACE
-
-        __ToString(_T("call delegate init (with call type)"));
-
-        #endif  // EXEC_TRACE
-
-    private:
-
-        rt_object_t * __get_instance_argument(__ctx_t & ctx) _NE
-        {
-            return __Argument(rt_object_t *, __delegate_instance_argument_offset2);
-        }
-
-        rt_method_base_t * __get_method_argument(__ctx_t & ctx) _NE
-        {
-            return __Argument(rt_method_base_t *, __delegate_method_argument_offset2);
-        }
-
-        int32_t __get_call_type_argument(__ctx_t & ctx) _NE
-        {
-            return __Argument(int32_t, __delegate_call_type_argument_offset2);
-        }
-    };
-
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // delegate invoke call command.
-
-    template<>
-    class __delegate_call_command_t<__CallCmd(delegate_invoke)>
-        : public __delegate_call_command_base_t<__CallCmd(delegate_invoke)>
-    {
-        typedef __delegate_call_command_t       __self_t;
-        typedef __delegate_call_command_base_t<__CallCmd(delegate_invoke)>  __super_t;
-
-    public:
-        using __super_t::__super_t;
-
-        __BeginExecute(ctx)
-
-            rt_object_t * self = __This->__get_self(ctx);
-            rt_object_t * object = __This->__get_instance(ctx, self);
-            rt_method_base_t * method = __This->__get_method(ctx, self);
-
-            xil_call_type_t call_type = (xil_call_type_t)al::incorp_v<int32_t>(method);
-            method = al::incorp_p(method);
-
-            // _P(_T("call delegate"), method->get_name());
-
-            exec_method_t * exec_method = ctx.env.exec_method_of(method);
-
-            // A static method has no `this`: it cannot take the frame of Invoke over,
-            // it is called with a copy of the arguments, and Invoke returns its result.
-            if (__is_static_method(method))
+            if constexpr (_cv == __CallCmd(delegate_init))
             {
-                rt_stack_unit_t * args = (rt_stack_unit_t *)__ArgumentAddress(__This->__this_offset) + 1;
-                size_t count = __This->__this_offset - __stack_stub_size - 1;
+                rt_object_t * self = __This->__get_self(ctx);
 
-                // The address of the struct result, below the arguments.
-                if (__This->__struct_ret)
-                    ctx.stack.push(*(void **)__ArgumentAddress(__This->__this_offset + 1));
+                // A virtual method is bound to the implementation of the instance.
+                rt_object_t * instance =
+                    __Argument(rt_object_t *, __delegate_instance_argument_offset);
 
-                for (size_t k = 0; k < count; k++)
-                    ctx.stack.push(args[k]);
+                rt_method_base_t * method = __resolve_delegate_method(
+                    ctx, instance, __Argument(rt_method_base_t *, __delegate_method_argument_offset)
+                );
 
-                ctx.push_calling(exec_method);
-                return;
+                __This->__set_instance(ctx, self, instance);
+                __This->__set_method(ctx, self, method);
+            }
+            else if constexpr (_cv == __CallCmd(delegate_init_with_call_type))
+            {
+                rt_object_t * self = __This->__get_self(ctx);
+
+                rt_object_t * instance =
+                    __Argument(rt_object_t *, __delegate_instance_argument_offset2);
+                rt_method_base_t * method =
+                    __Argument(rt_method_base_t *, __delegate_method_argument_offset2);
+                int32_t call_type = __Argument(int32_t, __delegate_call_type_argument_offset2);
+
+                __This->__set_instance(ctx, self, instance);
+                __This->__set_method(ctx, self, al::incorp(method, call_type));
+            }
+            else    // delegate_invoke
+            {
+                rt_object_t * self = __This->__get_self(ctx);
+                rt_object_t * object = __This->__get_instance(ctx, self);
+                rt_method_base_t * method = __This->__get_method(ctx, self);
+
+                xil_call_type_t call_type = (xil_call_type_t)al::incorp_v<int32_t>(method);
+                method = al::incorp_p(method);
+
+                exec_method_t * exec_method = ctx.env.exec_method_of(method);
+
+                // A static method has no `this`: it cannot take the frame of Invoke over,
+                // it is called with a copy of the arguments, and Invoke returns its result.
+                if (__is_static_method(method))
+                {
+                    rt_stack_unit_t * args =
+                        (rt_stack_unit_t *)__ArgumentAddress(__This->__this_offset) + 1;
+                    size_t count = __This->__this_offset - __stack_stub_size - 1;
+
+                    // The address of the struct result, below the arguments.
+                    if (__This->__struct_ret)
+                        ctx.stack.push(*(void **)__ArgumentAddress(__This->__this_offset + 1));
+
+                    for (size_t k = 0; k < count; k++)
+                        ctx.stack.push(args[k]);
+
+                    ctx.push_calling(exec_method);
+                    return;
+                }
+
+                __Argument(rt_object_t *, __This->__this_offset) = object;
+                ctx.switch_to(exec_method);
             }
 
-            __Argument(rt_object_t *, __this_offset) = object;
-            ctx.switch_to(exec_method);
-
         __EndExecute()
 
         #if EXEC_TRACE
 
-        __ToString(_T("call delegate invoke"));
+        __BeginToString()
+            if constexpr (_cv == __CallCmd(delegate_init))
+                return _T("call delegate init");
+            else if constexpr (_cv == __CallCmd(delegate_init_with_call_type))
+                return _T("call delegate init (with call type)");
+            else
+                return _T("call delegate invoke");
+        __EndToString()
 
         #endif  // EXEC_TRACE
-
     };
+
+
+
 
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -5085,36 +4520,19 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
-    namespace
+    // The xil command of a type of commands.
+    template<typename _command_t>
+    constexpr xil_command_t to_xil_command()
     {
-        template<typename _command_t> struct __xil_command_trait_t { };
-
-        template<> struct __xil_command_trait_t<xil_al_command_t>
-        {
-            static const xil_command_t command = xil_command_t::al;
-        };
-
-        template<> struct __xil_command_trait_t<xil_logic_command_t>
-        {
-            static const xil_command_t command = xil_command_t::logic;
-        };
-
-        template<> struct __xil_command_trait_t<xil_bit_command_t>
-        {
-            static const xil_command_t command = xil_command_t::bit;
-        };
-
-        template<> struct __xil_command_trait_t<xil_cmp_command_t>
-        {
-            static const xil_command_t command = xil_command_t::cmp;
-        };
-
-        template<typename _command_t>
-        constexpr xil_command_t to_xil_command()
-        {
-            return __xil_command_trait_t<_command_t>::command;
-        }
-    };
+        if constexpr (std::is_same<_command_t, xil_al_command_t>::value)
+            return xil_command_t::al;
+        else if constexpr (std::is_same<_command_t, xil_logic_command_t>::value)
+            return xil_command_t::logic;
+        else if constexpr (std::is_same<_command_t, xil_bit_command_t>::value)
+            return xil_command_t::bit;
+        else
+            return xil_command_t::cmp;
+    }
 
     #define __BinaryCmd(_cmd, _op, _xt1, _xt2)  __Cmd(_cmd, _op##_##_xt1##_##_xt2)
     #define __UnitaryCmd(_cmd, _op, _xt)        __Cmd(_cmd, _op##_##_xt)
@@ -5879,17 +5297,21 @@ namespace X_ROOT_NS::modules::exec {
     class __ret_command_base_t : public __command_base_t<_cv> { };
     class __ret_command_identity_t { };
 
+    // Return commands: the value of _ret_size units is moved to the place of the arguments, a struct
+    // is returned through the address that is below them.
     template<command_value_t _cv, msize_t _ret_size>
     class __ret_command_t : public __ret_command_base_t<_cv>,
                             public __ret_command_identity_t
     {
         typedef __ret_command_t     __self_t;
 
+        static constexpr bool __is_struct = _ret_size == __StructRetUnitSize;
+
     public:
         __ret_command_t(msize_t local_unit_size, msize_t param_unit_size)
             : __total_unit_size(param_unit_size + __stack_stub_size + local_unit_size)
-            , __param_unit_ret_size(param_unit_size - _ret_size)
-            , __total_unit_ret_size(__total_unit_size - _ret_size)
+            , __param_unit_ret_size(__is_struct? param_unit_size : param_unit_size - _ret_size)
+            , __total_unit_ret_size(__is_struct? 0 : __total_unit_size - _ret_size)
         {
             #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
             __ret_commands.insert(this);
@@ -5902,14 +5324,20 @@ namespace X_ROOT_NS::modules::exec {
             rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
             ctx.pop_calling(stub);
 
-            copy_array<_ret_size>(p + __This->__total_unit_ret_size, p - _ret_size);
+            if constexpr (__is_struct)
+                ctx.stack.pop<void *>();    // pop the bottom struct object address.
+            else
+                copy_array<_ret_size>(p + __This->__total_unit_ret_size, p - _ret_size);
 
         __EndExecute()
 
         #if EXEC_TRACE
 
         __BeginToString()
-            return _F(_T("ret  [%1%]"), _ret_size);
+            if constexpr (__is_struct)
+                return _T("ret  [struct]");
+            else
+                return _F(_T("ret  [%1%]"), _ret_size);
         __EndToString()
 
         #endif  // EXEC_TRACE
@@ -5918,46 +5346,6 @@ namespace X_ROOT_NS::modules::exec {
         int __total_unit_size;      // param_unit_size + __stack_stub_size + local_unit_size
         int __param_unit_ret_size;  // param_unit_size - _ret_size
         int __total_unit_ret_size;  // __total_unit_size - _ret_size
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<>
-    class __ret_command_t<__StructRetCmd, __StructRetUnitSize>
-        : public __ret_command_base_t<__StructRetCmd>
-        , public __ret_command_identity_t
-    {
-        typedef __ret_command_t     __self_t;
-
-    public:
-        __ret_command_t(msize_t local_unit_size, msize_t param_unit_size)
-            : __total_unit_size(param_unit_size + __stack_stub_size + local_unit_size)
-            , __param_unit_ret_size(param_unit_size)
-        {
-            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
-            __ret_commands.insert(this);
-            #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_MANUAL
-        }
-
-        __BeginExecute(ctx)
-
-            __calling_stub_t * stub = ctx.stub();
-            rt_stack_unit_t * p = ctx.stack.pop(__This->__total_unit_size);
-            ctx.pop_calling(stub);
-
-            ctx.stack.pop<void *>();    // pop the bottom struct object address.
-
-        __EndExecute()
-
-        #if EXEC_TRACE
-
-        __ToString(_T("ret  [struct]"));
-
-        #endif  // EXEC_TRACE
-
-    private:
-        msize_t __total_unit_size;      // param_unit_size + __stack_stub_size + local_unit_size
-        msize_t __param_unit_ret_size;  // param_unit_size - _ret_size
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -5972,18 +5360,6 @@ namespace X_ROOT_NS::modules::exec {
                             msize_t local_size, msize_t param_size, msize_t ret_size)
             {
                 return __new_command<__ret_command_t<_cv, _ret_size>>(
-                    memory, local_size, param_size
-                );
-            }
-        };
-
-        template<> struct __new_t<__StructRetUnitSize>
-        {
-            template<command_value_t _cv>
-            static command_t * new_(memory_t * memory,
-                            msize_t local_size, msize_t param_size, msize_t ret_size)
-            {
-                return __new_command<__ret_command_t<__StructRetCmd, __StructRetUnitSize>>(
                     memory, local_size, param_size
                 );
             }
@@ -6461,65 +5837,48 @@ namespace X_ROOT_NS::modules::exec {
     __DefineCmdValue_(__JmpCmd(leave))
     __DefineCmdValue_(__JmpCmd(leave_ret))
 
-    template<xil_jmp_model_t _model> struct __jmp_model_t { };
-
-    template<> struct __jmp_model_t<xil_jmp_model_t::none>
+    // The condition of a jump.
+    template<xil_jmp_model_t _model> struct __jmp_model_t
     {
         __AlwaysInline bool operator()(command_execute_context_t & ctx)
         {
-            return true;
+            if constexpr (_model == xil_jmp_model_t::none)
+                return true;
+            else if constexpr (_model == xil_jmp_model_t::true_)
+                return ctx.stack.pop<bool>();
+            else
+                return !ctx.stack.pop<bool>();
         }
 
         operator string_t() const
         {
-            return _T("jmp");
+            if constexpr (_model == xil_jmp_model_t::none)
+                return _T("jmp");
+            else if constexpr (_model == xil_jmp_model_t::true_)
+                return _T("jmp  true");
+            else
+                return _T("jmp  false");
         }
     };
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<> struct __jmp_model_t<xil_jmp_model_t::true_>
-    {
-        __AlwaysInline bool operator()(command_execute_context_t & ctx)
-        {
-            return ctx.stack.pop<bool>();
-        }
-
-        operator string_t() const
-        {
-            return _T("jmp  true");
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<> struct __jmp_model_t<xil_jmp_model_t::false_>
-    {
-        __AlwaysInline bool operator()(command_execute_context_t & ctx)
-        {
-            return !ctx.stack.pop<bool>();
-        }
-
-        operator string_t() const
-        {
-            return _T("jmp  false");
-        }
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
+    // The jumps, and the leave: the finally blocks run before it jumps.
     template<command_value_t _cv, xil_jmp_model_t _model>
     class __jmp_command_t : public __command_base_t<_cv>
     {
         typedef __jmp_command_t         __self_t;
-        typedef __jmp_model_t<_model>   __jmp_model_t;
 
     public:
         __jmp_command_t(xil_jmp_step_t step) : __step(step) { }
 
         __BeginExecute(ctx)
 
-            if (__jmp_model_t()(ctx))
+            if constexpr (_model == xil_jmp_model_t::leave)
+            {
+                __process_finally(ctx, ctx.current + __This->__step);
+            }
+            else if (__jmp_model_t<_model>()(ctx))
             {
                 ctx.current += __This->__step;
             }
@@ -6529,37 +5888,10 @@ namespace X_ROOT_NS::modules::exec {
         #if EXEC_TRACE
 
         __BeginToString()
-            return _F(_T("%1% %2%"), __jmp_model_t(), __This->__step);
-        __EndToString()
-        
-        #endif  // EXEC_TRACE
-
-    private:
-        xil_jmp_step_t __step;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    // Leave and jmp.
-    template<command_value_t _cv>
-    class __jmp_command_t<_cv, xil_jmp_model_t::leave> : public __command_base_t<_cv>
-    {
-        typedef __jmp_command_t __self_t;
-
-    public:
-        __jmp_command_t(xil_jmp_step_t step) : __step(step) { }
-
-        // Execute
-        __BeginExecute(ctx)
-
-            __process_finally(ctx, ctx.current + __This->__step);
-
-        __EndExecute()
-
-        #if EXEC_TRACE
-
-        __BeginToString()
-            return _F(_T("leave %1%"), __This->__step + 1);
+            if constexpr (_model == xil_jmp_model_t::leave)
+                return _F(_T("leave %1%"), __This->__step + 1);
+            else
+                return _F(_T("%1% %2%"), __jmp_model_t<_model>(), __This->__step);
         __EndToString()
 
         #endif  // EXEC_TRACE
@@ -6734,93 +6066,82 @@ namespace X_ROOT_NS::modules::exec {
     __DefineCmdValue_(__NewCmd(array))
     __DefineCmdValue_(__NewCmd(stack_alloc))
 
-    template<xil_new_type_t _new_type> class __new_command_t { };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<>
-    class __new_command_t<xil_new_type_t::default_>
-        : public __command_base_t<__NewCmd(default_)>
+    // The commands that create objects: an object, an array, units of the stack.
+    template<xil_new_type_t _new_type>
+    class __new_command_t : public __command_base_t<
+        _new_type == xil_new_type_t::default_?    __NewCmd(default_)
+      : _new_type == xil_new_type_t::array?       __NewCmd(array)
+                                                  : __NewCmd(stack_alloc)
+    >
     {
         typedef __new_command_t     __self_t;
 
-    public:
-        #if EXEC_TRACE
-        __new_command_t(rt_type_t * type, rt_sid_t name) : __type(type), __name(name) { }
-        #else
-        __new_command_t(rt_type_t * type) : __type(type) { }
-        #endif  // EXEC_TRACE
-
-        __BeginExecute(ctx)
-
-            __new_object(ctx, __This->__type);
-
-        __EndExecute()
-
-        #if EXEC_TRACE
-
-        __BeginToString()
-            return _F(_T("new %1%"), __This->__name);
-        __EndToString()
-
-        #endif  // EXEC_TRACE
-
-    private:
-        rt_type_t * __type;
-
-        #if EXEC_TRACE
-        rt_sid_t    __name;
-        #endif  // EXEC_TRACE
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<>
-    class __new_command_t<xil_new_type_t::array>
-        : public __command_base_t<__NewCmd(array)>
-    {
-        typedef __new_command_t     __self_t;
+        static constexpr bool __is_default = _new_type == xil_new_type_t::default_;
+        static constexpr bool __new_array   = _new_type == xil_new_type_t::array;
 
     public:
         #if EXEC_TRACE
         __new_command_t(rt_type_t * type, rt_sid_t name)
-            : __type(_M(rt_array_type_t *, type)), __name(name) { }
+            : __type(type), __name(name) { }
         #else
-        __new_command_t(rt_type_t * type) : __type(_M(rt_array_type_t *, type)) { }
-        #endif // EXEC_TRACE
+        __new_command_t(rt_type_t * type) : __type(type) { }
+        #endif  // EXEC_TRACE
+
+        __new_command_t(size_t units) _NE : __units(units) { }
 
         __BeginExecute(ctx)
 
-            __pre_new(ctx, __This->__type);
-            dimension_t dimension = __This->__type->dimension;
-
-            array_length_t lengths[dimension];
-            bool negative = false;
-            for (int * len = lengths + dimension - 1; len >= lengths; len--)
+            if constexpr (__is_default)
             {
-                *len = ctx.stack.pop<int32_t>();
-                negative |= *len < 0;
+                __new_object(ctx, __This->__type);
             }
+            else if constexpr (__new_array)
+            {
+                rt_array_type_t * type = _M(rt_array_type_t *, __This->__type);
 
-            if (negative)
-                __RaiseOutOfRangeException(ctx);
+                __pre_new(ctx, type);
+                dimension_t dimension = type->dimension;
 
-            ctx.stack.push(
-                ctx.heap->new_array(__This->__type, lengths)
-            );
+                array_length_t lengths[dimension];
+                bool negative = false;
+                for (int * len = lengths + dimension - 1; len >= lengths; len--)
+                {
+                    *len = ctx.stack.pop<int32_t>();
+                    negative |= *len < 0;
+                }
+
+                if (negative)
+                    __RaiseOutOfRangeException(ctx);
+
+                ctx.stack.push(
+                    ctx.heap->new_array(type, lengths)
+                );
+            }
+            else    // stack_alloc
+            {
+                ctx.stack.push(
+                    ctx.stack.alloc_units(__This->__units)
+                );
+            }
 
         __EndExecute()
 
         #if EXEC_TRACE
 
         __BeginToString()
-            return _F(_T("new array %1%"), __This->__name);
+            if constexpr (__is_default)
+                return _F(_T("new %1%"), __This->__name);
+            else if constexpr (__new_array)
+                return _F(_T("new array %1%"), __This->__name);
+            else
+                return _F(_T("stack_alloc %1% units"), __This->__units);
         __EndToString()
 
         #endif  // EXEC_TRACE
 
     private:
-        rt_array_type_t * __type;
+        rt_type_t * __type = nullptr;
+        size_t      __units = 0;
 
         #if EXEC_TRACE
         rt_sid_t    __name;
@@ -6829,34 +6150,12 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<>
-    class __new_command_t<xil_new_type_t::stack_alloc>
-        : public __command_base_t<__NewCmd(stack_alloc)>
-    {
-        typedef __new_command_t     __self_t;
 
-    public:
-        __new_command_t(size_t units) _NE : __units(units) { }
+    //-------- ---------- ---------- ---------- ----------
 
-        __BeginExecute(ctx)
 
-            ctx.stack.push(
-                ctx.stack.alloc_units(__This->__units)
-            );
+    //-------- ---------- ---------- ---------- ----------
 
-        __EndExecute()
-
-        #if EXEC_TRACE
-
-        __BeginToString()
-            return _F(_T("stack_alloc %1% units"), __This->__units);
-        __EndToString()
-
-        #endif  // EXEC_TRACE
-
-    private:
-        size_t __units;
-    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -6980,38 +6279,33 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Copies, in the order of the stack: the destination is the first, the source is the
+    // first when it is reverse, or the destination is zeroed.
     template<size_t _size, xil_copy_kind_t _kind = xil_copy_kind_t::default_>
     struct __memory_copy_operation_t
     {
         __AlwaysInline static void copy(command_execute_context_t & ctx)
         {
-            void * dst = ctx.stack.pop<void *>();
-            void * src = ctx.stack.pop<void *>();
+            if constexpr (_kind == xil_copy_kind_t::zero)
+            {
+                void * p = ctx.stack.pop<void *>();
 
-            al::quick_copy<_size>(dst, src);
-        }
-    };
+                al::quick_zero<_size>(p);
+            }
+            else if constexpr (_kind == xil_copy_kind_t::reverse)
+            {
+                void * src = ctx.stack.pop<void *>();
+                void * dst = ctx.stack.pop<void *>();
 
-    template<size_t _size>
-    struct __memory_copy_operation_t<_size, xil_copy_kind_t::reverse>
-    {
-        __AlwaysInline static void copy(command_execute_context_t & ctx)
-        {
-            void * src = ctx.stack.pop<void *>();
-            void * dst = ctx.stack.pop<void *>();
+                al::quick_copy<_size>(dst, src);
+            }
+            else
+            {
+                void * dst = ctx.stack.pop<void *>();
+                void * src = ctx.stack.pop<void *>();
 
-            al::quick_copy<_size>(dst, src);
-        }
-    };
-
-    template<size_t _size>
-    struct __memory_copy_operation_t<_size, xil_copy_kind_t::zero>
-    {
-        __AlwaysInline static void copy(command_execute_context_t & ctx)
-        {
-            void * p = ctx.stack.pop<void *>();
-
-            al::quick_zero<_size>(p);
+                al::quick_copy<_size>(dst, src);
+            }
         }
     };
 
@@ -7251,9 +6545,6 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<command_value_t _cv, xil_init_type_t _init_type, msize_t _size>
-    class __init_command_t { };
-
     #define __InitCmd(_init_type, _size)        __Cmd(init, _init_type##_##_size)
 
     __DefineCmdValue_(__InitCmd(array_begin, 0))
@@ -7268,86 +6559,46 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
-    template<command_value_t _cv>
-    class __init_command_t<_cv, xil_init_type_t::array_begin, 0>
-        : public __init_command_base_t<_cv>
+    // The commands that initialize the elements of an array: the begin, the elements (the size of
+    // an element is _size, or it is given when it is not known), the end.
+    template<command_value_t _cv, xil_init_type_t _init_type, msize_t _size>
+    class __init_command_t : public __init_command_base_t<_cv>
     {
-        typedef __init_command_t            __self_t;
-        typedef __init_command_base_t<_cv>   __super_t;
+        typedef __init_command_t    __self_t;
 
     public:
-        using __super_t::__super_t;
-
-        __BeginExecute(ctx)
-            
-            ctx.stack.push<void *>(
-                (void *)ctx.stack.pick<rt_ref_t>()
-            );
-
-        __EndExecute()
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<command_value_t _cv, msize_t _size>
-    class __init_command_t<_cv, xil_init_type_t::array_element, _size>
-        : public __init_command_base_t<_cv>
-    {
-        typedef __init_command_t            __self_t;
-        typedef __init_command_base_t<_cv>  __super_t;
-
-    public:
-        using __super_t::__super_t;
+        __init_command_t(msize_t size = 0) : __size(size) { }
 
         __BeginExecute(ctx)
 
-            typedef uint_type_t<_size> t;
-            *ctx.stack.pick_reference<t *>()++ = ctx.stack.pop<t>();
-
-        __EndExecute()
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<command_value_t _cv>
-    class __init_command_t<_cv, xil_init_type_t::array_element, 0>
-        : public __init_command_base_t<_cv>
-
-    {
-        typedef __init_command_t            __self_t;
-        typedef __init_command_base_t<_cv>  __super_t;
-
-    public:
-        __init_command_t(msize_t size) : __size(size) { }
-
-        __BeginExecute(ctx)
-            
-            // TODO: implement it.
-            X_UNEXPECTED();
+            if constexpr (_init_type == xil_init_type_t::array_begin)
+            {
+                ctx.stack.push<void *>(
+                    (void *)ctx.stack.pick<rt_ref_t>()
+                );
+            }
+            else if constexpr (_init_type == xil_init_type_t::array_element)
+            {
+                if constexpr (_size == 0)
+                {
+                    // TODO: implement it.
+                    X_UNEXPECTED();
+                }
+                else
+                {
+                    typedef uint_type_t<_size> t;
+                    *ctx.stack.pick_reference<t *>()++ = ctx.stack.pop<t>();
+                }
+            }
+            else    // array_end
+            {
+                ctx.stack.pop<void *>();
+            }
 
         __EndExecute()
 
     private:
         msize_t __size;
-    };
-
-    //-------- ---------- ---------- ---------- ----------
-
-    template<command_value_t _cv>
-    class __init_command_t<_cv, xil_init_type_t::array_end, 0>
-        : public __init_command_base_t<_cv>
-    {
-        typedef __init_command_t            __self_t;
-        typedef __init_command_base_t<_cv>  __super_t;
-
-    public:
-        using __super_t::__super_t;
-
-        __BeginExecute(ctx)
-
-            ctx.stack.pop<void *>();
-
-        __EndExecute()
     };
 
     //-------- ---------- ---------- ---------- ----------
