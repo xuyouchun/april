@@ -1310,9 +1310,19 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The function of the interpreter that the executable uses: the library of it has no
+    // other export (its many classes of commands are inside).
+    #if defined(_WIN32) && defined(APRIL_EXEC_BUILD)
+        #define X_EXEC_API      __declspec(dllexport)
+    #elif !defined(_WIN32)
+        #define X_EXEC_API      __attribute__((visibility("default")))
+    #else
+        #define X_EXEC_API
+    #endif
+
     // Executes with specified context, returns false when an exception that nothing
     // caught ended it.
-    bool execute(rt_context_t & ctx);
+    X_EXEC_API bool execute(rt_context_t & ctx);
 
     ////////// ////////// ////////// ////////// //////////
 

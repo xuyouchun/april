@@ -13,7 +13,7 @@
 ```sh
 # CMake（推荐）
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build -j        # 产物: bin/april，以及同目录的 april_base / april_compiler / april_runtime 共享库
+cmake --build build -j        # 产物: bin/april，以及同目录的 april_base / april_compiler / april_runtime / april_exec / april_native 共享库
                               # (和 april_jit，找到 LLVM 时)；-DAPRIL_SHARED_MODULES=OFF 则全部静态链接进 april
 
 # 运行单元测试（需先构建，并在仓库根目录准备好 System.apl）

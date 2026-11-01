@@ -186,8 +186,10 @@ set(APRIL_MODULE_LIBS
 )
 
 # The shared libraries: the modules that the others are built on are one library, the compiler
-# (core, compile and the languages), the runtime (rt, rtlib). exec (many thousands of symbols
-# of templates) and native are in the executable.
+# (core, compile and the languages), the runtime (rt, rtlib), the interpreter (exec: many thousands
+# of symbols of templates, it exports only execute), the native back end (native).
+target_compile_definitions(exec_objects PRIVATE APRIL_EXEC_BUILD)
+
 if(APRIL_SHARED_MODULES)
     function(april_add_shared NAME)
         set(__objects "")
@@ -212,15 +214,19 @@ if(APRIL_SHARED_MODULES)
     april_add_shared(april_compiler core compile lang_cs lang_lq)
     april_add_shared(april_runtime  rt rtlib)
 
+    april_add_shared(april_exec     exec)
+    april_add_shared(april_native   native)
+
     target_link_libraries(april_compiler PUBLIC april_base)
     target_link_libraries(april_runtime  PUBLIC april_compiler)
+    target_link_libraries(april_exec     PUBLIC april_runtime)
+    target_link_libraries(april_native   PUBLIC april_runtime)
 endif()
 
 function(april_link_modules TARGET)
     if(APRIL_SHARED_MODULES)
-        target_sources(${TARGET} PRIVATE
-            $<TARGET_OBJECTS:exec_objects> $<TARGET_OBJECTS:native_objects>)
-        target_link_libraries(${TARGET} PRIVATE april_runtime april_compiler april_base)
+        target_link_libraries(${TARGET} PRIVATE
+            april_exec april_native april_runtime april_compiler april_base)
         target_link_libraries(${TARGET} PRIVATE ${CMAKE_DL_LIBS})
         return()
     endif()
