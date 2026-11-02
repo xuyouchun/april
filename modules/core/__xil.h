@@ -375,6 +375,10 @@ namespace X_ROOT_NS::modules::core {
 
         stack_allocs    = 4,            // Allocate objects from stack.
 
+        generic_stack_alloc = 5,        // Allocate an object from stack, if the generic param is
+                                        //   a custom struct, else nothing: the destination of
+                                        //   the value that a call returns.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
@@ -399,6 +403,11 @@ namespace X_ROOT_NS::modules::core {
 
         ret             = 3,            // Loads the object at the address on the top into the
                                         //   stack as a value, e.g. a generic param returned.
+
+        call_ret        = 4,            // Returns the value that a call returned: if the generic
+                                        //   param is a custom struct, the object at the address on
+                                        //   the top is copied to the destination of the caller;
+                                        //   else the value is in the stack, nothing is done.
 
     __EnumEnd
 

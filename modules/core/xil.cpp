@@ -457,6 +457,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(stack_allocs,   _T("stack_allocs"))
 
+        X_C(generic_stack_alloc, _T("generic_stack_alloc"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -482,6 +484,8 @@ namespace X_ROOT_NS::modules::core {
         X_C(zero,           _T("zero"))
 
         X_C(ret,            _T("ret"))
+
+        X_C(call_ret,       _T("call_ret"))
 
     X_ENUM_INFO_END
 
@@ -895,6 +899,9 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_new_type_t::stack_allocs:
                 return _FT("stack_allocs {%1%} * %2%", type_ref(), count());
+
+            case xil_new_type_t::generic_stack_alloc:
+                return _FT("generic_stack_alloc {%1%}", type_ref());
 
             default:
                 X_UNEXPECTED_F("unexpected new type %1%", new_type());

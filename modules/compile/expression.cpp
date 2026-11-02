@@ -30,6 +30,33 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
                                                         param_types_t * param_types = nullptr);
 
+    // Returns whether the expression is a member access of a type: T.Member, Type.Member.
+    static bool __is_static_member_access(expression_t * exp)
+    {
+        if (exp == nullptr || exp->this_family() != expression_family_t::binary)
+            return false;
+
+        binary_expression_t * binary = (binary_expression_t *)exp;
+        if (binary->op() != operator_t::member_point)
+            return false;
+
+        expression_t * left = binary->exp1();
+        if (left == nullptr || left->this_family() != expression_family_t::name)
+            return false;
+
+        return ((name_expression_t *)left)->expression_type == name_expression_type_t::type;
+    }
+
+    // Returns whether the expression is the name of a property.
+    static bool __is_property_name(expression_t * exp)
+    {
+        if (exp == nullptr || exp->this_family() != expression_family_t::name)
+            return false;
+
+        variable_t * variable = ((name_expression_t *)exp)->variable;
+        return variable != nullptr && variable->this_type() == variable_type_t::property;
+    }
+
     // Returns whether it's a reference type.
     static bool __is_ref_type(type_t * type)
     {
@@ -2687,6 +2714,18 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
+            // The value of a generic param that a getter returns (return T.MaxValue): when the
+            // param is a custom struct, the getter writes it at a destination that is below, and
+            // the value is copied to the destination of the caller.
+            type_t * member_type = this->get_type();
+            bool generic_value_return = op() == operator_t::member_point
+                    && is_generic_param(member_type)
+                    && env.type_mark == type_mark_t::value && env.type == member_type
+                    && __is_static_member_access(this) && __is_property_name(exp2);
+
+            if (generic_value_return)
+                pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, member_type));
+
             #define __Case(op_)                                                         \
                 case operator_t::op_:                                                   \
                     __compile_##op_(ctx, pool, exp1, exp2);                             \
@@ -2741,6 +2780,13 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             #undef __Case
+
+            if (generic_value_return)
+            {
+                pool.append<x_generic_copy_xil_t>(
+                    __ref_of(ctx, member_type), xil_copy_kind_t::call_ret
+                );
+            }
 
             __post_compile_expression(ctx, pool, this, env);
         }
@@ -2995,6 +3041,11 @@ namespace X_ROOT_NS::modules::compile {
                     break;
                 }
 
+                // An argument of a call is a value: what the call is, does not matter to it
+                // (Plain(p).V copies p to the argument).
+                case expression_family_t::function:
+                    return true;
+
                 default:
                     break;
             }
@@ -3024,6 +3075,7 @@ namespace X_ROOT_NS::modules::compile {
             case name_expression_type_t::variable:
             {
                 type_t * type = this->get_type();
+
                 __compile_variable(ctx, pool, this->variable, __only_value_type(env), this);
 
                 if (__is_custom_struct_like(type) && is_real_variable(this->variable)
@@ -3329,6 +3381,11 @@ namespace X_ROOT_NS::modules::compile {
         xil_call_type_t call_type = __call_type_of_method(method);
         bool effective = is_effective(ctx, this);
 
+        type_t * method_type = method->get_type();
+        bool generic_value_return = is_generic_param(method_type)
+                && env.type_mark == type_mark_t::value && env.type == method_type
+                && !__is_right_member(this->parent, this);
+
         if (effective)
         {
             if (__is_right_member(this->parent, this))
@@ -3344,6 +3401,11 @@ namespace X_ROOT_NS::modules::compile {
             else
             {
                 bool is_static = __is_static(call_type);
+
+                // The value of a generic param is returned (return Make<T>()): when the param is
+                // a custom struct, the call writes it at a destination that is below.
+                if (generic_value_return)
+                    pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
 
                 __pre_call_method(ctx, pool, this, method);
 
@@ -3404,9 +3466,17 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
 
-            if (env.dtype != xil_type_t::empty)
+            if (generic_value_return)
+            {
+                // A struct is copied to the destination of the caller of this method.
+                pool.append<x_generic_copy_xil_t>(
+                    __ref_of(ctx, method_type), xil_copy_kind_t::call_ret
+                );
+            }
+
+            if (env.dtype != xil_type_t::empty && !generic_value_return)
                 __try_append_convert_xil(pool, method->get_type(), env);
-            else
+            else if (env.dtype == xil_type_t::empty)
                 __try_pop_empty_for_method(ctx, pool, method, this);
         }
         else

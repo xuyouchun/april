@@ -6386,6 +6386,20 @@ namespace X_ROOT_NS::modules::exec {
 
             }   break;
 
+            case xil_new_type_t::generic_stack_alloc: {
+
+                // The destination of the struct that a call returns, when the generic param is
+                // one; else the value is returned in the stack.
+                if (!is_custom_struct(ctx.env, type))
+                    __ReturnInstance(__empty_command_t);
+
+                msize_t obj_size = type->get_size(ctx.env);
+                size_t units = _alignf(obj_size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
+                return __alloc_command_manager.template
+                    get_command<__NewCmd(stack_alloc), xil_new_type_t::stack_alloc>(units);
+
+            }   break;
+
             case xil_new_type_t::stack_allocs: {
 
                 msize_t obj_size = type->get_size(ctx.env);
@@ -6521,6 +6535,21 @@ namespace X_ROOT_NS::modules::exec {
                 void * p = ctx.stack.pop<void *>();
                 al::quick_zero(p, __This->__size);
             }
+            else if(__This->__kind == xil_copy_kind_t::call_ret)
+            {
+                // A call returned a struct: the call has written it in the region that is in the
+                // stack, the caller of this method gets it at its destination.
+                size_t units = (__This->__size + sizeof(rt_stack_unit_t) - 1)
+                                                        / sizeof(rt_stack_unit_t);
+                if (units == 0)
+                    units = 1;
+
+                void * src = (void *)(ctx.stack.top() - units);
+                void * dst = __Argument(void *, __This->__struct_ret_offset);
+
+                al::quick_copy(dst, src, __This->__size);
+                ctx.stack.pop(units);
+            }
             else if(__This->__kind == xil_copy_kind_t::ret && __This->__struct_ret_offset != 0)
             {
                 // A custom struct is returned, written at the address of the caller,
@@ -6581,14 +6610,15 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
 
     // Creates the command that returns a generic param whose argument is a custom struct.
-    static command_t * __get_struct_ret_copy_command(size_t size, msize_t struct_ret_offset)
+    static command_t * __get_struct_ret_copy_command(size_t size, msize_t struct_ret_offset,
+                                        xil_copy_kind_t kind = xil_copy_kind_t::ret)
     {
         static __command_manager_t<
             __memory_copy_command_ex_template_t
         >::with_args_t<size_t, xil_copy_kind_t, msize_t> __struct_ret_copy_manager;
 
         return __struct_ret_copy_manager.template get_command<__CopyCmdEx>(
-            size, xil_copy_kind_t::ret, struct_ret_offset
+            size, kind, struct_ret_offset
         );
     }
 
@@ -6674,6 +6704,19 @@ namespace X_ROOT_NS::modules::exec {
                 rt_type_t * type = ctx.get_type(type_ref);
                 msize_t size = type->get_variable_size(ctx.env);
                 xil_copy_kind_t kind = xil.copy_kind();
+
+                // A value that a call returned: a struct was written at the destination that the
+                // call had, it is copied to the one of the caller; else it is in the stack.
+                if (kind == xil_copy_kind_t::call_ret)
+                {
+                    if (!is_custom_struct(ctx.env, type))
+                        __ReturnInstance(__empty_command_t);
+
+                    return __get_struct_ret_copy_command(
+                        size, __offset_of_argument(ctx, XIL_CALLING_BOTTOM_IDENTITY) + __stack_stub_size,
+                        xil_copy_kind_t::call_ret
+                    );
+                }
 
                 // The generic param is a custom struct: it is returned like a struct.
                 if (kind == xil_copy_kind_t::ret && is_custom_struct(ctx.env, type))

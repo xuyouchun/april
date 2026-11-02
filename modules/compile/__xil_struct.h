@@ -165,6 +165,17 @@ namespace X_ROOT_NS::modules::compile {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // New generic_stack_alloc xil: a stack_alloc when the generic param is a custom struct.
+    struct x_generic_stack_alloc_xil_t : x_new_xil_base_t
+    {
+        typedef x_new_xil_base_t __super_t;
+
+        x_generic_stack_alloc_xil_t(ref_t type_ref)
+            : __super_t(xil_new_type_t::generic_stack_alloc, type_ref) { }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // New stack_allocs xil.
     struct x_stack_allocs_xil_t : x_new_xil_base_t
     {
