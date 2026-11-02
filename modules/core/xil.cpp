@@ -306,6 +306,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(command,        _T("command"))
 
+        X_C(constrained,    _T("constrained"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -486,6 +488,10 @@ namespace X_ROOT_NS::modules::core {
         X_C(ret,            _T("ret"))
 
         X_C(call_ret,       _T("call_ret"))
+
+        X_C(receiver,       _T("receiver"))
+
+        X_C(box,            _T("box"))
 
     X_ENUM_INFO_END
 
@@ -1192,6 +1198,10 @@ namespace X_ROOT_NS::modules::core {
 
         type_t * host_type = method->get_host_type();
         _A(host_type != nullptr);
+
+        // A member of a generic param (t.Get(), where T : IFoo): the host is known later.
+        if (is_generic_param(host_type))
+            return xil_call_type_t::constrained;
 
         if (is_interface(host_type))
             return xil_call_type_t::virtual_;

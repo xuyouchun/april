@@ -268,6 +268,10 @@ namespace X_ROOT_NS::modules::core {
             case operator_t::null_coalescing_assign:
                 return this->get_type()->this_vtype();
 
+            // The member: its vtype, whatever the object is (a generic param has none).
+            case operator_t::member_point:
+                return exp2() != nullptr? exp2()->get_vtype() : vtype_t::__unknown__;
+
             default:
                 break;
         }

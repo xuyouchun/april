@@ -245,6 +245,9 @@ namespace X_ROOT_NS::modules::core {
 
         command         = 5,        // Execute a command
 
+        constrained     = 6,        // Instance call of a member of a generic param, the type that
+                                    //   is the host of the method is known when the program runs.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
@@ -403,6 +406,14 @@ namespace X_ROOT_NS::modules::core {
 
         ret             = 3,            // Loads the object at the address on the top into the
                                         //   stack as a value, e.g. a generic param returned.
+
+        receiver        = 5,            // The object of a call, a generic param: a reference is loaded
+                                        //   into the stack, a struct is its address (nothing).
+
+        box             = 6,            // The object at the address on the top is made an object: a
+                                        //   reference is loaded into the stack, a value (a struct,
+                                        //   a number, a string) is boxed. A generic param is an
+                                        //   Object.
 
         call_ret        = 4,            // Returns the value that a call returned: if the generic
                                         //   param is a custom struct, the object at the address on

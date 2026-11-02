@@ -3834,6 +3834,40 @@ namespace X_ROOT_NS::modules::exec {
         }
     };
 
+    // Finds, among the types that the receiver is (its base types, its interfaces), the one with
+    // the template: with its generic arguments.
+    static rt_type_t * __find_type_of_template(analyzer_env_t & env, rt_type_t * receiver,
+                                                              rt_type_t * template_type)
+    {
+        rt_type_t * found = nullptr;
+
+        std::function<bool (rt_type_t *)> find = [&](rt_type_t * type) -> bool {
+
+            rt_type_t * type_template = type->get_kind() == rt_type_kind_t::generic?
+                    (rt_type_t *)((rt_generic_type_t *)type)->template_ : type;
+
+            if (type_template == template_type)
+            {
+                found = type;
+                return false;
+            }
+
+            type->each_super_type(env, [&](rt_type_t * super_type) {
+                return find(super_type);
+            });
+
+            return found == nullptr;
+        };
+
+        for (rt_type_t * type = receiver; type != nullptr && found == nullptr;
+                                                            type = type->get_base_type(env))
+        {
+            find(type);
+        }
+
+        return found;
+    }
+
     // A static abstract (or virtual) method of an interface that is called through a generic
     // param (T.MaxValue): the method has as its host the type that the param is. Returns the
     // method of that type that implements it; or the default method of the interface, if it
@@ -3862,30 +3896,7 @@ namespace X_ROOT_NS::modules::exec {
             return nullptr;
 
         // The interface, with its generic arguments, that the type implements.
-        rt_type_t * interface_type = nullptr;
-        std::function<bool (rt_type_t *)> find = [&](rt_type_t * type) -> bool {
-
-            rt_type_t * type_template = type->get_kind() == rt_type_kind_t::generic?
-                    (rt_type_t *)((rt_generic_type_t *)type)->template_ : type;
-
-            if (type->get_ttype(env) == ttype_t::interface_ && type_template == interface_template)
-            {
-                interface_type = type;
-                return false;
-            }
-
-            type->each_super_type(env, [&](rt_type_t * super_type) {
-                return find(super_type);
-            });
-
-            return interface_type == nullptr;
-        };
-
-        for (rt_type_t * type = receiver; type != nullptr && interface_type == nullptr;
-                                                            type = type->get_base_type(env))
-        {
-            find(type);
-        }
+        rt_type_t * interface_type = __find_type_of_template(env, receiver, interface_template);
 
         if (interface_type == nullptr)
         {
@@ -4655,6 +4666,92 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // A call of a member of a generic param (t.Get(), where T : IFoo): the method of the type that
+    // the param is, found by the method of the constraint; a class takes the virtual table.
+    static command_t * __new_constrained_call_command(__context_t & ctx, const call_xil_t & xil)
+    {
+        analyzer_env_t & env = ctx.env;
+
+        rt_method_base_t * base = ctx.get_method((ref_t)xil.method);
+        _A(base != nullptr);
+
+        if (base->this_type() != rt_member_type_t::generic)
+            throw _ECF(invalid_operation, _T("the call of a member of a generic parameter is not generic"));
+
+        rt_generic_method_t * method = (rt_generic_method_t *)base;
+        rt_method_t * template_ = method->template_;
+        rt_type_t * receiver = method->get_host_type();
+
+        rt_type_t * owner_type = __find_type_of_template(env, receiver, template_->get_host_type());
+        if (owner_type == nullptr)
+        {
+            throw _ECF(invalid_operation, _T("the type '%1%' does not have the method '%2%'"),
+                receiver->get_name(env), template_->get_name());
+        }
+
+        // The prototype of the method, in the terms of the type that has it.
+        generic_param_manager_t owner_gp(env, owner_type);
+        assembly_analyzer_t analyzer(env, template_->get_assembly(), &owner_gp);
+
+        method_prototype_t prototype;
+        analyzer.get_prototype(template_, &prototype);
+
+        rt_method_base_t * found = nullptr;
+        rt_type_t * found_type = nullptr;
+        ref_t found_ref = ref_t::null;
+
+        for (rt_type_t * type = receiver; type != nullptr && found == nullptr;
+                                                            type = type->get_base_type(env))
+        {
+            generic_param_manager_t type_gp(env, type);
+
+            type->each_method(env, [&](ref_t ref, rt_method_base_t * m) {
+                if (!m->is_static() && m->compare_to(env, prototype, &type_gp))
+                {
+                    found = m;
+                    found_type = type;
+                    found_ref = ref;
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        if (found == nullptr)
+        {
+            throw _ECF(invalid_operation, _T("the type '%1%' does not have the method '%2%'"),
+                receiver->get_name(env), template_->get_name());
+        }
+
+        // The method of a generic type is the one of its instance.
+        rt_method_base_t * target = found;
+        if (found_type->get_kind() == rt_type_kind_t::generic
+                && found->this_type() == rt_member_type_t::general)
+        {
+            assembly_analyzer_t found_analyzer(env, found->get_assembly());
+            target = found_analyzer.to_generic_method(static_cast<rt_method_t *>(found), found_type);
+        }
+
+        // A class: the virtual table, as the object can be of a type that derives.
+        if (receiver->get_ttype(env) == ttype_t::class_ && found_ref != ref_t::null
+                && (found->is_virtual() || found->is_override()))
+        {
+            static __command_manager_t<
+                __virtual_call_command_template_t
+            >::with_args_t<msize_t, msize_t> __virtual_call_command_manager;
+
+            assembly_analyzer_t found_analyzer(env, found->get_assembly());
+            msize_t virtual_offset = found_analyzer.get_virtual_method_offset(found_ref);
+            msize_t this_offset = ctx.env.exec_method_of(found)->this_offset;
+
+            return __virtual_call_command_manager.template
+                get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, ctx);
+        }
+
+        return __new_instance_call_command(ctx, target);
+    }
+
     static command_t * __new_call_command(__context_t & ctx, const call_xil_t & xil)
     {
         switch (xil.call_type())
@@ -4670,6 +4767,9 @@ namespace X_ROOT_NS::modules::exec {
 
             case xil_call_type_t::virtual_:
                 return __new_virtual_call_command(ctx, xil);
+
+            case xil_call_type_t::constrained:
+                return __new_constrained_call_command(ctx, xil);
 
             case xil_call_type_t::command:
                 return __new_command_call_command(ctx, xil);
@@ -6609,6 +6709,70 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // The command that makes an object of the value that is at the address on the top: the box
+    // of a generic param that is not a reference.
+    #define __GenericBoxCmd     __Cmd(box, generic)
+    __DefineCmdValue_(__GenericBoxCmd)
+
+    class __generic_box_command_t : public __command_base_t<__GenericBoxCmd>
+    {
+        typedef __generic_box_command_t     __self_t;
+
+    public:
+        __generic_box_command_t(rt_type_t * type, size_t size, bool is_string)
+            : __type(type), __size(size), __is_string(is_string) { }
+
+        __BeginExecute(ctx)
+
+            void * src = ctx.stack.pop<void *>();
+
+            // A string that is null is a null object.
+            if (__This->__is_string && *(void **)src == nullptr)
+            {
+                ctx.stack.push<rt_ref_t>(nullptr);
+                return;
+            }
+
+            __pre_new(ctx, __This->__type);
+            rt_ref_t obj = ctx.heap->new_obj(__This->__type);
+
+            al::quick_copy((void *)obj, src, __This->__size);
+            ctx.stack.push<rt_ref_t>(obj);
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("box generic"));
+
+        #endif  // EXEC_TRACE
+
+    private:
+        rt_type_t * __type;
+        size_t      __size;
+        bool        __is_string;
+    };
+
+    struct __generic_box_command_template_t
+    {
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, rt_type_t * type, size_t size, bool is_string)
+        {
+            return __new_command<__generic_box_command_t>(memory, type, size, is_string);
+        }
+    };
+
+    static command_t * __get_generic_box_command(rt_type_t * type, size_t size, bool is_string)
+    {
+        static __command_manager_t<
+            __generic_box_command_template_t
+        >::with_args_t<rt_type_t *, size_t, bool> __generic_box_command_manager;
+
+        return __generic_box_command_manager.template get_command<__GenericBoxCmd>(
+            type, size, is_string
+        );
+    }
+
     // Creates the command that returns a generic param whose argument is a custom struct.
     static command_t * __get_struct_ret_copy_command(size_t size, msize_t struct_ret_offset,
                                         xil_copy_kind_t kind = xil_copy_kind_t::ret)
@@ -6704,6 +6868,28 @@ namespace X_ROOT_NS::modules::exec {
                 rt_type_t * type = ctx.get_type(type_ref);
                 msize_t size = type->get_variable_size(ctx.env);
                 xil_copy_kind_t kind = xil.copy_kind();
+
+                // An object: a reference is loaded, a value (a struct, a number, a string, an
+                // enum) is boxed.
+                if (kind == xil_copy_kind_t::box)
+                {
+                    if (is_ref_type(type->get_ttype(ctx.env))
+                            && type->get_vtype(ctx.env) != vtype_t::string_)
+                        return __get_object_copy_command(size, xil_copy_kind_t::ret);
+
+                    return __get_generic_box_command(
+                        type, size, type->get_vtype(ctx.env) == vtype_t::string_
+                    );
+                }
+
+                // The object of a call: a reference is loaded, the address of a struct is kept.
+                if (kind == xil_copy_kind_t::receiver)
+                {
+                    if (is_custom_struct(ctx.env, type))
+                        __ReturnInstance(__empty_command_t);
+
+                    return __get_object_copy_command(size, xil_copy_kind_t::ret);
+                }
 
                 // A value that a call returned: a struct was written at the destination that the
                 // call had, it is copied to the one of the caller; else it is in the stack.

@@ -3098,6 +3098,10 @@ namespace X_ROOT_NS::modules::core {
             return from->this_gtype() == gtype_t::null || is_type_compatible(from, underlying);
         }
 
+        // A value of a generic param is an object (a reference, or a boxed value).
+        if (from->this_gtype() == gtype_t::generic_param && to == __XPool.get_object_type())
+            return true;
+
         // null is converted to the types that can be null: not to numbers, bools, chars, enums
         // and structs (T? takes it, see above); nothing is converted to the type of null.
         if (from->this_gtype() == gtype_t::null)
@@ -5828,8 +5832,11 @@ namespace X_ROOT_NS::modules::core {
             return member == nullptr;
         });
 
-        // The static abstract and virtual members of an interface are those of the param.
-        if (member != nullptr && member->is_static() && (member->is_abstract() || member->is_virtual()))
+        // The members of a constraint are those of the param: the instance members, and the
+        // static abstract and virtual ones of an interface. The type that has them when the
+        // program runs is the host of the member.
+        if (member != nullptr && (!member->is_static()
+                                    || member->is_abstract() || member->is_virtual()))
         {
             switch (member->this_type())
             {

@@ -30,6 +30,28 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
                                                         param_types_t * param_types = nullptr);
 
+    // Returns whether the property is one of a generic param (t.Value, where T : IFoo), that is
+    // not static.
+    static bool __is_constrained_property(property_t * property)
+    {
+        if (property == nullptr || property->is_static())
+            return false;
+
+        type_t * host = property->host_type;
+        return host != nullptr && is_generic_param(host);
+    }
+
+    // Returns whether the expression is a variable (a param, a local, a field) whose value is
+    // a generic param: it is the address of the value.
+    static bool __is_generic_value_variable(expression_t * exp)
+    {
+        if (exp == nullptr || exp->this_family() != expression_family_t::name)
+            return false;
+
+        variable_t * variable = ((name_expression_t *)exp)->variable;
+        return variable != nullptr && is_real_variable(variable);
+    }
+
     // Returns whether the expression is the name of a property.
     static bool __is_property_name(expression_t * exp)
     {
@@ -1659,6 +1681,17 @@ namespace X_ROOT_NS::modules::compile {
         {
             case variable_type_t::property:
                 __push_this(ctx, pool, this_exp);
+
+                // A property of a generic param: the object is a reference, or the address of
+                // a struct.
+                if (this_exp != nullptr
+                        && __is_constrained_property(((property_variable_t *)var)->property))
+                {
+                    pool.append<x_generic_copy_xil_t>(
+                        __ref_of(ctx, this_exp->get_type()), xil_copy_kind_t::receiver
+                    );
+                }
+
                 break;
 
             case variable_type_t::property_index: {
@@ -2523,9 +2556,23 @@ namespace X_ROOT_NS::modules::compile {
         expression_t * exp1;
 
         if (__is_member_expression(owner_exp->parent, &exp1))
+        {
             exp1->compile(ctx, pool);
+
+            // A property of a generic param (t.Value, where T : IFoo): the object is a
+            // reference, or the address of a struct.
+            if (variable->this_type() == variable_type_t::property
+                    && __is_constrained_property(((property_variable_t *)variable)->property))
+            {
+                pool.append<x_generic_copy_xil_t>(
+                    __ref_of(ctx, exp1->get_type()), xil_copy_kind_t::receiver
+                );
+            }
+        }
         else if (!is_static)
+        {
             pool.append<x_push_this_ref_xil_t>();
+        }
     }
 
     // Compiles static const field.
@@ -2636,6 +2683,13 @@ namespace X_ROOT_NS::modules::compile {
         if ((is_value_type(__ExpType) || is_enum(__ExpType)) && env.is_ref())
         {
             pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
+            return;
+        }
+
+        // A generic param is an object: a reference, or a boxed value (T to Object).
+        if (is_generic_param(__ExpType) && env.is_ref() && __is_generic_value_variable(exp))
+        {
+            pool.append<x_generic_copy_xil_t>(__ref_of(ctx, __ExpType), xil_copy_kind_t::box);
             return;
         }
 
@@ -3374,6 +3428,7 @@ namespace X_ROOT_NS::modules::compile {
 
         type_t * method_type = method->get_type();
         bool generic_value_return = is_generic_param(method_type)
+                && call_type != xil_call_type_t::internal
                 && env.type_mark == type_mark_t::value;
 
         if (effective)
@@ -3391,6 +3446,15 @@ namespace X_ROOT_NS::modules::compile {
 
                 expression_t * exp1 = ((binary_expression_t *)this->parent)->exp1();
                 exp1->compile(ctx, pool, host_type);
+
+                // A member of a generic param: the object is a reference, or the address of a
+                // struct.
+                if (call_type == xil_call_type_t::constrained)
+                {
+                    pool.append<x_generic_copy_xil_t>(
+                        __ref_of(ctx, exp1->get_type()), xil_copy_kind_t::receiver
+                    );
+                }
             }
             else
             {
@@ -3677,7 +3741,21 @@ namespace X_ROOT_NS::modules::compile {
             }
             else
             {
-                exp->compile(ctx, pool);
+                // A generic param is an address: the object that it is, is made.
+                if (is_generic_param(exp_type) && __is_generic_value_variable(exp))
+                {
+                    __compile_variable(ctx, pool, ((name_expression_t *)exp)->variable,
+                                                            __environment_t::empty, exp);
+
+                    pool.append<x_generic_copy_xil_t>(
+                        __ref_of(ctx, exp_type), xil_copy_kind_t::box
+                    );
+                }
+                else
+                {
+                    exp->compile(ctx, pool);
+                }
+
                 pool.append<x_cast_xil_t>(xil_cast_command_t::default_, __ref_of(ctx, type));
             }
         }
@@ -3688,7 +3766,15 @@ namespace X_ROOT_NS::modules::compile {
                 if (__is_custom_struct_like(type)) // Unbox custom struct.
                 {
                     exp->compile(ctx, pool);
-                    pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
+
+                    // The object of a member (((P)o).V) is the box itself, its data is the
+                    // struct; else the struct is copied to the destination that is below.
+                    if (__need_object_copy(this) || type->this_gtype() == gtype_t::generic)
+                    {
+                        pool.append<x_object_copy_xil_t>(
+                            __ref_of(ctx, type), xil_copy_kind_t::reverse
+                        );
+                    }
                 }
                 else    // internal value types.
                 {
