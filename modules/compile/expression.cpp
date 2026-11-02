@@ -30,23 +30,6 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
                                                         param_types_t * param_types = nullptr);
 
-    // Returns whether the expression is a member access of a type: T.Member, Type.Member.
-    static bool __is_static_member_access(expression_t * exp)
-    {
-        if (exp == nullptr || exp->this_family() != expression_family_t::binary)
-            return false;
-
-        binary_expression_t * binary = (binary_expression_t *)exp;
-        if (binary->op() != operator_t::member_point)
-            return false;
-
-        expression_t * left = binary->exp1();
-        if (left == nullptr || left->this_family() != expression_family_t::name)
-            return false;
-
-        return ((name_expression_t *)left)->expression_type == name_expression_type_t::type;
-    }
-
     // Returns whether the expression is the name of a property.
     static bool __is_property_name(expression_t * exp)
     {
@@ -1179,17 +1162,23 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles member point expression.
     static void __compile_member_point(__cctx_t & ctx, xil_pool_t & pool,
-                                expression_t * exp1, expression_t * exp2)
+                                expression_t * exp1, expression_t * exp2,
+                                const __environment_t & env = __environment_t::empty)
     {
+        // The member is what the whole is: the value of a generic param that is returned is
+        // the value of its member.
+        __environment_t member_env = env.type_mark == type_mark_t::value?
+                                __environment_t(type_mark_t::value) : __environment_t::empty;
+
         if (__is_call_expression(exp2))
         {
             // exp1 will compile during exp2 compiling.
-            exp2->compile(ctx, pool);
+            exp2->compile(ctx, pool, member_env);
         }
         else
         {
             exp1->compile(ctx, pool);
-            exp2->compile(ctx, pool);
+            exp2->compile(ctx, pool, member_env);
         }
     }
 
@@ -2720,8 +2709,7 @@ namespace X_ROOT_NS::modules::compile {
             type_t * member_type = this->get_type();
             bool generic_value_return = op() == operator_t::member_point
                     && is_generic_param(member_type)
-                    && env.type_mark == type_mark_t::value && env.type == member_type
-                    && __is_static_member_access(this) && __is_property_name(exp2);
+                    && env.type_mark == type_mark_t::value && __is_property_name(exp2);
 
             if (generic_value_return)
                 pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, member_type));
@@ -2767,7 +2755,10 @@ namespace X_ROOT_NS::modules::compile {
                 __Case(equal)
                 __Case(not_equal)
 
-                __Case(member_point)
+                case operator_t::member_point:
+                    __compile_member_point(ctx, pool, exp1, exp2, env);
+                    break;
+
                 __Case(assign)
                 __Case(null_coalescing)
                 __Case(null_coalescing_assign)
@@ -3383,13 +3374,16 @@ namespace X_ROOT_NS::modules::compile {
 
         type_t * method_type = method->get_type();
         bool generic_value_return = is_generic_param(method_type)
-                && env.type_mark == type_mark_t::value && env.type == method_type
-                && !__is_right_member(this->parent, this);
+                && env.type_mark == type_mark_t::value;
 
         if (effective)
         {
             if (__is_right_member(this->parent, this))
             {
+                // The destination is below the object, that is the first argument.
+                if (generic_value_return)
+                    pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
+
                 __pre_call_method(ctx, pool, this->parent, method);
 
                 type_t * host_type = method->get_host_type();
@@ -4141,9 +4135,22 @@ namespace X_ROOT_NS::modules::compile {
         {
             case gtype_t::generic_param: {
 
-                pool.append<x_push_generic_const_xil_t>(
-                    __ref_of(ctx, (generic_param_t *)type)
-                );
+                // It is read from a local variable that is zero: the value of a generic param is
+                // an address and a copy, whatever the argument is (a struct is not a number).
+                local_variable_t * variable = ctx.define_temp_local(type);
+                ref_t type_ref = __ref_of(ctx, type);
+
+                pool.append<x_push_local_addr_xil_t>(variable->identity);
+                pool.append<x_generic_copy_xil_t>(type_ref, xil_copy_kind_t::zero);
+
+                pool.append<x_push_local_addr_xil_t>(variable->identity);
+
+                if (__need_object_copy(this))
+                {
+                    pool.append<x_generic_copy_xil_t>(type_ref,
+                        env.type_mark == type_mark_t::value? xil_copy_kind_t::ret
+                                                            : xil_copy_kind_t::reverse);
+                }
 
             }   break;
 
