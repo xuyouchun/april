@@ -612,6 +612,15 @@ namespace X_ROOT_NS::modules::compile {
         X_D(interface_member_not_implemented,
                 _T("'%1%' does not implement interface member '%2%'"))
 
+        // A static member of an interface that is not abstract has a body.
+        X_D(interface_static_member_needs_body,
+                _T("'%1%': a static member of an interface that is not abstract must have a body"))
+
+        // A static abstract (or virtual) member of an interface is called through a generic param.
+        X_D(interface_static_member_through_interface,
+                _T("'%1%': a static abstract or virtual member of an interface can be used only through "
+                   "a generic parameter that has the interface as a constraint"))
+
         // Interfaces cannot contain instance fields.
         X_D(interfaces_cannot_contain_instance_fields,
                 _T("interfaces cannot contain instance fields"))
@@ -795,19 +804,25 @@ namespace X_ROOT_NS::modules::compile {
                 return false;
             }
 
-            // Modifier not valid for interface members.
-            // A static method (with a body) is allowed: a function of the interface, like Create.
-            bool static_method = member_type == m_t::method && member->is_static();
+            // The static members of an interface (methods and properties) are of three kinds:
+            //   static          a function of the interface, with a body;
+            //   static virtual  has a default body, that a type that implements it can replace;
+            //   static abstract has no body, a type that implements it must have the member.
+            // They are called through the interface (static), or through a generic param that has
+            // the interface as a constraint (all). The others have not the modifiers.
+            bool static_member = member->is_static()
+                                    && al::in(member_type, m_t::method, m_t::property);
 
-            const char_t * modifier = 
-                member->is_virtual()?   _T("virtual") :
-                (member->is_static() && !static_method)?    _T("static") :
-                member->is_abstract()?  _T("abstract") :
+            // Modifier not valid for interface members.
+            const char_t * modifier =
+                (member->is_virtual() && !static_member)?   _T("virtual") :
+                (member->is_static() && !static_member)?    _T("static") :
+                (member->is_abstract() && !static_member)?  _T("abstract") :
                 member->is_sealed()?    _T("sealed") :
                 member->is_const()?     _T("const") :
                 member->is_readonly()?  _T("readonly") :
                 member->is_extern()?    _T("extern") :
-                (member->has_access_modifier() && !static_method)? _T("access modifier") : nullptr
+                (member->has_access_modifier() && !static_member)? _T("access modifier") : nullptr
             ;
 
             if (modifier != nullptr)
@@ -816,23 +831,53 @@ namespace X_ROOT_NS::modules::compile {
                 return false;
             }
 
-            // Interface methods cannot have defination.
+            if (member->is_abstract() && member->is_virtual())
+            {
+                this->__log(ce, c_t::modifier_not_valid_for_interface_members, _T("virtual"));
+                return false;
+            }
+
+            // The methods: an instance method and a static abstract one have no body, the others
+            // (static, static virtual) have it.
             if (member_type == m_t::method)
             {
                 method_t * method = (method_t *)member;
-                if (method->body != nullptr && !method->is_static())
+                bool need_body = member->is_static() && !member->is_abstract();
+
+                if (method->body != nullptr && !need_body)
                 {
-                    this->__log(ce, c_t::interface_members_cannot_have_defination);
+                    this->__log(ce, c_t::interface_members_cannot_have_defination,
+                                                                    member->to_prototype());
+                    return false;
+                }
+
+                if (method->body == nullptr && need_body && method->relation_member == nullptr)
+                {
+                    this->__log(ce, c_t::interface_static_member_needs_body, member->to_prototype());
                     return false;
                 }
             }
 
-            // Interface properties cannot have defination.
+            // Interface properties cannot have defination, but static ones that are not abstract
+            // have it.
             if (member_type == m_t::property)
             {
                 property_t * property = (property_t *)member;
+                bool need_body = member->is_static() && !member->is_abstract();
 
-                if (property->get_method != nullptr && property->get_method->body != nullptr)
+                if (need_body)
+                {
+                    for (method_t * accessor : { property->get_method, property->set_method })
+                    {
+                        if (accessor != nullptr && accessor->body == nullptr)
+                        {
+                            this->__log(accessor, c_t::interface_static_member_needs_body,
+                                                                    member->to_prototype());
+                            return false;
+                        }
+                    }
+                }
+                else if (property->get_method != nullptr && property->get_method->body != nullptr)
                 {
                     this->__log(property->get_method, c_t::interface_members_cannot_have_defination,
                         property->get_method);
@@ -840,7 +885,8 @@ namespace X_ROOT_NS::modules::compile {
                     return false;
                 }
 
-                if (property->set_method != nullptr && property->set_method->body != nullptr)
+                if (!need_body && property->set_method != nullptr
+                                        && property->set_method->body != nullptr)
                 {
                     this->__log(property->set_method, c_t::interface_members_cannot_have_defination,
                         property->set_method);
@@ -1579,8 +1625,10 @@ namespace X_ROOT_NS::modules::compile {
         {
             // Search method
             {
+                // There is no method when it is the constraint of a type: where T : C<T>.
                 method_t * method = to_general(__wctx.current_method());
-                generic_constraint_t * constraint = __search_constraint(method->constraints, name);
+                generic_constraint_t * constraint = method != nullptr?
+                            __search_constraint(method->constraints, name) : nullptr;
 
                 if (constraint != nullptr)
                     return constraint;
@@ -2780,6 +2828,23 @@ namespace X_ROOT_NS::modules::compile {
         this->append_member(member);
     }
 
+
+    // The constraints of the generic params are set to them, to find the members of a generic param.
+    static void __link_constraints(generic_params_t * params, generic_constraints_t * constraints)
+    {
+        if (params == nullptr || constraints == nullptr)
+            return;
+
+        for (generic_constraint_t * constraint : *constraints)
+        {
+            for (generic_param_t * param : *params)
+            {
+                if (param->name == constraint->param_name)
+                    param->constraints.push_back(constraint);
+            }
+        }
+    }
+
     // Commits this node.
     void type_ast_node_t::on_commit()
     {
@@ -2788,6 +2853,7 @@ namespace X_ROOT_NS::modules::compile {
         this->attributes  = __to_eobject_with_owner<attributes_t *>(__attributes__,
                                                                 (general_type_t *)this);
         this->constraints = __to_eobject<generic_constraints_t *>(__generic_constraints__);
+        __link_constraints(this->params, this->constraints);
 
         this->transform_child_to(__methods__,           this->methods);
         this->transform_child_to(__properties__,        this->properties);
@@ -3539,6 +3605,9 @@ namespace X_ROOT_NS::modules::compile {
         // The owner of an explicit implementation is its interface.
         bool __is_implemented(type_t * type, method_t * method, type_t * interface_type)
         {
+            // A static abstract method needs a static one.
+            bool want_static = method->is_static();
+
             for (type_t * t = type; t != nullptr; t = t->get_base_type())
             {
                 auto * like = dynamic_cast<__general_type_like_base_t *>(t);
@@ -3547,7 +3616,11 @@ namespace X_ROOT_NS::modules::compile {
 
                 for (method_t * m : like->methods)
                 {
-                    if (m == method || m->is_static())
+                    if (m == method || m->is_static() != want_static)
+                        continue;
+
+                    // The static method that implements is not abstract.
+                    if (want_static && m->is_abstract())
                         continue;
 
                     type_t * owner = m->get_owner_type();
@@ -3627,8 +3700,9 @@ namespace X_ROOT_NS::modules::compile {
             {
                 for (method_t * method : like->methods)
                 {
-                    // A static method of an interface is not implemented.
-                    if (method->is_static())
+                    // A static method of an interface that is not abstract (static, static virtual)
+                    // needs not to be implemented.
+                    if (method->is_static() && !method->is_abstract())
                         continue;
 
                     if (!__is_implemented(type, method, interface_type))
@@ -6723,6 +6797,7 @@ namespace X_ROOT_NS::modules::compile {
         this->owner_type_name = __to_eobject<type_name_t *>(__owner_type_name__);
         this->body            = __to_eobject<method_body_t *>(__body__);
         this->constraints     = __to_eobject<generic_constraints_t *>(__generic_constraints__);
+        __link_constraints(this->generic_params, this->constraints);
         this->attributes      = __to_eobject_with_owner<attributes_t *>(__attributes__,
                                                                 (method_t *)this);
     }

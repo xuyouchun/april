@@ -129,6 +129,7 @@ namespace X_ROOT_NS::modules::core {
     // instance_t
 
     class type_t;
+    class generic_constraint_t;
     class runtime_mobject_t { };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2791,6 +2792,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Generic param type.
         generic_param_type_t param_type = generic_param_type_t::__default__;
+
+        // The constraints (where T : ...) of the param: its members are those of their types.
+        std::vector<generic_constraint_t *> constraints;
+
+        // Returns the types that the param is constrained to (not the types of class, struct, new).
+        void each_constraint_type(std::function<bool (type_t *)> f);
 
         // Returns gtype, ttype, vtype.
         virtual gtype_t this_gtype() override final { return gtype_t::generic_param; }

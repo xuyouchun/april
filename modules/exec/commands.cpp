@@ -3834,6 +3834,106 @@ namespace X_ROOT_NS::modules::exec {
         }
     };
 
+    // A static abstract (or virtual) method of an interface that is called through a generic
+    // param (T.MaxValue): the method has as its host the type that the param is. Returns the
+    // method of that type that implements it; or the default method of the interface, if it
+    // has one (static virtual). Returns null if the call is not of this kind.
+    static rt_method_base_t * __resolve_constrained_static(__context_t & ctx,
+                                                           rt_generic_method_t * method)
+    {
+        analyzer_env_t & env = ctx.env;
+        rt_method_t * template_ = method->template_;
+
+        if (template_ == nullptr || !template_->is_static())
+            return nullptr;
+
+        decorate_t decorate = (decorate_t)(*template_)->decorate;
+        if (!decorate.is_abstract && !decorate.is_virtual)
+            return nullptr;
+
+        rt_type_t * interface_template = template_->get_host_type();
+        if (interface_template == nullptr || interface_template->get_ttype(env) != ttype_t::interface_)
+            return nullptr;
+
+        // The receiver is the interface itself, or an interface of it: it is not the type that a
+        // param was.
+        rt_type_t * receiver = method->get_host_type();
+        if (receiver == nullptr || receiver->get_ttype(env) == ttype_t::interface_)
+            return nullptr;
+
+        // The interface, with its generic arguments, that the type implements.
+        rt_type_t * interface_type = nullptr;
+        std::function<bool (rt_type_t *)> find = [&](rt_type_t * type) -> bool {
+
+            rt_type_t * type_template = type->get_kind() == rt_type_kind_t::generic?
+                    (rt_type_t *)((rt_generic_type_t *)type)->template_ : type;
+
+            if (type->get_ttype(env) == ttype_t::interface_ && type_template == interface_template)
+            {
+                interface_type = type;
+                return false;
+            }
+
+            type->each_super_type(env, [&](rt_type_t * super_type) {
+                return find(super_type);
+            });
+
+            return interface_type == nullptr;
+        };
+
+        for (rt_type_t * type = receiver; type != nullptr && interface_type == nullptr;
+                                                            type = type->get_base_type(env))
+        {
+            find(type);
+        }
+
+        if (interface_type == nullptr)
+        {
+            throw _ECF(invalid_operation, _T("the type '%1%' does not implement the interface '%2%'"),
+                receiver->get_name(env), interface_template->get_name(env));
+        }
+
+        // The prototype of the method, in the terms of the type that implements.
+        generic_param_manager_t interface_gp(env, interface_type);
+        assembly_analyzer_t analyzer(env, template_->get_assembly(), &interface_gp);
+
+        method_prototype_t prototype;
+        analyzer.get_prototype(template_, &prototype);
+
+        rt_method_base_t * found = nullptr;
+        for (rt_type_t * type = receiver; type != nullptr && found == nullptr;
+                                                            type = type->get_base_type(env))
+        {
+            generic_param_manager_t type_gp(env, type);
+
+            type->each_method(env, [&](ref_t, rt_method_base_t * m) {
+                if (m->is_static() && m->compare_to(env, prototype, &type_gp))
+                {
+                    found = m;
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        if (found != nullptr)
+            return found;
+
+        // The method that the interface has (static virtual), with the types of the interface.
+        if (decorate.is_virtual && (*template_)->body != res_t::null)
+        {
+            assembly_analyzer_t default_analyzer(env, template_->get_assembly());
+            return default_analyzer.to_generic_method(template_, interface_type);
+        }
+
+        throw _ECF(invalid_operation, _T("the type '%1%' does not implement the static member '%2%' of '%3%'"),
+            receiver->get_name(env), template_->get_name(), interface_type->get_name(env));
+    }
+
+    // The command of a static call of a runtime method.
+    static command_t * __new_static_call_command_of(__context_t & ctx, rt_method_base_t * method);
+
     command_t * new_static_call_command(__context_t & ctx, ref_t method_ref)
     {
         switch ((mt_member_extra_t)method_ref.extra)
@@ -3845,6 +3945,10 @@ namespace X_ROOT_NS::modules::exec {
                 >::with_args_t<rt_generic_method_t *> __static_generic_call_command_manager;
 
                 auto * rt_generic_method = _M(rt_generic_method_t *, ctx.get_method(method_ref));
+
+                // Through a generic param: the method of the type that it is.
+                if (rt_method_base_t * target = __resolve_constrained_static(ctx, rt_generic_method))
+                    return __new_static_call_command_of(ctx, target);
 
                 return __static_generic_call_command_manager.template
                     get_command<__CallCmd_(static_, generic)>(rt_generic_method, ctx);
@@ -3867,6 +3971,26 @@ namespace X_ROOT_NS::modules::exec {
             default:
                 X_UNEXPECTED();
         }
+    }
+
+    static command_t * __new_static_call_command_of(__context_t & ctx, rt_method_base_t * method)
+    {
+        static __command_manager_t<
+            __static_call_command_template_t<rt_method_t>
+        >::with_args_t<rt_method_t *> __static_call_command_manager;
+
+        static __command_manager_t<
+            __static_call_command_template_t<rt_generic_method_t>
+        >::with_args_t<rt_generic_method_t *> __static_generic_call_command_manager;
+
+        if (method->this_type() == rt_member_type_t::generic)
+        {
+            return __static_generic_call_command_manager.template get_command<
+                __CallCmd_(static_, generic)>((rt_generic_method_t *)method, ctx);
+        }
+
+        return __static_call_command_manager.template get_command<
+            __CallCmd_(static_, general)>(_M(rt_method_t *, method), ctx);
     }
 
     static command_t * __new_static_call_command(__context_t & ctx, const call_xil_t & xil)

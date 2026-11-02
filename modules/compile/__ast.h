@@ -835,6 +835,12 @@ namespace X_ROOT_NS::modules::compile {
         // Interfaces cannot contain instance fields.
         interfaces_cannot_contain_instance_fields,
 
+        // A static member of an interface that is not abstract must have a body.
+        interface_static_member_needs_body,
+
+        // A static abstract (or virtual) member is used through the interface.
+        interface_static_member_through_interface,
+
         // A non-abstract type does not implement an inherited abstract member.
         abstract_member_not_implemented,
 

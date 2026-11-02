@@ -145,6 +145,22 @@ namespace X_ROOT_NS::modules::compile {
     {
         ref_t ref = ref_t::null;
 
+        // A static abstract (or virtual) member of an interface is used through a generic param
+        // that has the interface as a constraint: its host is the param, not the interface.
+        {
+            decorate_t * decorate = method->get_decorate();
+            type_t * host = method->get_host_type();
+
+            if (decorate != nullptr && decorate->is_static
+                    && (decorate->is_abstract || decorate->is_virtual)
+                    && host != nullptr && host->this_ttype() == ttype_t::interface_)
+            {
+                throw _ECF(invalid_operation, _T("'%1%': a static abstract or virtual member of an "
+                    "interface can be used only through a generic parameter that has the interface "
+                    "as a constraint"), to_general(method)->to_prototype());
+            }
+        }
+
         switch (method->this_family())
         {
             case member_family_t::general: {

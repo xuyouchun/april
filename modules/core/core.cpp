@@ -1391,7 +1391,9 @@ namespace X_ROOT_NS::modules::core {
             return access_value_t::internal;
         }
 
-        if (is_interface(host_type))
+        // The members of an interface are public, the members of a generic param are those of
+        // its interfaces.
+        if (is_interface(host_type) || is_generic_param(host_type))
             return access_value_t::public_;
 
         return access_value_t::private_;
@@ -5737,22 +5739,130 @@ namespace X_ROOT_NS::modules::core {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    // Returns members descripted by args.
+    // Enums the types that the param is constrained to.
+    void generic_param_t::each_constraint_type(std::function<bool (type_t *)> f)
+    {
+        for (generic_constraint_t * constraint : constraints)
+        {
+            for (type_name_t * type_name : constraint->type_names)
+            {
+                type_t * type = to_type(type_name);
+                if (type != nullptr && !f(type))
+                    return;
+            }
+        }
+    }
+
+    // A static abstract (or virtual) method of an interface, that is used through a generic param
+    // (T.MaxValue): it is a method of the param, the implementation is that of the type that the
+    // param is when the program runs.
+    static method_t * __constrained_method(method_t * method, generic_param_t * param)
+    {
+        if (method == nullptr)
+            return nullptr;
+
+        xpool_t & xpool = __XPool;
+        impl_method_t * new_method = xpool.new_obj<impl_method_t>();
+
+        if (method->this_family() == member_family_t::impl)
+        {
+            new_method->raw  = ((impl_method_t *)method)->raw;
+            for (const typex_t & arg : ((impl_method_t *)method)->args)
+                new_method->args.push_back(arg);
+        }
+        else
+        {
+            new_method->raw = method;
+        }
+
+        new_method->owner_type_name = method->owner_type_name;
+        new_method->type_name       = method->type_name;
+        new_method->generic_params  = method->generic_params;
+        new_method->name            = method->name;
+        new_method->decorate        = method->decorate;
+        new_method->trait           = method->trait;
+        new_method->params          = method->params;
+        new_method->host_type       = param;
+        new_method->variable        = xpool.new_obj<method_variable_t>(new_method);
+
+        return new_method;
+    }
+
+    // The same for the property.
+    static property_t * __constrained_property(property_t * property, generic_param_t * param)
+    {
+        xpool_t & xpool = __XPool;
+        impl_property_t * new_property = xpool.new_obj<impl_property_t>();
+
+        new_property->raw = property->this_family() == member_family_t::impl?
+                                        ((impl_property_t *)property)->raw : property;
+
+        new_property->owner_type_name = property->owner_type_name;
+        new_property->name       = property->name;
+        new_property->type_name  = property->type_name;
+        new_property->params     = property->params;
+        new_property->attributes = property->attributes;
+        new_property->decorate   = property->decorate;
+        new_property->host_type  = param;
+        new_property->variable   = xpool.new_obj<property_variable_t>(new_property);
+
+        new_property->get_method = __constrained_method(property->get_method, param);
+        new_property->set_method = __constrained_method(property->set_method, param);
+
+        if (new_property->get_method != nullptr)
+            new_property->get_method->relation_member = new_property;
+
+        if (new_property->set_method != nullptr)
+            new_property->set_method->relation_member = new_property;
+
+        return new_property;
+    }
+
+    // Returns members descripted by args: those of the types that it is constrained to.
     member_t * generic_param_t::get_member(analyze_member_args_t & args)
     {
-        return nullptr;
+        member_t * member = nullptr;
+
+        each_constraint_type([&](type_t * type) {
+            member = type->get_member(args);
+            return member == nullptr;
+        });
+
+        // The static abstract and virtual members of an interface are those of the param.
+        if (member != nullptr && member->is_static() && (member->is_abstract() || member->is_virtual()))
+        {
+            switch (member->this_type())
+            {
+                case member_type_t::method:
+                    return __constrained_method((method_t *)member, this);
+
+                case member_type_t::property:
+                    return __constrained_property((property_t *)member, this);
+
+                default:
+                    break;
+            }
+        }
+
+        return member;
     }
 
     // Returns memeber descripted by args.
     void generic_param_t::get_members(analyze_members_args_t & args)
     {
-        // Empty.
+        each_constraint_type([&](type_t * type) {
+            type->get_members(args);
+            return true;
+        });
     }
 
     // Returns all members.
     void generic_param_t::get_all_members(members_t & out_members)
     {
-        // Empty.
+        each_constraint_type([&](type_t * type) {
+            type->get_all_members(out_members);
+            return true;
+        });
     }
 
     const string_t generic_param_t::to_identity() const
@@ -9465,6 +9575,10 @@ namespace X_ROOT_NS::modules::core {
     // Check whether the access is allowed.
     bool check_access(type_t * from_type, type_t * host_type, access_value_t av)
     {
+        // The members of a generic param are those of its constraints (public).
+        if (is_generic_param(host_type))
+            return av == access_value_t::public_;
+
         from_type = __to_general_with_check(from_type);
         host_type = __to_general_with_check(host_type);
 
@@ -9505,6 +9619,10 @@ namespace X_ROOT_NS::modules::core {
     bool check_access(assembly_t * from_assembly, type_t * host_type)
     {
         _A(from_assembly != nullptr);
+
+        if (is_generic_param(host_type))
+            return true;
+
         host_type = __to_general_with_check(host_type);
 
         bool cross_assembly = (host_type->get_assembly() != from_assembly);
@@ -9514,6 +9632,9 @@ namespace X_ROOT_NS::modules::core {
     // Check whether the access is allowed.
     bool __check_member_access(assembly_t * from_assembly, type_t * host_type, access_value_t av)
     {
+        if (is_generic_param(host_type))
+            return av == access_value_t::public_;
+
         bool cross_assembly = (host_type->get_assembly() != from_assembly);
 
         if (!cross_assembly)
