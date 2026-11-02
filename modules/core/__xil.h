@@ -420,6 +420,10 @@ namespace X_ROOT_NS::modules::core {
                                         //   the top is copied to the destination of the caller;
                                         //   else the value is in the stack, nothing is done.
 
+        store           = 7,            // Stores the value that a call returned: the destination is
+                                        //   below the value in the stack; if the generic param is a
+                                        //   custom struct, the call has written it, nothing is done.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------

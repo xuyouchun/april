@@ -77,8 +77,15 @@ def _all_files():
             continue
 
         for name in sorted(os.listdir(path)):
-            if name.endswith(".cs"):
-                result.append(directory + "/" + name)
+            if not name.endswith(".cs"):
+                continue
+
+            # The programs that have warnings (see test_nullable) print them with their output.
+            with open(os.path.join(path, name), "r") as f:
+                if re.search(r"// EXPECT_WARNING (?!none)", f.read()):
+                    continue
+
+            result.append(directory + "/" + name)
 
     return result
 

@@ -150,6 +150,9 @@ namespace X_ROOT_NS::modules::compile {
         // Typename expression.
         X_C(type_name_exp,              _T("type_name_exp"))
 
+        // A name that declares a variable.
+        X_C(declaration_exp,            _T("declaration_exp"))
+
         // Type cast expression.
         X_C(type_cast_exp,              _T("type_cast_exp"))
 
@@ -205,6 +208,29 @@ namespace X_ROOT_NS::modules::compile {
         // The member does not hide an accessible member. The new keyword is not required.
         X_D(not_hides_inherit_member, _T("The member '%1%' does not hide an accessible member. ")
                                 _T("The new keyword is not required."))
+
+        // A value that can be null is converted to a type that cannot be null.
+        X_D(nullable_convert, _T("Converting a possible null value to the non-nullable type '%1%'"))
+
+        // The null literal is converted to a type that cannot be null.
+        X_D(nullable_null_literal, _T("Cannot convert the null literal to the non-nullable type '%1%'"))
+
+        // A value that can be null is dereferenced.
+        X_D(nullable_dereference, _T("Dereference of a possibly null reference '%1%'"))
+
+        // A value that can be null is returned.
+        X_D(nullable_return, _T("Possible null reference return"))
+
+        // A value that can be null is an argument.
+        X_D(nullable_argument, _T("Possible null reference argument for the parameter '%1%' of '%2%'"))
+
+        // A field that cannot be null is not initialized.
+        X_D(nullable_field_uninitialized, _T("The non-nullable field '%1%' must contain a non-null ")
+            _T("value when a constructor exits, consider declaring it as nullable"))
+
+        // The argument of a generic type can be null, the param cannot be.
+        X_D(nullable_constraint, _T("The type '%1%' that can be null cannot be used as the ")
+            _T("type param '%2%' of '%3%', that cannot be null"))
 
         // Duplicated.
         X_D(duplicate,  _T("duplicate %1% \"%2%\""))
@@ -497,6 +523,13 @@ namespace X_ROOT_NS::modules::compile {
 
         // The operator is ambiguous.
         X_D(operator_overload_ambiguous, _T("Operator '%1%' is ambiguous for %2%"))
+
+        // The value is assigned to a member of ?. .
+        X_D(null_conditional_assign, _T("The left-hand side of an assignment cannot contain a null-conditional operator"))
+
+        // The operator ?. is used with the object of a type that cannot be null.
+        X_D(null_conditional_wrong_type,
+            _T("Operator '?.' cannot be applied to an operand of type '%1%', that cannot be null"))
 
         // Cannot determine local type.
         X_D(cannot_determine_local_variable_type,
@@ -1366,8 +1399,14 @@ namespace X_ROOT_NS::modules::compile {
         {
             this->type = __ascertain_type(context, (general_type_name_t *)this);
 
+            // T? of a reference is the type that can be null, it is the type.
+            if (__nullable && this->type != nullptr
+                    && (can_be_null(this->type) || is_generic_param(this->type)))
+            {
+                this->nullable = true;
+            }
             // T? is Nullable<T>.
-            if (__nullable && this->type != nullptr)
+            else if (__nullable && this->type != nullptr)
             {
                 type_collection_t types = { typex_t(this->type) };
                 xtype_collection_t xtypes(types);
@@ -1693,11 +1732,19 @@ namespace X_ROOT_NS::modules::compile {
         // Check access modifier.
         this->__check_access(context, type, (general_type_name_t *)this);
 
+
         // Check 
         if (is_generic(type))
         {
             generic_type_t * generic_type = (generic_type_t *)type;
             __check_generic_constraints(this->__context, context, generic_type, this);
+
+            // The arguments that can be null (Box<String?>), and the constraints notnull.
+            if (nullable_directive_seen)
+            {
+                check_nullable_constraints((general_type_name_t *)this, this,
+                                           this->__context.logger);
+            }
         }
 
         return true;
@@ -2345,7 +2392,14 @@ namespace X_ROOT_NS::modules::compile {
         _A(node != nullptr);
 
         cvalue_t * value = _M(cvalue_ast_t *, node)->to_eobject();
-        __es.push_back(__el_t(to_sys_exp(__get_memory(), __get_lang(), nullptr, value)));
+
+        expression_t * exp = to_sys_exp(__get_memory(), __get_lang(), nullptr, value);
+
+        // The position of the value in the code.
+        if (node->code_unit != nullptr)
+            exp->code_unit = node->code_unit;
+
+        __es.push_back(__el_t(exp));
 
         this->append_child(__nodes__, node);
     }
@@ -4200,6 +4254,39 @@ namespace X_ROOT_NS::modules::compile {
     void generic_constraint_ast_node_t::on_commit()
     {
         this->transform_child_to(__type_names__, this->type_names);
+
+        // notnull is not a type: the argument cannot be null.
+        name_t notnull = __to_name(_T("notnull"));
+
+        std::vector<type_name_t *> kept;
+
+        for (type_name_t * item : this->type_names)
+        {
+            general_type_name_t * type_name = dynamic_cast<general_type_name_t *>(item);
+
+            if (type_name != nullptr && type_name->units.size() == 1
+                    && type_name->units[0] != nullptr && !type_name->units[0]->is_generic()
+                    && type_name->units[0]->name == notnull)
+            {
+                // The name is not resolved as a type.
+                type_name->type = uncertain_type_t::instance();
+
+                this->cttype = (generic_constraint_ttype_t)(
+                    (int)this->cttype | (int)generic_constraint_ttype_t::notnull_
+                );
+
+                continue;
+            }
+
+            kept.push_back(item);
+        }
+
+        if (kept.size() != this->type_names.size())
+        {
+            this->type_names.clear();
+            for (type_name_t * item : kept)
+                this->type_names.push_back(item);
+        }
     }
 
     // Returns this eobject.
@@ -4648,6 +4735,9 @@ namespace X_ROOT_NS::modules::compile {
                     __Log(cannot_determine_local_variable_type, var_item->name);
                 else
                     var_item->variable->type_name->type = type;
+
+                // The type of var can be null, as its value.
+                var_item->variable->type_name->nullable = true;
 
                 /*
                 _PF(_T("%1% %2% (%3%)"), var_item->variable->type_name->type, var_item->name,
@@ -5197,7 +5287,12 @@ namespace X_ROOT_NS::modules::compile {
 
         __array->type_name->type = enumerator_type;     // The enumerator.
         if (__is_uncertain(__variable->type_name))
+        {
             __variable->type_name->type = element_type;
+
+            // The type of var can be null, as its value.
+            __variable->type_name->nullable = true;
+        }
 
         auto name_of = [this](variable_t * variable) -> expression_t * {
             return __new_obj<system_expression_t<name_expression_t>>(variable->get_name());
@@ -5288,7 +5383,12 @@ namespace X_ROOT_NS::modules::compile {
 
         __array->type_name->type = iterator_type;
         if (__is_uncertain(__variable->type_name))
+        {
             __variable->type_name->type = element_type;
+
+            // The type of var can be null, as its value.
+            __variable->type_name->nullable = true;
+        }
 
         // The names are resolved like the names of the programs.
         auto name_of = [this](variable_t * variable) -> expression_t * {
@@ -5692,6 +5792,27 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // declaration_exp
+
+    // Commits this node.
+    void declaration_exp_ast_node_t::on_commit()
+    {
+        this->declare_type_name = __to_eobject<type_name_t *>(__type_name__);
+    }
+
+    // Returns this eobject.
+    expression_t * declaration_exp_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node.
+    bool declaration_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        return __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // type_cast_exp
 
     // Commits this node.
@@ -5900,6 +6021,11 @@ namespace X_ROOT_NS::modules::compile {
     void new_array_ast_node_t::on_commit()
     {
         this->type_name = __to_eobject<type_name_t *>(__type_name__);
+
+        // new String?[2]
+        if (this->element_nullable && this->type_name != nullptr)
+            this->type_name->nullable = true;
+
         this->set_lengths(__to_eobject<array_lengths_t *>(__lengths__));
         this->set_initializer(__to_eobject<array_initializer_t *>(__initializer__));
     }
@@ -7321,7 +7447,11 @@ namespace X_ROOT_NS::modules::compile {
         if (__op_property == nullptr)
             return true;
 
-        if (!this->is_static() || !this->is_public())
+        // The members of an interface are public, its operators are static abstract (or virtual).
+        type_t * host_type = context.current_type();
+        bool in_interface = host_type != nullptr && is_interface(host_type);
+
+        if (!this->is_static() || (!this->is_public() && !in_interface))
             this->__log(this, __c_t::operator_overload_prototype_error);
 
         if (this->param_count() != __op_property->arity)
@@ -7332,8 +7462,12 @@ namespace X_ROOT_NS::modules::compile {
             );
         }
 
+        // One of the parameters is the containing type, or in an interface, a generic param
+        // (TSelf) that is the type that implements it.
         bool has_containing_type = al::any_of(*this->params, [&](param_t * param) {
-            return param->get_type() == context.current_type();
+            type_t * param_type = param->get_type();
+            return param_type == context.current_type()
+                || (in_interface && param_type != nullptr && is_generic_param(param_type));
         });
 
         if (!has_containing_type)

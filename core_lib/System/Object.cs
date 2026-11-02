@@ -39,7 +39,7 @@ public sealed class Type
         return Array.New<Field>(10);
     }
 
-    public Field GetField(String name)
+    public Field? GetField(String name)
     {
         return null;
     }
@@ -54,7 +54,7 @@ public sealed class Type
         return Array.New<Method>(10);
     }
 
-    public Method GetMethod(String name, Array<Type> parameterTypes)
+    public Method? GetMethod(String name, Array<Type> parameterTypes)
     {
         return null;
     }
@@ -64,7 +64,7 @@ public sealed class Type
         return Array.New<Property>(10);
     }
 
-    public Property GetProperty(String name)
+    public Property? GetProperty(String name)
     {
         return null;
     }
@@ -74,7 +74,7 @@ public sealed class Type
         return Array.New<Event>(10);
     }
 
-    public Event GetEvent(String name)
+    public Event? GetEvent(String name)
     {
         return null;
     }
@@ -84,7 +84,7 @@ public sealed class Type
         return Array.New<GenericParameter>(10);
     }
 
-    public Assembly Assembly
+    public Assembly? Assembly
     {
         get { return null; }
     }

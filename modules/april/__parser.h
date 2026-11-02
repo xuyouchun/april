@@ -99,6 +99,9 @@ namespace X_ROOT_NS::modules::april {
 
         std::vector<file_config_t *> files;
 
+        // <nullable>enable</nullable>: the null states of the references are analyzed.
+        bool nullable = false;
+
         X_TO_STRING_IMPL(_T("project_config_t"))
 
     protected:

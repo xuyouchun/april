@@ -301,6 +301,7 @@ namespace X_ROOT_NS::modules::core {
             mt->name = __S(method->name);
 
             mt->trait = method->trait;
+            mt->nullable = method->type_name != nullptr && method->type_name->nullable;
 
             type_t * method_type = to_type(method->type_name);
 
@@ -357,6 +358,7 @@ namespace X_ROOT_NS::modules::core {
             mt->type = __W->__commit_type(param_type);
 
             mt->param_type    = param->ptype;
+            mt->nullable      = param->type_name != nullptr && param->type_name->nullable;
             mt->default_value = __W->__commit_constant(param->default_value, param_type);
             mt->attributes    = __W->__commit_attributes(param->attributes);
         }
@@ -376,6 +378,7 @@ namespace X_ROOT_NS::modules::core {
             mt->owner = __W->__commit_type(to_type(property->owner_type_name));
 
             mt->attributes = __W->__commit_attributes(property->attributes);
+            mt->nullable   = property->type_name != nullptr && property->type_name->nullable;
             mt->params     = __W->__commit_params(property->params);
             mt->get_method = __W->__commit_method(property->get_method);
             mt->set_method = __W->__commit_method(property->set_method);
@@ -394,6 +397,7 @@ namespace X_ROOT_NS::modules::core {
             __CheckEmptyV(field, field_type, "field", "type");
 
             mt->type       = __W->__commit_type(field_type);
+            mt->nullable   = field->type_name != nullptr && field->type_name->nullable;
             mt->attributes = __W->__commit_attributes(field->attributes);
             mt->init_value = __W->__commit_constant(field->init_value, field_type);
         }

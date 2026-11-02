@@ -576,7 +576,8 @@ namespace X_ROOT_NS::modules::core {
 
     // Metadata: Field.
     __DefineEntityIOFunctions
-        __M(name), __M(decorate), __M(type), __M(attributes), __M(init_value), __V(1),
+        __M(name), __M(decorate), __M(type), __M(attributes), __M(init_value), __M(nullable),
+        __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt
@@ -588,7 +589,7 @@ namespace X_ROOT_NS::modules::core {
     // Metadata: Property.
     __DefineEntityIOFunctions
         __M(name), __M(decorate), __M(type), __M(owner), __M(attributes),
-        __M(params), __M(get_method), __M(set_method), __V(1),
+        __M(params), __M(get_method), __M(set_method), __M(nullable), __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt
@@ -600,7 +601,8 @@ namespace X_ROOT_NS::modules::core {
     // Metadata: Method.
     __DefineEntityIOFunctions
         __M(name), __M(decorate), __M(type), __M(owner),
-        __M(attributes), __M(generic_params), __M(params), __M(body), __M(trait), __V(1),
+        __M(attributes), __M(generic_params), __M(params), __M(body), __M(trait), __M(nullable),
+        __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt
@@ -711,7 +713,8 @@ namespace X_ROOT_NS::modules::core {
 
     // Metadata: Param.
     __DefineEntityIOFunctions
-        __M(name), __M(attributes), __M(type), __M(param_type), __M(default_value), __V(1),
+        __M(name), __M(attributes), __M(type), __M(param_type), __M(default_value), __M(nullable),
+        __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt

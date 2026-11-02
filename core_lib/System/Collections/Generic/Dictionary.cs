@@ -98,7 +98,7 @@ public class Dictionary<TKey, TValue> : IDictionary<TKey, TValue>
     }
 
     // Gets the value of the key, returns false if there is no one.
-    public Boolean TryGetValue(TKey key, out TValue value)
+    public Boolean TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
     {
         Int32 index = __find(key);
         if (index < 0)

@@ -493,6 +493,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(box,            _T("box"))
 
+        X_C(store,          _T("store"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

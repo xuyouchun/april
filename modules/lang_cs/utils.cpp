@@ -41,7 +41,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             p.is_operator = is_operator;
         };
 
-        e.each(std::bind(set_operator, _2, true), w_t::k_is, w_t::k_as);
+        e.each(std::bind(set_operator, _2, true), w_t::k_is, w_t::k_as, w_t::k_not);
         e.each(w_t::__operator_begin, w_t::__operator_end, std::bind(set_operator, _2, true));
 
         // operator
@@ -71,9 +71,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         __Op(logic_and) __Op(logic_or)       __Op(logic_not)
 
-        __Op(member_point)
+        __Op(member_point)  __Op(null_conditional)  __Op(null_forgiving)
 
         __KOp(as)       __KOp(is)
+        e[w_t::k_not].op = operator_t::logic_not;
 
         #define __CsOp_(_name, _w)                                                      \
             e[w_t::_w].op   = (operator_t)cs_operator_t::_name;                         \

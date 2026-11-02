@@ -350,6 +350,20 @@ namespace X_ROOT_NS::modules::core {
             return __to_type_name(__get_type(ref));
         }
 
+        // Returns typename of ref: a type that is annotated with ? has its own typename, the
+        // others share one.
+        type_name_t * __to_type_name(ref_t ref, bool nullable)
+        {
+            type_t * type = __get_type(ref);
+            if (!nullable || type == nullptr)
+                return __to_type_name(type);
+
+            type_name_t * type_name = __new_obj<type_name_t>(type);
+            type_name->nullable = true;
+
+            return type_name;
+        }
+
         // Returns type of ref.
         type_t * __get_type(ref_t ref)
         {
@@ -1153,7 +1167,7 @@ namespace X_ROOT_NS::modules::core {
             field->name             = __to_name(mt.name);
             field->decorate         = __to_decorate(mt.decorate);
 
-            field->type_name        = __to_type_name(mt.type);
+            field->type_name        = __to_type_name(mt.type, mt.nullable != 0);
             field->attributes       = __to_attributes(mt.attributes, field);
             field->init_value       = __get_constant(mt.init_value);
 
@@ -1166,7 +1180,7 @@ namespace X_ROOT_NS::modules::core {
             method->name            = __to_name(mt.name);
             method->decorate        = __to_decorate(mt.decorate);
 
-            method->type_name       = __to_type_name(mt.type);
+            method->type_name       = __to_type_name(mt.type, mt.nullable != 0);
             method->generic_params  = __to_generic_params(mt.generic_params);
             method->params          = __to_params(mt.params);
             method->trait           = mt.trait;
@@ -1180,7 +1194,7 @@ namespace X_ROOT_NS::modules::core {
             property->name          = __to_name(mt.name);
             property->decorate      = __to_decorate(mt.decorate);
 
-            property->type_name     = __to_type_name(mt.type);
+            property->type_name     = __to_type_name(mt.type, mt.nullable != 0);
             property->attributes    = __to_attributes(mt.attributes, property);
             property->params        = __to_params(mt.params);
 
@@ -1228,7 +1242,7 @@ namespace X_ROOT_NS::modules::core {
         {
             param->name             = __to_name(mt.name);
             param->attributes       = __to_attributes(mt.attributes, param);
-            param->type_name        = __to_type_name(mt.type);
+            param->type_name        = __to_type_name(mt.type, mt.nullable != 0);
             param->ptype            = mt.param_type;
             param->default_value    = __get_constant(mt.default_value);
         }

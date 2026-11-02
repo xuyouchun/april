@@ -147,7 +147,7 @@ public interface IReadOnlyDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TK
     Boolean ContainsKey(TKey key);
 
     // Gets the value of the key, returns false if there is no one.
-    Boolean TryGetValue(TKey key, out TValue value);
+    Boolean TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value);
 
     // The keys, a copy of them.
     IReadOnlyCollection<TKey> Keys { get; }

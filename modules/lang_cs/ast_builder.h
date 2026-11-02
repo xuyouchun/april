@@ -284,6 +284,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     __SimpleBuilder(type_name_exp)
 
     ////////// ////////// ////////// ////////// //////////
+    // declaration_exp
+
+    __SimpleBuilder(declaration_exp)
+
+    ////////// ////////// ////////// ////////// //////////
     // type_cast_exp
 
     __SimpleBuilder(type_cast_exp)

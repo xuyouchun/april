@@ -1004,6 +1004,13 @@ namespace X_ROOT_NS::modules::compile {
             if (name_exp->expression_type != name_expression_type_t::__default__)
                 return;
 
+            // A name that declares a variable: out int value, o is string s.
+            if (name_exp->declare_type_name != nullptr)
+            {
+                __walk_declaration(name_exp);
+                return;
+            }
+
             name_t name = name_exp->name;
 
             variable_t * variable;
@@ -1074,6 +1081,29 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        // Walks a name that declares a variable: it is defined in the region of the expression,
+        // the names that follow it are those of the variable.
+        void __walk_declaration(name_expression_t * name_exp)
+        {
+            variable_defination_t vd(__cctx, __wctx, (object_t *)name_exp);
+            vd.use_own_slot();
+
+            local_variable_t * variable = vd.define_local(
+                name_exp->declare_type_name, name_exp->name, false, nullptr, (object_t *)name_exp
+            );
+
+            if (variable == nullptr)
+                return;
+
+            name_exp->set(variable);
+
+            // The local variables of the method that does the work of an iterator are the fields
+            // of the state object.
+            method_t * current = __wctx.current_method();
+            if (current != nullptr && current->iterator_info != nullptr)
+                ((iterator_info_t *)current->iterator_info)->refs.push_back(name_exp);
+        }
+
         // Walks index expression.
         void __walk_index(index_expression_t * index_exp)
         {
@@ -1082,6 +1112,14 @@ namespace X_ROOT_NS::modules::compile {
 
             type_t * body_type = body_exp->get_type();
             _A(body_type != nullptr);
+
+            // The object of ?[ is a reference.
+            if (index_exp->null_conditional && !can_be_null(body_type))
+            {
+                ast_log(__cctx, index_exp, __c_t::null_conditional_wrong_type,
+                                                                    body_type->to_prototype());
+                return;
+            }
 
             arguments_t * arguments = index_exp->arguments();
             __walk_arguments(arguments);
@@ -1165,6 +1203,17 @@ namespace X_ROOT_NS::modules::compile {
 
             __walk(exp1);
 
+            // The object of ?. is a reference.
+            if (exp->null_conditional)
+            {
+                type_t * type1 = exp1->get_type();
+                if (type1 != nullptr && !can_be_null(type1))
+                {
+                    ast_log(__cctx, exp, __c_t::null_conditional_wrong_type, type1->to_prototype());
+                    return;
+                }
+            }
+
             if (__walk_member(exp1, exp2) != __exp2_walked_t::yes)
                 __walk(exp2);
         }
@@ -1182,6 +1231,17 @@ namespace X_ROOT_NS::modules::compile {
             // Check operator.
             const operator_property_t * op_property = exp->op_property;
             _A(op_property != nullptr);
+
+            // The member of ?. is not assigned.
+            if (_exp_count == 2 && op_property->is_assign)
+            {
+                expression_t * left = exp->expression_at(0);
+                if (in_null_conditional_chain(left))
+                {
+                    ast_log(__cctx, exp, __c_t::null_conditional_assign);
+                    return;
+                }
+            }
 
             // A lambda that is assigned to a delegate gets the return type of it.
             if (_exp_count == 2 && op_property->op == operator_t::assign)
@@ -1234,7 +1294,7 @@ namespace X_ROOT_NS::modules::compile {
                     exists_null = true;
                 else if (__is_string(arg_type))
                     exists_custom_type = exists_string = true;
-                else if (is_object(arg_type))
+                else if (is_object(arg_type) || is_generic_param(arg_type))
                     exists_custom_type = true;
 
                 atypes.push_back(arg_type);
@@ -1320,7 +1380,8 @@ namespace X_ROOT_NS::modules::compile {
             al::svector_t<method_t *> methods;
             for (atype_t atype : atypes)
             {
-                if (!is_object(atype.type) && !__is_string(atype.type))
+                if (!is_object(atype.type) && !__is_string(atype.type)
+                        && !is_generic_param(atype.type))
                     continue;
 
                 method_t * method = nullptr;
@@ -1807,7 +1868,19 @@ namespace X_ROOT_NS::modules::compile {
                 return;
 
             for (argument_t * argument : *arguments)
+            {
                 __walk(argument->expression);
+
+                // Only an out argument declares a variable.
+                if (argument->expression != nullptr
+                        && argument->expression->this_family() == expression_family_t::name
+                        && ((name_expression_t *)argument->expression)->declare_type_name != nullptr
+                        && argument->atype != param_type_t::out)
+                {
+                    ast_log(__cctx, argument->expression, __c_t::unexpected_expression,
+                                                                        argument->expression);
+                }
+            }
         }
 
         // Walks methods.
@@ -1904,6 +1977,32 @@ namespace X_ROOT_NS::modules::compile {
                     generic_method->param_type_at(k);
 
                 __wctx.commit_types();
+            }
+
+            // out var value: the type is that of the param.
+            if (arguments != nullptr)
+            {
+                method_base_t * chosen = function_exp->get_method();
+                for (size_t index = 0, count = std::min((size_t)arguments->size(),
+                                (size_t)chosen->param_count()); index < count; index++)
+                {
+                    expression_t * arg_exp = arguments->at(index)->expression;
+                    if (arg_exp == nullptr || arg_exp->this_family() != expression_family_t::name)
+                        continue;
+
+                    name_expression_t * declared = (name_expression_t *)arg_exp;
+                    if (declared->declare_type_name == nullptr
+                            || declared->declare_type_name->type == nullptr
+                            || declared->declare_type_name->type->this_gtype() != gtype_t::uncertain)
+                        continue;
+
+                    type_t * param_type = chosen->param_type_at(index).type();
+                    if (param_type != nullptr)
+                    {
+                        declared->declare_type_name->type = param_type;
+                        declared->declare_type_name->nullable = true;
+                    }
+                }
             }
 
             if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)
@@ -2072,7 +2171,7 @@ namespace X_ROOT_NS::modules::compile {
         try
         {
             local_variable_t * variable = __region->define_local(type_name, name, constant,
-                                                                              expression);
+                                                                      expression, __own_slot);
 
             // The local variables of the method that does the work of an iterator are fields.
             method_t * method = __wctx.current_method();

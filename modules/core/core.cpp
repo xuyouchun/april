@@ -241,6 +241,8 @@ namespace X_ROOT_NS::modules::core {
         X_C(logic_not,          _T("!"),        _T("LogicNot"))
 
         X_C(member_point,       _T("."),        _T("MemoberPoint"))
+        X_C(null_conditional,   _T("?."),       _T("NullConditional"))
+        X_C(null_forgiving,     _T("!"),        _T("NullForgiving"))
 
         X_C(as,                 _T("as"),       _T("as"))
         X_C(is,                 _T("is"),       _T("is"))
@@ -342,7 +344,9 @@ namespace X_ROOT_NS::modules::core {
             #define __EndPriority   );
 
             __BeginPriority(1)
-                op_t::member_point                                      // .
+                op_t::member_point,                                     // .
+                op_t::null_conditional,                                 // ?.
+                op_t::null_forgiving                                    // x!
             __EndPriority
 
             __BeginPriority(2)
@@ -366,7 +370,8 @@ namespace X_ROOT_NS::modules::core {
 
             __BeginPriority(6)
                 op_t::greater,   op_t::greater_equal,                   // > >=
-                op_t::less,      op_t::less_equal                       // < <=
+                op_t::less,      op_t::less_equal,                      // < <=
+                op_t::as,        op_t::is                               // as, is
             __EndPriority
 
             __BeginPriority(7)
@@ -393,10 +398,6 @@ namespace X_ROOT_NS::modules::core {
                 op_t::logic_or                                          // ||
             __EndPriority
 
-            __BeginPriority(13)
-                op_t::as, op_t::is                                      // as, is
-            __EndPriority
-
             __BeginPriority(14)
                 op_t::null_coalescing
             __EndPriority
@@ -419,7 +420,8 @@ namespace X_ROOT_NS::modules::core {
                 op_t::minus,     op_t::positive,                        // + -
                 op_t::bit_not,   op_t::logic_not,                       // ~ !
                 op_t::left_increment, op_t::left_decrement,             // ++x --x
-                op_t::right_increment, op_t::right_decrement            // x++ x--
+                op_t::right_increment, op_t::right_decrement,           // x++ x--
+                op_t::null_forgiving                                    // x!
             );
 
             e.each(std::bind(set_arity, _2, 2),
@@ -436,6 +438,7 @@ namespace X_ROOT_NS::modules::core {
                 op_t::bit_xor_assign,                                   // ^=
 
                 op_t::assign,        op_t::member_point,                // = .
+                op_t::null_conditional,                                 // ?.
                 op_t::null_coalescing,                                  // ??
                 op_t::null_coalescing_assign,                           // ??=
 
@@ -501,8 +504,8 @@ namespace X_ROOT_NS::modules::core {
             );
 
             e.each(std::bind(set_overload, _2, operator_overload_model_t::no_check),
-                op_t::assign, op_t::member_point, 
-                op_t::as,     op_t::is,
+                op_t::assign, op_t::member_point, op_t::null_conditional,
+                op_t::null_forgiving, op_t::as, op_t::is,
                 op_t::null_coalescing, op_t::null_coalescing_assign
             );
         }
@@ -1766,12 +1769,34 @@ namespace X_ROOT_NS::modules::core {
     }
 
     // Compiles method.
+    bool nullable_directive_seen = false;
+    nullable_analyzer_t nullable_analyzer = nullptr;
+
+    static std::set<const code_file_t *> __nullable_files;
+
+    // The analysis of the null states is enabled for the file.
+    void enable_nullable_by_default(const code_file_t * file)
+    {
+        __nullable_files.insert(file);
+        nullable_directive_seen = true;
+    }
+
+    // Returns whether the analysis is enabled for the file by default.
+    bool is_nullable_enabled_by_default(const code_file_t * file)
+    {
+        return __nullable_files.find(file) != __nullable_files.end();
+    }
+
     void method_t::compile(method_compile_context_t & mctx)
     {
         if (body == nullptr)
             return;
 
         statement_compile_context_t sctx(mctx, this);
+
+        // The null states of the variables.
+        if (nullable_directive_seen && nullable_analyzer != nullptr)
+            nullable_analyzer(this, mctx.logger);
 
         // Compiles statements to xilxes.
         for (statement_t * statement : body->statements)
@@ -2746,6 +2771,10 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(new_,       _T("new"))
 
+        X_C(notnull_,   _T("notnull"))
+
+        X_C(nullable_,  _T("nullable"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -3051,10 +3080,16 @@ namespace X_ROOT_NS::modules::core {
         if (type->this_gtype() == gtype_t::generic_param)
             return false;
 
-        if (type->this_vtype() == vtype_t::string_)
+        if (type->this_vtype() == vtype_t::string_ || type == __XPool.get_string_type())
             return true;
 
         return __is_class_or_interface(type);
+    }
+
+    // Returns whether a value of the type can be null: a reference (a string, an array too).
+    bool can_be_null(type_t * type)
+    {
+        return __is_nullable_reference(type);
     }
 
     bool is_type_compatible(type_t * from, type_t * to)
@@ -3369,6 +3404,13 @@ namespace X_ROOT_NS::modules::core {
                 return __member_compare_t::not_match;
 
             type_t * argument_type = atype.type;
+
+            // out var value: the type is that of the param.
+            if (argument_type->this_gtype() == gtype_t::uncertain
+                    && (ptype == param_type_t::out || ptype == param_type_t::ref))
+            {
+                return __member_compare_t::match;
+            }
 
             __member_compare_t r;
             param_type = __to_real_type(param_type, argument_type, &r);
@@ -5789,6 +5831,15 @@ namespace X_ROOT_NS::modules::core {
         new_method->host_type       = param;
         new_method->variable        = xpool.new_obj<method_variable_t>(new_method);
 
+        // The arguments of the interface that has the method: a type can implement it more than
+        // once, with other arguments.
+        type_t * origin_host = method->host_type;
+        if (origin_host != nullptr && origin_host->this_gtype() == gtype_t::generic)
+        {
+            for (const typex_t & arg : ((generic_type_t *)origin_host)->args)
+                new_method->host_args.push_back(arg);
+        }
+
         return new_method;
     }
 
@@ -6813,14 +6864,14 @@ namespace X_ROOT_NS::modules::core {
 
     // Defines a local variable.
     local_variable_t * variable_region_t::define_local(type_name_t * type_name,
-                    const name_t & name, bool constant, expression_t * expression)
+                    const name_t & name, bool constant, expression_t * expression, bool own_slot)
     {
         _A(type_name != nullptr);
         _A(!name.empty());
 
         __local_variable_t * variable = __define<__local_variable_t>(type_name, name);
         variable->identity   = __next_local_identity();
-        variable->index      = __next_local_index();
+        variable->index      = own_slot? __next_own_local_index() : __next_local_index();
         variable->constant   = constant;
         variable->expression = expression;
 
@@ -6944,10 +6995,47 @@ namespace X_ROOT_NS::modules::core {
         return __local_index;
     }
 
+    // Returns the region of the method.
+    variable_region_t * variable_region_t::__root_region()
+    {
+        variable_region_t * root = this;
+        while (!root->__method_root && root->previous != nullptr
+                                    && root->previous->__is_local_supported())
+        {
+            root = root->previous;
+        }
+
+        return root;
+    }
+
     // Returns next local index.
     msize_t variable_region_t::variable_region_t::__next_local_index()
     {
-        return __current_local_index()++;
+        msize_t index = __current_local_index()++;
+
+        variable_region_t * root = __root_region();
+        root->__max_local_index = std::max<msize_t>(root->__max_local_index, index + 1);
+
+        return index;
+    }
+
+    // Returns a slot that no region has used: the regions that follow take the ones that come
+    // after it.
+    msize_t variable_region_t::__next_own_local_index()
+    {
+        variable_region_t * root = __root_region();
+        msize_t index = root->__max_local_index++;
+
+        for (variable_region_t * region = this; region != nullptr; region = region->previous)
+        {
+            if (region->__current_local_index() < index + 1)
+                region->__current_local_index() = index + 1;
+
+            if (region == root)
+                break;
+        }
+
+        return index;
     }
 
     // Gets the variable of the name.
@@ -8459,6 +8547,103 @@ namespace X_ROOT_NS::modules::core {
 
     ////////// ////////// ////////// ////////// //////////
 
+    ////////// ////////// ////////// ////////// //////////
+    // The chains of ?. and ?[
+
+    // Returns the type that can be null of a type: the value of a member that is accessed
+    // through ?. can be null.
+    type_t * to_null_conditional_type(type_t * type)
+    {
+        if (type == nullptr || is_void_type(type) || is_null(type))
+            return type;
+
+        if (type->this_gtype() == gtype_t::general && is_system_value_type(type->this_vtype())
+                && !is_enum(type))
+        {
+            type_collection_t types = { typex_t(type) };
+            xtype_collection_t xtypes(types);
+
+            return __XPool.new_generic_type(__XPool.get_nullable_type(), xtypes, nullptr);
+        }
+
+        return type;
+    }
+
+    // Returns the object of a member of a chain: a.b, a[0].
+    expression_t * null_conditional_object(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return nullptr;
+
+        switch (exp->this_family())
+        {
+            case expression_family_t::binary: {
+                binary_expression_t * binary = (binary_expression_t *)exp;
+                return binary->op() == operator_t::member_point? binary->exp1() : nullptr;
+            }
+
+            case expression_family_t::index:
+                return ((index_expression_t *)exp)->namex();
+
+            default:
+                return nullptr;
+        }
+    }
+
+    // Returns whether the member is that of ?. or ?[ .
+    static bool __is_null_conditional_member(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return false;
+
+        switch (exp->this_family())
+        {
+            case expression_family_t::binary: {
+                binary_expression_t * binary = (binary_expression_t *)exp;
+                return binary->op() == operator_t::member_point && binary->null_conditional;
+            }
+
+            case expression_family_t::index:
+                return ((index_expression_t *)exp)->null_conditional;
+
+            default:
+                return false;
+        }
+    }
+
+    // Returns whether the expression is a member of a chain that has a null conditional member.
+    bool in_null_conditional_chain(expression_t * exp)
+    {
+        while (exp != nullptr)
+        {
+            if (null_conditional_object(exp) == nullptr)
+            {
+                // Not a member: a.b.c[0] ends at a.
+                return false;
+            }
+
+            if (__is_null_conditional_member(exp))
+                return true;
+
+            exp = null_conditional_object(exp);
+        }
+
+        return false;
+    }
+
+    // Returns whether the expression is the last member of a chain.
+    bool is_null_conditional_chain_top(expression_t * exp)
+    {
+        if (!in_null_conditional_chain(exp))
+            return false;
+
+        expression_t * parent_exp = exp->parent;
+        if (parent_exp != nullptr && null_conditional_object(parent_exp) == exp)
+            return false;
+
+        return true;
+    }
+
     // Sets name to a expression.
     void index_expression_t::set_namex(expression_t * exp)
     {
@@ -8480,6 +8665,13 @@ namespace X_ROOT_NS::modules::core {
         if (variable == nullptr)
             return vtype_t::__unknown__;
 
+        // The chain of a null conditional member is nullable, when its member is a value.
+        if (is_null_conditional_chain_top())
+        {
+            if (type_t * type = this->get_type(); type != nullptr)
+                return type->this_vtype();
+        }
+
         return variable->get_vtype();
     }
 
@@ -8488,6 +8680,10 @@ namespace X_ROOT_NS::modules::core {
     {
         if (variable == nullptr)
             return nullptr;
+
+        // The chain of a null conditional member is null when the object is.
+        if (is_null_conditional_chain_top())
+            return to_null_conditional_type(variable->get_type());
 
         return variable->get_type();
     }
@@ -8899,6 +9095,10 @@ namespace X_ROOT_NS::modules::core {
         if (type != nullptr)
             return type;
 
+        // x! is x.
+        if (op() == operator_t::null_forgiving)
+            return exp()->get_type();
+
         vtype_t vtype = get_vtype();
         return __XPool.get_internal_type(vtype);
     }
@@ -8923,7 +9123,15 @@ namespace X_ROOT_NS::modules::core {
         {
             case operator_t::member_point:
                 if (expression_t * e2 = exp2(); e2 != nullptr)
-                    return e2->get_type();
+                {
+                    type_t * member_type = e2->get_type();
+
+                    // The chain of a null conditional member is null when the object is.
+                    if (is_null_conditional_chain_top())
+                        return to_null_conditional_type(member_type);
+
+                    return member_type;
+                }
                 return nullptr;
 
             case operator_t::as:

@@ -2601,6 +2601,7 @@ namespace X_ROOT_NS::modules::rt {
         rt_method_base_t *  found;          // The method found in the type (maybe of a template).
         ref_t               found_ref;      // Reference of the found method in its type.
         bool                is_virtual;     // Whether it is called through the virtual table.
+        int                 virtual_offset; // The offset in the virtual table, if it is.
     };
 
     // Resolves the instance method of a generic param that is called: the method of the type

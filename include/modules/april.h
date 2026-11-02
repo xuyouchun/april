@@ -250,6 +250,10 @@ namespace X_ROOT_NS::modules::april {
 
             // Tells why a program is not run native, and the commands of the build.
             bool                    verbose = false;
+
+            // The analysis of the null states of the references is enabled for all the files,
+            // as #nullable enable at the beginning of them.
+            bool                    nullable = false;
             bool                    native_no_pie = false;
             int                     native_optimize = 2;    // The -O of clang: -O2, or --optimize.
             string_t                native_clang;       // The clang++ driver, default: $CLANG, clang++.

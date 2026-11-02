@@ -10,12 +10,12 @@
 
 public static class Console
 {
-    public static Void Write(String value)
+    public static Void Write(String? value)
     {
         Internal.Console_WriteString(value);
     }
 
-    public static Void WriteLine(String value)
+    public static Void WriteLine(String? value)
     {
         Internal.Console_WriteStringLine(value);
     }

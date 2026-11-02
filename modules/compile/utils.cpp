@@ -173,9 +173,20 @@ namespace X_ROOT_NS::modules::compile {
             case member_family_t::impl: {
                 impl_method_t * m = (impl_method_t *)method;
 
-                generic_method_t * generic_method = __XPool.new_generic_method(
-                    m->raw, m->args, m->host_type
-                );
+                generic_method_t * generic_method;
+
+                if (m->args.size() == 0 && m->host_args.size() > 0)
+                {
+                    // The method of a generic param takes the arguments of its interface, that
+                    // are not those of the method.
+                    generic_method = __XPool.new_obj<generic_method_t>(
+                        m->raw, m->host_args, m->host_type
+                    );
+                }
+                else
+                {
+                    generic_method = __XPool.new_generic_method(m->raw, m->args, m->host_type);
+                }
 
                 ref = __ref_of<__tidx_t::generic_method>(ctx, generic_method);
             }   break;

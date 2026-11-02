@@ -804,6 +804,10 @@ namespace X_ROOT_NS::modules::core {
 
         member_point,                                                       // .
 
+        null_conditional,                                                   // ?.
+
+        null_forgiving,                                                     // x!
+
         as,     is,                                                         // as, is
 
         __inner_end__,
@@ -1854,6 +1858,10 @@ namespace X_ROOT_NS::modules::core {
 
         type_t * type = nullptr;
 
+        // Whether it is annotated with ? and the type is a reference, or a generic param:
+        // String? can be null (see the nullable analysis).
+        bool nullable = false;
+
         X_TO_STRING
     };
 
@@ -2614,6 +2622,36 @@ namespace X_ROOT_NS::modules::core {
     // Returns T if the type is Nullable<T>, otherwise nullptr.
     type_t * get_nullable_underlying(type_t * type);
 
+    // Returns whether a value of the type can be null: a reference (a string, an array too).
+    bool can_be_null(type_t * type);
+
+    // Set when a source has a directive #nullable, the null states of the methods are analyzed.
+    extern bool nullable_directive_seen;
+
+    // The analysis of the null states is enabled for the whole file, from its beginning (the
+    // option --nullable, <nullable>enable</nullable> of the project): #nullable disable stops it.
+    void enable_nullable_by_default(const code_file_t * file);
+
+    // Returns whether the analysis is enabled for the file by default.
+    bool is_nullable_enabled_by_default(const code_file_t * file);
+
+    // Analyzes the null states of a method, and warns (see #nullable enable). The analyzer
+    // is that of the compiler, that sets it: the programs have no compiler.
+    typedef void (* nullable_analyzer_t)(method_t * method, logger_t & logger);
+    extern nullable_analyzer_t nullable_analyzer;
+
+    // The analyzer of the compiler.
+    void analyze_nullable(method_t * method, logger_t & logger);
+
+    // Checks the arguments of a generic type name (Box<String?>): an argument that can be null is
+    // not that of a param that is constrained by notnull, or class (without ?). Warns.
+    void check_nullable_constraints(type_name_t * type_name, code_element_t * element,
+                                    logger_t & logger);
+
+    // Analyzes the constructors that have no body (the default ones): the fields that cannot
+    // be null must be initialized.
+    void analyze_nullable_constructors(assembly_t * assembly, logger_t & logger);
+
     // Returns whether a constant integer expression converts to an integer type that holds
     // its value: byte b = 5; uint u = 5;
     bool is_constant_compatible(expression_t * exp, type_t * to);
@@ -2890,6 +2928,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Has no arguments constructors.
         new_        = 1 << 3,
+
+        // The argument cannot be null (notnull), the nullability of the references.
+        notnull_    = 1 << 4,
+
+        // class?: the class can be null.
+        nullable_   = 1 << 5,
 
     X_ENUM_END
 
@@ -3700,6 +3744,10 @@ namespace X_ROOT_NS::modules::core {
 
         // Type arguments.
         type_collection_t args;
+
+        // The method of a generic param (t.Get(), where T : IFoo<T, int>): the type arguments of
+        // the interface that has it.
+        type_collection_t host_args;
 
         // Returns param count.
         virtual size_t param_count() const override;
@@ -5776,9 +5824,13 @@ namespace X_ROOT_NS::modules::core {
         // Previous variable region.
         variable_region_t * previous = nullptr;
 
-        // Defines a local variable.
+        // Defines a local variable. The slot of a variable that is defined by an expression
+        // (out int value, o is string s) is its own: the regions below the one that has it
+        // were made before it, and they have used the slots that are after those of the variables
+        // that were defined, the lifetimes overlap.
         local_variable_t * define_local(type_name_t * type_name, const name_t & name,
-                bool constant = false, expression_t * expression = nullptr);
+                bool constant = false, expression_t * expression = nullptr,
+                bool own_slot = false);
 
         // Defines a param.
         param_variable_t * define_param(param_t * param);
@@ -5815,6 +5867,15 @@ namespace X_ROOT_NS::modules::core {
 
         static const msize_t __empty_index = unknown_msize;
         msize_t __local_index = __empty_index, __local_identity = 0;
+
+        // The slots that the regions of the method have used, the root has it.
+        msize_t __max_local_index = 0;
+
+        // Returns the region of the method.
+        variable_region_t * __root_region();
+
+        // Returns a slot that no region has used.
+        msize_t __next_own_local_index();
 
         // Returns whether the varible type is supported.
         // Determined by __mask.
@@ -7048,6 +7109,10 @@ namespace X_ROOT_NS::modules::core {
         // Name
         name_t name = name_t::null;
 
+        // The type of the variable that the name declares: out int value, o is string s. The
+        // variable is defined in the region of the expression when it is walked.
+        type_name_t * declare_type_name = nullptr;
+
         // Name expression type.
         name_expression_type_t expression_type = name_expression_type_t::__default__;
 
@@ -7140,6 +7205,21 @@ namespace X_ROOT_NS::modules::core {
         // Converts to a string.
         virtual const string_t to_string() const override;
     };
+
+    // The chain of the members that has the operator ?. or ?[ (a?.b.c[0]): the object of the
+    // member of a binary expression (a.b), or of an index expression (a[0]).
+    expression_t * null_conditional_object(expression_t * exp);
+
+    // Returns whether the expression is a member of a chain that has a member of ?. or ?[ : when
+    // the object of that is null, the whole chain is null.
+    bool in_null_conditional_chain(expression_t * exp);
+
+    // Returns whether the expression is the last member of a chain: its value is that of the
+    // chain, a value type is nullable.
+    bool is_null_conditional_chain_top(expression_t * exp);
+
+    // Returns the type of the value of a chain that is null when its object is.
+    type_t * to_null_conditional_type(type_t * type);
 
     // Returns whether it's a name_expression_t or name_unit_expression_t.
     bool is_name_expression(expression_t * exp);
@@ -7459,7 +7539,35 @@ namespace X_ROOT_NS::modules::core {
         typedef op_expression_t<2> __super_t;
 
     public:
-        using __super_t::__super_t;
+
+        // Constructors. The operator ?. is the member operator, that is null conditional.
+        template<typename ... exps_t>
+        binary_expression_t(const operator_property_t * op_property, exps_t ... exps)
+            : __super_t(op_property->op == operator_t::null_conditional?
+                            get_system_operator_property(operator_t::member_point) : op_property,
+                        exps ...)
+        {
+            null_conditional = op_property->op == operator_t::null_conditional;
+        }
+
+        template<typename ... exps_t>
+        binary_expression_t(operator_t op, exps_t && ... exps)
+            : binary_expression_t(get_system_operator_property(op), std::forward<exps_t>(exps) ...)
+        { }
+
+        // Whether it is a member that is accessed only when the object is not null: a?.b
+        bool null_conditional = false;
+
+        // Returns whether this is the member of a chain that has a null conditional member
+        // (a?.b.c): when the object of that is null, the whole chain is null.
+        bool in_null_conditional_chain() const { return core::in_null_conditional_chain((expression_t *)this); }
+
+        // Returns whether this is the last member of a null conditional chain: its value is
+        // that of the chain, a value type is nullable.
+        bool is_null_conditional_chain_top() const
+        {
+            return core::is_null_conditional_chain_top((expression_t *)this);
+        }
 
         // Returns the first expression.
         expression_t * exp1() const { return expression_at(0); }
@@ -7768,6 +7876,21 @@ namespace X_ROOT_NS::modules::core {
 
     public:
         variable_t *   variable = nullptr;
+
+        // Whether it is a member that is accessed only when the object is not null: a?[0]
+        bool null_conditional = false;
+
+        // Returns whether this is a member of a chain that has a null conditional member.
+        bool in_null_conditional_chain() const
+        {
+            return core::in_null_conditional_chain((expression_t *)this);
+        }
+
+        // Returns whether this is the last member of a null conditional chain.
+        bool is_null_conditional_chain_top() const
+        {
+            return core::is_null_conditional_chain_top((expression_t *)this);
+        }
 
         // Sets name.
         void set_namex(expression_t * exp);

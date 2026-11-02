@@ -53,7 +53,8 @@ namespace X_ROOT_NS::modules::compile {
 
         // Compile operator overload.
         void __compile_operator_overload(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                         bool pop_result = true, bool pre_call = true);
+                                         bool pop_result = true, bool pre_call = true,
+                                         const __environment_t & env = __environment_t::empty);
 
     __EndSystemExpressionT
 
@@ -73,7 +74,8 @@ namespace X_ROOT_NS::modules::compile {
 
         // Compile operator overload.
         void __compile_operator_overload(expression_compile_context_t & ctx, xil_pool_t & pool,
-                                         bool pop_result = true, bool pre_call = true);
+                                         bool pop_result = true, bool pre_call = true,
+                                         const __environment_t & env = __environment_t::empty);
 
     __EndSystemExpressionT
 

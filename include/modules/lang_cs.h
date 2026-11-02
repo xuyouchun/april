@@ -91,6 +91,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     private:
         token_t * __next_token = nullptr;
+        bool      __is_pending = false;         // The last token is is.
     };
 
     typedef ttoken_reader_t<cs_token_enumerator_t> cs_token_reader_t;

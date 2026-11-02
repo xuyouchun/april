@@ -61,4 +61,16 @@ public class EntryPointAttribute : Attribute
     // Empty.
 };
 
+////////// ////////// ////////// ////////// //////////
 
+// The out param can be null when the method returns the value (see the nullable references):
+// [MaybeNullWhen(false)] out T value.
+[AttributeUsage]
+public class MaybeNullWhenAttribute : Attribute
+{
+    // Constructor.
+    public MaybeNullWhenAttribute(Boolean returnValue)
+    {
+
+    }
+}

@@ -2280,6 +2280,14 @@ namespace X_ROOT_NS::modules::rt {
                 if (index++ > 0)
                     ss << _T(", ");
 
+                // A pack of types (T ... items): the types are not known here.
+                rt_generic_param_t * pack_gp;
+                if (analyzer.is_generic_params((*rt_param)->type, &pack_gp))
+                {
+                    ss << _T("???");
+                    continue;
+                }
+
                 rt_type_t * param_type = analyzer.get_type((*rt_param)->type);
                 _A(param_type != nullptr);
 
@@ -3632,7 +3640,8 @@ namespace X_ROOT_NS::modules::rt {
     // Finds, among the types that the receiver is (its base types, its interfaces), the one with
     // the template: with its generic arguments.
     static rt_type_t * __find_type_of_template(analyzer_env_t & env, rt_type_t * receiver,
-                                                              rt_type_t * template_type)
+                                               rt_type_t * template_type,
+                                               rt_type_t ** atypes = nullptr, int atype_count = 0)
     {
         rt_type_t * found = nullptr;
 
@@ -3643,8 +3652,23 @@ namespace X_ROOT_NS::modules::rt {
 
             if (type_template == template_type)
             {
-                found = type;
-                return false;
+                // With the arguments that the interface of the call has.
+                bool match = true;
+
+                if (atype_count > 0)
+                {
+                    match = type->get_kind() == rt_type_kind_t::generic
+                        && ((rt_generic_type_t *)type)->atype_count() == atype_count;
+
+                    for (int k = 0; match && k < atype_count; k++)
+                        match = ((rt_generic_type_t *)type)->atypes[k] == atypes[k];
+                }
+
+                if (match)
+                {
+                    found = type;
+                    return false;
+                }
             }
 
             type->each_super_type(env, [&](rt_type_t * super_type) {
@@ -3690,7 +3714,8 @@ namespace X_ROOT_NS::modules::rt {
             return nullptr;
 
         // The interface, with its generic arguments, that the type implements.
-        rt_type_t * interface_type = __find_type_of_template(env, receiver, interface_template);
+        rt_type_t * interface_type = __find_type_of_template(env, receiver, interface_template,
+                                                             method->atypes, method->atype_count());
 
         if (interface_type == nullptr)
         {
@@ -3744,7 +3769,8 @@ namespace X_ROOT_NS::modules::rt {
         rt_method_t * template_ = method->template_;
         rt_type_t * receiver = method->get_host_type();
 
-        rt_type_t * owner_type = __find_type_of_template(env, receiver, template_->get_host_type());
+        rt_type_t * owner_type = __find_type_of_template(env, receiver, template_->get_host_type(),
+                                                         method->atypes, method->atype_count());
         if (owner_type == nullptr)
         {
             throw __RtAssemblyErrorF("the type '%1%' does not have the method '%2%'",
@@ -3799,7 +3825,43 @@ namespace X_ROOT_NS::modules::rt {
         bool is_virtual = receiver->get_ttype(env) == ttype_t::class_ && found_ref != ref_t::null
                 && (found->is_virtual() || found->is_override());
 
-        return constrained_target_t { target, found, found_ref, is_virtual };
+        // The slot of the virtual table is the one of the method that declares it: an override
+        // takes it from a base type (that may be a generic type).
+        int virtual_offset = -1;
+        if (is_virtual)
+        {
+            rt_method_base_t * root = found;
+            ref_t root_ref = found_ref;
+
+            if (found->is_override())
+            {
+                bool done = false;
+
+                for (rt_type_t * type = found_type->get_base_type(env);
+                                    type != nullptr && !done; type = type->get_base_type(env))
+                {
+                    generic_param_manager_t type_gp(env, type);
+
+                    type->each_method(env, [&](ref_t ref, rt_method_base_t * m) {
+                        if (!m->is_static() && m->is_virtual() && !m->is_override()
+                                && m->compare_to(env, prototype, &type_gp))
+                        {
+                            root = m;
+                            root_ref = ref;
+                            done = true;
+                            return false;
+                        }
+
+                        return true;
+                    });
+                }
+            }
+
+            assembly_analyzer_t root_analyzer(env, root->get_assembly());
+            virtual_offset = root_analyzer.get_virtual_method_offset(root_ref);
+        }
+
+        return constrained_target_t { target, found, found_ref, is_virtual, virtual_offset };
     }
 
 

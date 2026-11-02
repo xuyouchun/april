@@ -87,6 +87,9 @@ namespace X_ROOT_NS::modules::april {
         // Constructor.
         april_xcompiler_t(const __compile_options_t & options);
 
+        // Enables the analysis of the null states for the files of the project.
+        void __enable_nullable(project_t * project, bool project_nullable);
+
         // Compiles, returns true if succeed: the assemblies are made in the output directory.
         bool compile();
 

@@ -45,7 +45,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         k_lock,         k_long,
         
         // keywords: n...
-        k_namespace,    k_new,      k_null,
+        k_namespace,    k_new,      k_not,      k_null,
         
         // keywords: o...
         k_object,       k_operator, k_out,      k_override,
@@ -99,8 +99,11 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // others
         member_point,                           // .
+        null_conditional,                       // ?.
+        null_forgiving,                         // x!
         k_as,           k_is,                   // as, is
         question_mark,  question_colon,         // ? :
+        question_square,                        // ?[
         comma,          double_colon,           // , ::
 
         __operator_end,

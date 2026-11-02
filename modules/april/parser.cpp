@@ -131,6 +131,13 @@ namespace X_ROOT_NS::modules::april {
     {
         this->name = __read_string(root, _T("name"));
 
+        // <nullable>enable</nullable>
+        if (auto node = root.get_child_optional(_T("nullable")))
+        {
+            string_t value = node->get_value<string_t>();
+            this->nullable = value == _T("enable") || value == _T("true");
+        }
+
         __ptree_t & file_nodes = __read_child(root, _T("files"));
         for (auto && it : file_nodes)
         {

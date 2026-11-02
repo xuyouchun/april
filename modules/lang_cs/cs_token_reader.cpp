@@ -61,6 +61,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         if (!__skip_whitespace())
             return nullptr;
 
+        // The token after is.
+        bool __after_is = __is_pending;
+        __is_pending = false;
+
         char_t c;
         token_data_t * d;
         const __cptr_t p0 = __p;
@@ -130,7 +134,14 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __Eqk(int);
                 __Eqk(interface);
                 __Eqk(internal);
-                __Eqk(is);
+
+                if (__equals_keyword(__p, _S(is)))
+                {
+                    __p += 1;
+                    __is_pending = true;
+                    return __new_token(__Wt(k_is), p0, 2, nullptr);
+                }
+
                 __Eqk(import);
                 break;
 
@@ -142,6 +153,11 @@ namespace X_ROOT_NS::modules::lang_cs {
             case _T('n'):
                 __Eqk(namespace);
                 __Eqk(new);
+
+                // not is a keyword after is: x is not null.
+                if (__after_is)
+                    __Eqk(not);
+
                 __Eqk(null);
                 break;
 
@@ -259,6 +275,29 @@ namespace X_ROOT_NS::modules::lang_cs {
                         {
                             return __Nw(null_coalescing);
                         }
+
+                    // ?. but not ?.5 (a condition that has a number).
+                    case _T('.'):
+                        if (!al::is_digit(*(__p + 1)))
+                        {
+                            __p++;
+                            return __Nw(null_conditional);
+                        }
+
+                        return __Nw(question_mark);
+
+                    // ?[ is the index of a member that can be null, but not the type int?[] .
+                    case _T('['): {
+                        const char_t * q = __p + 1;
+                        while (al::is_whitespace(*q))
+                            q++;
+
+                        if (*q == _T(']') || *q == _T(','))
+                            return __Nw(question_mark);
+
+                        __p++;
+                        return __Nw(question_square);
+                    }
 
                     default:
                         return __Nw(question_mark);
@@ -388,6 +427,10 @@ namespace X_ROOT_NS::modules::lang_cs {
                 }
                 break;
 
+            case _T('#'):   // A directive is a comment: #nullable enable.
+                core::nullable_directive_seen = true;
+                return __Nw_(comment, __read_line_comment());
+
             case _T('/'):   // // /* /= /
                 switch (*__p)
                 {
@@ -490,7 +533,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                         return __Nw(not_equal);
 
                     default:
-                        return __Nw(logic_not);
+                        return __Nws(__Wt(logic_not), __Wt(null_forgiving));
                 }
                 break;
 

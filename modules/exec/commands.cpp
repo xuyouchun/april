@@ -4578,9 +4578,8 @@ namespace X_ROOT_NS::modules::exec {
                 __virtual_call_command_template_t
             >::with_args_t<msize_t, msize_t> __virtual_call_command_manager;
 
-            assembly_analyzer_t found_analyzer(env, t.found->get_assembly());
-            msize_t virtual_offset = found_analyzer.get_virtual_method_offset(t.found_ref);
-            msize_t this_offset = ctx.env.exec_method_of(t.found)->this_offset;
+            msize_t virtual_offset = t.virtual_offset;
+            msize_t this_offset = ctx.env.exec_method_of(t.target)->this_offset;
 
             return __virtual_call_command_manager.template
                 get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, ctx);
@@ -6472,6 +6471,20 @@ namespace X_ROOT_NS::modules::exec {
                 void * p = ctx.stack.pop<void *>();
                 al::quick_zero(p, __This->__size);
             }
+            else if(__This->__kind == xil_copy_kind_t::store)
+            {
+                // The value is in the stack, the destination is below it.
+                size_t units = (__This->__size + sizeof(rt_stack_unit_t) - 1)
+                                                        / sizeof(rt_stack_unit_t);
+                if (units == 0)
+                    units = 1;
+
+                void * src = (void *)(ctx.stack.top() - units);
+                void * dst = *(void **)(ctx.stack.top() - units - 1);
+
+                al::quick_copy(dst, src, __This->__size);
+                ctx.stack.pop(units + 1);
+            }
             else if(__This->__kind == xil_copy_kind_t::call_ret)
             {
                 // A call returned a struct: the call has written it in the region that is in the
@@ -6673,6 +6686,7 @@ namespace X_ROOT_NS::modules::exec {
                 break;
 
             case xil_copy_kind_t::ret:
+            case xil_copy_kind_t::store:
                 return __memory_copy_command_ex_manager.template
                     get_command<__CopyCmdEx>(size, kind);
 
@@ -6726,6 +6740,16 @@ namespace X_ROOT_NS::modules::exec {
                         __ReturnInstance(__empty_command_t);
 
                     return __get_object_copy_command(size, xil_copy_kind_t::ret);
+                }
+
+                // A value that a call returned is stored at the destination that is below it: a
+                // struct was written there by the call.
+                if (kind == xil_copy_kind_t::store)
+                {
+                    if (is_custom_struct(ctx.env, type))
+                        __ReturnInstance(__empty_command_t);
+
+                    return __get_object_copy_command(size, xil_copy_kind_t::store);
                 }
 
                 // A value that a call returned: a struct was written at the destination that the

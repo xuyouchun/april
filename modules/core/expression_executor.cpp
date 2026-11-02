@@ -25,6 +25,10 @@ namespace X_ROOT_NS::modules::core {
         if (vtype == vtype_t::__unknown__)
             return vtype_t::__unknown__;
 
+        // x! is x.
+        if (this->op() == operator_t::null_forgiving)
+            return vtype;
+
         return get_unitary_vtype(this->op(), vtype);
     }
 
@@ -268,8 +272,19 @@ namespace X_ROOT_NS::modules::core {
             case operator_t::null_coalescing_assign:
                 return this->get_type()->this_vtype();
 
+            // o is T, o is T v.
+            case operator_t::is:
+                return vtype_t::bool_;
+
             // The member: its vtype, whatever the object is (a generic param has none).
             case operator_t::member_point:
+                // The chain of ?. is nullable, when its member is a value.
+                if (is_null_conditional_chain_top())
+                {
+                    if (type_t * type = this->get_type(); type != nullptr)
+                        return type->this_vtype();
+                }
+
                 return exp2() != nullptr? exp2()->get_vtype() : vtype_t::__unknown__;
 
             default:

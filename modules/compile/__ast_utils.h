@@ -197,6 +197,9 @@ namespace X_ROOT_NS::modules::compile {
             : __self_t(cctx, wctx, __code_element_t(object))
         { }
 
+        // The variables are defined with a slot of their own (the variables of expressions).
+        void use_own_slot() { __own_slot = true; }
+
         // Defines local variable.
         local_variable_t * define_local(type_name_t * type_name, name_t name, bool constant = false, 
                     expression_t * expression = nullptr, __code_element_t element = nullptr);
@@ -229,6 +232,7 @@ namespace X_ROOT_NS::modules::compile {
         ast_context_t      & __cctx;
         ast_walk_context_t & __wctx;
         __code_element_t     __element;
+        bool                 __own_slot = false;
         variable_region_t  * __region;
 
         // Logs

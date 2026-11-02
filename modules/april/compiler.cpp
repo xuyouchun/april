@@ -2,6 +2,7 @@
 #include <april.h>
 #include "util.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -331,12 +332,33 @@ namespace X_ROOT_NS::modules::april {
         // The compiler: a program that is built by another one is built again.
         std::string exe = native::executable_path();
         if (!exe.empty())
+        {
             __add_stamp(hasher, exe);
+
+            // The libraries of the compiler, that are next to it: they are the compiler too.
+            std::error_code ec;
+            std::vector<fs::path> libraries;
+
+            for (auto & entry : fs::directory_iterator(fs::path(exe).parent_path(), ec))
+            {
+                std::string name = entry.path().filename().string();
+                std::string extension = entry.path().extension().string();
+
+                if (name.compare(0, 6, "april_") == 0 && (extension == ".dll" || extension == ".so"))
+                    libraries.push_back(entry.path());
+            }
+
+            std::sort(libraries.begin(), libraries.end());
+
+            for (const fs::path & library : libraries)
+                __add_stamp(hasher, library);
+        }
 
         hasher.add((uint64_t)__options.optimize);
         hasher.add((uint64_t)__options.native_optimize);
         hasher.add(string_convert<char_t, char>(__options.execute_assembly));
         hasher.add((uint64_t)__options.native_no_pie);
+        hasher.add((uint64_t)__options.nullable);
         hasher.add(string_convert<char_t, char>(__options.native_clang));
         hasher.add(string_convert<char_t, char>(__options.native_libs));
 
@@ -760,6 +782,17 @@ namespace X_ROOT_NS::modules::april {
         }
     }
 
+    // Enables the analysis of the null states for the files of the project: the project says
+    // it, or the option --nullable.
+    void april_xcompiler_t::__enable_nullable(project_t * project, bool project_nullable)
+    {
+        if (!project_nullable && !__options.nullable)
+            return;
+
+        for (file_t * file : project->files())
+            core::enable_nullable_by_default(static_cast<const code_file_t *>(file));
+    }
+
     // Compile solutions.
     bool april_xcompiler_t::__compile_solutions()
     {
@@ -794,6 +827,7 @@ namespace X_ROOT_NS::modules::april {
             }
 
             compiler.commit_project();
+            __enable_nullable(project, project_config->nullable);
             cas.push_back(__record_project(project));
         }
 
@@ -837,6 +871,7 @@ namespace X_ROOT_NS::modules::april {
         }
 
         compiler.commit_project();
+        __enable_nullable(project, project_config->nullable);
         return __record_project(project);
     }
 
@@ -886,6 +921,7 @@ namespace X_ROOT_NS::modules::april {
         }
 
         compiler.commit_project();
+        __enable_nullable(project, false);
         __project_cassembly_t * ca = __record_project(project);
 
         bool r = compiler.compile(__output_path());

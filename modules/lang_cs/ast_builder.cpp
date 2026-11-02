@@ -269,6 +269,11 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __This->append_child(__Type::__dimensions__, __last_dimension);
                 __last_dimension = nullptr;
                 break;
+
+            // int[]? is an array that can be null, as the others.
+            case __TokenValue(question_mark):
+                __This->nullable = true;
+                break;
         }
     }
 
@@ -466,6 +471,11 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __TokenValue(k_new):
                 __This->set_constraint(generic_constraint_ttype_t::new_, token);
                 break;
+
+            // class?
+            case __TokenValue(question_mark):
+                __This->set_constraint(generic_constraint_ttype_t::nullable_, token);
+                break;
         }
     }
 
@@ -584,6 +594,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
+            case __AstValue(declaration_exp):
                 __This->set_child(__Type::__expression__, node);
                 break;
 
@@ -1008,6 +1019,31 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(type_name_exp, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // declaration_exp
+
+    __ApplyToken(declaration_exp, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(name):
+                __This->name = this->__to_name(token);
+                break;
+        }
+    }
+
+    __ApplyAst(declaration_exp, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(type_name):
+                __This->set_child(__Type::__type_name__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(declaration_exp, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // type_cast_exp
 
     __ApplyToken(type_cast_exp, token, args) { }
@@ -1055,7 +1091,12 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // index
 
-    __ApplyToken(index, token, args) { }
+    __ApplyToken(index, token, args)
+    {
+        // a?[0]
+        if (token->value == __TokenValue(question_square))
+            __This->null_conditional = true;
+    }
 
     __ApplyAst(index, node, args)
     {
@@ -1103,6 +1144,11 @@ namespace X_ROOT_NS::modules::lang_cs {
         // rank specifiers of the array type of the elements.
         switch (token->value)
         {
+            // new String?[2]: the elements can be null.
+            case __TokenValue(question_square):
+                __This->element_nullable = true;
+                break;
+
             case __TokenValue(left_square):
                 if (__closed > 0)
                     __rank = 1;

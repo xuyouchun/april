@@ -115,139 +115,139 @@ public struct String
         return this;
     }
 
-    public static String Concat(String a, String b)
+    public static String Concat(String? a, String? b)
     {
         return Internal.String_Concat(a, b);
     }
 
     // Operators: they are found by the name of the operator.
-    public static String operator +(String a, String b)
+    public static String operator +(String? a, String? b)
     {
         return Internal.String_Concat(a, b);
     }
 
-    public static String operator +(String a, Int8 b)
+    public static String operator +(String? a, Int8 b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Int8 a, String b)
+    public static String operator +(Int8 a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, UInt8 b)
+    public static String operator +(String? a, UInt8 b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(UInt8 a, String b)
+    public static String operator +(UInt8 a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, Int16 b)
+    public static String operator +(String? a, Int16 b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Int16 a, String b)
+    public static String operator +(Int16 a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, UInt16 b)
+    public static String operator +(String? a, UInt16 b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(UInt16 a, String b)
+    public static String operator +(UInt16 a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, Int32 b)
+    public static String operator +(String? a, Int32 b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Int32 a, String b)
+    public static String operator +(Int32 a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, UInt32 b)
+    public static String operator +(String? a, UInt32 b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(UInt32 a, String b)
+    public static String operator +(UInt32 a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, Int64 b)
+    public static String operator +(String? a, Int64 b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Int64 a, String b)
+    public static String operator +(Int64 a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, UInt64 b)
+    public static String operator +(String? a, UInt64 b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(UInt64 a, String b)
+    public static String operator +(UInt64 a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, Single b)
+    public static String operator +(String? a, Single b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Single a, String b)
+    public static String operator +(Single a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, Double b)
+    public static String operator +(String? a, Double b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Double a, String b)
+    public static String operator +(Double a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, Char b)
+    public static String operator +(String? a, Char b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Char a, String b)
+    public static String operator +(Char a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
-    public static String operator +(String a, Boolean b)
+    public static String operator +(String? a, Boolean b)
     {
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Boolean a, String b)
+    public static String operator +(Boolean a, String? b)
     {
         return Internal.String_Concat(a.ToString(), b);
     }
 
     // An object is converted by its ToString.
-    public static String operator +(String a, Object b)
+    public static String operator +(String? a, Object b)
     {
         if (b == null)
             return Internal.String_Concat(a, null);
@@ -255,7 +255,7 @@ public struct String
         return Internal.String_Concat(a, b.ToString());
     }
 
-    public static String operator +(Object a, String b)
+    public static String operator +(Object a, String? b)
     {
         if (a == null)
             return Internal.String_Concat(null, b);

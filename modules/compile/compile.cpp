@@ -853,6 +853,9 @@ namespace X_ROOT_NS::modules::compile {
     {
         _A(csolution != nullptr);
 
+        // The analysis of the null states of the references.
+        core::nullable_analyzer = &core::analyze_nullable;
+
         assemblies_t * assemblies = context.new_obj<assemblies_t>();
         __building_context_t bctx(assemblies);
         __assembly_loader_t assembly_loader(bctx, this, context, csolution, ref_assemblies);
@@ -932,6 +935,10 @@ namespace X_ROOT_NS::modules::compile {
         if (context.error_count() == 0)
         {
             __call_static_constructors(context, assembly);
+
+            // The fields that cannot be null of the types that have no constructor.
+            if (nullable_directive_seen)
+                analyze_nullable_constructors(assembly, logger);
 
             xostream_t * stream = nullptr;
             if (assembly->name == nullptr || assembly->name->sid == sid_t::null)

@@ -42,7 +42,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __K(lock)        __K(long)
         
         // keywords: n...
-        __K(namespace)   __K(new)     __K(null)
+        __K(namespace)   __K(new)     __K(not)    __K(null)
         
         // keywords: o...
         __K(object)      __K(operator) __K(out)     __K(override)
@@ -105,7 +105,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(logic_and,  _T("&&"))  __C(logic_or, _T("||"))  __C(logic_not, _T("!"))     // && || !
 
         __C(member_point, _T("."))                                  // .
+        __C(null_conditional, _T("?."))                             // ?.
+        __C(null_forgiving, _T("!!"))                               // x!
         __C(question_mark, _T("?"))  __C(question_colon, _T("`:"))  // `: |
+        __C(question_square, _T("?["))                              // ?[
 
         // brackets
         __C(left_bracket, _T("("))   __C(right_bracket, _T(")"))    // ( )

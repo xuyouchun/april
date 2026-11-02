@@ -1042,6 +1042,7 @@ namespace X_ROOT_NS::modules::core {
         ref_t           type;               // Field type
         ref_t           attributes;         // Field attributes
         ref_t           init_value;         // Field default value.
+        uint8_t         nullable;           // The type is annotated with ?: it can be null.
 
     __EndDefineMt(field)
 
@@ -1061,6 +1062,7 @@ namespace X_ROOT_NS::modules::core {
 
         ref_t           get_method;         // The get method
         ref_t           set_method;         // The set method.
+        uint8_t         nullable;           // The type is annotated with ?: it can be null.
 
     __EndDefineMt(property)
 
@@ -1082,6 +1084,7 @@ namespace X_ROOT_NS::modules::core {
         res_t           body;               // Method body
 
         method_trait_t  trait;              // Method trait.
+        uint8_t         nullable;           // The type is annotated with ?: it can be null.
 
     __EndDefineMt(method)
 
@@ -1203,6 +1206,7 @@ namespace X_ROOT_NS::modules::core {
         ref_t           type;               // Param type
         param_type_t    param_type;         // Param type: ref, out, params
         ref_t           default_value;      // Default value.
+        uint8_t         nullable;           // The type is annotated with ?: it can be null.
 
     __EndDefineMt(param)
 

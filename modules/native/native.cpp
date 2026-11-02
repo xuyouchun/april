@@ -60,7 +60,6 @@ namespace X_ROOT_NS::modules::native {
         // Runtime library functions that need the metadata of the program (an assembly
         // analyzer), which native programs do not have yet.
         const char * const __metadata_libfuncs[] = {
-            "Tuple_SetRange", "Tuple_Create", "Tuple_Get", "Tuple_GetCount",
         };
 
         // Converts to a narrow string.
@@ -305,6 +304,10 @@ namespace X_ROOT_NS::modules::native {
                 // first (hidden) parameter: ret_type is void then.
                 bool                        returns_struct = false;
 
+                // The arguments of a pack (T ... items) are the params from pack_start.
+                int                         pack_start = -1;
+                int                         pack_count = 0;
+
                 bool                        queued = false;
             };
 
@@ -515,6 +518,21 @@ namespace X_ROOT_NS::modules::native {
 
                     // A ref / out argument is the address of a variable.
                     bool is_addr = is_addr_param(mt_param.param_type);
+
+                    // A pack (T ... items) is the arguments of its types, one by one.
+                    if (mt_param.param_type == param_type_t::extends)
+                    {
+                        fn.pack_start = (int)fn.param_types.size();
+
+                        analyzer.each_extend_params((*method)->params.at(index), [&](rt_type_t * type) {
+                            fn.param_rt_types.push_back(type);
+                            fn.param_types.push_back(__ll_type_of(type));
+                            fn.pack_count++;
+                            return true;
+                        });
+
+                        return true;
+                    }
 
                     if (mt_param.param_type != param_type_t::default_ && !is_addr
                             && mt_param.param_type != param_type_t::params)
@@ -757,6 +775,7 @@ namespace X_ROOT_NS::modules::native {
             // Arguments and locals live in allocas (mem2reg promotes them later).
             struct __slot_t { llb::value_t ptr; std::string type; };
             std::vector<__slot_t> args, locals;
+            std::vector<rt_type_t *> marker_types;      // The types of the type infos.
 
             for (size_t k = 0; k < fn.param_types.size(); k++)
             {
@@ -1548,6 +1567,20 @@ namespace X_ROOT_NS::modules::native {
                                     break;
                                 }
 
+                                // A type info is only used by the functions of the tuples: it is
+                                // known when the program is compiled.
+                                if (push->get_object_type() == xil_storage_object_type_t::type_info)
+                                {
+                                    rt_type_t * info_type = analyzer.get_type(push->get_ref());
+                                    if (info_type == nullptr || !is_tuple_type(info_type))
+                                        throw _ED(__e_t::unsupported_xil, _T("push object (type info)"));
+
+                                    marker_types.push_back(info_type);
+                                    stack.push_back(llb::value_t { llb::types::ptr,
+                                        "typeinfo:" + std::to_string(marker_types.size() - 1) });
+                                    break;
+                                }
+
                                 if (push->get_object_type() != xil_storage_object_type_t::method_info)
                                     throw _ED(__e_t::unsupported_xil, _T("push object (type info)"));
 
@@ -1612,6 +1645,11 @@ namespace X_ROOT_NS::modules::native {
 
                                 stack.push_back(v);
                             }   break;
+
+                            case xil_storage_type_t::params:
+                                // The items of the pack: only the functions of the tuples use them.
+                                stack.push_back(llb::value_t { llb::types::ptr, "params:" });
+                                break;
 
                             case xil_storage_type_t::box: {
                                 // Boxes the value (or the struct at the address) on the top.
@@ -1945,7 +1983,36 @@ namespace X_ROOT_NS::modules::native {
                         }
 
                         rt_method_base_t * base = analyzer.get_method(call->method_ref());
-                        if (base == nullptr || base->this_type() == rt_member_type_t::dynamic)
+                        if (base != nullptr && base->this_type() == rt_member_type_t::dynamic)
+                        {
+                            // The getter of an item of a tuple: reads the field of its struct.
+                            rt_type_t * tuple = base->get_host_type();
+                            std::string name = __narrow(base->get_name().c_str());
+                            const char * prefix = "get_Item";
+
+                            if (tuple->get_kind() != rt_type_kind_t::generic
+                                    || name.compare(0, 8, prefix) != 0)
+                            {
+                                throw _ED(__e_t::unsupported_xil, _T("call of a dynamic method"));
+                            }
+
+                            int position = std::stoi(name.substr(8)) - 1;
+                            rt_generic_type_t * tuple_type = (rt_generic_type_t *)tuple;
+                            rt_type_t * item_type = tuple_type->atypes[position];
+
+                            std::string item_ll = __ll_type_of(item_type);
+                            if (item_ll[0] == '[')
+                                throw _ED(__e_t::unsupported_xil, _T("tuple item of a struct"));
+
+                            llb::value_t object = pop_value("tuple");
+                            raise_if_null(object);
+
+                            msize_t offset = tuple_type->get_field_offset(__env, position);
+                            stack.push_back(f.load(item_ll, f.gep_bytes(object, (int64_t)offset)));
+                            break;
+                        }
+
+                        if (base == nullptr)
                             throw _ED(__e_t::unsupported_xil, _T("call of a dynamic method"));
 
                         // A member of a generic param: the method of the type that the param is
@@ -1965,8 +2032,7 @@ namespace X_ROOT_NS::modules::native {
 
                                 if (t.is_virtual)
                                 {
-                                    assembly_analyzer_t found_analyzer(__env, t.found->get_assembly());
-                                    constrained_offset = found_analyzer.get_virtual_method_offset(t.found_ref);
+                                    constrained_offset = t.virtual_offset;
                                     call_type = xil_call_type_t::virtual_;
                                 }
                             }
@@ -2091,6 +2157,135 @@ namespace X_ROOT_NS::modules::native {
 
                                 break;
                             }
+                        }
+
+                        // The functions of the tuples are made inline: their type is known here.
+                        std::string internal_name = call_type == xil_call_type_t::internal?
+                                                __narrow(base->get_name().c_str()) : std::string();
+
+                        if (internal_name == "Tuple_Create" || internal_name == "Tuple_SetRange"
+                                || internal_name == "Tuple_Get" || internal_name == "Tuple_GetCount")
+                        {
+                            auto marker_type = [&](const llb::value_t & v) -> rt_generic_type_t * {
+                                if (v.text.compare(0, 9, "typeinfo:") != 0)
+                                    throw _ED(__e_t::unsupported_xil, _T("tuple type is not known"));
+
+                                return (rt_generic_type_t *)marker_types.at(std::stoul(v.text.substr(9)));
+                            };
+
+                            // Reads the argument of the position of the pack.
+                            auto pack_arg = [&](int k) -> __slot_t & {
+                                if (fn.pack_start < 0 || k >= fn.pack_count)
+                                    throw _ED(__e_t::bad_stack, fn.display, _T("no pack argument"));
+
+                                return args.at((size_t)(fn.pack_start + k));
+                            };
+
+                            // Writes the items of the pack to the tuple.
+                            auto store_items = [&](rt_generic_type_t * tuple, llb::value_t object) {
+                                int count = tuple->atype_count();
+                                for (int k = 0; k < count; k++)
+                                {
+                                    std::string ll = __ll_type_of(tuple->atypes[k]);
+                                    if (ll[0] == '[')
+                                        throw _ED(__e_t::unsupported_xil, _T("tuple item of a struct"));
+
+                                    __slot_t & slot = pack_arg(k);
+                                    msize_t offset = tuple->get_field_offset(__env, k);
+                                    f.store(f.load(slot.type, slot.ptr), f.gep_bytes(object, (int64_t)offset));
+                                }
+                            };
+
+                            if (internal_name == "Tuple_Create" || internal_name == "Tuple_SetRange")
+                            {
+                                llb::value_t data = pop_value("tuple items");
+                                llb::value_t type_value = pop_value("tuple type");
+                                rt_generic_type_t * tuple = marker_type(type_value);
+
+                                if (data.text != "params:")
+                                    throw _ED(__e_t::unsupported_xil, _T("tuple items"));
+
+                                if (internal_name == "Tuple_Create")
+                                {
+                                    tuple->pre_new(__env);
+                                    __uses_new_object = true;
+
+                                    llb::value_t obj = f.call("ptr", APRIL_NATIVE_SYM_NEW_OBJECT, {
+                                        llb::const_int("i64", (int64_t)tuple->get_size(__env)),
+                                        llb::value_t { llb::types::ptr, "@" + __descriptor_of(tuple) }
+                                    });
+
+                                    store_items(tuple, obj);
+                                    stack.push_back(obj);
+                                }
+                                else
+                                {
+                                    // The tuple is the this of the constructor that calls it.
+                                    store_items(tuple, f.load("ptr", args.at(0).ptr));
+                                }
+
+                                break;
+                            }
+
+                            if (internal_name == "Tuple_GetCount")
+                            {
+                                rt_generic_type_t * tuple = marker_type(pop_value("tuple type"));
+                                stack.push_back(llb::const_int("i32", (int64_t)tuple->atype_count()));
+                                break;
+                            }
+
+                            // Tuple_Get: the item is a reference, or an object that is made of it.
+                            llb::value_t index = pop_value("tuple index");
+                            rt_generic_type_t * tuple = marker_type(pop_value("tuple type"));
+                            llb::value_t object = f.load("ptr", args.at(0).ptr);
+
+                            llb::value_t result = llb::const_null();
+                            int count = tuple->atype_count();
+
+                            for (int k = 0; k < count; k++)
+                            {
+                                rt_type_t * item_type = tuple->atypes[k];
+                                std::string ll = __ll_type_of(item_type);
+                                if (ll[0] == '[')
+                                    throw _ED(__e_t::unsupported_xil, _T("tuple item of a struct"));
+
+                                msize_t offset = tuple->get_field_offset(__env, k);
+                                llb::value_t value = f.load(ll, f.gep_bytes(object, (int64_t)offset));
+
+                                llb::value_t item;
+                                bool is_string = item_type->get_vtype(__env) == vtype_t::string_;
+
+                                if (is_ref_type(item_type->get_ttype(__env)) && !is_string)
+                                {
+                                    item = value;
+                                }
+                                else
+                                {
+                                    item_type->pre_new(__env);
+                                    __uses_new_object = true;
+
+                                    item = f.call("ptr", APRIL_NATIVE_SYM_NEW_OBJECT, {
+                                        llb::const_int("i64", (int64_t)item_type->get_size(__env)),
+                                        llb::value_t { llb::types::ptr, "@" + __descriptor_of(item_type) }
+                                    });
+
+                                    f.store(value, item);
+
+                                    // A string that is null is a null object.
+                                    if (is_string)
+                                    {
+                                        item = f.select(f.icmp("eq", value, llb::const_null()),
+                                                        llb::const_null(), item);
+                                    }
+                                }
+
+                                result = f.select(
+                                    f.icmp("eq", index, llb::const_int("i32", (int64_t)k)), item, result
+                                );
+                            }
+
+                            stack.push_back(result);
+                            break;
                         }
 
                         __fn_t * callee = __function_of(base);
@@ -2261,6 +2456,15 @@ namespace X_ROOT_NS::modules::native {
                             if (type == nullptr)
                                 throw _ED(__e_t::unsupported_type, _T("(unresolved allocated type)"));
 
+                            // The template of the current generic type is the current instance.
+                            if (type->get_kind() == rt_type_kind_t::general
+                                    && host_type->get_kind() == rt_type_kind_t::generic
+                                    && is_host_type_template(type,
+                                            ((rt_generic_type_t *)host_type)->template_))
+                            {
+                                type = host_type;
+                            }
+
                             // An instance of a class, or a boxed struct.
                             std::string new_ll = __ll_type_of(type);
                             if (new_ll != "ptr" && new_ll[0] != '[')
@@ -2359,9 +2563,15 @@ namespace X_ROOT_NS::modules::native {
                         if (target == nullptr)
                             throw _ED(__e_t::unsupported_type, _T("(unresolved cast type)"));
 
+                        // The classes, the interfaces, and the values that are boxed (o is int): a
+                        // string is not an object.
                         ttype_t target_ttype = target->get_ttype(__env);
+                        bool target_is_value = (target_ttype == ttype_t::struct_ || target_ttype == ttype_t::enum_)
+                                && target->get_vtype(__env) != vtype_t::string_;
+
                         if ((target->get_kind() != rt_type_kind_t::general && target->get_kind() != rt_type_kind_t::generic)
-                                || (target_ttype != ttype_t::interface_ && target_ttype != ttype_t::class_))
+                                || (target_ttype != ttype_t::interface_ && target_ttype != ttype_t::class_
+                                    && !target_is_value))
                         {
                             throw _ED(__e_t::unsupported_type, target->get_name(__env));
                         }
@@ -2440,6 +2650,17 @@ namespace X_ROOT_NS::modules::native {
                         if (type == nullptr)
                             throw _ED(__e_t::unsupported_type, _T("(unresolved copied type)"));
 
+                        // The template of the current generic type is the current instance.
+                        if (type->get_kind() == rt_type_kind_t::general
+                                && host_type->get_kind() == rt_type_kind_t::generic
+                                && is_host_type_template(type,
+                                        ((rt_generic_type_t *)host_type)->template_))
+                        {
+                            type = host_type;
+                        }
+
+
+
                         // A generic copy is of a generic param, already of a concrete type.
                         msize_t type_size = copy->copy_type() == xil_copy_type_t::generic_copy?
                                         type->get_variable_size(__env) : type->get_size(__env);
@@ -2457,6 +2678,23 @@ namespace X_ROOT_NS::modules::native {
                                 throw _ED(__e_t::unsupported_type, type->get_name(__env));
 
                             stack.push_back(f.load(ll, address));
+                            break;
+                        }
+
+                        // The value that a call returned is stored at the destination below it: a
+                        // struct was written there by the call.
+                        if (copy->copy_kind() == xil_copy_kind_t::store)
+                        {
+                            std::string ll = __ll_type_of(type);
+                            if (ll[0] == '[')
+                                break;
+
+                            llb::value_t value = pop_value("stored value");
+                            llb::value_t dst = pop_value("store destination");
+                            if (dst.type != "ptr" || value.type != ll)
+                                throw _ED(__e_t::bad_stack, fn.display, _T("store of a value"));
+
+                            f.store(value, dst);
                             break;
                         }
 

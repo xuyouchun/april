@@ -7,17 +7,17 @@ namespace Reflection;
 [Internal]
 public abstract class ReflectionInfo
 {
-	public String Name
+	public String? Name
 	{
 		get { return null; }
 	}
 
-	public virtual Array<Attribute> GetAttributes()
+	public virtual Array<Attribute>? GetAttributes()
 	{
 		return null;
 	}
 
-	public virtual Array<Attribute> GetAttributes(Type attributeType)
+	public virtual Array<Attribute>? GetAttributes(Type attributeType)
 	{
 		return null;
 	}
@@ -40,12 +40,12 @@ public sealed class Assembly : ReflectionInfo
 [Internal]
 public class Member : ReflectionInfo
 {
-	public Type Type
+	public Type? Type
 	{
 		get { return null; }
 	}
 
-	public Type DeclaringType
+	public Type? DeclaringType
 	{
 		get { return null; }
 	}
@@ -72,12 +72,12 @@ public sealed class Method : Member
 [Internal]
 public sealed class Property : Member
 {
-	public Method GetMethod
+	public Method? GetMethod
 	{
 		get { return null; }
 	}
 
-	public Method SetMethod
+	public Method? SetMethod
 	{
 		get { return null; }
 	}
@@ -88,12 +88,12 @@ public sealed class Property : Member
 [Internal]
 public sealed class Event : Member
 {
-	public Method AddMethod
+	public Method? AddMethod
 	{
 		get { return null; }
 	}
 
-	public Method RemoveMethod
+	public Method? RemoveMethod
 	{
 		get { return null; }
 	}
@@ -112,7 +112,7 @@ public sealed class Field : Member
 [Internal]
 public sealed class Parameter : ReflectionInfo
 {
-	public Method Type
+	public Method? Type
 	{
 		get { return null; }
 	}

@@ -14,35 +14,35 @@ public class Exception
     public Exception() { }
 
     // Constructor with message.
-    public Exception(String message)
+    public Exception(String? message)
     {
         this.__message = message;
     }
 
     // Constructor with message and it's inner exception.
-    public Exception(String message, Exception innerException)
+    public Exception(String? message, Exception? innerException)
     {
         this.__message = message;
         this.__innerException = innerException;
     }
 
     // Exception message.
-    public String Message
+    public String? Message
     {
         get { return __message; }
     }
 
     // Inner exception that caused this exception.
-    public Exception InnerException
+    public Exception? InnerException
     {
         get { return __innerException; }
     }
 
     // Exception message.
-    private String __message;
+    private String? __message;
 
     // Inner exception that caused this exception.
-    private Exception __innerException;
+    private Exception? __innerException;
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -55,7 +55,7 @@ public class SystemException : Exception
     public SystemException() { }
 
     // Constructor with message.
-    public SystemException(String message) : base(message) { }
+    public SystemException(String? message) : base(message) { }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -68,7 +68,7 @@ public class NullReferenceException : SystemException
     public NullReferenceException() { }
 
     // Constructor with message.
-    public NullReferenceException(String message) : base(message) { }
+    public NullReferenceException(String? message) : base(message) { }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -81,7 +81,7 @@ public class InvalidCastException : SystemException
     public InvalidCastException() { }
 
     // Constructor with message.
-    public InvalidCastException(String message) : base(message) { }
+    public InvalidCastException(String? message) : base(message) { }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -93,7 +93,7 @@ public class InvalidOperationException : SystemException
     public InvalidOperationException() { }
 
     // Constructor with message.
-    public InvalidOperationException(String message) : base(message) { }
+    public InvalidOperationException(String? message) : base(message) { }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -105,7 +105,7 @@ public class OutOfRangeException : SystemException
     // Default constructor.
     public OutOfRangeException() { }
 
-    public OutOfRangeException(String message) : base(message) { }
+    public OutOfRangeException(String? message) : base(message) { }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -117,7 +117,7 @@ public class DivideByZeroException : SystemException
     // Default constructor.
     public DivideByZeroException() { }
 
-    public DivideByZeroException(String message) : base(message) { }
+    public DivideByZeroException(String? message) : base(message) { }
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -129,5 +129,5 @@ public class OverflowException : SystemException
     // Default constructor.
     public OverflowException() { }
 
-    public OverflowException(String message) : base(message) { }
+    public OverflowException(String? message) : base(message) { }
 }

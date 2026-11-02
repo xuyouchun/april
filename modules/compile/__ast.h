@@ -166,6 +166,8 @@ namespace X_ROOT_NS::modules::compile {
 
         type_name_exp,              // Typename expression.
 
+        declaration_exp,            // A name that declares a variable: out int value, is string s.
+
         type_cast_exp,              // Type case expression.
 
         function,                   // Function call expression.
@@ -325,6 +327,8 @@ namespace X_ROOT_NS::modules::compile {
                                                                                         \
         type_name_exp       =   __X_BRANCH_ENUM_ITEM(type_name_exp),                    \
                                                                                         \
+        declaration_exp     =   __X_BRANCH_ENUM_ITEM(declaration_exp),                  \
+                                                                                        \
         type_cast_exp       =   __X_BRANCH_ENUM_ITEM(type_cast_exp),                    \
                                                                                         \
         function            =   __X_BRANCH_ENUM_ITEM(function),                         \
@@ -419,6 +423,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(statement_group_st,     _T("statement_group_st"))                           \
                                                                                         \
         X_C(type_name_exp,          _T("type_name_exp"))                                \
+        X_C(declaration_exp,        _T("declaration_exp"))                              \
         X_C(type_cast_exp,          _T("type_cast_exp"))                                \
         X_C(function,               _T("function"))                                     \
         X_C(function_name,          _T("function_name"))                                \
@@ -472,6 +477,27 @@ namespace X_ROOT_NS::modules::compile {
 
         // The member does not hide an accessible member. The new keyword is not required.
         not_hides_inherit_member,
+
+        // A value that can be null is converted to a type that cannot be null.
+        nullable_convert,
+
+        // The null literal is converted to a type that cannot be null.
+        nullable_null_literal,
+
+        // A value that can be null is dereferenced.
+        nullable_dereference,
+
+        // A value that can be null is returned by a method that returns a type that cannot be.
+        nullable_return,
+
+        // A value that can be null is an argument of a param that cannot be null.
+        nullable_argument,
+
+        // A field that cannot be null is not initialized when a constructor exits.
+        nullable_field_uninitialized,
+
+        // The argument of a generic type can be null, the param cannot be.
+        nullable_constraint,
 
         __error__           = 7000,
 
@@ -750,6 +776,12 @@ namespace X_ROOT_NS::modules::compile {
 
         // The operator is ambiguous: more than one method fits the operands.
         operator_overload_ambiguous,
+
+        // The operator ?. is used with the object of a type that cannot be null.
+        null_conditional_wrong_type,
+
+        // The value is assigned to a member of ?. .
+        null_conditional_assign,
 
         // Cannot determine local type.
         cannot_determine_local_variable_type,
@@ -4012,6 +4044,39 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // declaration_exp
+
+    // A name that declares a variable: out int value, o is string s.
+    Ast(declaration_exp, __xcvalue_t::declaration_exp)
+
+        // Typename.
+        __type_name__,
+
+    EndAst(declaration_exp)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Declaration expression ast node.
+    class declaration_exp_ast_node_t : public __declaration_exp_ast_node_t
+                                     , public expression_ast_t
+                                     , public __wexp_t<name_expression_t>
+    {
+        typedef __declaration_exp_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // type_cast_exp 
 
     // Type cast expression.
@@ -4194,6 +4259,9 @@ namespace X_ROOT_NS::modules::compile {
 
     public:
         using __super_t::__super_t;
+
+        // Whether the elements are annotated with ?: new String?[2].
+        bool element_nullable = false;
 
         // Commits this node.
         virtual void on_commit() override;

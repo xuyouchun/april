@@ -52,6 +52,34 @@ namespace X_ROOT_NS::modules::compile {
         return variable != nullptr && is_real_variable(variable);
     }
 
+    // Returns whether the expression is the result of a call: a function, a member that is a
+    // function, an operator that is a method.
+    static bool __is_generic_call_result(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return false;
+
+        switch (exp->this_family())
+        {
+            case expression_family_t::function:
+                return true;
+
+            case expression_family_t::binary: {
+                binary_expression_t * binary = (binary_expression_t *)exp;
+                if (binary->op() == operator_t::member_point)
+                    return __is_generic_call_result(binary->exp2());
+
+                return binary->overload_method != nullptr && !binary->op_property->is_assign;
+            }
+
+            case expression_family_t::unitary:
+                return ((unitary_expression_t *)exp)->overload_method != nullptr;
+
+            default:
+                return false;
+        }
+    }
+
     // Returns whether the expression is the name of a property.
     static bool __is_property_name(expression_t * exp)
     {
@@ -1868,6 +1896,15 @@ namespace X_ROOT_NS::modules::compile {
 
                     __push_variable_address(ctx, pool, ca.var, ca.this_);
                     exp2->compile(ctx, pool, type1);
+
+                    // A call returns a generic param: a struct is written at the destination
+                    // below, else the value is stored there.
+                    if (is_generic_param(type2) && __is_generic_call_result(exp2))
+                    {
+                        pool.append<x_generic_copy_xil_t>(
+                            __ref_of(ctx, type2), xil_copy_kind_t::store
+                        );
+                    }
                 }
             }
             else
@@ -2003,7 +2040,8 @@ namespace X_ROOT_NS::modules::compile {
     // Throws exception when specified expression is not ref type.
     void __expect_ref_type(expression_t * exp)
     {
-        if (!is_ref_type(exp->get_type()))
+        // A string and an array can be null, as the classes.
+        if (!can_be_null(exp->get_type()))
             __Failed("%1% is not a reference type expression", exp);
     }
 
@@ -2138,10 +2176,71 @@ namespace X_ROOT_NS::modules::compile {
         pool.append<x_cast_xil_t>(xil_cast_command_t::as, type_ref);
     }
 
+    // Compiles is expression that declares a variable: o is string s. The value of o is kept in
+    // a temp variable, if it is of the type the variable is assigned (s = (string)o).
+    static void __compile_is_declaration(__cctx_t & ctx, xil_pool_t & pool,
+                                expression_t * exp1, name_expression_t * declaration)
+    {
+        statement_compile_context_t & sctx = ctx.statement_ctx;
+
+        variable_t * variable = declaration->variable;
+        __FailedWhenNull(variable, "the variable of '%1%' is missing", declaration);
+
+        type_t * type = variable->get_type();
+        type_t * type1 = exp1->get_type();
+        __FailedWhenNull(type, "the type of '%1%' is missing", declaration);
+        __FailedWhenNull(type1, "the type of '%1%' is missing", exp1);
+
+        ref_t type_ref = __ref_of(ctx, type);
+
+        // The value is kept.
+        local_variable_t * temp = ctx.define_temp_local(type1);
+        xil_type_t xtype1 = to_xil_type(type1);
+
+        exp1->compile(ctx, pool);
+        pool.append<x_pop_local_xil_t>(xtype1, temp->identity);
+
+        pool.append<x_push_local_xil_t>(xtype1, temp->identity);
+        pool.append<x_cast_xil_t>(xil_cast_command_t::is, type_ref);
+
+        // false: it is the value of the expression.
+        pool.append<x_push_duplicate_xil_t>();
+        jmp_xil_t * end_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
+        pool.append<x_pop_empty_xil_t>(xil_type_t::bool_);
+
+        // true: s = (string)o
+        auto * temp_exp = __XPool.new_obj<system_expression_t<name_expression_t>>(temp);
+        auto * cast_exp = __XPool.new_obj<system_expression_t<type_cast_expression_t>>(
+            declaration->declare_type_name, (expression_t *)temp_exp
+        );
+
+        auto * variable_exp = __XPool.new_obj<system_expression_t<name_expression_t>>(
+            (local_variable_t *)variable
+        );
+
+        auto * assign_exp = __XPool.new_obj<system_expression_t<binary_expression_t>>(
+            operator_t::assign, variable_exp, cast_exp
+        );
+
+        assign_exp->compile(ctx, pool, __environment_t::empty);
+
+        pool.append<x_push_const_xil_t<bool>>(xil_type_t::bool_, tvalue_t(true));
+
+        xil::append_label_xil(sctx, pool, end_jmp_xil);
+    }
+
     // Compiles is expression.
     static void __compile_is(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        // o is string s
+        if (exp2->this_family() == expression_family_t::name
+                && ((name_expression_t *)exp2)->declare_type_name != nullptr)
+        {
+            __compile_is_declaration(ctx, pool, exp1, (name_expression_t *)exp2);
+            return;
+        }
+
         exp1->compile(ctx, pool);
 
         type_t * type = __to_actual_type(exp2);
@@ -2398,6 +2497,14 @@ namespace X_ROOT_NS::modules::compile {
     {
         if (__is_whole_effective(owner_exp->parent))
             return false;
+
+        // The value is the object of the member that follows (a.F().G();).
+        for (expression_t * e = owner_exp, * p = e->parent; __is_member_expression(p);
+                                                                    e = p, p = p->parent)
+        {
+            if (((binary_expression_t *)p)->exp1() == e)
+                return false;
+        }
 
         type_t * ret_type = method->get_type();
         vtype_t vtype;
@@ -2725,12 +2832,177 @@ namespace X_ROOT_NS::modules::compile {
         return __super_t::execute();
     }
 
+    static void __compile_null_conditional(__cctx_t & ctx, xil_pool_t & pool,
+                    expression_t * top, const __environment_t & env);
+
+    // Compiles a chain of members that has the members of ?. (a?.b.c): the object of the member
+    // is set to a temp variable, when it is null the value of the chain is null, else the chain
+    // is compiled with the temp variable as the object.
+    static void __compile_null_conditional(__cctx_t & ctx, xil_pool_t & pool,
+                    expression_t * top, const __environment_t & env)
+    {
+        // The first member of ?. or ?[ of the chain.
+        expression_t * member = nullptr;
+        bool member_is_index = false;
+
+        for (expression_t * e = top; e != nullptr && null_conditional_object(e) != nullptr;
+                                                        e = null_conditional_object(e))
+        {
+            if (e->this_family() == expression_family_t::index)
+            {
+                if (((index_expression_t *)e)->null_conditional)
+                    member = e, member_is_index = true;
+            }
+            else if (((binary_expression_t *)e)->null_conditional)
+            {
+                member = e, member_is_index = false;
+            }
+        }
+
+        _A(member != nullptr);
+
+        statement_compile_context_t & sctx = ctx.statement_ctx;
+
+        expression_t * object = null_conditional_object(member);
+        type_t * object_type = object->get_type();
+        __FailedWhenNull(object_type, "type of the object of ?. missing");
+
+        type_t * result_type = top->get_type();
+        // Whether the value of the chain is used: a statement does not use it.
+        bool effective = __is_whole_effective(top->parent);
+        bool is_void = result_type == nullptr || is_void_type(result_type);
+        bool is_nullable_value = !is_void && get_nullable_underlying(result_type) != nullptr;
+
+        if (!is_void && !is_nullable_value && !can_be_null(result_type))
+        {
+            __Failed("the member of '%1%' that is accessed by ?. cannot be null: '%2%'",
+                                                                  object_type, result_type);
+        }
+
+        // The object is set to a temp variable.
+        local_variable_t * temp = ctx.define_temp_local(object_type);
+        xil_type_t object_xtype = to_xil_type(object_type);
+
+        object->compile(ctx, pool);
+        pool.append<x_pop_local_xil_t>(object_xtype, temp->identity);
+
+        // Whether it is not null.
+        pool.append<x_push_local_xil_t>(object_xtype, temp->identity);
+        pool.append<x_push_null_xil_t>();
+        pool.append<x_cmp_xil_t>(xil_cmp_command_t::equal, xil_type_t::object, xil_type_t::object);
+
+        jmp_xil_t * not_null_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
+
+        // The chain is compiled with the temp variable, that is the object of the member.
+        auto compile_chain = [&](auto && compile) {
+            name_expression_t * temp_exp = __XPool.new_obj<system_expression_t<name_expression_t>>(temp);
+            temp_exp->parent = member;
+
+            if (member_is_index)
+            {
+                index_expression_t * index = (index_expression_t *)member;
+                array_index_variable_t * array_var = index->variable != nullptr
+                    && index->variable->this_type() == variable_type_t::array_index?
+                        (array_index_variable_t *)index->variable : nullptr;
+
+                index->set_namex(temp_exp);
+                if (array_var != nullptr)
+                    array_var->body = temp_exp;
+
+                index->null_conditional = false;
+
+                compile();
+
+                index->set_namex(object);
+                if (array_var != nullptr)
+                    array_var->body = object;
+
+                index->null_conditional = true;
+            }
+            else
+            {
+                binary_expression_t * binary = (binary_expression_t *)member;
+
+                binary->exps[0] = temp_exp;
+                binary->null_conditional = false;
+
+                compile();
+
+                binary->exps[0] = object;
+                binary->null_conditional = true;
+                object->parent = member;
+            }
+        };
+
+        local_variable_t * result = nullptr;
+
+        if (is_void || !effective)
+        {
+            // Null: the chain is skipped.
+            jmp_xil_t * end_jmp_xil;
+
+            end_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
+            xil::append_label_xil(sctx, pool, not_null_jmp_xil);
+
+            compile_chain([&]() { top->compile(ctx, pool, env); });
+
+            xil::append_label_xil(sctx, pool, end_jmp_xil);
+            return;
+        }
+
+        ref_t result_ref = __ref_of(ctx, result_type);
+
+        if (is_nullable_value)
+        {
+            // Null: the nullable has no value.
+            result = ctx.define_temp_local(result_type);
+
+            pool.append<x_push_local_addr_xil_t>(result->identity);
+            pool.append<x_object_copy_xil_t>(result_ref, xil_copy_kind_t::zero);
+
+            jmp_xil_t * end_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
+            xil::append_label_xil(sctx, pool, not_null_jmp_xil);
+
+            // Not null: the value of the chain, that is nullable.
+            compile_chain([&]() {
+                pool.append<x_push_local_addr_xil_t>(result->identity);
+
+                if (!__try_compile_nullable_value(ctx, pool, result_type, top))
+                    top->compile(ctx, pool, result_type);
+            });
+
+            xil::append_label_xil(sctx, pool, end_jmp_xil);
+
+            // The value is the variable.
+            name_expression_t * result_exp = __XPool.new_obj<system_expression_t<name_expression_t>>(result);
+            result_exp->parent = top->parent;
+            result_exp->compile(ctx, pool, env);
+            return;
+        }
+
+        // A reference: null is the value of the chain, when the object is null.
+        pool.append<x_push_null_xil_t>();
+        jmp_xil_t * end_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
+        xil::append_label_xil(sctx, pool, not_null_jmp_xil);
+
+        compile_chain([&]() { top->compile(ctx, pool, env); });
+
+        xil::append_label_xil(sctx, pool, end_jmp_xil);
+    }
+
     // Compiles binary expression.
     void __sys_t<binary_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                        const __environment_t & env)
     {
         if (__try_compile_constant_expression(ctx, pool, this, env))
             return;
+
+        // A chain that has a member of ?.
+        if (this->op() == operator_t::member_point && this->is_null_conditional_chain_top())
+        {
+            __compile_null_conditional(ctx, pool, this, env);
+            return;
+        }
 
         expression_t * exp1 = expression_at(0), * exp2 = expression_at(1);
 
@@ -2754,7 +3026,7 @@ namespace X_ROOT_NS::modules::compile {
             {
                 // The value of x += y is made by the method, assigned by the caller.
                 bool is_value = ctx.overload_assign_value == this;
-                __compile_operator_overload(ctx, pool, !is_value, !is_value);
+                __compile_operator_overload(ctx, pool, !is_value, !is_value, env);
             }
 
             return;
@@ -2887,12 +3159,21 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles operator overload..
     void __sys_t<binary_expression_t>::__compile_operator_overload(__cctx_t & ctx, xil_pool_t & pool,
-                                                                   bool pop_result, bool pre_call)
+                                                                   bool pop_result, bool pre_call,
+                                                                   const __environment_t & env)
     {
         method_t * method = this->overload_method;
 
         // Checks method prototype.
         __check_overload_prototype(ctx, method, 2, this->exps);
+
+        // The value of a generic param is returned: when the param is a custom struct, the
+        // method writes it at a destination that is below.
+        bool generic_value_return = pre_call && is_generic_param(method->get_type())
+                                        && env.type_mark == type_mark_t::value;
+
+        if (generic_value_return)
+            pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
 
         if (pre_call)
             __pre_call_method(ctx, pool, this, method);
@@ -2903,6 +3184,13 @@ namespace X_ROOT_NS::modules::compile {
 
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
+
+        if (generic_value_return)
+        {
+            pool.append<x_generic_copy_xil_t>(
+                __ref_of(ctx, method->get_type()), xil_copy_kind_t::call_ret
+            );
+        }
 
         if (pop_result)
             __try_pop_empty_for_method(ctx, pool, method, this);
@@ -2966,6 +3254,13 @@ namespace X_ROOT_NS::modules::compile {
         expression_t * exp = expression_at(0);
         _A(exp != nullptr);
 
+        // x! is x.
+        if (this->op() == operator_t::null_forgiving)
+        {
+            exp->compile(ctx, pool, env);
+            return;
+        }
+
         if (this->overload_method != nullptr)
         {
             if (this->op_property->is_assign && ctx.overload_assign_value != this)
@@ -2990,7 +3285,7 @@ namespace X_ROOT_NS::modules::compile {
             else
             {
                 bool is_value = ctx.overload_assign_value == this;
-                __compile_operator_overload(ctx, pool, !is_value, !is_value);
+                __compile_operator_overload(ctx, pool, !is_value, !is_value, env);
             }
 
             return;
@@ -3033,12 +3328,19 @@ namespace X_ROOT_NS::modules::compile {
     void __sys_t<unitary_expression_t>::__compile_operator_overload(__cctx_t & ctx,
                                                                     xil_pool_t & pool,
                                                                     bool pop_result,
-                                                                    bool pre_call)
+                                                                    bool pre_call,
+                                                                    const __environment_t & env)
     {
         method_t * method = this->overload_method;
 
         // Checks method prototype.
         __check_overload_prototype(ctx, method, 1, this->exps);
+
+        bool generic_value_return = pre_call && is_generic_param(method->get_type())
+                                        && env.type_mark == type_mark_t::value;
+
+        if (generic_value_return)
+            pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
 
         if (pre_call)
             __pre_call_method(ctx, pool, this, method);
@@ -3048,6 +3350,13 @@ namespace X_ROOT_NS::modules::compile {
 
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
+
+        if (generic_value_return)
+        {
+            pool.append<x_generic_copy_xil_t>(
+                __ref_of(ctx, method->get_type()), xil_copy_kind_t::call_ret
+            );
+        }
 
         if (pop_result)
             __try_pop_empty_for_method(ctx, pool, method, this);
@@ -3780,7 +4089,7 @@ namespace X_ROOT_NS::modules::compile {
 
                     // The object of a member (((P)o).V) is the box itself, its data is the
                     // struct; else the struct is copied to the destination that is below.
-                    if (__need_object_copy(this) || type->this_gtype() == gtype_t::generic)
+                    if (__need_object_copy(this))
                     {
                         pool.append<x_object_copy_xil_t>(
                             __ref_of(ctx, type), xil_copy_kind_t::reverse
@@ -3849,6 +4158,13 @@ namespace X_ROOT_NS::modules::compile {
         expression_t * namex = this->namex();
         if (namex == nullptr)
             __Failed("index main expression missing");
+
+        // A chain that has a member of ?[
+        if (this->is_null_conditional_chain_top())
+        {
+            __compile_null_conditional(ctx, pool, this, env);
+            return;
+        }
 
         if (is_effective(ctx, this->parent))
         {
@@ -4227,6 +4543,23 @@ namespace X_ROOT_NS::modules::compile {
 
         if (!is_effective(ctx, this->parent))
             return;
+
+        // A custom struct is zero: a local variable that is zero is copied to the destination.
+        if (is_custom_struct(type) && env.type_mark != type_mark_t::value)
+        {
+            local_variable_t * variable = ctx.define_temp_local(type);
+            ref_t type_ref = __ref_of(ctx, type);
+
+            pool.append<x_push_local_addr_xil_t>(variable->identity);
+            pool.append<x_object_copy_xil_t>(type_ref, xil_copy_kind_t::zero);
+
+            pool.append<x_push_local_addr_xil_t>(variable->identity);
+
+            if (__need_object_copy(this))
+                pool.append<x_object_copy_xil_t>(type_ref, xil_copy_kind_t::reverse);
+
+            return;
+        }
 
         switch (type->this_gtype())
         {

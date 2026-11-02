@@ -12,7 +12,7 @@ $import: (from from:$mname)? import import:$mname (as name)? \; ;
 $cvalue: cvalue | true | false | null;
 
 # Array index or Property index.
-$index:  $_single_expression [ $arguments ] ;
+$index:  $_single_expression ( [ | \?[ ) $arguments ] ;
 
 # Function name, Can be a real name or any expressions.
 # A lambda in brackets is called at once: ((Int32 x) => x + 1)(2) .
@@ -34,7 +34,7 @@ $array_initializer: { ($__item: $array_initializer | $expression) (, $__item)* ,
 $array_lengths: $expression? (, $expression? )* ;
 
 # New array expression, such as: new int[] { 1, 2, 3 }.
-$new_array: new $type_name [ $array_lengths? ] ( [ ,* ] )* $array_initializer? ;
+$new_array: new $type_name ( [ | \?[ ) $array_lengths? ] ( [ ,* ] )* $array_initializer? ;
 
 # Lambda expression: (Int32 a, Int32 b) => a + b , or with a body: (String s) => { ... } .
 # The params have types, and the lambda uses no variable of the method that has it.
@@ -55,6 +55,9 @@ $checked_exp: (checked | unchecked) \( $expression \) ;
 # Type name expression: System.Int32.
 $type_name_exp: $type_name ;
 
+# A name that declares a variable: out int value, o is string s.
+$declaration_exp: $type_name name ;
+
 # Type cast expression: (T)100 .
 $type_cast_exp: \( $type_name \) $_single_expression ;
 
@@ -64,7 +67,7 @@ $_single_expression: ($__item:
     | $index | $function | $new | $new_array | $type_of | $type_cast_exp
     | $default_value | $checked_exp | $name_unit | $lambda
     | \( $_expression (, $_expression)* \)
-  ) (. $__item )*
+  ) !!? ( (. | \?.) $__item !!? )*
 #|
 #  $type_name_exp (. $__item )+
 ;
@@ -82,7 +85,8 @@ $_expression:
           | \|   | ^   | &   | \|= | &= | ^=
           | \?\? | \?\?=
         ) $_expression                                  # binary operator
-      | ( as | is ) $type_name_exp                      # as/is type
+      | as $type_name_exp                               # as type
+      | is not? ( $declaration_exp | $type_name_exp | $cvalue ) # is type, is null, is T v
       | \? $_expression `\: $_expression                # xxx? xxx : xxx   ? :
       | (\+\+ | --)                                     # right unary operator
     )*
@@ -161,7 +165,7 @@ $general_type_name:
 ;
 
 # Array type name, such as int[].
-$array_type_name: $type_name [ ,* ] ;       # Array
+$array_type_name: $type_name [ ,* ] \?? ;    # Array, int[]? can be null
 
 # Uncertained type name: var.
 $uncertain_type_name: var ;
@@ -186,7 +190,7 @@ $generic_params: < $generic_param (, $generic_param)* > ;
 
 # Generic constraint: where T : MyClass.
 $generic_constraint:
-    where name \: ($__item: $type_name | class | struct | new \( \)) (, $__item *)*  ;
+    where name \: ($__item: $type_name | class \?? | struct | new \( \)) (, $__item *)*  ;
 
 # Generic constraints.
 $generic_constraints: $generic_constraint * ;
@@ -204,7 +208,7 @@ $param:  $attributes (out | ref | params)? $type_name ...? name (= $expression)?
 $params: $param (, $param)* ;
 
 # Argument of methods calling.
-$argument:  $attributes (out | ref)? (name \:)? $expression ;
+$argument:  $attributes (out | ref)? (name \:)? ($declaration_exp | $expression) ;
 
 # Arguments of methods calling.
 $arguments: $argument (, $argument)* ;

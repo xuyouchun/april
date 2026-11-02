@@ -82,6 +82,45 @@ namespace X_ROOT_NS::modules::lang_cs {
             case cs_token_value_t::k_base:
                 return ctx.create_system_expression<base_expression_t>();
 
+            // x is null, x is not null, x is not T: x == null, x != null, !(x is T).
+            case cs_token_value_t::k_is: {
+                expression_t * object = args.expressions[0], * pattern = args.expressions[1];
+
+                bool negate = false;
+                if (pattern->this_family() == expression_family_t::unitary
+                        && ((unitary_expression_t *)pattern)->op() == operator_t::logic_not)
+                {
+                    negate = true;
+                    pattern = ((unitary_expression_t *)pattern)->exp();
+                }
+
+                expression_t * exp;
+                if (pattern->this_family() == expression_family_t::cvalue)
+                {
+                    exp = ctx.create_system_expression<binary_expression_t>(
+                        negate? operator_t::not_equal : operator_t::equal, object, pattern
+                    );
+
+                    exp->code_unit = combine_all_code_units(ctx.memory, args.token, object, pattern);
+                    return exp;
+                }
+
+                exp = ctx.create_system_expression<binary_expression_t>(
+                    operator_t::is, object, pattern
+                );
+                exp->code_unit = combine_all_code_units(ctx.memory, args.token, object, pattern);
+
+                if (negate)
+                {
+                    exp = ctx.create_system_expression<unitary_expression_t>(
+                        operator_t::logic_not, exp
+                    );
+                    exp->code_unit = combine_all_code_units(ctx.memory, args.token, object, pattern);
+                }
+
+                return exp;
+            }
+
             case cs_token_value_t::question_mark:  {
 
                 _A(args.expressions[1]->this_family() == expression_family_t::binary);
@@ -177,6 +216,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(checked_exp)
             __Case(lambda)
             __Case(type_name_exp)
+            __Case(declaration_exp)
             __Case(type_cast_exp)
 
             __Case(import)
