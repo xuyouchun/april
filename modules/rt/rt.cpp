@@ -3629,6 +3629,180 @@ namespace X_ROOT_NS::modules::rt {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Finds, among the types that the receiver is (its base types, its interfaces), the one with
+    // the template: with its generic arguments.
+    static rt_type_t * __find_type_of_template(analyzer_env_t & env, rt_type_t * receiver,
+                                                              rt_type_t * template_type)
+    {
+        rt_type_t * found = nullptr;
+
+        std::function<bool (rt_type_t *)> find = [&](rt_type_t * type) -> bool {
+
+            rt_type_t * type_template = type->get_kind() == rt_type_kind_t::generic?
+                    (rt_type_t *)((rt_generic_type_t *)type)->template_ : type;
+
+            if (type_template == template_type)
+            {
+                found = type;
+                return false;
+            }
+
+            type->each_super_type(env, [&](rt_type_t * super_type) {
+                return find(super_type);
+            });
+
+            return found == nullptr;
+        };
+
+        for (rt_type_t * type = receiver; type != nullptr && found == nullptr;
+                                                            type = type->get_base_type(env))
+        {
+            find(type);
+        }
+
+        return found;
+    }
+
+    // A static abstract (or virtual) method of an interface that is called through a generic
+    // param (T.MaxValue): the method has as its host the type that the param is. Returns the
+    // method of that type that implements it; or the default method of the interface, if it
+    // has one (static virtual). Returns null if the call is not of this kind.
+    rt_method_base_t * resolve_constrained_static(analyzer_env_t & env,
+                                                  rt_generic_method_t * method)
+    {
+        rt_method_t * template_ = method->template_;
+
+        if (template_ == nullptr || !template_->is_static())
+            return nullptr;
+
+        decorate_t decorate = (decorate_t)(*template_)->decorate;
+        if (!decorate.is_abstract && !decorate.is_virtual)
+            return nullptr;
+
+        rt_type_t * interface_template = template_->get_host_type();
+        if (interface_template == nullptr || interface_template->get_ttype(env) != ttype_t::interface_)
+            return nullptr;
+
+        // The receiver is the interface itself, or an interface of it: it is not the type that a
+        // param was.
+        rt_type_t * receiver = method->get_host_type();
+        if (receiver == nullptr || receiver->get_ttype(env) == ttype_t::interface_)
+            return nullptr;
+
+        // The interface, with its generic arguments, that the type implements.
+        rt_type_t * interface_type = __find_type_of_template(env, receiver, interface_template);
+
+        if (interface_type == nullptr)
+        {
+            throw __RtAssemblyErrorF("the type '%1%' does not implement the interface '%2%'",
+                receiver->get_name(env), interface_template->get_name(env));
+        }
+
+        // The prototype of the method, in the terms of the type that implements.
+        generic_param_manager_t interface_gp(env, interface_type);
+        assembly_analyzer_t analyzer(env, template_->get_assembly(), &interface_gp);
+
+        method_prototype_t prototype;
+        analyzer.get_prototype(template_, &prototype);
+
+        rt_method_base_t * found = nullptr;
+        for (rt_type_t * type = receiver; type != nullptr && found == nullptr;
+                                                            type = type->get_base_type(env))
+        {
+            generic_param_manager_t type_gp(env, type);
+
+            type->each_method(env, [&](ref_t, rt_method_base_t * m) {
+                if (m->is_static() && m->compare_to(env, prototype, &type_gp))
+                {
+                    found = m;
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        if (found != nullptr)
+            return found;
+
+        // The method that the interface has (static virtual), with the types of the interface.
+        if (decorate.is_virtual && (*template_)->body != res_t::null)
+        {
+            assembly_analyzer_t default_analyzer(env, template_->get_assembly());
+            return default_analyzer.to_generic_method(template_, interface_type);
+        }
+
+        throw __RtAssemblyErrorF("the type '%1%' does not implement the static member '%2%' of '%3%'",
+            receiver->get_name(env), template_->get_name(), interface_type->get_name(env));
+    }
+
+    // A call of a member of a generic param (t.Get(), where T : IFoo): the method of the type that
+    // the param is, found by the method of the constraint; a class takes the virtual table.
+    constrained_target_t resolve_constrained_instance(analyzer_env_t & env,
+                                                      rt_generic_method_t * method)
+    {
+        rt_method_t * template_ = method->template_;
+        rt_type_t * receiver = method->get_host_type();
+
+        rt_type_t * owner_type = __find_type_of_template(env, receiver, template_->get_host_type());
+        if (owner_type == nullptr)
+        {
+            throw __RtAssemblyErrorF("the type '%1%' does not have the method '%2%'",
+                receiver->get_name(env), template_->get_name());
+        }
+
+        // The prototype of the method, in the terms of the type that has it.
+        generic_param_manager_t owner_gp(env, owner_type);
+        assembly_analyzer_t analyzer(env, template_->get_assembly(), &owner_gp);
+
+        method_prototype_t prototype;
+        analyzer.get_prototype(template_, &prototype);
+
+        rt_method_base_t * found = nullptr;
+        rt_type_t * found_type = nullptr;
+        ref_t found_ref = ref_t::null;
+
+        for (rt_type_t * type = receiver; type != nullptr && found == nullptr;
+                                                            type = type->get_base_type(env))
+        {
+            generic_param_manager_t type_gp(env, type);
+
+            type->each_method(env, [&](ref_t ref, rt_method_base_t * m) {
+                if (!m->is_static() && m->compare_to(env, prototype, &type_gp))
+                {
+                    found = m;
+                    found_type = type;
+                    found_ref = ref;
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        if (found == nullptr)
+        {
+            throw __RtAssemblyErrorF("the type '%1%' does not have the method '%2%'",
+                receiver->get_name(env), template_->get_name());
+        }
+
+        // The method of a generic type is the one of its instance.
+        rt_method_base_t * target = found;
+        if (found_type->get_kind() == rt_type_kind_t::generic
+                && found->this_type() == rt_member_type_t::general)
+        {
+            assembly_analyzer_t found_analyzer(env, found->get_assembly());
+            target = found_analyzer.to_generic_method(static_cast<rt_method_t *>(found), found_type);
+        }
+
+        // A class: the virtual table, as the object can be of a type that derives.
+        bool is_virtual = receiver->get_ttype(env) == ttype_t::class_ && found_ref != ref_t::null
+                && (found->is_virtual() || found->is_override());
+
+        return constrained_target_t { target, found, found_ref, is_virtual };
+    }
+
+
 }   // namespace X_ROOT_NS::modules::rt
 
 

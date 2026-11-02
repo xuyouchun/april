@@ -13,6 +13,7 @@ hi
 True
 True
 9
+10
 
 */
 
@@ -81,5 +82,10 @@ class Program
         Box box = new Box();
         box.N = 9;
         Console.WriteLine(((Box)Util.Direct<Box>(box)).N);
+
+        // A reference is the object itself, not a copy.
+        Box same = (Box)Util.Boxed<Box>(box);
+        box.N = 10;
+        Console.WriteLine(same.N);
     }
 }

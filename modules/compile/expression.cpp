@@ -1836,7 +1836,18 @@ namespace X_ROOT_NS::modules::compile {
 
         if (is_real_variable(ca.var))
         {
-            if (__is_custom_struct_like(type2))
+            // A generic param assigned to a reference (Object o = x): the object it is, made by
+            // the copy of the expression.
+            if (is_generic_param(type2) && is_ref_type(type1) && !is_generic_param(type1)
+                    && __is_generic_value_variable(exp2))
+            {
+                __compile_variable(ctx, pool, ((name_expression_t *)exp2)->variable,
+                                                        __environment_t::empty, exp2);
+                pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type2), xil_copy_kind_t::box);
+
+                __compile_assign_to(ctx, pool, ca, exp2, assign_type);
+            }
+            else if (__is_custom_struct_like(type2))
             {
                 // Box: a struct assigned to a reference. (A generic param is not boxed.)
                 if (is_ref_type(type1) && !is_generic_param(type1))

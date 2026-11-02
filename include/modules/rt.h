@@ -2593,6 +2593,26 @@ namespace X_ROOT_NS::modules::rt {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The method that a call of a member of a generic param (t.Get(), where T : IFoo) calls,
+    // when the param is a type.
+    struct constrained_target_t
+    {
+        rt_method_base_t *  target;         // The method to call (of the instance, if generic).
+        rt_method_base_t *  found;          // The method found in the type (maybe of a template).
+        ref_t               found_ref;      // Reference of the found method in its type.
+        bool                is_virtual;     // Whether it is called through the virtual table.
+    };
+
+    // Resolves the instance method of a generic param that is called: the method of the type
+    // that the param is. The host of the method is that type.
+    constrained_target_t resolve_constrained_instance(analyzer_env_t & env,
+                                                      rt_generic_method_t * method);
+
+    // Resolves the static abstract (or virtual) method of an interface that is called through a
+    // generic param (T.MaxValue). Returns null if the call is not of this kind.
+    rt_method_base_t * resolve_constrained_static(analyzer_env_t & env,
+                                                  rt_generic_method_t * method);
+
 }   // namespace X_ROOT_NS::modules::rt
 
 #include <modules/rt/__assembly_loader.h>

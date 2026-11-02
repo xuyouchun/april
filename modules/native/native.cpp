@@ -1938,7 +1938,8 @@ namespace X_ROOT_NS::modules::native {
                         if (call_type != xil_call_type_t::static_
                                 && call_type != xil_call_type_t::instance
                                 && call_type != xil_call_type_t::virtual_
-                                && call_type != xil_call_type_t::internal)
+                                && call_type != xil_call_type_t::internal
+                                && call_type != xil_call_type_t::constrained)
                         {
                             throw _ED(__e_t::unsupported_xil, _F(_T("call %1%"), call_type));
                         }
@@ -1946,6 +1947,38 @@ namespace X_ROOT_NS::modules::native {
                         rt_method_base_t * base = analyzer.get_method(call->method_ref());
                         if (base == nullptr || base->this_type() == rt_member_type_t::dynamic)
                             throw _ED(__e_t::unsupported_xil, _T("call of a dynamic method"));
+
+                        // A member of a generic param: the method of the type that the param is
+                        // (the argument is a concrete type here).
+                        int constrained_offset = -1;
+                        if (base->this_type() == rt_member_type_t::generic)
+                        {
+                            rt_generic_method_t * generic_method = static_cast<rt_generic_method_t *>(base);
+
+                            if (call_type == xil_call_type_t::constrained)
+                            {
+                                rt::constrained_target_t t =
+                                    rt::resolve_constrained_instance(__env, generic_method);
+
+                                base = t.target;
+                                call_type = xil_call_type_t::instance;
+
+                                if (t.is_virtual)
+                                {
+                                    assembly_analyzer_t found_analyzer(__env, t.found->get_assembly());
+                                    constrained_offset = found_analyzer.get_virtual_method_offset(t.found_ref);
+                                    call_type = xil_call_type_t::virtual_;
+                                }
+                            }
+                            else if (call_type == xil_call_type_t::static_)
+                            {
+                                if (rt_method_base_t * target =
+                                        rt::resolve_constrained_static(__env, generic_method))
+                                {
+                                    base = target;
+                                }
+                            }
+                        }
 
                         // A call to a method of the template of the current generic type:
                         // it is the method of the current instance.
@@ -2108,7 +2141,8 @@ namespace X_ROOT_NS::modules::native {
                             // Through the type descriptor of the object (see native_abi.h).
                             rt_method_base_t * declared = base;
                             ref_t method_ref = call->method_ref();
-                            int offset = analyzer.get_virtual_method_offset(method_ref);
+                            int offset = constrained_offset >= 0? constrained_offset
+                                            : analyzer.get_virtual_method_offset(method_ref);
 
                             llb::value_t object = call_args[hidden_dst? 1 : 0];
                             raise_if_null(object);
@@ -2285,13 +2319,24 @@ namespace X_ROOT_NS::modules::native {
                             break;
                         }
 
-                        if (nw->new_type() != xil_new_type_t::stack_alloc)
+                        if (nw->new_type() != xil_new_type_t::stack_alloc
+                                && nw->new_type() != xil_new_type_t::generic_stack_alloc)
+                        {
                             throw _ED(__e_t::unsupported_xil, _F(_T("new %1%"), nw->new_type()));
+                        }
 
                         // A temporary struct: a slot of the function, its address is pushed.
                         rt_type_t * type = analyzer.get_type(nw->type_ref());
                         if (type == nullptr)
                             throw _ED(__e_t::unsupported_type, _T("(unresolved allocated type)"));
+
+                        // The destination of a value that a call returns: the argument of the
+                        // generic param is a custom struct, or there is nothing to allocate.
+                        if (nw->new_type() == xil_new_type_t::generic_stack_alloc
+                                && __ll_type_of(type)[0] != '[')
+                        {
+                            break;
+                        }
 
                         // A struct, or a value of the (concrete) type of a generic param.
                         msize_t size = type->get_ttype(__env) == ttype_t::struct_?
@@ -2398,6 +2443,96 @@ namespace X_ROOT_NS::modules::native {
                         // A generic copy is of a generic param, already of a concrete type.
                         msize_t type_size = copy->copy_type() == xil_copy_type_t::generic_copy?
                                         type->get_variable_size(__env) : type->get_size(__env);
+
+                        // The object of a call that is a generic param: a struct is its address,
+                        // else the reference is loaded.
+                        if (copy->copy_kind() == xil_copy_kind_t::receiver)
+                        {
+                            std::string ll = __ll_type_of(type);
+                            if (ll[0] == '[')
+                                break;
+
+                            llb::value_t address = pop_value("load receiver");
+                            if (address.type != "ptr")
+                                throw _ED(__e_t::unsupported_type, type->get_name(__env));
+
+                            stack.push_back(f.load(ll, address));
+                            break;
+                        }
+
+                        // The value that a call returned: a struct was written at the
+                        // destination that the call had (the region on the top), it is copied to
+                        // the destination of this function; else it is the value on the top.
+                        if (copy->copy_kind() == xil_copy_kind_t::call_ret)
+                        {
+                            std::string ll = __ll_type_of(type);
+                            if (ll[0] != '[')
+                                break;
+
+                            if (!fn.returns_struct)
+                                throw _ED(__e_t::bad_stack, fn.display, _T("no return address"));
+
+                            llb::value_t region = pop_value("call result");
+                            if (region.type[0] != '[' || region.text[0] != '&')
+                                throw _ED(__e_t::bad_stack, fn.display, _T("call result is not a region"));
+
+                            __uses_memcpy = true;
+                            f.call("void", "llvm.memcpy.p0.p0.i64", { f.param(0),
+                                llb::value_t { llb::types::ptr, region.text.substr(1) },
+                                llb::const_int("i64", (int64_t)type_size), llb::const_bool(false) });
+                            break;
+                        }
+
+                        // The object at the address is made an object: a reference is loaded, a
+                        // value is boxed.
+                        if (copy->copy_kind() == xil_copy_kind_t::box)
+                        {
+                            bool is_string = type->get_vtype(__env) == vtype_t::string_;
+
+                            std::string ll = __ll_type_of(type);
+                            llb::value_t address = pop_value("box source");
+
+                            // A number is the value itself, not its address.
+                            bool is_value = address.type == ll && ll != "ptr";
+                            if (address.type != "ptr" && !is_value)
+                                throw _ED(__e_t::unsupported_type, type->get_name(__env));
+
+                            if (is_ref_type(type->get_ttype(__env)) && !is_string)
+                            {
+                                stack.push_back(f.load("ptr", address));
+                                break;
+                            }
+
+                            type->pre_new(__env);
+                            __uses_new_object = true;
+
+                            llb::value_t obj = f.call("ptr", APRIL_NATIVE_SYM_NEW_OBJECT, {
+                                llb::const_int("i64", (int64_t)type_size),
+                                llb::value_t { llb::types::ptr, "@" + __descriptor_of(type) }
+                            });
+
+                            if (ll[0] == '[')
+                            {
+                                __uses_memcpy = true;
+                                f.call("void", "llvm.memcpy.p0.p0.i64", { obj, address,
+                                    llb::const_int("i64", (int64_t)type_size), llb::const_bool(false) });
+                            }
+                            else
+                            {
+                                llb::value_t value = is_value? address : f.load(ll, address);
+                                f.store(value, obj);
+
+                                // A string that is null is a null object.
+                                if (is_string)
+                                {
+                                    obj = f.select(f.icmp("eq", value, llb::const_null()),
+                                                   llb::const_null(), obj);
+                                }
+                            }
+
+                            stack.push_back(obj);
+                            break;
+                        }
 
                         // The object at the address is pushed as a value.
                         if (copy->copy_kind() == xil_copy_kind_t::ret)
