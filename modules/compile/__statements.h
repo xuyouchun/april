@@ -51,6 +51,10 @@ namespace X_ROOT_NS::modules::compile {
         // Current variable region.
         variable_region_t * variable_region = nullptr;
 
+        // checked { ... } or unchecked { ... }: the arithmetic raises on overflow, or not.
+        bool has_checked = false;
+        bool checked     = false;
+
     private:
         __statements_t __statements;
     };

@@ -12,9 +12,15 @@ public abstract class ReflectionInfo
 		get { return null; }
 	}
 
-	public abstract Array<Attribute> GetAttributes();
+	public virtual Array<Attribute> GetAttributes()
+	{
+		return null;
+	}
 
-	public abstract Array<Attribute> GetAttributes(Type attributeType);
+	public virtual Array<Attribute> GetAttributes(Type attributeType)
+	{
+		return null;
+	}
 }
 
 ////////// ////////// ////////// ////////// //////////

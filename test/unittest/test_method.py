@@ -5,18 +5,11 @@ import common
 
 
 class TestMethod(common.Base):
+    """Methods: calls, arguments, default params, delegates, generic return types."""
 
-    @pytest.fixture(params=[
-        'instance_call.cs',
-        'ref_out_arguments.cs',
-        'struct_arguments.cs',
-        "this_arguments.cs",
-        'delegate.cs',
-    ])
+    @pytest.fixture(params=common.code_files('method'))
     def code_file(self, request):
         return request.param
 
     def test_april(self, code_file):
         self.run('method/' + code_file)
-
-

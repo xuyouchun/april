@@ -823,6 +823,9 @@ namespace X_ROOT_NS::modules::rt {
 
         _A(type != nullptr);
 
+        if (param_type == p_t::extends && __extends_params_offset < 0)
+            __extends_params_offset = __current_offset;
+
         storage_type_t storage_type;
         msize_t unit_size = param_type == p_t::ref || param_type == p_t::out
                             || layout_type == param_layout_type_t::this_? 1
@@ -858,7 +861,7 @@ namespace X_ROOT_NS::modules::rt {
         if (__extends_params_offset < 0)
             return 0;
 
-        return __current_offset - __extends_params_offset;
+        return __current_offset - (msize_t)__extends_params_offset;
     }
 
     // Returns param type of identity.

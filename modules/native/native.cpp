@@ -60,7 +60,7 @@ namespace X_ROOT_NS::modules::native {
         // Runtime library functions that need the metadata of the program (an assembly
         // analyzer), which native programs do not have yet.
         const char * const __metadata_libfuncs[] = {
-            "Tuple_SetRange", "Tuple_Get", "Tuple_GetCount",
+            "Tuple_SetRange", "Tuple_Create", "Tuple_Get", "Tuple_GetCount",
         };
 
         // Converts to a narrow string.
@@ -317,6 +317,11 @@ namespace X_ROOT_NS::modules::native {
             size_t                  __fn_index = 0;
             bool                    __uses_memcpy = false;
             bool                    __uses_memset = false;
+
+            // The intrinsics of the arithmetic that raises on overflow, with their integer types:
+            // llvm.sadd.with.overflow.i32 -> i32 .
+            std::map<std::string, std::string> __overflow_intrinsics;
+            bool                    __uses_trunc = false;       // llvm.trunc.f64
             bool                    __uses_new_object = false;
 
             // The objects that hold the static fields of types: a global of each, which is
@@ -367,6 +372,7 @@ namespace X_ROOT_NS::modules::native {
 
             // Maps a runtime type to an LLVM type, or throws.
             std::string __ll_type_of(rt_type_t * type);
+            static std::string __block_type_of(size_t size);
 
             // Maps a runtime type to a xil type.
             xil_type_t __xil_type_of(rt_type_t * type);
@@ -436,7 +442,7 @@ namespace X_ROOT_NS::modules::native {
                         return "ptr";
 
                     if (type->get_ttype(__env) == ttype_t::struct_)
-                        return "[" + std::to_string(type->get_size(__env)) + " x i8]";
+                        return __block_type_of(type->get_size(__env));
 
                     break;
 
@@ -445,6 +451,17 @@ namespace X_ROOT_NS::modules::native {
             }
 
             throw _ED(__e_t::unsupported_type, type->get_name(__env));
+        }
+
+        // The type of a block of bytes that holds a struct. A pointer in it must stay a word when the
+        // block is passed by value: LLVM splits an array to its elements, the bytes of a pointer
+        // would be apart, and the collector (that looks for words) would not find the object.
+        std::string __generator_t::__block_type_of(size_t size)
+        {
+            if (size > 0 && size % sizeof(void *) == 0)
+                return "[" + std::to_string(size / sizeof(void *)) + " x i64]";
+
+            return "[" + std::to_string(size) + " x i8]";
         }
 
         // Maps a runtime type to a xil type.
@@ -1692,7 +1709,8 @@ namespace X_ROOT_NS::modules::native {
                                 stack.push_back(stack.back());
                                 break;
 
-                            case xil_storage_type_t::convert: {
+                            case xil_storage_type_t::convert:
+                            case xil_storage_type_t::checked_convert: {
                                 llb::value_t v = pop_value("convert");
 
                                 // The interpreter reads the top of the stack as the source
@@ -1705,6 +1723,69 @@ namespace X_ROOT_NS::modules::native {
                                 {
                                     int bits = std::stoi(v.type.substr(1));
                                     v = f.cast(bits > from_num.bits? "trunc" : "zext", v, from_num.ll);
+                                }
+
+                                // checked: the value must fit the type.
+                                __num_t cf = __conv_num_of(push->dtype());
+                                __num_t ct = __conv_num_of(push->dtype2());
+
+                                if (push->stype() == xil_storage_type_t::checked_convert
+                                    && cf.valid && ct.valid && v.type == cf.ll
+                                    && push->dtype() != xil_type_t::bool_
+                                    && push->dtype2() != xil_type_t::bool_
+                                    && push->dtype() != push->dtype2() && !ct.is_float)
+                                {
+                                    llb::value_t fail;
+
+                                    if (cf.is_float)
+                                    {
+                                        // The value is truncated, and it must be in the range.
+                                        llb::value_t d = cf.bits == 32? f.cast("fpext", v, "double") : v;
+                                        __uses_trunc = true;
+                                        d = f.call("double", "llvm.trunc.f64", { d });
+
+                                        double lo = ct.is_signed? -std::ldexp(1.0, ct.bits - 1) : 0.0;
+                                        double hi = std::ldexp(1.0, ct.is_signed? ct.bits - 1 : ct.bits);
+
+                                        // The unordered conditions are also true for NaN.
+                                        fail = f.binop("or",
+                                            f.fcmp("ult", d, llb::const_double(lo)),
+                                            f.fcmp("uge", d, llb::const_double(hi))
+                                        );
+                                    }
+                                    else
+                                    {
+                                        llb::value_t n = v;
+                                        if (ct.bits > cf.bits)
+                                            n = f.cast(cf.is_signed? "sext" : "zext", v, ct.ll);
+                                        else if (ct.bits < cf.bits)
+                                            n = f.cast("trunc", v, ct.ll);
+
+                                        fail = llb::const_int("i1", 0);
+
+                                        // Narrower: the value changes when it is converted back.
+                                        if (ct.bits < cf.bits)
+                                        {
+                                            llb::value_t back = f.cast(ct.is_signed? "sext" : "zext", n, cf.ll);
+                                            fail = f.icmp("ne", back, v);
+                                        }
+
+                                        // A negative number is not an unsigned number, and an
+                                        // unsigned number that is too large is negative.
+                                        if (cf.is_signed && !ct.is_signed)
+                                        {
+                                            fail = f.binop("or", fail,
+                                                f.icmp("slt", v, llb::const_int(cf.ll, 0)));
+                                        }
+
+                                        if (!cf.is_signed && ct.is_signed)
+                                        {
+                                            fail = f.binop("or", fail,
+                                                f.icmp("slt", n, llb::const_int(ct.ll, 0)));
+                                        }
+                                    }
+
+                                    raise_if(fail, CoreType_OverflowException);
                                 }
 
                                 llb::value_t r = __convert_any(f, v, push->dtype(), push->dtype2());
@@ -1857,7 +1938,8 @@ namespace X_ROOT_NS::modules::native {
                         if (call_type != xil_call_type_t::static_
                                 && call_type != xil_call_type_t::instance
                                 && call_type != xil_call_type_t::virtual_
-                                && call_type != xil_call_type_t::internal)
+                                && call_type != xil_call_type_t::internal
+                                && call_type != xil_call_type_t::constrained)
                         {
                             throw _ED(__e_t::unsupported_xil, _F(_T("call %1%"), call_type));
                         }
@@ -1865,6 +1947,38 @@ namespace X_ROOT_NS::modules::native {
                         rt_method_base_t * base = analyzer.get_method(call->method_ref());
                         if (base == nullptr || base->this_type() == rt_member_type_t::dynamic)
                             throw _ED(__e_t::unsupported_xil, _T("call of a dynamic method"));
+
+                        // A member of a generic param: the method of the type that the param is
+                        // (the argument is a concrete type here).
+                        int constrained_offset = -1;
+                        if (base->this_type() == rt_member_type_t::generic)
+                        {
+                            rt_generic_method_t * generic_method = static_cast<rt_generic_method_t *>(base);
+
+                            if (call_type == xil_call_type_t::constrained)
+                            {
+                                rt::constrained_target_t t =
+                                    rt::resolve_constrained_instance(__env, generic_method);
+
+                                base = t.target;
+                                call_type = xil_call_type_t::instance;
+
+                                if (t.is_virtual)
+                                {
+                                    assembly_analyzer_t found_analyzer(__env, t.found->get_assembly());
+                                    constrained_offset = found_analyzer.get_virtual_method_offset(t.found_ref);
+                                    call_type = xil_call_type_t::virtual_;
+                                }
+                            }
+                            else if (call_type == xil_call_type_t::static_)
+                            {
+                                if (rt_method_base_t * target =
+                                        rt::resolve_constrained_static(__env, generic_method))
+                                {
+                                    base = target;
+                                }
+                            }
+                        }
 
                         // A call to a method of the template of the current generic type:
                         // it is the method of the current instance.
@@ -2027,7 +2141,8 @@ namespace X_ROOT_NS::modules::native {
                             // Through the type descriptor of the object (see native_abi.h).
                             rt_method_base_t * declared = base;
                             ref_t method_ref = call->method_ref();
-                            int offset = analyzer.get_virtual_method_offset(method_ref);
+                            int offset = constrained_offset >= 0? constrained_offset
+                                            : analyzer.get_virtual_method_offset(method_ref);
 
                             llb::value_t object = call_args[hidden_dst? 1 : 0];
                             raise_if_null(object);
@@ -2204,18 +2319,29 @@ namespace X_ROOT_NS::modules::native {
                             break;
                         }
 
-                        if (nw->new_type() != xil_new_type_t::stack_alloc)
+                        if (nw->new_type() != xil_new_type_t::stack_alloc
+                                && nw->new_type() != xil_new_type_t::generic_stack_alloc)
+                        {
                             throw _ED(__e_t::unsupported_xil, _F(_T("new %1%"), nw->new_type()));
+                        }
 
                         // A temporary struct: a slot of the function, its address is pushed.
                         rt_type_t * type = analyzer.get_type(nw->type_ref());
                         if (type == nullptr)
                             throw _ED(__e_t::unsupported_type, _T("(unresolved allocated type)"));
 
+                        // The destination of a value that a call returns: the argument of the
+                        // generic param is a custom struct, or there is nothing to allocate.
+                        if (nw->new_type() == xil_new_type_t::generic_stack_alloc
+                                && __ll_type_of(type)[0] != '[')
+                        {
+                            break;
+                        }
+
                         // A struct, or a value of the (concrete) type of a generic param.
                         msize_t size = type->get_ttype(__env) == ttype_t::struct_?
                                             type->get_size(__env) : type->get_variable_size(__env);
-                        std::string ll = "[" + std::to_string(size) + " x i8]";
+                        std::string ll = __block_type_of(size);
 
                         // The interpreter reserves the units on its stack and pushes their
                         // address: the region stays below, as the value of a struct argument.
@@ -2317,6 +2443,96 @@ namespace X_ROOT_NS::modules::native {
                         // A generic copy is of a generic param, already of a concrete type.
                         msize_t type_size = copy->copy_type() == xil_copy_type_t::generic_copy?
                                         type->get_variable_size(__env) : type->get_size(__env);
+
+                        // The object of a call that is a generic param: a struct is its address,
+                        // else the reference is loaded.
+                        if (copy->copy_kind() == xil_copy_kind_t::receiver)
+                        {
+                            std::string ll = __ll_type_of(type);
+                            if (ll[0] == '[')
+                                break;
+
+                            llb::value_t address = pop_value("load receiver");
+                            if (address.type != "ptr")
+                                throw _ED(__e_t::unsupported_type, type->get_name(__env));
+
+                            stack.push_back(f.load(ll, address));
+                            break;
+                        }
+
+                        // The value that a call returned: a struct was written at the
+                        // destination that the call had (the region on the top), it is copied to
+                        // the destination of this function; else it is the value on the top.
+                        if (copy->copy_kind() == xil_copy_kind_t::call_ret)
+                        {
+                            std::string ll = __ll_type_of(type);
+                            if (ll[0] != '[')
+                                break;
+
+                            if (!fn.returns_struct)
+                                throw _ED(__e_t::bad_stack, fn.display, _T("no return address"));
+
+                            llb::value_t region = pop_value("call result");
+                            if (region.type[0] != '[' || region.text[0] != '&')
+                                throw _ED(__e_t::bad_stack, fn.display, _T("call result is not a region"));
+
+                            __uses_memcpy = true;
+                            f.call("void", "llvm.memcpy.p0.p0.i64", { f.param(0),
+                                llb::value_t { llb::types::ptr, region.text.substr(1) },
+                                llb::const_int("i64", (int64_t)type_size), llb::const_bool(false) });
+                            break;
+                        }
+
+                        // The object at the address is made an object: a reference is loaded, a
+                        // value is boxed.
+                        if (copy->copy_kind() == xil_copy_kind_t::box)
+                        {
+                            bool is_string = type->get_vtype(__env) == vtype_t::string_;
+
+                            std::string ll = __ll_type_of(type);
+                            llb::value_t address = pop_value("box source");
+
+                            // A number is the value itself, not its address.
+                            bool is_value = address.type == ll && ll != "ptr";
+                            if (address.type != "ptr" && !is_value)
+                                throw _ED(__e_t::unsupported_type, type->get_name(__env));
+
+                            if (is_ref_type(type->get_ttype(__env)) && !is_string)
+                            {
+                                stack.push_back(f.load("ptr", address));
+                                break;
+                            }
+
+                            type->pre_new(__env);
+                            __uses_new_object = true;
+
+                            llb::value_t obj = f.call("ptr", APRIL_NATIVE_SYM_NEW_OBJECT, {
+                                llb::const_int("i64", (int64_t)type_size),
+                                llb::value_t { llb::types::ptr, "@" + __descriptor_of(type) }
+                            });
+
+                            if (ll[0] == '[')
+                            {
+                                __uses_memcpy = true;
+                                f.call("void", "llvm.memcpy.p0.p0.i64", { obj, address,
+                                    llb::const_int("i64", (int64_t)type_size), llb::const_bool(false) });
+                            }
+                            else
+                            {
+                                llb::value_t value = is_value? address : f.load(ll, address);
+                                f.store(value, obj);
+
+                                // A string that is null is a null object.
+                                if (is_string)
+                                {
+                                    obj = f.select(f.icmp("eq", value, llb::const_null()),
+                                                   llb::const_null(), obj);
+                                }
+                            }
+
+                            stack.push_back(obj);
+                            break;
+                        }
 
                         // The object at the address is pushed as a value.
                         if (copy->copy_kind() == xil_copy_kind_t::ret)
@@ -2456,6 +2672,24 @@ namespace X_ROOT_NS::modules::native {
                         const al_xil_t * al = static_cast<const al_xil_t *>(xil);
                         xil_al_command_t cmd = al->cmd();
 
+                        // The arithmetic that raises OverflowException: the operation, and
+                        // the check.
+                        bool checked = cmd == xil_al_command_t::checked_add
+                                    || cmd == xil_al_command_t::checked_sub
+                                    || cmd == xil_al_command_t::checked_mul
+                                    || cmd == xil_al_command_t::checked_minus;
+
+                        if (checked)
+                        {
+                            switch (cmd)
+                            {
+                                case xil_al_command_t::checked_add:   cmd = xil_al_command_t::add;   break;
+                                case xil_al_command_t::checked_sub:   cmd = xil_al_command_t::sub;   break;
+                                case xil_al_command_t::checked_mul:   cmd = xil_al_command_t::mul;   break;
+                                default:                              cmd = xil_al_command_t::minus; break;
+                            }
+                        }
+
                         // Unitary.
                         if (cmd == xil_al_command_t::minus || cmd == xil_al_command_t::positive)
                         {
@@ -2468,6 +2702,17 @@ namespace X_ROOT_NS::modules::native {
 
                             if (cmd == xil_al_command_t::minus)
                             {
+                                // - MIN does not fit.
+                                if (checked && !__num_of(rt).is_float && __num_of(rt).is_signed)
+                                {
+                                    int bits = __num_of(rt).bits;
+                                    int64_t min_value = bits >= 64? INT64_MIN
+                                                                  : -((int64_t)1 << (bits - 1));
+
+                                    raise_if(f.icmp("eq", v, llb::const_int(v.type, min_value)),
+                                             CoreType_OverflowException);
+                                }
+
                                 if (__num_of(rt).is_float)
                                     v = f.binop("fsub", rt == xil_type_t::float_? llb::const_float(-0.0f) : llb::const_double(-0.0), v);
                                 else
@@ -2536,6 +2781,28 @@ namespace X_ROOT_NS::modules::native {
                                     f.icmp("eq", b, llb::const_int(b.type, -1))
                                 ), CoreType_OverflowException);
                             }
+                        }
+
+                        // Add, sub, mul of integers: the intrinsics tell whether it overflows.
+                        if (checked && !n.is_float)
+                        {
+                            const char * name = cmd == xil_al_command_t::add? "add"
+                                              : cmd == xil_al_command_t::sub? "sub" : "mul";
+
+                            std::string intrinsic = std::string("llvm.") + (n.is_signed? "s" : "u")
+                                + name + ".with.overflow." + a.type;
+
+                            __overflow_intrinsics[intrinsic] = a.type;
+
+                            std::string pair_type = "{ " + a.type + ", i1 }";
+                            llb::value_t pair = f.call(pair_type, intrinsic, { a, b });
+
+                            llb::value_t value = f.extract_value(pair, 0, a.type);
+                            llb::value_t overflow = f.extract_value(pair, 1, "i1");
+
+                            raise_if(overflow, CoreType_OverflowException);
+                            stack.push_back(value);
+                            break;
                         }
 
                         stack.push_back(f.binop(op, a, b));
@@ -3114,6 +3381,12 @@ namespace X_ROOT_NS::modules::native {
 
             if (__uses_memset)
                 __module.declare("llvm.memset.p0.i64", "void", { "ptr", "i8", "i64", "i1" });
+
+            if (__uses_trunc)
+                __module.declare("llvm.trunc.f64", "double", { "double" });
+
+            for (auto && it : __overflow_intrinsics)
+                __module.declare(it.first, "{ " + it.second + ", i1 }", { it.second, it.second });
 
             // Globals of the library function pointers, resolved at startup by name.
             for (const std::string & name : __used_libfuncs)

@@ -1268,6 +1268,35 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(default_value, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // checked_exp
+
+    __ApplyToken(checked_exp, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(k_checked):
+                __This->checked = true;
+                break;
+
+            case __TokenValue(k_unchecked):
+                __This->checked = false;
+                break;
+        }
+    }
+
+    __ApplyAst(checked_exp, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(checked_exp, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // statements
 
     __ApplyToken(statements, token, args) { }
@@ -1755,7 +1784,21 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // statement_group_st
 
-    __ApplyToken(statement_group_st, token, args) { }
+    __ApplyToken(statement_group_st, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(k_checked):
+                __This->has_checked = true;
+                __This->checked = true;
+                break;
+
+            case __TokenValue(k_unchecked):
+                __This->has_checked = true;
+                __This->checked = false;
+                break;
+        }
+    }
 
     __ApplyAst(statement_group_st, node, args)
     {

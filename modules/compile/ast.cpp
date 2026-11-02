@@ -174,6 +174,9 @@ namespace X_ROOT_NS::modules::compile {
         // Default value expression.
         X_C(default_value,              _T("default_value"))
 
+        // Checked expression.
+        X_C(checked_exp,                _T("checked_exp"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -601,6 +604,23 @@ namespace X_ROOT_NS::modules::compile {
         X_D(interface_members_cannot_have_defination,
                 _T("'%1%': interface members cannot have a defination"))
 
+        // A non-abstract type does not implement an inherited abstract member.
+        X_D(abstract_member_not_implemented,
+                _T("'%1%' does not implement inherited abstract member '%2%'"))
+
+        // A non-abstract type does not implement an interface member.
+        X_D(interface_member_not_implemented,
+                _T("'%1%' does not implement interface member '%2%'"))
+
+        // A static member of an interface that is not abstract has a body.
+        X_D(interface_static_member_needs_body,
+                _T("'%1%': a static member of an interface that is not abstract must have a body"))
+
+        // A static abstract (or virtual) member of an interface is called through a generic param.
+        X_D(interface_static_member_through_interface,
+                _T("'%1%': a static abstract or virtual member of an interface can be used only through "
+                   "a generic parameter that has the interface as a constraint"))
+
         // Interfaces cannot contain instance fields.
         X_D(interfaces_cannot_contain_instance_fields,
                 _T("interfaces cannot contain instance fields"))
@@ -784,16 +804,25 @@ namespace X_ROOT_NS::modules::compile {
                 return false;
             }
 
+            // The static members of an interface (methods and properties) are of three kinds:
+            //   static          a function of the interface, with a body;
+            //   static virtual  has a default body, that a type that implements it can replace;
+            //   static abstract has no body, a type that implements it must have the member.
+            // They are called through the interface (static), or through a generic param that has
+            // the interface as a constraint (all). The others have not the modifiers.
+            bool static_member = member->is_static()
+                                    && al::in(member_type, m_t::method, m_t::property);
+
             // Modifier not valid for interface members.
-            const char_t * modifier = 
-                member->is_virtual()?   _T("virtual") :
-                member->is_static()?    _T("static") :
-                member->is_abstract()?  _T("abstract") :
+            const char_t * modifier =
+                (member->is_virtual() && !static_member)?   _T("virtual") :
+                (member->is_static() && !static_member)?    _T("static") :
+                (member->is_abstract() && !static_member)?  _T("abstract") :
                 member->is_sealed()?    _T("sealed") :
                 member->is_const()?     _T("const") :
                 member->is_readonly()?  _T("readonly") :
                 member->is_extern()?    _T("extern") :
-                member->has_access_modifier()? _T("access modifier") : nullptr
+                (member->has_access_modifier() && !static_member)? _T("access modifier") : nullptr
             ;
 
             if (modifier != nullptr)
@@ -802,23 +831,53 @@ namespace X_ROOT_NS::modules::compile {
                 return false;
             }
 
-            // Interface methods cannot have defination.
+            if (member->is_abstract() && member->is_virtual())
+            {
+                this->__log(ce, c_t::modifier_not_valid_for_interface_members, _T("virtual"));
+                return false;
+            }
+
+            // The methods: an instance method and a static abstract one have no body, the others
+            // (static, static virtual) have it.
             if (member_type == m_t::method)
             {
                 method_t * method = (method_t *)member;
-                if (method->body != nullptr)
+                bool need_body = member->is_static() && !member->is_abstract();
+
+                if (method->body != nullptr && !need_body)
                 {
-                    this->__log(ce, c_t::interface_members_cannot_have_defination);
+                    this->__log(ce, c_t::interface_members_cannot_have_defination,
+                                                                    member->to_prototype());
+                    return false;
+                }
+
+                if (method->body == nullptr && need_body && method->relation_member == nullptr)
+                {
+                    this->__log(ce, c_t::interface_static_member_needs_body, member->to_prototype());
                     return false;
                 }
             }
 
-            // Interface properties cannot have defination.
+            // Interface properties cannot have defination, but static ones that are not abstract
+            // have it.
             if (member_type == m_t::property)
             {
                 property_t * property = (property_t *)member;
+                bool need_body = member->is_static() && !member->is_abstract();
 
-                if (property->get_method != nullptr && property->get_method->body != nullptr)
+                if (need_body)
+                {
+                    for (method_t * accessor : { property->get_method, property->set_method })
+                    {
+                        if (accessor != nullptr && accessor->body == nullptr)
+                        {
+                            this->__log(accessor, c_t::interface_static_member_needs_body,
+                                                                    member->to_prototype());
+                            return false;
+                        }
+                    }
+                }
+                else if (property->get_method != nullptr && property->get_method->body != nullptr)
                 {
                     this->__log(property->get_method, c_t::interface_members_cannot_have_defination,
                         property->get_method);
@@ -826,7 +885,8 @@ namespace X_ROOT_NS::modules::compile {
                     return false;
                 }
 
-                if (property->set_method != nullptr && property->set_method->body != nullptr)
+                if (!need_body && property->set_method != nullptr
+                                        && property->set_method->body != nullptr)
                 {
                     this->__log(property->set_method, c_t::interface_members_cannot_have_defination,
                         property->set_method);
@@ -1565,8 +1625,10 @@ namespace X_ROOT_NS::modules::compile {
         {
             // Search method
             {
+                // There is no method when it is the constraint of a type: where T : C<T>.
                 method_t * method = to_general(__wctx.current_method());
-                generic_constraint_t * constraint = __search_constraint(method->constraints, name);
+                generic_constraint_t * constraint = method != nullptr?
+                            __search_constraint(method->constraints, name) : nullptr;
 
                 if (constraint != nullptr)
                     return constraint;
@@ -2211,6 +2273,15 @@ namespace X_ROOT_NS::modules::compile {
             method_t * method = context.current_method();
             _A(method != nullptr);
 
+            // A lambda that is not converted to a delegate, with no value to return, is void.
+            if (method->is_lambda && method->lambda_no_value && method->type_name != nullptr
+                    && method->type_name->type == uncertain_type_t::instance())
+            {
+                method->type_name->type = __XPool.get_internal_type(vtype_t::void_);
+                if (method->variable != nullptr)
+                    method->variable->reset_type();
+            }
+
             if (method->type_name == nullptr || method->type_name->type == nullptr
                                              || is_void_type(method->type_name->type))
             {
@@ -2757,6 +2828,23 @@ namespace X_ROOT_NS::modules::compile {
         this->append_member(member);
     }
 
+
+    // The constraints of the generic params are set to them, to find the members of a generic param.
+    static void __link_constraints(generic_params_t * params, generic_constraints_t * constraints)
+    {
+        if (params == nullptr || constraints == nullptr)
+            return;
+
+        for (generic_constraint_t * constraint : *constraints)
+        {
+            for (generic_param_t * param : *params)
+            {
+                if (param->name == constraint->param_name)
+                    param->constraints.push_back(constraint);
+            }
+        }
+    }
+
     // Commits this node.
     void type_ast_node_t::on_commit()
     {
@@ -2765,6 +2853,7 @@ namespace X_ROOT_NS::modules::compile {
         this->attributes  = __to_eobject_with_owner<attributes_t *>(__attributes__,
                                                                 (general_type_t *)this);
         this->constraints = __to_eobject<generic_constraints_t *>(__generic_constraints__);
+        __link_constraints(this->params, this->constraints);
 
         this->transform_child_to(__methods__,           this->methods);
         this->transform_child_to(__properties__,        this->properties);
@@ -3474,6 +3563,167 @@ namespace X_ROOT_NS::modules::compile {
         return c.check();
     }
 
+    namespace
+    {
+        // Whether two methods have the same signature. The types that depend on generic
+        // arguments are not compared (they are equal as far as it is known).
+        bool __same_signature(method_t * m1, method_t * m2)
+        {
+            if (m1->name != m2->name || m1->generic_param_count() != m2->generic_param_count())
+                return false;
+
+            size_t count = m1->param_count();
+            if (count != m2->param_count())
+                return false;
+
+            for (size_t index = 0; index < count; index++)
+            {
+                param_t * p1 = m1->param_at(index), * p2 = m2->param_at(index);
+                type_t * t1 = p1->get_type(), * t2 = p2->get_type();
+
+                if (t1 == nullptr || t2 == nullptr)
+                    continue;
+
+                if (t1 == t2)
+                {
+                    if (p1->ptype != p2->ptype)
+                        return false;
+
+                    continue;
+                }
+
+                if (!is_general(t1) || !is_general(t2))
+                    continue;
+
+                return false;
+            }
+
+            return true;
+        }
+
+        // Whether a method of the type or its base types implements the method.
+        // The owner of an explicit implementation is its interface.
+        bool __is_implemented(type_t * type, method_t * method, type_t * interface_type)
+        {
+            // A static abstract method needs a static one.
+            bool want_static = method->is_static();
+
+            for (type_t * t = type; t != nullptr; t = t->get_base_type())
+            {
+                auto * like = dynamic_cast<__general_type_like_base_t *>(t);
+                if (like == nullptr)
+                    return true;    // Unknown: not judged.
+
+                for (method_t * m : like->methods)
+                {
+                    if (m == method || m->is_static() != want_static)
+                        continue;
+
+                    // The static method that implements is not abstract.
+                    if (want_static && m->is_abstract())
+                        continue;
+
+                    type_t * owner = m->get_owner_type();
+                    if (owner != nullptr && owner != interface_type)
+                        continue;
+
+                    if (__same_signature(m, method))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    // Checks that the abstract members and the interface members are implemented.
+    void type_ast_node_t::__check_members_implemented()
+    {
+        general_type_t * type = (general_type_t *)this;
+
+        if (!al::in(type->this_ttype(), ttype_t::class_, ttype_t::struct_))
+            return;
+
+        // The abstract members of the base types: an abstract type needs not implement them.
+        for (type_t * base = this->is_abstract()? nullptr : type->get_base_type();
+                                            base != nullptr; base = base->get_base_type())
+        {
+            auto * like = dynamic_cast<__general_type_like_base_t *>(base);
+            if (like == nullptr)
+                break;
+
+            for (method_t * method : like->methods)
+            {
+                if (!method->is_abstract())
+                    continue;
+
+                // It is overridden in the type, or in a type between.
+                bool found = false;
+                for (type_t * t = type; t != base && t != nullptr && !found; t = t->get_base_type())
+                {
+                    auto * like1 = dynamic_cast<__general_type_like_base_t *>(t);
+                    if (like1 == nullptr)
+                        break;
+
+                    for (method_t * m : like1->methods)
+                    {
+                        if (m->is_override() && __same_signature(m, method))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!found)
+                {
+                    this->__log(__name_el, __c_t::abstract_member_not_implemented,
+                        type->to_full_name(), method->to_prototype());
+
+                    return;
+                }
+            }
+        }
+
+        // The interface members: the interfaces of the type, and of its base types. An abstract
+        // type declares them abstract if it does not implement them.
+        std::set<type_t *> walked;
+        bool failed = false;
+
+        std::function<bool (type_t *)> check_interface = [&](type_t * interface_type) -> bool {
+
+            if (interface_type == nullptr || interface_type->this_ttype() != ttype_t::interface_
+                    || !walked.insert(interface_type).second)
+                return true;
+
+            if (auto * like = dynamic_cast<__general_type_like_base_t *>(interface_type))
+            {
+                for (method_t * method : like->methods)
+                {
+                    // A static method of an interface that is not abstract (static, static virtual)
+                    // needs not to be implemented.
+                    if (method->is_static() && !method->is_abstract())
+                        continue;
+
+                    if (!__is_implemented(type, method, interface_type))
+                    {
+                        this->__log(__name_el, __c_t::interface_member_not_implemented,
+                            type->to_full_name(), method->to_prototype());
+
+                        failed = true;
+                        return false;
+                    }
+                }
+            }
+
+            interface_type->each_super_type(check_interface);
+            return !failed;
+        };
+
+        for (type_t * t = type; t != nullptr && !failed; t = t->get_base_type())
+            t->each_super_type(check_interface);
+    }
+
     // Walks analysis step.
     bool type_ast_node_t::__walk_analysis(ast_walk_context_t & context, void * tag)
     {
@@ -3487,6 +3737,10 @@ namespace X_ROOT_NS::modules::compile {
                     this->to_full_name(), circle_type->to_full_name()
                 );
             }
+
+            // Check the abstract members and the interface members are implemented.
+            if (circle_type == nullptr)
+                __check_members_implemented();
 
             // Check constraints.
             if (this->constraints != nullptr && this->constraints->size() > 0)
@@ -4383,7 +4637,12 @@ namespace X_ROOT_NS::modules::compile {
             {
                 type_t * type = nullptr;
                 if (var_item->expression != nullptr)
+                {
+                    // The type of a lambda is that of the delegate that has the type of its body.
+                    analyze_lambda_now(context, var_item->expression);
+
                     type = var_item->expression->get_type();
+                }
 
                 if (type == nullptr)
                     __Log(cannot_determine_local_variable_type, var_item->name);
@@ -4578,6 +4837,36 @@ namespace X_ROOT_NS::modules::compile {
             {
                 type_t * return_type = this->expression->get_type();
                 type_t * method_type = method->type_name->type;
+
+                // The type of a lambda that is not converted to a delegate: the type that all the
+                // values that it returns are converted to (null and String: String, int and long:
+                // long). The type of null alone is object, when the body is walked.
+                if (method->is_lambda && return_type != nullptr
+                        && return_type != uncertain_type_t::instance()
+                        && (method_type == uncertain_type_t::instance()
+                                || method->lambda_return_inferred))
+                {
+                    type_t * common = method_type == uncertain_type_t::instance()?
+                                return_type : get_compatible_type(method_type, return_type);
+
+                    if (common == nullptr)
+                    {
+                        this->__log(this, __c_t::method_incompatible_return_value, method);
+                        return true;
+                    }
+
+                    method->lambda_return_inferred = true;
+
+                    if (common != method_type)
+                    {
+                        method->type_name->type = method_type = common;
+                        if (method->variable != nullptr)
+                            method->variable->reset_type();
+
+                        // The type that is made (T? of null and a number).
+                        context.commit_types();
+                    }
+                }
 
                 if (return_type != nullptr && !is_type_compatible(return_type, method_type))
                     this->__log(this, __c_t::method_incompatible_return_value, method);
@@ -5367,9 +5656,15 @@ namespace X_ROOT_NS::modules::compile {
     {
         context.push_new_region();
 
+        // The lambdas in checked { ... } are checked, or not.
+        int saved = context.checked_mode;
+        if (this->has_checked)
+            context.checked_mode = this->checked? 1 : 2;
+
         this->variable_region = context.current_region();
         bool r = __super_t::on_walk(context, step, tag);
 
+        context.checked_mode = saved;
         context.pop();
 
         return r;
@@ -5416,6 +5711,34 @@ namespace X_ROOT_NS::modules::compile {
     bool type_cast_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
         return __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // checked_exp
+
+    // Commits this node.
+    void checked_exp_ast_node_t::on_commit()
+    {
+        this->set_expression(__to_eobject<expression_t *>(__expression__));
+    }
+
+    // Returns this eobject.
+    expression_t * checked_exp_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node.
+    bool checked_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        // The lambdas in it are checked, or not.
+        int saved = context.checked_mode;
+        context.checked_mode = this->checked? 1 : 2;
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.checked_mode = saved;
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -5807,10 +6130,41 @@ namespace X_ROOT_NS::modules::compile {
     {
         if ((walk_step_t)step == walk_step_t::default_)
             __walk_default(context);
+        else if ((walk_step_t)step == walk_step_t::analysis)
+            analyze_now(context);
         else if ((walk_step_t)step == walk_step_t::end)
             __walk_end(context);
 
         return true;
+    }
+
+    // Walks the items of the lambda that were kept apart.
+    void lambda_ast_node_t::analyze_now(ast_walk_context_t & context)
+    {
+        context.run_pending(__pending);
+    }
+
+    // Returns whether the node has a return statement that returns a value, the lambdas in it
+    // are other methods.
+    static bool __has_return_value(ast_node_t * node)
+    {
+        if (node == nullptr)
+            return false;
+
+        ast_value_t value = node->value();
+        if (value == (ast_value_t)__xcvalue_t::return_st)
+            return node->child_count() > 0 && node->child_at(0) != nullptr;
+
+        if (value == (ast_value_t)__xcvalue_t::lambda)
+            return false;
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            if (__has_return_value(node->child_at(index)))
+                return true;
+        }
+
+        return false;
     }
 
     // Collects the expressions of an expression and those below it.
@@ -5832,8 +6186,10 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
-    // Collects the expressions of a node and its children.
-    static void __collect_expressions(ast_node_t * node, std::vector<expression_t *> & expressions)
+    // Collects the expressions of a node and its children. The expressions of the lambdas that
+    // are in it are collected too, if deep is true, or the lambdas only.
+    static void __collect_expressions(ast_node_t * node, std::vector<expression_t *> & expressions,
+                                                                         bool deep = true)
     {
         if (node == nullptr)
             return;
@@ -5841,9 +6197,12 @@ namespace X_ROOT_NS::modules::compile {
         if (expression_ast_t * expression_ast = as<expression_ast_t *>(node))
             __collect_sub_expressions(expression_ast->to_eobject(), expressions);
 
+        if (!deep && node->value() == (ast_value_t)__xcvalue_t::lambda)
+            return;
+
         for (size_t index = 0, count = node->child_count(); index < count; index++)
         {
-            __collect_expressions(node->child_at(index), expressions);
+            __collect_expressions(node->child_at(index), expressions, deep);
         }
     }
 
@@ -5889,6 +6248,8 @@ namespace X_ROOT_NS::modules::compile {
         // The local variables of the method that has the lambda, that it uses.
         __collect_expressions(this->child_at(__body__), __used);
         __collect_expressions(this->child_at(__expression__), __used);
+        __collect_expressions(this->child_at(__body__), __own, false);
+        __collect_expressions(this->child_at(__expression__), __own, false);
 
         {
             params_t * typed_params = __to_eobject<params_t *>(__params__);
@@ -5930,6 +6291,10 @@ namespace X_ROOT_NS::modules::compile {
                         outer_param = outer_param || param->name == used_name;
                 }
 
+                // The variables of the method that has the lambda that has this one.
+                for (name_t outer_name : ((method_t *)outer)->lambda_captured_names)
+                    outer_param = outer_param || outer_name == used_name;
+
                 variable_t * variable = region->get(used_name);
                 bool local = variable != nullptr
                     && (variable->this_type() == variable_type_t::local
@@ -5944,21 +6309,6 @@ namespace X_ROOT_NS::modules::compile {
                     __captured_names.push_back(used_name);
                 }
             }
-        }
-
-        // A lambda that has the variables of a lambda that has them too.
-        if (!__captured_names.empty() && ((method_t *)outer)->lambda_walk_inside)
-        {
-            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
-                _T("in a lambda that uses local variables"));
-            __captured_names.clear();
-        }
-
-        if (!__captured_names.empty() && ((method_t *)outer)->iterator_info != nullptr)
-        {
-            this->__log((ast_node_t *)this, __c_t::lambda_capture_not_supported,
-                _T("in an iterator"));
-            __captured_names.clear();
         }
 
         // The class of the object that has the values of the variables.
@@ -6003,6 +6353,9 @@ namespace X_ROOT_NS::modules::compile {
         bool captures = !__captured_names.empty();
 
         method_ast_node_t * method = __new_obj<method_ast_node_t>(this->__context);
+        method->checked_mode = context.checked_mode;
+        method->lambda_no_value = this->child_at(__body__) != nullptr
+                                    && !__has_return_value(this->child_at(__body__));
         method->init_lambda(name, outer->is_static() && !captures, this->child_at(__params__),
             this->child_at(__body__), this->child_at(__expression__),
             __to_eobject<expression_t *>(__expression__), (ast_node_t *)this, untyped_params
@@ -6013,13 +6366,17 @@ namespace X_ROOT_NS::modules::compile {
         // The body is analyzed after the statements that give the types of the params.
         int saved_bias = context.delay_bias;
         if (untyped_params != nullptr)
-            context.delay_bias = 1;
+            context.delay_bias = saved_bias + 1;
 
         if (captures)
         {
             // The variables of the method are seen by the lambda.
             method->lambda_walk_inside = true;
+            method->lambda_captured_names = __captured_names;
+
+            __pending = context.begin_pending();
             method->on_walk(context, (int)walk_step_t::default_, nullptr);
+            context.end_pending(__pending);
 
             {
                 auto * layer = context.enter_type_level();
@@ -6036,11 +6393,29 @@ namespace X_ROOT_NS::modules::compile {
         else
         {
             auto * layer = context.enter_type_level();
+
+            __pending = context.begin_pending();
             method->on_walk(context, (int)walk_step_t::default_, nullptr);
+            context.end_pending(__pending);
+
             context.leave_type_level(layer);
         }
 
         context.delay_bias = saved_bias;
+
+        // The body is analyzed after the statement that has the lambda: it gives the type of the
+        // delegate that it is converted to, or the types of the params. Or earlier, when the
+        // type of the lambda is needed.
+        method->lambda_pending = __pending;
+
+        context.delay_bias = saved_bias + (untyped_params != nullptr? 2 : 1);
+        context.delay(this, (int)walk_step_t::analysis);
+        context.delay_bias = saved_bias;
+
+        // The name is that of the method: a lambda that is returned by a lambda is bound to the
+        // type of the delegate when the one that has it is, before it is analyzed.
+        if (method->variable != nullptr)
+            this->set(method->variable);
 
         this->name = name;
     }
@@ -6169,8 +6544,24 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        // The expressions of the lambda, not those of the lambdas in it: they have their own
+        // environment, that is made here with the values of the variables of this one.
+        std::vector<expression_t *> own(__own);
+        for (expression_t * exp : __own)
+        {
+            lambda_ast_node_t * nested = dynamic_cast<lambda_ast_node_t *>(exp);
+            expression_t * env_new = nested != nullptr? nested->env_new() : nullptr;
+
+            if (env_new != nullptr && env_new->this_family() == expression_family_t::new_)
+            {
+                arguments_t * nested_args = ((new_expression_t *)env_new)->arguments();
+                for (argument_t * argument : *nested_args)
+                    own.push_back(argument->expression);
+            }
+        }
+
         // The members of the object are not seen: the object of the lambda is the environment.
-        for (expression_t * exp : __used)
+        for (expression_t * exp : own)
         {
             bool member = exp->this_family() == expression_family_t::this_
                        || exp->this_family() == expression_family_t::base;
@@ -6218,7 +6609,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // The names are the fields.
-        for (expression_t * exp : __used)
+        for (expression_t * exp : own)
         {
             if (exp->this_family() != expression_family_t::name)
                 continue;
@@ -6406,6 +6797,7 @@ namespace X_ROOT_NS::modules::compile {
         this->owner_type_name = __to_eobject<type_name_t *>(__owner_type_name__);
         this->body            = __to_eobject<method_body_t *>(__body__);
         this->constraints     = __to_eobject<generic_constraints_t *>(__generic_constraints__);
+        __link_constraints(this->generic_params, this->constraints);
         this->attributes      = __to_eobject_with_owner<attributes_t *>(__attributes__,
                                                                 (method_t *)this);
     }
@@ -6694,6 +7086,17 @@ namespace X_ROOT_NS::modules::compile {
                 name_exp->variable = variable->hoisted;
         }
 
+        // The delegates that are called.
+        for (function_expression_t * call : info->calls)
+        {
+            variable_t * called = call->get_variable();
+            if (called != nullptr && called->this_type() == variable_type_t::local
+                    && ((local_variable_t *)called)->hoisted != nullptr)
+            {
+                call->set_variable(((local_variable_t *)called)->hoisted);
+            }
+        }
+
         // The initial values are assigned to the fields.
         for (defination_statement_item_t * item : info->defs)
         {
@@ -6804,13 +7207,52 @@ namespace X_ROOT_NS::modules::compile {
     // of a lambda that is an expression is made.
     void method_ast_node_t::__walk_lambda_analysis(ast_walk_context_t & context)
     {
+        // A block that returns only null: its type is object.
+        if (this->lambda_return_inferred && this->type_name != nullptr
+                && is_null(this->type_name->type))
+        {
+            this->type_name->type = __XPool.get_object_type();
+            if (this->variable != nullptr)
+                this->variable->reset_type();
+        }
+
         type_t * return_type = this->type_name != nullptr? this->type_name->type : nullptr;
         if (return_type == nullptr || return_type == uncertain_type_t::instance())
         {
-            this->__log(this->lambda_node, __c_t::lambda_type_undetermined);
+            // The type of the body, an expression, or void for a block that returns no value.
+            type_t * inferred = nullptr;
 
-            return_type = __XPool.get_internal_type(vtype_t::void_);
-            this->type_name->type = return_type;
+            if (this->lambda_expression != nullptr)
+            {
+                if (!this->lambda_expression->walked)
+                    walk_expression(this->__context, context, this->lambda_expression);
+
+                // The type of null is object.
+                inferred = this->lambda_expression->get_type();
+                if (inferred != nullptr && is_null(inferred))
+                    inferred = __XPool.get_object_type();
+
+                if (inferred == uncertain_type_t::instance())
+                    inferred = nullptr;
+            }
+            else if (this->lambda_no_value)
+            {
+                inferred = __XPool.get_internal_type(vtype_t::void_);
+            }
+
+            if (inferred != nullptr)
+            {
+                return_type = this->type_name->type = inferred;
+                if (this->variable != nullptr)
+                    this->variable->reset_type();
+            }
+            else
+            {
+                this->__log(this->lambda_node, __c_t::lambda_type_undetermined);
+
+                return_type = __XPool.get_internal_type(vtype_t::void_);
+                this->type_name->type = return_type;
+            }
         }
 
         if (this->lambda_expression == nullptr)

@@ -1,5 +1,6 @@
 #!/bin/sh
-# Builds a native executable from the LLVM IR that `april native` generated.
+# Builds a native executable from LLVM IR (.ll), by hand: `april compile --native` does it,
+# the IR is in the directory of the builds (see APRIL_CACHE) as program.ll.
 #
 #   tools/april-native-link.sh <program.ll> [output] [libs-dir]
 #

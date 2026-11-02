@@ -100,6 +100,14 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(positive,       _T("positive"))
 
+        X_C(checked_add,    _T("checked_add"))
+
+        X_C(checked_sub,    _T("checked_sub"))
+
+        X_C(checked_mul,    _T("checked_mul"))
+
+        X_C(checked_minus,  _T("checked_minus"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -298,6 +306,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(command,        _T("command"))
 
+        X_C(constrained,    _T("constrained"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -408,6 +418,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(unbox,              _T("unbox"))
 
+        X_C(checked_convert,    _T("checked_convert"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -447,6 +459,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(stack_allocs,   _T("stack_allocs"))
 
+        X_C(generic_stack_alloc, _T("generic_stack_alloc"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------
@@ -472,6 +486,12 @@ namespace X_ROOT_NS::modules::core {
         X_C(zero,           _T("zero"))
 
         X_C(ret,            _T("ret"))
+
+        X_C(call_ret,       _T("call_ret"))
+
+        X_C(receiver,       _T("receiver"))
+
+        X_C(box,            _T("box"))
 
     X_ENUM_INFO_END
 
@@ -609,6 +629,9 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_storage_type_t::convert:
                 return _F(_T("convert %1%=>%2%"), dtype(), dtype2());
+
+            case xil_storage_type_t::checked_convert:
+                return _F(_T("checked_convert %1%=>%2%"), dtype(), dtype2());
 
             case xil_storage_type_t::box:
                 if (get_box_type() == xil_box_type_t::__default__)
@@ -882,6 +905,9 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_new_type_t::stack_allocs:
                 return _FT("stack_allocs {%1%} * %2%", type_ref(), count());
+
+            case xil_new_type_t::generic_stack_alloc:
+                return _FT("generic_stack_alloc {%1%}", type_ref());
 
             default:
                 X_UNEXPECTED_F("unexpected new type %1%", new_type());
@@ -1172,6 +1198,10 @@ namespace X_ROOT_NS::modules::core {
 
         type_t * host_type = method->get_host_type();
         _A(host_type != nullptr);
+
+        // A member of a generic param (t.Get(), where T : IFoo): the host is known later.
+        if (is_generic_param(host_type))
+            return xil_call_type_t::constrained;
 
         if (is_interface(host_type))
             return xil_call_type_t::virtual_;

@@ -1312,6 +1312,9 @@ namespace X_ROOT_NS::modules::rt {
         // Returns whether it's a override method.
         virtual bool is_override() = 0;
 
+        // Returns whether it's a static method.
+        virtual bool is_static() = 0;
+
         // Compares to prototype, returns true if equals.
         virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
                                             const generic_param_manager_t * gp_mgr) = 0;
@@ -1363,6 +1366,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns whether it's a override method.
         virtual bool is_override() override { return false; }
+
+        // Returns whether it's a static method.
+        virtual bool is_static() override { return false; }
 
         // Compares to prototype, returns true if equals.
         virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
@@ -1490,6 +1496,13 @@ namespace X_ROOT_NS::modules::rt {
 
         // It's a tuple type?
         bool __is_tuple();
+
+        // It's the interface of the tuples (ITuple<...>)?
+        bool __is_tuple_interface();
+
+        // Returns the dynamic methods of the tuple that has the same types: the items of
+        // a tuple are read through its interface by them.
+        rt_dynamic_method_t * __get_interface_dynamic_methods(analyzer_env_t & env);
 
         // Ensure field offset initialzed.
         void __ensure_field_offset_initialized(analyzer_env_t & env);
@@ -1654,6 +1667,9 @@ namespace X_ROOT_NS::modules::rt {
         // Returns whether it's a override method.
         virtual bool is_override() override;
 
+        // Returns whether it's a static method.
+        virtual bool is_static() override;
+
         // Compares to prototype, returns true if equals.
         virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
                                             const generic_param_manager_t * gp_mgr) override;
@@ -1711,6 +1727,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns whether it's a override method.
         virtual bool is_override() override;
+
+        // Returns whether it's a static method.
+        virtual bool is_static() override;
 
         // Compares to prototype, returns true if equals.
         virtual bool compare_to(analyzer_env_t & env, method_prototype_t & prototype,
@@ -2573,6 +2592,26 @@ namespace X_ROOT_NS::modules::rt {
     };
 
     ////////// ////////// ////////// ////////// //////////
+
+    // The method that a call of a member of a generic param (t.Get(), where T : IFoo) calls,
+    // when the param is a type.
+    struct constrained_target_t
+    {
+        rt_method_base_t *  target;         // The method to call (of the instance, if generic).
+        rt_method_base_t *  found;          // The method found in the type (maybe of a template).
+        ref_t               found_ref;      // Reference of the found method in its type.
+        bool                is_virtual;     // Whether it is called through the virtual table.
+    };
+
+    // Resolves the instance method of a generic param that is called: the method of the type
+    // that the param is. The host of the method is that type.
+    constrained_target_t resolve_constrained_instance(analyzer_env_t & env,
+                                                      rt_generic_method_t * method);
+
+    // Resolves the static abstract (or virtual) method of an interface that is called through a
+    // generic param (T.MaxValue). Returns null if the call is not of this kind.
+    rt_method_base_t * resolve_constrained_static(analyzer_env_t & env,
+                                                  rt_generic_method_t * method);
 
 }   // namespace X_ROOT_NS::modules::rt
 

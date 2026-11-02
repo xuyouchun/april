@@ -17,9 +17,6 @@ namespace X_ROOT_NS::modules::april {
         // Run command.
         X_C(run,            _T("run"))
 
-        // Native command.
-        X_C(native,         _T("native"))
-
         // Help command.
         X_C(help,           _T("help"))
 
@@ -98,6 +95,17 @@ namespace X_ROOT_NS::modules::april {
         X_D(optimize_argument_error,
             _T("--optimize argument error, should in range 0-3, but '%1%' specified"))
 
+        // System.apl is given.
+        X_D(system_assembly_specified,
+            _T("assembly '%1%' cannot be specified: System.apl is used by every program"))
+
+        // System.apl is not found.
+        X_D(system_assembly_not_found,
+            _T("System.apl not found, set APRIL_SYSTEM to the path of it; it is searched in:%1%"))
+
+        // The directory of the builds cannot be made.
+        X_D(cache_directory_failed, _T("cannot make the directory of the builds '%1%'"))
+
     X_ENUM_INFO_END
 
     ////////// ////////// ////////// ////////// /////////
@@ -147,8 +155,9 @@ Usage:                                                                      \n\
 The commands are:                                                           \n\
                                                                             \n\
         build       compile packages and dependencies                       \n\
-        run         compile and run April program                           \n\
-        native      compile, generate LLVM IR (.ll); --build: make executable\n\
+        compile     compile sources, projects and solutions; --native: make an\n\
+                    executable                                              \n\
+        run         build the program (native, cached) and run it           \n\
         version     print April version                                     \n\
                                                                             \n\
 Use \"april help [command] ...\" for more information about a command.      \n\
@@ -162,9 +171,6 @@ Use \"april help [command] ...\" for more information about a command.      \n\
 
         if (al::equals(cmd, _T("run")))
             return april_command_t::run;
-
-        if (al::equals(cmd, _T("native")))
-            return april_command_t::native;
 
         if (al::equals(cmd, _T("version")))
             return april_command_t::version;
@@ -251,6 +257,8 @@ Use \"april help [command] ...\" for more information about a command.      \n\
     // Shows help.
     void april_options_t::show_help(april_command_t command)
     {
+        this->command = command;
+
         __cmdline_parser_t parser;
         if (__parse(command, parser, 0, nullptr))
         {
@@ -276,7 +284,6 @@ Use \"april help [command] ...\" for more information about a command.      \n\
         switch (command)
         {
             case april_command_t::run:
-            case april_command_t::native:
                 return __parse_run(parser, argc, argv);
 
             case april_command_t::compile:
@@ -297,17 +304,7 @@ Use \"april help [command] ...\" for more information about a command.      \n\
     bool april_options_t::__parse_run(__cmdline_parser_t & parser, int argc, char ** argv)
     {
         __init_compile_parser(parser);
-        parser.add<std::string>("execute", 'e', "execute assembly name", false, "");
-
-        bool is_native = this->command == april_command_t::native;
-        if (is_native)
-            parser.add("build", 'b', "build the native executable with clang");
-        else
-            parser.add("native", 'n', "build a native executable and run it");
-
-        parser.add<std::string>("clang", 0, "clang++ driver for native builds", false, "");
-        parser.add<std::string>("libs", 0, "directory of april static libraries", false, "");
-        parser.add("no-pie", 0, "link native executables with -no-pie");
+        parser.add("interpret", 'i', "run with the interpreter, not native");
 
         if (argc == 0)
             return true;
@@ -315,13 +312,7 @@ Use \"april help [command] ...\" for more information about a command.      \n\
         parser.parse_check(argc, argv);
 
         run_options_t & options = init_options<run_options_t>();
-        options.execute_assembly = __read_string(parser, "execute");
-
-        options.native_build  = is_native && parser.exist("build");
-        options.native_run    = !is_native && parser.exist("native");
-        options.native_no_pie = parser.exist("no-pie");
-        options.native_clang  = __read_string(parser, "clang");
-        options.native_libs   = __read_string(parser, "libs");
+        options.interpret = parser.exist("interpret");
 
         return __read_compile_options(parser, options);
     }
@@ -380,8 +371,22 @@ Use \"april help [command] ...\" for more information about a command.      \n\
     void april_options_t::__init_compile_parser(__cmdline_parser_t & parser)
     {
         parser.footer("files ...");
-        parser.add<std::string>("output", 'o', "output file", false, "");
         parser.add<int>("optimize", 'O', "optimize level, <0|1|2|3|4>", false, 0);
+        parser.add<std::string>("execute", 'e', "execute assembly name", false, "");
+
+        // The compiler makes the assemblies in a directory, and the native executable.
+        if (this->command == april_command_t::compile)
+        {
+            parser.add<std::string>("output", 'o',
+                        "output directory, or the executable with --native", false, "");
+
+            parser.add("native", 'n', "build a native executable");
+        }
+
+        parser.add<std::string>("clang", 0, "clang++ driver for native builds", false, "");
+        parser.add<std::string>("libs", 0, "directory of april static libraries", false, "");
+        parser.add("no-pie", 0, "link native executables with -no-pie");
+        parser.add("verbose", 'v', "tell why a program is not run native, show the commands of the build");
     }
 
     // Reads compile options.
@@ -389,8 +394,23 @@ Use \"april help [command] ...\" for more information about a command.      \n\
                                                 compile_options_t & options)
     {
         __copy_strings(parser.rest(), options.files);
-        options.output_path = __read_string(parser, "output");
         options.optimize    = parser.get<int>("optimize");
+
+        // The native code is optimized by default.
+        if (parser.exist("optimize"))
+            options.native_optimize = options.optimize;
+
+        options.execute_assembly = __read_string(parser, "execute");
+        options.native_no_pie    = parser.exist("no-pie");
+        options.verbose          = parser.exist("verbose");
+        options.native_clang     = __read_string(parser, "clang");
+        options.native_libs      = __read_string(parser, "libs");
+
+        if (this->command == april_command_t::compile)
+        {
+            options.output_path = __read_string(parser, "output");
+            options.native      = parser.exist("native");
+        }
 
         if (!(options.optimize >= 0 && options.optimize <= 3))
             throw _ED(april_error_code_t::optimize_argument_error, options.optimize);
@@ -432,9 +452,6 @@ Use \"april help [command] ...\" for more information about a command.      \n\
             case april_command_t::run:
                 return __execute_run(__options.get<__t::run_options_t>());
 
-            case april_command_t::native:
-                return __execute_native(__options.get<__t::run_options_t>());
-
             case april_command_t::help:
                 __execute_help(__options.get<__t::help_options_t>());
                 break;
@@ -453,22 +470,16 @@ Use \"april help [command] ...\" for more information about a command.      \n\
     // Executes compile command.
     bool april_t::__execute_compile(const __t::compile_options_t & options)
     {
+        if (options.native)
+            return april_xcompiler_t(options).compile_native();
+
         return april_xcompiler_t(options).compile();
     }
 
     // Executes run command.
     bool april_t::__execute_run(const __t::run_options_t & options)
     {
-        if (options.native_run)
-            return april_xcompiler_t(options).native(options.execute_assembly, &options);
-
-        return april_xcompiler_t(options).run(options.execute_assembly);
-    }
-
-    // Executes native command.
-    bool april_t::__execute_native(const __t::run_options_t & options)
-    {
-        return april_xcompiler_t(options).native(options.execute_assembly, &options);
+        return april_xcompiler_t(options).run(options.interpret);
     }
 
     // Executes help command.
@@ -502,6 +513,10 @@ Use \"april help [command] ...\" for more information about a command.      \n\
         {
             _P(_str(err));
         }
+        catch (const std::exception & e)
+        {
+            std::cerr << "error: " << e.what() << std::endl;
+        }
 
         return 1;
     }
@@ -515,9 +530,66 @@ Use \"april help [command] ...\" for more information about a command.      \n\
 
 namespace __april = __root_ns::modules::april;
 
+#ifdef _WIN32
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <shellapi.h>
+
+#include <codecvt>
+#include <locale>
+
+// Main function. The arguments are in UTF-8, as the rest of april expects (those of main are in
+// the code page of the system, that the paths with other characters would not survive).
+int main(int argc, char ** argv)
+{
+    // The narrow strings of the paths are UTF-8, not the code page of the system.
+    ::boost::filesystem::path::imbue(
+        std::locale(std::locale(), new std::codecvt_utf8<wchar_t>())
+    );
+
+    // The wide streams write UTF-8 (they stop at the first character that is not ASCII, else).
+    std::locale utf8(std::locale(), new std::codecvt_utf8<wchar_t>());
+    std::wcout.imbue(utf8);
+    std::wcerr.imbue(utf8);
+
+    int wargc = 0;
+    LPWSTR * wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+
+    if (wargv == nullptr || wargc != argc)
+        return __april::__main(argc, argv);
+
+    std::vector<std::string> args;
+    for (int k = 0; k < wargc; k++)
+    {
+        int n = WideCharToMultiByte(CP_UTF8, 0, wargv[k], -1, nullptr, 0, nullptr, nullptr);
+        std::string arg(n > 0? n - 1 : 0, '\0');
+
+        if (n > 1)
+            WideCharToMultiByte(CP_UTF8, 0, wargv[k], -1, &arg[0], n, nullptr, nullptr);
+
+        args.push_back(std::move(arg));
+    }
+
+    LocalFree(wargv);
+
+    std::vector<char *> pointers;
+    for (std::string & arg : args)
+        pointers.push_back(&arg[0]);
+
+    pointers.push_back(nullptr);
+    return __april::__main(argc, pointers.data());
+}
+
+#else
+
 // Main function
 int main(int argc, char ** argv)
 {
     return __april::__main(argc, argv);
 }
+
+#endif
 

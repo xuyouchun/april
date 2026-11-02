@@ -328,6 +328,10 @@ namespace X_ROOT_NS::modules::compile {
     {
         ctx.current_region()->variable_region = this->variable_region;
 
+        bool checked = ctx.checked;
+        if (this->has_checked)
+            ctx.checked = this->checked;
+
         if (!__remove_unreached_codes(ctx))
         {
             for (statement_t * statement : __statements)
@@ -347,6 +351,8 @@ namespace X_ROOT_NS::modules::compile {
                     break;
             }
         }
+
+        ctx.checked = checked;
     }
 
     // Returns exit type.

@@ -46,6 +46,11 @@ def get_april_path():
 def get_test_path():
     return get_absolute_path("test/unittest")
 
+""" Returns the code files (*.cs) of a directory of test files, sorted by name """
+def code_files(directory):
+    path = os.path.join(get_test_path(), directory)
+    return sorted(f for f in os.listdir(path) if f.endswith('.cs'))
+
 """ Runs a code file or project file or solution file """
 def run_file(file):
     april_path = get_april_path()
@@ -54,7 +59,9 @@ def run_file(file):
     if not os.path.exists(test_file):
         raise RuntimeError("Code file " + test_file + " not exists")
 
-    command = april_path + " run " + file + " " + get_absolute_path("System.apl")
+    # The programs of the tests run with the interpreter: they are the tests of it, and of the
+    # compiler. The native back end has its own tests.
+    command = april_path + " run --interpret " + file
     print(colorize(36, command))
 
     code, ret = subprocess.getstatusoutput(command)

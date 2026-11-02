@@ -184,6 +184,8 @@ namespace X_ROOT_NS::modules::compile {
 
         default_value,              // Default value. e.g. default(int).
 
+        checked_exp,                // Checked expression. e.g. checked(a + b).
+
         lambda,                     // Lambda expression. e.g. (int x) => x + 1.
 
         __user_defined__ = __C_BRANCH_ENUM_ITEM(__user_defined__) + 1024,
@@ -341,6 +343,8 @@ namespace X_ROOT_NS::modules::compile {
                                                                                         \
         default_value       =   __X_BRANCH_ENUM_ITEM(default_value),                    \
                                                                                         \
+        checked_exp         =   __X_BRANCH_ENUM_ITEM(checked_exp),                      \
+                                                                                        \
         lambda              =   __X_BRANCH_ENUM_ITEM(lambda),                           \
                                                                                         \
         __user_defined__    =  __X_BRANCH_ENUM_ITEM(__user_defined__),
@@ -424,6 +428,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(array_lengths,          _T("array_lengths"))                                \
         X_C(new_array,              _T("new_array"))                                    \
         X_C(default_value,          _T("default_value"))                                \
+        X_C(checked_exp,            _T("checked_exp"))                                  \
         X_C(lambda,                 _T("lambda"))                                       \
 
 
@@ -829,6 +834,18 @@ namespace X_ROOT_NS::modules::compile {
 
         // Interfaces cannot contain instance fields.
         interfaces_cannot_contain_instance_fields,
+
+        // A static member of an interface that is not abstract must have a body.
+        interface_static_member_needs_body,
+
+        // A static abstract (or virtual) member is used through the interface.
+        interface_static_member_through_interface,
+
+        // A non-abstract type does not implement an inherited abstract member.
+        abstract_member_not_implemented,
+
+        // A non-abstract type does not implement an interface member.
+        interface_member_not_implemented,
 
         // Cannot implicitly convert a type to another type.
         invalid_type_cast,
@@ -3126,6 +3143,9 @@ namespace X_ROOT_NS::modules::compile {
         // Walks init fields.
         bool __walk_analysis_init_fields(ast_walk_context_t & context);
 
+        // Checks that the abstract members and the interface members are implemented.
+        void __check_members_implemented();
+
         // Check circle base types.
         type_t * __check_circle_base_types();
 
@@ -3415,6 +3435,7 @@ namespace X_ROOT_NS::modules::compile {
 
         std::vector<local_variable_t *>             locals;     // The local variables.
         std::vector<name_expression_t *>            refs;       // The names of local variables.
+        std::vector<function_expression_t *>        calls;      // The calls of delegates that are local variables.
         std::vector<defination_statement_item_t *>  defs;       // The initial values.
         std::vector<yield_statement_t *>            yields;     // The yield statements.
 
@@ -4297,6 +4318,39 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // checked_exp
+
+    // Checked expression: checked(x), unchecked(x).
+    Ast(checked_exp, __xcvalue_t::checked_exp)
+
+        // Expression.
+        __expression__,
+
+    EndAst(checked_exp)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Checked expression ast node.
+    class checked_exp_ast_node_t : public __checked_exp_ast_node_t
+                                 , public expression_ast_t
+                                 , public __wexp_t<checked_expression_t>
+    {
+        typedef __checked_exp_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // lambda
 
     // Lambda expression.
@@ -4329,6 +4383,17 @@ namespace X_ROOT_NS::modules::compile {
         // Adds the name of a param that has no type.
         void add_param_name(name_t name) { __param_names.push_back(name); }
 
+        // Walks the items of the lambda that were kept apart: its body is analyzed, and its return
+        // type is known.
+        void analyze_now(ast_walk_context_t & context);
+
+        // Returns the expression that makes the object of the delegate, if the lambda uses
+        // variables.
+        expression_t * env_new() const
+        {
+            return __method != nullptr? __method->lambda_env_new : nullptr;
+        }
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -4345,10 +4410,12 @@ namespace X_ROOT_NS::modules::compile {
         // of the object of the class __env_node, that has a copy of them.
         std::vector<name_t>         __captured_names;
         std::vector<variable_t *>   __captured;
-        std::vector<expression_t *> __used;
+        std::vector<expression_t *> __used;     // Those of the lambdas in it too.
+        std::vector<expression_t *> __own;      // Not those of the lambdas in it.
         general_type_t *            __env_node = nullptr;
         method_t *                  __method = nullptr;
         method_t *                  __outer = nullptr;
+        ast_walk_context_t::pending_t * __pending = nullptr;
 
         // Makes the method of the lambda.
         void __walk_default(ast_walk_context_t & context);

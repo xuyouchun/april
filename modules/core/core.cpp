@@ -1391,7 +1391,9 @@ namespace X_ROOT_NS::modules::core {
             return access_value_t::internal;
         }
 
-        if (is_interface(host_type))
+        // The members of an interface are public, the members of a generic param are those of
+        // its interfaces.
+        if (is_interface(host_type) || is_generic_param(host_type))
             return access_value_t::public_;
 
         return access_value_t::private_;
@@ -1793,6 +1795,7 @@ namespace X_ROOT_NS::modules::core {
             statement_region_t * region = al::queue_pop(xw_ctx.regions);
 
             region->each([&xw_ctx, &mctx](xilx_t * xilx) {
+                xw_ctx.sc_context.checked = xilx->checked;
                 xilx->write(xw_ctx, mctx.xil_pool);
             });
         }
@@ -1964,9 +1967,26 @@ namespace X_ROOT_NS::modules::core {
         type_t * __transform_generic_type(generic_type_t * type)
         {
             type_collection_t type_args;
-            al::transform(type->args, std::back_inserter(type_args),
-                [this](type_t * arg_type) { return transform_type(arg_type); }
-            );
+            for (type_t * arg_type : type->args)
+            {
+                // The arguments of a params generic parameter (Tuple<TItems ...>) are many.
+                if constexpr (requires (name_t name, std::function<void (type_t *)> f) {
+                    __func.types_at(name, f);
+                })
+                {
+                    if (is_generic_param(arg_type)
+                        && ((generic_param_t *)arg_type)->param_type == generic_param_type_t::params)
+                    {
+                        __func.types_at(((generic_param_t *)arg_type)->name,
+                            [&](type_t * type_arg) { type_args.push_back(type_arg); }
+                        );
+
+                        continue;
+                    }
+                }
+
+                type_args.push_back(transform_type(arg_type));
+            }
 
             generic_type_t * new_type = __XPool.new_generic_type(
                 type->template_, type_args, type->host_type
@@ -2095,19 +2115,63 @@ namespace X_ROOT_NS::modules::core {
         return __template()->get_type();
     }
 
+    // Returns the count of the types of the params generic parameter, -1 if the last param
+    // is not the items of one.
+    int generic_method_t::__pack_count() const
+    {
+        method_t * template_ = __template();
+
+        generic_params_t * gps = template_->generic_params;
+        if (gps == nullptr || gps->empty()
+                || (*gps)[gps->size() - 1]->param_type != generic_param_type_t::params)
+            return -1;
+
+        size_t count = template_->param_count();
+        if (count == 0 || template_->param_object_at(count - 1)->ptype != param_type_t::extends)
+            return -1;
+
+        return (int)args.size() - (int)(gps->size() - 1);
+    }
+
     // Returns param count.
     size_t generic_method_t::param_count() const
     {
-        return __template()->param_count();
+        size_t count = __template()->param_count();
+
+        // The items of a params generic parameter are many params.
+        int pack_count = __pack_count();
+        if (pack_count >= 0)
+            return count - 1 + pack_count;
+
+        return count;
     }
 
     // Returns param type of specified index.
     typex_t generic_method_t::param_type_at(size_t index) const
     {
+        size_t template_count = __template()->param_count();
+
+        if (__pack_count() >= 0 && index >= template_count - 1)
+        {
+            size_t pack_start = __template()->generic_params->size() - 1;
+            return typex_t(args[pack_start + (index - (template_count - 1))],
+                                                            param_type_t::__default__);
+        }
+
         typex_t typex = __template()->param_type_at(index);
         type_t * type = (type_t *)typex;
 
         return typex_t(__revise_type(type), (param_type_t)typex);
+    }
+
+    // Returns the param at the specified index.
+    param_t * generic_method_t::param_object_at(size_t index) const
+    {
+        size_t template_count = __template()->param_count();
+        if (__pack_count() >= 0 && index >= template_count)
+            index = template_count - 1;
+
+        return __template()->param_object_at(index);
     }
 
     // Finds real type of generic param.
@@ -2168,6 +2232,25 @@ namespace X_ROOT_NS::modules::core {
 
             for (type_t * type : generic_type->args)
             {
+                // The arguments of a params generic parameter are many.
+                if (is_generic_param(type)
+                    && ((generic_param_t *)type)->param_type == generic_param_type_t::params)
+                {
+                    generic_params_t * gps = __template()->generic_params;
+                    for (size_t k = 0; k < gps->size(); k++)
+                    {
+                        if ((*gps)[k]->name == ((generic_param_t *)type)->name)
+                        {
+                            for (size_t m = k; m < args.size(); m++)
+                                types.push_back(args[m]);
+
+                            break;
+                        }
+                    }
+
+                    continue;
+                }
+
                 types.push_back(__revise_type(type));
             }
 
@@ -2574,6 +2657,7 @@ namespace X_ROOT_NS::modules::core {
     X_ENUM_INFO(mtype_t)
 
         X_C(tuple,          _T("tuple"))
+        X_C(tuple_interface,    _T("tuple_interface"))
 
     X_ENUM_INFO_END
 
@@ -2954,10 +3038,30 @@ namespace X_ROOT_NS::modules::core {
         return found;
     }
 
+    // Returns whether null can be converted to the type: a reference (class, interface, string,
+    // array, delegate); not a number, a bool, a char, an enum or a struct.
+    static bool __is_nullable_reference(type_t * type)
+    {
+        if (type == nullptr)
+            return false;
+
+        if (type->this_gtype() == gtype_t::array)
+            return true;
+
+        if (type->this_gtype() == gtype_t::generic_param)
+            return false;
+
+        if (type->this_vtype() == vtype_t::string_)
+            return true;
+
+        return __is_class_or_interface(type);
+    }
+
     bool is_type_compatible(type_t * from, type_t * to)
     {
-        _A(from != nullptr);
-        _A(to != nullptr);
+        // A type that is undefined has been reported: it is not reported again.
+        if (from == nullptr || to == nullptr)
+            return true;
 
         if (from == to)
             return true;
@@ -2994,11 +3098,27 @@ namespace X_ROOT_NS::modules::core {
             return from->this_gtype() == gtype_t::null || is_type_compatible(from, underlying);
         }
 
+        // A value of a generic param is an object (a reference, or a boxed value).
+        if (from->this_gtype() == gtype_t::generic_param && to == __XPool.get_object_type())
+            return true;
+
+        // null is converted to the types that can be null: not to numbers, bools, chars, enums
+        // and structs (T? takes it, see above); nothing is converted to the type of null.
         if (from->this_gtype() == gtype_t::null)
-            return __is_mobject(from) || from->this_gtype() == gtype_t::null;
+            return __is_nullable_reference(to);
 
         if (to->this_gtype() == gtype_t::null)
-            return __is_mobject(to) || from->this_gtype() == gtype_t::null;
+            return false;
+
+        // An enum is converted to its own type, not to another enum, nor to a number (and a
+        // number is not converted to an enum): the cast tells what is meant. It is boxed.
+        if (is_enum(from) || is_enum(to))
+        {
+            if (is_enum(from) && to == __XPool.get_object_type())
+                return true;
+
+            return false;
+        }
 
         if (__is_mobject(from) || __is_mobject(to))
         {
@@ -3032,21 +3152,42 @@ namespace X_ROOT_NS::modules::core {
 
             if (generic_args != nullptr)
             {
-                if (generic_args->size() != method->generic_param_count())
+                int count = method->generic_param_count();
+                bool has_pack = count > 0 && method->generic_params->at(count - 1)->param_type
+                                                        == generic_param_type_t::params;
+
+                if (has_pack? (int)generic_args->size() < count - 1
+                            : (int)generic_args->size() != count)
                     throw _ECF(argument_error, _T("invalid generic argument count"));
 
-                for (int index = 0, count = method->generic_param_count();
-                                                    index < count; index++)
+                for (int index = 0; index < count; index++)
                 {
-                    generic_arg_t * ga = generic_args->at(index);
-                    _A(ga != nullptr);
-
                     generic_param_t * gp = method->generic_params->at(index);
                     _A(gp != nullptr);
+
+                    // The types of a params generic parameter are all that are left.
+                    if (has_pack && index == count - 1)
+                    {
+                        std::vector<type_t *> & types = __packs[gp->name];
+                        for (int k = index, ga_count = generic_args->size(); k < ga_count; k++)
+                            types.push_back(generic_args->at(k)->get_type());
+
+                        break;
+                    }
+
+                    generic_arg_t * ga = generic_args->at(index);
+                    _A(ga != nullptr);
 
                     __generic_param_map[gp->name] = ga->get_type();
                 }
             }
+        }
+
+        // Gets the types of a params generic parameter, null if they are not known.
+        const std::vector<type_t *> * get_pack(generic_param_t * gp)
+        {
+            auto it = __packs.find(gp->name);
+            return it == __packs.end()? nullptr : &it->second;
         }
 
         // Gets real type of specified generic type name.
@@ -3075,14 +3216,18 @@ namespace X_ROOT_NS::modules::core {
             // The last param may take any arguments: params int[] values.
             param_t * last = param_count > 0? __params->at(param_count - 1) : nullptr;
             bool variadic = last != nullptr && last->ptype == param_type_t::params;
-            size_t fixed_count = variadic? param_count - 1 : param_count;
+
+            // The last param is the items of a params generic parameter: Create<T ...>(T ... items).
+            bool extends = last != nullptr && last->ptype == param_type_t::extends;
+            size_t fixed_count = (variadic || extends)? param_count - 1 : param_count;
 
             // The params that have no default value must have an argument.
             size_t required_count = fixed_count;
             while (required_count > 0 && __params->at(required_count - 1)->default_value != nullptr)
                 required_count--;
 
-            if (atype_count < required_count || (!variadic && atype_count > param_count))
+            if (atype_count < required_count
+                    || (!variadic && !extends && atype_count > param_count))
                 return __member_compare_t::not_match;
 
             __member_compare_t r = __member_compare_t::equals;
@@ -3142,6 +3287,52 @@ namespace X_ROOT_NS::modules::core {
                 }
             }
 
+            // The arguments of the items: the types of the generic parameter are those that are
+            // given, or those of the arguments.
+            if (extends)
+            {
+                type_t * pack_type = last->get_type();
+                if (!is_generic_param(pack_type))
+                    return __member_compare_t::not_match;
+
+                name_t name = ((generic_param_t *)pack_type)->name;
+                auto it = __packs.find(name);
+
+                if (it != __packs.end() && __generic_args != nullptr)
+                {
+                    std::vector<type_t *> & types = it->second;
+                    if (atype_count - fixed_count != types.size())
+                        return __member_compare_t::not_match;
+
+                    for (size_t k = 0; k < types.size(); k++)
+                    {
+                        atype_t & atype = atypes->at(fixed_count + k);
+                        if (atype.type == nullptr || atype.ptype != param_type_t::__default__
+                                || !is_type_compatible(atype.type, types[k]))
+                            return __member_compare_t::not_match;
+
+                        if (atype.type != types[k] && r == __member_compare_t::equals)
+                            r = __member_compare_t::match;
+                    }
+                }
+                else
+                {
+                    std::vector<type_t *> & types = __packs[name];
+                    types.clear();
+
+                    for (size_t index = fixed_count; index < atype_count; index++)
+                    {
+                        atype_t & atype = atypes->at(index);
+                        if (atype.type == nullptr || atype.ptype != param_type_t::__default__)
+                            return __member_compare_t::not_match;
+
+                        types.push_back(atype.type);
+                    }
+
+                    r = __member_compare_t::auto_determined;
+                }
+            }
+
             return r;
         }
 
@@ -3149,6 +3340,7 @@ namespace X_ROOT_NS::modules::core {
         generic_args_t * __generic_args = nullptr;
         params_t * __params;
         std::map<name_t, type_t *> __generic_param_map;
+        std::map<name_t, std::vector<type_t *>> __packs;
 
         typedef std::map<generic_param_t *, type_t *> __generic_map_t;
 
@@ -3171,11 +3363,12 @@ namespace X_ROOT_NS::modules::core {
             if (ptype != atype.ptype)
                 return __member_compare_t::not_match;
 
+            // A type that is undefined has been reported.
             type_t * param_type = param->get_type();
-            _A(param_type != nullptr);
+            if (param_type == nullptr)
+                return __member_compare_t::not_match;
 
             type_t * argument_type = atype.type;
-            _A(argument_type != nullptr);
 
             __member_compare_t r;
             param_type = __to_real_type(param_type, argument_type, &r);
@@ -3373,43 +3566,82 @@ namespace X_ROOT_NS::modules::core {
         }
     };
 
-    // Returns compatible type of two types.
-    static type_t * __get_compatible_type(type_t * type1, type_t * type2)
+    // Returns the type that both types are converted to: the one that the other is converted to
+    // (int and long: long; null and String: String), else a type that both are converted to
+    // (int and uint: long; two classes: the nearest base class that they have). Returns null if
+    // there is none. A type that is not known (null pointer) takes the other.
+    type_t * get_compatible_type(type_t * type1, type_t * type2)
     {
+        if (type1 == nullptr)
+            return type2;
+
+        if (type2 == nullptr)
+            return type1;
+
         if (type1 == type2)
             return type1;
 
-        if (type1 == nullptr || type2 == nullptr)
-            return nullptr;
-
-        vtype_t vtype1 = type1->this_vtype(), vtype2 = type2->this_vtype();
-        if (is_numberic_vtype(vtype1) && is_numberic_vtype(vtype2))
-            return (int)vtype1 > (int)vtype2? type1 : type2;
-
-        if (type1->has_super_type(type2))
-            return type2;
-
-        if (type2->has_super_type(type1))
-            return type1;
-
-        return nullptr;
-    }
-
-    // Returns compatible type of types.
-    static type_t * __get_compatible_type(svector_t<type_t *> & types)
-    {
-        if (types.empty())
-            return nullptr;
-
-        type_t * type = types[0];
-        for (size_t index = 1, count = types.size(); index < count; index++)
+        // null: a type that can be null, or T? for a number.
+        if (is_null(type1) || is_null(type2))
         {
-            type = __get_compatible_type(type, types[index]);
-            if (type == nullptr)
-                break;
+            type_t * other = is_null(type1)? type2 : type1;
+
+            if (__is_nullable_reference(other) || get_nullable_underlying(other) != nullptr)
+                return other;
+
+            if (other->this_gtype() == gtype_t::general
+                    && is_system_value_type(other->this_vtype()) && !is_enum(other))
+            {
+                type_collection_t types = { typex_t(other) };
+                xtype_collection_t xtypes(types);
+
+                return __XPool.new_generic_type(__XPool.get_nullable_type(), xtypes, nullptr);
+            }
+
+            return nullptr;
         }
 
-        return type;
+        // One of them is converted to the other.
+        bool to_type2 = is_type_compatible(type1, type2);
+        bool to_type1 = is_type_compatible(type2, type1);
+
+        if (to_type2 && !to_type1)
+            return type2;
+
+        if (to_type1)
+            return type1;
+
+        // Signed and unsigned integers that none holds: the signed one of the double size.
+        vtype_t vtype1 = type1->this_vtype(), vtype2 = type2->this_vtype();
+        if (is_integer_vtype(vtype1) && is_integer_vtype(vtype2)
+                && type1->this_gtype() == gtype_t::general
+                && type2->this_gtype() == gtype_t::general
+                && is_signed_vtype(vtype1) != is_signed_vtype(vtype2))
+        {
+            vtype_t unsigned_vtype = is_unsigned_vtype(vtype1)? vtype1 : vtype2;
+            switch (get_vtype_size(unsigned_vtype))
+            {
+                case 1:     return __XPool.get_internal_type(vtype_t::int16_);
+                case 2:     return __XPool.get_internal_type(vtype_t::int32_);
+                case 4:     return __XPool.get_internal_type(vtype_t::int64_);
+                default:    return nullptr;
+            }
+        }
+
+        // References: the nearest base class that both have, not Object (it has no meaning).
+        if (__is_nullable_reference(type1) && __is_nullable_reference(type2)
+                && type1->this_gtype() != gtype_t::array && type2->this_gtype() != gtype_t::array)
+        {
+            type_t * object_type = __XPool.get_object_type();
+            for (type_t * type = type1->get_base_type(); type != nullptr && type != object_type;
+                                                            type = type->get_base_type())
+            {
+                if (is_type_compatible(type2, type))
+                    return type;
+            }
+        }
+
+        return nullptr;
     }
 
     // Compare method.
@@ -3419,6 +3651,13 @@ namespace X_ROOT_NS::modules::core {
         if (atypes == nullptr)
         {
             if (generic_args == nullptr || method->generic_param_count() == generic_args->size())
+                return __member_compare_t::same_name;
+
+            // A params generic parameter takes any count of arguments.
+            size_t gp_count = method->generic_param_count();
+            if (gp_count > 0 && generic_args->size() + 1 >= gp_count
+                    && method->generic_params->at(gp_count - 1)->param_type
+                                                        == generic_param_type_t::params)
                 return __member_compare_t::same_name;
 
             return __member_compare_t::not_match;
@@ -3437,6 +3676,18 @@ namespace X_ROOT_NS::modules::core {
         {
             for (generic_param_t * gp : *method->generic_params)
             {
+                if (gp->param_type == generic_param_type_t::params)
+                {
+                    const std::vector<type_t *> * pack = analyzer.get_pack(gp);
+                    if (pack == nullptr)
+                        return __member_compare_t::auto_determined_failed;
+
+                    for (type_t * type : *pack)
+                        out_arg_types.push_back(type);
+
+                    continue;
+                }
+
                 type_t * type = analyzer.get_type(gp);
                 if (type == nullptr)
                     return __member_compare_t::auto_determined_failed;
@@ -3624,11 +3875,19 @@ namespace X_ROOT_NS::modules::core {
             else
                 __methods.each(__args.method_trait, analyze_method);
 
-            if (__not_found() && generic_args_count == 0)
+            // Methods of generic params that are determined by the arguments, or of a params
+            // generic parameter that takes any count of generic arguments.
+            if (__not_found())
             {
-                __methods.each(__args.name, __unknown_size, [this](method_t * method) {
-                    if (method->generic_param_count() > 0)
+                __methods.each(__args.name, __unknown_size, [this, generic_args_count](method_t * method) {
+                    size_t count = method->generic_param_count();
+                    if (count == 0)
+                        return true;
+
+                    if (generic_args_count == 0 || (*method->generic_params)[count - 1]->param_type
+                                                        == generic_param_type_t::params)
                         return __analyze(method);
+
                     return true;
                 });
             }
@@ -4108,7 +4367,8 @@ namespace X_ROOT_NS::modules::core {
             _A(p1 != nullptr && p2 != nullptr);
 
             type_t * type1 = p1->get_type(), * type2 = p2->get_type();
-            _A(type1 != nullptr && type2 != nullptr);
+            if (type1 == nullptr || type2 == nullptr)   // Undefined types have been reported.
+                return false;
 
             if (type1 != type2)
                 return false;
@@ -4142,7 +4402,8 @@ namespace X_ROOT_NS::modules::core {
             _A(p1 != nullptr && p2 != nullptr);
 
             type_t * type1 = p1->get_type(), * type2 = p2->get_type();
-            _A(type1 != nullptr && type2 != nullptr);
+            if (type1 == nullptr || type2 == nullptr)   // Undefined types have been reported.
+                return false;
 
             if (type1->this_gtype() == gtype_t::generic_param)
             {
@@ -4399,6 +4660,14 @@ namespace X_ROOT_NS::modules::core {
         type_t * operator() (name_t name)
         {
             return __type_at(name);
+        }
+
+        // Enums the types of a params generic parameter.
+        void types_at(name_t name, std::function<void (type_t *)> f)
+        {
+            __owner_object->__types_at(template_, args, name,
+                [&](typex_t typex) { f((type_t *)typex); }
+            );
         }
 
         // Transform type.
@@ -5060,6 +5329,8 @@ namespace X_ROOT_NS::modules::core {
 
         if (this == __XPool.get_tuple_type())
             mtype = mtype_t::tuple;
+        else if (this == __XPool.get_ituple_type())
+            mtype = mtype_t::tuple_interface;
     }
 
     // Returns vsize.
@@ -5472,22 +5743,133 @@ namespace X_ROOT_NS::modules::core {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    // Returns members descripted by args.
+    // Enums the types that the param is constrained to.
+    void generic_param_t::each_constraint_type(std::function<bool (type_t *)> f)
+    {
+        for (generic_constraint_t * constraint : constraints)
+        {
+            for (type_name_t * type_name : constraint->type_names)
+            {
+                type_t * type = to_type(type_name);
+                if (type != nullptr && !f(type))
+                    return;
+            }
+        }
+    }
+
+    // A static abstract (or virtual) method of an interface, that is used through a generic param
+    // (T.MaxValue): it is a method of the param, the implementation is that of the type that the
+    // param is when the program runs.
+    static method_t * __constrained_method(method_t * method, generic_param_t * param)
+    {
+        if (method == nullptr)
+            return nullptr;
+
+        xpool_t & xpool = __XPool;
+        impl_method_t * new_method = xpool.new_obj<impl_method_t>();
+
+        if (method->this_family() == member_family_t::impl)
+        {
+            new_method->raw  = ((impl_method_t *)method)->raw;
+            for (const typex_t & arg : ((impl_method_t *)method)->args)
+                new_method->args.push_back(arg);
+        }
+        else
+        {
+            new_method->raw = method;
+        }
+
+        new_method->owner_type_name = method->owner_type_name;
+        new_method->type_name       = method->type_name;
+        new_method->generic_params  = method->generic_params;
+        new_method->name            = method->name;
+        new_method->decorate        = method->decorate;
+        new_method->trait           = method->trait;
+        new_method->params          = method->params;
+        new_method->host_type       = param;
+        new_method->variable        = xpool.new_obj<method_variable_t>(new_method);
+
+        return new_method;
+    }
+
+    // The same for the property.
+    static property_t * __constrained_property(property_t * property, generic_param_t * param)
+    {
+        xpool_t & xpool = __XPool;
+        impl_property_t * new_property = xpool.new_obj<impl_property_t>();
+
+        new_property->raw = property->this_family() == member_family_t::impl?
+                                        ((impl_property_t *)property)->raw : property;
+
+        new_property->owner_type_name = property->owner_type_name;
+        new_property->name       = property->name;
+        new_property->type_name  = property->type_name;
+        new_property->params     = property->params;
+        new_property->attributes = property->attributes;
+        new_property->decorate   = property->decorate;
+        new_property->host_type  = param;
+        new_property->variable   = xpool.new_obj<property_variable_t>(new_property);
+
+        new_property->get_method = __constrained_method(property->get_method, param);
+        new_property->set_method = __constrained_method(property->set_method, param);
+
+        if (new_property->get_method != nullptr)
+            new_property->get_method->relation_member = new_property;
+
+        if (new_property->set_method != nullptr)
+            new_property->set_method->relation_member = new_property;
+
+        return new_property;
+    }
+
+    // Returns members descripted by args: those of the types that it is constrained to.
     member_t * generic_param_t::get_member(analyze_member_args_t & args)
     {
-        return nullptr;
+        member_t * member = nullptr;
+
+        each_constraint_type([&](type_t * type) {
+            member = type->get_member(args);
+            return member == nullptr;
+        });
+
+        // The members of a constraint are those of the param: the instance members, and the
+        // static abstract and virtual ones of an interface. The type that has them when the
+        // program runs is the host of the member.
+        if (member != nullptr && (!member->is_static()
+                                    || member->is_abstract() || member->is_virtual()))
+        {
+            switch (member->this_type())
+            {
+                case member_type_t::method:
+                    return __constrained_method((method_t *)member, this);
+
+                case member_type_t::property:
+                    return __constrained_property((property_t *)member, this);
+
+                default:
+                    break;
+            }
+        }
+
+        return member;
     }
 
     // Returns memeber descripted by args.
     void generic_param_t::get_members(analyze_members_args_t & args)
     {
-        // Empty.
+        each_constraint_type([&](type_t * type) {
+            type->get_members(args);
+            return true;
+        });
     }
 
     // Returns all members.
     void generic_param_t::get_all_members(members_t & out_members)
     {
-        // Empty.
+        each_constraint_type([&](type_t * type) {
+            type->get_all_members(out_members);
+            return true;
+        });
     }
 
     const string_t generic_param_t::to_identity() const
@@ -6009,7 +6391,11 @@ namespace X_ROOT_NS::modules::core {
                                 xtype_collection_t & types, type_t * host_type)
     {
         _A(template_ != nullptr);
-        _A(template_->generic_param_count() == types.size());
+        // A params generic parameter takes any count of types.
+        _A(template_->generic_param_count() == types.size()
+            || (template_->generic_param_count() > 0 && types.size() + 1 >= template_->generic_param_count()
+                && (*template_->generic_params)[template_->generic_param_count() - 1]->param_type
+                                                        == generic_param_type_t::params));
 
         generic_method_cache_key_t key(template_, types.get_tcid(), host_type);
         generic_method_t * method = generic_method_cache->get(key);
@@ -6179,12 +6565,6 @@ namespace X_ROOT_NS::modules::core {
     general_type_t * xpool_t::get_exception_type()
     {
         return __get_specified_type(__CoreTypeName(CoreType_Exception), __exception_type);
-    }
-
-    // Returns System.Checked type.
-    general_type_t * xpool_t::get_checked_type()
-    {
-        return __get_specified_type(__CoreTypeName(CoreType_Checked), __checked_type);
     }
 
     // Returns System.Nullable<T> type.
@@ -6423,6 +6803,8 @@ namespace X_ROOT_NS::modules::core {
     {
         if (method != nullptr)
         {
+            __method_root = true;
+
             __local_variable_t ** head_addr = method->__local_variables.head_addr();
             __last_local_variable = *head_addr == nullptr?
                 al::incorp((void *)head_addr, false) : al::incorp((void *)*head_addr, true);
@@ -6539,8 +6921,11 @@ namespace X_ROOT_NS::modules::core {
     msize_t & variable_region_t::__current_local_identity()
     {
         variable_region_t * root = this;
-        while (root->previous != nullptr && root->previous->__is_local_supported())
+        while (!root->__method_root && root->previous != nullptr
+                                    && root->previous->__is_local_supported())
+        {
             root = root->previous;
+        }
 
         return root->__local_identity;
     }
@@ -6550,7 +6935,7 @@ namespace X_ROOT_NS::modules::core {
     {
         if (__local_index == __empty_index)
         {
-            if (previous != nullptr && previous->__is_local_supported())
+            if (!__method_root && previous != nullptr && previous->__is_local_supported())
                 __local_index = previous->__current_local_index();
             else
                 __local_index = 0;
@@ -7119,6 +7504,76 @@ namespace X_ROOT_NS::modules::core {
         );
     }
 
+    // The items of a lambda that are kept apart, in the order of their steps.
+    class ast_walk_context_t::pending_t : public object_t
+    {
+    public:
+        std::multimap<int, __walk_item_t> items;
+        pending_t * previous = nullptr;
+        bool running = false;
+
+        X_TO_STRING_IMPL(_T("pending_t"))
+    };
+
+    // The items that are delayed after it are kept apart.
+    ast_walk_context_t::pending_t * ast_walk_context_t::begin_pending()
+    {
+        pending_t * pending = memory_t::new_obj<pending_t>(&__xheap);
+
+        pending->previous = __redirect;
+        __redirect = pending;
+
+        return pending;
+    }
+
+    // Ends the items that are kept apart.
+    void ast_walk_context_t::end_pending(pending_t * pending)
+    {
+        _A(pending != nullptr && __redirect == pending);
+
+        __redirect = pending->previous;
+    }
+
+    // Keeps an item apart.
+    void ast_walk_context_t::__enque_pending(int priory, const __walk_item_t & item)
+    {
+        __redirect->items.insert(std::make_pair(priory, item));
+    }
+
+    // Walks the items that are kept apart. The new items of them are kept apart, and walked
+    // too.
+    void ast_walk_context_t::run_pending(pending_t * pending)
+    {
+        if (pending == nullptr || pending->running)
+            return;
+
+        pending->running = true;
+
+        __layer_t * saved_layer = __current_layer;
+        pending_t * saved_redirect = __redirect;
+        int saved_bias = delay_bias, saved_checked = checked_mode;
+
+        __redirect = pending;
+        delay_bias = 0;
+        checked_mode = 0;
+
+        while (!pending->items.empty())
+        {
+            __walk_item_t item = pending->items.begin()->second;
+            pending->items.erase(pending->items.begin());
+
+            __current_layer = item.layer;
+            item.node->on_walk(*this, item.step, item.tag);
+        }
+
+        __redirect = saved_redirect;
+        __current_layer = saved_layer;
+        delay_bias = saved_bias;
+        checked_mode = saved_checked;
+
+        pending->running = false;
+    }
+
     // Walk
     void ast_walk_context_t::__walk()
     {
@@ -7349,6 +7804,7 @@ namespace X_ROOT_NS::modules::core {
     expression_compile_context_t::expression_compile_context_t(xilx_write_context_t & ctx)
         : xilx_ctx(ctx), statement_ctx((statement_compile_context_t &)ctx)
         , variable_region(ctx.variable_region)
+        , checked(((statement_compile_context_t &)ctx).checked)
     { }
 
 
@@ -7398,6 +7854,7 @@ namespace X_ROOT_NS::modules::core {
         X_C(type_cast,      _T("type_cast"))
         X_C(this_,          _T("this"))
         X_C(base,           _T("base"))
+        X_C(checked,        _T("checked"))
 
     X_ENUM_INFO_END
 
@@ -7798,6 +8255,43 @@ namespace X_ROOT_NS::modules::core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // checked_expression_t
+
+    // Set expression.
+    void checked_expression_t::set_expression(expression_t * expression)
+    {
+        _A(expression != nullptr);
+
+        exps[0] = expression;
+        expression->parent = this;
+    }
+
+    // Returns vtype of a checked expression: that of the expression.
+    vtype_t checked_expression_t::get_vtype() const
+    {
+        return expression() != nullptr? expression()->get_vtype() : vtype_t::__unknown__;
+    }
+
+    // Returns type of a checked expression: that of the expression.
+    type_t * checked_expression_t::get_type() const
+    {
+        return expression() != nullptr? expression()->get_type() : nullptr;
+    }
+
+    // Returns behaviour of a checked expression: that of the expression.
+    expression_behaviour_t checked_expression_t::get_behaviour() const
+    {
+        return expression() != nullptr? expression()->get_behaviour()
+                                       : expression_behaviour_t::default_;
+    }
+
+    // Executes a checked expression.
+    cvalue_t checked_expression_t::execute()
+    {
+        return expression() != nullptr? expression()->execute() : cvalue_t(nullptr);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // cvalue_expression_t
 
     // Returns vtype of a cvalue expression.
@@ -7857,10 +8351,6 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(variable,   _T("variable"))
 
-        X_C(checked_,   _T("checked"))
-
-        X_C(unchecked_, _T("unchecked"))
-
     X_ENUM_INFO_END
 
     // Sets namex, namex maybe a name or an expression.
@@ -7900,21 +8390,6 @@ namespace X_ROOT_NS::modules::core {
         return (variable_t *)__relation_data;
     }
 
-    // Makes it checked(expression) or unchecked(expression): it has no function.
-    void function_expression_t::set_checked(bool checked) _NE
-    {
-        __relation_data.set(this, checked? __ftype_t::checked_ : __ftype_t::unchecked_);
-    }
-
-    // Returns the expression of checked(expression) or unchecked(expression).
-    expression_t * function_expression_t::checked_expression() const
-    {
-        _A(is_checked_expression());
-
-        arguments_t * args = arguments();
-        return (args != nullptr && args->size() == 1)? (*args)[0]->expression : nullptr;
-    }
-
     // Returns name of function_expression.
     name_t function_expression_t::get_name() const
     {
@@ -7949,12 +8424,6 @@ namespace X_ROOT_NS::modules::core {
     {
         switch (get_ftype())
         {
-            case __ftype_t::checked_:
-            case __ftype_t::unchecked_: {
-                expression_t * exp = checked_expression();
-                return exp != nullptr? exp->get_type() : nullptr;
-            }
-
             case __ftype_t::method:
                 return get_method()->get_type();
 
@@ -8709,6 +9178,7 @@ namespace X_ROOT_NS::modules::core {
         ctx.variable_region = al::nvl(this->variable_region, old_region);
 
         this->each([&ctx, &pool](xilx_t * xilx) {
+            ctx.sc_context.checked = xilx->checked;
             xilx->write(ctx, pool);
         });
 
@@ -8917,6 +9387,8 @@ namespace X_ROOT_NS::modules::core {
     {
         _A(method != nullptr && method->body != nullptr);
 
+        checked = method->checked_mode == 1;
+
         auto * region = begin_region<root_statement_region_t>();
         region->variable_region = method->body->variable_region;
 
@@ -9110,6 +9582,10 @@ namespace X_ROOT_NS::modules::core {
     // Check whether the access is allowed.
     bool check_access(type_t * from_type, type_t * host_type, access_value_t av)
     {
+        // The members of a generic param are those of its constraints (public).
+        if (is_generic_param(host_type))
+            return av == access_value_t::public_;
+
         from_type = __to_general_with_check(from_type);
         host_type = __to_general_with_check(host_type);
 
@@ -9150,6 +9626,10 @@ namespace X_ROOT_NS::modules::core {
     bool check_access(assembly_t * from_assembly, type_t * host_type)
     {
         _A(from_assembly != nullptr);
+
+        if (is_generic_param(host_type))
+            return true;
+
         host_type = __to_general_with_check(host_type);
 
         bool cross_assembly = (host_type->get_assembly() != from_assembly);
@@ -9159,6 +9639,9 @@ namespace X_ROOT_NS::modules::core {
     // Check whether the access is allowed.
     bool __check_member_access(assembly_t * from_assembly, type_t * host_type, access_value_t av)
     {
+        if (is_generic_param(host_type))
+            return av == access_value_t::public_;
+
         bool cross_assembly = (host_type->get_assembly() != from_assembly);
 
         if (!cross_assembly)

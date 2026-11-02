@@ -30,6 +30,38 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
                                                         param_types_t * param_types = nullptr);
 
+    // Returns whether the property is one of a generic param (t.Value, where T : IFoo), that is
+    // not static.
+    static bool __is_constrained_property(property_t * property)
+    {
+        if (property == nullptr || property->is_static())
+            return false;
+
+        type_t * host = property->host_type;
+        return host != nullptr && is_generic_param(host);
+    }
+
+    // Returns whether the expression is a variable (a param, a local, a field) whose value is
+    // a generic param: it is the address of the value.
+    static bool __is_generic_value_variable(expression_t * exp)
+    {
+        if (exp == nullptr || exp->this_family() != expression_family_t::name)
+            return false;
+
+        variable_t * variable = ((name_expression_t *)exp)->variable;
+        return variable != nullptr && is_real_variable(variable);
+    }
+
+    // Returns whether the expression is the name of a property.
+    static bool __is_property_name(expression_t * exp)
+    {
+        if (exp == nullptr || exp->this_family() != expression_family_t::name)
+            return false;
+
+        variable_t * variable = ((name_expression_t *)exp)->variable;
+        return variable != nullptr && variable->this_type() == variable_type_t::property;
+    }
+
     // Returns whether it's a reference type.
     static bool __is_ref_type(type_t * type)
     {
@@ -740,65 +772,176 @@ namespace X_ROOT_NS::modules::compile {
         return is_optimize(ctx, compile_optimize_code_t::optimize_basic_algorighm);
     }
 
-    // Compiles an arithmetic of checked(expression): a call of the method of System.Checked,
-    // returns false if the types are not integers of 32 or 64 bits.
-    static bool __try_compile_checked(__cctx_t & ctx, xil_pool_t & pool, operator_t op,
-                                expression_t * exp1, expression_t * exp2)
+    // Returns the range of an integer type.
+    static bool __integer_range(vtype_t vtype, __int128 & lo, __int128 & hi)
     {
-        if (!ctx.checked)
-            return false;
+        switch (vtype)
+        {
+            case vtype_t::int8_:    lo = INT8_MIN;  hi = INT8_MAX;      return true;
+            case vtype_t::uint8_:   lo = 0;         hi = UINT8_MAX;     return true;
+            case vtype_t::int16_:   lo = INT16_MIN; hi = INT16_MAX;     return true;
+            case vtype_t::uint16_:  lo = 0;         hi = UINT16_MAX;    return true;
+            case vtype_t::int32_:   lo = INT32_MIN; hi = INT32_MAX;     return true;
+            case vtype_t::uint32_:  lo = 0;         hi = UINT32_MAX;    return true;
+            case vtype_t::int64_:   lo = INT64_MIN; hi = INT64_MAX;     return true;
+            case vtype_t::uint64_:  lo = 0;         hi = UINT64_MAX;    return true;
+            default:                return false;
+        }
+    }
 
-        vtype_t vtype = get_binary_vtype(op, exp1->get_vtype(), exp2->get_vtype());
-        const char_t * type_name;
+    // Wraps a value to an integer type, like unchecked.
+    static __int128 __wrap_integer(vtype_t vtype, __int128 value)
+    {
+        uint64_t u = (uint64_t)value;
 
         switch (vtype)
         {
-            case vtype_t::int32_:   type_name = _T("Int32"); break;
-            case vtype_t::uint32_:  type_name = _T("UInt32"); break;
-            case vtype_t::int64_:   type_name = _T("Int64"); break;
-            case vtype_t::uint64_:  type_name = _T("UInt64"); break;
-            default:
-                return false;
+            case vtype_t::int8_:    return (int8_t)u;
+            case vtype_t::uint8_:   return (uint8_t)u;
+            case vtype_t::int16_:   return (int16_t)u;
+            case vtype_t::uint16_:  return (uint16_t)u;
+            case vtype_t::int32_:   return (int32_t)u;
+            case vtype_t::uint32_:  return (uint32_t)u;
+            case vtype_t::int64_:   return (int64_t)u;
+            default:                return u;
         }
+    }
 
-        const char_t * op_name;
-        switch (op)
+    // Calculates the value of a constant integer expression: + - * of constants.
+    // Returns false if it is not such an expression. `overflow` is set if the value of the
+    // expression or of one of its parts, in checked, does not fit the type.
+    static bool __constant_integer(expression_t * exp, __int128 & value, bool & overflow)
+    {
+        __int128 lo, hi;
+        if (exp == nullptr || !__integer_range(exp->get_vtype(), lo, hi))
+            return false;
+
+        switch (exp->this_family())
         {
-            case operator_t::add:   op_name = _T("Add"); break;
-            case operator_t::sub:   op_name = _T("Sub"); break;
-            case operator_t::mul:   op_name = _T("Mul"); break;
+            case expression_family_t::checked: {
+                checked_expression_t * checked_exp = (checked_expression_t *)exp;
+
+                bool inner_overflow = false;
+                if (!__constant_integer(checked_exp->expression(), value, inner_overflow))
+                    return false;
+
+                if (checked_exp->checked)
+                    overflow = overflow || inner_overflow;
+                else
+                    value = __wrap_integer(exp->get_vtype(), value);
+
+                return true;
+            }
+
+            case expression_family_t::binary: {
+                binary_expression_t * binary_exp = (binary_expression_t *)exp;
+                operator_t op = binary_exp->op();
+
+                if (op != operator_t::add && op != operator_t::sub && op != operator_t::mul)
+                    break;
+
+                __int128 a, b;
+                if (!__constant_integer(binary_exp->exp1(), a, overflow)
+                        || !__constant_integer(binary_exp->exp2(), b, overflow))
+                {
+                    return false;
+                }
+
+                value = op == operator_t::add? a + b : op == operator_t::sub? a - b : a * b;
+                overflow = overflow || value < lo || value > hi;
+                return true;
+            }
+
+            case expression_family_t::unitary: {
+                unitary_expression_t * unitary_exp = (unitary_expression_t *)exp;
+                if (unitary_exp->op() != operator_t::minus)
+                    break;
+
+                __int128 a;
+                if (!__constant_integer(unitary_exp->expression_at(0), a, overflow))
+                    return false;
+
+                value = -a;
+                overflow = overflow || value < lo || value > hi;
+                return true;
+            }
+
             default:
-                return false;
+                break;
         }
 
-        type_t * type = __XPool.get_internal_type(vtype);
-        atypes_t atypes = { atype_t(type), atype_t(type) };
+        cvalue_t cvalue = __execute_expression(exp);
+        if (!is_number(cvalue))
+            return false;
 
-        analyze_member_args_t args(
-            member_type_t::method, __XPool.to_name(_F(_T("%1%%2%"), op_name, type_name)), &atypes
-        );
-
-        method_t * method = (method_t *)__XPool.get_checked_type()->get_member(args, true);
-        __FailedWhenNull(method, "checked arithmetic of '%1%' not found", type);
-
-        // The operands are converted to the type of the result, like the instructions do.
-        exp1->compile(ctx, pool, type);
-        exp2->compile(ctx, pool, type);
-
-        pool.append<x_method_call_xil_t>(
-            xil_call_type_t::static_, __search_method_ref(ctx, method)
-        );
-
+        value = is_signed_vtype(exp->get_vtype())? (__int128)(int64_t)cvalue
+                                                  : (__int128)(uint64_t)cvalue;
         return true;
+    }
+
+    // In checked, the operation of constants that does not fit its type is an error.
+    static void __check_constant_overflow(__cctx_t & ctx, operator_t op,
+                                          expression_t * exp1, expression_t * exp2 = nullptr)
+    {
+        if (!ctx.checked)
+            return;
+
+        __int128 a, b = 0, value, lo, hi;
+        bool overflow = false;
+
+        if (!__constant_integer(exp1, a, overflow)
+                || (exp2 != nullptr && !__constant_integer(exp2, b, overflow)))
+        {
+            return;
+        }
+
+        if (exp2 == nullptr)    // - a
+        {
+            // The minimum of a signed type has no opposite.
+            if (__integer_range(exp1->get_vtype(), lo, hi) && lo != 0 && a == lo)
+                overflow = true;
+        }
+        else
+        {
+            vtype_t vtype = get_binary_vtype(op, exp1->get_vtype(), exp2->get_vtype());
+            if (!__integer_range(vtype, lo, hi))
+                return;
+
+            value = op == operator_t::add? a + b : op == operator_t::sub? a - b : a * b;
+            overflow = overflow || value < lo || value > hi;
+        }
+
+        __FailedWhen(overflow, "The operation overflows at compile time in checked mode");
+    }
+
+    // Returns the command of an arithmetic: the one that raises OverflowException when it is in
+    // checked(expression) or checked { ... }, and the operands are integers.
+    static xil_al_command_t __al_command(__cctx_t & ctx, xil_al_command_t cmd,
+                    xil_type_t xtype1, xil_type_t xtype2 = xil_type_t::__default__)
+    {
+        if (!ctx.checked)
+            return cmd;
+
+        if (!is_integer_vtype(to_vtype(xtype1))
+                || (xtype2 != xil_type_t::__default__ && !is_integer_vtype(to_vtype(xtype2))))
+        {
+            return cmd;
+        }
+
+        switch (cmd)
+        {
+            case xil_al_command_t::add:     return xil_al_command_t::checked_add;
+            case xil_al_command_t::sub:     return xil_al_command_t::checked_sub;
+            case xil_al_command_t::mul:     return xil_al_command_t::checked_mul;
+            case xil_al_command_t::minus:   return xil_al_command_t::checked_minus;
+            default:                        return cmd;
+        }
     }
 
     // Compiles add expression.
     static void __compile_add(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        if (__try_compile_checked(ctx, pool, operator_t::add, exp1, exp2))
-            return;
-
         if (__is_optimize_basic_algorighm(ctx))
         {
             if (__execute_expression(exp1) == cvalue_t(0))  // x + 0
@@ -814,11 +957,14 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        __check_constant_overflow(ctx, operator_t::add, exp1, exp2);
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
         pool.append<x_al_xil_t>(
-            xil_al_command_t::add, __xil_type(exp1), __xil_type(exp2)
+            __al_command(ctx, xil_al_command_t::add, __xil_type(exp1), __xil_type(exp2)),
+            __xil_type(exp1), __xil_type(exp2)
         );
     }
 
@@ -826,15 +972,14 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_sub(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        if (__try_compile_checked(ctx, pool, operator_t::sub, exp1, exp2))
-            return;
-
         if (__is_optimize_basic_algorighm(ctx))
         {
             if (__execute_expression(exp1) == cvalue_t(0))  // 0 * x
             {
                 exp2->compile(ctx, pool);
-                pool.append<x_al_xil_t>(xil_al_command_t::minus, __xil_type(exp1));
+                pool.append<x_al_xil_t>(
+                    __al_command(ctx, xil_al_command_t::minus, __xil_type(exp1)), __xil_type(exp1)
+                );
                 return;
             }
 
@@ -845,11 +990,14 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        __check_constant_overflow(ctx, operator_t::sub, exp1, exp2);
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
         pool.append<x_al_xil_t>(
-            xil_al_command_t::sub, __xil_type(exp1), __xil_type(exp2)
+            __al_command(ctx, xil_al_command_t::sub, __xil_type(exp1), __xil_type(exp2)),
+            __xil_type(exp1), __xil_type(exp2)
         );
     }
 
@@ -857,9 +1005,6 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_mul(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        if (__try_compile_checked(ctx, pool, operator_t::mul, exp1, exp2))
-            return;
-
         if (__is_optimize_basic_algorighm(ctx))
         {
             if (__execute_expression(exp1) == cvalue_t(1)) // 1 * x
@@ -877,11 +1022,14 @@ namespace X_ROOT_NS::modules::compile {
 
         // TODO x * 0 || 0 * x
 
+        __check_constant_overflow(ctx, operator_t::mul, exp1, exp2);
+
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
 
         pool.append<x_al_xil_t>(
-            xil_al_command_t::mul, __xil_type(exp1), __xil_type(exp2)
+            __al_command(ctx, xil_al_command_t::mul, __xil_type(exp1), __xil_type(exp2)),
+            __xil_type(exp1), __xil_type(exp2)
         );
     }
 
@@ -1036,17 +1184,23 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles member point expression.
     static void __compile_member_point(__cctx_t & ctx, xil_pool_t & pool,
-                                expression_t * exp1, expression_t * exp2)
+                                expression_t * exp1, expression_t * exp2,
+                                const __environment_t & env = __environment_t::empty)
     {
+        // The member is what the whole is: the value of a generic param that is returned is
+        // the value of its member.
+        __environment_t member_env = env.type_mark == type_mark_t::value?
+                                __environment_t(type_mark_t::value) : __environment_t::empty;
+
         if (__is_call_expression(exp2))
         {
             // exp1 will compile during exp2 compiling.
-            exp2->compile(ctx, pool);
+            exp2->compile(ctx, pool, member_env);
         }
         else
         {
             exp1->compile(ctx, pool);
-            exp2->compile(ctx, pool);
+            exp2->compile(ctx, pool, member_env);
         }
     }
 
@@ -1527,6 +1681,17 @@ namespace X_ROOT_NS::modules::compile {
         {
             case variable_type_t::property:
                 __push_this(ctx, pool, this_exp);
+
+                // A property of a generic param: the object is a reference, or the address of
+                // a struct.
+                if (this_exp != nullptr
+                        && __is_constrained_property(((property_variable_t *)var)->property))
+                {
+                    pool.append<x_generic_copy_xil_t>(
+                        __ref_of(ctx, this_exp->get_type()), xil_copy_kind_t::receiver
+                    );
+                }
+
                 break;
 
             case variable_type_t::property_index: {
@@ -1671,7 +1836,18 @@ namespace X_ROOT_NS::modules::compile {
 
         if (is_real_variable(ca.var))
         {
-            if (__is_custom_struct_like(type2))
+            // A generic param assigned to a reference (Object o = x): the object it is, made by
+            // the copy of the expression.
+            if (is_generic_param(type2) && is_ref_type(type1) && !is_generic_param(type1)
+                    && __is_generic_value_variable(exp2))
+            {
+                __compile_variable(ctx, pool, ((name_expression_t *)exp2)->variable,
+                                                        __environment_t::empty, exp2);
+                pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type2), xil_copy_kind_t::box);
+
+                __compile_assign_to(ctx, pool, ca, exp2, assign_type);
+            }
+            else if (__is_custom_struct_like(type2))
             {
                 // Box: a struct assigned to a reference. (A generic param is not boxed.)
                 if (is_ref_type(type1) && !is_generic_param(type1))
@@ -1999,7 +2175,8 @@ namespace X_ROOT_NS::modules::compile {
             __compile_number(ctx, pool, 1);
 
             pool.append<x_al_xil_t>(
-                __Is(increment)? xil_al_command_t::add : xil_al_command_t::sub,
+                __al_command(ctx, __Is(increment)? xil_al_command_t::add : xil_al_command_t::sub,
+                                                        __xil_type(exp), xil_type_t::int32),
                 __xil_type(exp), xil_type_t::int32
             );
 
@@ -2011,7 +2188,8 @@ namespace X_ROOT_NS::modules::compile {
             __compile_number(ctx, pool, 1);
 
             pool.append<x_al_xil_t>(
-                __Is(increment)? xil_al_command_t::add : xil_al_command_t::sub,
+                __al_command(ctx, __Is(increment)? xil_al_command_t::add : xil_al_command_t::sub,
+                                                        __xil_type(exp), xil_type_t::int32),
                 __xil_type(exp), xil_type_t::int32
             );
 
@@ -2389,9 +2567,23 @@ namespace X_ROOT_NS::modules::compile {
         expression_t * exp1;
 
         if (__is_member_expression(owner_exp->parent, &exp1))
+        {
             exp1->compile(ctx, pool);
+
+            // A property of a generic param (t.Value, where T : IFoo): the object is a
+            // reference, or the address of a struct.
+            if (variable->this_type() == variable_type_t::property
+                    && __is_constrained_property(((property_variable_t *)variable)->property))
+            {
+                pool.append<x_generic_copy_xil_t>(
+                    __ref_of(ctx, exp1->get_type()), xil_copy_kind_t::receiver
+                );
+            }
+        }
         else if (!is_static)
+        {
             pool.append<x_push_this_ref_xil_t>();
+        }
     }
 
     // Compiles static const field.
@@ -2499,9 +2691,16 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // When need to box.
-        if (is_value_type(__ExpType) && env.is_ref())
+        if ((is_value_type(__ExpType) || is_enum(__ExpType)) && env.is_ref())
         {
             pool.append<x_push_box_xil_t>(__ref_of(ctx, exp_type));
+            return;
+        }
+
+        // A generic param is an object: a reference, or a boxed value (T to Object).
+        if (is_generic_param(__ExpType) && env.is_ref() && __is_generic_value_variable(exp))
+        {
+            pool.append<x_generic_copy_xil_t>(__ref_of(ctx, __ExpType), xil_copy_kind_t::box);
             return;
         }
 
@@ -2569,6 +2768,17 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
+            // The value of a generic param that a getter returns (return T.MaxValue): when the
+            // param is a custom struct, the getter writes it at a destination that is below, and
+            // the value is copied to the destination of the caller.
+            type_t * member_type = this->get_type();
+            bool generic_value_return = op() == operator_t::member_point
+                    && is_generic_param(member_type)
+                    && env.type_mark == type_mark_t::value && __is_property_name(exp2);
+
+            if (generic_value_return)
+                pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, member_type));
+
             #define __Case(op_)                                                         \
                 case operator_t::op_:                                                   \
                     __compile_##op_(ctx, pool, exp1, exp2);                             \
@@ -2610,7 +2820,10 @@ namespace X_ROOT_NS::modules::compile {
                 __Case(equal)
                 __Case(not_equal)
 
-                __Case(member_point)
+                case operator_t::member_point:
+                    __compile_member_point(ctx, pool, exp1, exp2, env);
+                    break;
+
                 __Case(assign)
                 __Case(null_coalescing)
                 __Case(null_coalescing_assign)
@@ -2623,6 +2836,13 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             #undef __Case
+
+            if (generic_value_return)
+            {
+                pool.append<x_generic_copy_xil_t>(
+                    __ref_of(ctx, member_type), xil_copy_kind_t::call_ret
+                );
+            }
 
             __post_compile_expression(ctx, pool, this, env);
         }
@@ -2702,9 +2922,13 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles minus expression.
     void __compile_minus(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
     {
+        __check_constant_overflow(ctx, operator_t::minus, exp);
+
         exp->compile(ctx, pool);
 
-        pool.append<x_al_xil_t>(xil_al_command_t::minus, __xil_type(exp));
+        pool.append<x_al_xil_t>(
+            __al_command(ctx, xil_al_command_t::minus, __xil_type(exp)), __xil_type(exp)
+        );
     }
 
     // Compiles logic node expression.
@@ -2873,6 +3097,11 @@ namespace X_ROOT_NS::modules::compile {
                     break;
                 }
 
+                // An argument of a call is a value: what the call is, does not matter to it
+                // (Plain(p).V copies p to the argument).
+                case expression_family_t::function:
+                    return true;
+
                 default:
                     break;
             }
@@ -2902,6 +3131,7 @@ namespace X_ROOT_NS::modules::compile {
             case name_expression_type_t::variable:
             {
                 type_t * type = this->get_type();
+
                 __compile_variable(ctx, pool, this->variable, __only_value_type(env), this);
 
                 if (__is_custom_struct_like(type) && is_real_variable(this->variable)
@@ -3135,17 +3365,6 @@ namespace X_ROOT_NS::modules::compile {
                 __compile_delegate(ctx, pool, env);
                 break;
 
-            case function_expression_type_t::checked_:
-            case function_expression_type_t::unchecked_: {
-                // The arithmetic of the expression raises on overflow, or not.
-                bool checked = ctx.checked;
-                ctx.checked = ftype == function_expression_type_t::checked_;
-
-                this->checked_expression()->compile(ctx, pool, env);
-
-                ctx.checked = checked;
-            }   break;
-
             case function_expression_type_t::__default__:
                 __compile_default(ctx, pool, env);
                 break;
@@ -3218,10 +3437,19 @@ namespace X_ROOT_NS::modules::compile {
         xil_call_type_t call_type = __call_type_of_method(method);
         bool effective = is_effective(ctx, this);
 
+        type_t * method_type = method->get_type();
+        bool generic_value_return = is_generic_param(method_type)
+                && call_type != xil_call_type_t::internal
+                && env.type_mark == type_mark_t::value;
+
         if (effective)
         {
             if (__is_right_member(this->parent, this))
             {
+                // The destination is below the object, that is the first argument.
+                if (generic_value_return)
+                    pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
+
                 __pre_call_method(ctx, pool, this->parent, method);
 
                 type_t * host_type = method->get_host_type();
@@ -3229,15 +3457,38 @@ namespace X_ROOT_NS::modules::compile {
 
                 expression_t * exp1 = ((binary_expression_t *)this->parent)->exp1();
                 exp1->compile(ctx, pool, host_type);
+
+                // A member of a generic param: the object is a reference, or the address of a
+                // struct.
+                if (call_type == xil_call_type_t::constrained)
+                {
+                    pool.append<x_generic_copy_xil_t>(
+                        __ref_of(ctx, exp1->get_type()), xil_copy_kind_t::receiver
+                    );
+                }
             }
             else
             {
                 bool is_static = __is_static(call_type);
 
+                // The value of a generic param is returned (return Make<T>()): when the param is
+                // a custom struct, the call writes it at a destination that is below.
+                if (generic_value_return)
+                    pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
+
                 __pre_call_method(ctx, pool, this, method);
 
                 if (!is_static)
-                    pool.append<x_push_this_ref_xil_t>();
+                {
+                    // A lambda that uses variables is called at once: its object is the
+                    // environment.
+                    method_t * lambda = dynamic_cast<method_t *>(method);
+
+                    if (lambda != nullptr && lambda->lambda_env_new != nullptr)
+                        lambda->lambda_env_new->compile(ctx, pool);
+                    else
+                        pool.append<x_push_this_ref_xil_t>();
+                }
             }
             
             __compile_arguments(ctx, pool, this->arguments(), method);
@@ -3284,9 +3535,17 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
 
-            if (env.dtype != xil_type_t::empty)
+            if (generic_value_return)
+            {
+                // A struct is copied to the destination of the caller of this method.
+                pool.append<x_generic_copy_xil_t>(
+                    __ref_of(ctx, method_type), xil_copy_kind_t::call_ret
+                );
+            }
+
+            if (env.dtype != xil_type_t::empty && !generic_value_return)
                 __try_append_convert_xil(pool, method->get_type(), env);
-            else
+            else if (env.dtype == xil_type_t::empty)
                 __try_pop_empty_for_method(ctx, pool, method, this);
         }
         else
@@ -3379,6 +3638,31 @@ namespace X_ROOT_NS::modules::compile {
     void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool);
 
     ////////// ////////// ////////// ////////// //////////
+    // checked_expression_t
+
+    // Executes checked expression.
+    cvalue_t __sys_t<checked_expression_t>::execute()
+    {
+        return __super_t::execute();
+    }
+
+    // Compiles checked expression: the arithmetic of the expression raises OverflowException
+    // when the result does not fit its type, or not.
+    void __sys_t<checked_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
+                                                        const __environment_t & env)
+    {
+        expression_t * exp = this->expression();
+        __FailedWhenNull(exp, _T("expression empty"));
+
+        bool checked = ctx.checked;
+        ctx.checked = this->checked;
+
+        exp->compile(ctx, pool, env);
+
+        ctx.checked = checked;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // type_cast_expression_t
 
     // Executes type cast expression.
@@ -3387,6 +3671,21 @@ namespace X_ROOT_NS::modules::compile {
         return __super_t::execute();
     }
     
+    // Returns whether it is a conversion between numbers of different types.
+    static bool __is_numeric_cast(type_t * from, type_t * to)
+    {
+        if (from == nullptr || to == nullptr)
+            return false;
+
+        vtype_t vt1 = from->this_vtype(), vt2 = to->this_vtype();
+
+        auto is_number_vtype = [](vtype_t vt) {
+            return is_numberic_vtype(vt) || vt == vtype_t::char_;
+        };
+
+        return vt1 != vt2 && is_number_vtype(vt1) && is_number_vtype(vt2);
+    }
+
     // Compiles type cast expression.
     void __sys_t<type_cast_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                         const __environment_t & env)
@@ -3430,7 +3729,7 @@ namespace X_ROOT_NS::modules::compile {
 
         if (is_ref_type(type))
         {
-            if (is_value_type(exp_type))    // Box.
+            if (is_value_type(exp_type) || is_enum(exp_type))    // Box.
             {
                 expression_behaviour_t behaviour = exp->get_behaviour();
                 if (behaviour == expression_behaviour_t::new_)
@@ -3453,7 +3752,21 @@ namespace X_ROOT_NS::modules::compile {
             }
             else
             {
-                exp->compile(ctx, pool);
+                // A generic param is an address: the object that it is, is made.
+                if (is_generic_param(exp_type) && __is_generic_value_variable(exp))
+                {
+                    __compile_variable(ctx, pool, ((name_expression_t *)exp)->variable,
+                                                            __environment_t::empty, exp);
+
+                    pool.append<x_generic_copy_xil_t>(
+                        __ref_of(ctx, exp_type), xil_copy_kind_t::box
+                    );
+                }
+                else
+                {
+                    exp->compile(ctx, pool);
+                }
+
                 pool.append<x_cast_xil_t>(xil_cast_command_t::default_, __ref_of(ctx, type));
             }
         }
@@ -3464,13 +3777,36 @@ namespace X_ROOT_NS::modules::compile {
                 if (__is_custom_struct_like(type)) // Unbox custom struct.
                 {
                     exp->compile(ctx, pool);
-                    pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
+
+                    // The object of a member (((P)o).V) is the box itself, its data is the
+                    // struct; else the struct is copied to the destination that is below.
+                    if (__need_object_copy(this) || type->this_gtype() == gtype_t::generic)
+                    {
+                        pool.append<x_object_copy_xil_t>(
+                            __ref_of(ctx, type), xil_copy_kind_t::reverse
+                        );
+                    }
                 }
                 else    // internal value types.
                 {
                     exp->compile(ctx, pool);
                     pool.append<x_push_unbox_xil_t>(__ref_of(ctx, type));
                 }
+            }
+            else if (ctx.checked && __is_numeric_cast(exp_type, type))
+            {
+                // The value must fit the type: (int)longValue raises OverflowException.
+                __int128 value, lo, hi;
+                bool overflow = false;
+
+                if (__constant_integer(exp, value, overflow) && __integer_range(type->this_vtype(), lo, hi))
+                {
+                    __FailedWhen(overflow || value < lo || value > hi,
+                        "The conversion overflows at compile time in checked mode");
+                }
+
+                exp->compile(ctx, pool);
+                pool.append<x_push_convert_xil_t>(__xil_type(exp), to_xil_type(type->this_vtype()), true);
             }
             else
             {
@@ -3715,6 +4051,16 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
+            // Used by its members (new S().X): there is no destination, it is a temp variable.
+            if (__is_left_member(this))
+            {
+                local_variable_t * variable = ctx.define_temp_local(type);
+                __compile_local_variable(ctx, pool, variable);
+
+                if (is_effective(ctx, this->parent))
+                    pool.append<x_push_duplicate_xil_t>();
+            }
+
             // The struct has no constructor: its memory is zero, like a new object.
             pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::zero);
         }
@@ -3886,9 +4232,22 @@ namespace X_ROOT_NS::modules::compile {
         {
             case gtype_t::generic_param: {
 
-                pool.append<x_push_generic_const_xil_t>(
-                    __ref_of(ctx, (generic_param_t *)type)
-                );
+                // It is read from a local variable that is zero: the value of a generic param is
+                // an address and a copy, whatever the argument is (a struct is not a number).
+                local_variable_t * variable = ctx.define_temp_local(type);
+                ref_t type_ref = __ref_of(ctx, type);
+
+                pool.append<x_push_local_addr_xil_t>(variable->identity);
+                pool.append<x_generic_copy_xil_t>(type_ref, xil_copy_kind_t::zero);
+
+                pool.append<x_push_local_addr_xil_t>(variable->identity);
+
+                if (__need_object_copy(this))
+                {
+                    pool.append<x_generic_copy_xil_t>(type_ref,
+                        env.type_mark == type_mark_t::value? xil_copy_kind_t::ret
+                                                            : xil_copy_kind_t::reverse);
+                }
 
             }   break;
 

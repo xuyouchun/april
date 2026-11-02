@@ -47,7 +47,6 @@ namespace X_ROOT_NS::modules::core {
     // Common types.
     #define CoreType_Type         _T("Type")
     #define CoreType_Exception    _T("Exception")
-    #define CoreType_Checked      _T("Checked")
     #define CoreType_Nullable     _T("Nullable<>")
     #define CoreType_Void         _T("Void")
     #define CoreType_Object       _T("Object")
@@ -130,6 +129,7 @@ namespace X_ROOT_NS::modules::core {
     // instance_t
 
     class type_t;
+    class generic_constraint_t;
     class runtime_mobject_t { };
 
     ////////// ////////// ////////// ////////// //////////
@@ -2109,6 +2109,7 @@ namespace X_ROOT_NS::modules::core {
     X_ENUM(mtype_t)
 
         tuple,          // Tuple
+        tuple_interface,    // ITuple, the interface of the tuples
 
     X_ENUM_END
 
@@ -2514,6 +2515,11 @@ namespace X_ROOT_NS::modules::core {
     // E.g. int32 -> int64. System.String -> System.Object.
     bool is_type_compatible(type_t * from, type_t * to);
 
+    // Returns the type that both types are converted to, null if there is none:
+    // int and long: long. null and String: String. int and uint: long. null and int: int?.
+    // Two classes: their nearest common base class. A type that is null (not known) takes the other.
+    type_t * get_compatible_type(type_t * type1, type_t * type2);
+
     // Returns whether a type is a void type.
     bool is_void_type(type_t * type);
 
@@ -2786,6 +2792,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Generic param type.
         generic_param_type_t param_type = generic_param_type_t::__default__;
+
+        // The constraints (where T : ...) of the param: its members are those of their types.
+        std::vector<generic_constraint_t *> constraints;
+
+        // Returns the types that the param is constrained to (not the types of class, struct, new).
+        void each_constraint_type(std::function<bool (type_t *)> f);
 
         // Returns gtype, ttype, vtype.
         virtual gtype_t this_gtype() override final { return gtype_t::generic_param; }
@@ -3534,6 +3546,24 @@ namespace X_ROOT_NS::modules::core {
         // is walked where the variables of the method that has it are seen.
         bool lambda_walk_inside = false;
 
+        // The body of the lambda is a block that returns no value: a lambda that is called at once
+        // returns void.
+        bool lambda_no_value = false;
+
+        // The return type of a lambda that is not converted to a delegate is made from what its
+        // returns return: it is the type that all of them are converted to.
+        bool lambda_return_inferred = false;
+
+        // The items of the walk of the lambda, that are walked when its type is needed.
+        void * lambda_pending = nullptr;
+
+        // The names of the variables that the lambda uses: a lambda in it uses them too.
+        std::vector<name_t> lambda_captured_names;
+
+        // The arithmetic of the method raises on overflow: a lambda in checked(...) or
+        // checked { ... }, 0 is not set, 1 is checked, 2 is unchecked.
+        int checked_mode = 0;
+
         // The expression that is the body of a lambda, null for a block. It is a lambda too
         // when the lambda returns a lambda: (int a) => (int b) => b.
         expression_t * lambda_expression = nullptr;
@@ -3749,10 +3779,7 @@ namespace X_ROOT_NS::modules::core {
         virtual typex_t param_type_at(size_t index) const override;
 
         // Returns the param at the specified index.
-        virtual param_t * param_object_at(size_t index) const override
-        {
-            return __template()->param_object_at(index);
-        }
+        virtual param_t * param_object_at(size_t index) const override;
 
         // Returns method decorate.
         virtual decorate_t * get_decorate() override
@@ -3779,6 +3806,9 @@ namespace X_ROOT_NS::modules::core {
         type_t * host_type = nullptr;
 
     private:
+
+        // Returns the count of the types of the params generic parameter, -1 if there is none.
+        int __pack_count() const;
 
         // Returns general template.
         method_t * __template() const
@@ -5089,9 +5119,6 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.Exception type.
         general_type_t * get_exception_type();
 
-        // Returns System.Checked type: the arithmetic that raises on overflow.
-        general_type_t * get_checked_type();
-
         // Returns System.Nullable<T> type: the type of int? and the others.
         general_type_t * get_nullable_type();
 
@@ -5190,7 +5217,6 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __ienumerator_type = nullptr;
 
         general_type_t * __exception_type   = nullptr;
-        general_type_t * __checked_type     = nullptr;
         general_type_t * __nullable_type    = nullptr;
         general_type_t * __tuple_type       = nullptr;
         general_type_t * __ituple_type      = nullptr;
@@ -5783,6 +5809,10 @@ namespace X_ROOT_NS::modules::core {
 
         void * __last_local_variable; // The last local variable node.
 
+        // The region of a method: its local variables are counted from 0, even if it is below
+        // the region of another method, a lambda that sees the variables of the one that has it.
+        bool __method_root = false;
+
         static const msize_t __empty_index = unknown_msize;
         msize_t __local_index = __empty_index, __local_identity = 0;
 
@@ -6126,6 +6156,24 @@ namespace X_ROOT_NS::modules::core {
         // no types of params is analyzed after the statements that give them.
         int delay_bias = 0;
 
+        // The arithmetic of the node that is walked: 0 is not set by checked or unchecked, 1 is
+        // checked, 2 is unchecked. The lambda has that of the place where it is.
+        int checked_mode = 0;
+
+        // The items of a lambda, that are delayed while it is walked: they are kept apart, and
+        // walked together, when the type of the lambda is needed (a lambda that is called at once,
+        // the type of a variable), or at the time of the lambda.
+        class pending_t;
+
+        // The items that are delayed after it are kept apart, till end_pending().
+        pending_t * begin_pending();
+
+        // Ends the items that are kept apart.
+        void end_pending(pending_t * pending);
+
+        // Walks the items that are kept apart, if they were not.
+        void run_pending(pending_t * pending);
+
         // Delay walk specified node.
         // Push the node in the queue.
         void delay(ast_node_t * node, int step = 0, void * tag = nullptr)
@@ -6136,7 +6184,13 @@ namespace X_ROOT_NS::modules::core {
             if (delay_bias != 0 && step >= 26 && step < 30)
                 priory += delay_bias;
 
-            __walk_items.enque(__walk_item_t { __current_layer, node, step, tag }, priory);
+            __walk_item_t item { __current_layer, node, step, tag };
+
+            // The steps before the analysis give the types of the params and the variables.
+            if (__redirect != nullptr && priory >= 26 && priory < 30)
+                __enque_pending(priory, item);
+            else
+                __walk_items.enque(item, priory);
         }
 
         // Returns the parent mname.
@@ -6169,6 +6223,9 @@ namespace X_ROOT_NS::modules::core {
             int             step;       // The step identity.
             void *          tag;        // Argument.
         };
+
+        pending_t * __redirect = nullptr;                   // The items are kept apart.
+        void __enque_pending(int priory, const __walk_item_t & item);
 
         xheap_t __xheap;                                    // Memory management.
         __layer_t * __current_layer = nullptr;              // Current layer.
@@ -6657,7 +6714,7 @@ namespace X_ROOT_NS::modules::core {
         // Defines a local variable.
         local_variable_t * define_temp_local(type_t * type);
 
-        // The arithmetic raises on overflow, in checked(expression).
+        // The arithmetic raises on overflow, in checked(expression) and checked { ... }.
         bool checked = false;
 
         // The operator expression (x += y, x++) whose method is called to make the value that
@@ -6688,7 +6745,7 @@ namespace X_ROOT_NS::modules::core {
 
         new_, new_array, default_value, type_of, type_name, type_cast,
 
-        this_, base, name_unit, is, as,
+        this_, base, name_unit, is, as, checked,
 
     X_ENUM_END
 
@@ -7181,6 +7238,56 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // checked(expression), unchecked(expression): the arithmetic of the expression raises
+    // OverflowException when the result does not fit its type, or it does not.
+    class checked_expression_t : public texpression_t<1>
+    {
+        typedef texpression_t<1> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Constructor.
+        checked_expression_t(bool checked, expression_t * expression) _NE
+                : __super_t(expression), checked(checked)
+        { }
+
+        // checked or unchecked.
+        bool checked = true;
+
+        // Expression.
+        expression_t * expression() const _NE { return exps[0]; }
+
+        // Set expression.
+        void set_expression(expression_t * expression);
+
+        // Returns this family.
+        virtual expression_family_t this_family() const _NE override
+        {
+            return expression_family_t::checked;
+        }
+
+        // Returns vtype.
+        virtual vtype_t get_vtype() const override;
+
+        // Returns type.
+        virtual type_t * get_type() const override;
+
+        // Returns behaviour: that of the expression.
+        virtual expression_behaviour_t get_behaviour() const override;
+
+        // Executes the expression.
+        virtual cvalue_t execute() override;
+
+        // Converts to string.
+        virtual const string_t to_string() const override
+        {
+            return _F(_T("%1%(%2%)"), checked? _T("checked") : _T("unchecked"), expression());
+        }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Constant value expression.
     class cvalue_expression_t : public __simple_expression_base_t
     {
@@ -7569,10 +7676,6 @@ namespace X_ROOT_NS::modules::core {
 
         variable,
 
-        checked_,       // checked(expression): arithmetic of the expression raises on overflow.
-
-        unchecked_,     // unchecked(expression)
-
     X_ENUM_END
 
     // Function expression.
@@ -7610,18 +7713,6 @@ namespace X_ROOT_NS::modules::core {
 
         // Gets variable.
         variable_t * get_variable() const _NE;
-
-        // Makes it checked(expression) or unchecked(expression): it has no function.
-        void set_checked(bool checked) _NE;
-
-        // Returns whether it's checked(expression) or unchecked(expression).
-        bool is_checked_expression() const _NE
-        {
-            return get_ftype() == __ftype_t::checked_ || get_ftype() == __ftype_t::unchecked_;
-        }
-
-        // Returns the expression of checked(expression) or unchecked(expression).
-        expression_t * checked_expression() const;
 
         // Returns function expression relation object type.
         __ftype_t get_ftype() const _NE { return (__ftype_t)__relation_data; }
@@ -8279,6 +8370,10 @@ namespace X_ROOT_NS::modules::core {
     // Interface for xilx.
     X_INTERFACE xilx_t : object_t
     {
+        // The arithmetic raises on overflow: it is in checked(...) or checked { ... }, when the
+        // xilx is made. It is written after the statements are compiled.
+        bool checked = false;
+
         // Write to a pool.
         virtual void write(xilx_write_context_t & ctx, xil_pool_t & pool) = 0;
 
@@ -8572,6 +8667,10 @@ namespace X_ROOT_NS::modules::core {
         std::vector<variable_t *> catch_variables;
 
         method_t *              method;                 // Method.
+
+        // The arithmetic raises on overflow: in checked { ... }.
+        bool                    checked = false;
+
         jmp_manager_t           jmp_manager;            // Jmp manager.
         switch_manager_t        switch_manager;         // Switch-case manager.
 
@@ -8624,6 +8723,7 @@ namespace X_ROOT_NS::modules::core {
         _xilx_t * append_xilx(args_t && ... args)
         {
             _xilx_t * xilx = new_obj<_xilx_t>(std::forward<args_t>(args) ...);
+            xilx->checked = this->checked;
             current_region()->append_xilx(xilx);
 
             return xilx;

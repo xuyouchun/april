@@ -114,11 +114,20 @@ target_link_libraries(april_options INTERFACE
 )
 
 #---------- ---------- ---------- ---------- ----------
-# Modules: april_add_module(<name> <source dir>) -> static library
+# Modules: april_add_module(<name> <source dir>) -> the objects (<name>_objects, compiled once) and a
+# static library of them: the native programs are linked with the static libraries. With
+# APRIL_SHARED_MODULES the objects of the modules are also made into shared libraries, which the
+# april executable uses (see below).
+
+option(APRIL_SHARED_MODULES "Build the modules of april as shared libraries (DLL, .so)" ON)
 
 function(april_add_module NAME DIR)
     file(GLOB __sources CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/${DIR}/*.cpp")
-    add_library(${NAME} STATIC ${__sources})
+    add_library(${NAME}_objects OBJECT ${__sources})
+    target_link_libraries(${NAME}_objects PUBLIC april_options)
+    set_target_properties(${NAME}_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+    add_library(${NAME} STATIC $<TARGET_OBJECTS:${NAME}_objects>)
     target_link_libraries(${NAME} PUBLIC april_options)
 endfunction()
 
@@ -141,6 +150,97 @@ april_add_module(exec    "modules/exec")
 april_add_module(rt      "modules/rt")
 april_add_module(native  "modules/native")   # LLVM IR back end + native runtime support
 
+# The directory of the static libraries, where the executables of the native programs are linked
+# with them: it is searched when nothing else tells where they are.
+target_compile_definitions(native_objects PRIVATE APRIL_BUILD_LIBS_DIR="${CMAKE_BINARY_DIR}")
+
+# The JIT back end: a shared library with LLVM, that april loads when it is there. Without LLVM it
+# is not built, and the programs are built with clang, or run with the interpreter.
+find_package(LLVM CONFIG QUIET)
+if(LLVM_FOUND)
+    message(STATUS "LLVM ${LLVM_PACKAGE_VERSION} found: building april_jit (${LLVM_DIR})")
+
+    add_library(april_jit SHARED "${CMAKE_SOURCE_DIR}/modules/jit/april_jit.cpp")
+    target_include_directories(april_jit PRIVATE ${LLVM_INCLUDE_DIRS})
+    target_compile_definitions(april_jit PRIVATE ${LLVM_DEFINITIONS})
+    target_compile_features(april_jit PRIVATE cxx_std_17)
+    target_link_libraries(april_jit PRIVATE LLVM)
+
+    # Next to the april executable, where april looks for it (april_jit.dll on Windows).
+    set_target_properties(april_jit PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
+
+    if(WIN32)
+        set_target_properties(april_jit PROPERTIES PREFIX "")
+    endif()
+
+    # The library of LLVM that it loads is next to it: the library is found without a PATH.
+    add_custom_command(TARGET april_jit POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:LLVM>" "$<TARGET_FILE_DIR:april_jit>"
+        COMMENT "Copying the library of LLVM"
+        VERBATIM)
+
+    # The libraries that it uses, with the C++ library of the compiler: april does not need the
+    # PATH of the compiler to run.
+    if(WIN32)
+        foreach(__dll libc++.dll libffi-8.dll libiconv-2.dll libxml2-16.dll libzstd.dll zlib1.dll)
+            if(EXISTS "${LLVM_TOOLS_BINARY_DIR}/${__dll}")
+                add_custom_command(TARGET april_jit POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            "${LLVM_TOOLS_BINARY_DIR}/${__dll}" "$<TARGET_FILE_DIR:april_jit>"
+                    VERBATIM)
+            endif()
+        endforeach()
+    endif()
+else()
+    message(STATUS "LLVM not found: april_jit is not built")
+endif()
+
+# The toolchain that is bundled (Windows): ld.lld and a small sysroot next to april, so that
+# `april compile --native` links the object file of the JIT library without a compiler.
+# <bin>/native/lib is searched by modules/native/driver.cpp.
+if(WIN32 AND LLVM_FOUND)
+    get_filename_component(__clang_root "${LLVM_TOOLS_BINARY_DIR}/.." ABSOLUTE)
+    file(GLOB __builtins "${__clang_root}/lib/clang/*/lib/windows/libclang_rt.builtins-x86_64.a")
+    find_program(__ld_lld ld.lld HINTS "${LLVM_TOOLS_BINARY_DIR}")
+
+    if(__ld_lld AND __builtins)
+        list(GET __builtins -1 __builtins)
+        set(__sysroot "${CMAKE_SOURCE_DIR}/bin/native/lib")
+        set(__sys_files crt2.o crtbegin.o crtend.o libc++.a libunwind.a libmingw32.a libmingwex.a
+            libmoldname.a libmsvcrt.a libkernel32.a libadvapi32.a libshell32.a libuser32.a
+            libole32.a liboleaut32.a libpsapi.a libsecur32.a libws2_32.a libmswsock.a
+            libsynchronization.a libbcrypt.a libpthread.a libwinpthread.a
+            libboost_log-mt.a libboost_thread-mt.a libboost_date_time-mt.a libboost_container-mt.a
+            libboost_chrono-mt.a libboost_filesystem-mt.a libboost_atomic-mt.a)
+
+        set(__copy_commands
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${__sysroot}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${__ld_lld}" "${CMAKE_SOURCE_DIR}/bin"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${__builtins}" "${__sysroot}")
+
+        foreach(__f ${__sys_files})
+            list(APPEND __copy_commands COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            "${__clang_root}/lib/${__f}" "${__sysroot}")
+        endforeach()
+
+        set(__april_libs native rtlib rt core common algorithm lib mm os arch global)
+        foreach(__l ${__april_libs})
+            list(APPEND __copy_commands COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                            "$<TARGET_FILE:${__l}>" "${__sysroot}")
+        endforeach()
+
+        add_custom_target(april_native_toolchain ALL ${__copy_commands}
+            DEPENDS ${__april_libs}
+            COMMENT "Copying the linker and the libraries of the native programs"
+            VERBATIM)
+    else()
+        message(STATUS "ld.lld or the builtins of clang not found: no bundled linker")
+    endif()
+endif()
+
 # Same archive order as the legacy link line; wrapped in --start-group /
 # --end-group on Linux so cross-archive references never depend on ordering.
 set(APRIL_MODULE_LIBS
@@ -148,13 +248,61 @@ set(APRIL_MODULE_LIBS
     mm compile core lang_cs lang_lq rtlib exec rt native
 )
 
+# The shared libraries: the modules that the others are built on are one library, the compiler
+# (core, compile and the languages), the runtime (rt, rtlib), the interpreter (exec: many thousands
+# of symbols of templates, it exports only execute), the native back end (native).
+target_compile_definitions(exec_objects PRIVATE APRIL_EXEC_BUILD)
+
+if(APRIL_SHARED_MODULES)
+    function(april_add_shared NAME)
+        set(__objects "")
+        foreach(__module IN LISTS ARGN)
+            list(APPEND __objects $<TARGET_OBJECTS:${__module}_objects>)
+        endforeach()
+
+        add_library(${NAME} SHARED ${__objects})
+        target_link_libraries(${NAME} PUBLIC april_options)
+
+        # Next to the april executable.
+        set_target_properties(${NAME} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
+
+        if(WIN32)
+            set_target_properties(${NAME} PROPERTIES PREFIX "")
+        endif()
+    endfunction()
+
+    april_add_shared(april_base     global common algorithm arch os lib mm)
+    april_add_shared(april_compiler core compile lang_cs lang_lq)
+    april_add_shared(april_runtime  rt rtlib)
+
+    april_add_shared(april_exec     exec)
+    april_add_shared(april_native   native)
+
+    target_link_libraries(april_compiler PUBLIC april_base)
+    target_link_libraries(april_runtime  PUBLIC april_compiler)
+    target_link_libraries(april_exec     PUBLIC april_runtime)
+    target_link_libraries(april_native   PUBLIC april_runtime)
+endif()
+
 function(april_link_modules TARGET)
+    if(APRIL_SHARED_MODULES)
+        target_link_libraries(${TARGET} PRIVATE
+            april_exec april_native april_runtime april_compiler april_base)
+        target_link_libraries(${TARGET} PRIVATE ${CMAKE_DL_LIBS})
+        return()
+    endif()
+
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(${TARGET} PRIVATE
             -Wl,--start-group ${APRIL_MODULE_LIBS} -Wl,--end-group)
     else()
         target_link_libraries(${TARGET} PRIVATE ${APRIL_MODULE_LIBS})
     endif()
+
+    # dlopen: the JIT library is loaded when it is there.
+    target_link_libraries(${TARGET} PRIVATE ${CMAKE_DL_LIBS})
 endfunction()
 
 #---------- ---------- ---------- ---------- ----------
@@ -174,9 +322,9 @@ add_custom_command(
     VERBATIM
 )
 
-target_sources(lang_cs PRIVATE "${__csec_file}")
+target_sources(lang_cs_objects PRIVATE "${__csec_file}")
 set_source_files_properties("${__csec_file}" PROPERTIES HEADER_FILE_ONLY TRUE)
-target_include_directories(lang_cs PRIVATE "${__csec_dir}")
+target_include_directories(lang_cs_objects PRIVATE "${__csec_dir}")
 
 #---------- ---------- ---------- ---------- ----------
 # Executables

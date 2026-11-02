@@ -1226,7 +1226,12 @@ namespace X_ROOT_NS::modules::core {
             if (to == nullptr)
                 return;
 
-            if (!is_type_compatible(from, to))
+            // The constant of an enum is a number of its underlying type.
+            type_t * type = to;
+            if (is_enum(to) && is_general(to))
+                type = __XPool.get_internal_type(((general_type_t *)to)->get_underlying_vtype());
+
+            if (!is_type_compatible(from, type))
                 throw _ED(__e_t::unexpected_const_type, from, to);
         }
 

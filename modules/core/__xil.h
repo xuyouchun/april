@@ -87,6 +87,16 @@ namespace X_ROOT_NS::modules::core {
 
         positive        = 7,        // +
 
+        // The arithmetic that raises OverflowException when the result does not fit its
+        // type: checked(expression), checked { ... } .
+        checked_add     = 8,        // +
+
+        checked_sub     = 9,        // -
+
+        checked_mul     = 10,       // *
+
+        checked_minus   = 11,       // -
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
@@ -235,6 +245,9 @@ namespace X_ROOT_NS::modules::core {
 
         command         = 5,        // Execute a command
 
+        constrained     = 6,        // Instance call of a member of a generic param, the type that
+                                    //   is the host of the method is known when the program runs.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
@@ -346,6 +359,9 @@ namespace X_ROOT_NS::modules::core {
 
         unbox           = 21,       // Converts an ref object to value object.
 
+        checked_convert = 22,       // Like convert, raises OverflowException when the value does
+                                    // not fit the type: (int)longValue in checked.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------
@@ -361,6 +377,10 @@ namespace X_ROOT_NS::modules::core {
         stack_alloc     = 3,            // Allocate object from stack.
 
         stack_allocs    = 4,            // Allocate objects from stack.
+
+        generic_stack_alloc = 5,        // Allocate an object from stack, if the generic param is
+                                        //   a custom struct, else nothing: the destination of
+                                        //   the value that a call returns.
 
     __EnumEnd
 
@@ -386,6 +406,19 @@ namespace X_ROOT_NS::modules::core {
 
         ret             = 3,            // Loads the object at the address on the top into the
                                         //   stack as a value, e.g. a generic param returned.
+
+        receiver        = 5,            // The object of a call, a generic param: a reference is loaded
+                                        //   into the stack, a struct is its address (nothing).
+
+        box             = 6,            // The object at the address on the top is made an object: a
+                                        //   reference is loaded into the stack, a value (a struct,
+                                        //   a number, a string) is boxed. A generic param is an
+                                        //   Object.
+
+        call_ret        = 4,            // Returns the value that a call returned: if the generic
+                                        //   param is a custom struct, the object at the address on
+                                        //   the top is copied to the destination of the caller;
+                                        //   else the value is in the stack, nothing is done.
 
     __EnumEnd
 
@@ -915,6 +948,7 @@ namespace X_ROOT_NS::modules::core {
                 break;
 
             case xil_storage_type_t::convert:
+            case xil_storage_type_t::checked_convert:
                 size += 1;                              // xil_type_t
                 break;
 

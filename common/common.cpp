@@ -6,6 +6,7 @@
 */
 
 
+#include <filesystem>
 #include <common.h>
 #include <arch.h>
 
@@ -452,7 +453,11 @@ namespace X_ROOT_NS {
     void file_xistream_t::open(const string_t & path, __open_mode_t open_mode)
     {
         __open_mode_t mode = (open_mode | __i::in) & ~(__i::out | __i::trunc);
+    #ifdef _WIN32
+        __stream.open(std::filesystem::path(path), mode);   // The path is not in the code page.
+    #else
         __stream.open(string_convert<char_t, char>(path), mode);
+    #endif
 
         if (!__stream.is_open())
             throw _ECF(invalid_operation, _T("cannot open file '%1%'"), path);
@@ -485,7 +490,11 @@ namespace X_ROOT_NS {
     void file_xostream_t::open(const string_t & path, __open_mode_t open_mode)
     {
         __open_mode_t mode = (open_mode | __i::out) & ~__i::in;
+    #ifdef _WIN32
+        __stream.open(std::filesystem::path(path), mode);   // The path is not in the code page.
+    #else
         __stream.open(string_convert<char_t, char>(path), mode);
+    #endif
 
         if (!__stream.is_open())
             throw _ECF(invalid_operation, _T("cannot open file '%1%'"), path);

@@ -1202,6 +1202,10 @@ namespace X_ROOT_NS::modules::compile {
                 bind_lambda_to_type(exp->expression_at(1), type1);
                 type_t * type2 = exp->expression_at(1)->get_type();
 
+                // An operand of undefined type has been reported.
+                if (type1 == nullptr || type2 == nullptr)
+                    return;
+
                 if (!is_type_compatible(type2, type1)
                         && !is_constant_compatible(exp->expression_at(1), type1))
                 {
@@ -1221,7 +1225,10 @@ namespace X_ROOT_NS::modules::compile {
             for (expression_t * exp : exp->exps)
             {
                 type_t * arg_type = exp->get_type();
-                _A(arg_type != nullptr);
+
+                // An operand of undefined type has been reported: the operator is not analyzed.
+                if (arg_type == nullptr)
+                    return;
 
                 if (is_null(arg_type))
                     exists_null = true;
@@ -1659,14 +1666,20 @@ namespace X_ROOT_NS::modules::compile {
                     {
                         function_exp->set_variable(variable);
                         __walk_arguments(function_exp->arguments());
+
+                        // The local variables of the method that does the work of an iterator
+                        // are the fields of the state object, the delegates that are called too.
+                        method_t * current = __wctx.current_method();
+                        if (variable->this_type() == variable_type_t::local
+                                && current != nullptr && current->iterator_info != nullptr)
+                        {
+                            ((iterator_info_t *)current->iterator_info)->calls.push_back(function_exp);
+                        }
                     }
-                    else if (type == nullptr && __is_checked_name(name_exp->name)
-                                && function_exp->arguments() != nullptr
-                                && function_exp->arguments()->size() == 1)
+                    else if (type == nullptr && variable != nullptr
+                                && ((method_variable_t *)variable)->method->is_lambda)
                     {
-                        // checked(expression), unchecked(expression)
-                        function_exp->set_checked(name_exp->name == __to_name(_T("checked")));
-                        __walk_arguments(function_exp->arguments());
+                        __walk_lambda_call(function_exp, ((method_variable_t *)variable)->method);
                     }
                     else
                     {
@@ -1705,6 +1718,14 @@ namespace X_ROOT_NS::modules::compile {
                     }
                 }   break;
 
+                case expression_family_t::function:
+                    // f(1)(2), Type.Method(1)(2): the method is a member of the type, if there is one,
+                    // and the delegate that it returns is called.
+                    __avoid_walk(namex_exp);
+                    __walk_function((function_expression_t *)namex_exp, type);
+                    __walk_arguments(function_exp->arguments());
+                    break;
+
                 default:
                     __walk(namex_exp);
                     __walk_arguments(function_exp->arguments());
@@ -1712,10 +1733,70 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
-        // Returns whether the name is checked or unchecked.
-        bool __is_checked_name(name_t name)
+        // Walks a lambda that is called at once: ((Int32 x) => x + 1)(2). It has no delegate that
+        // gives its return type, it is the type of its body, if it is an expression. The types of
+        // its params, if they have none, are those of the arguments.
+        void __walk_lambda_call(function_expression_t * function_exp, method_t * method)
         {
-            return name == __to_name(_T("checked")) || name == __to_name(_T("unchecked"));
+            arguments_t * arguments = function_exp->arguments();
+            __walk_arguments(arguments);
+
+            size_t count = arguments == nullptr? 0 : arguments->size();
+            if (count != method->param_count())
+            {
+                ast_log(__cctx, function_exp, __c_t::method_not_match, method->get_name(),
+                                                                       method->host_type);
+                return;
+            }
+
+            for (size_t index = 0; index < count; index++)
+            {
+                param_t * param = (*method->params)[index];
+                type_t * arg_type = arguments->at(index)->expression->get_type();
+
+                if (method->lambda_implicit && param->type_name != nullptr
+                        && param->type_name->type == uncertain_type_t::instance()
+                        && arg_type != nullptr && !is_null(arg_type))
+                {
+                    param->type_name->type = arg_type;
+                }
+            }
+
+            // The body is analyzed now: its type is the return type.
+            if (method->type_name != nullptr
+                    && method->type_name->type == uncertain_type_t::instance())
+            {
+                __wctx.run_pending((ast_walk_context_t::pending_t *)method->lambda_pending);
+            }
+
+            // A block that returns only null: its type is object.
+            if (method->type_name != nullptr && method->lambda_return_inferred
+                    && is_null(method->type_name->type))
+            {
+                method->type_name->type = __XPool.get_object_type();
+                if (method->variable != nullptr)
+                    method->variable->reset_type();
+            }
+
+            // A block that returns no value.
+            if (method->type_name != nullptr
+                    && method->type_name->type == uncertain_type_t::instance()
+                    && method->lambda_no_value)
+            {
+                method->type_name->type = __XPool.get_internal_type(vtype_t::void_);
+                if (method->variable != nullptr)
+                    method->variable->reset_type();
+            }
+
+            // A block that returns a value: nothing tells its type.
+            if (method->type_name != nullptr
+                    && method->type_name->type == uncertain_type_t::instance())
+            {
+                ast_log(__cctx, function_exp, __c_t::lambda_type_undetermined);
+                method->type_name->type = __XPool.get_object_type();
+            }
+
+            function_exp->set_method(method);
         }
 
         // Tries to get method.
@@ -1816,6 +1897,13 @@ namespace X_ROOT_NS::modules::compile {
             {
                 generic_method_t * generic_method = __XPool.new_generic_method(method, tc, type);
                 function_exp->set_method(generic_method);
+
+                // The types of the params and the return type that are made from the arguments.
+                generic_method->get_type();
+                for (size_t k = 0, count = generic_method->param_count(); k < count; k++)
+                    generic_method->param_type_at(k);
+
+                __wctx.commit_types();
             }
 
             if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)
@@ -1851,6 +1939,25 @@ namespace X_ROOT_NS::modules::compile {
 
         #undef __CheckWalk
     };
+
+    // Walks the items of a lambda that were kept apart.
+    void analyze_lambda_now(ast_walk_context_t & context, expression_t * expression)
+    {
+        if (expression == nullptr || expression->this_family() != expression_family_t::name)
+            return;
+
+        name_expression_t * name_exp = (name_expression_t *)expression;
+        if (name_exp->expression_type != name_expression_type_t::variable
+                || name_exp->variable == nullptr
+                || name_exp->variable->this_type() != variable_type_t::method)
+        {
+            return;
+        }
+
+        method_t * method = ((method_variable_t *)name_exp->variable)->method;
+        if (method != nullptr && method->is_lambda && method->lambda_pending != nullptr)
+            context.run_pending((ast_walk_context_t::pending_t *)method->lambda_pending);
+    }
 
     // Walks expression.
     void walk_expression(ast_context_t & cctx, ast_walk_context_t & wctx,
