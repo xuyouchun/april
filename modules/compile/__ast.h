@@ -462,484 +462,574 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Common log codes.
+    // Common log codes: the diagnostics of the declarations, the names, the statements and the
+    // expressions. The code of a diagnostic is its number (AP4001), it is never changed or used
+    // for another message: the ranges are told in docs/diagnostics.md.
     X_ENUM_(common_log_code_t, sizeof(compile_log_code_value_t))
 
         __info__            = 1000,
 
+        // ---- AP4001 - AP4999: warnings.
+
         __warning__         = 4000,
 
         // Hides inherit virtual member.
-        hides_inherit_virtual_member,
+        hides_inherit_virtual_member = 4001,
 
         // Hides inherit member.
-        hides_inherit_member,
+        hides_inherit_member = 4002,
 
         // The member does not hide an accessible member. The new keyword is not required.
-        not_hides_inherit_member,
+        not_hides_inherit_member = 4003,
 
         // A value that can be null is converted to a type that cannot be null.
-        nullable_convert,
+        nullable_convert = 4004,
 
         // The null literal is converted to a type that cannot be null.
-        nullable_null_literal,
+        nullable_null_literal = 4005,
 
         // A value that can be null is dereferenced.
-        nullable_dereference,
+        nullable_dereference = 4006,
 
         // A value that can be null is returned by a method that returns a type that cannot be.
-        nullable_return,
+        nullable_return = 4007,
 
         // A value that can be null is an argument of a param that cannot be null.
-        nullable_argument,
+        nullable_argument = 4008,
 
         // A field that cannot be null is not initialized when a constructor exits.
-        nullable_field_uninitialized,
+        nullable_field_uninitialized = 4009,
 
         // The argument of a generic type can be null, the param cannot be.
-        nullable_constraint,
+        nullable_constraint = 4010,
 
         __error__           = 7000,
 
-        // Duplicated
-        duplicate           = 7001,
+        // ---- AP0100 - AP0199: malformed code (names, missing parts, things that are not allowed there).
 
         // Name empty.
-        name_empty,
-
-        // The language has no goto statement.
-        goto_not_supported,
-
-        // A constructor cannot call itself.
-        constructor_calls_itself,
-
-        // The type of the expression of a for each statement is not supported.
-        for_each_type_not_supported,
-
-        // The type of the variable of a using statement has no Dispose().
-        using_type_not_disposable,
-
-        // A lambda is only in a method.
-        lambda_outside_method,
-
-        // A method with yield returns IEnumerable<T> or IEnumerator<T>.
-        iterator_return_type_invalid,
-
-        // A yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>.
-        yield_outside_iterator,
-
-        // The iterator cannot be made.
-        iterator_not_supported,
-
-        // The return type of a lambda is that of the delegate it is converted to.
-        lambda_type_undetermined,
-
-        // A lambda that uses local variables is not supported here.
-        lambda_capture_not_supported,
-
-        // A local variable that a lambda uses is modified.
-        lambda_capture_modified,
-
-        // A lambda that uses local variables uses a member of the object.
-        lambda_capture_member,
-
-        // Unexpected first char in a name.
-        name_unexpected_first_char,
-
-        // Unexpected char in a name.
-        name_unexpected_char,
+        name_empty = 100,
 
         // Assembly name missing.
-        assembly_name_missing,
+        assembly_name_missing = 101,
 
         // Namespace name missing.
-        namespace_name_missing,
+        namespace_name_missing = 102,
 
         // Type name missing.
-        type_name_missing,
+        type_name_missing = 103,
 
         // Argument missing.
-        argument_missing,
-
-        // Argument type error.
-        argument_type_error,
-
-        // Unexpected param default value.
-        unexpected_param_default_value,
+        argument_missing = 104,
 
         // Condition missing.
-        condition_missing,
+        condition_missing = 105,
 
         // Body missing.
-        body_missing,
+        body_missing = 106,
 
         // Iterator missing.
-        iterator_missing,
+        iterator_missing = 107,
 
         // Statement missing.
-        statement_missing,
+        statement_missing = 108,
 
         // Expression missing.
-        expression_missing,
+        expression_missing = 109,
 
         // Catch or finally missing.
-        catch_or_finally_missing,
+        catch_or_finally_missing = 110,
 
         // Array lengths missing.
-        array_lengths_missing,
-
-        // Unexpected params.
-        unexpected_params,
-
-        // Generic arguments redundance in function.
-        function_generic_args_redundance,
-
-        // Unexpected variable defination.
-        unexpected_variable_defination,
-
-        // Unexpected field defination.
-        unexpected_field_defination,
-
-        // Unexpected param defination.
-        unexpected_param_defination,
-
-        // Unexpected property defination.
-        unexpected_property_defination,
-
-        // Unexpected method defination.
-        unexpected_method_defination,
-
-        // Unexpected typedef decorate.
-        unexpected_type_def_decorate,
-
-        // Unexpected typedef attribute.
-        unexpected_type_def_attribute,
-
-        // A constant variable require a value to be provided.
-        constant_variable_initialize_missing,
-
-        // The expression beging assigned to constant variable must be constant.
-        constant_variable_required_constant_value,
-
-        // Unexpected using namespace.
-        unexpected_using_namespace,
-
-        // Unexpected import.
-        unexpected_import,
-
-        // A reference of itself.
-        assembly_reference_itself,
-
-        // Assembly circular reference.
-        assembly_circular_reference,
-
-        // Assembly not found.
-        assembly_not_found,
-
-        // Variable defination duplicated.
-        variable_defination_duplicate,
-
-        // Variable undefined.
-        variable_undefined,
-
-        // Type undefined.
-        type_undefined,
-
-        // Typedef unsolved.
-        type_def_unsolved,
-
-        // Type defination duplicated.
-        type_defination_duplicate,
-
-        // Typedef defination duplicated.
-        type_def_defination_duplicate,
-
-        // Type undetermind.
-        type_undetermind,
-
-        // Unexpected symbol.
-        unexpected_symbol,
-
-        // Member not found.
-        member_not_found,
-
-        // Member defination duplicated.
-        member_defination_duplicated,
-
-        // Member names cannot be the same as their enclosing type.
-        member_same_as_enclosing_type,
-
-        // Method not found.
-        method_not_found,
-
-        // Method not match.
-        method_not_match,
-
-        // Method conflict.
-        method_conflict,
-
-        // Not all code paths return a value.
-        method_no_return,
-
-        // The return keyword must not be followed by an expression in void method.
-        method_unexpected_return_value,
-
-        // The return keyword must followed by an expression in non-void method.
-        method_return_value_missing,
-
-        // Incompatible return type.
-        method_incompatible_return_value,
-
-        // Property index undetermind.
-        property_index_undetermind,
-
-        // Property method body uniformity.
-        property_method_body_missing,
-
-        // Property or indexer must have at least one accessor.
-        property_accessor_missing,
-
-        // Attribute constructor not match.
-        attribute_constructor_not_match,
-
-        // Type consturctor not matched.
-        type_constructor_not_match,
-
-        // Unexpected expression.
-        unexpected_expression,
-
-        // Invalid expression.
-        invalid_expression,
-
-        // Constructor method should no return type.
-        constructor_method_should_no_return_type,
-
-        // Destructor method should no return type.
-        destructor_method_should_no_return_type,
-
-        // Static constructor method should no return type.
-        static_constructor_method_should_no_return_type,
-
-        // Destructor method should no params.
-        destructor_method_should_no_params,
-
-        // Static constructor method should no params.
-        static_constructor_method_should_no_params,
-
-        // Constructor method not found.
-        constructor_method_not_found,
-
-        // Do not need a default constructor.
-        do_not_need_default_constructor,
-
-        // Partial specialization not supported.
-        partial_specialization_not_supported,
-
-        // No base type.
-        no_base_type,
-
-        // Circular base type dependency.
-        circle_base_type_dependency,
+        array_lengths_missing = 111,
 
         // Expected array length.
-        expected_array_length,
+        expected_array_length = 112,
+
+        // Unexpected first char in a name.
+        name_unexpected_first_char = 113,
+
+        // Unexpected char in a name.
+        name_unexpected_char = 114,
+
+        // Argument type error.
+        argument_type_error = 115,
+
+        // Unexpected param default value.
+        unexpected_param_default_value = 116,
+
+        // Unexpected params.
+        unexpected_params = 117,
+
+        // Generic arguments redundance in function.
+        function_generic_args_redundance = 118,
+
+        // Unexpected variable defination.
+        unexpected_variable_defination = 119,
+
+        // Unexpected field defination.
+        unexpected_field_defination = 120,
+
+        // Unexpected property defination.
+        unexpected_property_defination = 121,
+
+        // Unexpected method defination.
+        unexpected_method_defination = 122,
+
+        // Unexpected param defination.
+        unexpected_param_defination = 123,
+
+        // Unexpected typedef decorate.
+        unexpected_type_def_decorate = 124,
+
+        // Unexpected typedef attribute.
+        unexpected_type_def_attribute = 125,
+
+        // Unexpected import.
+        unexpected_import = 126,
+
+        // Unexpected using namespace.
+        unexpected_using_namespace = 127,
+
+        // The language has no goto statement.
+        goto_not_supported = 128,
 
         // Array initializer error.
-        array_initializer_error,
+        array_initializer_error = 129,
 
-        // Invalid initialize value.
-        invalid_initialize_value,
+        // Partial specialization not supported.
+        partial_specialization_not_supported = 130,
 
-        // Operator overload prototype error.
-        operator_overload_prototype_error,
-
-        // Unitary operator overload prototype error: Wrong param count.
-        unitary_operator_overload_wrong_param_count,
-
-        // Binary operator overload prototype error: Wrong param count.
-        binary_operator_overload_wrong_param_count,
-
-        // Operator overload prototype error: One of the parameters must be the containing type.
-        unitary_operator_overload_wrong_containing_type,
-
-        // Operator overload prototype error: The parameter must be the containing type.
-        binary_operator_overload_wrong_containing_type,
-
-        // Operator overload prototype error; User-defined operators cannot return void.
-        operator_overload_cannot_return_void,
-
-        // Operator cannot ber overloaded.
-        operator_cannot_be_overloaded,
-
-        // Operator overload not defined.
-        operator_overload_not_defined,
-
-        // The operator is ambiguous: more than one method fits the operands.
-        operator_overload_ambiguous,
-
-        // The operator ?. is used with the object of a type that cannot be null.
-        null_conditional_wrong_type,
-
-        // The value is assigned to a member of ?. .
-        null_conditional_assign,
-
-        // Cannot determine local type.
-        cannot_determine_local_variable_type,
-
-        // Cannot find method with prototype.
-        cannot_find_method_with_prototype,
-
-        // Unexpected decorate on enum fields.
-        unexpected_enum_decorate,
-
-        // Unexpected type on enum fields.
-        unexpected_enum_type,
-
-        // Enum field prototype error,
-        enum_field_prototype_error,
-
-        // Expect constant value.
-        expect_constant_value,
-
-        // Unexpected underlying type.
-        unexpected_underlying_type,
-
-        // The enum value is too large
-        enum_value_too_large,
-
-        // The enum value is too small
-        enum_value_too_small,
-
-        // The evaluation of the constant value involves a circular definition.
-        enum_field_circular_definition,
-
-        // Member is inaccessible to its protection level.
-        inaccessible_protection_level,
-
-        // Cannot change access modifiers when overriding inherited member.
-        access_modifier_changed,
-
-        // Cannot change return types when override inherited members.
-        return_type_changed,
-
-        // Virtual or abstract members cannot be private
-        virtual_member_cannot_be_private,
-
-        // A static member cannot be marked as override, virtual, or abstract
-        static_member_cannot_be_virtual,
-
-        // A member marked as override cannot be marked as new or virtual
-        override_member_cannot_be_new,
-
-        // Member is abstract but it is contained in non-abstract type.
-        abstract_member_on_non_abstract_type,
+        // ---- AP2100 - AP2199: members and modifiers.
 
         // The modifier is not valid for this item.
-        modifier_not_valid,
+        modifier_not_valid = 2100,
 
         // The modifier is not valid for interface members.
-        modifier_not_valid_for_interface_members,
+        modifier_not_valid_for_interface_members = 2101,
+
+        // Virtual or abstract members cannot be private
+        virtual_member_cannot_be_private = 2102,
+
+        // A static member cannot be marked as override, virtual, or abstract
+        static_member_cannot_be_virtual = 2103,
+
+        // A member marked as override cannot be marked as new or virtual
+        override_member_cannot_be_new = 2104,
+
+        // Member is abstract but it is contained in non-abstract type.
+        abstract_member_on_non_abstract_type = 2105,
 
         // Extern members should be marked as static.
-        extern_member_should_be_static,
+        extern_member_should_be_static = 2106,
 
         // Extern method cannot declare a body.
-        extern_method_cannot_declare_body,
+        extern_method_cannot_declare_body = 2107,
 
         // Abstract method cannot declare a body.
-        abstract_method_cannot_declare_body,
+        abstract_method_cannot_declare_body = 2108,
 
         // Cannot be sealed because it is not an override member.
-        sealed_member_but_not_override,
+        sealed_member_but_not_override = 2109,
 
         // No suitable member found to override.
-        no_suitable_member_to_override,
+        no_suitable_member_to_override = 2110,
 
         // Cannot override inherited member because it is sealed.
-        cannot_override_sealed_members,
+        cannot_override_sealed_members = 2111,
 
         // Return type changed when override inherit members.
-        override_member_return_type_changed,
+        override_member_return_type_changed = 2112,
 
-        // Interface members cannot have defination.
-        interface_members_cannot_have_defination,
+        // Cannot change access modifiers when overriding inherited member.
+        access_modifier_changed = 2113,
 
-        // Interfaces cannot contain instance fields.
-        interfaces_cannot_contain_instance_fields,
+        // Cannot change return types when override inherited members.
+        return_type_changed = 2114,
 
-        // A static member of an interface that is not abstract must have a body.
-        interface_static_member_needs_body,
+        // Member is inaccessible to its protection level.
+        inaccessible_protection_level = 2115,
 
-        // A static abstract (or virtual) member is used through the interface.
-        interface_static_member_through_interface,
+        // ---- AP2200 - AP2299: types, inheritance and interfaces.
+
+        // No base type.
+        no_base_type = 2200,
+
+        // Circular base type dependency.
+        circle_base_type_dependency = 2201,
+
+        // A type is declared partial in a place, and is not in another.
+        partial_modifier_missing = 2202,
+
+        // The partial declarations of a type disagree: kind, access, generic params, base class.
+        partial_conflict = 2203,
 
         // A non-abstract type does not implement an inherited abstract member.
-        abstract_member_not_implemented,
+        abstract_member_not_implemented = 2204,
 
         // A non-abstract type does not implement an interface member.
-        interface_member_not_implemented,
+        interface_member_not_implemented = 2205,
+
+        // Interfaces cannot contain instance fields.
+        interfaces_cannot_contain_instance_fields = 2206,
+
+        // Interface members cannot have defination.
+        interface_members_cannot_have_defination = 2207,
+
+        // A static member of an interface that is not abstract must have a body.
+        interface_static_member_needs_body = 2208,
+
+        // A static abstract (or virtual) member is used through the interface.
+        interface_static_member_through_interface = 2209,
+
+        // Do not need a default constructor.
+        do_not_need_default_constructor = 2210,
+
+        // ---- AP2300 - AP2399: constructors, properties and constants.
+
+        // Constructor method should no return type.
+        constructor_method_should_no_return_type = 2300,
+
+        // Destructor method should no return type.
+        destructor_method_should_no_return_type = 2301,
+
+        // Static constructor method should no return type.
+        static_constructor_method_should_no_return_type = 2302,
+
+        // Destructor method should no params.
+        destructor_method_should_no_params = 2303,
+
+        // Static constructor method should no params.
+        static_constructor_method_should_no_params = 2304,
+
+        // A constructor cannot call itself.
+        constructor_calls_itself = 2305,
+
+        // Property method body uniformity.
+        property_method_body_missing = 2306,
+
+        // Property or indexer must have at least one accessor.
+        property_accessor_missing = 2307,
+
+        // A constant variable require a value to be provided.
+        constant_variable_initialize_missing = 2308,
+
+        // The expression beging assigned to constant variable must be constant.
+        constant_variable_required_constant_value = 2309,
+
+        // Expect constant value.
+        expect_constant_value = 2310,
+
+        // Invalid initialize value.
+        invalid_initialize_value = 2311,
+
+        // The param "this" is not the first param, or the method of it is not an extension
+        // method that can be.
+        this_param_not_first = 2312,
+
+        // An extension method is not a static method of a static class that is not generic.
+        extension_method_wrong_container = 2313,
+
+        // An event has the add accessor or the remove accessor, not both.
+        event_accessor_missing = 2314,
+
+        // The type of an event is not a delegate.
+        event_type_not_delegate = 2315,
+
+        // The raise accessor is not valid for the event.
+        event_raise_not_valid = 2316,
+
+        // An event is used as a value outside of the type that has it.
+        event_cannot_be_used = 2317,
+
+        // ---- AP2400 - AP2499: enums.
+
+        // Unexpected decorate on enum fields.
+        unexpected_enum_decorate = 2400,
+
+        // Unexpected type on enum fields.
+        unexpected_enum_type = 2401,
+
+        // Enum field prototype error,
+        enum_field_prototype_error = 2402,
+
+        // Unexpected underlying type.
+        unexpected_underlying_type = 2403,
+
+        // The enum value is too large
+        enum_value_too_large = 2404,
+
+        // The enum value is too small
+        enum_value_too_small = 2405,
+
+        // The evaluation of the constant value involves a circular definition.
+        enum_field_circular_definition = 2406,
+
+        // An enum has no instance field, instance event, or constructor.
+        enum_instance_member_error = 2407,
+
+        enum_constructor_error = 2408,
+
+        // ---- AP2500 - AP2599: operator overloading.
+
+        // Operator overload prototype error.
+        operator_overload_prototype_error = 2500,
+
+        // Unitary operator overload prototype error: Wrong param count.
+        unitary_operator_overload_wrong_param_count = 2501,
+
+        // Binary operator overload prototype error: Wrong param count.
+        binary_operator_overload_wrong_param_count = 2502,
+
+        // Operator overload prototype error: One of the parameters must be the containing type.
+        unitary_operator_overload_wrong_containing_type = 2503,
+
+        // Operator overload prototype error: The parameter must be the containing type.
+        binary_operator_overload_wrong_containing_type = 2504,
+
+        // Operator overload prototype error; User-defined operators cannot return void.
+        operator_overload_cannot_return_void = 2505,
+
+        // Operator cannot ber overloaded.
+        operator_cannot_be_overloaded = 2506,
+
+        // A conversion operator must be implicit or explicit.
+        conversion_kind_missing = 2507,
+
+        // A conversion operator takes one parameter.
+        conversion_wrong_param_count = 2508,
+
+        // A conversion operator converts from or to the containing type.
+        conversion_wrong_containing_type = 2509,
+
+        // ---- AP3100 - AP3199: definitions and duplicates.
+
+        // Duplicated
+        duplicate = 3100,
+
+        // Variable defination duplicated.
+        variable_defination_duplicate = 3101,
+
+        // Type defination duplicated.
+        type_defination_duplicate = 3102,
+
+        // Typedef defination duplicated.
+        type_def_defination_duplicate = 3103,
+
+        // Member defination duplicated.
+        member_defination_duplicated = 3104,
+
+        // Member names cannot be the same as their enclosing type.
+        member_same_as_enclosing_type = 3105,
+
+        // A static field of a generic type has an initial value: the static constructor of a
+        // generic type is not run.
+        static_init_in_generic_type = 3106,
+
+        // ---- AP3200 - AP3299: names and lookup.
+
+        // Variable undefined.
+        variable_undefined = 3200,
+
+        // Type undefined.
+        type_undefined = 3201,
+
+        // Typedef unsolved.
+        type_def_unsolved = 3202,
+
+        // Type undetermind.
+        type_undetermind = 3203,
+
+        // Cannot determine local type.
+        cannot_determine_local_variable_type = 3204,
+
+        // Property index undetermind.
+        property_index_undetermind = 3205,
+
+        // Member not found.
+        member_not_found = 3206,
+
+        // Method not found.
+        method_not_found = 3207,
+
+        // Method not match.
+        method_not_match = 3208,
+
+        // Attribute constructor not match.
+        attribute_constructor_not_match = 3209,
+
+        // Type consturctor not matched.
+        type_constructor_not_match = 3210,
+
+        // The field or the property that an attribute assigns is not found.
+        attribute_named_argument_not_found = 3215,
+
+        // Constructor method not found.
+        constructor_method_not_found = 3211,
+
+        // Method conflict.
+        method_conflict = 3212,
+
+        // Cannot find method with prototype.
+        cannot_find_method_with_prototype = 3213,
+
+        // Unexpected symbol.
+        unexpected_symbol = 3214,
+
+        // ---- AP3300 - AP3399: assemblies.
+
+        // A reference of itself.
+        assembly_reference_itself = 3300,
+
+        // Assembly circular reference.
+        assembly_circular_reference = 3301,
+
+        // Assembly not found.
+        assembly_not_found = 3302,
+
+        // ---- AP5100 - AP5199: methods and statements.
+
+        // Not all code paths return a value.
+        method_no_return = 5100,
+
+        // The return keyword must not be followed by an expression in void method.
+        method_unexpected_return_value = 5101,
+
+        // The return keyword must followed by an expression in non-void method.
+        method_return_value_missing = 5102,
+
+        // Incompatible return type.
+        method_incompatible_return_value = 5103,
+
+        // The type of the expression of a for each statement is not supported.
+        for_each_type_not_supported = 5104,
+
+        // The type of the variable of a using statement has no Dispose().
+        using_type_not_disposable = 5105,
+
+        // ---- AP5200 - AP5299: lambdas and iterators.
+
+        // A lambda is only in a method.
+        lambda_outside_method = 5200,
+
+        // The return type of a lambda is that of the delegate it is converted to.
+        lambda_type_undetermined = 5201,
+
+        // A lambda that uses local variables is not supported here.
+        lambda_capture_not_supported = 5202,
+
+        // A local variable that a lambda uses is modified.
+        lambda_capture_modified = 5203,
+
+        // A lambda that uses local variables uses a member of the object.
+        lambda_capture_member = 5204,
+
+        // The iterator cannot be made.
+        iterator_not_supported = 5205,
+
+        // A method with yield returns IEnumerable<T> or IEnumerator<T>.
+        iterator_return_type_invalid = 5206,
+
+        // A yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>.
+        yield_outside_iterator = 5207,
+
+        // ---- AP5300 - AP5399: expressions.
+
+        // Unexpected expression.
+        unexpected_expression = 5300,
+
+        // Invalid expression.
+        invalid_expression = 5301,
 
         // Cannot implicitly convert a type to another type.
-        invalid_type_cast,
+        invalid_type_cast = 5302,
 
-        // The type arguments for method cannot be inferred from the usage.
-        // Try specifying the type arguments explicitly.
-        type_arguments_cannot_be_inferred,
+        // The type arguments for method cannot be inferred from the usage. Try specifying the type arguments explicitly.
+        type_arguments_cannot_be_inferred = 5303,
 
-        // The type 'string' cannot be used as type parameter 'T' in the
-        //  generic type or method 'Class1<T>'. There is no implicit reference conversion
-        //  from 'string' to 'Project1.Class2'.
-        constraint_no_implicit_conversion,
+        // Operator overload not defined.
+        operator_overload_not_defined = 5304,
 
-        // The type 'string' must be a non-nullable value type
-        //  in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
-        constraint_expect_value_type,
+        // The operator is ambiguous: more than one method fits the operands.
+        operator_overload_ambiguous = 5305,
 
-        // The type 'int' must be a reference type in order to
-        //  use it as parameter 'T' in the generic type or method 'Class1<T>'
-        constraint_expect_reference_type,
+        // The value is assigned to a member of ?. .
+        null_conditional_assign = 5306,
 
-        // 'long' is not a valid constraint. A type used as a constraint
-        //  must be an interface, a non-sealed class or a type parameter
-        constraint_invalid_type,
+        // The operator ?. is used with the object of a type that cannot be null.
+        null_conditional_wrong_type = 5307,
 
-        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints
-        //  cannot be combined or duplicated.
-        constraint_combined_or_duplicated,
+        // A constant operation overflows in checked mode.
+        constant_overflow = 5308,
 
-        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints
-        //  must be specified first in the constraints list.
-        constraint_must_be_first,
+        // A constant conversion overflows in checked mode.
+        conversion_overflow = 5309,
 
-        // The 'new()' constraint cannot be used with the 'struct' constraint
-        constraint_new_cannot_be_used_with_struct,
+        // An array is indexed by a number of indices that is not one, or its dimension.
+        array_index_count_mismatch = 5310,
 
-        // 'Class2' must be a non-abstract type with a public parameterless constructor
-        //  in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
-        constraint_expect_public_parameterless_constructor,
+        // Only the items of a params generic parameter can be passed with ... .
+        items_expected = 5311,
 
-        // Duplicate constraint 'Class2' for type parameter 'T'
-        constraint_duplicate_types,
+        // The items of a params generic parameter are passed to a parameter that takes them with
+        // ... : f(items ...).
+        items_without_dots = 5312,
 
-        // Constraint cannot be special class 'object'
-        constraint_cannot_be_special_type,
+        // An object initializer of a type that is not a class.
+        object_initializer_not_supported = 5313,
 
-        // A constraint clause has already been specified for type parameter 'T'.
-        // All of the constraints for a type parameter must be specified in a single where clause.
-        constraint_duplicate_specified,
+        // An init only property is set where it cannot be.
+        init_only_property_assigned = 5314,
 
-        // The class type constraint 'Class3' must come before any other constraints
-        constraint_type_position_error,
-
-        // Circular constraint dependency involving 'T' and 'K'
-        constraint_circular_dependency,
-
-        // 'Class3': cannot specify both a constraint class and the 'class' or 'struct' constraint
-        constraint_unexpected_class_or_struct,
+        // ---- AP6100 - AP6199: generics and constraints.
 
         // Class1<T>' does not define type parameter 'K'
-        generic_parameter_not_defined,
+        generic_parameter_not_defined = 6100,
 
+        // The type 'string' cannot be used as type parameter 'T' in the generic type or method 'Class1<T>'. There is no implicit reference conversion from 'string' to 'Project1.Class2'.
+        constraint_no_implicit_conversion = 6101,
+
+        // The type 'string' must be a non-nullable value type in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+        constraint_expect_value_type = 6102,
+
+        // The type 'int' must be a reference type in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+        constraint_expect_reference_type = 6103,
+
+        // 'long' is not a valid constraint. A type used as a constraint must be an interface, a non-sealed class or a type parameter
+        constraint_invalid_type = 6104,
+
+        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints cannot be combined or duplicated.
+        constraint_combined_or_duplicated = 6105,
+
+        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints must be specified first in the constraints list.
+        constraint_must_be_first = 6106,
+
+        // The 'new()' constraint cannot be used with the 'struct' constraint
+        constraint_new_cannot_be_used_with_struct = 6107,
+
+        // 'Class2' must be a non-abstract type with a public parameterless constructor in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+        constraint_expect_public_parameterless_constructor = 6108,
+
+        // Duplicate constraint 'Class2' for type parameter 'T'
+        constraint_duplicate_types = 6109,
+
+        // Constraint cannot be special class 'object'
+        constraint_cannot_be_special_type = 6110,
+
+        // A constraint clause has already been specified for type parameter 'T'. All of the constraints for a type parameter must be specified in a single where clause.
+        constraint_duplicate_specified = 6111,
+
+        // The class type constraint 'Class3' must come before any other constraints
+        constraint_type_position_error = 6112,
+
+        // Circular constraint dependency involving 'T' and 'K'
+        constraint_circular_dependency = 6113,
+
+        // 'Class3': cannot specify both a constraint class and the 'class' or 'struct' constraint
+        constraint_unexpected_class_or_struct = 6114,
+
+        // The type 'string' must be an unmanaged type in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+        constraint_expect_unmanaged_type = 6115,
 
         __the_end__         = 10000,
 
@@ -1312,6 +1402,14 @@ namespace X_ROOT_NS::modules::compile {
 
             // Parses a source text, returns the root node.
             ast_node_t * __parse_snippet(const string_t & text);
+
+            // Gives the attribute CompilerGenerated to a member that the compiler makes.
+            void __mark_generated(ast_walk_context_t & context,
+                                  with_attributes_object_t * target, eobject_t * owner);
+
+            // Gives the attribute CompilerGenerated to a type that the compiler makes, and to
+            // its members.
+            void __mark_generated_type(ast_walk_context_t & context, general_type_t * type);
 
             // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
             // Returns null if the type has no Dispose().
@@ -2370,6 +2468,12 @@ namespace X_ROOT_NS::modules::compile {
         // Sets param type.
         void set_param_type(param_type_t ptype, __el_t * el);
 
+        // Sets this: the first param of an extension method, (this String text).
+        void set_this(__el_t * el);
+
+        // Whether it's the param of the object that an extension method extends.
+        bool is_this = false;
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -2638,6 +2742,9 @@ namespace X_ROOT_NS::modules::compile {
         // Arguments.
         __arguments__,
 
+        // The named arguments: [Author("ann", Level = 3)].
+        __assigns__,
+
     EndAst(attribute)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2785,6 +2892,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Sets extern decorate.
         void set_extern(__el_t * el);
+
+        // Sets partial decorate.
+        void set_partial(__el_t * el);
 
         // Get decorate value.
         decorate_value_t get_decorate();
@@ -3088,6 +3198,10 @@ namespace X_ROOT_NS::modules::compile {
 
     class method_ast_node_t;
 
+    // Merges the parts of the partial types (partial class X { }) of the files into one type: the
+    // first part has all the members, the others only walk their members in their own context.
+    void merge_partial_types(const std::vector<ast_node_t *> & roots, logger_t & logger);
+
     // Type
     Ast(type, __cvalue_t::type)
 
@@ -3147,6 +3261,16 @@ namespace X_ROOT_NS::modules::compile {
         // Appends member.
         void append_member(member_t * member);
 
+        // Sets the first part of the type that has the members of this part (a partial type).
+        void set_merged_into(type_ast_node_t * first) { __merged_first = first; }
+
+        // The count of the parts of a partial type (that the first part has).
+        size_t parts_count() const { return __parts_count; }
+        void set_parts_count(size_t count) { __parts_count = count; }
+
+        // Returns whether this is a part of a partial type that is not the first one.
+        bool is_merged_part() const { return __merged_first != nullptr; }
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -3162,6 +3286,20 @@ namespace X_ROOT_NS::modules::compile {
         class __general_fields_init_stub_t;
 
         __el_t * __name_el = nullptr;
+
+        // The first part of the type that has the members of this part, when this is a part of a
+        // partial type that is not the first one.
+        type_ast_node_t * __merged_first = nullptr;
+
+        // The count of the parts of a partial type, and the count of them that are walked.
+        size_t __parts_count = 1;
+        size_t __parts_walked = 0;
+
+        // Ends the default walk, after all the parts are walked.
+        bool __walk_default_end(ast_walk_context_t & context);
+
+        // The variable region of the type: the parts of a partial type share it.
+        variable_region_t * __type_region = nullptr;
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context, int step, void * tag);
@@ -3439,6 +3577,9 @@ namespace X_ROOT_NS::modules::compile {
     public:
         using __return_st_ast_node_t::__return_st_ast_node_t;
 
+        // The statement is the body of a method or of an accessor that is an expression (=> x;).
+        bool is_arrow = false;
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -3463,6 +3604,11 @@ namespace X_ROOT_NS::modules::compile {
     public:
         general_type_t *    state_type = nullptr;       // The class of the state object.
         params_t *          params = nullptr;           // The params of the method of the user.
+        method_t *          user_method = nullptr;      // The method of the user.
+
+        // The types of the params of a generic method: (the type of the method of the user, the
+        // type that the method that does the work has). It is given when the types are known.
+        std::vector<std::pair<type_name_t *, type_name_t *>> param_remaps;
         param_variable_t *  base = nullptr;             // The state object, it is a param.
 
         std::vector<local_variable_t *>             locals;     // The local variables.
@@ -3740,6 +3886,13 @@ namespace X_ROOT_NS::modules::compile {
         // Sets variable.
         void set_variable(name_t name, __el_t * el);
 
+        // Makes this a using declaration: using T obj = ...; , the group has the statements that
+        // follow it in the block.
+        void set_declaration(ast_node_t * group);
+
+        // Returns the group of statements of a using declaration, or nullptr.
+        ast_node_t * declaration_group() const { return __declaration_group; }
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -3750,6 +3903,7 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
+        ast_node_t *        __declaration_group = nullptr;
         variable_region_t * __region = nullptr;     // The region of the variable.
         local_variable_t *  __variable = nullptr;   // The variable.
 
@@ -4207,6 +4361,9 @@ namespace X_ROOT_NS::modules::compile {
         // Arguments.
         __arguments__,
 
+        // The members that are set: new T { Name = value }.
+        __inits__,
+
     EndAst(new)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4229,6 +4386,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        void __walk_inits(ast_walk_context_t & context, type_t * type);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4593,14 +4753,36 @@ namespace X_ROOT_NS::modules::compile {
     {
         typedef __method_ast_node_t __super_t;
 
+        bool __partial_skipped = false;
+        bool __partial_empty   = false;
+
     public:
         using __super_t::__super_t;
+
+        // Returns whether the first param is (this Type name): it's an extension method.
+        bool has_this_param() const;
+
+        // The declaration of a partial method that has an implementation in another part: it is
+        // not a member of the type, it is not walked.
+        void set_partial_skipped() { __partial_skipped = true; }
+
+        // The declaration of a partial method that has no implementation: its body is empty.
+        void set_partial_empty() { __partial_empty = true; }
 
         // Sets name.
         void set_name(name_t name, __el_t * el);
 
         // Sets operator. ( for operator overloading. )
         void set_operator(const operator_property_t * op_property, __el_t * el);
+
+        // The operator is the one that is used in a checked context (operator checked +): its name has
+        // Checked, so that a type can have both.
+        void set_operator_checked() { __op_checked = true; }
+
+        // The method is a conversion (implicit operator T(S s), explicit operator T(S s)): its name tells what
+        // it is, the type that it returns is the type that it makes.
+        void set_conversion_kind(bool is_implicit) { __conversion_kind = is_implicit? 1 : 2; }
+        void set_conversion(__el_t * el);
 
         // Sets trait.
         void set_trait(method_trait_t trait, __el_t * el);
@@ -4637,6 +4819,9 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
         const operator_property_t * __op_property = nullptr;
+        bool __op_checked = false;
+        int  __conversion_kind = 0;         // 1: implicit, 2: explicit.
+        bool __is_conversion = false;
         __el_t * __name_el = nullptr;
         bool __ctor_this = false;
 
@@ -4651,6 +4836,18 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks the end step of the method that does the work of an iterator.
         void __walk_iterator_end(ast_walk_context_t & context);
+
+        // Checks the extension method.
+        void __check_extension(ast_walk_context_t & context);
+
+        // Gives the types of the params of the method of the user to those of an iterator.
+        void __remap_iterator_params();
+
+        // Marks the extension method, its class and its assembly with ExtensionAttribute.
+        void __attach_extension(ast_walk_context_t & context);
+
+        // The class of the extension method.
+        general_type_t * __extension_type = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4748,6 +4945,9 @@ namespace X_ROOT_NS::modules::compile {
         
         // Remove method.
         __remove_method__,
+
+        // Raise method.
+        __raise_method__,
         
     EndAst(event)
 
@@ -4778,11 +4978,34 @@ namespace X_ROOT_NS::modules::compile {
     private:
         __el_t *       __name_el = nullptr;
 
+        // The region of the bodies that are made after the types are known.
+        variable_region_t * __region = nullptr;
+
+        // The parts that are made when the type of the event is known.
+        type_name_t *  __list_type_name = nullptr;  // The type of the field.
+        type_name_t *  __return_type_name = nullptr;// The return type of the raise method.
+        param_t *      __value_param = nullptr;     // The value of the add and remove methods.
+        bool           __default_raise = false;     // The raise method is made by this node.
+
+        // The expressions of the add and remove methods that this node makes: the operators
+        // that they use are found when the type of the event is known.
+        expression_t * __add_expression = nullptr;
+        expression_t * __remove_expression = nullptr;
+
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context, int step, void * tag);
 
+        // Walks confirm step: the type of the event is known.
+        bool __walk_confirm(ast_walk_context_t & context);
+
         // Walks analysis step.
         bool __walk_analysis(ast_walk_context_t & context);
+
+        // Makes the add and remove methods, and the field, of an event that has no accessors.
+        void __make_default_accessors(ast_walk_context_t & context, bool abstract_accessors);
+
+        // Makes the body of the raise method of an event that has no accessors.
+        void __make_default_raise(generic_type_t * delegate_type);
     };
 
     ////////// ////////// ////////// ////////// //////////

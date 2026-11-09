@@ -47,7 +47,7 @@ namespace X_ROOT_NS {
     {
         #define __X_CASE(type)                                                          \
             case value_type_t::type##_:                                                 \
-                return __value_t<type##_t>::to_string(value);
+                return __value_t<__X_NUMERIC(type)>::to_string(value);
 
         switch (type)
         {
@@ -73,7 +73,7 @@ namespace X_ROOT_NS {
         {
             #define __X_CASE(_type)                                                     \
                 case value_type_t::_type##_:                                            \
-                    return __Compare(_type##_t, _type##_t);
+                    return __Compare(__X_NUMERIC(_type), __X_NUMERIC(_type));
 
             switch (t1)
             {
@@ -195,12 +195,17 @@ namespace X_ROOT_NS {
         }
     }
 
+    // The value that a wide stream writes: a Char is the one of the host.
+    static char_t __printable(rt_char_t c) { return (char_t)c; }
+
+    template<typename t> static t __printable(t v) { return v; }
+
     // Write a tvalue_t object into output stream
     ostream_t & operator << (ostream_t & stream, const tvalue_t & v)
     {
         #define __X_CASE(type)                                                          \
             case value_type_t::type##_:                                                 \
-                stream << get_value<type##_t>(v.value);                                 \
+                stream << __printable(get_value<__X_NUMERIC(type)>(v.value));                                 \
                 break;
 
         switch (v.type)

@@ -85,6 +85,22 @@ namespace X_ROOT_NS::modules::rt {
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    // Runtime push field address command.
+    struct rt_push_field_addr_command_t : rt_push_command_t<__stype_t::field_addr>
+    {
+        typedef rt_push_field_addr_command_t                __self_t;
+        typedef rt_push_command_t<__stype_t::field_addr>    __super_t;
+
+        rt_push_field_addr_command_t(rt_field_base_t * field) _NE : field(field)
+        {
+            _A(field != nullptr);
+        }
+
+        rt_field_base_t * field;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     // Runtime push argument command.
     struct rt_push_argument_command_t : rt_push_command_t<__stype_t::argument>
     {
@@ -94,6 +110,23 @@ namespace X_ROOT_NS::modules::rt {
         rt_push_argument_command_t(msize_t identity) _NE : identity(identity) { }
 
         msize_t identity;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Runtime copy command: copies an object, the address of the destination is at the top of the
+    // stack, the one of the source is below it.
+    struct rt_copy_command_t : rt_command_base_t<__cmd_t::copy>
+    {
+        typedef rt_copy_command_t                   __self_t;
+        typedef rt_command_base_t<__cmd_t::copy>    __super_t;
+
+        rt_copy_command_t(rt_type_t * type) _NE : type(type)
+        {
+            _A(type != nullptr);
+        }
+
+        rt_type_t * type;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -130,6 +163,39 @@ namespace X_ROOT_NS::modules::rt {
     {
         typedef rt_ret_command_t                __self_t;
         typedef rt_smp_command_t<__smp_t::ret>  __super_t;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // The commands of the stub that calls a method with the arguments that are in an array of
+    // objects (Method.Invoke). The stub has two params: the object that the method is called
+    // on, and the array of the arguments.
+    enum class rt_invoke_kind_t
+    {
+        // Takes the arguments of the array, calls the method.
+        call,
+
+        // Makes an object of the value that the method returned (null for a method of void).
+        finish,
+    };
+
+    // Runtime invoke command.
+    struct rt_invoke_command_t : rt_command_base_t<__cmd_t::call>
+    {
+        typedef rt_invoke_command_t                     __self_t;
+        typedef rt_command_base_t<__cmd_t::call>        __super_t;
+
+        rt_invoke_command_t(rt_invoke_kind_t kind, rt_method_base_t * method,
+                                            rt_reflect_member_t * member) _NE
+            : kind(kind), method(method), member(member)
+        {
+            _A(method != nullptr);
+            _A(member != nullptr);
+        }
+
+        rt_invoke_kind_t        kind;
+        rt_method_base_t *      method;
+        rt_reflect_member_t *   member;     // The reflection of the method: its parameters.
     };
 
     ////////// ////////// ////////// ////////// //////////

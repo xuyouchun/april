@@ -13,7 +13,7 @@ n=4
 import System;
 
 using System;
-class P
+class P : IStringable
 {
     public int X;
     public P(int x)
@@ -21,7 +21,7 @@ class P
         X = x;
     }
 
-    public override String ToString()
+    public String ToString()
     {
         return "P(" + X + ")";
     }

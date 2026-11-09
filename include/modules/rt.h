@@ -108,6 +108,12 @@ namespace X_ROOT_NS::modules::rt {
         // Returns assembly at index.
         rt_assembly_t * at(int index);
 
+        // Returns the number of the assemblies that are loaded.
+        int count() const { return (int)__assembly_vector.size(); }
+
+        // Finds a resource of the loaded assemblies: the first that has the name. False when no assembly has it.
+        bool find_resource(const string_t & name, const byte_t ** out_bytes, size_t * out_length);
+
         X_TO_STRING_IMPL(_T("rt_assemblies_t"))
 
     private:
@@ -413,20 +419,68 @@ namespace X_ROOT_NS::modules::rt {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The strings of the virtual machine (the value of a String): the length is kept in the 8 bytes
+    // before the first character (the first 4 bytes are the length, the others are reserved), the
+    // characters end with 0 for the functions of C++ (a string can have the character 0, too). A
+    // pointer to a string points to its first character, a null pointer is the empty string.
+    static const size_t rt_string_head_size = 8;
+
+    // Returns the length of a string. O(1).
+    inline int32_t rt_string_length(const rt_char_t * s) _NE
+    {
+        if (s == nullptr)
+            return 0;
+
+        int32_t length;
+        std::memcpy(&length, (const char *)s - rt_string_head_size, sizeof(length));
+        return length;
+    }
+
+    // Returns the size of the memory of a string of the length, with the head and the last 0.
+    inline size_t rt_string_bytes(size_t length) _NE
+    {
+        return rt_string_head_size + (length + 1) * sizeof(rt_char_t);
+    }
+
+    // Writes the head and the last 0 into the memory (rt_string_bytes of the length), returns the
+    // pointer to the first character, that the caller fills.
+    inline rt_char_t * rt_string_init(void * memory, size_t length) _NE
+    {
+        int32_t n = (int32_t)length;
+
+        std::memset(memory, 0, rt_string_head_size);
+        std::memcpy(memory, &n, sizeof(n));
+
+        rt_char_t * chars = (rt_char_t *)((char *)memory + rt_string_head_size);
+        chars[length] = 0;
+
+        return chars;
+    }
+
+    // Returns the empty string.
+    inline const rt_char_t * rt_empty_string() _NE
+    {
+        alignas(8) static const struct { int32_t length; int32_t reserved; rt_char_t end; }
+                                                            __empty = { 0, 0, 0 };
+        return &__empty.end;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Rt string.
     class rt_string_t : public rt_object_t
     {
     public:
 
         // Constructor.
-        rt_string_t(const char_t * s, rt_size_t length)
+        rt_string_t(const rt_char_t * s, rt_size_t length)
             : s(s), length(length)
         {
             _A(s != nullptr);
         }
 
         rt_size_t length = 0;
-        const char_t * s = nullptr;
+        const rt_char_t * s = nullptr;       // UTF-16, the string of the virtual machine.
 
         // Compare operators.
 
@@ -446,7 +500,7 @@ namespace X_ROOT_NS::modules::rt {
         // Converts to string.
         operator string_t() const
         {
-            return !s? _T("") : s;
+            return !s? string_t() : to_host_string(s, length);
         }
 
     private:
@@ -477,16 +531,19 @@ namespace X_ROOT_NS::modules::rt {
         // Converts to string.
         operator string_t() const { return !value? _T("") : (string_t)*value; }
 
-        // Converts to const char_t *.
-        const char_t * c_str() const { return value? value->s : nullptr; }
+        // Converts to const rt_char_t * (UTF-16).
+        const rt_char_t * c_str() const { return value? value->s : nullptr; }
 
-        // Converts to const char_t *, returns empty string when nullptr.
-        const char_t * ce_str() const { return value && value->s? value->s : _T(""); }
-
-        // Returns c_str or default_str when nullptr.
-        const char_t * operator | (const char_t * default_str) const
+        // Converts to const rt_char_t *, returns empty string when nullptr.
+        const rt_char_t * ce_str() const
         {
-            return empty()? default_str : c_str();
+            return value && value->s? value->s : rt_empty_string();
+        }
+
+        // The string of the host, default_str when it is empty.
+        string_t operator | (const char_t * default_str) const
+        {
+            return empty()? string_t(default_str) : (string_t)*value;
         }
 
         // Returns whether it's empty.
@@ -504,6 +561,12 @@ namespace X_ROOT_NS::modules::rt {
         static const rt_sid_t null;
     };
 
+    // Writes the sid to a stream of the host.
+    inline std::basic_ostream<char_t> & operator << (std::basic_ostream<char_t> & os, const rt_sid_t & sid)
+    {
+        return os << (string_t)sid;
+    }
+
     //-------- ---------- ---------- ---------- ----------
 
     // Rt String Pool.
@@ -518,11 +581,14 @@ namespace X_ROOT_NS::modules::rt {
         // Converts to string id.
         rt_sid_t to_sid(const string_t & s);
 
+        // Converts a string of the virtual machine (UTF-16) to string id.
+        rt_sid_t to_sid(const ustring_t & s);
+
         X_TO_STRING_IMPL(_T("rt_spool_t"))
 
     private:
         std::set<rt_string_t> __string_set;
-        al::heap_t<char_t[]> __heap;
+        al::heap_t<rt_char_t[]> __heap;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -810,6 +876,7 @@ namespace X_ROOT_NS::modules::rt {
         rt_pool_t(memory_t * memory);
 
         using __partial_t<rpool_key_type_t::method>::get;
+        using __partial_t<rpool_key_type_t::method>::set;
         using __partial_t<rpool_key_type_t::field>::get;
         using __partial_t<rpool_key_type_t::generic_method>::get;
         using __partial_t<rpool_key_type_t::array_type>::get;
@@ -1049,6 +1116,9 @@ namespace X_ROOT_NS::modules::rt {
         // Gets type name.
         virtual rt_sid_t get_name(analyzer_env_t & env) = 0;
 
+        // Gets type full name: the namespace, the host types and the generic arguments.
+        virtual rt_sid_t get_full_name(analyzer_env_t & env) { return get_name(env); }
+
         // Gets type kind.
         virtual rt_type_kind_t get_kind() = 0;
 
@@ -1191,6 +1261,9 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets name.
         virtual rt_sid_t get_name(analyzer_env_t & env) override final;
+
+        // Gets full name.
+        virtual rt_sid_t get_full_name(analyzer_env_t & env) override final;
 
         // Gets this kind.
         virtual rt_type_kind_t get_kind() override final { return rt_type_kind_t::general; }
@@ -1414,6 +1487,9 @@ namespace X_ROOT_NS::modules::rt {
         // Gets name.
         virtual rt_sid_t get_name(analyzer_env_t & env) override final;
 
+        // Gets full name.
+        virtual rt_sid_t get_full_name(analyzer_env_t & env) override final;
+
         // Returns whether a value of this generic type can be used as the other type by the
         // variance of the generic params: IProducer<String> as IProducer<Object> when T is out.
         bool is_variant_of(analyzer_env_t & env, rt_type_t * other);
@@ -1606,6 +1682,13 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns host type.
         virtual rt_type_t * get_host_type() override { return nullptr; }
+
+        // Returns Array<T>: T[] and Array<T> are the same type, the base type of the array, the
+        // interfaces of it (IReadOnlyList<T>) and the virtual table are those of it.
+        rt_generic_type_t * as_generic(analyzer_env_t & env);
+
+    private:
+        rt_generic_type_t * __generic = nullptr;
 
     protected:
 
@@ -1997,6 +2080,12 @@ namespace X_ROOT_NS::modules::rt {
         // Gets method body.
         virtual rt_bytes_t get_method_body(rt_method_t * method) = 0;
 
+        // The resources: bytes that are embedded in the assembly. The count, and the name and the bytes of the
+        // one at the index.
+        virtual int get_resource_count() = 0;
+        virtual rt_sid_t get_resource_name(int index) = 0;
+        virtual rt_bytes_t get_resource_bytes(int index) = 0;
+
         // Gets field name.
         virtual rt_sid_t get_name(rt_field_t * field) = 0;
 
@@ -2055,6 +2144,27 @@ namespace X_ROOT_NS::modules::rt {
 
         // Gets param.
         virtual rt_field_t * get_field(ref_t ref) = 0;
+
+        // Gets property.
+        virtual rt_property_t * get_property(ref_t ref) = 0;
+
+        // Gets event.
+        virtual rt_event_t * get_event(ref_t ref) = 0;
+
+        // Gets the attributes of the assembly.
+        virtual ref_t get_attributes() = 0;
+
+        // Gets attribute.
+        virtual rt_attribute_t * get_attribute(ref_t ref) = 0;
+
+        // Gets attribute argument.
+        virtual rt_attribute_argument_t * get_attribute_argument(ref_t ref) = 0;
+
+        // Gets the value of a constant.
+        virtual cvalue_t get_constant(ref_t ref) = 0;
+
+        // Returns whether the constant is a type (typeof(A)), and its type ref.
+        virtual bool get_constant_type(ref_t ref, ref_t * out_type_ref) = 0;
 
         // Gets generic method.
         virtual rt_param_t  * get_param(ref_t param_ref) = 0;
@@ -2172,6 +2282,15 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns memory managerment.
         memory_t * get_memory() { return this->memory; }
+
+        // Returns the object that holds the static fields of a type: the executor has it (it
+        // sets the function), null when the code does not run.
+        std::function<rt_ref_t (rt_type_t *)> static_data_getter;
+
+        rt_ref_t get_static_data(rt_type_t * type)
+        {
+            return static_data_getter? static_data_getter(type) : nullptr;
+        }
 
         // Returns core assembly.
         rt_assembly_t * get_core_assembly();
@@ -2311,8 +2430,8 @@ namespace X_ROOT_NS::modules::rt {
         // Each extends types.
         void each_extend_params(ref_t extern_param_ref, each_extern_params_func_t f);
 
-        // Returns char_t * by resource.
-        const char_t * to_cstr(res_t res)
+        // Returns the string of a resource: UTF-16, the string of the virtual machine.
+        const rt_char_t * to_cstr(res_t res)
         {
             return __to_sid(res).c_str();
         }
@@ -2345,8 +2464,9 @@ namespace X_ROOT_NS::modules::rt {
         // Gets field offset.
         msize_t get_field_offset(ref_t field_ref, rt_type_t * host_type = nullptr);
 
-        // Gets virtual method offset.
-        int get_virtual_method_offset(ref_t method_ref);
+        // Gets virtual method offset. The host type is the type that has the method, when it is
+        // an instance of a generic type (Derived<Int32>): its base types have arguments.
+        int get_virtual_method_offset(ref_t method_ref, rt_type_t * host_type = nullptr);
 
         // Gets prototype of method ref.
         void get_prototype(ref_t method_ref, method_prototype_t * out_prototype);
@@ -2376,7 +2496,8 @@ namespace X_ROOT_NS::modules::rt {
         }
 
         // Gets method by method ref.
-        rt_method_base_t * __get_method(ref_t method_ref, ref_t * out_method_ref = nullptr);
+        rt_method_base_t * __get_method(ref_t method_ref, ref_t * out_method_ref = nullptr,
+                                        bool * out_depends_on_caller = nullptr);
 
         // Gets field by field ref.
         rt_field_base_t  * __get_field(ref_t field_ref, rt_type_t ** out_type);
@@ -2613,6 +2734,152 @@ namespace X_ROOT_NS::modules::rt {
     // generic param (T.MaxValue). Returns null if the call is not of this kind.
     rt_method_base_t * resolve_constrained_static(analyzer_env_t & env,
                                                   rt_generic_method_t * method);
+
+
+    ////////// ////////// ////////// ////////// //////////
+    // Reflection.
+
+    // The reflection of a program reads the members of a type from tables of plain data, that the
+    // interpreter builds from the metadata (rt_reflection_t) and that the native back end writes
+    // into the programs with the same layout (see native_abi.h): the functions of the reflection
+    // are the same loads in both. A Type is rt_type_t * in the interpreter, and the descriptor of
+    // the type in a native program: the tables keep a Type as a void *, to be one or the other.
+
+    // The kinds of members that a type has (the lists of rt_reflect_type_t).
+    enum class rt_reflect_kind_t
+    {
+        field = 0,              // A field.
+
+        method,                 // A method (a constructor too).
+
+        property,               // A property.
+
+        event,                  // An event.
+
+        generic_param,          // A generic parameter of the type.
+    };
+
+    // The bits of the flags of a member: the decorate of the member (the access, access_value_t, in
+    // the 4 lowest bits, then one bit for static, sealed, override, virtual, abstract, new, const,
+    // readonly, extern and partial), and the next bits.
+    const int64_t reflect_flag_trait_shift  = 16;       // method_trait_t of a method (8 bits).
+    const int64_t reflect_flag_param_shift  = 16;       // param_type_t of a parameter (8 bits).
+    const int64_t reflect_flag_position_shift = 24;     // The position of a parameter (16 bits).
+    const int64_t reflect_flag_ttype_shift  = 32;       // ttype_t of a type (4 bits).
+    const int64_t reflect_flag_field        = 1 << 14;  // The member is a field.
+    const int64_t reflect_flag_value_this   = 1 << 15;  // The this of the method is a value (a number),
+                                                        // its size is in the bits 24..31.
+
+    // Every table of a member has this bit: a Type (the descriptor of a native program) has a
+    // small number at the same place (+24), that is how a ReflectionInfo tells a Type from a member.
+    const int64_t reflect_flag_member       = (int64_t)1 << 62;
+
+    // A member, a parameter, a generic parameter or an assembly: all of them have the same layout.
+    struct rt_reflect_member_t
+    {
+        const rt_char_t *       name;               //   0  The name (UTF-16).
+        void *                  declaring;          //   8  The Type that declares it.
+        void *                  type;               //  16  The Type of it (the return type of a method), or null.
+        int64_t                 flags;              //  24  See the shifts above.
+        rt_reflect_member_t *   accessor_a;         //  32  The get method of a property, the add method of an event.
+        rt_reflect_member_t *   accessor_b;         //  40  The set method of a property, the remove method of an event.
+        int64_t                 param_count;        //  48  The parameters of a method (the index parameters of a property).
+        rt_reflect_member_t **  params;             //  56
+        int64_t                 gparam_count;       //  64  The generic parameters of a method.
+        rt_reflect_member_t **  gparams;            //  72
+        rt_reflect_member_t *   accessor_c;         //  80  The raise method of an event.
+        int64_t                 offset;             //  88  A field: its offset in the object, or in the static data. A method: its virtual offset, or -1.
+        void *                  static_data;        //  96  A static field: where the static data is (native); a method: its runtime method (the interpreter), its function (native).
+        int64_t                 size;               // 104  A field, a parameter: the size of its value. A method: the size of its result.
+        int64_t                 value_kind;         // 112  A field, a parameter, a method (its result): see rt_reflect_value_kind_t.
+        void *                  type_key;           // 120  A field, a parameter: the key of its type (native), to check a value. A method: the key of its type.
+        void *                  invoker;            // 128  A method (native): the function that calls it with the values in an array (see native_abi.h).
+        void *                  attributes;         // 136  The attributes (native): see april_native_attributes_t of native_abi.h; the interpreter reads the metadata.
+    };
+
+    // How the value of a field is read and written by the reflection.
+    enum class rt_reflect_value_kind_t
+    {
+        none = 0,               // It is not known (the type of the field is not).
+
+        reference,              // A reference: the value is the object.
+
+        value,                  // A number, a struct or an enum: it is boxed.
+
+        string,                 // A string: it is boxed, a string that is null is null.
+    };
+
+    // A list of members.
+    struct rt_reflect_list_t
+    {
+        int64_t                 count;
+        rt_reflect_member_t **  items;
+    };
+
+    // A type: its base type, its flags, its assembly and the lists of its members (the order of
+    // rt_reflect_kind_t).
+    struct rt_reflect_type_t
+    {
+        void *                  base;               //   0  The Type of the base type, or null.
+        int64_t                 flags;              //   8  The decorate of the type, and its ttype.
+        rt_reflect_member_t *   assembly;           //  16  The assembly (only the name).
+        rt_reflect_list_t       lists[5];           //  24  The members of each kind: 24 + 16 * kind.
+        int64_t                 size;               // 104  The size of the objects of a class (native).
+        void *                  attributes;         // 112  The attributes (native), like those of a member.
+        rt_reflect_list_t       nested;             // 120  The nest types: the Types (rt_type_t *).
+    };
+
+    // The attributes of a member or of a type: the interpreter reads them from the metadata, the
+    // tables do not have them.
+    struct rt_reflect_attributes_t
+    {
+        rt_assembly_t * assembly = nullptr;
+        ref_t           refs     = ref_t::null;
+    };
+
+    // Builds the tables of reflection of the types, when they are asked for.
+    class rt_reflection_t
+    {
+    public:
+
+        // Constructor.
+        rt_reflection_t(analyzer_env_t & env) : __env(env) { }
+
+        // Returns the reflection of a type; the members are built the first time. Types that
+        // have no members (arrays, tuples) have empty lists.
+        rt_reflect_type_t * get_type(rt_type_t * type);
+
+        // Calls f(rt_type_t *) for the types that the members of a type (and its base type) are:
+        // the types the tables hold.
+        void each_referenced_type(rt_reflect_type_t * info, std::function<void (rt_type_t *)> f);
+
+        // Returns the attributes of a member (rt_reflect_member_t *) or of a type that has its
+        // tables (rt_type_t *); false when it has none.
+        bool get_attributes(void * key, rt_reflect_attributes_t * out);
+
+        // Returns whether a handle is the table of a member (and not a Type).
+        bool is_member(void * handle) { return __member_set.count(handle) > 0; }
+
+    private:
+        std::set<void *>    __member_set;
+        std::map<void *, rt_reflect_attributes_t>   __attributes;
+        void __set_attributes(void * key, rt_assembly_t * assembly, ref_t refs);
+
+        analyzer_env_t &    __env;
+
+        std::map<rt_type_t *, rt_reflect_type_t *>  __types;
+        std::map<rt_assembly_t *, rt_reflect_member_t *> __assemblies;
+
+        std::deque<rt_reflect_type_t>               __type_pool;
+        std::deque<rt_reflect_member_t>             __member_pool;
+        std::deque<std::vector<rt_reflect_member_t *>> __list_pool;
+
+        rt_reflect_member_t * __new_member(const rt_char_t * name, void * declaring, void * type,
+                                                                            int64_t flags);
+        rt_reflect_member_t ** __new_list(const std::vector<rt_reflect_member_t *> & items);
+        rt_reflect_member_t * __assembly_of(rt_assembly_t * assembly);
+        void __build(rt_reflect_type_t * info, rt_type_t * type);
+    };
 
 }   // namespace X_ROOT_NS::modules::rt
 

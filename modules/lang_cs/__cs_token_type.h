@@ -15,7 +15,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __keyword_begin,
 
         // keywords: a...
-        k_abstract,      k_add,
+        k_abstract,      k_add,        k_assembly,
         
         // keywords: b...
         k_base,         k_bool,     k_break,    k_byte,
@@ -39,7 +39,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // keywords: i...
         k_if,           k_implicit, k_in,       k_int,      k_interface,
-        k_internal,     k_import,
+        k_internal,     k_import,    k_init,
         
         // keywords: l...
         k_lock,         k_long,
@@ -51,10 +51,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         k_object,       k_operator, k_out,      k_override,
         
         // keywords: p...
-        k_params,       k_private,  k_protected, k_public,
+        k_params,       k_partial,  k_private,  k_protected, k_public,
 
         // keywords: r...
-        k_readonly,     k_ref,      k_return,   k_remove,
+        k_readonly,     k_ref,      k_return,   k_remove,   k_raise,
         
         // keywords: s...
         k_sbyte,        k_sealed,   k_short,    k_sizeof,   k_stackalloc,
@@ -75,6 +75,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // keywords: y...
         k_yield,
+
+        // The contextual keywords of the language lq (they are names in the code of cs).
+        k_select,       k_orderby,  k_group,    k_by,       k_let,      k_join,
+        k_on,           k_equals,   k_into,     k_ascending, k_descending,
 
         __keyword_end,
         //-------- ---------- ---------- ---------- ----------

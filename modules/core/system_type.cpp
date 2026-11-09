@@ -314,6 +314,22 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Impl for System.Ptr<>: a pointer to an unmanaged type, a pointer like System.Ptr whatever the
+    // type is.
+    class __t_ptr_type_impl_t : public __tcore_type_impl_t<vtype_t::ptr_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::ptr_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __t_ptr_type_impl_t::type_name[] = __CoreTypeName(CoreType_TPtr);
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Impl for attribute type.
     class __attribute_type_impl_base_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
@@ -867,6 +883,7 @@ namespace X_ROOT_NS::modules::core {
             // Core data types.
             __impls.append<__void_type_impl_t>();
             __impls.append<__ptr_type_impl_t>();
+            __impls.append<__t_ptr_type_impl_t>();
             __impls.append<__int8_type_impl_t>();
             __impls.append<__uint8_type_impl_t>();
             __impls.append<__int16_type_impl_t>();

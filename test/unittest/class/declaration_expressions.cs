@@ -24,7 +24,7 @@ two
 
 import System;
 using System;
-using System.Collections.Generic;
+using System.Collections;
 struct P { public int X; public int Y; }
 class C { public int N; }
 class Program {

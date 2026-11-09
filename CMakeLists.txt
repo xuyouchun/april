@@ -145,6 +145,7 @@ april_add_module(compile "modules/compile")
 april_add_module(core    "modules/core")
 april_add_module(lang_cs "modules/lang_cs")
 april_add_module(lang_lq "modules/lang_lq")
+april_add_module(lang_c  "modules/lang_c")
 april_add_module(rtlib   "modules/rtlib")
 april_add_module(exec    "modules/exec")
 april_add_module(rt      "modules/rt")
@@ -245,7 +246,7 @@ endif()
 # --end-group on Linux so cross-archive references never depend on ordering.
 set(APRIL_MODULE_LIBS
     global common algorithm arch os lib
-    mm compile core lang_cs lang_lq rtlib exec rt native
+    mm compile core lang_cs lang_lq lang_c rtlib exec rt native
 )
 
 # The shared libraries: the modules that the others are built on are one library, the compiler
@@ -274,7 +275,7 @@ if(APRIL_SHARED_MODULES)
     endfunction()
 
     april_add_shared(april_base     global common algorithm arch os lib mm)
-    april_add_shared(april_compiler core compile lang_cs lang_lq)
+    april_add_shared(april_compiler core compile lang_cs lang_lq lang_c)
     april_add_shared(april_runtime  rt rtlib)
 
     april_add_shared(april_exec     exec)
@@ -325,6 +326,46 @@ add_custom_command(
 target_sources(lang_cs_objects PRIVATE "${__csec_file}")
 set_source_files_properties("${__csec_file}" PROPERTIES HEADER_FILE_ONLY TRUE)
 target_include_directories(lang_cs_objects PRIVATE "${__csec_dir}")
+
+# lang_lq: text.src -> text.csec (the patterns of the clauses of a query)
+
+set(__lq_csec_dir  "${CMAKE_BINARY_DIR}/generated/lang_lq")
+set(__lq_csec_file "${__lq_csec_dir}/text.csec")
+
+add_custom_command(
+    OUTPUT "${__lq_csec_file}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${__lq_csec_dir}"
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_SOURCE_DIR}/tools/text2cpp.py"
+            "${CMAKE_SOURCE_DIR}/modules/lang_lq/text.src" "${__lq_csec_file}"
+    DEPENDS "${CMAKE_SOURCE_DIR}/modules/lang_lq/text.src"
+            "${CMAKE_SOURCE_DIR}/tools/text2cpp.py"
+    COMMENT "Generating lang_lq/text.csec"
+    VERBATIM
+)
+
+target_sources(lang_lq_objects PRIVATE "${__lq_csec_file}")
+set_source_files_properties("${__lq_csec_file}" PROPERTIES HEADER_FILE_ONLY TRUE)
+target_include_directories(lang_lq_objects PRIVATE "${__lq_csec_dir}")
+
+# lang_c: text.src -> text.csec (the patterns of the statement of c)
+
+set(__c_csec_dir  "${CMAKE_BINARY_DIR}/generated/lang_c")
+set(__c_csec_file "${__c_csec_dir}/text.csec")
+
+add_custom_command(
+    OUTPUT "${__c_csec_file}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${__c_csec_dir}"
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_SOURCE_DIR}/tools/text2cpp.py"
+            "${CMAKE_SOURCE_DIR}/modules/lang_c/text.src" "${__c_csec_file}"
+    DEPENDS "${CMAKE_SOURCE_DIR}/modules/lang_c/text.src"
+            "${CMAKE_SOURCE_DIR}/tools/text2cpp.py"
+    COMMENT "Generating lang_c/text.csec"
+    VERBATIM
+)
+
+target_sources(lang_c_objects PRIVATE "${__c_csec_file}")
+set_source_files_properties("${__c_csec_file}" PROPERTIES HEADER_FILE_ONLY TRUE)
+target_include_directories(lang_c_objects PRIVATE "${__c_csec_dir}")
 
 #---------- ---------- ---------- ---------- ----------
 # Executables

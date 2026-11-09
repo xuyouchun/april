@@ -20,6 +20,12 @@ namespace X_ROOT_NS::modules::compile {
         return to_xil_type(vtype);
     }
 
+    // Returns whether a generic type is a value like a pointer (Ptr<T>), not an object.
+    static bool __is_generic_ptr(type_t * type)
+    {
+        return type->this_gtype() == gtype_t::generic && type->this_vtype() == vtype_t::ptr_;
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     // Appends jmp xil.
@@ -153,7 +159,7 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case gtype_t::generic:
-                __Write(xil_type_t::object);        // TODO: struct?
+                __Write(__is_generic_ptr(type)? xil_type_t::ptr : xil_type_t::object);  // TODO: struct?
                 break;
 
             default:
@@ -242,7 +248,8 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case gtype_t::generic:
-                __Write(object);     // TODO: struct
+                if (__is_generic_ptr(type)) { __Write(ptr) }
+                else { __Write(object) }     // TODO: struct
                 break;
 
             default:
@@ -329,7 +336,8 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case gtype_t::generic:
-                __Write(object);     // TODO: struct
+                if (__is_generic_ptr(type)) { __Write(ptr) }
+                else { __Write(object) }     // TODO: struct
                 break;
 
             default:
@@ -479,6 +487,12 @@ namespace X_ROOT_NS::modules::compile {
         {
             statement_compile_context_t & sctx = (statement_compile_context_t &)ctx;
             type_t * type = sctx.method->get_type();
+
+            if (is_scoped_pointer(expression))
+            {
+                __Failed("the pointer '%1%' is to the memory of the method (AddressOf, StackAlloc): it is not returned, "
+                         "it lives while the method runs", expression);
+            }
 
             // For custom struct type, push the address to stack top when calling new constructor.
             if (is_custom_struct(type))

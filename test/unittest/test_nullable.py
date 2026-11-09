@@ -32,7 +32,7 @@ class TestNullable:
         output = re.sub(r'\x1b\[[0-9;]*m', '', result.stdout)
         assert result.returncode == 0, 'status %d:\n%s' % (result.returncode, output)
 
-        warnings = re.findall(r'warning (?:CS)?(\d+):', output)
+        warnings = re.findall(r'warning (?:AP)?(\d+):', output)
         assert warnings == ([] if expected == ['none'] else expected), output
 
 
@@ -53,7 +53,7 @@ class TestNullableSwitch:
         assert result.returncode == 0, 'status %d:\n%s' % (result.returncode, output)
         assert 'done' in output, output
 
-        return re.findall(r'warning (?:CS)?(\d+):', output)
+        return re.findall(r'warning (?:AP)?(\d+):', output)
 
     def test_default(self, tmp_path):
         assert self._warnings(tmp_path, 'main.cs') == []

@@ -48,8 +48,8 @@ namespace X_ROOT_NS::modules::rtlib {
 
     // Runtime times.
 
-    typedef rt_arg_t<const char_t *>    rstring_t;
-    typedef rt_arg_t<char_t>            rchar_t;
+    typedef rt_arg_t<const rt_char_t *> rstring_t;
+    typedef rt_arg_t<rt_char_t>         rchar_t;
 
     typedef rt_arg_t<int8_t>            rint8_t;
     typedef rt_arg_t<uint8_t>           ruint8_t;
@@ -75,6 +75,7 @@ namespace X_ROOT_NS::modules::rtlib {
 
     // Return codes of runtime lib functions.
     const int rtlib_ret_null_reference = 1;     // A null reference was used.
+    const int rtlib_ret_invalid_cast = 2;       // An object is not of the type that is needed.
 
     // Runtime lib context.
     struct rtlib_context_t
@@ -146,17 +147,54 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(string_equals);
     __DefineFunc(string_compare);
     __DefineFunc(string_get_length);
+    __DefineFunc(string_substring);
     __DefineFunc(string_get_hash_code);
     __DefineFunc(int64_to_string);
     __DefineFunc(uint64_to_string);
     __DefineFunc(double_to_string);
     __DefineFunc(float_to_string);
     __DefineFunc(char_to_string);
+    __DefineFunc(string_get_char);
+    __DefineFunc(string_from_chars);
+    __DefineFunc(string_copy_to);
+    __DefineFunc(string_index_of);
+    __DefineFunc(string_last_index_of);
+    __DefineFunc(string_index_of_char);
+    __DefineFunc(string_last_index_of_char);
+    __DefineFunc(string_trim);
+    __DefineFunc(string_is_blank);
+    __DefineFunc(utf8_get_byte_count);
+    __DefineFunc(utf8_get_bytes);
+    __DefineFunc(utf8_get_string);
+    __DefineFunc(double_to_fixed);
+    __DefineFunc(double_to_scientific);
+    __DefineFunc(resource_get_size);
+    __DefineFunc(resource_read);
+    __DefineFunc(resource_get_ptr);
+    __DefineFunc(string_to_upper);
+    __DefineFunc(string_to_lower);
+    __DefineFunc(char_is_letter);
+    __DefineFunc(char_is_digit);
+    __DefineFunc(char_is_white_space);
+    __DefineFunc(char_to_upper);
+    __DefineFunc(char_to_lower);
+    __DefineFunc(ptr_from_int64);
+    __DefineFunc(ptr_to_int64);
+    __DefineFunc(memory_alloc);
+    __DefineFunc(memory_free);
+    __DefineFunc(memory_copy);
+    __DefineFunc(memory_fill);
+    __DefineFunc(string_address_of);
 
     // The allocator of the memory of the strings that programs make (e.g. concatenation).
     // Without one, the memory is never freed.
     typedef void * (* string_allocator_t)(uint64_t bytes);
     void set_string_allocator(string_allocator_t allocator);
+
+    // The resources of a program that has no assemblies (the native ones: the resources are in the program): the
+    // function finds the bytes of the resource of a name. Without one, the assemblies that are loaded are searched.
+    typedef bool (* resource_finder_t)(const string_t & name, const byte_t ** bytes, uint64_t * length);
+    void set_resource_finder(resource_finder_t finder);
     void * allocate_string_memory(size_t bytes);
 
     // Formats a floating point number like .NET: the shortest text that reads back exactly.
@@ -177,6 +215,53 @@ namespace X_ROOT_NS::modules::rtlib {
     // Reflection functions.
     __DefineFunc(reflection_get_type);
     __DefineFunc(reflection_get_type_name);
+    __DefineFunc(reflection_get_type_full_name);
+    __DefineFunc(reflection_type_base);
+    __DefineFunc(reflection_type_flags);
+    __DefineFunc(reflection_type_assembly);
+    __DefineFunc(reflection_member_count);
+    __DefineFunc(reflection_nested_type_count);
+    __DefineFunc(reflection_nested_type);
+    __DefineFunc(reflection_field);
+    __DefineFunc(reflection_method);
+    __DefineFunc(reflection_property);
+    __DefineFunc(reflection_event);
+    __DefineFunc(reflection_type_generic_parameter);
+    __DefineFunc(reflection_info_name);
+    __DefineFunc(reflection_info_declaring_type);
+    __DefineFunc(reflection_info_type);
+    __DefineFunc(reflection_info_flags);
+    __DefineFunc(reflection_property_getter);
+    __DefineFunc(reflection_property_setter);
+    __DefineFunc(reflection_event_adder);
+    __DefineFunc(reflection_event_remover);
+    __DefineFunc(reflection_event_raiser);
+    __DefineFunc(reflection_get_field_value);
+    __DefineFunc(reflection_check_invoke);
+    __DefineFunc(reflection_is_member);
+    __DefineFunc(reflection_attribute_named_count);
+    __DefineFunc(reflection_type_attribute_named_count);
+    __DefineFunc(reflection_attribute_named_name);
+    __DefineFunc(reflection_type_attribute_named_name);
+    __DefineFunc(reflection_attribute_named_value);
+    __DefineFunc(reflection_type_attribute_named_value);
+    __DefineFunc(reflection_attribute_count);
+    __DefineFunc(reflection_type_attribute_count);
+    __DefineFunc(reflection_attribute_constructor);
+    __DefineFunc(reflection_type_attribute_constructor);
+    __DefineFunc(reflection_attribute_argument_count);
+    __DefineFunc(reflection_type_attribute_argument_count);
+    __DefineFunc(reflection_attribute_argument);
+    __DefineFunc(reflection_type_attribute_argument);
+    __DefineFunc(reflection_new_object);
+    __DefineFunc(reflection_check_field_access);
+    __DefineFunc(reflection_set_field_value);
+    __DefineFunc(reflection_parameter_count);
+    __DefineFunc(reflection_parameter);
+    __DefineFunc(reflection_generic_parameter_count);
+    __DefineFunc(reflection_generic_parameter);
+    __DefineFunc(object_get_hash_code);
+    __DefineFunc(object_reference_equals);
 
     // Math functions.
     __DefineFunc(math_sqrt);

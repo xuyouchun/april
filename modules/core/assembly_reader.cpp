@@ -1012,6 +1012,9 @@ namespace X_ROOT_NS::modules::core {
             __assembly.information = __to_sid(mt_assembly.info);
 
             __assembly.entry_point = __get_method(mt_assembly.entry_point);
+            __assembly.attributes  = __to_entities<attributes_t, __tidx_t::attribute>(
+                __attributes, mt_assembly.attributes, _T("attribute")
+            );
         }
 
         // Load assembly brief.
@@ -1184,6 +1187,7 @@ namespace X_ROOT_NS::modules::core {
             method->generic_params  = __to_generic_params(mt.generic_params);
             method->params          = __to_params(mt.params);
             method->trait           = mt.trait;
+            method->attributes      = __to_attributes(mt.attributes, method);
 
             method->variable        = __new_obj<method_variable_t>(method);
         }
@@ -1215,6 +1219,7 @@ namespace X_ROOT_NS::modules::core {
 
             event->add_method       = __get_method(mt.add_method);
             event->remove_method    = __get_method(mt.remove_method);
+            event->raise_method     = __get_method(mt.raise_method);
 
             event->variable         = __new_obj<event_variable_t>(event);
         }

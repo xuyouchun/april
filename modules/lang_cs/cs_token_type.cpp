@@ -12,7 +12,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(empty, _T("empty"))
 
         // keywords: a...
-        __K(abstract)    __K(as)       __K(add)
+        __K(abstract)    __K(as)       __K(add)      __K(assembly)
 
         // keywords: b...
         __K(base)        __K(bool)     __K(break)     __K(byte)
@@ -36,7 +36,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // keywords: i...
         __K(if)          __K(implicit) __K(in)        __K(int)      __K(interface)
-        __K(internal)    __K(import)   __K(is)
+        __K(internal)    __K(import)   __K(is)    __K(init)
         
         // keywords: l...
         __K(lock)        __K(long)
@@ -48,10 +48,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         __K(object)      __K(operator) __K(out)     __K(override)
         
         // keywords: p...
-        __K(params)      __K(private) __K(protected)  __K(public)
+        __K(params)      __K(partial) __K(private) __K(protected)  __K(public)
 
         // keywords: r...
-        __K(readonly)    __K(ref)     __K(return)   __K(remove)
+        __K(readonly)    __K(ref)     __K(return)   __K(remove)   __K(raise)
         
         // keywords: s...
         __K(sbyte)       __K(sealed)  __K(short)   __K(sizeof)  __K(stackalloc)
@@ -72,6 +72,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // keywords: y...
         __K(yield)
+
+        // The contextual keywords of the language lq.
+        __K(select)     __K(orderby)  __K(group)    __K(by)     __K(let)    __K(join)
+        __K(on)         __K(equals)   __K(into)     __K(ascending)  __K(descending)
 
         // algorithm
         __C(add, _T("+"))  __C(sub, _T("-"))   __C(mul, _T("*"))   __C(div, _T("/"))

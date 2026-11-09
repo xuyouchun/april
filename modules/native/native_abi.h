@@ -16,6 +16,18 @@
 #define APRIL_NATIVE_SYM_NEW_OBJECT     "april_native_new_object"
 #define APRIL_NATIVE_SYM_FIND_IFACE     "april_native_find_interface_function"
 #define APRIL_NATIVE_SYM_IS_INSTANCE    "april_native_is_instance"
+#define APRIL_NATIVE_SYM_REFLECT_CHECK  "april_native_reflect_check"
+#define APRIL_NATIVE_SYM_REFLECT_GET    "april_native_reflect_get"
+#define APRIL_NATIVE_SYM_REFLECT_SET    "april_native_reflect_set"
+#define APRIL_NATIVE_SYM_REFLECT_CHECK_INVOKE "april_native_reflect_check_invoke"
+#define APRIL_NATIVE_SYM_REFLECT_INVOKE "april_native_reflect_invoke"
+#define APRIL_NATIVE_SYM_ATTR_COUNT     "april_native_reflect_attribute_count"
+#define APRIL_NATIVE_SYM_ATTR_CTOR      "april_native_reflect_attribute_constructor"
+#define APRIL_NATIVE_SYM_ATTR_ARG_COUNT "april_native_reflect_attribute_argument_count"
+#define APRIL_NATIVE_SYM_ATTR_ARG       "april_native_reflect_attribute_argument"
+#define APRIL_NATIVE_SYM_ATTR_NAMED_COUNT "april_native_reflect_attribute_named_count"
+#define APRIL_NATIVE_SYM_ATTR_NAMED_NAME  "april_native_reflect_attribute_named_name"
+#define APRIL_NATIVE_SYM_ATTR_NAMED_VALUE "april_native_reflect_attribute_named_value"
 #define APRIL_NATIVE_SYM_CAST           "april_native_cast"
 #define APRIL_NATIVE_SYM_UNHANDLED      "april_native_unhandled_exception"
 #define APRIL_NATIVE_SYM_ADD_ROOT       "april_native_add_root"
@@ -26,6 +38,7 @@
 #define APRIL_NATIVE_SYM_ARRAY_LENGTH   "april_native_array_length"
 #define APRIL_NATIVE_SYM_ARRAY_RANK     "april_native_array_rank"
 #define APRIL_NATIVE_SYM_ARRAY_LENGTH_OF "april_native_array_length_of_dimension"
+#define APRIL_NATIVE_SYM_ADD_RESOURCE   "april_native_add_resource"
 
 extern "C" {
 
@@ -37,6 +50,10 @@ extern "C" {
     // Registers a global of the program that holds an object: it is a root of the
     // garbage collector.
     void april_native_add_root(void ** slot);
+
+    // Registers a resource of the program (the bytes that are embedded in the assemblies, Resource.GetBytes):
+    // `name` is UTF-8, NUL-terminated, `data` has `size` bytes. They are constants of the program, not copied.
+    void april_native_add_resource(const char * name, const void * data, int64_t size);
 
     // Releases the native runtime; called after the entry point returned.
     void april_native_shutdown();
@@ -66,6 +83,9 @@ extern "C" {
     //      +24             the number of keys of the cast table
     //      +32             the virtual function table: one function address per virtual
     //                      offset (null where the class has no function)
+    //      +32 + 8 * vcount    the name of the type, then its full name (strings), then the
+    //                          table of reflection of the type (rt_reflect_type_t of rt.h), or
+    //                          null when the program does not use the reflection
     //
     // Finds the function an interface method of the object's class: `key` identifies the
     // interface (the address of a global of the program), `offset` is the index of the
@@ -74,6 +94,133 @@ extern "C" {
 
     // Returns 1 if the object is an instance of the type (null is not), else 0.
     int8_t april_native_is_instance(void * object, void * key);
+
+    // The table of a member of a type, for the reflection (rt_reflect_member_t of rt.h): the
+    // fields have the offset of the value, the size, the kind (1 a reference, 2 a value that is
+    // boxed, 3 a string), the key of the type that has the field (the address of a global that
+    // identifies it for april_native_is_instance), or, for a static field, the address of the
+    // global that holds the object of the static data, and the key of the type of the field.
+    typedef struct april_native_member_t
+    {
+        const void *    name;
+        void *          declaring;
+        void *          type;
+        int64_t         flags;
+        void *          accessor_a;
+        void *          accessor_b;
+        int64_t         param_count;
+        void *          params;
+        int64_t         gparam_count;
+        void *          gparams;
+        void *          accessor_c;
+        int64_t         offset;
+        void *          key_or_static;
+        int64_t         size;
+        int64_t         value_kind;
+        void *          type_key;
+        void *          invoker;
+        void *          attributes;
+    } april_native_member_t;
+
+    // The attributes of a member (the field `attributes` of its table, or of the table of a
+    // type, +112): null if it has none. Each attribute is the constructor (the table of the
+    // method), and the values of its arguments, one for each parameter of the constructor: the
+    // bits of a number (in the type of the parameter), or the string.
+    //
+    // The kind says what the value is when it is not by the parameter (an Object parameter gets the
+    // number or the string that was written, and a Type parameter the type): 0 by the parameter,
+    // 2 a number (the box is `size` bytes of the class `type`), 3 a string (a box of `type`),
+    // 4 a Type (`type` is it), 5 an array of numbers or strings (`bits` is the count of the elements,
+    // `string` is the block of them, a unit of 8 bytes for each, and `size` is the size of one).
+    typedef struct april_native_attribute_argument_t
+    {
+        uint64_t        bits;
+        const void *    string;
+        int64_t         kind;
+        int64_t         size;
+        void *          type;
+    } april_native_attribute_argument_t;
+
+    // A named argument ([Author("ann", Level = 3)]): the name, the table of the field or of the
+    // property, the value.
+    typedef struct april_native_attribute_named_t
+    {
+        const void *    name;
+        void *          member;
+        uint64_t        bits;
+        const void *    string;
+        int64_t         kind;
+        int64_t         size;
+        void *          type;
+    } april_native_attribute_named_t;
+
+    typedef struct april_native_attribute_t
+    {
+        void *          constructor;
+        april_native_attribute_argument_t * arguments;
+        int64_t         named_count;
+        april_native_attribute_named_t * named;
+    } april_native_attribute_t;
+
+    typedef struct april_native_attributes_t
+    {
+        int64_t                     count;
+        april_native_attribute_t *  items;
+    } april_native_attributes_t;
+
+    // The count of the attributes, the constructor of one, the count of its arguments, and one of
+    // them boxed (an object of the type of the parameter, or null).
+    int32_t april_native_reflect_attribute_count(const april_native_attributes_t * attributes);
+    void * april_native_reflect_attribute_constructor(const april_native_attributes_t * attributes,
+                                                      int32_t index);
+    int32_t april_native_reflect_attribute_argument_count(
+                                const april_native_attributes_t * attributes, int32_t index);
+    void * april_native_reflect_attribute_argument(const april_native_attributes_t * attributes,
+                                                   int32_t index, int32_t position);
+
+    // The named arguments of an attribute: their count, the name of one, its value boxed.
+    int32_t april_native_reflect_attribute_named_count(
+                                const april_native_attributes_t * attributes, int32_t index);
+    const void * april_native_reflect_attribute_named_name(
+                                const april_native_attributes_t * attributes, int32_t index,
+                                int32_t position);
+    void * april_native_reflect_attribute_named_value(const april_native_attributes_t * attributes,
+                                                      int32_t index, int32_t position);
+
+    // Checks the access to a field: 0 if the field of the object can be read (mode 0) or written
+    // with the value (mode 1), 1 if the object is null, 2 if the object or the value are not of
+    // the types that are needed.
+    int32_t april_native_reflect_check(const april_native_member_t * member, void * object,
+                                       void * value, int32_t mode);
+
+    // Reads the value of a field, boxed if it is not a reference (the access was checked).
+    void * april_native_reflect_get(const april_native_member_t * member, void * object);
+
+    // Writes the value of a field, that is the box of a value if it is not a reference.
+    void april_native_reflect_set(const april_native_member_t * member, void * object, void * value);
+
+    // Method.Invoke. A method has, in its table (april_native_member_t): `key_or_static`, the
+    // function; `offset`, its virtual offset or -1; `type_key`, the key of the type that has it;
+    // `value_kind` and `size`, the result (0 for none); `invoker`, the function that calls it:
+    //
+    //      void invoker(void * function, uint64_t * values, uint64_t * result)
+    //
+    // `values` has one 8 byte unit for each argument, the object first for a method that is not
+    // static; a number is in the low bytes of its unit. The program makes an invoker for each
+    // shape of signature that its methods have. The functions are null (key_or_static is) for a
+    // method that has no function: that of a type that has no objects, an abstract one, one that
+    // takes or returns a struct.
+    //
+    // Checks the call: 0 if it can be done, 1 if the object is null (and the method is not
+    // static), 2 if the object or an argument are not of the types that are needed, or the method
+    // cannot be called. `args` is the array of the arguments (the objects and the boxes).
+    int32_t april_native_reflect_check_invoke(const april_native_member_t * member, void * object,
+                                              void ** args);
+
+    // Calls the method (it was checked), returns its result: a reference is the object, a number,
+    // an enum, a bool, a char and a string are boxed, null for a method of void.
+    void * april_native_reflect_invoke(const april_native_member_t * member, void * object,
+                                       void ** args);
 
     // Returns the object if it is null or an instance of the type; exits the program
     // otherwise (there are no exceptions in native programs yet).

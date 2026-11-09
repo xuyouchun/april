@@ -27,16 +27,10 @@ public class Exception
     }
 
     // Exception message.
-    public String? Message
-    {
-        get { return __message; }
-    }
+    public String? Message => __message;
 
     // Inner exception that caused this exception.
-    public Exception? InnerException
-    {
-        get { return __innerException; }
-    }
+    public Exception? InnerException => __innerException;
 
     // Exception message.
     private String? __message;
@@ -86,6 +80,30 @@ public class InvalidCastException : SystemException
 
 ////////// ////////// ////////// ////////// //////////
 
+// ArgumentException: an argument of a call is not valid.
+public class ArgumentException : SystemException
+{
+    // Default constructor.
+    public ArgumentException() { }
+
+    // Constructor with message.
+    public ArgumentException(String? message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// FormatException: a format (of a number, of String.Format) or a text that has one is not valid.
+public class FormatException : SystemException
+{
+    // Default constructor.
+    public FormatException() { }
+
+    // Constructor with message.
+    public FormatException(String? message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
 // InvalidOperationException: an operation is not valid in the state of the object.
 public class InvalidOperationException : SystemException
 {
@@ -130,4 +148,16 @@ public class OverflowException : SystemException
     public OverflowException() { }
 
     public OverflowException(String? message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// NotSupportedException: an operation is not supported by the type, e.g. a number is converted to a type that
+// does not know it.
+public class NotSupportedException : SystemException
+{
+    // Default constructor.
+    public NotSupportedException() { }
+
+    public NotSupportedException(String? message) : base(message) { }
 }

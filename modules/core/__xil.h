@@ -345,6 +345,10 @@ namespace X_ROOT_NS::modules::core {
 
         array_element_content = 13, // Content of address storage in array element.
 
+        ptr_content     = 14,       // Content of the address that is at the top of the stack (a pointer): push reads
+                                    // the value of the type dtype (the address is popped), pop writes the value that
+                                    // is at the top to the address that is below it.
+
         __external__    = 15,       // External commands.
 
         object          = 16,       // Push object.
@@ -361,6 +365,15 @@ namespace X_ROOT_NS::modules::core {
 
         checked_convert = 22,       // Like convert, raises OverflowException when the value does
                                     // not fit the type: (int)longValue in checked.
+
+        params_values   = 23,       // Push the values of params arguments, one for each item of
+                                    // the params generic parameter: f(args) with TArgs ... args.
+
+        tuple_values    = 24,       // Pops a tuple (the type is the ref) and pushes its items, one
+                                    // for each: the arguments of a call, f(tuple ...).
+
+        type_size       = 25,       // Pushes the size of the type (the ref), an int64: sizeof(T), the type of
+                                    // a generic param is that of the instance.
 
     __EnumEnd
 
@@ -757,12 +770,12 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_type_t::int16:
             case xil_type_t::uint16:
+            case xil_type_t::char_:
                 return 2;
 
             case xil_type_t::int32:
             case xil_type_t::uint32:
             case xil_type_t::float_:
-            case xil_type_t::char_:
                 return 4;
 
             case xil_type_t::int64:
@@ -949,6 +962,7 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_storage_type_t::duplicate:
             case xil_storage_type_t::params:
+            case xil_storage_type_t::params_values:
                 break;
 
             case xil_storage_type_t::convert:
@@ -958,6 +972,8 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_storage_type_t::box:
             case xil_storage_type_t::unbox:
+            case xil_storage_type_t::tuple_values:
+            case xil_storage_type_t::type_size:
                 size += sizeof(__ref_t);                // type_ref
                 break;
 
@@ -997,7 +1013,7 @@ namespace X_ROOT_NS::modules::core {
         pop_xil_t(xil_storage_type_t stype, xil_type_t dtype)
             : __super_t(xil_command_t::pop, stype), __dtype((byte_t)dtype), identity(0)
         {
-            _A(stype <= xil_storage_type_t::__pop_end__);
+            _A(stype <= xil_storage_type_t::__pop_end__ || stype == xil_storage_type_t::ptr_content);
         }
 
         // Constructors.
@@ -1006,6 +1022,16 @@ namespace X_ROOT_NS::modules::core {
             , __dtype((byte_t)xil_type_t::empty), identity(0)
         {
             set_ref(struct_type_ref);
+        }
+
+        // Constructors: pops the result of a call that is not used, the type of it is a generic
+        // param (the callee that returns a custom struct takes the address of the result, the
+        // callee that does not return it leaves it, and the address is left too).
+        pop_xil_t(ref_t generic_type_ref, bool call_result)
+            : __super_t(xil_command_t::pop, xil_storage_type_t::empty)
+            , __dtype((byte_t)xil_type_t::empty), identity(call_result? 1 : 0)
+        {
+            set_ref(generic_type_ref);
         }
 
         byte_t  __dtype      : 4;
@@ -1018,6 +1044,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns data type.
         xil_type_t dtype() const { return (xil_type_t)__dtype; }
+
+        // Returns whether it pops the result of a call that has a generic param as its type.
+        bool is_call_result() const
+        {
+            return stype() == xil_storage_type_t::empty && dtype() == xil_type_t::empty && identity == 1;
+        }
 
         // Returns identity for local / param variables.
         uint16_t get_identity() const

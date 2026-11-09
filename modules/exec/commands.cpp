@@ -539,7 +539,7 @@ namespace X_ROOT_NS::modules::exec {
     constexpr auto __const_vnum_type()
     {
         if constexpr (_xil_type == xil_type_t::string)
-            return std::type_identity<const char_t *>();
+            return std::type_identity<const rt_char_t *>();
         else if constexpr (_xil_type == xil_type_t::object)
             return std::type_identity<void *>();
         else
@@ -572,6 +572,10 @@ namespace X_ROOT_NS::modules::exec {
             case mt_type_extra_t::generic: {
                 X_UNEXPECTED();
             }   break;
+
+            // An array is a reference.
+            case mt_type_extra_t::array:
+                return sizeof(rt_ref_t);
 
             default:
                 X_UNEXPECTED();
@@ -717,6 +721,31 @@ namespace X_ROOT_NS::modules::exec {
     #define __CaseXilTypePair( _xt1, _xt2 ) __DefineStCmdValue(push, argument_content, _xt1, _xt2)
     __EachXilTypePairs()
     #undef __CaseXilTypePair
+
+    //-------- ---------- ---------- ---------- ----------
+    // Push ptr content, pop ptr content: the value of the type is read from, or written to, the address at the
+    // top of the stack (a pointer, Ptr<T>.Value). The types are those of the unmanaged values.
+
+    #define __EachPtrContentType()                                                      \
+        __CasePtrContent( int8 )    __CasePtrContent( uint8 )                           \
+        __CasePtrContent( int16 )   __CasePtrContent( uint16 )                          \
+        __CasePtrContent( int32 )   __CasePtrContent( uint32 )                          \
+        __CasePtrContent( int64 )   __CasePtrContent( uint64 )                          \
+        __CasePtrContent( float_ )  __CasePtrContent( double_ )                         \
+        __CasePtrContent( char_ )   __CasePtrContent( bool_ )                           \
+        __CasePtrContent( ptr )
+
+    #define __CasePtrContent( _xt )                                                     \
+        __DefineStCmdValue(push, ptr_content, _xt, _xt)                                 \
+        __DefineStCmdValue(pop,  ptr_content, _xt, _xt)
+    __EachPtrContentType()
+    #undef __CasePtrContent
+
+    // The conversions between a pointer and an integer: the same bits.
+    __DefineStCmdValue(push, convert, ptr,    int64)
+    __DefineStCmdValue(push, convert, int64,  ptr)
+    __DefineStCmdValue(push, convert, ptr,    uint64)
+    __DefineStCmdValue(push, convert, uint64, ptr)
 
     //-------- ---------- ---------- ---------- ----------
     // Push field commands.
@@ -983,6 +1012,18 @@ namespace X_ROOT_NS::modules::exec {
         }
     }
 
+    // Converts a value: the pointers and the integers have the same bits.
+    template<typename _to_t, typename _from_t>
+    __AlwaysInline static _to_t __convert_value(_from_t value)
+    {
+        if constexpr (std::is_same<_from_t, rt_ref_t>::value && std::is_integral<_to_t>::value)
+            return (_to_t)(uintptr_t)value.ptr;
+        else if constexpr (std::is_same<_to_t, rt_ref_t>::value && std::is_integral<_from_t>::value)
+            return rt_ref_t((void *)(uintptr_t)value);
+        else
+            return static_cast<_to_t>(value);
+    }
+
     template<command_value_t _cv, xil_storage_type_t _st, xil_type_t _xt1, xil_type_t _xt2>
     class __push_command_t : public __command_base_t<_cv>
     {
@@ -1050,6 +1091,12 @@ namespace X_ROOT_NS::modules::exec {
                     *(__value1_t *)__Argument(void *, __This->__data)
                 ));
             }
+            else if constexpr (_st == xil_storage_type_t::ptr_content)
+            {
+                // The address is not checked: it is what the program says.
+                rt_ref_t address = ctx.stack.pop<rt_ref_t>();
+                ctx.stack.push(static_cast<__value2_t>(*(__value1_t *)address.ptr));
+            }
             else if constexpr (_st == xil_storage_type_t::field)
             {
                 rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
@@ -1061,7 +1108,7 @@ namespace X_ROOT_NS::modules::exec {
             {
                 if constexpr (!std::is_same<__value1_t, __value2_t>::value)
                 {
-                    ctx.stack.push(static_cast<__value2_t>(ctx.stack.pop<__value1_t>()));
+                    ctx.stack.push(__convert_value<__value2_t>(ctx.stack.pop<__value1_t>()));
                 }
             }
             else    // checked_convert: OverflowException when the value does not fit the type.
@@ -1433,6 +1480,108 @@ namespace X_ROOT_NS::modules::exec {
         __offset_t __offset;
     };
 
+    //-------- ---------- ---------- ---------- ----------
+    // Push params values: the units of the items of the params generic parameter are copied to
+    // the top of the stack, they are the arguments of the call.
+
+    #define __PushParamsValuesCmd  __Cmd(push, params_values)
+    __DefineCmdValue_(__PushParamsValuesCmd)
+
+    class __push_params_values_command_t : public __command_base_t<__PushParamsValuesCmd>
+    {
+        typedef __push_params_values_command_t __self_t;
+
+    public:
+        __push_params_values_command_t(__offset_t offset)
+            : __offset(offset)
+        { }
+
+        #if EXEC_TRACE
+
+        __ToString(_T("push params values"));
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            // The items are the last params: they are all that is between the first of them and
+            // the top of the params.
+            rt_stack_unit_t * units = (rt_stack_unit_t *)ctx.stack.lp()
+                                                    - __This->__offset - __stack_stub_size;
+
+            for (__offset_t k = 0; k < __This->__offset; k++)
+                ctx.stack.push<rt_stack_unit_t>(units[k]);
+
+        __EndExecute()
+
+    private:
+        __offset_t __offset;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+    // Push tuple values: the tuple is popped, the items of it are pushed, one after the other, as
+    // the arguments of a call (f(tuple ...)): each is the units of its size, the layout of the
+    // arguments of the items of a params generic parameter.
+
+    #define __PushTupleValuesCmd  __Cmd(push, tuple_values)
+    __DefineCmdValue_(__PushTupleValuesCmd)
+
+    class __push_tuple_values_command_t : public __command_base_t<__PushTupleValuesCmd>
+    {
+        typedef __push_tuple_values_command_t __self_t;
+
+    public:
+        __push_tuple_values_command_t(rt_type_t * type) : __type(type) { }
+
+        #if EXEC_TRACE
+
+        __ToString(_T("push tuple values"));
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            byte_t * object = (byte_t *)(void *)ctx.stack.pop<rt_ref_t>();
+            __CheckNullReference(ctx, object);
+
+            rt_generic_type_t * tuple = (rt_generic_type_t *)__This->__type;
+            for (int k = 0, count = tuple->atype_count(); k < count; k++)
+            {
+                rt_type_t * item_type = tuple->atypes[k];
+                msize_t offset = tuple->get_field_offset(ctx.env, k);
+                msize_t size = item_type->get_variable_size(ctx.env);
+
+                rt_stack_unit_t * units = ctx.stack.alloc(size);
+                memset((void *)units, 0, _alignf(size, sizeof(rt_stack_unit_t)));
+                memcpy((void *)units, object + offset, size);
+            }
+
+        __EndExecute()
+
+    private:
+        rt_type_t * __type;
+    };
+
+    struct __push_tuple_values_template_t
+    {
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
+        {
+            typedef __push_tuple_values_command_t this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
+
+    struct __push_params_values_template_t
+    {
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, _args_t && ... args)
+        {
+            typedef __push_params_values_command_t this_command_t;
+            return __new_command<this_command_t>(memory, std::forward<_args_t>(args) ...);
+        }
+    };
+
     struct __push_params_address_template_t
     {
         template<command_value_t _cv, typename ... _args_t>
@@ -1716,6 +1865,20 @@ namespace X_ROOT_NS::modules::exec {
     {
         rt_method_base_t * method = ctx.get_method(method_ref);
 
+        // The method of a generic type (a lambda, or a method that is a delegate, in Box<T>) is
+        // the one of the instance that is running: Box<Int32>.
+        if (method->this_type() == rt_member_type_t::general)
+        {
+            rt_type_t * host = method->get_host_type();
+            if (host != nullptr && is_general(host)
+                    && ((rt_general_type_t *)host)->is_generic_template())
+            {
+                rt_type_t * instance = ctx.to_generic_type((rt_general_type_t *)host);
+                if (instance != nullptr && instance != host)
+                    method = ctx.to_generic_method((rt_method_t *)method, instance);
+            }
+        }
+
         #if EXEC_TRACE
         *out_name = method->get_name();
         #endif
@@ -1768,7 +1931,9 @@ namespace X_ROOT_NS::modules::exec {
             }   break;
 
             case xil_storage_object_type_t::static_data: {
-                rt_type_t * type = ctx.get_type(ref);
+                // The static fields of a generic type are those of its instance: Box<Int32> and
+                // Box<String> have their own.
+                rt_type_t * type = __instance_of_template(ctx, ctx.get_type(ref));
                 #if EXEC_TRACE
                 *out_name = type->get_name(ctx.env);
                 #endif
@@ -1843,6 +2008,11 @@ namespace X_ROOT_NS::modules::exec {
                 *out_dtype1 = *out_dtype2;
                 break;
         }
+
+        // The this of a method of String is a string, it is pushed as a reference (an object): the
+        // value is the same.
+        if (*out_dtype1 == xil_type_t::string && *out_dtype2 == xil_type_t::object)
+            *out_dtype2 = xil_type_t::string;
     }
 
     msize_t __offset_of_argument(command_creating_context_t & ctx, uint16_t identity)
@@ -1966,6 +2136,12 @@ namespace X_ROOT_NS::modules::exec {
                 rt_type_t *     type;
                 xil_box_type_t  box_type;
             } unbox;
+
+            // tuple_values.
+            struct
+            {
+                rt_type_t *     type;
+            } tuple;
         };
     };
 
@@ -1999,7 +2175,7 @@ namespace X_ROOT_NS::modules::exec {
         __DefineConstantCommandManagerT(bool)
         __DefineConstantCommandManagerT(char)
 
-        static __CommandManagerT(const char_t *)    __string_push_command_manager;
+        static __CommandManagerT(const rt_char_t *) __string_push_command_manager;
         static __CommandManagerT(void *)            __object_push_command_manager;
 
         static __command_manager_t<
@@ -2040,6 +2216,28 @@ namespace X_ROOT_NS::modules::exec {
 
                 return __params_address_command_manager.template get_command<__PushParamsAddrCmd>(
                     args.params.offset
+                );
+            }
+
+            case xil_storage_type_t::params_values: {   // Push params values command.
+
+                static __command_manager_t<
+                    __push_params_values_template_t
+                >::with_args_t<__offset_t> __params_values_command_manager;
+
+                return __params_values_command_manager.template get_command<__PushParamsValuesCmd>(
+                    args.params.offset
+                );
+            }
+
+            case xil_storage_type_t::tuple_values: {    // Push tuple values command.
+
+                static __command_manager_t<
+                    __push_tuple_values_template_t
+                >::with_args_t<rt_type_t *> __tuple_values_command_manager;
+
+                return __tuple_values_command_manager.template get_command<__PushTupleValuesCmd>(
+                    args.tuple.type
                 );
             }
 
@@ -2218,7 +2416,7 @@ namespace X_ROOT_NS::modules::exec {
                 : args.constant.get_data<__const_vnum_t<_xt>>())
 
         #define __ConstantStringValue()                                                 \
-            (args.constant.dtype == xil_type_t::empty? default_value_of<const char_t *>()   \
+            (args.constant.dtype == xil_type_t::empty? default_value_of<const rt_char_t *>()   \
                 : ctx.to_cstr(args.constant.get_data<res_t>()))
 
         // The this of a struct is pushed as a pointer: an argument of an object type is the same
@@ -2420,6 +2618,20 @@ namespace X_ROOT_NS::modules::exec {
             #undef __CaseArgumentContents
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Push ptr content
+
+            #define __CasePtrContent(_xt)                                               \
+                case __V(xil_storage_type_t::ptr_content, xil_type_t::_xt, xil_type_t::_xt): \
+                    return __command_manager.template get_command<                      \
+                        __StCmd(push, ptr_content, _xt, _xt),                           \
+                        xil_storage_type_t::ptr_content, xil_type_t::_xt, xil_type_t::_xt \
+                    >(0);
+
+            __EachPtrContentType()
+
+            #undef __CasePtrContent
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Push Field
 
             #define __CaseField(_xt1, _xt2)                                             \
@@ -2564,6 +2776,10 @@ namespace X_ROOT_NS::modules::exec {
             __CaseConvert(object, object)
             __CaseConvert(string, string)
             __CaseConvert(ptr,    ptr)
+            __CaseConvert(ptr,    int64)
+            __CaseConvert(int64,  ptr)
+            __CaseConvert(ptr,    uint64)
+            __CaseConvert(uint64, ptr)
 
             // Push Checked Convert
 
@@ -2628,8 +2844,20 @@ namespace X_ROOT_NS::modules::exec {
 
         typedef xil_extra_t<push_xil_t> exxil_t;
 
+        // sizeof(T): a constant of the size of the type (of the instance when it is a generic param).
+        int64_t type_size_value = 0;
+
         switch (args.stype)
         {
+            case xil_storage_type_t::type_size:
+                type_size_value = (int64_t)ctx.size_of(xil.get_ref());
+
+                args.stype = xil_storage_type_t::constant;
+                args.constant.dtype = xil_type_t::int64;
+                args.constant.data  = &type_size_value;
+                xt1 = xt2 = xil_type_t::int64;
+                break;
+
             case xil_storage_type_t::constant:
                 __analyze_xil_types(ctx, xil, &xt1, &xt2, false);
 
@@ -2645,6 +2873,7 @@ namespace X_ROOT_NS::modules::exec {
                 break;
 
             case xil_storage_type_t::params:
+            case xil_storage_type_t::params_values:
                 args.params.offset = ctx.params_layout.extends_offset();
                 break;
 
@@ -2684,6 +2913,10 @@ namespace X_ROOT_NS::modules::exec {
                 args.argument_content.offset = __offset_of_argument(ctx, xil.get_identity());
                 break;
 
+            case xil_storage_type_t::ptr_content:
+                xt1 = xt2 = xil.dtype();
+                break;
+
             case xil_storage_type_t::field:
                 __analyze_xil_types(ctx, xil, &xt1, &xt2, false);
                 args.field.offset = __field_offset(ctx, xil.get_ref());
@@ -2716,6 +2949,10 @@ namespace X_ROOT_NS::modules::exec {
             case xil_storage_type_t::unbox:
                 args.unbox.type     = __instance_of_template(ctx, ctx.get_type(xil.get_ref()));
                 args.unbox.box_type = xil.get_box_type();
+                break;
+
+            case xil_storage_type_t::tuple_values:
+                args.tuple.type = __instance_of_template(ctx, ctx.get_type(xil.get_ref()));
                 break;
 
             default:
@@ -2795,6 +3032,14 @@ namespace X_ROOT_NS::modules::exec {
             else if constexpr (_st == xil_storage_type_t::argument_addr)
             {
                 *(__value1_t *)__Argument(void *, __This->__offset) = __value(ctx);
+            }
+            else if constexpr (_st == xil_storage_type_t::ptr_content)
+            {
+                // The value is at the top, the address is below it.
+                __value1_t value = __value(ctx);
+                rt_ref_t address = ctx.stack.pop<rt_ref_t>();
+
+                *(__value1_t *)address.ptr = value;
             }
             else    // field
             {
@@ -2949,6 +3194,18 @@ namespace X_ROOT_NS::modules::exec {
 
     static msize_t __unit_size_of_pop_empty(__context_t & ctx, const pop_xil_t & xil)
     {
+        // The result of a call whose type is a generic param: nothing is left when the type is a
+        // custom struct (the callee writes it where the caller said), otherwise the address that
+        // was pushed for it and the value.
+        if (xil.is_call_result())
+        {
+            rt_type_t * type = ctx.get_type(xil.get_ref());
+            if (is_custom_struct(ctx.env, type))
+                return 0;
+
+            return 1 + unit_size_of(ctx.size_of(xil.get_ref()));
+        }
+
         return unit_size_of(__size_of_pop_empty(ctx, xil));
     }
 
@@ -3215,6 +3472,20 @@ namespace X_ROOT_NS::modules::exec {
             #undef __CaseArrayElement
             #undef __CaseArrayElements
             #undef __CaseArrayElement_Dimension
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Pop ptr content
+
+            #define __CasePtrContent(_xt)                                               \
+                case __V(xil_storage_type_t::ptr_content, xil_type_t::_xt, xil_type_t::_xt): \
+                    return __command_manager.template get_command<                      \
+                        __StCmd(pop, ptr_content, _xt, _xt),                            \
+                        xil_storage_type_t::ptr_content, xil_type_t::_xt, xil_type_t::_xt \
+                    >((msize_t)0);
+
+            __EachPtrContentType()
+
+            #undef __CasePtrContent
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3629,6 +3900,9 @@ namespace X_ROOT_NS::modules::exec {
             if (context.ret_code == rtlib::rtlib_ret_null_reference)
                 __RaiseException(ctx, null_reference);
 
+            if (context.ret_code == rtlib::rtlib_ret_invalid_cast)
+                __RaiseInvalidCastException(ctx);
+
             ctx.stack.pop(__This->__pop_unit_size);
 
         __EndExecute()
@@ -3691,6 +3965,9 @@ namespace X_ROOT_NS::modules::exec {
         }
     };
 
+    // The command of Reflection_Invoke: it calls a method that is made of the reflection.
+    static command_t * __new_reflection_invoke_command(__context_t & ctx);
+
     static command_t * __new_internal_call_command(__context_t & ctx, const call_xil_t & xil)
     {
         static __command_manager_t<
@@ -3701,6 +3978,10 @@ namespace X_ROOT_NS::modules::exec {
 
         rt_method_t * rt_method = _M(rt_method_t *, ctx.get_method(method_ref));
         rt_sid_t method_name = rt_method->get_name();
+
+        // A function that is not of the library: it calls methods, the library cannot.
+        if (string_t(method_name) == _T("Reflection_Invoke"))
+            return __new_reflection_invoke_command(ctx);
 
         __libfunc_t libfunc = rtlib::get_libfunc(method_name);
         if (libfunc == nullptr)
@@ -3866,6 +4147,15 @@ namespace X_ROOT_NS::modules::exec {
                 >::with_args_t<rt_method_t *> __static_call_command_manager;
 
                 rt_method_t * rt_method = _M(rt_method_t *, ctx.get_method(method_ref));
+
+                // A static method of the generic type that is running (Twice(n) in Box<T>): the one of the instance.
+                if (__is_current_template(ctx, rt_method->host_type))
+                {
+                    return __new_static_call_command_of(
+                        ctx, ctx.to_generic_method(rt_method, ctx.type)
+                    );
+                }
+
                 return __static_call_command_manager.template
                     get_command<__CallCmd_(static_, general)>(rt_method, ctx);
 
@@ -4054,7 +4344,7 @@ namespace X_ROOT_NS::modules::exec {
 
     template<typename _fetch_t>
     __AlwaysInline exec_method_t * __get_virtual_exec_method(command_execute_context_t & ctx,
-                                                msize_t this_offset, _fetch_t fetch_func)
+                    msize_t this_offset, rt_generic_method_t * call_site, _fetch_t fetch_func)
     {
         rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - this_offset);
         if (obj == nullptr)
@@ -4071,10 +4361,27 @@ namespace X_ROOT_NS::modules::exec {
             assembly_analyzer_t analyzer = __assembly_analyzer(ctx, rt_assembly);
             rt_method_base_t * rt_method = analyzer.get_method(ref_t(func.method_idx));
 
-            if (rt_type->get_kind() == rt_type_kind_t::generic)
+            // The generic params of a method are those of the call: the method that implements
+            // Make<TKey> is found by the object, its TKey is the one of the call.
+            rt_type_t ** method_atypes = nullptr;
+            int method_atype_count = 0;
+
+            if (call_site != nullptr && rt_method->this_type() == rt_member_type_t::general
+                    && ((rt_method_t *)rt_method)->generic_param_count() > 0)
+            {
+                method_atypes = call_site->atypes;
+                method_atype_count = call_site->atype_count();
+            }
+
+            // The methods of an array are those of Array<T>, that is the same type.
+            rt_type_t * instance_type = rt_type;
+            if (rt_type->get_kind() == rt_type_kind_t::array)
+                instance_type = ((rt_array_type_t *)rt_type)->as_generic(ctx.env);
+
+            if (instance_type->get_kind() == rt_type_kind_t::generic || method_atype_count > 0)
             {
                 rt_generic_method_t * m = analyzer.to_generic_method(
-                    _M(rt_method_t *, rt_method), rt_type
+                    _M(rt_method_t *, rt_method), instance_type, method_atypes, method_atype_count
                 );
                 func.method = ctx.env.exec_method_of(m);
             }
@@ -4083,8 +4390,24 @@ namespace X_ROOT_NS::modules::exec {
                 func.method = ctx.env.exec_method_of(rt_method);
             }
         }
-       
-        return (exec_method_t *)func.method;
+
+        // A method of a primitive type (Int32.CompareTo) takes its value, and the receiver of
+        // the call is the object that has the value in a box: the value is put in the place of
+        // the object (a value and a reference take one unit of the stack).
+        exec_method_t * exec_method = (exec_method_t *)func.method;
+        vtype_t rt_vtype = rt_type->get_vtype(ctx.env);
+        if ((is_system_value_type(rt_vtype) || rt_vtype == vtype_t::string_)
+                && exec_method->method != nullptr && exec_method->method->get_host_type() == rt_type)
+        {
+            rt_stack_unit_t * slot = ctx.stack.top() - this_offset;
+            rt_stack_unit_t unit = 0;
+
+            memcpy(&unit, (void *)obj, rt_vtype == vtype_t::string_? sizeof(rt_ref_t)
+                                                                   : get_vtype_size(rt_vtype));
+            *(rt_stack_unit_t *)slot = unit;
+        }
+
+        return exec_method;
     }
 
     // Normal virtual call command.
@@ -4094,12 +4417,15 @@ namespace X_ROOT_NS::modules::exec {
         typedef __command_base_t<__CallCmd(virtual_)>   __super_t;
 
     public:
-        __virtual_call_command_t(msize_t virtual_offset, msize_t this_offset)
-            : __virtual_offset(virtual_offset), __this_offset(this_offset) { }
+        __virtual_call_command_t(msize_t virtual_offset, msize_t this_offset,
+                                                         rt_generic_method_t * call_site)
+            : __virtual_offset(virtual_offset), __this_offset(this_offset)
+            , __call_site(call_site) { }
 
         __BeginExecute(ctx)
 
             exec_method_t * method = __get_virtual_exec_method(ctx, __This->__this_offset,
+                __This->__call_site,
                 [offset=__This->__virtual_offset](rt_vtable_t * vtbl) {
                     return vtbl->functions[offset];
                 }
@@ -4119,18 +4445,19 @@ namespace X_ROOT_NS::modules::exec {
         #endif  // EXEC_TRACE
 
         msize_t __virtual_offset, __this_offset;
+        rt_generic_method_t * __call_site;      // The method of the call, if it has generic params.
     };
 
     struct __virtual_call_command_template_t
     {
         template<command_value_t _cv, typename ... args_t>
         static auto new_command(memory_t * memory, msize_t virtual_offset, msize_t this_offset,
-                                                                        __context_t & ctx)
+                                rt_generic_method_t * call_site, __context_t & ctx)
         {
             static_assert(_cv == __CallCmd(virtual_), "invalid command value");
 
             typedef __virtual_call_command_t this_command_t;
-            return __new_command<this_command_t>(memory, virtual_offset, this_offset);
+            return __new_command<this_command_t>(memory, virtual_offset, this_offset, call_site);
         }
     };
 
@@ -4142,14 +4469,15 @@ namespace X_ROOT_NS::modules::exec {
 
     public:
         __interface_call_command_t(rt_type_t * interface_type, msize_t virtual_offset,
-                                                               msize_t this_offset)
+                                   msize_t this_offset, rt_generic_method_t * call_site)
             : __interface_type(interface_type), __virtual_offset(virtual_offset),
-                                                __this_offset(this_offset)
+                                                __this_offset(this_offset), __call_site(call_site)
         { }
 
         __BeginExecute(ctx)
 
             exec_method_t * method = __get_virtual_exec_method(ctx, __This->__this_offset,
+                __This->__call_site,
                 [o=__This->__virtual_offset, t=__This->__interface_type, &env=ctx.env]
                                                                         (rt_vtable_t * vtbl) {
                     return vtbl->search_vtable_interface_function(env, t, o);
@@ -4172,19 +4500,21 @@ namespace X_ROOT_NS::modules::exec {
 
         rt_type_t * __interface_type;
         msize_t __virtual_offset, __this_offset;
+        rt_generic_method_t * __call_site;      // The method of the call, if it has generic params.
     };
 
     struct __interface_call_command_template_t
     {
         template<command_value_t _cv, typename ... args_t>
         static auto new_command(memory_t * memory, rt_type_t * interface_type,
-                                msize_t virtual_offset, msize_t this_offset, __context_t & ctx)
+                                msize_t virtual_offset, rt_generic_method_t * call_site,
+                                msize_t this_offset, __context_t & ctx)
         {
             static_assert(_cv == __CallCmd(interface_), "invalid command value");
 
             typedef __interface_call_command_t this_command_t;
             return __new_command<this_command_t>(memory, interface_type,
-                                                         virtual_offset, this_offset);
+                                                 virtual_offset, this_offset, call_site);
         }
     };
 
@@ -4204,28 +4534,39 @@ namespace X_ROOT_NS::modules::exec {
         exec_method_t * exec_method = ctx.env.exec_method_of(method);
         msize_t this_offset = exec_method->this_offset;
 
+        // The method of the call has generic params of its own: the method that is called is
+        // found when the call is executed, it gets them.
+        rt_generic_method_t * call_site = nullptr;
+        if (method->this_type() == rt_member_type_t::generic
+                && ((rt_generic_method_t *)method)->template_->generic_param_count() > 0)
+        {
+            call_site = (rt_generic_method_t *)method;
+        }
+
         // Interface virtual call.
         if (host_type->get_ttype(ctx.env) == ttype_t::interface_)
         {
             static __command_manager_t<
                 __interface_call_command_template_t
-            >::with_args_t<rt_type_t *, msize_t> __interface_call_command_manager;
+            >::with_args_t<rt_type_t *, msize_t, rt_generic_method_t *>
+                                                    __interface_call_command_manager;
 
-            msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref);
+            msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref, host_type);
 
             return __interface_call_command_manager.template
-                get_command<__CallCmd(interface_)>(host_type, virtual_offset, this_offset, ctx);
+                get_command<__CallCmd(interface_)>(host_type, virtual_offset, call_site,
+                                                                         this_offset, ctx);
         }
         else    // Normal virtual call.
         {
             static __command_manager_t<
                 __virtual_call_command_template_t
-            >::with_args_t<msize_t, msize_t> __virtual_call_command_manager;
+            >::with_args_t<msize_t, msize_t, rt_generic_method_t *> __virtual_call_command_manager;
 
-            msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref);
+            msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref, host_type);
 
             return __virtual_call_command_manager.template
-                get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, ctx);
+                get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, call_site, ctx);
         }
     }
 
@@ -4576,13 +4917,14 @@ namespace X_ROOT_NS::modules::exec {
         {
             static __command_manager_t<
                 __virtual_call_command_template_t
-            >::with_args_t<msize_t, msize_t> __virtual_call_command_manager;
+            >::with_args_t<msize_t, msize_t, rt_generic_method_t *> __virtual_call_command_manager;
 
             msize_t virtual_offset = t.virtual_offset;
             msize_t this_offset = ctx.env.exec_method_of(t.target)->this_offset;
 
             return __virtual_call_command_manager.template
-                get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, ctx);
+                get_command<__CallCmd(virtual_)>(virtual_offset, this_offset,
+                                                 (rt_generic_method_t *)nullptr, ctx);
         }
 
         return __new_instance_call_command(ctx, t.target);
@@ -5326,7 +5668,9 @@ namespace X_ROOT_NS::modules::exec {
     // Creates a cast command.
     static command_t * __new_cast_command(__context_t & ctx, const cast_xil_t & xil)
     {
-        rt_type_t * type = ctx.get_type(xil.type_ref());
+        // A class that is nested in a generic type (the state of an iterator of Box<T>) is the one
+        // of the instance that runs.
+        rt_type_t * type = __instance_of_template(ctx, ctx.get_type(xil.type_ref()));
         bool is_interface = (type->get_ttype(ctx.env) == ttype_t::interface_);
 
         switch (xil.cmd())
@@ -6315,7 +6659,10 @@ namespace X_ROOT_NS::modules::exec {
 
             case xil_new_type_t::stack_alloc: {
 
-                msize_t obj_size = type->get_size(ctx.env);
+                // The size of a variable: the generic param of an argument is a class, a number or
+                // a string, as well as a struct (it is the reference that is in the stack, not
+                // the object).
+                msize_t obj_size = type->get_variable_size(ctx.env);
                 size_t units = _alignf(obj_size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
                 return __alloc_command_manager.template
                     get_command<__NewCmd(stack_alloc), xil_new_type_t::stack_alloc>(units);
@@ -6885,6 +7232,11 @@ namespace X_ROOT_NS::modules::exec {
         if (al::in(xil.dtype(), xil_type_t::object, xil_type_t::string, xil_type_t::ptr))
             return rt_ref_size;
 
+        // A char of the runtime is 16 bits, as the elements of the arrays that are read and written by
+        // the other commands.
+        if (xil.dtype() == xil_type_t::char_)
+            return sizeof(rt_char_t);
+
         return size_of(xil.dtype());
     }
 
@@ -6993,6 +7345,394 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    ////////// ////////// ////////// ////////// //////////
+    // Method.Invoke: the stub that calls a method with the arguments of an array of objects.
+    //
+    // The stub is a dynamic method of two params (the object, the array of the arguments) that
+    // has three commands: the call takes the arguments out of the objects, pushes them like the
+    // code of a call does and calls the method (it is a call of the executor, nothing is nested:
+    // an exception that the method throws goes the way of any other), the finish makes an object
+    // of the value that the method returned, and the ret.
+
+    // A value that is passed in an object: a reference is the object itself, the others (a number,
+    // an enum, a char, a bool, a string) are boxed. A struct of the user is not supported.
+    static bool __invoke_is_boxed(analyzer_env_t & env, rt_type_t * type)
+    {
+        return type->get_vtype(env) == vtype_t::string_ || !is_ref_type(type->get_ttype(env));
+    }
+
+    // The size of a value that is boxed.
+    static size_t __invoke_value_size(analyzer_env_t & env, rt_type_t * type)
+    {
+        return type->get_vtype(env) == vtype_t::string_? sizeof(void *)
+                                                        : (size_t)type->get_variable_size(env);
+    }
+
+    // Returns whether an object is a value of a type.
+    static bool __invoke_is_instance_of(analyzer_env_t & env, void * obj, rt_type_t * type)
+    {
+        rt_type_t * obj_type = mm::get_object_type(obj);
+
+        for (rt_type_t * t = obj_type; t != nullptr; t = t->get_base_type(env))
+        {
+            if (t == type)
+                return true;
+        }
+
+        rt_vtable_t * vtbl = get_vtable(obj_type);
+        return vtbl != nullptr && vtbl->search_vtable_interface_variant(env, type) != nullptr;
+    }
+
+    // Returns whether the type is one of the objects of reflection (Type, Method, ...): they are
+    // handles, they have no header with the type of the object.
+    static bool __invoke_is_handle_type(analyzer_env_t & env, rt_type_t * type)
+    {
+        rt_sid_t sid = type->get_full_name(env);
+        string_t name = sid.value != nullptr? (string_t)*sid.value : string_t();
+
+        return name.find(_T("Reflection.")) == 0 || name.find(_T("System.Reflection.")) == 0;
+    }
+
+    // Pushes the argument of a call, returns false when the object is not a value of the type.
+    static bool __push_invoke_argument(command_execute_context_t & ctx, rt_type_t * type, void * item)
+    {
+        analyzer_env_t & env = ctx.env;
+
+        if (type == nullptr)
+            return false;
+
+        // A struct is passed by value: its bytes are in the stack, the units that its size needs
+        // (it is a copy, the box does not change).
+        if (is_custom_struct(env, type))
+        {
+            if (item == nullptr || mm::get_object_type(item) != type)
+                return false;
+
+            size_t size = (size_t)type->get_size(env);
+            rt_stack_unit_t * units = ctx.stack.alloc(size);
+
+            memset((void *)units, 0, _alignf(size, sizeof(rt_stack_unit_t)));
+            memcpy((void *)units, item, size);
+
+            return true;
+        }
+
+        if (!__invoke_is_boxed(env, type))
+        {
+            if (item != nullptr && !__invoke_is_handle_type(env, type)
+                    && !__invoke_is_instance_of(env, item, type))
+                return false;
+
+            ctx.stack.push(item);
+            return true;
+        }
+
+        size_t size = __invoke_value_size(env, type);
+        rt_stack_unit_t * units = ctx.stack.alloc(size);
+        memset((void *)units, 0, _alignf(size, sizeof(rt_stack_unit_t)));
+
+        // A string can be null, the others are the box of a value of exactly that type.
+        if (item == nullptr)
+            return type->get_vtype(env) == vtype_t::string_;
+
+        if (mm::get_object_type(item) != type)
+            return false;
+
+        memcpy((void *)units, item, size);
+        return true;
+    }
+
+    #define __InvokeCallCmd     __Cmd(call, invoke)
+    #define __InvokeFinishCmd   __Cmd(call, invoke_finish)
+
+    __DefineCmdValue_(__InvokeCallCmd)
+    __DefineCmdValue_(__InvokeFinishCmd)
+
+    // Takes the arguments out of the array, and calls the method.
+    class __invoke_call_command_t : public __command_base_t<__InvokeCallCmd>
+    {
+        typedef __invoke_call_command_t     __self_t;
+
+    public:
+        __invoke_call_command_t(rt_method_base_t * method, rt_reflect_member_t * member,
+                                msize_t target_offset, msize_t args_offset)
+            : __method(method), __member(member)
+            , __target_offset(target_offset), __args_offset(args_offset) { }
+
+        __BeginExecute(ctx)
+
+            analyzer_env_t & env = ctx.env;
+
+            void * target = __Argument(void *, __This->__target_offset);
+            void * args   = __Argument(void *, __This->__args_offset);
+
+            rt_method_base_t * method = __This->__method;
+            rt_reflect_member_t * member = __This->__member;
+            exec_method_t * exec_method = nullptr;
+
+            // A struct is returned through an address, that is pushed before the arguments: the
+            // object that has it (it is the result), and once more under it, that stays when the
+            // method returns.
+            rt_type_t * return_type = method->get_return_type(env);
+            if (is_custom_struct(env, return_type))
+            {
+                __pre_new(ctx, return_type);
+                void * result = (void *)ctx.heap->new_obj(return_type);
+
+                ctx.stack.push(result);
+                ctx.stack.push(result);
+            }
+
+            if (__is_static_method(method))
+            {
+                __pre_static_call(ctx, method->get_host_type());
+            }
+            else
+            {
+                if (target == nullptr)
+                    __RaiseException(ctx, null_reference);
+
+                rt_type_t * host = method->get_host_type();
+                bool is_number = !is_custom_struct(env, host) && __invoke_is_boxed(env, host);
+
+                // The methods of a number (Int32.ToString) take the value for the this: the
+                // target is its box, the value is pushed.
+                if (is_number)
+                {
+                    if (mm::get_object_type(target) != host)
+                        __RaiseInvalidCastException(ctx);
+
+                    size_t size = __invoke_value_size(env, host);
+                    rt_stack_unit_t * units = ctx.stack.alloc(size);
+
+                    memset((void *)units, 0, _alignf(size, sizeof(rt_stack_unit_t)));
+                    memcpy((void *)units, target, size);
+                }
+                else
+                {
+                    if (!__invoke_is_instance_of(env, target, host))
+                        __RaiseInvalidCastException(ctx);
+
+                    ctx.stack.push(target);
+                }
+
+                // The methods of an interface have no code: the function is in the table of the
+                // interface of the object.
+                if (host->get_ttype(env) == ttype_t::interface_)
+                {
+                    if (member->offset < 0)
+                        __RaiseInvalidCastException(ctx);
+
+                    int64_t offset = member->offset;
+                    exec_method = __get_virtual_exec_method(ctx, 1, nullptr,
+                        [offset, host, &env](rt_vtable_t * vtbl) {
+                            return vtbl->search_vtable_interface_function(env, host, offset);
+                        });
+
+                    if (exec_method == nullptr)
+                        __RaiseInvalidCastException(ctx);
+                }
+                else if (member->offset >= 0)
+                {
+                    // A virtual method is called like a virtual call does: the function of the
+                    // virtual table of the object.
+                    int64_t offset = member->offset;
+                    exec_method = __get_virtual_exec_method(ctx, 1, nullptr,
+                        [offset](rt_vtable_t * vtbl) { return vtbl->functions[offset]; });
+                }
+            }
+
+            for (int64_t k = 0; k < member->param_count; k++)
+            {
+                void * item = mm::get_array_element<void *>(args, (array_length_t)k);
+
+                if (!__push_invoke_argument(ctx, (rt_type_t *)member->params[k]->type, item))
+                    __RaiseInvalidCastException(ctx);
+            }
+
+            ctx.push_calling(exec_method != nullptr? exec_method : ctx.env.exec_method_of(method));
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("invoke"))
+
+        #endif  // EXEC_TRACE
+
+    private:
+        rt_method_base_t *      __method;
+        rt_reflect_member_t *   __member;
+        msize_t                 __target_offset, __args_offset;
+    };
+
+    // Makes an object of the value that the method returned.
+    class __invoke_finish_command_t : public __command_base_t<__InvokeFinishCmd>
+    {
+        typedef __invoke_finish_command_t   __self_t;
+
+    public:
+        __invoke_finish_command_t(rt_method_base_t * method) : __method(method) { }
+
+        __BeginExecute(ctx)
+
+            analyzer_env_t & env = ctx.env;
+            rt_type_t * type = __This->__method->get_return_type(env);
+
+            // A method of void returns null.
+            if (type == nullptr || type->get_vtype(env) == vtype_t::void_)
+            {
+                ctx.stack.push((void *)nullptr);
+                return;
+            }
+
+            // A struct: the object that has it is under the result.
+            if (is_custom_struct(env, type))
+                return;
+
+            // A reference is the object.
+            if (!__invoke_is_boxed(env, type))
+                return;
+
+            size_t size = __invoke_value_size(env, type);
+            msize_t units = (msize_t)(_alignf(size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t));
+
+            // The value is on the stack while the object is made (the gc scans the stack).
+            void * boxed = nullptr;
+            bool is_null_string = type->get_vtype(env) == vtype_t::string_
+                                    && *(void **)(ctx.stack.top() - units) == nullptr;
+
+            if (!is_null_string)
+            {
+                __pre_new(ctx, type);
+                boxed = (void *)ctx.heap->new_obj(type);
+
+                memcpy(boxed, (void *)(ctx.stack.top() - units), size);
+            }
+
+            ctx.stack.pop(units);
+            ctx.stack.push(boxed);
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("invoke finish"))
+
+        #endif  // EXEC_TRACE
+
+    private:
+        rt_method_base_t *  __method;
+    };
+
+    // Creates the commands of the stub.
+    static command_t * __new_invoke_command(command_creating_context_t & ctx,
+                                            rt_invoke_command_t * rt_cmd)
+    {
+        switch (rt_cmd->kind)
+        {
+            case rt_invoke_kind_t::call:
+                return __new_command<__invoke_call_command_t>(&__command_heap, rt_cmd->method,
+                    rt_cmd->member, __offset_of_argument(ctx, 1) + __stack_stub_size,
+                    __offset_of_argument(ctx, 2) + __stack_stub_size);
+
+            case rt_invoke_kind_t::finish:
+                return __new_command<__invoke_finish_command_t>(&__command_heap, rt_cmd->method);
+
+            default:
+                X_UNEXPECTED();
+        }
+    }
+
+    // The function Reflection_Invoke(method, target, args): the stub of the method takes the place
+    // of the arguments (the method is the this that the stub does not use), and is called.
+    #define __ReflectionInvokeCmd   __Cmd(call, reflection_invoke)
+    __DefineCmdValue_(__ReflectionInvokeCmd)
+
+    class __reflection_invoke_command_t : public __command_base_t<__ReflectionInvokeCmd>
+    {
+        typedef __reflection_invoke_command_t   __self_t;
+
+    public:
+        __BeginExecute(ctx)
+
+            rt_stack_unit_t * args = ctx.stack.top() - 3;
+            rt_reflect_member_t * member = *(rt_reflect_member_t **)args;
+
+            exec_method_t * stub = __stub_of(ctx, member);
+            if (stub == nullptr)
+                __RaiseInvalidCastException(ctx);
+
+            *(void **)args = nullptr;
+            ctx.push_calling(stub);
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("call reflection invoke"))
+
+        #endif  // EXEC_TRACE
+
+    private:
+
+        // Returns the stub of a method (it is made the first time), null when the method is not
+        // known to the interpreter.
+        static exec_method_t * __stub_of(command_execute_context_t & ctx,
+                                                        rt_reflect_member_t * member)
+        {
+            static std::map<rt_reflect_member_t *, exec_method_t *> stubs;
+
+            auto it = stubs.find(member);
+            if (it != stubs.end())
+                return it->second;
+
+            rt_method_base_t * method = (rt_method_base_t *)member->static_data;
+            if (method == nullptr)
+                return nullptr;
+
+            analyzer_env_t & env = ctx.env;
+            rt_type_t * object_type = __get_core_type(ctx, _T(""), CoreType_Object);
+
+            rt_dynamic_method_t * stub = env.rpool.new_dynamic_method_array(1);
+            new ((void *)stub) rt_dynamic_method_t();
+
+            stub->host_type   = object_type;
+            stub->return_type = object_type;
+            stub->name        = object_type->get_assembly()->to_sid(_T("__invoke"));
+
+            rt_dynamic_param_t * params = (rt_dynamic_param_t *)memory_t::alloc(
+                env.memory, sizeof(rt_dynamic_param_t) * 2
+            );
+
+            for (int k = 0; k < 2; k++)
+            {
+                new ((void *)&params[k]) rt_dynamic_param_t();
+                params[k].type = object_type;
+            }
+
+            stub->params      = params;
+            stub->param_count = 2;
+
+            rt_dynamic_method_body_builder_t builder;
+            builder.append<rt_invoke_command_t>(rt_invoke_kind_t::call, method, member);
+            builder.append<rt_invoke_command_t>(rt_invoke_kind_t::finish, method, member);
+            builder.append<rt_ret_command_t>();
+
+            stub->body = builder.to_method_body(env.memory);
+
+            exec_method_t * exec_method = ctx.env.exec_method_of((rt_method_base_t *)stub);
+            stubs[member] = exec_method;
+
+            return exec_method;
+        }
+    };
+
+    static command_t * __new_reflection_invoke_command(__context_t & ctx)
+    {
+        __ReturnInstance(__reflection_invoke_command_t);
+    }
+
     // Creates a push command.
     command_t * __new_push_command(command_creating_context_t & ctx, rt_push_command_base_t * rt_cmd)
     {
@@ -7000,6 +7740,20 @@ namespace X_ROOT_NS::modules::exec {
         {
             case xil_storage_type_t::argument: {
                 rt_push_argument_command_t * cmd = (rt_push_argument_command_t *)rt_cmd;
+
+                // The address that a struct is returned through.
+                if (cmd->identity == XIL_CALLING_BOTTOM_IDENTITY)
+                {
+                    __new_push_command_args_t bottom_args {
+                        .stype = xil_storage_type_t::argument,
+                        .xt1   = xil_type_t::ptr,
+                        .xt2   = xil_type_t::ptr,
+                        .argument.offset = __offset_of_argument(ctx, cmd->identity),
+                    };
+
+                    return __new_push_command(ctx, bottom_args);
+                }
+
                 xil_type_t xt = __xil_type_of_argument(ctx, cmd->identity);
 
                 __new_push_command_args_t args {
@@ -7026,6 +7780,19 @@ namespace X_ROOT_NS::modules::exec {
                     .xt1   = xt,
                     .xt2   = xt,
                     .field.offset = field->offset,
+                };
+
+                return __new_push_command(ctx, args);
+            }
+
+            case xil_storage_type_t::field_addr: {
+                rt_push_field_addr_command_t * cmd = (rt_push_field_addr_command_t *)rt_cmd;
+
+                __new_push_command_args_t args {
+                    .stype = xil_storage_type_t::field_addr,
+                    .xt1   = xil_type_t::ptr,
+                    .xt2   = xil_type_t::ptr,
+                    .field.offset = cmd->field->offset,
                 };
 
                 return __new_push_command(ctx, args);
@@ -7063,6 +7830,14 @@ namespace X_ROOT_NS::modules::exec {
 
             case xil_command_t::smp:
                 return __new_smp_command(ctx, (rt_smp_command_base_t *)rt_cmd);
+
+            case xil_command_t::call:
+                return __new_invoke_command(ctx, (rt_invoke_command_t *)rt_cmd);
+
+            case xil_command_t::copy: {
+                rt_type_t * type = ((rt_copy_command_t *)rt_cmd)->type;
+                return __get_object_copy_command(type->get_size(ctx.env), xil_copy_kind_t::default_);
+            }
 
             default:
                 X_UNEXPECTED_F("unexpected xil command '%1%", rt_cmd->cmd);

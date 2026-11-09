@@ -31,6 +31,11 @@ extern "C" {
     {
         april_native_gc::init(stack_base);
 
+        // The wide streams write UTF-8: a character that is not ASCII would stop them, else.
+        std::locale utf8 = X_ROOT_NS::utf8_locale();
+        std::wcout.imbue(utf8);
+        std::wcerr.imbue(utf8);
+
         // The strings that programs make (e.g. concatenation) are collected like objects:
         // they hold no references, and the references to them point to their start.
         X_ROOT_NS::modules::rtlib::set_string_allocator([](uint64_t bytes) -> void * {
@@ -46,6 +51,39 @@ extern "C" {
     void april_native_add_root(void ** slot)
     {
         april_native_gc::add_root(slot);
+    }
+
+    namespace
+    {
+        // The resources of the program: name, bytes.
+        std::map<std::wstring, std::pair<const unsigned char *, size_t>> & __resources()
+        {
+            static std::map<std::wstring, std::pair<const unsigned char *, size_t>> resources;
+            return resources;
+        }
+
+        bool __find_native_resource(const X_ROOT_NS::string_t & name, const X_ROOT_NS::byte_t ** bytes, uint64_t * length)
+        {
+            auto & resources = __resources();
+            auto it = resources.find(std::wstring(name.begin(), name.end()));
+            if (it == resources.end())
+                return false;
+
+            *bytes  = it->second.first;
+            *length = it->second.second;
+
+            return true;
+        }
+    }
+
+    void april_native_add_resource(const char * name, const void * data, int64_t size)
+    {
+        X_ROOT_NS::string_t host = X_ROOT_NS::string_convert<char, X_ROOT_NS::char_t>(std::string(name));
+
+        __resources()[std::wstring(host.begin(), host.end())] =
+            std::make_pair((const unsigned char *)data, (size_t)size);
+
+        X_ROOT_NS::modules::rtlib::set_resource_finder(__find_native_resource);
     }
 
     void * april_native_find_libfunc(const char * name)
@@ -121,14 +159,13 @@ extern "C" {
 
         int64_t index = 0;
         for (int32_t k = 0; k < dimension; k++)
-        {
-            if (indices[k] < 0 || indices[k] >= dims[k])
-            {
-                std::fputs("native: index out of range\n", stderr);
-                std::exit(1);
-            }
-
             index = index * dims[k] + indices[k];
+
+        // Only the position is checked, not the index of each dimension (like the interpreter).
+        if (index < 0 || index >= *(int32_t *)((char *)array - 16))
+        {
+            std::fputs("native: index out of range\n", stderr);
+            std::exit(1);
         }
 
         return (char *)array + index * element_size;
@@ -153,12 +190,11 @@ extern "C" {
 
         int64_t index = 0;
         for (int32_t k = 0; k < dimension; k++)
-        {
-            if (indices[k] < 0 || indices[k] >= dims[k])
-                return nullptr;
-
             index = index * dims[k] + indices[k];
-        }
+
+        // Only the position is checked, not the index of each dimension (like the interpreter).
+        if (index < 0 || index >= *(int32_t *)((char *)array - 16))
+            return nullptr;
 
         return (char *)array + index * element_size;
     }
@@ -237,6 +273,487 @@ extern "C" {
         }
 
         return object;
+    }
+
+    // Reflection of fields.
+    static uint8_t * __reflect_address(const april_native_member_t * member, void * object)
+    {
+        if ((member->flags & 16) != 0)
+            return (uint8_t *)*(void **)member->key_or_static + member->offset;
+
+        return (uint8_t *)object + member->offset;
+    }
+
+    int32_t april_native_reflect_check(const april_native_member_t * member, void * object,
+                                       void * value, int32_t mode)
+    {
+        if (member->value_kind == 0 || member->offset < 0)
+            return 2;
+
+        if ((member->flags & 16) == 0)
+        {
+            if (object == nullptr)
+                return 1;
+
+            if (!april_native_is_instance(object, member->key_or_static))
+                return 2;
+        }
+
+        if (mode == 1)
+        {
+            // The descriptor of an object is before it.
+            void * value_type = value == nullptr? nullptr : *(void **)((uint8_t *)value - 8);
+
+            switch (member->value_kind)
+            {
+                case 1:
+                    // The keys 1 (Object) and 2 (the objects of reflection) are not checked.
+                    if (value != nullptr && value_type != nullptr && member->type_key != nullptr
+                            && member->type_key != (void *)1 && member->type_key != (void *)2
+                            && !april_native_is_instance(value, member->type_key))
+                        return 2;
+                    break;
+
+                case 3:
+                    if (value != nullptr && value_type != member->type)
+                        return 2;
+                    break;
+
+                default:
+                    if (value == nullptr || value_type != member->type)
+                        return 2;
+                    break;
+            }
+        }
+
+        return 0;
+    }
+
+    void * april_native_reflect_get(const april_native_member_t * member, void * object)
+    {
+        uint8_t * address = __reflect_address(member, object);
+
+        if (member->value_kind == 1)
+            return *(void **)address;
+
+        if (member->value_kind == 3 && *(void **)address == nullptr)
+            return nullptr;
+
+        void * boxed = april_native_new_object((uint64_t)member->size, member->type);
+        memcpy(boxed, address, (size_t)member->size);
+
+        return boxed;
+    }
+
+    void april_native_reflect_set(const april_native_member_t * member, void * object, void * value)
+    {
+        uint8_t * address = __reflect_address(member, object);
+
+        if (member->value_kind == 1)
+        {
+            *(void **)address = value;
+        }
+        else if (value == nullptr)
+        {
+            memset(address, 0, (size_t)member->size);
+        }
+        else
+        {
+            memcpy(address, value, (size_t)member->size);
+        }
+    }
+
+    int32_t april_native_reflect_check_invoke(const april_native_member_t * member, void * object,
+                                              void ** args)
+    {
+        // A method of an interface has no function of its own: the key is the one of the interface.
+        bool is_interface = member->key_or_static == nullptr && member->offset >= 0
+                                && member->type_key != nullptr;
+
+        if (member->invoker == nullptr || (member->key_or_static == nullptr && !is_interface))
+            return 2;
+
+        bool is_static = (member->flags & 16) != 0;
+        if (!is_static)
+        {
+            if (object == nullptr)
+                return 1;
+
+            // The methods of a number are called on the box of the number: its descriptor is the
+            // class of the number (member->declaring).
+            if ((member->flags & (1 << 15)) != 0)
+            {
+                if (*(void **)((uint8_t *)object - 8) != member->declaring)
+                    return 2;
+            }
+            else if (member->type_key == nullptr || !april_native_is_instance(object, member->type_key))
+            {
+                return 2;
+            }
+        }
+
+        april_native_member_t ** params = (april_native_member_t **)member->params;
+        for (int64_t k = 0; k < member->param_count; k++)
+        {
+            const april_native_member_t * p = params[k];
+            void * item = args[k];
+
+            // The descriptor of an object is before it.
+            void * item_type = item == nullptr? nullptr : *(void **)((uint8_t *)item - 8);
+
+            switch (p->value_kind)
+            {
+                case 1:
+                    // The key 1 is Object: every object is one. A handle of reflection (a Type)
+                    // has no descriptor before it.
+                    if (item != nullptr && item_type != nullptr
+                            && p->type_key != (void *)1 && p->type_key != (void *)2
+                            && (p->type_key == nullptr
+                                || !april_native_is_instance(item, p->type_key)))
+                        return 2;
+                    break;
+
+                case 3:
+                    if (item != nullptr && item_type != p->type)
+                        return 2;
+                    break;
+
+                case 2:
+                    if (item == nullptr || item_type != p->type)
+                        return 2;
+                    break;
+
+                default:
+                    return 2;
+            }
+        }
+
+        return 0;
+    }
+
+    void * april_native_reflect_invoke(const april_native_member_t * member, void * object,
+                                       void ** args)
+    {
+        bool is_static = (member->flags & 16) != 0;
+        april_native_member_t ** params = (april_native_member_t **)member->params;
+
+        // The units of the values: the object, the arguments (a struct takes the units that its size
+        // needs).
+        size_t total = 1;
+        for (int64_t k = 0; k < member->param_count; k++)
+            total += std::max<int64_t>(1, (params[k]->size + 7) / 8);
+
+        // The values are on the stack of the thread (the collector scans it): the objects that they
+        // are would be lost if they were in a block of the heap of the C++ runtime.
+        uint64_t small_values[32] = { 0 };
+        std::vector<uint64_t> large_values;
+        uint64_t * values = small_values;
+
+        if (total > 32)
+        {
+            large_values.assign(total, 0);
+            values = large_values.data();
+        }
+
+        size_t count = 0;
+
+        void * function = member->key_or_static;
+
+        // The method of an interface: the function of the object.
+        bool through_interface = function == nullptr && member->offset >= 0 && object != nullptr;
+        if (through_interface)
+        {
+            function = april_native_find_interface_function(*(void **)((uint8_t *)object - 8),
+                                                            member->type_key, member->offset);
+            if (function == nullptr)
+                return nullptr;
+        }
+
+        if (!is_static)
+        {
+            // The value of a number is the this of its methods; the box has it.
+            if ((member->flags & (1 << 15)) != 0)
+            {
+                uint64_t value = 0;
+                memcpy(&value, object, (size_t)((member->flags >> 24) & 0xFF));
+                values[count++] = value;
+            }
+            else
+            {
+                values[count++] = (uint64_t)(uintptr_t)object;
+            }
+
+            // A virtual method is the function of the class of the object.
+            if (member->offset >= 0 && !through_interface)
+            {
+                void * descriptor = *(void **)((uint8_t *)object - 8);
+                void * found = *(void **)((uint8_t *)descriptor + 32 + 8 * member->offset);
+                if (found != nullptr)
+                    function = found;
+            }
+        }
+
+        for (int64_t k = 0; k < member->param_count; k++)
+        {
+            const april_native_member_t * p = params[k];
+            void * item = args[k];
+
+            if (p->value_kind == 1)
+            {
+                values[count++] = (uint64_t)(uintptr_t)item;
+                continue;
+            }
+
+            if (item != nullptr)
+                memcpy(&values[count], item, (size_t)p->size);
+
+            count += (size_t)std::max<int64_t>(1, (p->size + 7) / 8);
+        }
+
+        // The result of a number or of a struct is written to its box (it is made before the call: it
+        // is on the stack, the collector knows it); a reference or a string is in a unit.
+        uint64_t unit[2] = { 0, 0 };
+        uint64_t * result = unit;
+        void * boxed = nullptr;
+
+        if (member->value_kind == 2)
+        {
+            boxed = april_native_new_object((uint64_t)member->size, member->type);
+            result = (uint64_t *)boxed;
+        }
+
+        ((void (*)(void *, uint64_t *, uint64_t *))member->invoker)(function, values, result);
+
+        switch (member->value_kind)
+        {
+            case 1:
+                return (void *)(uintptr_t)unit[0];
+
+            case 2:
+                return boxed;
+
+            case 3: {
+                if (unit[0] == 0)
+                    return nullptr;
+
+                void * text = (void *)(uintptr_t)unit[0];
+                boxed = april_native_new_object((uint64_t)member->size, member->type);
+                memcpy(boxed, &text, sizeof(text));
+
+                return boxed;
+            }
+
+            default:
+                return nullptr;
+        }
+    }
+
+    int32_t april_native_reflect_attribute_count(const april_native_attributes_t * attributes)
+    {
+        return attributes == nullptr? 0 : (int32_t)attributes->count;
+    }
+
+    void * april_native_reflect_attribute_constructor(const april_native_attributes_t * attributes,
+                                                      int32_t index)
+    {
+        if (attributes == nullptr || index < 0 || index >= attributes->count)
+            return nullptr;
+
+        return attributes->items[index].constructor;
+    }
+
+    int32_t april_native_reflect_attribute_argument_count(
+                                    const april_native_attributes_t * attributes, int32_t index)
+    {
+        void * constructor = april_native_reflect_attribute_constructor(attributes, index);
+        return constructor == nullptr? 0 : (int32_t)((april_native_member_t *)constructor)->param_count;
+    }
+
+    void * april_native_reflect_attribute_argument(const april_native_attributes_t * attributes,
+                                                   int32_t index, int32_t position)
+    {
+        april_native_member_t * constructor =
+                (april_native_member_t *)april_native_reflect_attribute_constructor(attributes, index);
+
+        if (constructor == nullptr || position < 0 || position >= constructor->param_count)
+            return nullptr;
+
+        const april_native_member_t * p = ((april_native_member_t **)constructor->params)[position];
+        const april_native_attribute_argument_t & a = attributes->items[index].arguments[position];
+
+        // What was written, when it is not by the parameter (Object, Type).
+        switch (a.kind)
+        {
+            case 2: {
+                void * boxed = april_native_new_object((uint64_t)a.size, a.type);
+                memcpy(boxed, &a.bits, (size_t)std::min<int64_t>(a.size, 8));
+
+                return boxed;
+            }
+
+            case 3: {
+                if (a.string == nullptr)
+                    return nullptr;
+
+                void * boxed = april_native_new_object((uint64_t)a.size, a.type);
+                memcpy(boxed, &a.string, sizeof(a.string));
+
+                return boxed;
+            }
+
+            case 5: {
+                // An array of numbers or of strings: the units are the rank, the length of each
+                // dimension, and the elements, they are copied to a new array.
+                const uint64_t * units = (const uint64_t *)a.string;
+                int32_t rank = (int32_t)units[0];
+
+                int32_t lengths[32];
+                int64_t total = 1;
+                for (int32_t d = 0; d < rank && d < 32; d++)
+                {
+                    lengths[d] = (int32_t)units[1 + d];
+                    total *= lengths[d];
+                }
+
+                void * array = april_native_new_array(a.size, rank, lengths, nullptr, 0);
+
+                const uint64_t * elements = units + 1 + rank;
+                for (int64_t k = 0; array != nullptr && k < total; k++)
+                    memcpy((char *)array + (size_t)k * (size_t)a.size, &elements[k], (size_t)a.size);
+
+                return array;
+            }
+
+            case 4:
+                return a.type;
+
+            default:
+                break;
+        }
+
+        switch (p->value_kind)
+        {
+            case 3: {
+                if (a.string == nullptr)
+                    return nullptr;
+
+                void * boxed = april_native_new_object((uint64_t)p->size, p->type);
+                memcpy(boxed, &a.string, sizeof(a.string));
+
+                return boxed;
+            }
+
+            case 2: {
+                void * boxed = april_native_new_object((uint64_t)p->size, p->type);
+                memcpy(boxed, &a.bits, (size_t)std::min<int64_t>(p->size, 8));
+
+                return boxed;
+            }
+
+            default:
+                return nullptr;
+        }
+    }
+
+    int32_t april_native_reflect_attribute_named_count(
+                                    const april_native_attributes_t * attributes, int32_t index)
+    {
+        if (attributes == nullptr || index < 0 || index >= attributes->count)
+            return 0;
+
+        return (int32_t)attributes->items[index].named_count;
+    }
+
+    const void * april_native_reflect_attribute_named_name(
+                                    const april_native_attributes_t * attributes, int32_t index,
+                                    int32_t position)
+    {
+        if (april_native_reflect_attribute_named_count(attributes, index) <= position || position < 0)
+            return nullptr;
+
+        return attributes->items[index].named[position].name;
+    }
+
+    void * april_native_reflect_attribute_named_value(const april_native_attributes_t * attributes,
+                                                      int32_t index, int32_t position)
+    {
+        if (april_native_reflect_attribute_named_count(attributes, index) <= position || position < 0)
+            return nullptr;
+
+        const april_native_attribute_named_t & a = attributes->items[index].named[position];
+        const april_native_member_t * member = (const april_native_member_t *)a.member;
+
+        switch (a.kind)
+        {
+            case 2: {
+                void * boxed = april_native_new_object((uint64_t)a.size, a.type);
+                memcpy(boxed, &a.bits, (size_t)std::min<int64_t>(a.size, 8));
+
+                return boxed;
+            }
+
+            case 3: {
+                if (a.string == nullptr)
+                    return nullptr;
+
+                void * boxed = april_native_new_object((uint64_t)a.size, a.type);
+                memcpy(boxed, &a.string, sizeof(a.string));
+
+                return boxed;
+            }
+
+            case 5: {
+                // An array of numbers or of strings: the units are the rank, the length of each
+                // dimension, and the elements, they are copied to a new array.
+                const uint64_t * units = (const uint64_t *)a.string;
+                int32_t rank = (int32_t)units[0];
+
+                int32_t lengths[32];
+                int64_t total = 1;
+                for (int32_t d = 0; d < rank && d < 32; d++)
+                {
+                    lengths[d] = (int32_t)units[1 + d];
+                    total *= lengths[d];
+                }
+
+                void * array = april_native_new_array(a.size, rank, lengths, nullptr, 0);
+
+                const uint64_t * elements = units + 1 + rank;
+                for (int64_t k = 0; array != nullptr && k < total; k++)
+                    memcpy((char *)array + (size_t)k * (size_t)a.size, &elements[k], (size_t)a.size);
+
+                return array;
+            }
+
+            case 4:
+                return a.type;
+
+            default:
+                break;
+        }
+
+        switch (member->value_kind)
+        {
+            case 3: {
+                if (a.string == nullptr)
+                    return nullptr;
+
+                void * boxed = april_native_new_object((uint64_t)member->size, member->type);
+                memcpy(boxed, &a.string, sizeof(a.string));
+
+                return boxed;
+            }
+
+            case 2: {
+                void * boxed = april_native_new_object((uint64_t)member->size, member->type);
+                memcpy(boxed, &a.bits, (size_t)std::min<int64_t>(member->size, 8));
+
+                return boxed;
+            }
+
+            default:
+                return nullptr;
+        }
     }
 
     void * april_native_find_interface_function(void * type, void * key, int64_t offset)

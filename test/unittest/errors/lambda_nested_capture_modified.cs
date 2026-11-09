@@ -1,4 +1,4 @@
-/* EXPECT_ERROR the local variable "a" is used by a lambda, it cannot be modified */
+/* EXPECT_ERROR local variable "a" is used by a lambda and cannot be modified */
 
 import System;
 

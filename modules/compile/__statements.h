@@ -266,6 +266,10 @@ namespace X_ROOT_NS::modules::compile {
 
         expression_t * expression = nullptr;    // Return value.
 
+        // The expression is the body of a method that returns nothing (void F() => G();): it is
+        // run, and its value is not returned.
+        bool discard_value = false;
+
         // Compiles this statement.
         virtual void compile(statement_compile_context_t & ctx) override;
 

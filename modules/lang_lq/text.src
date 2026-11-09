@@ -1,0 +1,51 @@
+#! tools/text2cpp.py
+
+//-------- ---------- ---------- ---------- ----------
+__pattern
+
+#----------------------------------------
+
+# The patterns of the language lq are added to the patterns of the language cs: the expressions and
+# the type names are those of cs.
+
+# From clause: from x in xs, from int x in xs.
+$lq_from: from ($type_name name | name) in $expression ;
+
+# Let clause: let y = x + 1.
+$lq_let: let name = $expression ;
+
+# Where clause: where x > 1.
+$lq_where: where $expression ;
+
+# Join clause: join y in ys on x.Id equals y.Id, join y in ys on x.Id equals y.Id into g.
+$lq_join: join ($type_name name | name) in $expression on $expression equals $expression
+          (into name)? ;
+
+# Order of the orderby clause: x.Name, x.Age descending.
+$lq_ordering: $expression (ascending | descending)? ;
+
+# Orderby clause: orderby x.Name, x.Age descending.
+$lq_orderby: orderby $lq_ordering (, $lq_ordering)* ;
+
+# Select clause: select x.Name.
+$lq_select: select $expression ;
+
+# Group clause: group x by x.Key.
+$lq_group: group $expression by $expression ;
+
+# Into clause: the query goes on with the result: select x into y where y > 1 select y.
+$lq_into:
+    into name
+    ($lq_from | $lq_let | $lq_where | $lq_join | $lq_orderby)*
+    ($lq_select | $lq_group) $lq_into? ;
+
+# Query expression: from x in xs where x > 1 select x.
+$lq_query:
+    $lq_from
+    ($lq_from | $lq_let | $lq_where | $lq_join | $lq_orderby)*
+    ($lq_select | $lq_group) $lq_into? ;
+
+# Root, entrypoint of code analyzer: the code of an embedded query, <%lq from x in xs select x %>.
+# The analyzer adds the token code_end after the code: the last expression ends as the ones that are followed by a
+# token do.
+$: $lq_query code_end? ;

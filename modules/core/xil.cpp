@@ -406,6 +406,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(array_element_content, _T("array_element_content"))
 
+        X_C(ptr_content,        _T("ptr_content"))
+
         X_C(object,             _T("object"))
 
         X_C(params,             _T("params"))
@@ -418,7 +420,11 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(unbox,              _T("unbox"))
 
+        X_C(tuple_values,       _T("tuple_values"))
+
         X_C(checked_convert,    _T("checked_convert"))
+
+        X_C(type_size,          _T("type_size"))
 
     X_ENUM_INFO_END
 
@@ -554,7 +560,7 @@ namespace X_ROOT_NS::modules::core {
                 return __ToStr(bool);
 
             case xil_type_t::char_:
-                return __ToStr(char_t);
+                return __ToStr(rt_char_t);
 
             case xil_type_t::string:
                 return _T("<STRING>");
@@ -620,11 +626,17 @@ namespace X_ROOT_NS::modules::core {
             case xil_storage_type_t::array_element_content:
                 return _F(_T("push array_element_content {%1%}"), get_ref());
 
+            case xil_storage_type_t::ptr_content:
+                return _F(_T("push ptr_content %1%"), dtype());
+
             case xil_storage_type_t::object:
                 return _F(_T("push internal object %1%"), get_object_type());
 
             case xil_storage_type_t::params:
                 return _T("push params");
+
+            case xil_storage_type_t::params_values:
+                return _T("push params values");
 
             case xil_storage_type_t::duplicate:
                 return _T("duplicate");
@@ -642,6 +654,12 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_storage_type_t::unbox:
                 return _FT("unbox {%1%}", get_ref());
+
+            case xil_storage_type_t::tuple_values:
+                return _FT("push tuple values {%1%}", get_ref());
+
+            case xil_storage_type_t::type_size:
+                return _FT("push type_size {%1%}", get_ref());
 
             default:
                 return _T("push ?");
@@ -678,6 +696,9 @@ namespace X_ROOT_NS::modules::core {
 
             case xil_storage_type_t::array_element_addr:
                 return _F(_T("pop array_element_addr %1% {%2%}"), dtype(), get_ref());
+
+            case xil_storage_type_t::ptr_content:
+                return _F(_T("pop ptr_content %1%"), dtype());
 
             case xil_storage_type_t::empty:
                 return _F(_T("pop %1%"), dtype() != xil_type_t::empty?

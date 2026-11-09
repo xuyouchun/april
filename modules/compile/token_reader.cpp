@@ -82,6 +82,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             const string_t & s = *(const string_t *)value;
             data->value = __new_string(s);
+            data->string_length = s.length();
         }
         else
         {
@@ -112,7 +113,7 @@ namespace X_ROOT_NS::modules::compile {
     const char_t * token_enumerator_base_t::__new_string(const string_t & s)
     {
         char_t * s0 = __strings.acquire(s.length() + 1);
-        al::strcpy(s0, s.c_str());
+        std::char_traits<char_t>::copy(s0, s.c_str(), s.length() + 1);
         return s0;
     }
 
@@ -157,6 +158,7 @@ namespace X_ROOT_NS::modules::compile {
 
         switch (code)
         {
+            case ne_t::success:
             case ne_t::__default__:
                 error_code = e_t::__default__;
                 break;
@@ -204,11 +206,52 @@ namespace X_ROOT_NS::modules::compile {
         return __new_token_data(e_t::unknown_token);
     }
 
-    // Tries to escape char.
-    bool token_enumerator_base_t::__try_escape_char(char_t * out_c)
+    // Tries to escape char. \uXXXX is a character of 16 bits, \UXXXXXXXX is a character of the whole
+    // Unicode: when the host has 16 bits it is two units (a pair of surrogates), the second is out_c2
+    // (a character literal has none, it cannot have such a character).
+    bool token_enumerator_base_t::__try_escape_char(char_t * out_c, char_t * out_c2)
     {
+        if (out_c2 != nullptr)
+            *out_c2 = _T('\0');
+
         switch (*__p++)
         {
+            case _T('u'):
+            case _T('U'): {
+                int digits = *(__p - 1) == _T('u')? 4 : 8;
+                uint32_t value = 0;
+
+                for (int k = 0; k < digits; k++, __p++)
+                {
+                    char_t h = *__p;
+                    uint32_t d;
+
+                    if (h >= _T('0') && h <= _T('9'))       d = h - _T('0');
+                    else if (h >= _T('a') && h <= _T('f'))  d = h - _T('a') + 10;
+                    else if (h >= _T('A') && h <= _T('F'))  d = h - _T('A') + 10;
+                    else                                    return false;
+
+                    value = (value << 4) | d;
+                }
+
+                if (value > 0x10FFFF)
+                    return false;
+
+                if (value <= 0xFFFF || sizeof(char_t) > 2)
+                {
+                    *out_c = (char_t)value;
+                    break;
+                }
+
+                // A host of 16 bits: a pair of surrogates.
+                if (out_c2 == nullptr)
+                    return false;
+
+                value -= 0x10000;
+                *out_c = (char_t)(0xD800 + (value >> 10));
+                *out_c2 = (char_t)(0xDC00 + (value & 0x3FF));
+            }   break;
+
             case _T('n'):
                 *out_c = _T('\n');
                 break;
@@ -267,7 +310,7 @@ namespace X_ROOT_NS::modules::compile {
     // Reads a string.
     token_data_t * token_enumerator_base_t::__read_string()
     {
-        char_t c, c1;
+        char_t c, c1, c2;
         stringstream_t s;
         e_t error_code = e_t::__default__;
         const char_t * error_message = nullptr;
@@ -280,17 +323,20 @@ namespace X_ROOT_NS::modules::compile {
                     if ((c = *(++__p)) == _T('\0'))
                     {
                         error_code = e_t::string_format_error;
-                        error_message = _T("missing terminating \" character");
+                        error_message = _T("unterminated string literal");
                         goto __end;
                     }
-                    else if (__try_escape_char(&c1))
+                    else if (__try_escape_char(&c1, &c2))
                     {
                         s << c1;
+
+                        if (c2 != _T('\0'))
+                            s << c2;
                     }
                     else
                     {
                         error_code = e_t::string_format_error;
-                        error_message = __new_string(_T("unknown escape sequence '\\%1%'"), c);
+                        error_message = __new_string(_T("unknown escape sequence \"\\%1%\""), c);
                     }
                     break;
 
@@ -300,7 +346,7 @@ namespace X_ROOT_NS::modules::compile {
 
                 case _T('\0'):
                     error_code = e_t::string_format_error;
-                    error_message = _T("missing terminating ' character");
+                    error_message = _T("unterminated string literal");
                     goto __end;
 
                 default:
@@ -332,9 +378,11 @@ namespace X_ROOT_NS::modules::compile {
                     else
                         goto __end;
 
+                    break;
+
                 case _T('\0'):
                     error_code = e_t::string_format_error;
-                    error_message = _T("string missing '\"'");
+                    error_message = _T("unterminated string literal");
                     goto __end;
 
                 default:
@@ -369,21 +417,21 @@ namespace X_ROOT_NS::modules::compile {
                     if ((c = *(++__p)) == _T('\0'))
                     {
                         error_code = e_t::char_format_error;
-                        error_message = _T("missing terminating ' character");
+                        error_message = _T("unterminated character literal");
                         goto __end;
                     }
                     else if (!__try_escape_char(&ret_c))
                     {
                         error_code = e_t::char_format_error;
-                        error_message = __new_string(_T("unknown escape sequence '\\%1%'"), c);
+                        error_message = __new_string(_T("unknown escape sequence \"\\%1%\""), c);
                     }
                     c_count++;
                     break;
 
                 case _T('\r'): case _T('\n'): case _T('\0'):
                     error_code = e_t::char_format_error;
-                    error_message = _T("missing terminating ' character");
-                    break;
+                    error_message = _T("unterminated character literal");
+                    goto __end;
 
                 default:
                     ret_c = *__p++;
@@ -396,16 +444,23 @@ namespace X_ROOT_NS::modules::compile {
         if (c_count == 0)
         {
             error_code = e_t::char_format_error;
-            error_message = _T("empty character constant");
+            error_message = _T("empty character literal");
         }
         else if (c_count > 1)
         {
             error_code = e_t::char_format_error;
-            error_message = _T("multi-character character constant");
+            error_message = _T("too many characters in a character literal");
+        }
+
+        // A Char has 16 bits: a character of the code that does not fit is a string.
+        if (error_code == e_t::__default__ && (uint32_t)ret_c > 0xFFFF)
+        {
+            error_code = e_t::char_format_error;
+            error_message = _T("the character does not fit in a Char, it is a string of two");
         }
 
         tvalue_t * value = __values.new_obj();
-        *value = ret_c;
+        *value = (rt_char_t)ret_c;
         return __new_token_data(*value, error_code, error_message);
     }
 

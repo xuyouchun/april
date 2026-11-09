@@ -22,7 +22,7 @@ True
 9
 False
 
-needs comparer
+True
 2
 a
 b
@@ -37,7 +37,7 @@ dog
 import System;
 
 using System;
-using System.Collections.Generic;
+using System.Collections;
 class Animal
 {
     public virtual String Name()
@@ -124,14 +124,8 @@ class Program
         Console.WriteLine(c.IsReadOnly);
         List<Int32> plain = new List<Int32>();
         plain.Add(1);
-        try
-        {
-            plain.Contains(1);
-        }
-        catch (InvalidOperationException)
-        {
-            Console.WriteLine("needs comparer");
-        }
+        // Without a comparer the items are compared by the default equality of the type.
+        Console.WriteLine(plain.Contains(1));
         Stack<Dog> st = new Stack<Dog>();
         st.Push(new Dog());
         st.Push(new Dog());

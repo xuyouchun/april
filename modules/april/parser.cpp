@@ -138,6 +138,24 @@ namespace X_ROOT_NS::modules::april {
             this->nullable = value == _T("enable") || value == _T("true");
         }
 
+        // <resources><resource><path>..</path><name>..</name></resource></resources>
+        if (auto nodes = root.get_child_optional(_T("resources")))
+        {
+            for (auto && it : *nodes)
+            {
+                __ptree_t & node = it.second;
+
+                resource_config_t resource;
+                resource.path = lib::absolute(__read_string(node, _T("path")), relative_path);
+                resource.base = relative_path;
+
+                if (auto name = node.get_child_optional(_T("name")))
+                    resource.name = name->get_value<string_t>();
+
+                this->resources.push_back(resource);
+            }
+        }
+
         __ptree_t & file_nodes = __read_child(root, _T("files"));
         for (auto && it : file_nodes)
         {

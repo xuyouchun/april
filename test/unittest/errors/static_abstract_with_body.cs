@@ -1,4 +1,4 @@
-/* EXPECT_ERROR interface members cannot have a defination */
+/* EXPECT_ERROR interface members cannot have a definition */
 
 import System;
 

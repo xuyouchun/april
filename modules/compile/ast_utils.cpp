@@ -97,7 +97,33 @@ namespace X_ROOT_NS::modules::compile {
         for (argument_t * argument : *arguments)
         {
             type_t * type = get_expression_type(cctx, argument->expression);
-            atypes.push_back(atype_t(type, argument->atype));
+
+            // The items of a params generic parameter (items ...): their type is the generic
+            // parameter, as it is written (TArgs ... items), not the address that they are.
+            if (argument->atype == param_type_t::extends && argument->expression != nullptr
+                    && argument->expression->this_family() == expression_family_t::name)
+            {
+                variable_t * variable = ((name_expression_t *)argument->expression)->variable;
+                if (variable != nullptr && variable->this_type() == variable_type_t::param)
+                {
+                    param_t * param = ((param_variable_t *)variable)->param;
+                    if (param->ptype == param_type_t::extends && param->get_type() != nullptr)
+                        type = param->get_type();
+                }
+            }
+
+            // The items of a tuple of the items of a params generic parameter (tuple ...): their types
+            // are those of the parameter.
+            if (argument->atype == param_type_t::extends)
+            {
+                if (generic_param_t * pack = get_tuple_pack_param(type))
+                    type = pack;
+            }
+
+            atype_t atype(type, argument->atype);
+            atype.lambda = get_lambda_method(argument->expression);
+
+            atypes.push_back(atype);
         }
     }
 
@@ -960,7 +986,10 @@ namespace X_ROOT_NS::modules::compile {
                     break;
 
                 case expression_family_t::this_:
-                    ((this_expression_t *)exp)->set_type(__wctx.current_type());
+                    // The target of an object initializer has the type of the new expression.
+                    if (!((this_expression_t *)exp)->is_new_target())
+                        ((this_expression_t *)exp)->set_type(__wctx.current_type());
+
                     __each(exp);
                     break;
 
@@ -1067,9 +1096,87 @@ namespace X_ROOT_NS::modules::compile {
             }
             else
             {
-                if (!__walk_type(name_exp))
+                if (!__walk_inherited_field(name_exp) && !__walk_type(name_exp))
                     ast_log(__cctx, name_exp, __c_t::variable_undefined, name);
             }
+        }
+
+        // A name that is a field of a base class: the field of this.
+        bool __walk_inherited_field(name_expression_t * name_exp)
+        {
+            type_t * current = __wctx.current_type();
+            if (current == nullptr)
+                return false;
+
+            method_t * method = __wctx.current_method();
+
+            for (type_t * type = current->get_base_type(); type != nullptr;
+                                                          type = type->get_base_type())
+            {
+                // A base type that is generic (Base<T> of Derived<T>): its field has the types of
+                // the arguments (the T of Derived<T>), the type finds it like this.Value does.
+                if (type->this_gtype() == gtype_t::generic)
+                {
+                    member_t * member = nullptr;
+
+                    try
+                    {
+                        analyze_member_args_t args(member_type_t::all, name_exp->name);
+                        member = type->get_member(args, true);
+                    }
+                    catch (const logic_error_t<common_error_code_t> &)
+                    {
+                    }
+
+                    if (member == nullptr)
+                        continue;
+
+                    if (member->this_type() == member_type_t::property)
+                    {
+                        property_t * property = (property_t *)member;
+                        if (property->variable == nullptr
+                                || to_access_value(property->decorate) == access_value_t::private_
+                                || (method != nullptr && method->is_static()
+                                                                && !property->is_static()))
+                            continue;
+
+                        name_exp->set(property->variable);
+                        return true;
+                    }
+
+                    if (member->this_type() != member_type_t::field)
+                        continue;
+
+                    field_t * field = (field_t *)member;
+                    if (field->variable == nullptr
+                            || to_access_value(field->decorate) == access_value_t::private_
+                            || (method != nullptr && method->is_static() && !field->is_static()))
+                        continue;
+
+                    name_exp->set(field->variable);
+                    return true;
+                }
+
+                if (type->this_gtype() != gtype_t::general)
+                    continue;
+
+                for (field_t * field : ((general_type_t *)type)->fields)
+                {
+                    if (field->name != name_exp->name || field->variable == nullptr)
+                        continue;
+
+                    if (to_access_value(field->decorate) == access_value_t::private_)
+                        continue;
+
+                    if (method != nullptr && method->is_static() && !field->is_static())
+                        continue;
+
+                    name_exp->set(field->variable);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // Walks name_unit expression.
@@ -1126,6 +1233,22 @@ namespace X_ROOT_NS::modules::compile {
 
             if (is_array(body_type)) // array index
             {
+                // An array of any dimension is read as an array of one dimension (the items are
+                // in the order of the rows, it is its base type Array<T>), or by one index for each
+                // dimension. It is not read as an array of more dimensions than it has.
+                array_type_t * array_type = (array_type_t *)body_type;
+                size_t index_count = arguments == nullptr? 0 : arguments->size();
+
+                if (index_count != 1 && index_count != (size_t)array_type->dimension)
+                {
+                    ast_log(__cctx, index_exp, __c_t::array_index_count_mismatch,
+                        array_type->to_prototype(), index_count,
+                        array_type->dimension == 1? string_t(_T("1"))
+                            : _F(_T("1 or %1%"), (int)array_type->dimension));
+
+                    // The expression has its type, the errors that follow are not told.
+                }
+
                 index_exp->variable = __new_obj<array_index_variable_t>(
                     body_exp, ((array_type_t *)body_type)->element_type, arguments
                 );
@@ -1196,9 +1319,79 @@ namespace X_ROOT_NS::modules::compile {
 
         enum class __exp2_walked_t { yes, no };
 
+        // Collects the names of a path: A.B.C . Returns false if it has other expressions.
+        bool __collect_path_names(expression_t * exp, std::vector<name_t> & names)
+        {
+            if (exp->this_family() == expression_family_t::name)
+            {
+                name_expression_t * name_exp = (name_expression_t *)exp;
+                if (name_exp->expression_type != name_expression_type_t::__default__
+                        || name_exp->declare_type_name != nullptr)
+                    return false;
+
+                names.push_back(name_exp->name);
+                return true;
+            }
+
+            if (exp->this_family() == expression_family_t::binary)
+            {
+                binary_expression_t * binary = (binary_expression_t *)exp;
+                if (binary->op() != operator_t::member_point || binary->null_conditional
+                        || binary->exp2()->this_family() != expression_family_t::name)
+                    return false;
+
+                return __collect_path_names(binary->exp1(), names)
+                    && __collect_path_names(binary->exp2(), names);
+            }
+
+            return false;
+        }
+
+        // The object of a member is a type that has a namespace: Shapes.Circle.Count, the
+        // object is the type.
+        void __walk_qualified_type(binary_expression_t * exp)
+        {
+            expression_t * object = exp->exp1();
+            if (object->this_family() != expression_family_t::binary)
+                return;
+
+            std::vector<name_t> names;
+            if (!__collect_path_names(object, names) || names.size() < 2)
+                return;
+
+            // The first name is a variable or a type: the path is not a namespace.
+            if (__region != nullptr && __region->get(names[0]) != nullptr)
+                return;
+
+            if (__ascertain_type(names[0], nullptr) != nullptr)
+                return;
+
+            general_type_name_t type_name;
+            std::vector<name_unit_t> units;
+            units.reserve(names.size());
+
+            for (name_t name : names)
+            {
+                units.push_back(name_unit_t(name, nullptr));
+                type_name.units.push_back(&units.back());
+            }
+
+            type_t * type = ::april::modules::compile::__ascertain_type(__cctx, __wctx, &type_name);
+            __wctx.commit_types();
+
+            if (type == nullptr)
+                return;
+
+            name_expression_t * type_exp = __new_obj<system_expression_t<name_expression_t>>(type);
+            type_exp->parent = exp;
+            exp->exps[0] = type_exp;
+        }
+
         // Walks Binary expression member.
         void __walk_member(binary_expression_t * exp)
         {
+            __walk_qualified_type(exp);
+
             expression_t * exp1 = exp->exp1(), * exp2 = exp->exp2();
 
             __walk(exp1);
@@ -1248,12 +1441,56 @@ namespace X_ROOT_NS::modules::compile {
             {
                 bind_lambda_to_type(exp->expression_at(1 % _exp_count),
                                     exp->expression_at(0)->get_type());
+
+                // An implicit operator of the types converts the value that is assigned.
+                if (expression_t * converted = insert_user_conversion(exp->expression_at(1),
+                                                                      exp->expression_at(0)->get_type());
+                        converted != exp->expression_at(1))
+                {
+                    exp->exps[1] = converted;
+                    converted->parent = exp;
+                }
             }
 
             if (op_property->overload == operator_overload_model_t::no_check)
                 return;
 
             operator_t op = op_property->op;
+
+            // E += handler, E -= handler: the add method, or the remove method, of the event is
+            // called with the handler: it is a delegate of the type of the event.
+            if (_exp_count == 2 && (op == operator_t::add_assign || op == operator_t::sub_assign))
+            {
+                event_variable_t * event_var = __event_of(exp->expression_at(0));
+                if (event_var != nullptr)
+                {
+                    event_t * event = event_var->event;
+                    type_t * handler_type = to_type(event->type_name);
+
+                    method_t * accessor = op == operator_t::add_assign? event->add_method
+                                                                      : event->remove_method;
+                    if (accessor == nullptr)
+                    {
+                        ast_log(__cctx, exp, __c_t::event_accessor_missing, event->name,
+                                op == operator_t::add_assign? _T("add") : _T("remove"));
+                        return;
+                    }
+
+                    bind_lambda_to_type(exp->expression_at(1), handler_type);
+                    type_t * type2 = exp->expression_at(1)->get_type();
+
+                    if (handler_type != nullptr && type2 != nullptr
+                            && !is_type_compatible(type2, handler_type)
+                            && !is_constant_compatible(exp->expression_at(1), handler_type))
+                    {
+                        ast_log(__cctx, exp, __c_t::invalid_type_cast, type2->to_prototype(),
+                                                                       handler_type->to_prototype());
+                    }
+
+                    return;
+                }
+            }
+
             if (op == operator_t::assign)
             {
                 _A(_exp_count == 2);
@@ -1294,8 +1531,8 @@ namespace X_ROOT_NS::modules::compile {
                     exists_null = true;
                 else if (__is_string(arg_type))
                     exists_custom_type = exists_string = true;
-                else if (is_object(arg_type) || is_generic_param(arg_type))
-                    exists_custom_type = true;
+                else if (is_object(arg_type) || is_generic_param(arg_type) || is_ptr_type(arg_type))
+                    exists_custom_type = true;       // A pointer (Ptr, Ptr<T>) has the operators of its type.
 
                 atypes.push_back(arg_type);
             }
@@ -1381,7 +1618,7 @@ namespace X_ROOT_NS::modules::compile {
             for (atype_t atype : atypes)
             {
                 if (!is_object(atype.type) && !__is_string(atype.type)
-                        && !is_generic_param(atype.type))
+                        && !is_generic_param(atype.type) && !is_ptr_type(atype.type))
                     continue;
 
                 method_t * method = nullptr;
@@ -1418,6 +1655,11 @@ namespace X_ROOT_NS::modules::compile {
 
             if (methods.empty())
             {
+                // The operands that an implicit operator converts to a primitive type are operands of the
+                // operator that the language has for it: t + 1 of a Tagged that converts to an Int32.
+                if (__convert_operands(exp))
+                    return;
+
                 string_t s = al::join_str(atypes.begin(), atypes.end(), _T(", "));
                 ast_log(__cctx, exp, __c_t::operator_overload_not_defined, op_property->op, s);
 
@@ -1432,6 +1674,70 @@ namespace X_ROOT_NS::modules::compile {
             exp->overload_method = methods[0];
         }
 
+        // Converts the operands of custom types to primitive types, by their implicit operators. It is done only
+        // if no operand is of a custom type after that (the operator is that of the language).
+        template<size_t _exp_count>
+        bool __convert_operands(op_expression_t<_exp_count> * exp)
+        {
+            expression_t * original[_exp_count];
+            bool converted = false;
+
+            for (size_t k = 0; k < _exp_count; k++)
+            {
+                original[k] = exp->exps[k];
+
+                type_t * type = original[k]->get_type();
+                if (type == nullptr || !is_object(type) || __is_string(type) || is_generic_param(type))
+                    continue;
+
+                // The type of the other operand: the conversion that is to it, when there is.
+                type_t * other = nullptr;
+                if (_exp_count == 2)
+                {
+                    other = exp->exps[1 - k]->get_type();
+                    if (other != nullptr && is_object(other) && !__is_string(other))
+                        other = nullptr;
+                }
+
+                type_t * target = find_user_conversion_target(type, other);
+                if (target == nullptr)
+                    continue;
+
+                expression_t * cast = insert_user_conversion(original[k], target);
+                if (cast != original[k])
+                {
+                    exp->exps[k] = cast;
+                    cast->parent = exp;
+                    converted = true;
+                }
+            }
+
+            if (!converted)
+                return false;
+
+            // Nothing of a custom type must be left.
+            bool left = false;
+            for (size_t k = 0; k < _exp_count; k++)
+            {
+                type_t * type = exp->exps[k]->get_type();
+                if (type != nullptr && is_object(type) && !__is_string(type))
+                    left = true;
+            }
+
+            if (left)
+            {
+                for (size_t k = 0; k < _exp_count; k++)
+                {
+                    exp->exps[k] = original[k];
+                    original[k]->parent = exp;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
         // Walks member.
         __exp2_walked_t __walk_member(expression_t * exp1, expression_t * exp2)
         {
@@ -1439,8 +1745,12 @@ namespace X_ROOT_NS::modules::compile {
 
             if (type == nullptr)
             {
-                ast_log(__cctx, exp1, __c_t::type_undetermind, exp1);
-                return __exp2_walked_t::no;
+                // The type of the object is not known because of an error that is told: the
+                // member of it cannot be found, and it is not an error of its own.
+                if (__cctx.compile_context.error_count() == 0)
+                    ast_log(__cctx, exp1, __c_t::type_undetermind, exp1);
+
+                return __exp2_walked_t::yes;
             }
 
             // field & property
@@ -1585,7 +1895,7 @@ namespace X_ROOT_NS::modules::compile {
                 }
 
                 member_t * & member = *out_member;
-                if (member->this_type() == member_type_t::type
+                if (member->this_type() == member_type_t::type && name_unit_exp != nullptr
                         && name_unit_exp->generic_args_count() > 0)
                 {
                     general_type_t * template_ = _M(general_type_t *, member);
@@ -1649,9 +1959,18 @@ namespace X_ROOT_NS::modules::compile {
                     name_exp->set(((field_t *)member)->variable);
                     break;
 
-                case member_type_t::event:
-                    name_exp->set(((event_t *)member)->variable);
-                    break;
+                case member_type_t::event: {
+                    event_t * event = (event_t *)member;
+                    name_exp->set(event->variable);
+
+                    // Outside of its type, an event is only added to and removed from.
+                    if (!__is_event_accessor_target(name_exp)
+                            && !__is_inside_event_type(event))
+                    {
+                        ast_log(__cctx, name_exp, __c_t::event_cannot_be_used, event->name);
+                    }
+
+                }   break;
 
                 case member_type_t::method:
                     name_exp->set(((method_t *)member)->variable);
@@ -1708,6 +2027,120 @@ namespace X_ROOT_NS::modules::compile {
             return __exp2_walked_t::yes;
         }
 
+        // Returns the name of the method that is called by E(args), when E is an event: its raise
+        // method.
+        name_t __event_raise_name(event_t * event)
+        {
+            return __to_name(_F(_T("raise_%1%"), event->name));
+        }
+
+        // Returns the event of a type that has the name, or null.
+        event_t * __event_in(type_t * type, name_t name)
+        {
+            if (type == nullptr)
+                type = __wctx.current_type();
+
+            if (type == nullptr)
+                return nullptr;
+
+            analyze_member_args_t args(member_type_t::all, name);
+            member_t * member = nullptr;
+
+            try
+            {
+                member = type->get_member(args, true);
+            }
+            catch (const method_compare_error_t &)
+            {
+                return nullptr;
+            }
+
+            if (member == nullptr || member->this_type() != member_type_t::event)
+                return nullptr;
+
+            return (event_t *)member;
+        }
+
+        // Walks E(args): the raise method of the event is called.
+        void __walk_raise(type_t * type, event_t * event, function_expression_t * function_exp)
+        {
+            if (event->raise_method == nullptr)
+            {
+                ast_log(__cctx, function_exp, __c_t::event_raise_not_valid, event->name,
+                                                    _T("it has no raise accessor"));
+                return;
+            }
+
+            __walk_method(type, __event_raise_name(event), function_exp);
+        }
+
+        // Walks obj.Name(args): Name is a method, or an event that is raised.
+        void __walk_call(type_t * type, name_t name, function_expression_t * function_exp)
+        {
+            event_t * event = __event_in(type, name);
+
+            if (event != nullptr)
+                __walk_raise(type, event, function_exp);
+            else
+                __walk_method(type, name, function_exp);
+        }
+
+        // Returns whether the expression is the left operand of += or -= (E, or obj.E).
+        static bool __is_event_accessor_target(expression_t * exp)
+        {
+            expression_t * e = exp;
+
+            if (e->parent != nullptr && e->parent->this_family() == expression_family_t::binary
+                    && ((binary_expression_t *)e->parent)->op() == operator_t::member_point
+                    && ((binary_expression_t *)e->parent)->exp2() == e)
+            {
+                e = e->parent;
+            }
+
+            if (e->parent == nullptr || e->parent->this_family() != expression_family_t::binary)
+                return false;
+
+            binary_expression_t * parent = (binary_expression_t *)e->parent;
+            operator_t op = parent->op();
+
+            return (op == operator_t::add_assign || op == operator_t::sub_assign)
+                && parent->exp1() == e;
+        }
+
+        // Returns whether the code that is walked is in the type that has the event.
+        bool __is_inside_event_type(event_t * event)
+        {
+            type_t * current = __wctx.current_type();
+            type_t * host = event->host_type;
+
+            if (current == nullptr || host == nullptr)
+                return false;
+
+            return to_general(current) == to_general(host);
+        }
+
+        // Returns the event that an expression is (E, or obj.E), null if it is not an event.
+        event_variable_t * __event_of(expression_t * exp)
+        {
+            if (exp == nullptr)
+                return nullptr;
+
+            if (exp->this_family() == expression_family_t::binary
+                    && ((binary_expression_t *)exp)->op() == operator_t::member_point)
+            {
+                exp = ((binary_expression_t *)exp)->exp2();
+            }
+
+            if (exp->this_family() != expression_family_t::name)
+                return nullptr;
+
+            variable_t * variable = ((name_expression_t *)exp)->variable;
+            if (variable == nullptr || variable->this_type() != variable_type_t::event)
+                return nullptr;
+
+            return (event_variable_t *)variable;
+        }
+
         // Walks function.
         void __walk_function(function_expression_t * function_exp, type_t * type = nullptr)
         {
@@ -1723,10 +2156,32 @@ namespace X_ROOT_NS::modules::compile {
                     variable_t * variable;
 
                     if (__region != nullptr && (variable = __region->get(name_exp->name)) != nullptr
+                                && variable->this_type() == variable_type_t::event)
+                    {
+                        // E(args) calls the raise method of the event.
+                        __walk_raise(type, ((event_variable_t *)variable)->event, function_exp);
+                    }
+                    else if (__region != nullptr && (variable = __region->get(name_exp->name)) != nullptr
                                 && variable->this_type() != variable_type_t::method)
                     {
                         function_exp->set_variable(variable);
                         __walk_arguments(function_exp->arguments());
+
+                        // The call of a delegate takes the items of a params generic parameter as
+                        // arguments: they are written with ...
+                        if (function_exp->arguments() != nullptr)
+                        {
+                            for (argument_t * argument : *function_exp->arguments())
+                            {
+                                if (argument->atype != param_type_t::extends
+                                        && __is_items(argument->expression))
+                                {
+                                    ast_log(__cctx, argument->expression, __c_t::items_without_dots,
+                                        ((param_variable_t *)((name_expression_t *)
+                                            argument->expression)->variable)->param->name);
+                                }
+                            }
+                        }
 
                         // The local variables of the method that does the work of an iterator
                         // are the fields of the state object, the delegates that are called too.
@@ -1744,7 +2199,8 @@ namespace X_ROOT_NS::modules::compile {
                     }
                     else
                     {
-                        __walk_method(type, ((name_expression_t *)namex_exp)->name, function_exp);
+                        // obj.E(args): the raise method, when the member is an event.
+                        __walk_call(type, ((name_expression_t *)namex_exp)->name, function_exp);
                     }
                 }   return;
 
@@ -1765,7 +2221,7 @@ namespace X_ROOT_NS::modules::compile {
                             case expression_family_t::name: {
                                 auto name_exp = (name_expression_t *)exp2;
                                 type_t * type = get_expression_type(__cctx, exp1);
-                                __walk_method(type, name_exp->name, function_exp);
+                                __walk_call(type, name_exp->name, function_exp);
                             }   break;
 
                             default:
@@ -1823,6 +2279,15 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
 
+            __resolve_lambda_return_type(function_exp, method);
+
+            function_exp->set_method(method);
+        }
+
+        // The return type of a lambda that no delegate gives is the type of its body: the body is
+        // analyzed, with the types of the params of the lambda that are known.
+        void __resolve_lambda_return_type(expression_t * exp, method_t * method)
+        {
             // The body is analyzed now: its type is the return type.
             if (method->type_name != nullptr
                     && method->type_name->type == uncertain_type_t::instance())
@@ -1853,11 +2318,245 @@ namespace X_ROOT_NS::modules::compile {
             if (method->type_name != nullptr
                     && method->type_name->type == uncertain_type_t::instance())
             {
-                ast_log(__cctx, function_exp, __c_t::lambda_type_undetermined);
+                ast_log(__cctx, exp, __c_t::lambda_type_undetermined);
                 method->type_name->type = __XPool.get_object_type();
             }
+        }
 
-            function_exp->set_method(method);
+        // Returns the index of the params generic parameter of the method that the type is, -1 if
+        // it is not one.
+        static size_t __pack_index(method_t * method, type_t * type)
+        {
+            if (!is_generic_param(type)
+                    || ((generic_param_t *)type)->param_type != generic_param_type_t::params)
+                return (size_t)-1;
+
+            for (size_t k = 0, count = method->generic_param_count(); k < count; k++)
+            {
+                if ((*method->generic_params)[k]->name == ((generic_param_t *)type)->name)
+                    return k;
+            }
+
+            return (size_t)-1;
+        }
+
+        // The type of a type that has generic params of the method, with the types that are
+        // known: nullptr if one of them is not known.
+        type_t * __substitute(method_t * method, const std::vector<type_t *> & types, type_t * type)
+        {
+            if (type == nullptr)
+                return nullptr;
+
+            if (is_generic_param(type))
+            {
+                generic_param_t * gp = (generic_param_t *)type;
+                for (size_t k = 0, count = method->generic_param_count(); k < count; k++)
+                {
+                    if ((*method->generic_params)[k]->name == gp->name)
+                        return k < types.size()? types[k] : nullptr;
+                }
+
+                return type;    // A param of the type of the method.
+            }
+
+            if (!has_generic_params(type))
+                return type;
+
+            generic_type_t * generic_type = (generic_type_t *)type;
+
+            type_collection_t args;
+            for (typex_t arg : generic_type->args)
+            {
+                // The types of a params generic parameter are all that are left.
+                size_t pack_index = __pack_index(method, (type_t *)arg);
+                if (pack_index != (size_t)-1)
+                {
+                    for (size_t k = pack_index; k < types.size(); k++)
+                    {
+                        if (types[k] == nullptr)
+                            return nullptr;
+
+                        args.push_back(types[k]);
+                    }
+
+                    continue;
+                }
+
+                type_t * arg_type = __substitute(method, types, (type_t *)arg);
+                if (arg_type == nullptr)
+                    return nullptr;
+
+                args.push_back(arg_type);
+            }
+
+            return __XPool.new_generic_type(generic_type->template_, args, generic_type->host_type);
+        }
+
+        // Tells a generic param of the method from a type: Delegate<R, T> and the type of the body.
+        void __unify(method_t * method, std::vector<type_t *> & types, type_t * param_type,
+                                                                      type_t * type)
+        {
+            if (param_type == nullptr || type == nullptr)
+                return;
+
+            if (__pack_index(method, param_type) != (size_t)-1)
+                return;
+
+            if (is_generic_param(param_type))
+            {
+                generic_param_t * gp = (generic_param_t *)param_type;
+                for (size_t k = 0, count = method->generic_param_count(); k < count; k++)
+                {
+                    if ((*method->generic_params)[k]->name == gp->name && k < types.size()
+                            && types[k] == nullptr)
+                    {
+                        types[k] = type;
+                    }
+                }
+
+                return;
+            }
+
+            if (!is_generic(param_type))
+                return;
+
+            // The type is the one of the param, or one of its super types: a List<Int32> is an
+            // IEnumerable<Int32> that tells TResult of an IEnumerable<TResult>.
+            generic_type_t * pt = (generic_type_t *)param_type;
+            std::set<type_t *> visited;
+
+            std::function<generic_type_t *(type_t *)> find = [&](type_t * t) -> generic_type_t * {
+                if (t == nullptr || !visited.insert(t).second)
+                    return nullptr;
+
+                if (is_generic(t) && ((generic_type_t *)t)->template_ == pt->template_)
+                    return (generic_type_t *)t;
+
+                generic_type_t * found = nullptr;
+                t->each_super_type([&](type_t * super_type) {
+                    found = find(super_type);
+                    return found == nullptr;
+                });
+
+                return found;
+            };
+
+            generic_type_t * at = find(type);
+            if (at == nullptr)
+                return;
+
+            for (size_t k = 0, count = std::min(pt->args.size(), at->args.size()); k < count; k++)
+                __unify(method, types, (type_t *)pt->args[k], (type_t *)at->args[k]);
+        }
+
+        // The generic arguments that the lambdas tell: the types of the params of a lambda are
+        // those of the delegate (they are known now), the type of its body is the return type.
+        // Returns false if a generic argument is not known.
+        bool __infer_by_lambdas(method_t * method, function_expression_t * function_exp,
+                                arguments_t * arguments, std::vector<type_t *> & types)
+        {
+            if (arguments == nullptr)
+                return false;
+
+            for (size_t index = 0, count = std::min((size_t)arguments->size(),
+                                        (size_t)method->param_count()); index < count; index++)
+            {
+                method_t * lambda = get_lambda_method(arguments->at(index)->expression);
+                type_t * param_type = method->param_at(index)->get_type();
+
+                if (lambda == nullptr || param_type == nullptr || !has_generic_params(param_type)
+                        || ((generic_type_t *)param_type)->template_ != __XPool.get_delegate_type())
+                {
+                    continue;
+                }
+
+                generic_type_t * delegate_type = (generic_type_t *)param_type;
+                size_t lambda_count = lambda->params == nullptr? 0 : lambda->params->size();
+
+                // The last argument of the delegate may be a params generic parameter: the types
+                // of the params that are left.
+                size_t arg_count = delegate_type->args.size();
+                size_t pack_index = arg_count > 1?
+                            __pack_index(method, (type_t *)delegate_type->args[arg_count - 1])
+                          : (size_t)-1;
+                bool has_pack = pack_index != (size_t)-1;
+                size_t fixed_count = has_pack? arg_count - 2 : arg_count - 1;
+
+                if (has_pack? lambda_count < fixed_count : lambda_count != fixed_count)
+                    return false;
+
+                // The types of the params.
+                for (size_t k = 0; k < lambda_count; k++)
+                {
+                    param_t * lambda_param = (*lambda->params)[k];
+                    if (lambda_param->type_name == nullptr
+                            || lambda_param->type_name->type != uncertain_type_t::instance())
+                    {
+                        continue;
+                    }
+
+                    type_t * arg_type;
+                    if (k < fixed_count)
+                    {
+                        arg_type = __substitute(method, types, (type_t *)delegate_type->args[k + 1]);
+                    }
+                    else
+                    {
+                        size_t pack_item = pack_index + (k - fixed_count);
+                        arg_type = pack_item < types.size()? types[pack_item] : nullptr;
+                    }
+
+                    if (arg_type == nullptr)
+                        return false;
+
+                    lambda_param->type_name->type = arg_type;
+                }
+
+                // The return type of the lambda is the type of its body.
+                if (lambda->type_name != nullptr
+                        && lambda->type_name->type == uncertain_type_t::instance())
+                {
+                    __resolve_lambda_return_type(function_exp, lambda);
+                }
+
+                if (lambda->variable != nullptr)
+                    lambda->variable->reset_type();
+
+                __unify(method, types, (type_t *)delegate_type->args[0],
+                        lambda->type_name != nullptr? lambda->type_name->type : nullptr);
+            }
+
+            if (std::find(types.begin(), types.end(), nullptr) != types.end())
+                return false;
+
+            // The return type of a lambda is the return type of its delegate, when the type of its
+            // body is converted to it (a List<Int32> is an IEnumerable<Int32>).
+            for (size_t index = 0, count = std::min((size_t)arguments->size(),
+                                        (size_t)method->param_count()); index < count; index++)
+            {
+                method_t * lambda = get_lambda_method(arguments->at(index)->expression);
+                type_t * param_type = method->param_at(index)->get_type();
+
+                if (lambda == nullptr || param_type == nullptr || !has_generic_params(param_type)
+                        || ((generic_type_t *)param_type)->template_ != __XPool.get_delegate_type()
+                        || lambda->type_name == nullptr || lambda->type_name->type == nullptr)
+                {
+                    continue;
+                }
+
+                type_t * declared = __substitute(method, types,
+                                        (type_t *)((generic_type_t *)param_type)->args[0]);
+
+                if (declared != nullptr && declared != lambda->type_name->type
+                        && is_type_compatible(lambda->type_name->type, declared))
+                {
+                    lambda->type_name->type = declared;
+                    if (lambda->variable != nullptr)
+                        lambda->variable->reset_type();
+                }
+            }
+
+            return true;
         }
 
         // Tries to get method.
@@ -1880,7 +2579,236 @@ namespace X_ROOT_NS::modules::compile {
                     ast_log(__cctx, argument->expression, __c_t::unexpected_expression,
                                                                         argument->expression);
                 }
+
+                // The items of a params generic parameter are the argument that is written with ...,
+                // or a tuple of them (a name, or a member: this.items ...): the type tells it later.
+                if (argument->atype == param_type_t::extends && !__is_items(argument->expression)
+                        && !__may_be_tuple(argument->expression))
+                    ast_log(__cctx, argument->expression, __c_t::items_expected);
             }
+        }
+
+        // Returns whether the expression can be a tuple that is a value: a name or a member.
+        static bool __may_be_tuple(expression_t * exp)
+        {
+            return exp != nullptr && (exp->this_family() == expression_family_t::name
+                                   || exp->this_family() == expression_family_t::binary);
+        }
+
+        // Returns whether the expression is the items of a params generic parameter (TArgs ... args).
+        static bool __is_items(expression_t * exp)
+        {
+            if (exp == nullptr || exp->this_family() != expression_family_t::name)
+                return false;
+
+            variable_t * variable = ((name_expression_t *)exp)->variable;
+            return variable != nullptr && variable->this_type() == variable_type_t::param
+                && ((param_variable_t *)variable)->param->ptype == param_type_t::extends;
+        }
+
+        // Returns the text of a name of a namespace or an assembly, empty for null.
+        static string_t __text_of(const mname_t * name)
+        {
+            return name == nullptr? string_t() : (string_t)*name;
+        }
+
+        // Returns whether the method is an extension method: the methods of the assembly that is
+        // compiled have the param (this Type name), the others have ExtensionAttribute.
+        static bool __is_extension_method(method_t * method)
+        {
+            method_ast_node_t * node = dynamic_cast<method_ast_node_t *>(method);
+            if (node != nullptr)
+                return node->has_this_param();
+
+            general_type_t * extension_type = __XPool.get_extension_attribute_type();
+            return extension_type != nullptr && method->has_attribute(extension_type);
+        }
+
+        // Returns the object of a call, in obj.Method(args): the member expression that has it
+        // is returned by out_member.
+        expression_t * __receiver_of(function_expression_t * function_exp,
+                                                    binary_expression_t ** out_member)
+        {
+            binary_expression_t * member = nullptr;
+
+            expression_t * parent = function_exp->parent;
+            expression_t * namex = function_exp->namex;
+
+            if (parent != nullptr && parent->this_family() == expression_family_t::binary
+                    && ((binary_expression_t *)parent)->op() == operator_t::member_point
+                    && ((binary_expression_t *)parent)->exp2() == function_exp)
+            {
+                member = (binary_expression_t *)parent;
+            }
+            else if (namex != nullptr && namex->this_family() == expression_family_t::binary
+                    && ((binary_expression_t *)namex)->op() == operator_t::member_point)
+            {
+                member = (binary_expression_t *)namex;
+            }
+
+            *out_member = member;
+            return member == nullptr? nullptr : member->exp1();
+        }
+
+        // Collects the namespaces where the extension methods are searched: the current
+        // namespace and its parents, and the namespaces of the usings.
+        void __collect_extension_namespaces(std::vector<const mname_t *> & namespaces)
+        {
+            for (const mname_t * ns = ns_to_full_name(__wctx.current_namespace()); ;
+                                                            ns = __wctx.parent_of(ns))
+            {
+                namespaces.push_back(ns);
+                if (ns == nullptr)
+                    break;
+            }
+
+            document_t * document = __wctx.current_document();
+            if (document == nullptr)
+                return;
+
+            for (using_namespace_t * using_ns : document->all_using_namespaces())
+            {
+                if (using_ns->alias.empty())
+                    namespaces.push_back(to_mname(using_ns->ns));
+            }
+        }
+
+        // Finds the extension method that is called as a member of an object: obj.Name(args) is
+        // Type.Name(obj, args), the Type is a static class of the namespaces that are used. The
+        // call is changed to it, and walked again, when there is one.
+        bool __walk_extension_method(name_t name, function_expression_t * function_exp)
+        {
+            binary_expression_t * member;
+            expression_t * receiver = __receiver_of(function_exp, &member);
+
+            if (receiver == nullptr)
+                return false;
+
+            // Type.Method(args) is not the call of an extension method.
+            if (receiver->this_family() == expression_family_t::name
+                    && ((name_expression_t *)receiver)->expression_type
+                                                        != name_expression_type_t::variable
+                    && ((name_expression_t *)receiver)->expression_type
+                                                        != name_expression_type_t::__default__)
+            {
+                return false;
+            }
+
+            type_t * receiver_type = get_expression_type(__cctx, receiver);
+            if (receiver_type == nullptr)
+                return false;
+
+            arguments_t * arguments = function_exp->arguments();
+
+            atypes_t atypes;
+            atypes.push_back(receiver_type);
+            if (arguments != nullptr)
+                __fill_atypes(__cctx, atypes, arguments);   // Appends them after the object.
+
+            std::vector<const mname_t *> namespaces;
+            __collect_extension_namespaces(namespaces);
+
+            std::vector<assembly_t *> assemblies { &__wctx.assembly };
+            if (document_t * document = __wctx.current_document())
+            {
+                for (import_t * import : document->all_imports())
+                {
+                    assembly_t * assembly = __wctx.load_assembly(
+                        to_mname(import->package), to_mname(import->assembly)
+                    );
+
+                    if (assembly != nullptr && std::find(assemblies.begin(), assemblies.end(),
+                                                                assembly) == assemblies.end())
+                        assemblies.push_back(assembly);
+                }
+            }
+
+            std::set<string_t> used_namespaces;
+            for (const mname_t * ns : namespaces)
+                used_namespaces.insert(__text_of(ns));
+
+            general_type_t * found_type = nullptr;
+            bool ambiguous = false;
+
+            // The assemblies and the classes that have the extension methods are marked with
+            // ExtensionAttribute, the others are not looked at. (The marks of the assembly that
+            // is compiled are written when its methods are walked: all its classes are looked at.)
+            general_type_t * extension_type = __XPool.get_extension_attribute_type();
+
+            for (assembly_t * assembly : assemblies)
+            {
+                bool compiling = assembly == &__wctx.assembly;
+
+                if (!compiling && (extension_type == nullptr
+                                        || !assembly->has_attribute(extension_type)))
+                    continue;
+
+                assembly->types.each_general_types([&](general_type_t * t) {
+                    if (!t->is_static() || t->host_type != nullptr || t->is_generic())
+                        return;
+
+                    if (!compiling && !t->has_attribute(extension_type))
+                        return;
+
+                    // The namespace of the type of another assembly begins with the name of the
+                    // assembly: using System; is the namespace of the assembly.
+                    string_t type_ns = t->namespace_ == nullptr? string_t()
+                                                : __text_of(t->namespace_->full_name);
+                    if (!compiling)
+                    {
+                        string_t assembly_name = __text_of(assembly->name);
+                        type_ns = type_ns.empty()? assembly_name : assembly_name + _T(".") + type_ns;
+                    }
+
+                    if (used_namespaces.find(type_ns) == used_namespaces.end())
+                        return;
+
+                    analyze_member_args_t args(
+                        member_type_t::method, name, &atypes, function_exp->generic_args
+                    );
+                    args.throw_on_not_found = true;
+
+                    try
+                    {
+                        method_t * method = (method_t *)t->get_member(args, false);
+                        if (method == nullptr || !__is_extension_method(method))
+                            return;
+
+                        if (found_type != nullptr && found_type != t)
+                            ambiguous = true;
+
+                        found_type = t;
+                    }
+                    catch (const method_compare_error_t &) { }
+                    catch (const logic_error_t<common_error_code_t> &) { }
+                });
+            }
+
+            if (found_type == nullptr || ambiguous)
+                return false;
+
+            // The object is the first argument, the member is a member of the static class.
+            arguments_t * new_arguments = __new_obj<arguments_t>();
+
+            argument_t * first = __new_obj<argument_t>();
+            first->expression = receiver;
+            new_arguments->push_back(first);
+
+            if (arguments != nullptr)
+            {
+                for (argument_t * argument : *arguments)
+                    new_arguments->push_back(argument);
+            }
+
+            function_exp->set_arguments(new_arguments);
+
+            name_expression_t * type_exp =
+                        __new_obj<system_expression_t<name_expression_t>>((type_t *)found_type);
+            type_exp->parent = member;
+            member->exps[0] = type_exp;
+
+            __walk_method(found_type, name, function_exp);
+            return true;
         }
 
         // Walks methods.
@@ -1925,7 +2853,11 @@ namespace X_ROOT_NS::modules::compile {
                         ast_log(__cctx, function_exp, __c_t::method_conflict, name, type, s);
                         break;
 
-                    case method_compare_error_code_t::not_match: 
+                    case method_compare_error_code_t::not_match:
+                        // The method is an extension method, if the type has none.
+                        if (__walk_extension_method(name, function_exp))
+                            return;
+
                         if (methods.empty())
                             ast_log(__cctx, function_exp, __c_t::method_not_found, name, type);
                         else
@@ -1946,8 +2878,22 @@ namespace X_ROOT_NS::modules::compile {
 
             type_collection_t tc;
 
+            // The generic arguments that are inferred: the types that the lambdas tell (the return
+            // types of them) are not known yet, when the method is chosen.
+            std::vector<type_t *> inferred(am_args.out_arg_types.begin(),
+                                           am_args.out_arg_types.end());
+
+            if (function_exp->generic_args == nullptr
+                    && std::find(inferred.begin(), inferred.end(), nullptr) != inferred.end()
+                    && !__infer_by_lambdas(method, function_exp, arguments, inferred))
+            {
+                ast_log(__cctx, function_exp, __c_t::type_arguments_cannot_be_inferred,
+                        name, type);
+                return;
+            }
+
             if (function_exp->generic_args == nullptr)
-                al::copy(am_args.out_arg_types, std::back_inserter(tc));
+                al::copy(inferred, std::back_inserter(tc));
             else
                 fill_type_collection(tc, function_exp->generic_args);
 
@@ -1977,7 +2923,44 @@ namespace X_ROOT_NS::modules::compile {
                     generic_method->param_type_at(k);
 
                 __wctx.commit_types();
+
+                // The lambdas are converted to the delegates that the generic arguments tell.
+                if (arguments != nullptr)
+                {
+                    for (size_t index = 0, count = std::min((size_t)arguments->size(),
+                                (size_t)generic_method->param_count()); index < count; index++)
+                    {
+                        bind_lambda_to_type(arguments->at(index)->expression,
+                                            generic_method->param_type_at(index).type());
+                    }
+                }
             }
+
+            // The items of a params generic parameter that are given to a parameter that takes
+            // them: they are written with ...
+            if (arguments != nullptr)
+            {
+                method_base_t * chosen = function_exp->get_method();
+                for (size_t index = 0, count = std::min((size_t)arguments->size(),
+                                (size_t)chosen->param_count()); index < count; index++)
+                {
+                    argument_t * argument = arguments->at(index);
+                    type_t * param_type = chosen->param_type_at(index).type();
+
+                    if (argument->atype != param_type_t::extends && __is_items(argument->expression)
+                            && param_type != nullptr && is_generic_param(param_type)
+                            && ((generic_param_t *)param_type)->param_type
+                                                        == generic_param_type_t::params)
+                    {
+                        ast_log(__cctx, argument->expression, __c_t::items_without_dots,
+                                    ((param_variable_t *)((name_expression_t *)
+                                        argument->expression)->variable)->param->name);
+                    }
+                }
+            }
+
+            // The arguments that an implicit operator converts to the types of the params.
+            convert_arguments(arguments, function_exp->get_method());
 
             // out var value: the type is that of the param.
             if (arguments != nullptr)
@@ -2005,10 +2988,10 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
 
-            if (!am_args.out_arg_types.empty() && function_exp->generic_args == nullptr)
+            if (!inferred.empty() && function_exp->generic_args == nullptr)
             {
                 function_exp->generic_args = __new_obj<generic_args_t>();
-                for (type_t * arg_type : am_args.out_arg_types)
+                for (type_t * arg_type : inferred)
                 {
                     generic_arg_t * generic_arg = __new_obj<generic_arg_t>();
                     generic_arg->type_name = __new_obj<type_name_t>(arg_type);
@@ -2070,6 +3053,51 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
     // find_method
+
+    // The expression in a cast that calls the implicit operator of the types, if there is one.
+    expression_t * insert_user_conversion(expression_t * expression, type_t * to)
+    {
+        if (expression == nullptr || to == nullptr)
+            return expression;
+
+        type_t * from = expression->get_type();
+        if (from == nullptr || is_type_compatible(from, to) || is_constant_compatible(expression, to)
+                || find_user_conversion(from, to, false, false) == nullptr)
+        {
+            return expression;
+        }
+
+        expression_t * parent = expression->parent;
+
+        auto * cast = __XPool.new_obj<system_expression_t<type_cast_expression_t>>(
+            __XPool.to_type_name(to), expression
+        );
+
+        cast->is_implicit = true;
+        cast->parent = parent;
+        return cast;
+    }
+
+    // Converts the arguments of a call to the types of the params.
+    void convert_arguments(arguments_t * arguments, method_base_t * method)
+    {
+        if (arguments == nullptr || method == nullptr)
+            return;
+
+        for (size_t index = 0, count = std::min((size_t)arguments->size(), (size_t)method->param_count());
+                                                                                    index < count; index++)
+        {
+            argument_t * argument = arguments->at(index);
+            if (argument->atype != param_type_t::__default__)
+                continue;
+
+            type_t * param_type = method->param_type_at(index).type();
+            if (param_type == nullptr || is_generic_param(param_type) || has_generic_params(param_type))
+                continue;
+
+            argument->expression = insert_user_conversion(argument->expression, param_type);
+        }
+    }
 
     // Finds method.
     method_t * find_method(type_t * type, method_trait_t trait, name_t name,
@@ -2249,6 +3277,25 @@ namespace X_ROOT_NS::modules::compile {
         catch (const logic_error_t<ast_error_t> & e)
         {
             __deal_error(e, property->name, property);
+            return nullptr;
+        }
+    }
+
+    // Defines event variable.
+    event_variable_t * variable_defination_t::define_event(event_t * event)
+    {
+        _A(event != nullptr);
+
+        if (__region == nullptr)
+            return nullptr;
+
+        try
+        {
+            return __region->define_event(event);
+        }
+        catch (const logic_error_t<ast_error_t> & e)
+        {
+            __deal_error(e, event->name, event);
             return nullptr;
         }
     }

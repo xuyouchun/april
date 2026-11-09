@@ -15,337 +15,106 @@ public struct Void
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct Int8
+public partial struct Int8 : IComparable<Int8>, IEquatable<Int8>, IEquality, IStringable, IFormattable, Numerics.IBinaryInteger<Int8>, IMinMaxValue<Int8>, Numerics.ISignedNumber<Int8>
 {
-    public new String ToString()
-    {
-        return Internal.Int64_ToString(this);
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct UInt8
+public partial struct UInt8 : IComparable<UInt8>, IEquatable<UInt8>, IEquality, IStringable, IFormattable, Numerics.IBinaryInteger<UInt8>, IMinMaxValue<UInt8>, Numerics.IUnsignedNumber<UInt8>
 {
-    public new String ToString()
-    {
-        return Internal.UInt64_ToString(this);
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct Int16
+public partial struct Int16 : IComparable<Int16>, IEquatable<Int16>, IEquality, IStringable, IFormattable, Numerics.IBinaryInteger<Int16>, IMinMaxValue<Int16>, Numerics.ISignedNumber<Int16>
 {
-    public new String ToString()
-    {
-        return Internal.Int64_ToString(this);
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct UInt16
+public partial struct UInt16 : IComparable<UInt16>, IEquatable<UInt16>, IEquality, IStringable, IFormattable, Numerics.IBinaryInteger<UInt16>, IMinMaxValue<UInt16>, Numerics.IUnsignedNumber<UInt16>
 {
-    public new String ToString()
-    {
-        return Internal.UInt64_ToString(this);
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct Int32
+public partial struct Int32 : IComparable<Int32>, IEquatable<Int32>, IEquality, IStringable, IFormattable, Numerics.IBinaryInteger<Int32>, IMinMaxValue<Int32>, Numerics.ISignedNumber<Int32>
 {
-    public new String ToString()
-    {
-        return Internal.Int64_ToString(this);
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct UInt32
+public partial struct UInt32 : IComparable<UInt32>, IEquatable<UInt32>, IEquality, IStringable, IFormattable, Numerics.IBinaryInteger<UInt32>, IMinMaxValue<UInt32>, Numerics.IUnsignedNumber<UInt32>
 {
-    public new String ToString()
-    {
-        return Internal.UInt64_ToString(this);
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct Int64
+public partial struct Int64 : IComparable<Int64>, IEquatable<Int64>, IEquality, IStringable, IFormattable, Numerics.IBinaryInteger<Int64>, IMinMaxValue<Int64>, Numerics.ISignedNumber<Int64>
 {
-    public new String ToString()
-    {
-        return Internal.Int64_ToString(this);
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct UInt64
+public partial struct UInt64 : IComparable<UInt64>, IEquatable<UInt64>, IEquality, IStringable, IFormattable, Numerics.IBinaryInteger<UInt64>, IMinMaxValue<UInt64>, Numerics.IUnsignedNumber<UInt64>
 {
-    public new String ToString()
-    {
-        return Internal.UInt64_ToString(this);
-    }
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct String
+public partial struct String : IComparable<String>, IEquatable<String>, IEquality, IStringable
 {
-    public Int32 Length
-    {
-        get { return Internal.String_GetLength(this); }
-    }
+};
 
-    public new String ToString()
-    {
-        return this;
-    }
+////////// ////////// ////////// ////////// //////////
 
-    public static String Concat(String? a, String? b)
-    {
-        return Internal.String_Concat(a, b);
-    }
+[Internal]
+public partial struct Boolean : IComparable<Boolean>, IEquatable<Boolean>, IEquality, IStringable
+{
+};
 
-    // Operators: they are found by the name of the operator.
-    public static String operator +(String? a, String? b)
-    {
-        return Internal.String_Concat(a, b);
-    }
+////////// ////////// ////////// ////////// //////////
 
-    public static String operator +(String? a, Int8 b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
+[Internal]
+public partial struct Char : IComparable<Char>, IEquatable<Char>, IEquality, IStringable
+{
+};
 
-    public static String operator +(Int8 a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
+////////// ////////// ////////// ////////// //////////
 
-    public static String operator +(String? a, UInt8 b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
+[Internal]
+public partial struct Single : IComparable<Single>, IEquatable<Single>, IEquality, IStringable, IFormattable
+{
+};
 
-    public static String operator +(UInt8 a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
+////////// ////////// ////////// ////////// //////////
 
-    public static String operator +(String? a, Int16 b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
+[Internal]
+public partial struct Double : IComparable<Double>, IEquatable<Double>, IEquality, IStringable, IFormattable
+{
+};
 
-    public static String operator +(Int16 a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
+////////// ////////// ////////// ////////// //////////
 
-    public static String operator +(String? a, UInt16 b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(UInt16 a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static String operator +(String? a, Int32 b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(Int32 a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static String operator +(String? a, UInt32 b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(UInt32 a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static String operator +(String? a, Int64 b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(Int64 a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static String operator +(String? a, UInt64 b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(UInt64 a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static String operator +(String? a, Single b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(Single a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static String operator +(String? a, Double b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(Double a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static String operator +(String? a, Char b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(Char a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static String operator +(String? a, Boolean b)
-    {
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(Boolean a, String? b)
-    {
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    // An object is converted by its ToString.
-    public static String operator +(String? a, Object b)
-    {
-        if (b == null)
-            return Internal.String_Concat(a, null);
-
-        return Internal.String_Concat(a, b.ToString());
-    }
-
-    public static String operator +(Object a, String? b)
-    {
-        if (a == null)
-            return Internal.String_Concat(null, b);
-
-        return Internal.String_Concat(a.ToString(), b);
-    }
-
-    public static Boolean operator ==(String a, String b)
-    {
-        return Internal.String_Equals(a, b);
-    }
-
-    public static Boolean operator !=(String a, String b)
-    {
-        return !Internal.String_Equals(a, b);
-    }
-
-    public static Boolean operator <(String a, String b)
-    {
-        return Internal.String_Compare(a, b) < 0;
-    }
-
-    public static Boolean operator <=(String a, String b)
-    {
-        return Internal.String_Compare(a, b) <= 0;
-    }
-
-    public static Boolean operator >(String a, String b)
-    {
-        return Internal.String_Compare(a, b) > 0;
-    }
-
-    public static Boolean operator >=(String a, String b)
-    {
-        return Internal.String_Compare(a, b) >= 0;
-    }
+[Internal]
+public partial struct Ptr : IEquatable<Ptr>
+{
 
 };
 
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct Boolean
-{
-    public new String ToString()
-    {
-        if (this)
-            return "True";
-
-        return "False";
-    }
-};
-
-////////// ////////// ////////// ////////// //////////
-
-[Internal]
-public struct Char
-{
-    public new String ToString()
-    {
-        return Internal.Char_ToString(this);
-    }
-};
-
-////////// ////////// ////////// ////////// //////////
-
-[Internal]
-public struct Single
-{
-    public new String ToString()
-    {
-        return Internal.Single_ToString(this);
-    }
-};
-
-////////// ////////// ////////// ////////// //////////
-
-[Internal]
-public struct Double
-{
-    public new String ToString()
-    {
-        return Internal.Double_ToString(this);
-    }
-};
-
-////////// ////////// ////////// ////////// //////////
-
-[Internal]
-public struct Ptr
+public partial struct Ptr<T> where T : unmanaged
 {
 
 };

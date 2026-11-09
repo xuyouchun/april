@@ -78,6 +78,13 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The expression, in a cast to the type when the types of the two are converted by an implicit operator that the
+    // types declare (the cast calls the method of the operator); the same expression if it is not.
+    expression_t * insert_user_conversion(expression_t * expression, type_t * to);
+
+    // The same for the arguments of a call: each one that is converted to the type of its param.
+    void convert_arguments(arguments_t * arguments, method_base_t * method);
+
     // Finds method.
     method_t * find_method(type_t * type, method_trait_t trait, name_t name,
                 generic_args_t * generic_args, atypes_t * atypes);
@@ -219,6 +226,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Defines property variable.
         property_variable_t * define_property(property_t * property);
+
+        // Defines event variable.
+        event_variable_t * define_event(event_t * event);
 
         // Defines method variable.
         method_variable_t * define_method(method_t * method);

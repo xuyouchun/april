@@ -548,12 +548,10 @@ namespace __april = __root_ns::modules::april;
 int main(int argc, char ** argv)
 {
     // The narrow strings of the paths are UTF-8, not the code page of the system.
-    ::boost::filesystem::path::imbue(
-        std::locale(std::locale(), new std::codecvt_utf8<wchar_t>())
-    );
+    ::boost::filesystem::path::imbue(april::utf8_locale());
 
     // The wide streams write UTF-8 (they stop at the first character that is not ASCII, else).
-    std::locale utf8(std::locale(), new std::codecvt_utf8<wchar_t>());
+    std::locale utf8 = april::utf8_locale();
     std::wcout.imbue(utf8);
     std::wcerr.imbue(utf8);
 

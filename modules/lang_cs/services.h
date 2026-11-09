@@ -14,15 +14,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     ////////// ////////// ////////// ////////// //////////
 
-    class cs_lang_service_t
-        : public object_t
-        , public lang_token_property_service_t
-        , public lang_operator_property_service_t
-        , public lang_expression_build_service_t
-        , public lang_token_read_service_t
-        , public lang_statement_analyze_service_t
-        , public lang_ast_build_service_t
-        , public lang_analyze_service_t
+    class cs_lang_service_t : public lang_service_base_t
     {
     public:
         cs_lang_service_t(cs_lang_t * lang) : __lang(lang)
@@ -68,6 +60,11 @@ namespace X_ROOT_NS::modules::lang_cs {
             const code_unit_t * cu) override;
 
         X_TO_STRING_IMPL(_T("cs_lang_service_t"))
+
+    protected:
+
+        // Skips the comments, the strings and the chars: they are not code.
+        virtual size_t skip_non_code(const char_t * code, size_t length, size_t position) override;
 
     private:
         cs_lang_t * __lang;

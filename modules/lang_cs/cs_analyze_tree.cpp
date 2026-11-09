@@ -65,6 +65,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         X_C(_attribute_group,           _T("_attribute group"), _T("attributes"))
         X_C(_attribute_group_item,      _T("_attribute_group.__item"), _T("attribute"))
         X_C(_attribute_group_assign,    _T("_attribute_group.__assign"))
+        X_C(_assembly_group,            _T("_assembly_group"))
+        X_C(_assembly_group_item,       _T("_assembly_group.__item"), _T("attribute"))
+        X_C(_assembly_group_assign,     _T("_assembly_group.__assign"))
+        X_C(new_assign,                 _T("new.__assign"))
         X_C(_attribute_type_name,       _T("_attribute_type_name"))
 
         X_C(_decorate_complex,          _T("decorate.__complex"))

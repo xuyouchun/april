@@ -33,7 +33,8 @@ namespace X_ROOT_NS::modules::compile {
     {
     public:
         code_section_builder_t(global_context_t & global_context, code_t * code,
-            lang_id_t default_lang, std::vector<code_section_t *> & sections, pool_t & pool);
+            lang_id_t default_lang, std::vector<code_section_t *> & sections, pool_t & pool,
+            std::vector<code_section_error_t> & errors);
 
         void build();
 
@@ -41,15 +42,20 @@ namespace X_ROOT_NS::modules::compile {
         global_context_t &      __global_context;
         code_t *                __code;
         const char_t * const    __source_code;
-        const char_t *          __p;
+        size_t                  __length;
         const lang_id_t         __default_lang;
         std::vector<code_section_t *> & __sections;
         pool_t &                __pool;
-        std::stack<lang_id_t>   __lang_stack;
+        std::vector<code_section_error_t> & __errors;
+        std::vector<lang_id_t>  __lang_stack;
+        std::vector<string_t>   __lang_names;
+        std::vector<size_t>     __begins;
+        std::vector<size_t>     __host_starts;
+        std::vector<size_t>     __section_counts;
 
         template<typename callback_t> void __build(callback_t callback);
-        bool __skip_char(char_t c);
-        string_t __read_lang();
+        bool __find_marker(lang_id_t lang, size_t start, size_t count, size_t & position,
+                                            size_t & marker_index, size_t first_marker = 0);
     };
 
 
@@ -173,6 +179,11 @@ namespace X_ROOT_NS::modules::compile {
 
     // Returns whether the variable is local, field, param or array item.
     bool is_real_variable(variable_t * variable);
+
+    // Returns whether the expression is a pointer to the memory of the method: Ptr.AddressOf of an array or of a variable,
+    // NativeMemory.StackAlloc, a variable that was given one, p + n, p.As<T>() of one. Such a pointer is valid while the method
+    // runs, it is not stored in a field, an element or a property, and it is not returned.
+    bool is_scoped_pointer(expression_t * exp);
 
     // Compiles assign expression.
     void compile_assign(__cctx_t & ctx, xil_pool_t & pool, local_variable_t * var,

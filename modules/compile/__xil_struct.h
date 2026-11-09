@@ -99,8 +99,25 @@ namespace X_ROOT_NS::modules::compile {
 
         x_pop_empty_xil_t(ref_t struct_type_ref) : __super_t(struct_type_ref) { }
 
+        // The result of a call that is not used, its type is a generic param.
+        x_pop_empty_xil_t(ref_t generic_type_ref, bool call_result)
+            : __super_t(generic_type_ref, call_result)
+        { }
+
         x_pop_empty_xil_t(xil_type_t xil_type)
             : __super_t(xil_storage_type_t::empty, xil_type)
+        { }
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Pop ptr content xil: the value at the top is written to the address that is below it: *p = value.
+    struct x_pop_ptr_content_xil_t : xil_extra_t<pop_xil_t>
+    {
+        typedef xil_extra_t<pop_xil_t> __super_t;
+
+        x_pop_ptr_content_xil_t(xil_type_t dtype)
+            : __super_t(xil_storage_type_t::ptr_content, dtype)
         { }
     };
 
@@ -454,6 +471,28 @@ namespace X_ROOT_NS::modules::compile {
         { }
     };
 
+    // Push the content of the address at the top of the stack (a pointer): *p, of the type dtype.
+    struct x_push_ptr_content_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_ptr_content_xil_t(xil_type_t dtype)
+            : __super_t(xil_storage_type_t::ptr_content, dtype)
+        { }
+    };
+
+    // Push the size of a type: sizeof(T), an int64.
+    struct x_push_type_size_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_type_size_xil_t(ref_t type_ref)
+            : __super_t(xil_storage_type_t::type_size, xil_type_t::int64)
+        {
+            this->set_ref(type_ref);
+        }
+    };
+
     // Push duplicate xil.
     struct x_push_duplicate_xil_t : xil_extra_t<push_xil_t>
     {
@@ -508,6 +547,27 @@ namespace X_ROOT_NS::modules::compile {
         typedef xil_extra_t<push_xil_t> __super_t;
 
         x_push_params_xil_t() : __super_t(xil_storage_type_t::params) { }
+    };
+
+    // Push the values of the params xil: the items of a params generic parameter are the arguments
+    // of a call (f(args) with TArgs ... args).
+    struct x_push_params_values_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_params_values_xil_t() : __super_t(xil_storage_type_t::params_values) { }
+    };
+
+    // Push the items of a tuple xil: the tuple is popped, its items are the arguments of a call
+    // (f(tuple ...)), the type is the tuple type.
+    struct x_push_tuple_values_xil_t : xil_extra_t<push_xil_t>
+    {
+        typedef xil_extra_t<push_xil_t> __super_t;
+
+        x_push_tuple_values_xil_t(ref_t type_ref) : __super_t(xil_storage_type_t::tuple_values)
+        {
+            this->set_ref(type_ref);
+        }
     };
 
     // Push constant value xil.

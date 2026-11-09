@@ -14,7 +14,9 @@ def _files():
 
 class TestErrors:
     """Programs that are wrong are rejected with a diagnostic: the compiler neither crashes
-    nor accepts them. The first comment of a file tells the error: EXPECT_ERROR <regex>."""
+    nor accepts them. The first comment of a file tells the error: EXPECT_ERROR <regex>, and
+    optionally the place of the first error (EXPECT_AT <line>:<column>) and what is not told
+    (EXPECT_NOT <regex>), and its code (EXPECT_CODE AP0001)."""
 
     @pytest.mark.parametrize('code_file', _files())
     def test_error(self, code_file):
@@ -28,3 +30,21 @@ class TestErrors:
         output = re.sub(r'\x1b\[[0-9;]*m', '', result.stdout)
         assert result.returncode == 1, 'status %d:\n%s' % (result.returncode, output)
         assert re.search(pattern, output), output
+
+        # Where the first error is: EXPECT_AT <line>:<column>.
+        text = open(path).read()
+        position = re.search(r'EXPECT_AT (\d+):(\d+)', text)
+        if position is not None:
+            first = re.search(r'error[^\n]*\n\s*\S+:(\d+):(\d+)', output)
+            assert first is not None and first.groups() == position.groups(), output
+
+        # The code of the first error: EXPECT_CODE AP0011.
+        code = re.search(r'EXPECT_CODE (AP\d{4})', text)
+        if code is not None:
+            first_code = re.search(r'error (AP\d{4}):', output)
+            assert first_code is not None and first_code.group(1) == code.group(1), output
+
+        # Messages that must not be there: EXPECT_NOT <regex>, such as the errors that follow a
+        # syntax error.
+        for unexpected in re.findall(r'EXPECT_NOT (.*?) \*/', text):
+            assert not re.search(unexpected, output), output

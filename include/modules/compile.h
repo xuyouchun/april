@@ -220,6 +220,10 @@ namespace X_ROOT_NS::modules::compile {
         const lang_id_t lang;               // Language.
         const int depth;                    // Depth.
 
+        // The code of an embedded language that has no end flag: it ends where its analyzer
+        // tells, and the code of the language that has it goes on after it.
+        bool open_ended = false;
+
         code_t * code;                      // Code
 
         // Returns code file.
@@ -238,6 +242,15 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+
+    // An error found when the code is cut to sections: the code of an embedded language.
+    struct code_section_error_t
+    {
+        const char_t * s;           // Where it is: the marker.
+        size_t         length;
+        int            code;        // The log code, compile_log_code_t.
+        string_t       argument;    // The name of the language.
+    };
 
     // Code
     class code_t : public code_object_t
@@ -264,6 +277,9 @@ namespace X_ROOT_NS::modules::compile {
         // Returns code section count.
         size_t section_count() const { return __sections.size(); }
 
+        // Returns the errors found when the code was cut to sections.
+        const std::vector<code_section_error_t> & section_errors() { sections(); return __section_errors; }
+
         // Build ast tree.
         ast_node_t * build_ast(compile_context_t & context);
 
@@ -274,6 +290,7 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
         __sections_t        __sections;
+        std::vector<code_section_error_t> __section_errors;
         pool_t              __pool;
     };
 
@@ -352,6 +369,16 @@ namespace X_ROOT_NS::modules::compile {
 
         assembly_t * assembly = nullptr;
         string_t     assembly_path;
+
+        // A file that is embedded in the assembly of the project: its name is the one that Resource.GetBytes takes.
+        struct resource_t
+        {
+            string_t name;
+            string_t path;
+        };
+
+        // The resources: the files are read when the assembly is written.
+        std::vector<resource_t> resources;
 
         X_TO_STRING_IMPL(_T("project_t"))
 
@@ -670,6 +697,10 @@ namespace X_ROOT_NS::modules::compile {
         // A service for analyze tree.
         analyze,
 
+        // A service for finding the markers of the code of another language that is embedded in the
+        // code of the language: <%lq from x in xs select x %> .
+        marker,
+
     X_ENUM_END
 
     ////////// ////////// ////////// ////////// //////////
@@ -731,6 +762,19 @@ namespace X_ROOT_NS::modules::compile {
         : public tlang_service_t<lang_service_type_t::token_read>
     {
         virtual token_reader_t * create_token_reader(token_reader_context_t & context) = 0;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Interface for the service that finds the markers of the code that is embedded in the code of
+    // a language (<%lq ... %>): the language knows what is not code (comments, strings, ...).
+    X_INTERFACE lang_marker_service_t : public tlang_service_t<lang_service_type_t::marker>
+    {
+        // Finds the first marker of the markers that is in the code of the language, from the
+        // start. Returns false if there is no one.
+        virtual bool find_marker(const char_t * code, size_t length, size_t start,
+                const char_t * const * markers, size_t marker_count,
+                size_t & position, size_t & marker_index) = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -923,6 +967,135 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The base of the services of a language: all the service interfaces, and the parts that do not depend on
+    // the language. A language says what it has: the reading of tokens, the properties, the patterns, the ast.
+    class lang_service_base_t
+        : public object_t
+        , public lang_token_property_service_t
+        , public lang_operator_property_service_t
+        , public lang_expression_build_service_t
+        , public lang_token_read_service_t
+        , public lang_statement_analyze_service_t
+        , public lang_ast_build_service_t
+        , public lang_analyze_service_t
+        , public lang_marker_service_t
+    {
+    public:
+
+        // Detects missing element when compile format error: nothing by default.
+        virtual detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
+            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys,
+            const code_unit_t * cu) override
+        {
+            return detect_missing_element_result::empty;
+        }
+
+        // Finds the first marker that is in the code of the language: what the language says is not
+        // code (skip_non_code) is skipped.
+        virtual bool find_marker(const char_t * code, size_t length, size_t start,
+                const char_t * const * markers, size_t marker_count,
+                size_t & position, size_t & marker_index) override;
+
+    protected:
+
+        // Returns the position after the comment, the string, ... that starts at the position of the
+        // code, the position itself if there is no one: nothing is skipped by default.
+        virtual size_t skip_non_code(const char_t * code, size_t length, size_t position)
+        {
+            return position;
+        }
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // The services of a language that is made of another one: all that it does not say itself is what the
+    // services of the other language do (lq and c are cs with other patterns, nodes and tokens).
+    class lang_service_extension_t : public lang_service_base_t
+    {
+    public:
+        lang_service_extension_t(lang_service_base_t * base) : __base(base) { _A(base != nullptr); }
+
+        // lang_token_read_service_t
+        virtual token_reader_t * create_token_reader(token_reader_context_t & context) override
+        {
+            return __base->create_token_reader(context);
+        }
+
+        // lang_token_property_service_t
+        virtual const token_property_t * get_token_property(token_value_t value) override
+        {
+            return __base->get_token_property(value);
+        }
+
+        virtual const string_t get_token_string(token_value_t value) override
+        {
+            return __base->get_token_string(value);
+        }
+
+        virtual const string_t get_branch_string(analyze_node_value_t value) override
+        {
+            return __base->get_branch_string(value);
+        }
+
+        // lang_operator_property_service_t
+        virtual const operator_property_t * get_operator_property(token_value_t value) override
+        {
+            return __base->get_operator_property(value);
+        }
+
+        // lang_expression_build_service_t
+        virtual const expression_box_property_t * get_expression_box_property(
+                                                            token_value_t value) override
+        {
+            return __base->get_expression_box_property(value);
+        }
+
+        virtual expression_t * build_expression(lang_expression_build_context_t & ctx,
+                                    const lang_expression_build_args_t & args) override
+        {
+            return __base->build_expression(ctx, args);
+        }
+
+        // lang_statement_analyze_service_t
+        virtual const string_t get_analyze_pattern(global_context_t & context) override
+        {
+            return __base->get_analyze_pattern(context);
+        }
+
+        virtual analyze_node_value_t get_node_value(global_context_t & context,
+                        const string_t & name, analyze_node_type_t node_type) override
+        {
+            return __base->get_node_value(context, name, node_type);
+        }
+
+        // lang_ast_build_service_t
+        virtual ast_node_t * build_ast(ast_context_t & context, lang_ast_build_args_t & args) override
+        {
+            return __base->build_ast(context, args);
+        }
+
+        // lang_analyze_service_t
+        virtual detect_missing_element_result detect_missing_element(ast_context_t & ast_context,
+            analyzer_element_reader_t & reader, const analyze_node_keys_t & possible_keys,
+            const code_unit_t * cu) override
+        {
+            return __base->detect_missing_element(ast_context, reader, possible_keys, cu);
+        }
+
+        // lang_marker_service_t
+        virtual bool find_marker(const char_t * code, size_t length, size_t start,
+                const char_t * const * markers, size_t marker_count,
+                size_t & position, size_t & marker_index) override
+        {
+            return __base->find_marker(code, length, start, markers, marker_count, position, marker_index);
+        }
+
+    private:
+        lang_service_base_t * __base;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Language information.
     struct lang_info_t
     {
@@ -943,6 +1116,45 @@ namespace X_ROOT_NS::modules::compile {
 
         // Returns language information.
         virtual const lang_info_t * get_info() = 0;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // The base of a language: its id, its information, and the service that it gives for each type of service (one
+    // object that has all of them).
+    class lang_base_t : public object_t, public lang_t
+    {
+    public:
+        lang_base_t(lang_id_t lang_id, const char_t * name, const char_t * simple_name)
+            : __lang_id(lang_id), __lang_info({ name, simple_name })
+        { }
+
+        // Returns specified service.
+        virtual lang_service_t * get_service(lang_service_type_t service_type) override;
+
+        // Returns language id.
+        virtual lang_id_t get_id() override { return __lang_id; }
+
+        // Returns language information.
+        virtual const lang_info_t * get_info() override { return &__lang_info; }
+
+    protected:
+
+        // Sets the service of the language.
+        void set_service(lang_service_base_t * service) { __service = service; }
+
+        // Creates an object that lives as long as the language.
+        template<typename t, typename ... args_t>
+        t * new_obj(args_t && ... args)
+        {
+            return memory_t::new_obj<t>(&__pool, std::forward<args_t>(args) ...);
+        }
+
+    private:
+        lang_id_t               __lang_id;
+        lang_info_t             __lang_info;
+        pool_t                  __pool;
+        lang_service_base_t *   __service = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -1120,14 +1332,71 @@ namespace X_ROOT_NS::modules::compile {
 
     typedef uint16_t compile_log_code_value_t;
 
-    // Compile log codes.
+    // Compile log codes. The codes are the numbers of the diagnostics (AP0001): the ranges are
+    // told in docs/diagnostics.md, a code is never used for another message.
     X_ENUM_(compile_log_code_t, sizeof(compile_log_code_value_t))
 
+        // ---- AP0001 - AP0009: syntax.
+
+        // A syntax error that nothing tells more.
+        syntax_error                = 1,
+
+        // A token that cannot be there.
+        unexpected_token            = 2,
+
+        // An element that is missing.
+        expected_element            = 3,
+
+        // The code ends before a block, a statement or a call is complete.
+        unexpected_end_of_file      = 4,
+
+        // Two ways to match the code, nothing tells apart.
+        ambiguous_syntax            = 5,
+
+        // A token that cannot be there, and what is expected.
+        unexpected_token_expected   = 6,
+
+        // ---- AP0010 - AP0029: lexical.
+
+        // A multiline comment has no end.
+        unterminated_comment        = 10,
+
+        // A string literal is wrong.
+        string_literal_error        = 11,
+
+        // A character literal is wrong.
+        char_literal_error          = 12,
+
+        // A numeric literal is wrong.
+        numeric_literal_error       = 13,
+
+        // A numeric literal does not fit its type.
+        numeric_literal_overflow    = 14,
+
+        // ---- AP0030 - AP0039: the code of an embedded language.
+
+        // The language of an embedded code is not known.
+        unknown_embedded_language   = 30,
+
+        // The code of an embedded language is missing.
+        embedded_code_missing       = 31,
+
+        // The end flag of an embedded code is missing.
+        embedded_end_missing        = 32,
+
+        // ---- AP0900 - AP0999: the compiler.
+
         // Writes assembly error.
-        write_assembly_error,
+        write_assembly_error        = 900,
 
         // No assembly name.
-        no_assembly_name,
+        no_assembly_name            = 901,
+
+        // A method cannot be compiled: the compiler does not support what it has.
+        method_compile_failed       = 902,
+
+        // A file of the resources cannot be read.
+        resource_file_unreadable    = 903,
 
     X_ENUM_END
 

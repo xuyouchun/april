@@ -60,7 +60,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         // whole expression.
         type_t * result_type = __numeric_result_type(value1(), value2());
         __environment_t branch_env = result_type != nullptr? __environment_t(result_type)
-                                                           : __environment_t::empty;
+                                                           : env;
 
         if (value1_effective || value2_effective)
         {

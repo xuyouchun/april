@@ -672,7 +672,17 @@ namespace X_ROOT_NS::modules::compile {
         if (expression != nullptr)
         {
             __walk_variables(expression);
-            set_assign_parent(expression);
+
+            // The value of the expression is not used (like an expression statement).
+            if (!discard_value)
+                set_assign_parent(expression);
+        }
+
+        if (discard_value && expression != nullptr)
+        {
+            append_expression(ctx, expression, false);
+            append_xilx<return_xilx_t>(ctx, nullptr, __need_leave(ctx));
+            return;
         }
 
         // In protected regions, a leave command is inserted before the return, after the
@@ -886,8 +896,12 @@ namespace X_ROOT_NS::modules::compile {
                                   __exit_type_t::pass);
         }
 
+        // The body is not run when the condition is false: the loop ends the normal way.
         __e_exit_type_t et_body = __exit_type(ctx, body);
-        return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+        __e_exit_type_t et = et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+        et.add(__exit_type_t::pass);
+
+        return et;
     }
 
     X_DEFINE_TO_STRING(while_statement_t)
@@ -979,8 +993,12 @@ namespace X_ROOT_NS::modules::compile {
                                   __exit_type_t::pass);
         }
 
+        // The body is not run when the condition is false: the loop ends the normal way.
         __e_exit_type_t et_body = __exit_type(ctx, body);
-        return et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+        __e_exit_type_t et = et_body.remove(__exit_type_t::break_, __exit_type_t::continue_);
+        et.add(__exit_type_t::pass);
+
+        return et;
     }
 
     X_DEFINE_TO_STRING(for_statement_t)

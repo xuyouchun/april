@@ -1670,6 +1670,9 @@ namespace X_ROOT_NS::modules::compile {
         // Detect next possible keys.
         __node_keys_t detect_next_keys();
 
+        // Whether the code that is not complete at its end is taken as it is (its error is told).
+        bool allow_incomplete_end = false;
+
         X_TO_STRING_IMPL(_T("analyze_context_t"))
 
         // Disable trace in trace model.
@@ -2109,8 +2112,18 @@ namespace X_ROOT_NS::modules::compile {
         size_t               __index = 0;
         al::xheap_t          __heap;
 
+        token_t *            __last_token = nullptr;        // The last token that was read.
+        bool                 __code_end_read = false;       // Whether the token that ends the code was added.
+
         // Reads next element.
         bool __read_next_element();
+
+        // Reads the code of an embedded language that starts with the token.
+        bool __read_embedded(token_t * token);
+
+        // Reads the code of an embedded language that starts at the position.
+        bool __read_embedded_code(lang_id_t lang_id, const char_t * start, const char_t * end,
+                const string_t & name, const code_unit_t * flag, bool open_ended);
 
         // Appends a element.
         template<typename element_t>
@@ -2278,6 +2291,11 @@ namespace X_ROOT_NS::modules::compile {
 
         analyzer_result_t analyze();
 
+        // Returns the count of the elements at the start of the code, that are a complete code:
+        // the code of an embedded language is followed by the code of the language that has it.
+        // When no prefix is complete, it is the elements that can go on until one cannot.
+        size_t find_prefix_end();
+
         X_TO_STRING_IMPL(_T("__analyzer_t"))
 
     private:
@@ -2288,17 +2306,40 @@ namespace X_ROOT_NS::modules::compile {
         analyzer_element_reader_t * __reader;           // Reader.
         analyze_context_t           __context;          // Context.
         analyze_element_t         * __element;          // Current element.
+        bool                        __quiet = false;    // The errors are not told (a probe).
 
         static const size_t __empty_break_point = max_value<size_t>();
         static const analyze_element_type_t __end = analyze_element_type_t::__unknown__;
 
         typedef logic_error_t<analyze_tree_error_t> __error_t;
 
+        // Whether the error of the end of the code is told.
+        bool __end_of_file_told = false;
+
         // Try to do analyzing, return true when succeed.
         bool __try_analyze(size_t break_point = __empty_break_point);
 
         // Do analyzing.
         void __analyze(size_t break_point = __empty_break_point);
+
+        // Analyzes all the elements but the end.
+        void __analyze_until_end();
+
+        // Whether the analyzing failed at the end of the code.
+        bool __end_failing = false;
+
+        // Repairs the format error at the element that cannot be matched: the best of inserting
+        // an element, deleting it, and replacing it, by the count of elements that follow it and
+        // are matched then.
+        bool __try_repair();
+
+        // Returns how far the analyzing goes if the element is inserted before the unexpected
+        // element, and the unexpected element is deleted or not. Reaching the end is the best.
+        int __repair_score(analyze_element_t * inserted, bool delete_unexpected,
+                           analyze_element_t * unexpected);
+
+        // Returns the expected elements as a text when they are a few tokens, or empty.
+        string_t __expected_text(const __node_keys_t & keys);
 
         // Try add missing elements when parsing error.
         bool __try_insert_missing_elements(analyze_element_t * replaced_element = nullptr);
@@ -2360,8 +2401,14 @@ namespace X_ROOT_NS::modules::compile {
         void __restore_state(const __state_t & state);
 
         // Log format error.
-        void __log_format_error(const string_t & error, analyze_element_t & element,
-                        const code_unit_t * cu = nullptr);
+        void __log_format_error(compile_log_code_t code, const string_t & error,
+                        analyze_element_t & element, const code_unit_t * cu = nullptr);
+
+        // Tells the lexical error of a token, once.
+        void __log_token_error(analyze_element_t * element);
+
+        // The tokens that have their errors told.
+        std::set<token_t *> __reported_token_errors;
 
         //-------- ---------- ---------- ---------- ----------
 
@@ -2402,6 +2449,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Analyze with reader.
         analyzer_result_t analyze(ast_context_t & ast_context, analyzer_element_reader_t * reader);
+
+        // Returns the count of the elements at the start of the code that are a complete code.
+        size_t find_prefix_end(ast_context_t & ast_context, analyzer_element_reader_t * reader);
 
         static const int32_t __cache_key__ = 1;
 

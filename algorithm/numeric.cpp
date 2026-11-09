@@ -516,6 +516,16 @@ namespace X_ROOT_NS::algorithm {
                 switch (c)
                 {
                     case _T('.'):
+                        // The point is a part of the number when a digit follows it, and it is the first one: in 255.ToString()
+                        // and 3.5.ToString() it is the point of a member, the number ends before it.
+                        if (__point != nullptr || __radix == 16 || __radix == 2 || !is_digit(*(__p + 1)))
+                        {
+                            if (!p_end)
+                                p_end = __p;
+
+                            return p_end;
+                        }
+
                         __set_point(__p);
                         break;
 

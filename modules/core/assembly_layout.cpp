@@ -162,6 +162,7 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(attribute,          _T("attribute"))
         X_C(attribute_argument, _T("attribute_argument"))
+        X_C(resource,           _T("resource"))
 
     X_ENUM_INFO_END
 
@@ -260,7 +261,16 @@ namespace X_ROOT_NS::modules::core {
         if (it != __map.end())
             return it->second;
 
-        std::string s = string_convert<char_t, char>(sid.c_str());
+        // The strings of the assembly are UTF-8, whatever the platform is.
+        // The character 0 is written as C0 80 ("modified UTF-8"), the strings of the heap end with a byte 0.
+        std::string s;
+        for (char c : ustring_to_utf8(to_ustring(string_t(sid.c_str(), sid.length()))))
+        {
+            if (c == 0)
+                s += "\xC0\x80";
+            else
+                s += c;
+        }
 
         size_t current_index = __buffer.current_index();
         byte_t * buffer = __buffer.acquire(s.length() + 1);
@@ -409,7 +419,7 @@ namespace X_ROOT_NS::modules::core {
 
     // Metadata: assembly
     __DefineEntityIOFunctions
-        __M(name), __M(version), __M(entry_point), __M(info), __V(1),
+        __M(name), __M(version), __M(entry_point), __M(info), __M(attributes), __V(1),
     __EndDefineEntityIOFunctions
 
     #undef  __Mt
@@ -614,7 +624,7 @@ namespace X_ROOT_NS::modules::core {
     // Metadata: Event.
     __DefineEntityIOFunctions
         __M(name), __M(decorate), __M(type), __M(owner),
-        __M(attributes), __M(add_method), __M(remove_method), __V(1),
+        __M(attributes), __M(add_method), __M(remove_method), __M(raise_method), __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt
@@ -747,7 +757,18 @@ namespace X_ROOT_NS::modules::core {
 
     // Metadata: Attribute argument.
     __DefineEntityIOFunctions
-        __M(name), __M(value), __M(name_type), __V(1),
+        __M(name), __M(value), __M(value_type), __M(name_type), __V(1),
+    __EndDefineEntityIOFunctions
+
+    #undef __Mt
+
+    //-------- ---------- ---------- ---------- ----------
+
+    #define __Mt mt_resource_t
+
+    // Metadata: Resource.
+    __DefineEntityIOFunctions
+        __M(name), __M(data), __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt

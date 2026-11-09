@@ -111,7 +111,7 @@ namespace X_ROOT_NS::modules::core {
             struct __vtype_trait_t<vtype_t::name##_>                \
             {                                                       \
                 static const vtype_t vtype = vtype_t::name##_;      \
-                typedef name##_t numeric_t;                         \
+                typedef __X_NUMERIC(name) numeric_t;                       \
             };
 
         #define __VType __DefineVTypeTrait
@@ -131,10 +131,10 @@ namespace X_ROOT_NS::modules::core {
         // Defines rvtype traits.
         #define __DefineRVTypeTrait(name)                           \
             template<>                                              \
-            struct __rvtype_trait_t<name##_t>                       \
+            struct __rvtype_trait_t<__X_NUMERIC(name)>                     \
             {                                                       \
                 static const vtype_t vtype = vtype_t::name##_;      \
-                typedef name##_t numeric_t;                         \
+                typedef __X_NUMERIC(name) numeric_t;                       \
             };
 
         #define __VType __DefineRVTypeTrait

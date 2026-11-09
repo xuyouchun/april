@@ -619,8 +619,27 @@ namespace X_ROOT_NS {
         ldouble_t   ldouble_value;
 
         bool_t      bool_value;
-        char_t      char_value;
+        rt_char_t   char_value;     // Char: 16 bits on every platform.
     };
+
+    // The C++ type of a numeric type of the values: Char is the character of the virtual machine, not
+    // the one of the host.
+    #define __X_NUMERIC_int8        int8_t
+    #define __X_NUMERIC_uint8       uint8_t
+    #define __X_NUMERIC_int16       int16_t
+    #define __X_NUMERIC_uint16      uint16_t
+    #define __X_NUMERIC_int32       int32_t
+    #define __X_NUMERIC_uint32      uint32_t
+    #define __X_NUMERIC_int64       int64_t
+    #define __X_NUMERIC_uint64      uint64_t
+    #define __X_NUMERIC_float       float_t
+    #define __X_NUMERIC_double      double_t
+    #define __X_NUMERIC_ldouble     ldouble_t
+    #define __X_NUMERIC_bool        bool_t
+    #define __X_NUMERIC_char        rt_char_t
+    #define __X_NUMERIC_mobject      mobject_t
+    #define __X_NUMERIC_ptr          ptr_t
+    #define __X_NUMERIC(type)       __X_NUMERIC_##type
 
     #define __X_EACH_TYPES                                                              \
         __X_TYPE_OP(int8)                                                               \
@@ -657,9 +676,9 @@ namespace X_ROOT_NS {
             }
 
             // Char type.
-            else if constexpr (std::is_same_v<number_t, char_t>)
+            else if constexpr (std::is_same_v<number_t, rt_char_t>)
             {
-                const char_t s[] = { _T('\''), value, _T('\''), _T('\0') };
+                const char_t s[] = { _T('\''), (char_t)value, _T('\''), _T('\0') };
                 return string_t(s);
             }
 
@@ -674,9 +693,9 @@ namespace X_ROOT_NS {
         // Defines get/set functions for any numeric types.
 
         #define __X_VALUE_DEF(type)                                                     \
-            template<> struct __value_t<type##_t>                                       \
+            template<> struct __value_t<__X_NUMERIC(type)>                                 \
             {                                                                           \
-                typedef type##_t numeric_t;                                             \
+                typedef __X_NUMERIC(type) numeric_t;                                       \
                 static const value_type_t value_type = value_type_t::type##_;           \
                                                                                         \
                 static numeric_t get_value(const value_t & value) _NE                   \
@@ -697,7 +716,7 @@ namespace X_ROOT_NS {
                                                                                         \
             template<> struct __value_type_t<value_type_t::type##_>                     \
             {                                                                           \
-                typedef type##_t numeric_t;                                             \
+                typedef __X_NUMERIC(type) numeric_t;                                       \
                 static const value_type_t value_type = value_type_t::type##_;           \
             };
 
@@ -764,7 +783,7 @@ namespace X_ROOT_NS {
 
             #define __X_CASE(type)                                                      \
                 case value_type_t::type##_:                                             \
-                    return static_cast<numeric_t>(__root_ns::get_value<type##_t>(value));
+                    return static_cast<numeric_t>(__root_ns::get_value<__X_NUMERIC(type)>(value));
 
             switch (type)
             {
@@ -779,7 +798,7 @@ namespace X_ROOT_NS {
             #undef __X_CASE
         }
 
-        #define __X_TYPE_OP(type) operator type##_t() const { return get_value<type##_t>(); }
+        #define __X_TYPE_OP(type) operator __X_NUMERIC(type)() const { return get_value<__X_NUMERIC(type)>(); }
         __X_EACH_TYPES 
         #undef __X_TYPE_OP
 

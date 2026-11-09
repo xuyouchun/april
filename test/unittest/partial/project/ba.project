@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<project>
+
+    <name>partial_ba</name>
+    <files>
+        <file><path>b.cs</path></file>
+        <file><path>a.cs</path></file>
+    </files>
+
+</project>

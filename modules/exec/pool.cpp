@@ -8,7 +8,7 @@ namespace X_ROOT_NS::modules::exec {
     ////////// ////////// ////////// ////////// //////////
 
     // Returns runtime string for specified string.
-    rt_string_t * rt_string_pool_t::get(const char_t * s, rt_length_t length)
+    rt_string_t * rt_string_pool_t::get(const rt_char_t * s, rt_length_t length)
     {
         auto it = __map.find(__string_key_t(s, length));
         if (it != __map.end())

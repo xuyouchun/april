@@ -200,6 +200,26 @@ namespace X_ROOT_NS::modules::native::ll {
             __emit("store " + value.type + " " + value.text + ", ptr " + ptr.text);
         }
 
+        // load <type>, ptr <ptr>, align 1: the address of a pointer of the program is any address.
+        value_t load_unaligned(const std::string & type, const value_t & ptr)
+        {
+            __expect_ptr(ptr);
+
+            std::string r = __temp();
+            __emit(r + " = load " + type + ", ptr " + ptr.text + ", align 1");
+
+            return value_t { type, r };
+        }
+
+        // store <type> <value>, ptr <ptr>, align 1
+        void store_unaligned(const value_t & value, const value_t & ptr)
+        {
+            __expect_value(value);
+            __expect_ptr(ptr);
+
+            __emit("store " + value.type + " " + value.text + ", ptr " + ptr.text + ", align 1");
+        }
+
         // <op> <type> a, b: add, sub, mul, sdiv, udiv, srem, urem, fadd, fsub, fmul,
         // fdiv, frem, and, or, xor, shl, lshr, ashr.
         value_t binop(const std::string & op, const value_t & a, const value_t & b)
@@ -582,7 +602,32 @@ namespace X_ROOT_NS::modules::native::ll {
         value_t add_wstring(const std::u32string & chars, unsigned char_bits = 32)
         {
             std::string name = "@.wstr." + std::to_string(__globals.size());
-            std::string type = char_bits == 16? types::i16 : types::i32;
+
+            // The strings of the virtual machine (16 bits) have a head of 8 bytes before the first
+            // character: the length (32 bits) and 32 bits that are reserved. The pointer is to the
+            // first character.
+            if (char_bits == 16)
+            {
+                const std::string i16 = types::i16;
+
+                std::string text = name + " = private unnamed_addr constant "
+                                 + types::array(chars.size() + 1 + 4, i16) + " [";
+
+                uint32_t length = (uint32_t)chars.size();
+                text += i16 + " " + std::to_string(length & 0xFFFF) + ", "
+                      + i16 + " " + std::to_string(length >> 16) + ", "
+                      + i16 + " 0, " + i16 + " 0, ";
+
+                for (char32_t ch : chars)
+                    text += i16 + " " + std::to_string((uint32_t)ch) + ", ";
+
+                text += i16 + " 0], align 8";
+                __globals.push_back(text);
+
+                return value_t { types::ptr, "getelementptr inbounds (i8, ptr " + name + ", i64 8)" };
+            }
+
+            std::string type = types::i32;
 
             std::string text = name + " = private unnamed_addr constant "
                              + types::array(chars.size() + 1, type) + " [";

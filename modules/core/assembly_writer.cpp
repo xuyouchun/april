@@ -114,6 +114,7 @@ namespace X_ROOT_NS::modules::core {
             mt->version     = assembly->version;
             mt->entry_point = __W->__commit_method(assembly->entry_point);
             mt->info        = __S(assembly->information);
+            mt->attributes  = __W->__commit_attributes(assembly->attributes);
         }
 
         // Assigns assembly ref metadata.
@@ -253,7 +254,7 @@ namespace X_ROOT_NS::modules::core {
             mt->type        = __W->__commit_type(attr_type);
             mt->constructor = __W->__commit_method(attr->constructor);
             mt->arguments   = __W->__commit_attribute_arguments(attr->arguments,
-                                                                attr->constructor);
+                                                                attr->constructor, attr_type);
             mt->flag.compile_time = is_compile_time_attribute(attr);
         }
 
@@ -262,7 +263,27 @@ namespace X_ROOT_NS::modules::core {
         {
             mt->name        = __S(arg->name);
             mt->name_type   = arg->name_type;
-            mt->value       = __W->__commit_constant(arg->expression, param_type);
+
+            // The type of the value: a number or a string that is the argument of an Object param
+            // is an object of it.
+            type_t * value_type = nullptr;
+
+            // An array of numbers or of strings (new Int32[] { 1, 2 }): its elements are constants
+            // that follow one another, the ref has them all (its extra is 1: an array), and the
+            // type of the value is the type of the elements.
+            expression_t * value_exp = arg->expression;
+            if (binary_expression_t * assign = as<binary_expression_t *>(value_exp))
+            {
+                if (assign->op() == operator_t::assign)
+                    value_exp = assign->exp2();
+            }
+
+            if (new_array_expression_t * array = as<new_array_expression_t *>(value_exp))
+                mt->value = __W->__commit_constant_array(array, &value_type);
+            else
+                mt->value = __W->__commit_constant(arg->expression, param_type, &value_type);
+
+            mt->value_type  = value_type != nullptr? __W->__commit_type(value_type) : ref_t::null;
         }
 
         // Assigns generic param metadata.
@@ -399,7 +420,14 @@ namespace X_ROOT_NS::modules::core {
             mt->type       = __W->__commit_type(field_type);
             mt->nullable   = field->type_name != nullptr && field->type_name->nullable;
             mt->attributes = __W->__commit_attributes(field->attributes);
-            mt->init_value = __W->__commit_constant(field->init_value, field_type);
+
+            // The value that is not a constant (new Int32[] { 1 }, F()) is made by the constructor:
+            // the metadata has none.
+            expression_t * init_value = field->init_value;
+            if (init_value != nullptr && is_nan(init_value->execute()))
+                init_value = nullptr;
+
+            mt->init_value = __W->__commit_constant(init_value, field_type);
         }
 
         // Assigns event metadata.
@@ -419,6 +447,7 @@ namespace X_ROOT_NS::modules::core {
             mt->attributes    = __W->__commit_attributes(event->attributes);
             mt->add_method    = __W->__commit_method(event->add_method);
             mt->remove_method = __W->__commit_method(event->remove_method);
+            mt->raise_method  = __W->__commit_method(event->raise_method);
         }
 
         // Assigns type def metadata.
@@ -489,6 +518,7 @@ namespace X_ROOT_NS::modules::core {
         {
             __commit_eobjects();
             __compile();
+            __commit_resources();
             __fill_metadatas();
 
             __write();
@@ -705,9 +735,22 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Commits attribute arguments.
-        ref_t __commit_attribute_arguments(arguments_t * arguments, method_t * method)
+        ref_t __commit_attribute_arguments(arguments_t * arguments, method_t * method,
+                                                                    type_t * attribute_type)
         {
-            if (method->param_count() != __size(arguments))
+            // The arguments of the constructor, then the named ones (the fields and the properties
+            // that are assigned).
+            size_t positional_count = 0;
+            if (arguments != nullptr)
+            {
+                for (argument_t * argument : *arguments)
+                {
+                    if (argument->name_type != argument_name_type_t::field)
+                        positional_count++;
+                }
+            }
+
+            if (method->param_count() != positional_count)
                 throw _ED(__e_t::mismatched_argument_count);
 
             auto & mgr = __mt_manager<__tidx_t::attribute_argument>();
@@ -717,8 +760,33 @@ namespace X_ROOT_NS::modules::core {
 
             size_t param_index = 0;
 
-            return mgr.acquire(*arguments, [this, method, &param_index]
+            return mgr.acquire(*arguments, [this, method, attribute_type, &param_index]
                 (ref_t ref0, argument_t * arg, mt_attribute_argument_t * mt_arg) {
+
+                // A named argument has the type of the field or of the property.
+                if (arg->name_type == argument_name_type_t::field)
+                {
+                    analyze_member_args_t field_args(member_type_t::field, arg->name);
+                    member_t * member = attribute_type->get_member(field_args, true);
+                    type_t * member_type = nullptr;
+
+                    if (member != nullptr)
+                    {
+                        member_type = ((field_t *)member)->get_type();
+                    }
+                    else
+                    {
+                        analyze_member_args_t property_args(member_type_t::property, arg->name);
+                        member = attribute_type->get_member(property_args, true);
+
+                        if (member != nullptr)
+                            member_type = ((property_t *)member)->get_type();
+                    }
+
+                    __CheckEmptyV(arg, member_type, "attribute argument", "member type");
+                    __enque_assign(__tidx_t::attribute_argument, mt_arg, arg, member_type);
+                    return;
+                }
 
                 param_t * param = method->param_at(param_index++);
                 __CheckEmptyV(method, param, "method", "param");
@@ -1166,6 +1234,22 @@ namespace X_ROOT_NS::modules::core {
                 return __current_null<__tidx_t::constant>();
             }
 
+            // typeof(A): the constant is the type. (The value of a named argument is the right side
+            // of an assignment.)
+            expression_t * value_exp = exp;
+            if (binary_expression_t * assign = as<binary_expression_t *>(exp))
+            {
+                if (assign->op() == operator_t::assign)
+                    value_exp = assign->exp2();
+            }
+
+            if (type_of_expression_t * type_of = as<type_of_expression_t *>(value_exp))
+            {
+                type_t * type = to_type(type_of->type_name);
+                if (type != nullptr)
+                    return __commit_constant(to_cvalue(type), out_type);
+            }
+
             cvalue_t value = exp->execute();
 
             if (is_nan(value))
@@ -1210,7 +1294,7 @@ namespace X_ROOT_NS::modules::core {
                     return __commit_constant_number(mgr, value.number);
 
                 case cvalue_type_t::string:
-                    return __commit_constant_string(mgr, value.string);
+                    return __commit_constant_string(mgr, value.string, value.get_string_length());
 
                 case cvalue_type_t::null:
                     return __commit_constant_null(mgr);
@@ -1239,9 +1323,143 @@ namespace X_ROOT_NS::modules::core {
                 throw _ED(__e_t::unexpected_const_type, from, to);
         }
 
+        // Commits the constants of an array (new Int32[] { 1, 2 }, new Int32[,] { { 1 }, { 2 } },
+        // new Int32[0]): one after the other, they are not shared with the others. They are the rank,
+        // the length of each dimension, and the elements as they follow one another (the last index
+        // changes first). The ref has all of them (so it is not null, an empty array has the header)
+        // and the extra 1.
+        ref_t __commit_constant_array(new_array_expression_t * exp, type_t ** out_element_type)
+        {
+            array_initializer_t * initializer = exp->initializer();
+            type_t * element_type = exp->get_element_type();
+            size_t rank = exp->dimension();
+
+            if (element_type == nullptr || rank == 0 || rank > max_array_dimension)
+                throw _ED(__e_t::unexpected_const_value, exp);
+
+            // The length of each dimension: the shape of the initializer, or the lengths that are
+            // constants when there is no initializer (the array is empty).
+            std::vector<int64_t> lengths;
+
+            if (initializer != nullptr)
+            {
+                array_initializer_t * level = initializer;
+                for (size_t dimension = 0; dimension < rank; dimension++)
+                {
+                    lengths.push_back((int64_t)level->size());
+
+                    if (dimension + 1 == rank)
+                        break;
+
+                    if (level->empty())
+                    {
+                        lengths.resize(rank, 0);
+                        break;
+                    }
+
+                    if ((*level)[0].type != array_initialize_element_type_t::initializer)
+                        throw _ED(__e_t::unexpected_const_value, exp);
+
+                    level = (*level)[0].initializer;
+                }
+            }
+            else
+            {
+                array_lengths_t * length_exps = exp->lengths();
+                bool empty = false;
+
+                for (size_t dimension = 0; dimension < rank; dimension++)
+                {
+                    expression_t * length_exp = length_exps != nullptr? (*length_exps)[dimension] : nullptr;
+                    cvalue_t length = length_exp != nullptr? length_exp->execute() : cvalue_t::nan;
+
+                    if (length.value_type != cvalue_type_t::number)
+                        throw _ED(__e_t::unexpected_const_value, exp);
+
+                    int64_t n = (int64_t)length.number;
+                    if (n < 0)
+                        throw _ED(__e_t::unexpected_const_value, exp);
+
+                    lengths.push_back(n);
+                    empty = empty || n == 0;
+                }
+
+                // Only an empty array is a constant: the elements of the others are not given.
+                if (!empty)
+                    throw _ED(__e_t::unexpected_const_value, exp);
+            }
+
+            int64_t total = 1;
+            for (int64_t n : lengths)
+                total *= n;
+
+            // The count of a ref has 9 bits: the rank, the lengths and the elements.
+            if (total + 1 + (int64_t)rank > 511)
+                throw _ED(__e_t::unexpected_const_value, exp);
+
+            auto & mgr = __mt_manager<__tidx_t::constant>();
+            ref_t first = ref_t::null;
+            size_t count = 0;
+
+            // The constants follow one another: each is a new one.
+            auto follow = [&](ref_t ref, const cvalue_t & value) {
+                if (count == 0)
+                    first = ref;
+                else if (ref.index != first.index + count)
+                    throw _ED(__e_t::unexpected_const_value, value);
+
+                count++;
+            };
+
+            follow(__commit_constant_number(mgr, tvalue_t((int32_t)rank)), cvalue_t((int32_t)rank));
+            for (int64_t n : lengths)
+                follow(__commit_constant_number(mgr, tvalue_t((int32_t)n)), cvalue_t((int32_t)n));
+
+            int64_t committed = 0;
+
+            if (initializer != nullptr)
+            {
+                initializer->each_element([&](expression_t * element) {
+                    cvalue_t value = element->execute();
+                    type_t * type = nullptr;
+                    ref_t ref;
+
+                    switch (value.value_type)
+                    {
+                        case cvalue_type_t::number:
+                            type = this->__get_internal_type(value.number.type);
+                            ref = __commit_constant_number(mgr, value.number);
+                            break;
+
+                        case cvalue_type_t::string:
+                            type = this->__get_string_type();
+                            ref = __commit_constant_string(mgr, value.string, value.get_string_length());
+                            break;
+
+                        default:
+                            throw _ED(__e_t::unexpected_const_value, value);
+                    }
+
+                    __check_type_compatible(type, element_type);
+                    follow(ref, value);
+
+                    committed++;
+                    return true;
+                });
+            }
+
+            // The elements are those of the shape (the sub initializers have the same length).
+            if (committed != total)
+                throw _ED(__e_t::unexpected_const_value, exp);
+
+            al::assign_value(out_element_type, element_type);
+            return ref_t(first.index, (uint32_t)count, 1);
+        }
+
         // Commits constant value with expected tpye.
         template<typename value_t>
-        ref_t __commit_constant_with_expect(value_t && value, type_t * expect_type)
+        ref_t __commit_constant_with_expect(value_t && value, type_t * expect_type,
+                                            type_t ** out_type = nullptr)
         {
             type_t * type;
             ref_t ref = __commit_constant(std::forward<value_t>(value), &type);
@@ -1249,13 +1467,15 @@ namespace X_ROOT_NS::modules::core {
             if (ref != ref_t::null)
                 __check_type_compatible(type, expect_type);
 
+            al::assign_value(out_type, type);
             return ref;
         }
 
         // Commits constant value.
-        ref_t __commit_constant(expression_t * exp, type_t * expect_type)
+        ref_t __commit_constant(expression_t * exp, type_t * expect_type,
+                                                    type_t ** out_type = nullptr)
         {
-            return __commit_constant_with_expect(exp, expect_type);
+            return __commit_constant_with_expect(exp, expect_type, out_type);
         }
 
         // Commits constant value.
@@ -1343,7 +1563,7 @@ namespace X_ROOT_NS::modules::core {
                     break;
 
                 case value_type_t::char_:
-                    *(char_t *)c->data2 = (char_t)value;
+                    *(rt_char_t *)c->data2 = (rt_char_t)value;
                     break;
 
                 default:
@@ -1354,13 +1574,13 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Commits constant string.
-        ref_t __commit_constant_string(__constant_mgr_t & mgr, const char_t * string)
+        ref_t __commit_constant_string(__constant_mgr_t & mgr, const char_t * string, size_t length)
         {
             mt_constant_t * c;
-            ref_t ref = mgr.append(cvalue_t(string), &c);
+            ref_t ref = mgr.append(cvalue_t(string, length), &c);
             c->constant_type = constant_type_t::string_;
             c->constant_flag.extern_ = true;
-            *(res_t *)c->data2 = __S(__SPool.to_sid(string));
+            *(res_t *)c->data2 = __S(__SPool.to_sid(string_t(string, length)));
 
             return ref;
         }
@@ -1369,7 +1589,7 @@ namespace X_ROOT_NS::modules::core {
         ref_t __commit_constant_type(__constant_mgr_t & mgr, type_t * type)
         {
             mt_constant_t * c;
-            ref_t ref = mgr.append(cvalue_t(type), &c);
+            ref_t ref = mgr.append(to_cvalue(type), &c);
             c->constant_type = constant_type_t::type_;
             c->constant_flag.extern_ = true;
             *(ref_t *)c->data2 = __commit_type(type);
@@ -1495,7 +1715,23 @@ namespace X_ROOT_NS::modules::core {
             xil_pool_t   pool;
 
             method_compile_context_t ctx(*this, buffer, pool, this->__logger, this->__controller);
-            method->compile(ctx);
+
+            // A method that cannot be compiled (what the compiler does not support): it is an
+            // error of the code, told with its place, not a failure of the compiler.
+            try
+            {
+                method->compile(ctx);
+            }
+            catch (const logic_error_base_t & e)
+            {
+                code_element_t * element = dynamic_cast<code_element_t *>(method);
+
+                this->__logger.log(element, log_level_t::error, _T("method_compile_failed"), 902,
+                    _F(_T("the method \"%1%\" cannot be compiled: %2%"), method, e.get_message())
+                );
+
+                return res_t::null;
+            }
 
             xil_buffer_writer_t writer(buffer, method);
             writer.write(pool);
@@ -1554,6 +1790,21 @@ namespace X_ROOT_NS::modules::core {
             mt_header->heap_size   = this->__heap.size() - 1;
 
             __CheckLimit(mt_header->heap_size, JC_MAX_HEAP_SIZE, _T("heap size"));
+        }
+
+        // Commits the resources: the name, and the bytes in a block of the heap.
+        void __commit_resources()
+        {
+            auto & mgr = __mt_manager<__tidx_t::resource>();
+
+            for (const assembly_resource_t & resource : this->__assembly.resources)
+            {
+                mt_resource_t * mt;
+                mgr.append(nullptr, &mt);
+
+                mt->name = __S(__SPool.to_sid(resource.name));
+                mt->data = this->__heap.append_block(resource.data.data(), resource.data.size());
+            }
         }
 
         // Writes to stream.

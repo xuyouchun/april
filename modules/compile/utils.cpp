@@ -13,10 +13,12 @@ namespace X_ROOT_NS::modules::compile {
     // Constructor.
     code_section_builder_t::code_section_builder_t(global_context_t & global_context,
             code_t * code, lang_id_t default_lang,
-            std::vector<code_section_t *> & sections, pool_t & pool)
+            std::vector<code_section_t *> & sections, pool_t & pool,
+            std::vector<code_section_error_t> & errors)
         : __global_context(global_context), __code(code)
-        , __source_code(code->source_code()), __p(__source_code), __sections(sections)
-        , __default_lang(default_lang), __pool(pool)
+        , __source_code(code->source_code()), __length(code->code.length())
+        , __sections(sections)
+        , __default_lang(default_lang), __pool(pool), __errors(errors)
     {
         _A(code != nullptr);
     }
@@ -24,105 +26,180 @@ namespace X_ROOT_NS::modules::compile {
     // Builds code sections.
     void code_section_builder_t::build()
     {
-        __build([this](const char_t * start, const char_t * end, lang_id_t lang, int depth) {
+        __build([this](const char_t * start, const char_t * end, lang_id_t lang, int depth,
+                                                                bool open_ended = false) {
 
-            this->__sections.push_back(
-                __pool.new_obj<code_section_t>(__global_context,
-                    start, end - start, lang, depth, __code
-                )
+            code_section_t * section = __pool.new_obj<code_section_t>(__global_context,
+                start, end - start, lang, depth, __code
             );
 
+            section->open_ended = open_ended;
+            this->__sections.push_back(section);
+
         });
+    }
+
+    // The markers of the code of an embedded language: <%lq ... %> .
+    static const char_t * const __markers[] = { _T("<%"), _T("%>") };
+
+    enum { __begin_marker = 0, __end_marker = 1 };
+
+    // Finds a marker in the code of the language, the language knows what is not code.
+    bool code_section_builder_t::__find_marker(lang_id_t lang, size_t start, size_t count,
+                        size_t & position, size_t & marker_index, size_t first_marker)
+    {
+        lang_t * lang0 = __global_context.lang_of(lang);
+        if (lang0 != nullptr)
+        {
+            auto * service = (lang_marker_service_t *)lang0->get_service(
+                lang_service_type_t::marker
+            );
+
+            if (service != nullptr)
+            {
+                return service->find_marker(
+                    __source_code, __length, start, __markers + first_marker, count,
+                    position, marker_index
+                );
+            }
+        }
+
+        // The language does not tell: nothing is skipped.
+        for (size_t p = start; p + 1 < __length; p++)
+        {
+            for (size_t k = 0; k < count; k++)
+            {
+                const char_t * marker = __markers[first_marker + k];
+                if (__source_code[p] == marker[0] && __source_code[p + 1] == marker[1])
+                {
+                    position = p, marker_index = k;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     // Build code sections with callback.
     template<typename callback_t>
     void code_section_builder_t::__build(callback_t callback)
     {
-        const char_t * start = __p;
-
+        size_t start = 0, position = 0;
         lang_id_t lang = __default_lang;
 
         while (true)
         {
-            char_t c = *__p++;
-            switch (c)
+            // The end flag is searched only in the code of an embedded language.
+            size_t count = __lang_stack.size() > 0? 2 : 1, marker_index;
+
+            bool found = __find_marker(lang, position, count, position, marker_index);
+            if (!found)
             {
-                case _T('<'):
-                    if (*__p == _T('`'))
-                    {
-                        callback(start, __p - 1, lang, __lang_stack.size());
-                        __lang_stack.push(lang);
+                // The embedded code is not closed: the error is told. The code of the language that
+                // has it is before the start flag, the embedded code is the section after the flag,
+                // that has no end flag: the reader of the elements finds where its code ends (as it
+                // does for ``lq), and the code of the language that has it goes on there.
+                if (__lang_stack.size() > 0)
+                {
+                    const string_t & name = __lang_names.front();
+                    size_t begin = __begins.front();
 
-                        __p++;
-                        lang = __global_context.lang_id_of(__read_lang());
-                        start = __p;
-                    }
-                    break;
+                    __errors.push_back(code_section_error_t {
+                        __source_code + begin, (size_t)(2 + name.length()),
+                        (int)compile_log_code_t::embedded_end_missing, name
+                    });
 
-                case _T('`'):
-                    if (*__p == _T('>'))
-                    {
-                        if (__lang_stack.size() == 0)
-                            throw _E(__e_t::format_error, _T("unexpected langage end flag \"?>\""));
+                    __sections.resize(__section_counts.front());
 
-                        callback(start, __p - 1, lang, __lang_stack.size());
+                    callback(__source_code + __host_starts.front(), __source_code + begin,
+                                                                        __lang_stack.front(), 0);
 
-                        lang = __lang_stack.top();
-                        __lang_stack.pop();
-                        start = ++__p;
-                    }
-                    break;
+                    callback(__source_code + begin + 2 + name.length(), __source_code + __length,
+                        __global_context.lang_factory->get_lang_id(name), 1, true);
 
-                /*
-                case _T('"'): case _T('\''):
-                    if (!__skip_char(c))
-                        throw _E(__e_t::format_error);
-                    break;
-                */
-
-                case _T('\0'):
-                    if (__lang_stack.size() > 0)
-                        throw _E(__e_t::format_error, _T("langage end flag \"`>\" missing"));
-                    callback(start, __p, lang, 0);
                     return;
-            }
-        }
-    }
+                }
 
-    // Skips specified char.
-    bool code_section_builder_t::__skip_char(char_t c0)
-    {
-        char_t c;
-        while ((c = *__p++))
-        {
-            if (c == _T('\\'))
+                callback(__source_code + start, __source_code + __length, lang, 0);
+                return;
+            }
+
+            if (marker_index == __begin_marker)
             {
-                if (*__p++ == _T('\0'))
-                    return false;
-                continue;
+                size_t name_begin = position + 2, name_end = name_begin;
+                while (name_end < __length && !al::is_whitespace(__source_code[name_end]))
+                    name_end++;
+
+                string_t name(__source_code + name_begin, name_end - name_begin);
+                lang_id_t embedded_lang = name.empty()? unknown_lang_id
+                                            : __global_context.lang_factory->get_lang_id(name);
+
+                // The language is not known: the flag is code of the language that has it.
+                if (embedded_lang == unknown_lang_id)
+                {
+                    // Its code is skipped to its end flag, the language that has it goes on there.
+                    // Without an end flag the reader of the elements tells the error.
+                    size_t end_position, end_index;
+                    if (__find_marker(lang, name_end, 1, end_position, end_index, __end_marker))
+                    {
+                        __errors.push_back(code_section_error_t {
+                            __source_code + position, (size_t)(2 + name.length()),
+                            (int)compile_log_code_t::unknown_embedded_language, name
+                        });
+
+                        callback(__source_code + start, __source_code + position, lang,
+                                                                __lang_stack.size());
+                        start = position = end_position + 2;
+                    }
+                    else
+                    {
+                        // No end flag: the error is told, and the code is skipped to the end of
+                        // the statement (the first ;), the language that has it goes on there.
+                        __errors.push_back(code_section_error_t {
+                            __source_code + position, (size_t)(2 + name.length()),
+                            (int)compile_log_code_t::unknown_embedded_language, name
+                        });
+
+                        size_t semicolon = name_end;
+                        while (semicolon < __length && __source_code[semicolon] != _T(';'))
+                            semicolon++;
+
+                        callback(__source_code + start, __source_code + position, lang,
+                                                                __lang_stack.size());
+                        start = position = semicolon;
+                    }
+
+                    continue;
+                }
+
+                __host_starts.push_back(start);
+                __section_counts.push_back(__sections.size());
+
+                callback(__source_code + start, __source_code + position, lang,
+                                                                __lang_stack.size());
+
+                __lang_stack.push_back(lang);
+                __lang_names.push_back(name);
+                __begins.push_back(position);
+
+                lang = embedded_lang;
+                start = position = name_end;
             }
+            else
+            {
+                callback(__source_code + start, __source_code + position, lang,
+                                                                __lang_stack.size());
 
-            if (c == c0)
-                return true;
-        }
+                lang = __lang_stack.back();
+                __lang_stack.pop_back();
+                __lang_names.pop_back();
+                __begins.pop_back();
+                __host_starts.pop_back();
+                __section_counts.pop_back();
 
-        return false;
-    }
-
-    // Read language.
-    string_t code_section_builder_t::__read_lang()
-    {
-        if (al::is_whitespace(*__p))
-            throw _E(__e_t::format_error, _T("language name error"));
-
-        const char_t * start = __p++;
-        while (true)
-        {
-            char_t c = *__p;
-            if ((c == _T('?') && *(__p + 1) == _T('>')) || al::is_whitespace(c))
-                return string_t(start, __p++);
-            __p++;
+                start = position = position + 2;
+            }
         }
     }
 

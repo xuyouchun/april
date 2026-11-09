@@ -1,4 +1,4 @@
-/* EXPECT_ERROR Cannot implicitly convert */
+/* EXPECT_ERROR cannot implicitly convert */
 
 // An enum is converted to a number by a cast: (int)size.
 

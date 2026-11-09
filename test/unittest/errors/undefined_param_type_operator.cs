@@ -1,4 +1,4 @@
-/* EXPECT_ERROR type "Foo" undefined */
+/* EXPECT_ERROR type "Foo" is not defined */
 
 // The operands of undefined type are reported once: the analysis goes on without crashing.
 

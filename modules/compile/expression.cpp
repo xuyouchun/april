@@ -30,6 +30,11 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
                                                         param_types_t * param_types = nullptr);
 
+    // Pushes the address of p.Value, p[i] of a pointer p (the pointer itself, the pointer moved by i): the argument ref of
+    // Ptr.AddressOf(ref p[i]). Returns false when the variable is not one of them.
+    static bool __try_push_pointer_member_address(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+                                                  expression_t * this_exp, variable_t * variable);
+
     // Returns whether the property is one of a generic param (t.Value, where T : IFoo), that is
     // not static.
     static bool __is_constrained_property(property_t * property)
@@ -41,6 +46,18 @@ namespace X_ROOT_NS::modules::compile {
         return host != nullptr && is_generic_param(host);
     }
 
+    // Returns whether the expression is the param that is the items of a params generic
+    // parameter (TArgs ... args).
+    static bool __is_pack_variable(expression_t * exp)
+    {
+        if (exp == nullptr || exp->this_family() != expression_family_t::name)
+            return false;
+
+        variable_t * variable = ((name_expression_t *)exp)->variable;
+        return variable != nullptr && variable->this_type() == variable_type_t::param
+            && ((param_variable_t *)variable)->param->ptype == param_type_t::extends;
+    }
+
     // Returns whether the expression is a variable (a param, a local, a field) whose value is
     // a generic param: it is the address of the value.
     static bool __is_generic_value_variable(expression_t * exp)
@@ -50,6 +67,31 @@ namespace X_ROOT_NS::modules::compile {
 
         variable_t * variable = ((name_expression_t *)exp)->variable;
         return variable != nullptr && is_real_variable(variable);
+    }
+
+    // Returns whether the expression is a field that is read through an object (this.Value,
+    // other.Value): its value is a variable too.
+    static bool __is_generic_value_field(expression_t * exp)
+    {
+        if (exp == nullptr || exp->this_family() != expression_family_t::binary)
+            return false;
+
+        binary_expression_t * binary = (binary_expression_t *)exp;
+        return binary->op() == operator_t::member_point
+                    && __is_generic_value_variable(binary->exp2());
+    }
+
+    static bool __is_property_name(expression_t * exp);
+
+    // Compiles a field that is read through an object (this.Value): the object, and the field as
+    // a variable, without the copy of the value that the expression makes.
+    static void __compile_generic_field(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp)
+    {
+        binary_expression_t * binary = (binary_expression_t *)exp;
+
+        binary->exp1()->compile(ctx, pool);
+        __compile_variable(ctx, pool, ((name_expression_t *)binary->exp2())->variable,
+                                                    __environment_t::empty, binary->exp2());
     }
 
     // Returns whether the expression is the result of a call: a function, a member that is a
@@ -64,6 +106,16 @@ namespace X_ROOT_NS::modules::compile {
             case expression_family_t::function:
                 return true;
 
+            // A property, or an indexer: its getter is a method.
+            case expression_family_t::name:
+                return __is_property_name(exp);
+
+            case expression_family_t::index: {
+                variable_expression_t * var_exp = as<variable_expression_t *>(exp);
+                variable_t * variable = var_exp != nullptr? var_exp->get_variable() : nullptr;
+                return variable != nullptr && variable->this_type() == variable_type_t::property_index;
+            }
+
             case expression_family_t::binary: {
                 binary_expression_t * binary = (binary_expression_t *)exp;
                 if (binary->op() == operator_t::member_point)
@@ -75,9 +127,73 @@ namespace X_ROOT_NS::modules::compile {
             case expression_family_t::unitary:
                 return ((unitary_expression_t *)exp)->overload_method != nullptr;
 
+            // ((a + b)): the value of what is in the parentheses.
+            case expression_family_t::expressions:
+                return exp->expression_count() == 1 && __is_generic_call_result(exp->expression_at(0));
+
+            // checked(a + b): the value of the expression that is in it.
+            case expression_family_t::checked:
+                return __is_generic_call_result(((checked_expression_t *)exp)->expression());
+
+            // (T)x that a conversion of the interface of T makes: the conversion is a call that returns T.
+            case expression_family_t::type_cast: {
+                type_cast_expression_t * cast = (type_cast_expression_t *)exp;
+                type_t * to = cast->get_type();
+
+                return is_generic_param(to) && cast->expression() != nullptr
+                    && find_user_conversion(cast->expression()->get_type(), to, !cast->is_implicit, false) != nullptr;
+            }
+
             default:
                 return false;
         }
+    }
+
+    // Compiles the object of a call of a member of a generic param (t.ToString(), T.Zero.ToString()): the
+    // object is a reference, a value, or the address of a struct. A variable is its address. The value that a
+    // call returned (T.Zero, T.Abs(a), (a + b)) is held in a local variable first, as the variable is: the
+    // value that is the object of a member has the place of a struct that the call writes at, that is not made
+    // when the generic param is a number, so it is compiled as the value in the parentheses is.
+    static void __compile_constrained_receiver(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp1,
+                                                                    type_t * host_type = nullptr)
+    {
+        type_t * type = exp1->get_type();
+
+        if (is_generic_param(type) && __is_generic_call_result(exp1))
+        {
+            local_variable_t * temp = ctx.define_temp_local(type);
+
+            if (exp1->this_family() == expression_family_t::expressions)
+            {
+                // What is in the parentheses is assigned, as the initial value of a variable is.
+                compile_assign(ctx, pool, temp, exp1->expression_at(0));
+            }
+            else
+            {
+                // The same, with the parentheses that are not written: the call is not the left member.
+                expression_t * parent = exp1->parent;
+
+                expressions_t wrapper;
+                wrapper.append(exp1);
+                wrapper.parent = parent;
+
+                compile_assign(ctx, pool, temp, exp1);
+
+                exp1->parent = parent;
+            }
+
+            __push_variable_address(ctx, pool, temp);
+        }
+        else if (host_type != nullptr)
+        {
+            exp1->compile(ctx, pool, host_type);
+        }
+        else
+        {
+            exp1->compile(ctx, pool);
+        }
+
+        pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::receiver);
     }
 
     // Returns whether the expression is the name of a property.
@@ -769,6 +885,21 @@ namespace X_ROOT_NS::modules::compile {
         return func_exp->namex == exp;
     }
 
+    // Returns whether the expression is the object that an indexer is read from (items.Slice(1)[0]): the object of a call.
+    static bool __is_index_namex(expression_t * exp)
+    {
+        expression_t * parent_exp;
+        if (exp == nullptr || (parent_exp = exp->parent) == nullptr)
+            return false;
+
+        if (parent_exp->this_family() != expression_family_t::index)
+            return false;
+
+        index_expression_t * index_exp = (index_expression_t *)parent_exp;
+        return index_exp->namex() == exp && index_exp->variable != nullptr
+            && index_exp->variable->this_type() == variable_type_t::property_index;
+    }
+
     // Returns whether the expression assign equals, e.g. +=, -=.
     static bool __is_assign_left(expression_t * exp)
     {
@@ -787,6 +918,22 @@ namespace X_ROOT_NS::modules::compile {
     static void __validate_set_method(expression_compile_context_t & ctx, method_t * method)
     {
         // TODO
+    }
+
+    // Checks that a property that has an init accessor is set where it can be: in an object
+    // initializer, in a constructor of its type, or by the accessor of it.
+    static void __check_init_only(expression_compile_context_t & ctx, property_t * property)
+    {
+        if (!property->is_init_only || !ctx.initializer_targets.empty())
+            return;
+
+        method_t * current = ctx.statement_ctx.method;
+        if (current != nullptr && current->host_type == property->host_type
+                && (current->trait == method_trait_t::constructor || current == property->set_method))
+            return;
+
+        __Failed("the property '%1%' has an init accessor: it is set only in an object initializer, "
+                 "in a constructor of its type, or by its own accessor", property);
     }
 
     // Compiles number.
@@ -939,7 +1086,11 @@ namespace X_ROOT_NS::modules::compile {
             overflow = overflow || value < lo || value > hi;
         }
 
-        __FailedWhen(overflow, "The operation overflows at compile time in checked mode");
+        if (overflow)
+        {
+            cpl_log_errorf(ctx.statement_ctx.mctx.logger, exp1,
+                                            common_log_code_t::constant_overflow);
+        }
     }
 
     // Returns the command of an arithmetic: the one that raises OverflowException when it is in
@@ -1217,8 +1368,8 @@ namespace X_ROOT_NS::modules::compile {
     {
         // The member is what the whole is: the value of a generic param that is returned is
         // the value of its member.
-        __environment_t member_env = env.type_mark == type_mark_t::value?
-                                __environment_t(type_mark_t::value) : __environment_t::empty;
+        __environment_t member_env = env.is_value_mark()?
+                                __environment_t(env.type_mark) : __environment_t::empty;
 
         if (__is_call_expression(exp2))
         {
@@ -1451,7 +1602,7 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     static void __compile_argument(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
-        param_types_t * param_types, int index)
+        param_types_t * param_types, int index, bool expand = false)
     {
         _A(exp != nullptr);
 
@@ -1474,15 +1625,109 @@ namespace X_ROOT_NS::modules::compile {
         // Ref or out argument.
         if (__is_addr(param_type))
         {
-            variable_t * variable = __pick_var(exp);
+            // A field of an object (o.f): the object is pushed first.
+            expression_t * this_exp = nullptr, * r_exp = exp;
+            if (__is_member_expression(exp))
+            {
+                this_exp = ((binary_expression_t *)exp)->exp1();
+                r_exp    = ((binary_expression_t *)exp)->exp2();
+            }
+
+            variable_t * variable = __pick_var(r_exp);
             if (!variable->is_lvalue())
                 __Failed("variable '%1%' cannot used as ref or out argument", variable);
+
+            variable_type_t vtype = variable->this_type();
+            if (vtype == variable_type_t::property || vtype == variable_type_t::property_index)
+            {
+                if (__try_push_pointer_member_address(ctx, pool, exp, this_exp, variable))
+                    return;
+
+                __Failed("the property '%1%' cannot be used as a ref or out argument", variable);
+            }
 
             if (__is_addr(variable))
                 __compile_variable(ctx, pool, variable, xil_type_t::ptr, exp);
             else
-                __push_variable_address(ctx, pool, variable);
+                __push_variable_address(ctx, pool, variable, this_exp);
 
+            return;
+        }
+
+        // The items of a params generic parameter that are the arguments of the call: f(items ...).
+        if (expand)
+        {
+            if (__is_pack_variable(exp))
+            {
+                pool.append<x_push_params_values_xil_t>();
+                return;
+            }
+
+            // A tuple of the items (tuple ...): the items of it are the arguments.
+            generic_param_t * pack = get_tuple_pack_param(exp->get_type());
+            if (pack == nullptr)
+            {
+                __Failed("only the items of a params generic parameter, or a tuple of them, can be "
+                         "passed with ...");
+            }
+
+            type_collection_t tuple_args;
+            tuple_args.push_back(pack);
+
+            exp->compile(ctx, pool);
+            pool.append<x_push_tuple_values_xil_t>(__ref_of(ctx,
+                    __XPool.new_generic_type(__XPool.get_tuple_type(), tuple_args, nullptr)));
+            return;
+        }
+
+        // The items without ...: it is the address of them, for the methods of the runtime.
+        if (__is_pack_variable(exp) && is_generic_param(atype)
+                && ((generic_param_t *)atype)->param_type == generic_param_type_t::params)
+        {
+            __Failed("the items of a params generic parameter are passed to a method that takes "
+                     "them with ..., (items ...)");
+        }
+
+        // The value of a generic param that a call returns (Pass(Get<T>(x))): the argument is
+        // not made before the call, it is made by the protocol of the value of a call. A struct is
+        // written at the place that is made for it, any other value is in the stack: it is not
+        // known when the code is compiled, and a place that is not used moves the object of the
+        // call of a delegate.
+        if (is_generic_param(atype) && __is_generic_call_result(exp))
+        {
+            exp->compile(ctx, pool, __environment_t(type_mark_t::argument));
+            return;
+        }
+
+        // A generic param passed to a reference (F(Object o) called with a T): the object it is,
+        // made by the copy of the value (a boxed value, or the reference).
+        if (exp->get_type() != nullptr && is_generic_param(exp->get_type())
+                && is_ref_type(atype) && !is_generic_param(atype)
+                && (__is_generic_value_variable(exp) || __is_generic_value_field(exp)))
+        {
+            if (__is_generic_value_variable(exp))
+            {
+                __compile_variable(ctx, pool, ((name_expression_t *)exp)->variable,
+                                                        __environment_t::empty, exp);
+            }
+            else    // A field of an object: this.Value.
+            {
+                __compile_generic_field(ctx, pool, exp);
+            }
+
+            pool.append<x_generic_copy_xil_t>(__ref_of(ctx, exp->get_type()), xil_copy_kind_t::box);
+            return;
+        }
+
+        // A struct passed to a reference (F(Object o) called with a struct): it is boxed, like the
+        // assignment of a struct to a reference does.
+        if (exp->get_type() != nullptr && is_custom_struct(exp->get_type())
+                && is_ref_type(atype) && !__is_custom_struct_like(atype))
+        {
+            pool.append<x_new_xil_t>(__ref_of(ctx, exp->get_type()));
+            pool.append<x_push_duplicate_xil_t>();
+
+            exp->compile(ctx, pool);
             return;
         }
 
@@ -1593,7 +1838,11 @@ namespace X_ROOT_NS::modules::compile {
         if (param_types == nullptr || (!variadic && count >= fixed_count))
         {
             for (int index = 0; index < count; index++)
-                __compile_argument(ctx, pool, (*arguments)[index]->expression, param_types, index);
+            {
+                argument_t * argument = (*arguments)[index];
+                __compile_argument(ctx, pool, argument->expression, param_types, index,
+                                   argument->atype == param_type_t::extends);
+            }
 
             return;
         }
@@ -1627,7 +1876,11 @@ namespace X_ROOT_NS::modules::compile {
             return;
 
         // The params array: the argument is the array, or the arguments are its elements.
-        type_t * array_type = last->get_type();
+        // The type of a generic method has its real types (params T[] items of Count<String>).
+        type_t * array_type = (type_t *)param_types->param_type_at(param_count - 1);
+        if (array_type == nullptr)
+            array_type = last->get_type();
+
         if (array_type->this_gtype() != gtype_t::array)
             __Failed("the type of the params '%1%' is not an array", last->name);
 
@@ -1663,6 +1916,499 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             pool.append<x_array_end_xil_t>(dtype);
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // Pointers: Ptr (void*), Ptr<T> (T*).
+
+    // The reads and writes of the memory (p.Value, p[i]) and the operators of the pointers are made by instructions (no call):
+    // the pointers are the members of the core types Ptr and Ptr<T> (core_lib/System/Ptr.cs), their bodies are never
+    // executed.
+
+    // Returns whether a type is Ptr or Ptr<T>.
+    static bool __is_pointer_type(type_t * type)
+    {
+        if (type == nullptr)
+            return false;
+
+        if (type == __XPool.get_ptr_type())
+            return true;
+
+        return is_generic(type) && ((generic_type_t *)type)->template_ == __XPool.get_tptr_type();
+    }
+
+    // Returns the type that a pointer points to: T of Ptr<T>, null for Ptr.
+    static type_t * __pointer_target(type_t * pointer_type)
+    {
+        if (is_generic(pointer_type) && !((generic_type_t *)pointer_type)->args.empty())
+            return ((generic_type_t *)pointer_type)->args[0];
+
+        return nullptr;
+    }
+
+    // Returns whether a pointer points to a custom struct.
+    static bool __pointer_to_struct(type_t * pointer_type)
+    {
+        type_t * target = __pointer_target(pointer_type);
+        return target != nullptr && !is_generic_param(target) && is_custom_struct(target);
+    }
+
+    // Returns the size of a value that a pointer points to (a pointer to nothing points to bytes): a constant, or -1 when the
+    // size is made by an instruction (a struct, a generic param).
+    static int64_t __pointer_target_size(__cctx_t & ctx, type_t * pointer_type, expression_t * exp)
+    {
+        type_t * target = __pointer_target(pointer_type);
+        if (target == nullptr)
+            return 1;
+
+        if (is_generic_param(target) || is_custom_struct(target))
+            return -1;
+
+        vtype_t vtype = target->this_vtype();
+        if (vtype == vtype_t::void_ || vtype == vtype_t::string_ || vtype == vtype_t::mobject_)
+            __Failed("a pointer to the type '%1%' is not supported", target);
+
+        return (int64_t)get_vtype_size(vtype);
+    }
+
+    // Pushes the size of a value that a pointer points to: an int64.
+    static void __push_pointer_target_size(__cctx_t & ctx, xil_pool_t & pool, type_t * pointer_type, expression_t * exp)
+    {
+        int64_t size = __pointer_target_size(ctx, pointer_type, exp);
+        if (size >= 0)
+            pool.append<x_push_const_xil_t<int64_t>>(xil_type_t::int64, tvalue_t((int64_t)size));
+        else
+            pool.append<x_push_type_size_xil_t>(__ref_of(ctx, __pointer_target(pointer_type)));
+    }
+
+    // Returns the xil type of the value that a pointer points to.
+    static xil_type_t __pointer_target_xil_type(type_t * pointer_type)
+    {
+        type_t * target = __pointer_target(pointer_type);
+        if (target == nullptr)
+            return xil_type_t::int8;
+
+        return to_xil_type(target->this_vtype());
+    }
+
+    enum class __pointer_op_t
+    {
+        none, get_value, set_value, get_item, set_item,
+        add, sub, diff, increment, decrement,
+        equal, not_equal, less, less_equal, greater, greater_equal,
+    };
+
+    // Returns what a method of a pointer is made by the instructions, none if it is not one.
+    static __pointer_op_t __pointer_op_of(method_base_t * method)
+    {
+        if (method == nullptr)
+            return __pointer_op_t::none;
+
+        method_t * m = dynamic_cast<method_t *>(method);
+        if (m == nullptr || !__is_pointer_type(m->get_host_type()))
+            return __pointer_op_t::none;
+
+        string_t name = m->get_name();
+        auto is = [&](const char_t * s) { return name == s; };
+
+        if (is(_T("get_Value")))        return __pointer_op_t::get_value;
+        if (is(_T("set_Value")))        return __pointer_op_t::set_value;
+        if (is(_T("get_Item")))         return __pointer_op_t::get_item;
+        if (is(_T("set_Item")))         return __pointer_op_t::set_item;
+
+        if (is(_T("op_Add")))           return __pointer_op_t::add;
+        if (is(_T("op_Equal")))         return __pointer_op_t::equal;
+        if (is(_T("op_NotEqual")))      return __pointer_op_t::not_equal;
+        if (is(_T("op_Less")))          return __pointer_op_t::less;
+        if (is(_T("op_LessEqual")))     return __pointer_op_t::less_equal;
+        if (is(_T("op_Greater")))       return __pointer_op_t::greater;
+        if (is(_T("op_GreaterEqual")))  return __pointer_op_t::greater_equal;
+
+        if (is(_T("op_Sub")))
+        {
+            return m->params != nullptr && m->params->size() == 2
+                    && __is_pointer_type(m->params->at(1)->get_type())?
+                __pointer_op_t::diff : __pointer_op_t::sub;
+        }
+
+        if (name.find(_T("Increment")) != string_t::npos)   return __pointer_op_t::increment;
+        if (name.find(_T("Decrement")) != string_t::npos)   return __pointer_op_t::decrement;
+
+        return __pointer_op_t::none;
+    }
+
+    // [address][count: int64] => [address + count * size] (a pointer).
+    static void __compile_pointer_move(__cctx_t & ctx, xil_pool_t & pool, type_t * pointer_type, expression_t * exp,
+                                                                                                bool add)
+    {
+        if (__pointer_target_size(ctx, pointer_type, exp) != 1)
+        {
+            __push_pointer_target_size(ctx, pool, pointer_type, exp);
+            pool.append<x_al_xil_t>(xil_al_command_t::mul, xil_type_t::int64, xil_type_t::int64);
+        }
+
+        pool.append<x_al_xil_t>(add? xil_al_command_t::add : xil_al_command_t::sub,
+                                xil_type_t::int64, xil_type_t::int64);
+        pool.append<x_push_convert_xil_t>(xil_type_t::int64, xil_type_t::ptr);
+    }
+
+    // [address] => [address + size] (or - size): ++p, --p.
+    static void __compile_pointer_step(__cctx_t & ctx, xil_pool_t & pool, type_t * pointer_type, expression_t * exp,
+                                                                                                bool add)
+    {
+        __push_pointer_target_size(ctx, pool, pointer_type, exp);
+        pool.append<x_al_xil_t>(add? xil_al_command_t::add : xil_al_command_t::sub,
+                                xil_type_t::int64, xil_type_t::int64);
+        pool.append<x_push_convert_xil_t>(xil_type_t::int64, xil_type_t::ptr);
+    }
+
+    // Returns whether the value of p.Value, p[i] is the object of a member (p.Value.X, p[i].X): the member is of the value that is
+    // in the memory, not of a copy of it.
+    static bool __is_pointer_value_of_member(expression_t * owner_exp)
+    {
+        if (owner_exp == nullptr)
+            return false;
+
+        // p.Value: the name is the right operand of the member expression, that is the object of the next member.
+        expression_t * value_exp = owner_exp;
+        if (value_exp->parent != nullptr && __is_member_expression(value_exp->parent)
+                && ((binary_expression_t *)value_exp->parent)->exp2() == value_exp)
+        {
+            value_exp = value_exp->parent;
+        }
+
+        return value_exp->parent != nullptr && __is_member_expression(value_exp->parent)
+                && ((binary_expression_t *)value_exp->parent)->exp1() == value_exp;
+    }
+
+    // The instructions of a method of a pointer that is made by the compiler. The operands are in the stack, in the order
+    // of the arguments (the pointer, the other operand, the value).
+    // Returns false when the method is not one of them.
+    static bool __try_compile_pointer_method(__cctx_t & ctx, xil_pool_t & pool, method_base_t * method,
+                                                                            expression_t * exp)
+    {
+        __pointer_op_t op = __pointer_op_of(method);
+        if (op == __pointer_op_t::none)
+            return false;
+
+        type_t * pointer_type = ((method_t *)method)->get_host_type();
+        xil_type_t xt = __pointer_target_xil_type(pointer_type);
+
+        // A struct is copied between the memory and its destination (that is below the address); the value of a generic
+        // param is not made yet.
+        bool is_struct = __pointer_to_struct(pointer_type);
+
+        if (__pointer_target(pointer_type) != nullptr && is_generic_param(__pointer_target(pointer_type))
+                && (op == __pointer_op_t::get_value || op == __pointer_op_t::get_item
+                    || op == __pointer_op_t::set_value || op == __pointer_op_t::set_item))
+        {
+            __Failed("the value that a pointer to the generic param '%1%' points to is not supported yet",
+                     __pointer_target(pointer_type));
+        }
+
+        switch (op)
+        {
+            case __pointer_op_t::get_value:
+            case __pointer_op_t::get_item:
+                if (op == __pointer_op_t::get_item)
+                    __compile_pointer_move(ctx, pool, pointer_type, exp, true);
+
+                if (is_struct)
+                {
+                    // The address is the object of the member (p.Value.X): no copy.
+                    if (!__is_pointer_value_of_member(exp))
+                    {
+                        pool.append<x_object_copy_xil_t>(__ref_of(ctx, __pointer_target(pointer_type)),
+                                                                                    xil_copy_kind_t::reverse);
+                    }
+                }
+                else
+                {
+                    __pointer_target_size(ctx, pointer_type, exp);      // Is the type supported.
+                    pool.append<x_push_ptr_content_xil_t>(xt);
+                }
+                break;
+
+            case __pointer_op_t::set_value:
+            case __pointer_op_t::set_item:
+                __pointer_target_size(ctx, pointer_type, exp);
+                pool.append<x_pop_ptr_content_xil_t>(xt);
+                break;
+
+            case __pointer_op_t::add:
+                __compile_pointer_move(ctx, pool, pointer_type, exp, true);
+                break;
+
+            case __pointer_op_t::sub:
+                __compile_pointer_move(ctx, pool, pointer_type, exp, false);
+                break;
+
+            case __pointer_op_t::diff: {
+                pool.append<x_al_xil_t>(xil_al_command_t::sub, xil_type_t::int64, xil_type_t::int64);
+
+                if (__pointer_target_size(ctx, pointer_type, exp) != 1)
+                {
+                    __push_pointer_target_size(ctx, pool, pointer_type, exp);
+                    pool.append<x_al_xil_t>(xil_al_command_t::div, xil_type_t::int64, xil_type_t::int64);
+                }
+            }   break;
+
+            case __pointer_op_t::increment:
+                __compile_pointer_step(ctx, pool, pointer_type, exp, true);
+                break;
+
+            case __pointer_op_t::decrement:
+                __compile_pointer_step(ctx, pool, pointer_type, exp, false);
+                break;
+
+            case __pointer_op_t::equal:         case __pointer_op_t::not_equal:
+            case __pointer_op_t::less:          case __pointer_op_t::less_equal:
+            case __pointer_op_t::greater:       case __pointer_op_t::greater_equal: {
+                xil_cmp_command_t cmd =
+                    op == __pointer_op_t::equal?         xil_cmp_command_t::equal
+                  : op == __pointer_op_t::not_equal?     xil_cmp_command_t::not_equal
+                  : op == __pointer_op_t::less?          xil_cmp_command_t::less
+                  : op == __pointer_op_t::less_equal?    xil_cmp_command_t::less_equal
+                  : op == __pointer_op_t::greater?       xil_cmp_command_t::greater
+                                                         : xil_cmp_command_t::greater_equal;
+
+                // The addresses are compared as unsigned numbers.
+                pool.append<x_cmp_xil_t>(cmd, xil_type_t::uint64, xil_type_t::uint64);
+            }   break;
+
+            default:
+                return false;
+        }
+
+        return true;
+    }
+
+    // Ptr.AddressOf(array), Ptr.AddressOf(array, index), Ptr.AddressOf(ref x): the address is made by the instructions of the
+    // arrays and of the variables (the address of a ref argument), no call. The array is kept in a variable of the method (a
+    // variable that holds an object is a root of the collection): the pointer does not outlive the method, and the array does
+    // not go while the method runs.
+    // Returns false when the call is not one of them.
+    static bool __try_compile_address_of(__cctx_t & ctx, xil_pool_t & pool, function_expression_t * exp,
+                                                                            method_base_t * method)
+    {
+        if (method == nullptr || method->get_host_type() != __XPool.get_ptr_type())
+            return false;
+
+        string_t name = method->get_name();
+        if (name != _T("AddressOf"))
+            return false;
+
+        arguments_t * args = exp->arguments();
+        if (args == nullptr || args->size() < 1 || args->size() > 2)
+            return false;
+
+        param_types_t * param_types = method;
+        argument_t * first = (*args)[0];
+
+        // The address of a variable, of a field, of an element: the address of the ref argument is the pointer.
+        if (first->atype == param_type_t::ref)
+        {
+            __compile_argument(ctx, pool, first->expression, param_types, 0);
+            return true;
+        }
+
+        type_t * array_type = first->expression->get_type();
+        if (!is_array(array_type))
+            return false;                       // A string: the method of the library.
+
+        if (((array_type_t *)array_type)->dimension != 1)
+            __Failed("the address of a value of the array of more than one dimension '%1%' is not supported", array_type);
+
+        // The index is below the array in the stack.
+        if (args->size() == 2)
+        {
+            (*args)[1]->expression->compile(ctx, pool, __XPool.get_internal_type(vtype_t::int32_));
+        }
+        else
+        {
+            pool.append<x_push_const_xil_t<int32_t>>(xil_type_t::int32, tvalue_t((int32_t)0));
+        }
+
+        first->expression->compile(ctx, pool);
+
+        // The array is kept in a variable of the method.
+        local_variable_t * pin = ctx.define_temp_local(array_type);
+        pool.append<x_push_duplicate_xil_t>();
+        pool.append<x_pop_local_xil_t>(xil_type_t::object, pin->identity);
+
+        pool.append<x_push_array_element_addr_xil_t>(__ref_of(ctx, array_type));
+        return true;
+    }
+
+    // Pushes the address of p.Value, p[i] of a pointer p.
+    static bool __try_push_pointer_member_address(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+                                                  expression_t * this_exp, variable_t * variable)
+    {
+        method_base_t * getter = nullptr;
+
+        if (variable->this_type() == variable_type_t::property)
+            getter = ((property_variable_t *)variable)->property->get_method;
+        else
+            getter = ((property_index_variable_t *)variable)->property->get_method;
+
+        __pointer_op_t op = __pointer_op_of(getter);
+        type_t * pointer_type = op == __pointer_op_t::none? nullptr : ((method_t *)getter)->get_host_type();
+
+        // &p.Value: the address is the pointer.
+        if (op == __pointer_op_t::get_value && this_exp != nullptr)
+        {
+            this_exp->compile(ctx, pool);
+            return true;
+        }
+
+        // &p[i]: the pointer moved by i.
+        if (op == __pointer_op_t::get_item && exp->this_family() == expression_family_t::index)
+        {
+            ((index_expression_t *)exp)->namex()->compile(ctx, pool);
+            __compile_arguments(ctx, pool, ((property_index_variable_t *)variable)->arguments, getter);
+            __compile_pointer_move(ctx, pool, pointer_type, exp, true);
+            return true;
+        }
+
+        return false;
+    }
+
+    // NativeMemory.SizeOf<T>(): the size of the type, an instruction (the size of the instance when T is a generic param).
+    static bool __try_compile_size_of(__cctx_t & ctx, xil_pool_t & pool, function_expression_t * exp, method_base_t * method)
+    {
+        generic_method_t * generic_method = dynamic_cast<generic_method_t *>(method);
+        if (generic_method == nullptr || generic_method->args.size() != 1)
+            return false;
+
+        string_t name = method->get_name();
+        if (name != _T("SizeOf"))
+            return false;
+
+        type_t * host = method->get_host_type();
+        if (host == nullptr || host->to_identity().find(_T("NativeMemory")) == string_t::npos)
+            return false;
+
+        pool.append<x_push_type_size_xil_t>(__ref_of(ctx, generic_method->args[0]));
+        return true;
+    }
+
+    // NativeMemory.StackAlloc<T>(count): memory for count values of T that lives while the method runs, as long as the
+    // variable that holds it: a buffer of bytes, kept by a variable of the method (it is not cleared by the program, it is
+    // not guaranteed to be). One instruction of the allocation of an array, so far, in the three back ends.
+    static bool __try_compile_stack_alloc(__cctx_t & ctx, xil_pool_t & pool, function_expression_t * exp,
+                                                                                    method_base_t * method)
+    {
+        generic_method_t * generic_method = dynamic_cast<generic_method_t *>(method);
+        if (generic_method == nullptr || generic_method->args.size() != 1)
+            return false;
+
+        string_t name = method->get_name();
+        if (name != _T("StackAlloc"))
+            return false;
+
+        type_t * host = method->get_host_type();
+        if (host == nullptr || host->to_identity().find(_T("NativeMemory")) == string_t::npos)
+            return false;
+
+        arguments_t * args = exp->arguments();
+        if (args == nullptr || args->size() != 1)
+            return false;
+
+        // The bytes: count * size + 1 (an array of no byte has no address).
+        (*args)[0]->expression->compile(ctx, pool, __XPool.get_internal_type(vtype_t::int64_));
+        pool.append<x_push_type_size_xil_t>(__ref_of(ctx, generic_method->args[0]));
+        pool.append<x_al_xil_t>(xil_al_command_t::mul, xil_type_t::int64, xil_type_t::int64);
+        pool.append<x_push_const_xil_t<int64_t>>(xil_type_t::int64, tvalue_t((int64_t)1));
+        pool.append<x_al_xil_t>(xil_al_command_t::add, xil_type_t::int64, xil_type_t::int64);
+        pool.append<x_push_convert_xil_t>(xil_type_t::int64, xil_type_t::int32);
+
+        type_t * bytes_type = __XPool.new_array_type(__XPool.get_internal_type(vtype_t::uint8_), 1);
+        pool.append<x_new_array_xil_t>(__ref_of(ctx, bytes_type));
+
+        // The buffer is kept by a variable of the method; the address of its first byte is the result.
+        local_variable_t * buffer = ctx.define_temp_local(bytes_type);
+        pool.append<x_pop_local_xil_t>(xil_type_t::object, buffer->identity);
+
+        pool.append<x_push_const_xil_t<int32_t>>(xil_type_t::int32, tvalue_t((int32_t)0));
+        pool.append<x_push_local_xil_t>(xil_type_t::object, buffer->identity);
+        pool.append<x_push_array_element_addr_xil_t>(__ref_of(ctx, bytes_type));
+        return true;
+    }
+
+    // The local variables that hold a pointer to the memory of the method (see is_scoped_pointer).
+    static std::set<local_variable_t *> __scoped_pointer_locals;
+
+    // Returns whether the expression is a pointer to the memory of the method.
+    bool is_scoped_pointer(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return false;
+
+        switch (exp->this_family())
+        {
+            case expression_family_t::expressions:
+                return exp->expression_count() == 1 && is_scoped_pointer(exp->expression_at(0));
+
+            case expression_family_t::name: {
+                variable_t * variable = ((name_expression_t *)exp)->variable;
+                return variable != nullptr && variable->this_type() == variable_type_t::local
+                    && __scoped_pointer_locals.count((local_variable_t *)variable) > 0;
+            }
+
+            case expression_family_t::type_cast:
+                return is_scoped_pointer(exp->expression_at(0));
+
+            case expression_family_t::binary: {
+                binary_expression_t * binary = (binary_expression_t *)exp;
+
+                // p + n, p - n: the method of the operator.
+                if (binary->op() != operator_t::member_point)
+                {
+                    method_t * overload = binary->overload_method;
+                    if (overload != nullptr && __is_pointer_type(overload->get_type())
+                            && (__pointer_op_of(overload) == __pointer_op_t::add
+                                || __pointer_op_of(overload) == __pointer_op_t::sub))
+                    {
+                        return is_scoped_pointer(binary->exp1());
+                    }
+
+                    return false;
+                }
+
+                function_expression_t * call = as<function_expression_t *>(binary->exp2());
+                if (call == nullptr || call->get_method() == nullptr)
+                    return false;
+
+                method_base_t * method = call->get_method();
+                string_t name = method->get_name();
+                type_t * host = method->get_host_type();
+                if (host == nullptr)
+                    return false;
+
+                // p.As<T>(), p.ToPtr(): the same address.
+                if ((name == _T("As") || name == _T("ToPtr")) && __is_pointer_type(host))
+                    return is_scoped_pointer(binary->exp1());
+
+                // Ptr.AddressOf of an array, of a ref argument; NativeMemory.StackAlloc.
+                if (name == _T("StackAlloc") && host->to_identity().find(_T("NativeMemory")) != string_t::npos)
+                    return true;
+
+                if (name == _T("AddressOf") && host == __XPool.get_ptr_type())
+                {
+                    arguments_t * args = call->arguments();
+                    if (args == nullptr || args->size() < 1)
+                        return false;
+
+                    argument_t * first = (*args)[0];
+                    return first->atype == param_type_t::ref || is_array(first->expression->get_type());
+                }
+
+                return false;
+            }
+
+            default:
+                return false;
         }
     }
 
@@ -1733,6 +2479,12 @@ namespace X_ROOT_NS::modules::compile {
                 __compile_arguments(ctx, pool,
                     ((property_index_variable_t *)var)->arguments, property->set_method
                 );
+
+                // p[i] = value: the address is made before the value, that is above it.
+                if (__pointer_op_of(property->set_method) == __pointer_op_t::set_item)
+                {
+                    __compile_pointer_move(ctx, pool, property->set_method->get_host_type(), exp, true);
+                }
             }   break;
 
             default:
@@ -1740,6 +2492,30 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         return __compile_assign_t { this_exp, var, exp, custom_struct };
+    }
+
+    // The value that a setter is called with is the value of the assignment, when it is used:
+    // it is kept in a temp variable (the value is on the top of the stack, and stays there for
+    // the call).
+    static local_variable_t * __keep_assigned_value(__cctx_t & ctx, xil_pool_t & pool, bool pick,
+                                                                            type_t * type)
+    {
+        if (!pick || type == nullptr || __is_custom_struct_like(type))
+            return nullptr;
+
+        local_variable_t * temp = ctx.define_temp_local(type);
+
+        pool.append<x_push_duplicate_xil_t>();
+        pool.append<x_pop_local_xil_t>(to_xil_type(type), temp->identity);
+
+        return temp;
+    }
+
+    // Pushes the value that was kept.
+    static void __push_assigned_value(xil_pool_t & pool, local_variable_t * kept)
+    {
+        if (kept != nullptr)
+            pool.append<x_push_local_xil_t>(to_xil_type(kept->get_type()), kept->identity);
     }
 
     // Compiles assign to expression.
@@ -1762,7 +2538,17 @@ namespace X_ROOT_NS::modules::compile {
 
         xil_type_t xt = xil_type_t::empty;
 
+        // An event that has a field (in the type that has it): the handlers are assigned.
         variable_t * var = ca.var;
+        if (var->this_type() == variable_type_t::event)
+        {
+            event_t * event = ((event_variable_t *)var)->event;
+            if (event->field == nullptr)
+                __Failed("the event '%1%' is only added and removed", event->name);
+
+            var = ca.var = event->field->variable;
+        }
+
         switch (var->this_type())
         {
             case variable_type_t::local:
@@ -1787,11 +2573,31 @@ namespace X_ROOT_NS::modules::compile {
                 if (method == nullptr)
                     __Failed("property '%1%' cannot be write", var);
 
+                __check_init_only(ctx, property);
                 __validate_set_method(ctx, method);
-                __compile_argument(ctx, pool, exp2, method, 0);
 
-                ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
+                // p.Value = s of a struct: s is written at the address that is in the stack.
+                if (exp2 != nullptr && __pointer_op_of(method) == __pointer_op_t::set_value
+                        && __pointer_to_struct(method->get_host_type()))
+                {
+                    exp2->compile(ctx, pool, __pointer_target(method->get_host_type()));
+                    break;
+                }
+
+                // The value of x += y, x++ is in the stack.
+                if (exp2 != nullptr)
+                    __compile_argument(ctx, pool, exp2, method, 0);
+
+                // The value of the assignment is the value that is assigned.
+                local_variable_t * kept = __keep_assigned_value(ctx, pool, pick, var->get_type());
+
+                if (!__try_compile_pointer_method(ctx, pool, method, exp))
+                {
+                    ref_t method_ref = __search_method_ref(ctx, method);
+                    pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
+                }
+
+                __push_assigned_value(pool, kept);
 
             }   break;
 
@@ -1802,6 +2608,11 @@ namespace X_ROOT_NS::modules::compile {
 
                 __FailedWhenNull(body, "index '%1%' body missing", var);
                 __FailedWhenNull(args, "index '%1%' arguments missing", var);
+
+                // The value of the assignment is the value that is assigned: a copy of it stays
+                // below the array and its indices.
+                if (pick && !ca.custom_struct)
+                    pool.append<x_push_duplicate_xil_t>();
 
                 __static_param_types_t param_types(arr_var);
                 __compile_arguments(ctx, pool, args);
@@ -1831,13 +2642,29 @@ namespace X_ROOT_NS::modules::compile {
 
                 __validate_set_method(ctx, method);
 
+                // p[i] = s of a struct: s is written at the address that is in the stack.
+                if (exp2 != nullptr && __pointer_op_of(method) == __pointer_op_t::set_item
+                        && __pointer_to_struct(method->get_host_type()))
+                {
+                    exp2->compile(ctx, pool, __pointer_target(method->get_host_type()));
+                    break;
+                }
+
                 // The value is the argument that follows the indices.
                 int index_count = index_var->arguments != nullptr? index_var->arguments->size() : 0;
-                __compile_argument(ctx, pool, exp2, method, index_count);
+                if (exp2 != nullptr)
+                    __compile_argument(ctx, pool, exp2, method, index_count);
+
+                local_variable_t * kept = __keep_assigned_value(ctx, pool, pick, var->get_type());
 
                 // A virtual setter, or the setter of an interface, is called by its object.
-                ref_t method_ref = __search_method_ref(ctx, method);
-                pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
+                if (!__try_compile_pointer_method(ctx, pool, method, exp))
+                {
+                    ref_t method_ref = __search_method_ref(ctx, method);
+                    pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
+                }
+
+                __push_assigned_value(pool, kept);
 
             }   break;
 
@@ -1853,6 +2680,27 @@ namespace X_ROOT_NS::modules::compile {
         type_t * type1 = ca.var->get_type();
         type_t * type2 = exp2->get_type();
 
+        // A pointer to the memory of the method: a local variable can hold it, the others are the places that live longer.
+        if (is_scoped_pointer(exp2))
+        {
+            switch (ca.var->this_type())
+            {
+                case variable_type_t::local:
+                    __scoped_pointer_locals.insert((local_variable_t *)ca.var);
+                    break;
+
+                case variable_type_t::field:
+                case variable_type_t::property:
+                case variable_type_t::property_index:
+                case variable_type_t::array_index:
+                    __Failed("the pointer '%1%' is to the memory of the method (AddressOf, StackAlloc): it is not stored in '%2%', "
+                             "it lives while the method runs", exp2, ca.var);
+
+                default:
+                    break;
+            }
+        }
+
         // A value, or null, assigned to a nullable variable.
         if (is_real_variable(ca.var) && get_nullable_underlying(type1) != nullptr
                 && get_nullable_underlying(type2) == nullptr)
@@ -1867,10 +2715,18 @@ namespace X_ROOT_NS::modules::compile {
             // A generic param assigned to a reference (Object o = x): the object it is, made by
             // the copy of the expression.
             if (is_generic_param(type2) && is_ref_type(type1) && !is_generic_param(type1)
-                    && __is_generic_value_variable(exp2))
+                    && (__is_generic_value_variable(exp2) || __is_generic_value_field(exp2)))
             {
-                __compile_variable(ctx, pool, ((name_expression_t *)exp2)->variable,
+                if (__is_generic_value_variable(exp2))
+                {
+                    __compile_variable(ctx, pool, ((name_expression_t *)exp2)->variable,
                                                         __environment_t::empty, exp2);
+                }
+                else    // A field of an object: this.Value.
+                {
+                    __compile_generic_field(ctx, pool, exp2);
+                }
+
                 pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type2), xil_copy_kind_t::box);
 
                 __compile_assign_to(ctx, pool, ca, exp2, assign_type);
@@ -1935,22 +2791,72 @@ namespace X_ROOT_NS::modules::compile {
         __compile_assign(ctx, pool, ca, exp, __assign_to_type_t::pop);
     }
 
+    // Returns the event that the left expression of an assignment is (E, obj.E), or null.
+    static event_variable_t * __event_of_assign(expression_t * exp1)
+    {
+        expression_t * r_exp = __is_member_expression(exp1)?
+                                    ((binary_expression_t *)exp1)->exp2() : exp1;
+
+        variable_expression_t * var_exp = as<variable_expression_t *>(r_exp);
+        if (var_exp == nullptr || !var_exp->is_variable_expression())
+            return nullptr;
+
+        variable_t * variable = var_exp->get_variable();
+        if (variable == nullptr || variable->this_type() != variable_type_t::event)
+            return nullptr;
+
+        return (event_variable_t *)variable;
+    }
+
+    // Compiles the call of an accessor of an event: the object, then the handler.
+    static void __compile_event_accessor(__cctx_t & ctx, xil_pool_t & pool,
+                    expression_t * exp1, expression_t * exp2, method_t * method)
+    {
+        if (method == nullptr)
+            __Failed("the event '%1%' has no accessor for it", exp1);
+
+        __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
+
+        // The object of the event.
+        if (!method->is_static())
+            __push_this(ctx, pool, ca.this_);
+
+        __compile_argument(ctx, pool, exp2, method, 0);
+
+        ref_t method_ref = __search_method_ref(ctx, method);
+        pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
+    }
+
     // Compiles add assign expression.
     static void __compile_add_assign(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        event_variable_t * event_var = __event_of_assign(exp1);
+        if (event_var != nullptr)
+        {
+            __compile_event_accessor(ctx, pool, exp1, exp2, event_var->event->add_method);
+            return;
+        }
+
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_add(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles sub assign expression.
     static void __compile_sub_assign(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
+        event_variable_t * event_var = __event_of_assign(exp1);
+        if (event_var != nullptr)
+        {
+            __compile_event_accessor(ctx, pool, exp1, exp2, event_var->event->remove_method);
+            return;
+        }
+
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_sub(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles mul assign expression.
@@ -1959,7 +2865,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_mul(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles div assign expression.
@@ -1968,7 +2874,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_div(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles mod assign expression.
@@ -1977,7 +2883,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_mod(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles bit and assign expression.
@@ -1986,7 +2892,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_bit_and(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles bit or assign expression.
@@ -1995,7 +2901,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_bit_or(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles bit xor assign expression.
@@ -2004,7 +2910,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_bit_xor(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles left shift assign expression.
@@ -2013,7 +2919,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_left_shift(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Compiles right shift assign expression.
@@ -2022,7 +2928,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         __compile_right_shift(ctx, pool, exp1, exp2);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
     // Returns type if specified expression is name_expression_t or name_unit_expression_t,
@@ -2158,7 +3064,7 @@ namespace X_ROOT_NS::modules::compile {
         // Compiles exp2
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
         exp2->compile(ctx, pool);
-        __compile_assign_to(ctx, pool, ca, exp2);
+        __compile_assign_to(ctx, pool, ca, nullptr);
 
         xil::append_label_xil(sctx, pool, finally_jmp_xil);
     }
@@ -2256,18 +3162,38 @@ namespace X_ROOT_NS::modules::compile {
         left = 1 << 1, right = 1 << 2, increment = 1 << 3, decrement = 1 << 4,
     };
 
+    // Returns whether an expression is a property or an indexer (o.P, o[i]): it is read by a getter, written by a setter.
+    static bool __is_accessor_expression(expression_t * exp)
+    {
+        expression_t * r_exp = __is_member_expression(exp)? ((binary_expression_t *)exp)->exp2() : exp;
+
+        variable_t * var = __pick_var(r_exp);
+        return var != nullptr && (var->this_type() == variable_type_t::property
+                               || var->this_type() == variable_type_t::property_index);
+    }
+
     // Compiles increment expression.
     static void __compile_inc(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
                                                                 __inc_t flag)
     {
         #define __Is(v) bit_has_flag(flag, __inc_t::v)
 
+        // x = o.P++: the setter takes the new value, the old one is the value of the expression: it is kept before.
+        local_variable_t * old_value = nullptr;
+        if (__Is(right) && is_effective(ctx, exp->parent->parent) && __is_accessor_expression(exp))
+        {
+            old_value = ctx.define_temp_local(exp->get_type());
+
+            exp->compile(ctx, pool);
+            pool.append<x_pop_local_xil_t>(__to_xil_type(exp->get_type()), old_value->identity);
+        }
+
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp);
         variable_t * var = ca.var;
 
         if (__Is(right))
         {
-            if (is_effective(ctx, exp->parent->parent))
+            if (old_value == nullptr && is_effective(ctx, exp->parent->parent))
                 exp->compile(ctx, pool);
 
             exp->compile(ctx, pool);
@@ -2280,6 +3206,9 @@ namespace X_ROOT_NS::modules::compile {
             );
 
             __compile_assign_to(ctx, pool, ca, nullptr, __assign_to_type_t::pop);
+
+            if (old_value != nullptr)
+                pool.append<x_push_local_xil_t>(__to_xil_type(exp->get_type()), old_value->identity);
         }
         else
         {
@@ -2449,7 +3378,7 @@ namespace X_ROOT_NS::modules::compile {
                 local_variable_t * variable = ctx.define_temp_local(ret_type);
                 __compile_local_variable(ctx, pool, variable);
             }
-            else if (__is_left_member(exp->parent, exp, true) || __is_function_namex(exp))
+            else if (__is_left_member(exp->parent, exp, true) || __is_function_namex(exp) || __is_index_namex(exp))
             {
                 local_variable_t * variable = ctx.define_temp_local(ret_type);
                 __compile_local_variable(ctx, pool, variable);
@@ -2495,11 +3424,19 @@ namespace X_ROOT_NS::modules::compile {
     static bool __try_pop_empty_for_method(__cctx_t & ctx, xil_pool_t & pool,
                                         method_base_t * method, expression_t * owner_exp)
     {
-        if (__is_whole_effective(owner_exp->parent))
+        // The parentheses that hold the call do not count: (a + b).ToString().
+        expression_t * outer = owner_exp;
+        while (outer->parent != nullptr && outer->parent->this_family() == expression_family_t::expressions
+                    && outer->parent->expression_count() == 1)
+        {
+            outer = outer->parent;
+        }
+
+        if (__is_whole_effective(outer->parent))
             return false;
 
         // The value is the object of the member that follows (a.F().G();).
-        for (expression_t * e = owner_exp, * p = e->parent; __is_member_expression(p);
+        for (expression_t * e = outer, * p = e->parent; __is_member_expression(p);
                                                                     e = p, p = p->parent)
         {
             if (((binary_expression_t *)p)->exp1() == e)
@@ -2508,6 +3445,17 @@ namespace X_ROOT_NS::modules::compile {
 
         type_t * ret_type = method->get_type();
         vtype_t vtype;
+
+        // The result is a value of a generic param (R of Delegate<R, ...>): the call was made as
+        // if it returned a custom struct (see __pre_call_method), what is left depends on the type
+        // that the param is when the code runs: nothing for a struct, the address and the value
+        // for the others (the value is nothing for Void).
+        if (ret_type != nullptr && ret_type->this_gtype() == gtype_t::generic_param
+                && owner_exp->parent == nullptr)
+        {
+            pool.append<x_pop_empty_xil_t>(__ref_of(ctx, ret_type), true);
+            return true;
+        }
 
         if ((ret_type != nullptr && (vtype = ret_type->this_vtype()) != vtype_t::void_)
             && !__is_custom_struct_like(ret_type))
@@ -2532,8 +3480,11 @@ namespace X_ROOT_NS::modules::compile {
 
         __compile_arguments(ctx, pool, arguments, method);
 
-        ref_t method_ref = __search_method_ref(ctx, method);
-        pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
+        if (!__try_compile_pointer_method(ctx, pool, method, owner_exp))
+        {
+            ref_t method_ref = __search_method_ref(ctx, method);
+            pool.append<x_method_call_xil_t>(__call_type_of_method(method), method_ref);
+        }
 
         __try_pop_empty_for_method(ctx, pool, method, owner_exp);
     }
@@ -2626,7 +3577,9 @@ namespace X_ROOT_NS::modules::compile {
         expression_t * left_exp;
         bool has_instance, is_member_access = false;
 
-        if (__is_member_expression(owner_exp->parent, &left_exp))
+        // The member is accessed through an object only when it is the right operand (obj.Member): a name that is the
+        // left operand (Table.Length, where Table is a static field) is the object, it is used by its simple name.
+        if (__is_member_expression(owner_exp->parent, &left_exp) && __is_right_member(owner_exp->parent, owner_exp))
         {
             has_instance = __is_instance(left_exp);
             is_member_access = true;
@@ -2675,16 +3628,16 @@ namespace X_ROOT_NS::modules::compile {
 
         if (__is_member_expression(owner_exp->parent, &exp1))
         {
-            exp1->compile(ctx, pool);
-
             // A property of a generic param (t.Value, where T : IFoo): the object is a
             // reference, or the address of a struct.
             if (variable->this_type() == variable_type_t::property
                     && __is_constrained_property(((property_variable_t *)variable)->property))
             {
-                pool.append<x_generic_copy_xil_t>(
-                    __ref_of(ctx, exp1->get_type()), xil_copy_kind_t::receiver
-                );
+                __compile_constrained_receiver(ctx, pool, exp1);
+            }
+            else
+            {
+                exp1->compile(ctx, pool);
             }
         }
         else if (!is_static)
@@ -2750,9 +3703,31 @@ namespace X_ROOT_NS::modules::compile {
 
                 property_variable_t * property_var = (property_variable_t *)variable;
 
-                __pre_call_method(ctx, pool, owner_exp, property_var->property->get_method);
+                // p.Value of a pointer to a struct, whose member is read or written (p.Value.X): the address of the value is the
+                // object of the member, there is no destination.
+                method_base_t * getter = property_var->property->get_method;
+                bool pointer_address = getter != nullptr && __pointer_op_of(getter) == __pointer_op_t::get_value
+                                && __pointer_to_struct(getter->get_host_type()) && __is_pointer_value_of_member(owner_exp);
+
+                if (!pointer_address)
+                    __pre_call_method(ctx, pool, owner_exp, property_var->property->get_method);
+
                 __push_this_with_check_for_function(ctx, pool, owner_exp, variable);
                 __compile_property_variable(ctx, pool, property_var, env, owner_exp);
+
+            }   break;
+
+            case variable_type_t::event: {
+
+                // The handlers are those of the field of the event.
+                event_t * event = ((event_variable_t *)variable)->event;
+                if (event->field == nullptr)
+                {
+                    __Failed("the event '%1%' has no field: it is only added and removed",
+                                                                            event->name);
+                }
+
+                __compile_variable(ctx, pool, event->field->variable, env, owner_exp);
 
             }   break;
 
@@ -2805,7 +3780,8 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // A generic param is an object: a reference, or a boxed value (T to Object).
-        if (is_generic_param(__ExpType) && env.is_ref() && __is_generic_value_variable(exp))
+        if (is_generic_param(__ExpType) && env.is_ref()
+                && (__is_generic_value_variable(exp) || __is_generic_value_field(exp)))
         {
             pool.append<x_generic_copy_xil_t>(__ref_of(ctx, __ExpType), xil_copy_kind_t::box);
             return;
@@ -3046,7 +4022,7 @@ namespace X_ROOT_NS::modules::compile {
             type_t * member_type = this->get_type();
             bool generic_value_return = op() == operator_t::member_point
                     && is_generic_param(member_type)
-                    && env.type_mark == type_mark_t::value && __is_property_name(exp2);
+                    && env.is_value_mark() && __is_property_name(exp2);
 
             if (generic_value_return)
                 pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, member_type));
@@ -3109,7 +4085,7 @@ namespace X_ROOT_NS::modules::compile {
 
             #undef __Case
 
-            if (generic_value_return)
+            if (generic_value_return && env.type_mark != type_mark_t::argument)
             {
                 pool.append<x_generic_copy_xil_t>(
                     __ref_of(ctx, member_type), xil_copy_kind_t::call_ret
@@ -3157,12 +4133,50 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // The method of an operator for a checked context: the one that is declared with checked (operator checked +)
+    // is taken when a type of the operands has it, else the operator is the same in a checked context.
+    static method_t * __checked_operator_method(__cctx_t & ctx, method_t * method,
+                                                expression_t ** exps, int count)
+    {
+        if (!ctx.checked || method == nullptr)
+            return method;
+
+        string_t name = method->get_name();
+        if (name.compare(0, 3, _T("op_")) != 0 || name.compare(0, 10, _T("op_Checked")) == 0)
+            return method;
+
+        name_t checked_name = __XPool.to_name(string_t(_T("op_Checked")) + name.substr(3));
+
+        atypes_t atypes;
+        for (int k = 0; k < count; k++)
+            atypes.push_back(atype_t(exps[k]->get_type()));
+
+        for (atype_t atype : atypes)
+        {
+            if (!is_object(atype.type) && !is_string_type(atype.type) && !is_generic_param(atype.type))
+                continue;
+
+            method_t * checked_method = nullptr;
+
+            try
+            {
+                checked_method = find_method(atype.type, method_trait_t::default_, checked_name, nullptr, &atypes);
+            }
+            catch (const method_compare_error_t &) { }
+
+            if (checked_method != nullptr && checked_method->is_static())
+                return checked_method;
+        }
+
+        return method;
+    }
+
     // Compiles operator overload..
     void __sys_t<binary_expression_t>::__compile_operator_overload(__cctx_t & ctx, xil_pool_t & pool,
                                                                    bool pop_result, bool pre_call,
                                                                    const __environment_t & env)
     {
-        method_t * method = this->overload_method;
+        method_t * method = __checked_operator_method(ctx, this->overload_method, this->exps, 2);
 
         // Checks method prototype.
         __check_overload_prototype(ctx, method, 2, this->exps);
@@ -3170,7 +4184,7 @@ namespace X_ROOT_NS::modules::compile {
         // The value of a generic param is returned: when the param is a custom struct, the
         // method writes it at a destination that is below.
         bool generic_value_return = pre_call && is_generic_param(method->get_type())
-                                        && env.type_mark == type_mark_t::value;
+                                        && env.is_value_mark();
 
         if (generic_value_return)
             pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
@@ -3182,10 +4196,18 @@ namespace X_ROOT_NS::modules::compile {
         __compile_argument(ctx, pool, expression_at(0), method, 0);
         __compile_argument(ctx, pool, expression_at(1), method, 1);
 
+        if (__try_compile_pointer_method(ctx, pool, method, this))
+        {
+            if (pop_result)
+                __try_pop_empty_for_method(ctx, pool, method, this);
+
+            return;
+        }
+
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
 
-        if (generic_value_return)
+        if (generic_value_return && env.type_mark != type_mark_t::argument)
         {
             pool.append<x_generic_copy_xil_t>(
                 __ref_of(ctx, method->get_type()), xil_copy_kind_t::call_ret
@@ -3331,13 +4353,13 @@ namespace X_ROOT_NS::modules::compile {
                                                                     bool pre_call,
                                                                     const __environment_t & env)
     {
-        method_t * method = this->overload_method;
+        method_t * method = __checked_operator_method(ctx, this->overload_method, this->exps, 1);
 
         // Checks method prototype.
         __check_overload_prototype(ctx, method, 1, this->exps);
 
         bool generic_value_return = pre_call && is_generic_param(method->get_type())
-                                        && env.type_mark == type_mark_t::value;
+                                        && env.is_value_mark();
 
         if (generic_value_return)
             pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
@@ -3348,10 +4370,18 @@ namespace X_ROOT_NS::modules::compile {
         // Compile arguments.
         __compile_argument(ctx, pool, expression_at(0), method, 0);
 
+        if (__try_compile_pointer_method(ctx, pool, method, this))
+        {
+            if (pop_result)
+                __try_pop_empty_for_method(ctx, pool, method, this);
+
+            return;
+        }
+
         ref_t method_ref = __search_method_ref(ctx, method);
         pool.append<x_method_call_xil_t>(xil_call_type_t::static_, method_ref);
 
-        if (generic_value_return)
+        if (generic_value_return && env.type_mark != type_mark_t::argument)
         {
             pool.append<x_generic_copy_xil_t>(
                 __ref_of(ctx, method->get_type()), xil_copy_kind_t::call_ret
@@ -3392,6 +4422,11 @@ namespace X_ROOT_NS::modules::compile {
                 case expression_family_t::binary:
                 {
                     binary_expression_t * binary_exp = (binary_expression_t *)parent_exp;
+
+                    // The operand of an operator that is a method is an argument of a call.
+                    if (binary_exp->overload_method != nullptr)
+                        return true;
+
                     switch (binary_exp->op())
                     {
                         case operator_t::member_point:
@@ -3406,10 +4441,33 @@ namespace X_ROOT_NS::modules::compile {
                     break;
                 }
 
+                // The same for the operand of a unary operator that is a method ((-a).ToString()).
+                case expression_family_t::unitary:
+                    if (((unitary_expression_t *)parent_exp)->overload_method != nullptr)
+                        return true;
+
+                    break;
+
                 // An argument of a call is a value: what the call is, does not matter to it
                 // (Plain(p).V copies p to the argument).
                 case expression_family_t::function:
                     return true;
+
+                // The same for the arguments of an index (lookup[key].GetEnumerator()), not for
+                // the object that is indexed.
+                case expression_family_t::index:
+                {
+                    index_expression_t * index_exp = (index_expression_t *)parent_exp;
+                    if (index_exp->namex() != exp)
+                        return true;
+
+                    // The object that an indexer is read from is the object of a call: a struct is its address.
+                    if (index_exp->variable != nullptr
+                            && index_exp->variable->this_type() == variable_type_t::property_index)
+                        return false;
+
+                    break;
+                }
 
                 default:
                     break;
@@ -3448,7 +4506,7 @@ namespace X_ROOT_NS::modules::compile {
                 {
                     // A generic param that is a value (e.g. returned) is loaded into the
                     // stack, not copied to a destination.
-                    if (is_generic_param(type) && env.type_mark == type_mark_t::value)
+                    if (is_generic_param(type) && env.is_value_mark())
                         __append_object_copy_xil(ctx, pool, type, xil_copy_kind_t::ret);
                     else
                         __append_object_copy_xil(ctx, pool, type, xil_copy_kind_t::reverse);
@@ -3555,7 +4613,7 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case value_type_t::char_:
-                pool.append<x_push_const_xil_t<char_t>>(xil_type_t::char_, value);
+                pool.append<x_push_const_xil_t<rt_char_t>>(xil_type_t::char_, value);
                 break;
 
             default:
@@ -3565,7 +4623,7 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Compiles string.
-    void __compile_string(__cctx_t & ctx, xil_pool_t & pool, const char_t * string)
+    void __compile_string(__cctx_t & ctx, xil_pool_t & pool, const string_t & string)
     {
         pool.append<x_push_string_xil_t>(ctx.statement_ctx.assembly_layout().res_of(string));
     }
@@ -3589,7 +4647,7 @@ namespace X_ROOT_NS::modules::compile {
         switch (cvalue.value_type)
         {
             case cvalue_type_t::string:
-                __compile_string(ctx, pool, cvalue.string);
+                __compile_string(ctx, pool, cvalue.get_string());
                 break;
 
             case cvalue_type_t::number: {
@@ -3749,7 +4807,7 @@ namespace X_ROOT_NS::modules::compile {
         type_t * method_type = method->get_type();
         bool generic_value_return = is_generic_param(method_type)
                 && call_type != xil_call_type_t::internal
-                && env.type_mark == type_mark_t::value;
+                && env.is_value_mark();
 
         if (effective)
         {
@@ -3765,16 +4823,13 @@ namespace X_ROOT_NS::modules::compile {
                 _A(host_type != nullptr);
 
                 expression_t * exp1 = ((binary_expression_t *)this->parent)->exp1();
-                exp1->compile(ctx, pool, host_type);
 
                 // A member of a generic param: the object is a reference, or the address of a
                 // struct.
                 if (call_type == xil_call_type_t::constrained)
-                {
-                    pool.append<x_generic_copy_xil_t>(
-                        __ref_of(ctx, exp1->get_type()), xil_copy_kind_t::receiver
-                    );
-                }
+                    __compile_constrained_receiver(ctx, pool, exp1, host_type);
+                else
+                    exp1->compile(ctx, pool, host_type);
             }
             else
             {
@@ -3800,7 +4855,11 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
             
-            __compile_arguments(ctx, pool, this->arguments(), method);
+            bool address_of = __try_compile_address_of(ctx, pool, this, method)
+                                || __try_compile_size_of(ctx, pool, this, method)
+                                || __try_compile_stack_alloc(ctx, pool, this, method);
+            if (!address_of)
+                __compile_arguments(ctx, pool, this->arguments(), method);
 
             ref_t method_ref = __search_method_ref(ctx, method);
 
@@ -3808,7 +4867,11 @@ namespace X_ROOT_NS::modules::compile {
             //     (mt_member_extra_t)method_ref.extra, method_ref
             // );
 
-            if (__left_is_base(this->parent) && call_type == xil_call_type_t::virtual_)
+            if (address_of)
+            {
+                // The instructions are those of the address.
+            }
+            else if (__left_is_base(this->parent) && call_type == xil_call_type_t::virtual_)
             {
                 pool.append<x_method_call_xil_t>(xil_call_type_t::instance, method_ref);
             }
@@ -3844,7 +4907,7 @@ namespace X_ROOT_NS::modules::compile {
                 }
             }
 
-            if (generic_value_return)
+            if (generic_value_return && env.type_mark != type_mark_t::argument)
             {
                 // A struct is copied to the destination of the caller of this method.
                 pool.append<x_generic_copy_xil_t>(
@@ -3883,7 +4946,7 @@ namespace X_ROOT_NS::modules::compile {
         generic_type_t * gtype = (generic_type_t *)type;
         general_type_t * template_ = gtype->template_;
 
-        if (template_ != __XPool.get_delegate_type())
+        if (template_ != __XPool.get_delegate_type() && template_ != __XPool.get_multicast_delegate_type())
             __Failed("delegate type error, should be System.Deletate<...>, but not %1%", gtype);
 
         analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
@@ -3922,7 +4985,7 @@ namespace X_ROOT_NS::modules::compile {
         generic_type_t * gtype = (generic_type_t *)type;
         general_type_t * template_ = gtype->template_;
 
-        if (template_ != __XPool.get_delegate_type())
+        if (template_ != __XPool.get_delegate_type() && template_ != __XPool.get_multicast_delegate_type())
             __Failed("delegate type error, should be System.Deletate<...>, but not %1%", gtype);
 
         analyze_member_args_t args(member_type_t::method, __XPool.to_name(_T("Invoke")));
@@ -3995,6 +5058,33 @@ namespace X_ROOT_NS::modules::compile {
         return vt1 != vt2 && is_number_vtype(vt1) && is_number_vtype(vt2);
     }
 
+    // Compiles the call of the method of a user conversion: the value of the expression is its argument.
+    static void __compile_conversion_call(__cctx_t & ctx, xil_pool_t & pool, expression_t * owner,
+                                          expression_t * operand, method_t * method,
+                                          const __environment_t & env)
+    {
+        // The value of a generic param is made (a conversion to T through an interface): when the param is a
+        // custom struct, the method writes it at a destination that is below.
+        bool generic_value_return = is_generic_param(method->get_type()) && env.is_value_mark();
+
+        if (generic_value_return)
+            pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, method->get_type()));
+
+        __pre_call_method(ctx, pool, owner, method);
+        __compile_argument(ctx, pool, operand, method, 0);
+
+        pool.append<x_method_call_xil_t>(xil_call_type_t::static_, __search_method_ref(ctx, method));
+
+        if (generic_value_return && env.type_mark != type_mark_t::argument)
+        {
+            pool.append<x_generic_copy_xil_t>(
+                __ref_of(ctx, method->get_type()), xil_copy_kind_t::call_ret
+            );
+        }
+
+        __try_pop_empty_for_method(ctx, pool, method, owner);
+    }
+
     // Compiles type cast expression.
     void __sys_t<type_cast_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                         const __environment_t & env)
@@ -4010,6 +5100,14 @@ namespace X_ROOT_NS::modules::compile {
 
         type_t * exp_type = exp->get_type();
         __FailedWhenNull(exp_type, _T("type empty"));
+
+        // A conversion that the types declare (explicit operator, implicit operator): in a checked context, the
+        // checked one when there is.
+        if (method_t * conversion = find_user_conversion(exp_type, type, !this->is_implicit, ctx.checked))
+        {
+            __compile_conversion_call(ctx, pool, this, exp, conversion, env);
+            return;
+        }
 
         // (T)x of a nullable x: the value, it raises if there is none.
         if (type_t * underlying = get_nullable_underlying(exp_type);
@@ -4062,10 +5160,18 @@ namespace X_ROOT_NS::modules::compile {
             else
             {
                 // A generic param is an address: the object that it is, is made.
-                if (is_generic_param(exp_type) && __is_generic_value_variable(exp))
+                if (is_generic_param(exp_type)
+                        && (__is_generic_value_variable(exp) || __is_generic_value_field(exp)))
                 {
-                    __compile_variable(ctx, pool, ((name_expression_t *)exp)->variable,
+                    if (__is_generic_value_variable(exp))
+                    {
+                        __compile_variable(ctx, pool, ((name_expression_t *)exp)->variable,
                                                             __environment_t::empty, exp);
+                    }
+                    else    // A field of an object: this.Value.
+                    {
+                        __compile_generic_field(ctx, pool, exp);
+                    }
 
                     pool.append<x_generic_copy_xil_t>(
                         __ref_of(ctx, exp_type), xil_copy_kind_t::box
@@ -4110,8 +5216,11 @@ namespace X_ROOT_NS::modules::compile {
 
                 if (__constant_integer(exp, value, overflow) && __integer_range(type->this_vtype(), lo, hi))
                 {
-                    __FailedWhen(overflow || value < lo || value > hi,
-                        "The conversion overflows at compile time in checked mode");
+                    if (overflow || value < lo || value > hi)
+                    {
+                        cpl_log_errorf(ctx.statement_ctx.mctx.logger, exp,
+                                            common_log_code_t::conversion_overflow);
+                    }
                 }
 
                 exp->compile(ctx, pool);
@@ -4176,10 +5285,27 @@ namespace X_ROOT_NS::modules::compile {
                                                                             namex, env);
                     break;
 
-                case variable_type_t::property_index:
+                case variable_type_t::property_index: {
+                    // The value of a generic param that a getter returns (list[0], where the
+                    // items are T): as the call of a method, the getter writes it at a
+                    // destination that is below, when the param is a custom struct.
+                    type_t * type = this->get_type();
+                    bool generic_value_return = is_generic_param(type)
+                                                && env.is_value_mark();
+
+                    if (generic_value_return)
+                        pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, type));
+
                     __compile_property_index(ctx, pool, (property_index_variable_t *)variable,
                                                                             namex, env);
-                    break;
+
+                    if (generic_value_return && env.type_mark != type_mark_t::argument)
+                    {
+                        pool.append<x_generic_copy_xil_t>(
+                            __ref_of(ctx, type), xil_copy_kind_t::call_ret
+                        );
+                    }
+                }   break;
 
                 default:
                     X_UNEXPECTED_F("unexpected variable type '%1%'", variable->this_type());
@@ -4188,6 +5314,23 @@ namespace X_ROOT_NS::modules::compile {
         else
         {
             __compile_arguments(ctx, pool, this->arguments());
+        }
+    }
+
+    // Returns whether the xil type is a number (not a bool, a char or a reference).
+    static bool __is_number_xil_type(xil_type_t type)
+    {
+        switch (type)
+        {
+            case xil_type_t::int8:   case xil_type_t::uint8:
+            case xil_type_t::int16:  case xil_type_t::uint16:
+            case xil_type_t::int32:  case xil_type_t::uint32:
+            case xil_type_t::int64:  case xil_type_t::uint64:
+            case xil_type_t::float_: case xil_type_t::double_:
+                return true;
+
+            default:
+                return false;
         }
     }
 
@@ -4217,7 +5360,7 @@ namespace X_ROOT_NS::modules::compile {
                 // The element is copied to the destination that is below, or it is loaded into
                 // the stack when it is a generic param returned by value.
                 xil_copy_kind_t kind = is_generic_param(element_type)
-                                            && env.type_mark == type_mark_t::value?
+                                            && env.is_value_mark()?
                                             xil_copy_kind_t::ret : xil_copy_kind_t::reverse;
 
                 __append_object_copy_xil(ctx, pool, element_type, kind);
@@ -4225,9 +5368,16 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            pool.append<x_push_array_element_xil_t>(
-                __to_xil_type(element_type), array_type_ref
-            );
+            // The element is converted when it is read, as the value of a variable is: an Int64
+            // that is read as a Double ((Double)longs[0], Double d = longs[0]) is a number, not
+            // its bits.
+            // A Char is read as a number too ((Int32)chars[0]): the native programs need the value of the
+            // type of the variable that takes it.
+            xil_type_t dtype = __to_xil_type(element_type);
+            if (__is_number_xil_type(env.dtype) && (__is_number_xil_type(dtype) || dtype == xil_type_t::char_))
+                dtype = env.dtype;
+
+            pool.append<x_push_array_element_xil_t>(dtype, array_type_ref);
         }
     }
 
@@ -4236,8 +5386,37 @@ namespace X_ROOT_NS::modules::compile {
                 property_index_variable_t * variable, expression_t * namex,
                 const __environment_t & env)
     {
-        namex->compile(ctx, pool);
+        // The object is compiled for the host type of the getter, as the object of a method call is: a call that
+        // returns a struct (items.Slice(1)[0]) writes it at a destination that is made for it.
+        method_base_t * getter = variable->property != nullptr? variable->property->get_method : nullptr;
+        type_t * host_type = getter != nullptr? getter->get_host_type() : nullptr;
+
+        // A getter that returns a struct, whose member is read (items[k].X): the struct is written at a destination
+        // that is below the object, as the one of a method call is. (The index of a pointer gives the address of the value:
+        // the member is the one of the value that is in the memory, there is no destination.)
+        bool pointer_address = getter != nullptr && __pointer_op_of(getter) == __pointer_op_t::get_item
+                                && __pointer_to_struct(getter->get_host_type()) && __is_pointer_value_of_member(this);
+
+        if (getter != nullptr && !pointer_address)
+            __pre_call_method(ctx, pool, this, getter);
+
+        if (host_type != nullptr)
+            namex->compile(ctx, pool, host_type);
+        else
+            namex->compile(ctx, pool);
+
         __compile_property_index_variable(ctx, pool, variable, env, this);
+
+        // The value of the getter is converted to the type that is wanted ((Int32)s[k], Int64 n = s[k]), as
+        // the value of a method call is: the native programs need the type of the variable that takes it.
+        if (env.dtype != xil_type_t::empty && variable->property != nullptr
+                && variable->property->get_method != nullptr)
+        {
+            // (A value of a generic param is what the param is when the code runs: it is not converted here.)
+            type_t * type = variable->property->get_method->get_type();
+            if (type != nullptr && !is_generic_param(type) && is_value_type(type))
+                __try_append_convert_xil(pool, type, env.dtype);
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -4341,6 +5520,25 @@ namespace X_ROOT_NS::modules::compile {
         ref_t constructor_ref = __search_method_ref(ctx, this->constructor);
         pool.append<x_method_call_xil_t>(xil_call_type_t::instance, constructor_ref);
 
+        // The members that an object initializer sets: the object is kept in a local variable, the
+        // assignments take it from there, and it is the value when it is used.
+        if (!this->init_assigns.empty())
+        {
+            local_variable_t * target = ctx.define_temp_local(type);
+            xil::write_assign_xil(ctx, pool, target, xil_type_t::object, false);
+
+            ctx.initializer_targets.push_back(target);
+            for (expression_t * assign : this->init_assigns)
+                assign->compile(ctx, pool);
+
+            ctx.initializer_targets.pop_back();
+
+            if (is_effective(ctx, this->parent))
+                __compile_local_variable(ctx, pool, target);
+
+            return;
+        }
+
         // Pop empty.
         if (!is_effective(ctx, this->parent))
         {
@@ -4364,6 +5562,12 @@ namespace X_ROOT_NS::modules::compile {
                 if (is_effective(ctx, this->parent))
                     pool.append<x_push_duplicate_xil_t>();
             }
+            else if (this->parent == nullptr)
+            {
+                // A statement (new S(1, 2);): the struct is made in a temp variable, and nothing uses it.
+                local_variable_t * variable = ctx.define_temp_local(type);
+                __compile_local_variable(ctx, pool, variable);
+            }
         }
         else
         {
@@ -4375,6 +5579,11 @@ namespace X_ROOT_NS::modules::compile {
 
                 if (is_effective(ctx, this->parent))
                     pool.append<x_push_duplicate_xil_t>();
+            }
+            else if (this->parent == nullptr)
+            {
+                local_variable_t * variable = ctx.define_temp_local(type);
+                __compile_local_variable(ctx, pool, variable);
             }
 
             // The struct has no constructor: its memory is zero, like a new object.
@@ -4493,6 +5702,45 @@ namespace X_ROOT_NS::modules::compile {
 
         // initializer
         array_initializer_t * initializer = this->initializer();
+
+        // The items that are structs: each is written at the address of its place in the array, as the assignment
+        // of an item does (the array is kept in a temp variable, the items have no command that stores them).
+        if (initializer != nullptr && !initializer->empty() && __is_custom_struct_like(element_type))
+        {
+            if (((array_type_t *)type)->dimension != 1)
+                __Failed("the initializer of an array of structs that has more than one dimension is not supported");
+
+            if (!this_effective)
+                return;
+
+            local_variable_t * array = ctx.define_temp_local(type);
+            pool.append<x_pop_local_xil_t>(xil_type_t::object, array->identity);
+
+            int32_t index = 0;
+            initializer->each_element([&](expression_t * element_exp) -> bool {
+
+                if (element_exp == nullptr)
+                    __Failed("index element init expression empty");
+
+                pool.append<x_push_const_xil_t<int32_t>>(xil_type_t::int32, tvalue_t(index++));
+                pool.append<x_push_local_xil_t>(xil_type_t::object, array->identity);
+                pool.append<x_push_array_element_addr_xil_t>(type_ref);
+
+                element_exp->compile(ctx, pool, element_type);
+
+                // A call returns a generic param: a struct is written at the destination below, else the value is
+                // stored there.
+                type_t * exp_type = element_exp->get_type();
+                if (exp_type != nullptr && is_generic_param(exp_type) && __is_generic_call_result(element_exp))
+                    pool.append<x_generic_copy_xil_t>(__ref_of(ctx, exp_type), xil_copy_kind_t::store);
+
+                return true;
+            });
+
+            pool.append<x_push_local_xil_t>(xil_type_t::object, array->identity);
+            return;
+        }
+
         if (initializer != nullptr && !initializer->empty())
         {
             xil_type_t dtype = __to_xil_type(element_type);
@@ -4507,7 +5755,26 @@ namespace X_ROOT_NS::modules::compile {
 
                 // TODO: check init expression type.
 
-                element_exp->compile(ctx, pool);
+                // The element is converted to the type of the elements (an Int32 to an Int64, with
+                // its sign; a value to an Object, boxed).
+                if (__is_custom_struct_like(element_type))
+                {
+                    element_exp->compile(ctx, pool);
+                }
+                else if (element_exp->get_type() != nullptr && is_custom_struct(element_exp->get_type())
+                            && is_ref_type(element_type) && !is_generic_param(element_type))
+                {
+                    // A struct that is an item of an array of references (Object[] { p }): it is
+                    // boxed, like the assignment of a struct to a reference does.
+                    pool.append<x_new_xil_t>(__ref_of(ctx, element_exp->get_type()));
+                    pool.append<x_push_duplicate_xil_t>();
+
+                    element_exp->compile(ctx, pool);
+                }
+                else
+                {
+                    element_exp->compile(ctx, pool, element_type);
+                }
 
                 if (this_effective)
                     pool.append<x_array_element_xil_t>(dtype);  // TODO: struct?
@@ -4545,7 +5812,7 @@ namespace X_ROOT_NS::modules::compile {
             return;
 
         // A custom struct is zero: a local variable that is zero is copied to the destination.
-        if (is_custom_struct(type) && env.type_mark != type_mark_t::value)
+        if (is_custom_struct(type) && !env.is_value_mark())
         {
             local_variable_t * variable = ctx.define_temp_local(type);
             ref_t type_ref = __ref_of(ctx, type);
@@ -4578,7 +5845,7 @@ namespace X_ROOT_NS::modules::compile {
                 if (__need_object_copy(this))
                 {
                     pool.append<x_generic_copy_xil_t>(type_ref,
-                        env.type_mark == type_mark_t::value? xil_copy_kind_t::ret
+                        env.is_value_mark()? xil_copy_kind_t::ret
                                                             : xil_copy_kind_t::reverse);
                 }
 
@@ -4646,6 +5913,16 @@ namespace X_ROOT_NS::modules::compile {
     void __sys_t<this_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                         const __environment_t & env)
     {
+        // The target of an object initializer: the object that was made, it is in a local variable.
+        if (this->is_new_target())
+        {
+            if (ctx.initializer_targets.empty())
+                __Failed("the target of an object initializer is missing");
+
+            __compile_local_variable(ctx, pool, ctx.initializer_targets.back());
+            return;
+        }
+
         if (!__is_this_effective(ctx, this))
             return;
 
@@ -4663,13 +5940,12 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            if (is_system_value_type(vtype))
+            // The this of Ptr and Ptr<T> is the pointer itself.
+            if (is_system_value_type(vtype) || vtype == vtype_t::ptr_)
             {
-                xil_type_t dtype = env.dtype;
-                if (dtype == xil_type_t::empty)
-                    dtype = to_xil_type(vtype);
-
-                pool.append<x_push_this_xil_t>(dtype);
+                // The value is read as its type (the memory of a Single is not a Double): the conversion to the type that
+                // the expression needs is made by __post_compile_expression, as it is for the variables.
+                pool.append<x_push_this_xil_t>(to_xil_type(vtype));
             }
             else if (__is_custom_struct_like(method->host_type))
             {

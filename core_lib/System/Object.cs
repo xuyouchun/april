@@ -1,7 +1,7 @@
 /*
  *  System.dll
  *
- *  Object, Type and Enum.
+ *  Object and Enum.
  */
 
 using Reflection;
@@ -11,82 +11,41 @@ using Reflection;
 [Internal]
 public class Object
 {
-    // Returns the object type.
-    public Type GetType()
+    // Returns whether the two are the same object.
+    public static Boolean ReferenceEquals(Object? obj1, Object? obj2)
+        => Internal.Object_ReferenceEquals(obj1, obj2);
+
+    // Returns whether the two objects are equal: IEquality of the first one, or the same object
+    // when its type does not have it (two nulls are equal).
+    public static Boolean Equals(Object? obj1, Object? obj2)
     {
-        return Internal.Reflection_GetType(this);
+        if (obj1 == null)
+            return obj2 == null;
+
+        IEquality equality = obj1 as IEquality;
+        return equality != null? equality.Equals(obj2) : Internal.Object_ReferenceEquals(obj1, obj2);
     }
 
-    // Returns the text of the object: the name of its type, unless the type overrides it.
-    public virtual String ToString()
+    // Returns the hash code of the object: IEquality of it, or the identity of the object when
+    // its type does not have it (the hash code of null is 0).
+    public static Int32 HashOf(Object? obj)
     {
-        return GetType().Name;
-    }
-}
+        if (obj == null)
+            return 0;
 
-////////// ////////// ////////// ////////// //////////
-
-[Internal]
-public sealed class Type
-{
-    public String Name
-    {
-        get { return Internal.Reflection_GetTypeName(this); }
+        IEquality equality = obj as IEquality;
+        return equality != null? equality.GetHashCode() : Internal.Object_GetHashCode(obj);
     }
 
-    public Array<Field> GetFields()
+    // Returns the text of the object: IStringable of it, or the full name of its type when the type
+    // does not have it (the text of null is an empty string).
+    public static String ToString(Object? obj)
     {
-        return Array.New<Field>(10);
-    }
+        if (obj == null)
+            return "";
 
-    public Field? GetField(String name)
-    {
-        return null;
-    }
-
-    public Array<Method> GetMethods()
-    {
-        return Array.New<Method>(10);
-    }
-
-    public Array<Method> GetMethods(String name)
-    {
-        return Array.New<Method>(10);
-    }
-
-    public Method? GetMethod(String name, Array<Type> parameterTypes)
-    {
-        return null;
-    }
-
-    public Array<Property> GetProperties()
-    {
-        return Array.New<Property>(10);
-    }
-
-    public Property? GetProperty(String name)
-    {
-        return null;
-    }
-
-    public Array<Event> GetEvents()
-    {
-        return Array.New<Event>(10);
-    }
-
-    public Event? GetEvent(String name)
-    {
-        return null;
-    }
-
-    public Array<GenericParameter> GetGenericParameters()
-    {
-        return Array.New<GenericParameter>(10);
-    }
-
-    public Assembly? Assembly
-    {
-        get { return null; }
+        IStringable stringable = obj as IStringable;
+        return stringable != null? stringable.ToString() : Type.GetType(obj).FullName;
     }
 }
 

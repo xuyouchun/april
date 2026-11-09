@@ -1,4 +1,4 @@
-/* EXPECT_ERROR The conversion overflows at compile time */
+/* EXPECT_ERROR the conversion overflows at compile time */
 
 import System;
 

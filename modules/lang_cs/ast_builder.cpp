@@ -586,6 +586,11 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __TokenValue(k_out):
                 __This->set_argument_type(param_type_t::out, token);
                 break;
+
+            // The items of a params generic parameter: f(items ...).
+            case __TokenValue(three_dots):
+                __This->set_argument_type(param_type_t::extends, token);
+                break;
         }
     }
 
@@ -690,8 +695,11 @@ namespace X_ROOT_NS::modules::lang_cs {
                 break;
 
             case __AstValue(arguments):
-            case __AstValue(_attribute_group_assign):
                 __This->set_child(__Type::__arguments__, node);
+                break;
+
+            case __AstValue(_attribute_group_assign):
+                __This->append_child(__Type::__assigns__, node);
                 break;
         }
     }
@@ -722,6 +730,73 @@ namespace X_ROOT_NS::modules::lang_cs {
     }
 
     __OnCompleted(_attribute_group_assign, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group
+
+    __ApplyToken(_assembly_group, token, args) { }
+
+    __ApplyAst(_assembly_group, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(attribute):
+                __This->append_child(__Type::__items__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(_assembly_group, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group_item
+
+    __ApplyToken(_assembly_group_item, token, args) { }
+
+    __ApplyAst(_assembly_group_item, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(type_name):
+                __This->set_child(__Type::__type_name__, node);
+                break;
+
+            case __AstValue(arguments):
+                __This->set_child(__Type::__arguments__, node);
+                break;
+
+            case __AstValue(_assembly_group_assign):
+                __This->append_child(__Type::__assigns__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(_assembly_group_item, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group.__assign
+
+    __ApplyToken(_assembly_group_assign, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(name):
+                __This->set_name(name_t(this->__to_sid(token)), token);
+                break;
+        }
+    }
+
+    __ApplyAst(_assembly_group_assign, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(_assembly_group_assign, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // _attribute_type_name
@@ -793,6 +868,54 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(statement, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // The statements that follow a using declaration (using T obj = ...;) are its body.
+
+    // Returns the last statement of a block if it is a using declaration.
+    template<typename node_t, typename index_t>
+    static using_st_ast_node_t * __open_using(node_t * block, index_t index)
+    {
+        size_t count = block->child_count(index);
+        if (count == 0)
+            return nullptr;
+
+        // The statement is the child of a statement node.
+        ast_node_t * last = block->child_at(index, count - 1);
+        if (auto * wrapper = dynamic_cast<statement_ast_node_t *>(last))
+            last = wrapper->child_at(statement_ast_node_t::__underlying__);
+
+        using_st_ast_node_t * node = dynamic_cast<using_st_ast_node_t *>(last);
+
+        return node != nullptr && node->declaration_group() != nullptr? node : nullptr;
+    }
+
+    // Appends a statement to the group of a using declaration.
+    static void __append_to_using_group(using_st_ast_node_t * node, ast_node_t * statement)
+    {
+        typedef statement_group_st_ast_node_t __group_t;
+        auto * group = (__group_t *)node->declaration_group();
+
+        if (group->code_unit == nullptr)
+            group->code_unit = statement->code_unit;
+
+        using_st_ast_node_t * inner = __open_using(group, __group_t::__statements__);
+        if (inner != nullptr)
+            __append_to_using_group(inner, statement);
+        else
+            group->append_child(__group_t::__statements__, statement);
+    }
+
+    // Appends a statement to a block.
+    template<typename node_t, typename index_t>
+    static void __append_statement(node_t * block, index_t index, ast_node_t * statement)
+    {
+        using_st_ast_node_t * node = __open_using(block, index);
+        if (node != nullptr)
+            __append_to_using_group(node, statement);
+        else
+            block->append_child(index, statement);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // method_body
 
     __ApplyToken(method_body, token, args) { }
@@ -802,8 +925,19 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(statement):
-                __This->append_child(__Type::__statements__, node);
+                __append_statement(&*__This, __Type::__statements__, node);
                 break;
+
+            case __AstValue(expression): {
+                // => expression; is the body of "return expression;".
+                auto * st = this->template __new_ast<return_st_ast_node_t>();
+                st->is_arrow = true;
+                st->set_child(return_st_ast_node_t::__expression__, node);
+                st->on_commit();
+
+                __This->append_child(__Type::__statements__, st);
+                break;
+            }
         }
     }
 
@@ -845,6 +979,26 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __This->set_child(__Type::__params__, node);
                 break;
 
+            case __AstValue(expression): {
+                // Type Name => expression; is Type Name { get => expression; }.
+                auto * body = this->template __new_ast<method_body_ast_node_t>();
+                auto * st = this->template __new_ast<return_st_ast_node_t>();
+                st->is_arrow = true;
+                st->set_child(return_st_ast_node_t::__expression__, node);
+                st->on_commit();
+                body->append_child(method_body_ast_node_t::__statements__, st);
+                body->on_commit();
+
+                auto * getter = this->template __new_ast<_fake_method_ast_node_t>();
+                getter->token_value = cs_token_value_t::k_get;
+                getter->set_name(this->__to_name(_T("get")), nullptr);
+                getter->set_child(_fake_method_ast_node_t::__body__, body);
+                getter->on_commit();
+
+                __This->set_child(__Type::__get_method__, getter);
+                break;
+            }
+
             case __AstValue(method):
                 switch (((_fake_method_ast_node_t *)node)->token_value)
                 {
@@ -856,6 +1010,13 @@ namespace X_ROOT_NS::modules::lang_cs {
                     case cs_token_value_t::k_set:
                         __This->set_child_with_check(__Type::__set_method__, node,
                                 __cc_t::duplicate, _T("property method"), _T("set"));
+                        break;
+
+                    // init is a set that is called only when the object is made.
+                    case cs_token_value_t::k_init:
+                        __This->set_child_with_check(__Type::__set_method__, node,
+                                __cc_t::duplicate, _T("property method"), _T("set or init"));
+                        __This->is_init_only = true;
                         break;
  
                     default:
@@ -912,6 +1073,11 @@ namespace X_ROOT_NS::modules::lang_cs {
                     case cs_token_value_t::k_remove:
                         __This->set_child_with_check(__Type::__remove_method__, node,
                                 __cc_t::duplicate, _T("event method"), _T("remove"));
+                        break;
+
+                    case cs_token_value_t::k_raise:
+                        __This->set_child_with_check(__Type::__raise_method__, node,
+                                __cc_t::duplicate, _T("event method"), _T("raise"));
                         break;
  
                     default:
@@ -1057,6 +1223,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                 break;
 
             case __AstValue(expression):
+            case __AstValue(type_cast_exp):     // (Int64)(Color)c
                 __This->set_child(__Type::__expression__, node);
                 break;
         }
@@ -1130,10 +1297,39 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __AstValue(arguments):
                 __This->set_child(__Type::__arguments__, node);
                 break;
+
+            case __AstValue(new_assign):
+                __This->append_child(__Type::__inits__, node);
+                break;
         }
     }
 
     __OnCompleted(new, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
+    // new.__assign: Name = value of an object initializer.
+
+    __ApplyToken(new_assign, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(name):
+                __This->set_name(name_t(this->__to_sid(token)), token);
+                break;
+        }
+    }
+
+    __ApplyAst(new_assign, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(new_assign, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // new_array
@@ -1352,7 +1548,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(statement):
-                __This->append_child(__Type::__statements__, node);
+                __append_statement(&*__This, __Type::__statements__, node);
                 break;
         }
     }
@@ -1683,7 +1879,12 @@ namespace X_ROOT_NS::modules::lang_cs {
         }
     }
 
-    __OnCompleted(using_st, args) { }
+    __OnCompleted(using_st, args)
+    {
+        // using T obj = ...; : the statements that follow it are the body.
+        if (!__This->has_child(__Type::__body__))
+            __This->set_declaration(__new_obj<statement_group_st_ast_node_t>(this->__context));
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // if_st
@@ -1851,7 +2052,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(statement):
-                __This->append_child(__Type::__statements__, node);
+                __append_statement(&*__This, __Type::__statements__, node);
                 break;
         }
     }
@@ -1933,9 +2134,19 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __This->set_name(this->__to_name(_T("remove")), token);
                 break;
 
+            case __TokenValue(k_raise):
+                __This->token_value = cs_token_value_t::k_raise;
+                __This->set_name(this->__to_name(_T("raise")), token);
+                break;
+
             case __TokenValue(k_set):
                 __This->token_value = cs_token_value_t::k_set;
                 __This->set_name(this->__to_name(_T("set")), token);
+                break;
+
+            case __TokenValue(k_init):
+                __This->token_value = cs_token_value_t::k_init;
+                __This->set_name(this->__to_name(_T("init")), token);
                 break;
 
             case __TokenValue(k_get):
@@ -1955,6 +2166,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case __AstValue(decorate):
                 __This->set_child(__Type::__decorate__, node);
+                break;
+
+            case __AstValue(params):
+                __This->set_child(__Type::__params__, node);
                 break;
 
             case __AstValue(method_body):
@@ -1983,6 +2198,18 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __TokenValue(k_this):      // A constructor that calls another: : this(...)
                 __This->set_ctor_this();
                 break;
+
+            case __TokenValue(k_checked):   // operator checked +
+                __This->set_operator_checked();
+                break;
+
+            case __TokenValue(k_implicit):  // implicit operator T(S s)
+                __This->set_conversion_kind(true);
+                break;
+
+            case __TokenValue(k_explicit):  // explicit operator T(S s)
+                __This->set_conversion_kind(false);
+                break;
         }
     }
 
@@ -1999,8 +2226,11 @@ namespace X_ROOT_NS::modules::lang_cs {
                     __This->set_child(__Type::__type_name__, node);
                 else if (al::starts_with(args.flag, _T("o")))    // owner
                     __This->set_child(__Type::__owner_type_name__, node);
-                else if (al::starts_with(args.flag, _T("c")))    // conversion
-                    __This->set_child(__Type::__conversion_type_name__, node);
+                else if (al::starts_with(args.flag, _T("c")))    // conversion: the type that it makes is the type
+                {                                                //   that the method returns
+                    __This->set_child(__Type::__type_name__, node);
+                    __This->set_conversion(node);
+                }
                 break;
 
             case __AstValue(_operator):
@@ -2081,6 +2311,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __ApplyToken(_operator, token, args)
     {
+        // The token that follows >> (the second angle of two right angles) is not a part of the operator.
+        if ((cs_token_value_t)token->value == cs_token_value_t::empty)
+            return;
+
         const operator_property_t * property = get_operator_property(
             (cs_token_value_t)token->value
         );
@@ -2247,6 +2481,10 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __This->set_param_type(param_type_t::params, token);
                 break;
 
+            case __TokenValue(k_this):
+                __This->set_this(token);
+                break;
+
             case __TokenValue(three_dots):
                 __This->set_param_type(param_type_t::extends, token);
                 break;
@@ -2347,6 +2585,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case __TokenValue(k_extern):
                 __This->set_extern(token);
+                break;
+
+            case __TokenValue(k_partial):
+                __This->set_partial(token);
                 break;
         }
     }

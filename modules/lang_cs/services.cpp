@@ -54,7 +54,19 @@ namespace X_ROOT_NS::modules::lang_cs {
     // Returns string description of branch.
     const string_t cs_lang_service_t::get_branch_string(analyze_node_value_t value)
     {
-        return _title((cs_branch_type_t)value);
+        // The branches of the parts of an expression are told as an expression.
+        switch ((cs_branch_type_t)value)
+        {
+            case cs_branch_type_t::_expression:
+            case cs_branch_type_t::_single_expression:
+                return _T("expression");
+
+            case cs_branch_type_t::_function_name_expression:
+                return _T("function name");
+
+            default:
+                return _title((cs_branch_type_t)value);
+        }
     }
 
     // Operator property service
@@ -243,6 +255,10 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(_attribute_group)
             __Case(_attribute_group_item)
             __Case(_attribute_group_assign)
+            __Case(_assembly_group)
+            __Case(_assembly_group_item)
+            __Case(_assembly_group_assign)
+            __Case(new_assign)
             __Case(_attribute_type_name)
             __Case(attributes)
 
@@ -366,6 +382,102 @@ namespace X_ROOT_NS::modules::lang_cs {
                     node, get_branch_string((analyze_node_value_t)branch)
                 );
             }   break;
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Returns the position after a line comment: // ...
+    static size_t __skip_line_comment(const char_t * code, size_t length, size_t i)
+    {
+        while (i < length && code[i] != _T('\r') && code[i] != _T('\n'))
+            i++;
+
+        return i;
+    }
+
+    // Returns the position after a block comment: /* ... */
+    static size_t __skip_block_comment(const char_t * code, size_t length, size_t i)
+    {
+        i += 2;
+        while (i + 1 < length && !(code[i] == _T('*') && code[i + 1] == _T('/')))
+            i++;
+
+        return i + 2 <= length? i + 2 : length;
+    }
+
+    // Returns the position after a verbatim string: @"..." , "" is a quote.
+    static size_t __skip_verbatim_string(const char_t * code, size_t length, size_t i)
+    {
+        i += 2;
+        while (i < length)
+        {
+            if (code[i] == _T('"'))
+            {
+                if (i + 1 < length && code[i + 1] == _T('"'))
+                {
+                    i += 2;
+                    continue;
+                }
+
+                return i + 1;
+            }
+
+            i++;
+        }
+
+        return length;
+    }
+
+    // Returns the position after a string or a char: "..." and 'x', a backslash escapes the next char,
+    // a char ends at the end of the line.
+    static size_t __skip_quoted(const char_t * code, size_t length, size_t i)
+    {
+        char_t quote = code[i];
+
+        size_t j = i + 1;
+        while (j < length && code[j] != quote
+                && !(quote == _T('\'') && (code[j] == _T('\r') || code[j] == _T('\n'))))
+        {
+            if (code[j] == _T('\\') && j + 1 < length)
+                j++;
+
+            j++;
+        }
+
+        return j < length && code[j] == quote? j + 1 : j;
+    }
+
+    // Returns the position after the comment, the string or the char that starts at the position
+    // (the same ones that the token reader reads), the position itself if there is no one.
+    size_t cs_lang_service_t::skip_non_code(const char_t * code, size_t length, size_t i)
+    {
+        char_t next = i + 1 < length? code[i + 1] : _T('\0');
+
+        switch (code[i])
+        {
+            case _T('/'):
+                switch (next)
+                {
+                    case _T('/'):
+                        return __skip_line_comment(code, length, i);
+
+                    case _T('*'):
+                        return __skip_block_comment(code, length, i);
+
+                    default:
+                        return i;
+                }
+
+            case _T('@'):
+                return next == _T('"')? __skip_verbatim_string(code, length, i) : i;
+
+            case _T('"'):
+            case _T('\''):
+                return __skip_quoted(code, length, i);
+
+            default:
+                return i;
         }
     }
 

@@ -38,6 +38,36 @@ namespace X_ROOT_NS::modules::lang_cs {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // new_assign
+
+    // Sets name.
+    void new_assign_ast_node_t::set_name(name_t name, __el_t * el)
+    {
+        this->__assign_name(__argument.name, name, el, _T("member of an object initializer"));
+    }
+
+    // Commits this node.
+    void new_assign_ast_node_t::on_commit()
+    {
+        __argument.expression = __to_eobject<expression_t *>(__expression__);
+        __argument.name_type  = argument_name_type_t::field;
+
+        this->__check_name_empty(__argument.name, _T("member of an object initializer"));
+    }
+
+    // Returns this eobject.
+    argument_t * new_assign_ast_node_t::to_eobject()
+    {
+        return &__argument;
+    }
+
+    // Walks this node.
+    bool new_assign_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        return __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // _attribute_group
 
     // Commits this node.
@@ -70,6 +100,77 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     // Attribute group item ast node.
     bool _attribute_group_item_ast_node_t::on_walk(ast_walk_context_t & context, int step,
+                                                                                 void * tag)
+    {
+        return __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group_assign
+
+    // Sets name.
+    void _assembly_group_assign_ast_node_t::set_name(name_t name, __el_t * el)
+    {
+        this->__assign_name(__argument.name, name, el, _T("attribute param"));
+    }
+
+    // Commits this node.
+    void _assembly_group_assign_ast_node_t::on_commit()
+    {
+        __argument.expression = __to_eobject<expression_t *>(__expression__);
+        __argument.name_type  = argument_name_type_t::field;
+
+        this->__check_name_empty(__argument.name, _T("attribute param"));
+    }
+
+    // Returns this eobject.
+    argument_t * _assembly_group_assign_ast_node_t::to_eobject()
+    {
+        return &__argument;
+    }
+
+    // Walks this node.
+    bool _assembly_group_assign_ast_node_t::on_walk(ast_walk_context_t & context,
+                                                            int step, void * tag)
+    {
+        return __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group
+
+    // Commits this node.
+    void _assembly_group_ast_node_t::on_commit()
+    {
+        // Empty.
+    }
+
+    // Walks this node.
+    bool _assembly_group_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        // The attributes are those of the assembly.
+        if ((walk_step_t)step == walk_step_t::default_)
+        {
+            for (size_t k = 0, count = this->child_count(__items__); k < count; k++)
+            {
+                attribute_t * attribute = ((_assembly_group_item_ast_node_t *)this->child_at(
+                                                            __items__, k))->to_eobject();
+
+                if (context.assembly.attributes == nullptr)
+                    context.assembly.attributes = __new_obj<attributes_t>();
+
+                context.assembly.attributes->push_back(attribute);
+            }
+        }
+
+        return __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group_item
+
+    // Attribute group item ast node.
+    bool _assembly_group_item_ast_node_t::on_walk(ast_walk_context_t & context, int step,
                                                                                  void * tag)
     {
         return __super_t::on_walk(context, step, tag);
@@ -192,6 +293,24 @@ namespace X_ROOT_NS::modules::lang_cs {
         this->each_child<field_t *>(__items__, [this](field_t * field) {
             field->type_name = __to_eobject<type_name_t *>(__type_name__);
             field->decorate  = __to_eobject<decorate_t *>(__decorate__);
+
+            // The attributes of the declaration are those of its fields ([Author] Int32 a, b;).
+            if (field->attributes == nullptr)
+            {
+                field->attributes = __to_eobject_with_owner<attributes_t *>(
+                    __attributes__, field
+                );
+            }
+        });
+    }
+
+    // Commits this node: the fields are the items of an enum.
+    void _enum_fields_ast_node_t::on_commit()
+    {
+        __super_t::on_commit();
+
+        this->each_child<field_t *>(__items__, [](field_t * field) {
+            field->is_enum_item = true;
         });
     }
 

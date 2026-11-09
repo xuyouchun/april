@@ -163,7 +163,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // Tries to escape char.
-        bool __try_escape_char(char_t * out_c);
+        bool __try_escape_char(char_t * out_c, char_t * out_c2 = nullptr);
 
         // Returns new token.
         token_t * __new_token(token_value_t value, const char_t * s, int32_t length,

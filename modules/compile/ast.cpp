@@ -196,130 +196,116 @@ namespace X_ROOT_NS::modules::compile {
 
     X_ENUM_INFO(common_log_code_t)
 
-        // Hides inherit virtual member..
-        X_D(hides_inherit_virtual_member, _T("'%1%' hides inherited member '%2%', ")
-                    _T("to make the current member override that implemenation, ")
-                    _T("add the override keyword, otherwise add the new keyword"))
+        // ---- warnings.
 
-        // Missing 'new'
-        X_D(hides_inherit_member, _T("'%1%' hides inherited member '%2%', ")
-                    _T("use the new keyword if hiding is intended"))
+        // Hides inherit virtual member.
+        X_D(hides_inherit_virtual_member,
+            _T("\"%1%\" hides inherited member \"%2%\": add \"override\" to override ")
+            _T("it, or \"new\" to hide it"))
+
+        // Hides inherit member.
+        X_D(hides_inherit_member,
+            _T("\"%1%\" hides inherited member \"%2%\": add \"new\" if hiding is ")
+            _T("intended"))
+
+        // An event has the add accessor or the remove accessor, not both.
+        X_D(event_accessor_missing, _T("the event \"%1%\" has no \"%2%\" accessor: add and remove go together"))
+
+        // The type of an event is not a delegate.
+        X_D(event_type_not_delegate, _T("the type \"%1%\" of the event \"%2%\" is not a delegate (System.Delegate<...>)"))
+
+        // An event is used as a value outside of the type that has it.
+        X_D(event_cannot_be_used, _T("the event \"%1%\" can only be added to or removed from (+=, -=) outside of the type that defines it"))
+
+        // The raise accessor is not valid for the event.
+        X_D(event_raise_not_valid, _T("the event \"%1%\" cannot have a raise accessor: %2%"))
 
         // The member does not hide an accessible member. The new keyword is not required.
-        X_D(not_hides_inherit_member, _T("The member '%1%' does not hide an accessible member. ")
-                                _T("The new keyword is not required."))
+        X_D(not_hides_inherit_member, _T("\"%1%\" does not hide an accessible member: \"new\" is not required"))
 
         // A value that can be null is converted to a type that cannot be null.
-        X_D(nullable_convert, _T("Converting a possible null value to the non-nullable type '%1%'"))
+        X_D(nullable_convert, _T("converting a possibly null value to the non-nullable type \"%1%\""))
 
         // The null literal is converted to a type that cannot be null.
-        X_D(nullable_null_literal, _T("Cannot convert the null literal to the non-nullable type '%1%'"))
+        X_D(nullable_null_literal, _T("cannot convert the null literal to the non-nullable type \"%1%\""))
 
         // A value that can be null is dereferenced.
-        X_D(nullable_dereference, _T("Dereference of a possibly null reference '%1%'"))
+        X_D(nullable_dereference, _T("dereference of a possibly null reference \"%1%\""))
 
-        // A value that can be null is returned.
-        X_D(nullable_return, _T("Possible null reference return"))
+        // A value that can be null is returned by a method that returns a type that cannot be.
+        X_D(nullable_return, _T("possible null reference return"))
 
-        // A value that can be null is an argument.
-        X_D(nullable_argument, _T("Possible null reference argument for the parameter '%1%' of '%2%'"))
+        // A value that can be null is an argument of a param that cannot be null.
+        X_D(nullable_argument, _T("possible null reference argument for parameter \"%1%\" of \"%2%\""))
 
-        // A field that cannot be null is not initialized.
-        X_D(nullable_field_uninitialized, _T("The non-nullable field '%1%' must contain a non-null ")
-            _T("value when a constructor exits, consider declaring it as nullable"))
+        // A field that cannot be null is not initialized when a constructor exits.
+        X_D(nullable_field_uninitialized,
+            _T("non-nullable field \"%1%\" must contain a non-null value when the ")
+            _T("constructor exits, consider declaring it as nullable"))
 
         // The argument of a generic type can be null, the param cannot be.
-        X_D(nullable_constraint, _T("The type '%1%' that can be null cannot be used as the ")
-            _T("type param '%2%' of '%3%', that cannot be null"))
+        X_D(nullable_constraint,
+            _T("the nullable type \"%1%\" cannot be used as type parameter \"%2%\" of ")
+            _T("\"%3%\", which cannot be null"))
 
-        // Duplicated.
-        X_D(duplicate,  _T("duplicate %1% \"%2%\""))
+        // ---- AP0100 - AP0199: malformed code (names, missing parts, things that are not allowed there).
 
         // Name empty.
-        X_D(name_empty, _T("%1% name missing"))
-
-        // The language has no goto statement.
-        X_D(goto_not_supported, _T("goto statement is not supported"))
-
-        // A constructor cannot call itself.
-        X_D(constructor_calls_itself, _T("the constructor of %1% calls itself"))
-
-        // For each statements go through arrays.
-        X_D(for_each_type_not_supported, _T("foreach is not supported for type %1%"))
-
-        // The variable of a using statement must have Dispose().
-        X_D(using_type_not_disposable, _T("using requires a type with Dispose(): %1%"))
-
-        // Iterators.
-        X_D(iterator_not_supported, _T("the iterator %1% is not supported: %2%"))
-        X_D(iterator_return_type_invalid,
-            _T("%1%: a method that has yield statements returns IEnumerable<T> or IEnumerator<T>"))
-        X_D(yield_outside_iterator,
-            _T("a yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>"))
-
-        // Lambdas.
-        X_D(lambda_outside_method, _T("a lambda is only in a method"))
-        X_D(lambda_type_undetermined,
-            _T("the type of the lambda is not determined, it is converted to no delegate"))
-        X_D(lambda_capture_not_supported,
-            _T("a lambda that uses local variables is not supported %1%"))
-        X_D(lambda_capture_modified,
-            _T("the local variable \"%1%\" is used by a lambda, it cannot be modified"))
-        X_D(lambda_capture_member,
-            _T("a lambda that uses local variables cannot use the members of the object"))
-
-        // Unexpected first char in a name.
-        X_D(name_unexpected_first_char,
-                _T("unexpected first character \"%1%\" in name \"%2%\""))
-
-        // Unexpected char in a name.
-        X_D(name_unexpected_char,
-                _T("unexpected character \"%1%\" in name \"%2%\""))
+        X_D(name_empty, _T("%1% name is missing"))
 
         // Assembly name missing.
-        X_D(assembly_name_missing, _T("package name missing"))
+        X_D(assembly_name_missing, _T("package name is missing"))
 
         // Namespace name missing.
-        X_D(namespace_name_missing, _T("namespace missing"))
+        X_D(namespace_name_missing, _T("namespace name is missing"))
 
         // Type name missing.
-        X_D(type_name_missing,  _T("%1% type name missing"))
+        X_D(type_name_missing, _T("the type of %1% is missing"))
 
         // Argument missing.
-        X_D(argument_missing,   _T("argument missing"))
+        X_D(argument_missing, _T("argument is missing"))
 
         // Condition missing.
-        X_D(condition_missing,  _T("%1% condition missing"))
-
-        // Argument type error.
-        X_D(argument_type_error,    _T("%1% argument type must be variable"))
-
-        // Unexpected param in default value.
-        X_D(unexpected_param_default_value, _T("%1%"))
+        X_D(condition_missing, _T("%1% condition is missing"))
 
         // Body missing.
-        X_D(body_missing,  _T("%1% body missing"))
+        X_D(body_missing, _T("%1% body is missing"))
 
         // Iterator missing.
-        X_D(iterator_missing, _T("%1% iterator missing"))
+        X_D(iterator_missing, _T("%1% requires an expression to iterate"))
 
         // Statement missing.
-        X_D(statement_missing, _T("statement missing"))
+        X_D(statement_missing, _T("statement is missing"))
 
         // Expression missing.
-        X_D(expression_missing, _T("%1% expression missing"))
+        X_D(expression_missing, _T("%1% requires an expression"))
 
         // Catch or finally missing.
-        X_D(catch_or_finally_missing, _T("try and finally blocks are both empty"))
+        X_D(catch_or_finally_missing, _T("\"try\" requires a \"catch\" or a \"finally\" block"))
 
         // Array lengths missing.
-        X_D(array_lengths_missing, _T("array '%1%' length missing"))
+        X_D(array_lengths_missing, _T("length of array \"%1%\" is missing"))
+
+        // Expected array length.
+        X_D(expected_array_length, _T("array length is missing"))
+
+        // Unexpected first char in a name.
+        X_D(name_unexpected_first_char, _T("unexpected first character \"%1%\" in name \"%2%\""))
+
+        // Unexpected char in a name.
+        X_D(name_unexpected_char, _T("unexpected character \"%1%\" in name \"%2%\""))
+
+        // Argument type error.
+        X_D(argument_type_error, _T("%1% argument must be a variable"))
+
+        // Unexpected param default value.
+        X_D(unexpected_param_default_value, _T("%1%"))
 
         // Unexpected params.
-        X_D(unexpected_params, _T("unexpected %1% params"))
+        X_D(unexpected_params, _T("unexpected %1% parameters"))
 
         // Generic arguments redundance in function.
-        X_D(function_generic_args_redundance, _T("function generic arguments redundance"))
+        X_D(function_generic_args_redundance, _T("the generic arguments of the function are redundant"))
 
         // Unexpected variable defination.
         X_D(unexpected_variable_defination, _T("variables cannot be defined here: \"%1%\""))
@@ -330,423 +316,524 @@ namespace X_ROOT_NS::modules::compile {
         // Unexpected property defination.
         X_D(unexpected_property_defination, _T("properties cannot be defined here: \"%1%\""))
 
-        // Unexpected typedef decorate.
-        X_D(unexpected_type_def_decorate,
-                _T("decorates can only be defined on type_def when it is a member of types"))
-
-        // Unexpected typedef decorate.
-        X_D(unexpected_type_def_attribute, _T("attributes cannot be defined on type_def statements"))
-
         // Unexpected method defination.
         X_D(unexpected_method_defination, _T("methods cannot be defined here: \"%1%\""))
 
-        // A constant variable require a value to be provided.
-        X_D(constant_variable_initialize_missing,
-                            _T("A constant variable \"%1%\" require a value to be provided"))
-
-        // The expression beging assigned to constant variable must be constant.
-        X_D(constant_variable_required_constant_value,
-                            _T("The expression beging assigned to \"%1%\" must be constant."))
-
         // Unexpected param defination.
-        X_D(unexpected_param_defination, _T("parameters cannot be define hered: \"%1%\""))
+        X_D(unexpected_param_defination, _T("parameters cannot be defined here: \"%1%\""))
+
+        // Unexpected typedef decorate.
+        X_D(unexpected_type_def_decorate, _T("modifiers on a typedef are only allowed when it is a member of a type"))
+
+        // Unexpected typedef attribute.
+        X_D(unexpected_type_def_attribute, _T("attributes cannot be applied to a typedef statement"))
 
         // Unexpected import.
         X_D(unexpected_import, _T("unexpected import \"%1%\""))
 
-        // A reference of itself.
-        X_D(assembly_reference_itself, _T("assembly \"%1%\" reference to itself"))
-
-        // Assembly circular reference.
-        X_D(assembly_circular_reference, _T("assembly \"%1%\" circle reference"))
-
-        // Assembly not found.
-        X_D(assembly_not_found, _T("assembly \"%1%\" not found"))
-
         // Unexpected using namespace.
         X_D(unexpected_using_namespace, _T("unexpected using namespace \"%1%\""))
 
+        // The language has no goto statement.
+        X_D(goto_not_supported, _T("\"goto\" is not supported"))
+
+        // Array initializer error.
+        X_D(array_initializer_error, _T("invalid array initializer: %1%"))
+
+        // Partial specialization not supported.
+        X_D(partial_specialization_not_supported, _T("partial specialization of a generic type is not supported"))
+
+        // ---- AP2100 - AP2199: members and modifiers.
+
+        // The modifier is not valid for this item.
+        X_D(modifier_not_valid, _T("the modifier \"%1%\" is not valid for this item"))
+
+        // The modifier is not valid for interface members.
+        X_D(modifier_not_valid_for_interface_members, _T("the modifier \"%1%\" is not valid for interface members"))
+
+        // Virtual or abstract members cannot be private
+        X_D(virtual_member_cannot_be_private, _T("\"%1%\": virtual or abstract members cannot be private"))
+
+        // A static member cannot be marked as override, virtual, or abstract
+        X_D(static_member_cannot_be_virtual,
+            _T("static member \"%1%\" cannot be marked as \"override\", \"virtual\" ")
+            _T("or \"abstract\""))
+
+        // A member marked as override cannot be marked as new or virtual
+        X_D(override_member_cannot_be_new,
+            _T("member \"%1%\" marked as \"override\" cannot be marked as \"new\" or ")
+            _T("\"virtual\""))
+
+        // Member is abstract but it is contained in non-abstract type.
+        X_D(abstract_member_on_non_abstract_type,
+            _T("\"%1%\" is abstract but it is contained in the non-abstract type ")
+            _T("\"%2%\""))
+
+        // Extern members should be marked as static.
+        X_D(extern_member_should_be_static, _T("extern member \"%1%\" must be static"))
+
+        // Extern method cannot declare a body.
+        X_D(extern_method_cannot_declare_body, _T("extern method \"%1%\" cannot have a body"))
+
+        // Abstract method cannot declare a body.
+        X_D(abstract_method_cannot_declare_body, _T("\"%1%\": an abstract member cannot have a body"))
+
+        // Cannot be sealed because it is not an override member.
+        X_D(sealed_member_but_not_override, _T("\"%1%\": only an override member can be sealed"))
+
+        // No suitable member found to override.
+        X_D(no_suitable_member_to_override, _T("\"%1%\": no suitable member found to override"))
+
+        // Cannot override inherited member because it is sealed.
+        X_D(cannot_override_sealed_members, _T("\"%1%\": cannot override inherited member \"%2%\" because it is sealed"))
+
+        // Return type changed when override inherit members.
+        X_D(override_member_return_type_changed,
+            _T("\"%1%\": return type must be \"%2%\" to match overridden member ")
+            _T("\"%3%\""))
+
+        // Cannot change access modifiers when overriding inherited member.
+        X_D(access_modifier_changed,
+            _T("\"%1%\": cannot change the access modifier \"%2%\" when overriding ")
+            _T("inherited member \"%3%\""))
+
+        // Cannot change return types when override inherited members.
+        X_D(return_type_changed,
+            _T("\"%1%\": return type must be \"%2%\" to match overridden member ")
+            _T("\"%3%\""))
+
+        // Member is inaccessible to its protection level.
+        X_D(inaccessible_protection_level, _T("\"%1%\" is inaccessible due to its protection level"))
+
+        // ---- AP2200 - AP2299: types, inheritance and interfaces.
+
+        // No base type.
+        X_D(no_base_type, _T("type \"%1%\" has no base type"))
+
+        // Circular base type dependency.
+        X_D(circle_base_type_dependency, _T("circular base type dependency between \"%1%\" and \"%2%\""))
+
+        // A type is declared partial in a place, and is not in another.
+        X_D(partial_modifier_missing,
+            _T("type \"%1%\" is declared partial in another declaration, the ")
+            _T("\"partial\" modifier is missing here"))
+
+        // The partial declarations of a type disagree: kind, access, generic params, base class.
+        X_D(partial_conflict, _T("the partial declarations of type \"%1%\" have conflicting %2%"))
+
+        // A non-abstract type does not implement an inherited abstract member.
+        X_D(abstract_member_not_implemented, _T("\"%1%\" does not implement inherited abstract member \"%2%\""))
+
+        // A non-abstract type does not implement an interface member.
+        X_D(interface_member_not_implemented, _T("\"%1%\" does not implement interface member \"%2%\""))
+
+        // Interfaces cannot contain instance fields.
+        X_D(interfaces_cannot_contain_instance_fields, _T("interfaces cannot contain instance fields"))
+
+        // Interface members cannot have defination.
+        X_D(interface_members_cannot_have_defination, _T("\"%1%\": interface members cannot have a definition"))
+
+        // A static member of an interface that is not abstract must have a body.
+        X_D(interface_static_member_needs_body,
+            _T("\"%1%\": a static member of an interface must have a body unless it ")
+            _T("is abstract"))
+
+        // A static abstract (or virtual) member is used through the interface.
+        X_D(interface_static_member_through_interface,
+            _T("\"%1%\": a static abstract or virtual member of an interface can be ")
+            _T("used only through a generic parameter that has the interface as a ")
+            _T("constraint"))
+
+        // Do not need a default constructor.
+        X_D(do_not_need_default_constructor, _T("struct \"%1%\" cannot define a parameterless constructor"))
+
+        // ---- AP2300 - AP2399: constructors, properties and constants.
+
+        // Constructor method should no return type.
+        X_D(constructor_method_should_no_return_type, _T("constructor \"%1%\" cannot have a return type"))
+
+        // Destructor method should no return type.
+        X_D(destructor_method_should_no_return_type, _T("destructor \"%1%\" cannot have a return type"))
+
+        // Static constructor method should no return type.
+        X_D(static_constructor_method_should_no_return_type, _T("static constructor \"%1%\" cannot have a return type"))
+
+        // Destructor method should no params.
+        X_D(destructor_method_should_no_params, _T("destructor \"%1%\" cannot have parameters"))
+
+        // Static constructor method should no params.
+        X_D(static_constructor_method_should_no_params, _T("static constructor \"%1%\" cannot have parameters"))
+
+        // A constructor cannot call itself.
+        X_D(constructor_calls_itself, _T("constructor of \"%1%\" calls itself"))
+
+        // Property method body uniformity.
+        X_D(property_method_body_missing, _T("property \"%1%\" must declare a body"))
+
+        // Property or indexer must have at least one accessor.
+        X_D(property_accessor_missing, _T("property or indexer \"%1%\" must have at least one accessor"))
+
+        // A constant variable require a value to be provided.
+        X_D(constant_variable_initialize_missing, _T("constant \"%1%\" requires a value"))
+
+        // The expression beging assigned to constant variable must be constant.
+        X_D(constant_variable_required_constant_value, _T("the value assigned to \"%1%\" must be a constant"))
+
+        // Expect constant value.
+        X_D(expect_constant_value, _T("the expression \"%1%\" assigned to \"%2%\" must be a constant"))
+
+        // Invalid initialize value.
+        X_D(invalid_initialize_value, _T("invalid initial value \"%1%\""))
+
+        // The param "this" is not the first param.
+        X_D(this_param_not_first, _T("the modifier \"this\" can only be on the first param"))
+
+        // An extension method is not a static method of a static class.
+        X_D(extension_method_wrong_container,
+            _T("an extension method must be a static method of a static class that is not generic"))
+
+        // ---- AP2400 - AP2499: enums.
+
+        // Unexpected decorate on enum fields.
+        X_D(unexpected_enum_decorate, _T("unexpected modifier \"%1%\" on enum field \"%2%\""))
+
+        // Unexpected type on enum fields.
+        X_D(unexpected_enum_type, _T("unexpected type \"%1%\" on enum field \"%2%\""))
+
+        // Enum field prototype error,
+        X_D(enum_field_prototype_error, _T("enum field \"%1%\" must be static and const"))
+
+        // Unexpected underlying type.
+        X_D(unexpected_underlying_type, _T("the underlying type of an enum must be an integer type"))
+
+        // The enum value is too large
+        X_D(enum_value_too_large, _T("the enum value %1% is too large for underlying type \"%2%\""))
+
+        // The enum value is too small
+        X_D(enum_value_too_small, _T("the enum value %1% is too small for underlying type \"%2%\""))
+
+        // The evaluation of the constant value involves a circular definition.
+        X_D(enum_field_circular_definition,
+            _T("the evaluation of the constant value of \"%1%\" involves a circular ")
+            _T("definition"))
+
+        // An enum has no field except const ones, no event, and no constructor: its value is the integer, and its static
+        // data has no place for them.
+        X_D(enum_instance_member_error,
+            _T("enum \"%1%\" cannot have the field or event \"%2%\", only const fields are allowed"))
+
+        X_D(enum_constructor_error, _T("enum \"%1%\" cannot have a constructor"))
+
+        // ---- AP2500 - AP2599: operator overloading.
+
+        // Operator overload prototype error.
+        X_D(operator_overload_prototype_error, _T("an operator overload must be declared public and static"))
+
+        // Unitary operator overload prototype error: Wrong param count.
+        X_D(unitary_operator_overload_wrong_param_count, _T("overloaded unary operator \"%1%\" takes one parameter"))
+
+        // Binary operator overload prototype error: Wrong param count.
+        X_D(binary_operator_overload_wrong_param_count, _T("overloaded binary operator \"%1%\" takes two parameters"))
+
+        // Operator overload prototype error: One of the parameters must be the containing type.
+        X_D(unitary_operator_overload_wrong_containing_type, _T("the parameter of unary operator \"%1%\" must be the containing type"))
+
+        // Operator overload prototype error: The parameter must be the containing type.
+        X_D(binary_operator_overload_wrong_containing_type,
+            _T("one of the parameters of binary operator \"%1%\" must be the ")
+            _T("containing type"))
+
+        // Operator overload prototype error; User-defined operators cannot return void.
+        X_D(operator_overload_cannot_return_void, _T("user-defined operators cannot return void"))
+
+        // Operator cannot ber overloaded.
+        X_D(operator_cannot_be_overloaded, _T("operator \"%1%\" cannot be overloaded"))
+
+        // A conversion operator must be implicit or explicit.
+        X_D(conversion_kind_missing, _T("a conversion operator must be declared implicit or explicit"))
+
+        // A conversion operator takes one parameter.
+        X_D(conversion_wrong_param_count, _T("a conversion operator takes one parameter"))
+
+        // A conversion operator converts from or to the containing type.
+        X_D(conversion_wrong_containing_type,
+            _T("the parameter or the result of a conversion operator must be the containing type"))
+
+        // ---- AP3100 - AP3199: definitions and duplicates.
+
+        // Duplicated
+        X_D(duplicate, _T("duplicate %1% \"%2%\""))
+
         // Variable defination duplicated.
-        X_D(variable_defination_duplicate, _T("variable \"%1%\" duplicate"))
-
-        // Variable undefined.
-        X_D(variable_undefined, _T("variable \"%1%\" undefined"))
-
-        // Type undefined.
-        X_D(type_undefined, _T("type \"%1%\" undefined"))
-
-        // Typedef unsolved.
-        X_D(type_def_unsolved, _T("typedef \"%1%\" unsolved"))
+        X_D(variable_defination_duplicate, _T("a variable named \"%1%\" is already defined in this scope"))
 
         // Type defination duplicated.
-        X_D(type_defination_duplicate, _T("type \"%1%\" defination duplicate"))
+        X_D(type_defination_duplicate, _T("type \"%1%\" is already defined"))
 
         // Typedef defination duplicated.
-        X_D(type_def_defination_duplicate, _T("typedef \"%1%\" defination duplicate"))
-
-        // Type undetermind.
-        X_D(type_undetermind, _T("type undetermind for \"%1%\""))
-
-        // Unexpected symbol.
-        X_D(unexpected_symbol, _T("unexpected symbol, \"%1%\""))
-
-        // Unexpected expression.
-        X_D(unexpected_expression, _T("unexpected expression, \"%1%\""))
-
-        // Invalid expression.
-        X_D(invalid_expression, _T("invalid expression %1%"))
-
-        // Member not found.
-        X_D(member_not_found, _T("member \"%1%\" undefined in type \"%2%\""))
+        X_D(type_def_defination_duplicate, _T("typedef \"%1%\" is already defined"))
 
         // Member defination duplicated.
-        X_D(member_defination_duplicated,
-                            _T("Type '%1%' already defines a member '%2%' with the same name"))
+        X_D(member_defination_duplicated, _T("type \"%1%\" already defines a member \"%2%\" with the same name"))
 
         // Member names cannot be the same as their enclosing type.
-        X_D(member_same_as_enclosing_type,
-                            _T("Member names cannot be the same as their enclosing type."))
+        X_D(member_same_as_enclosing_type, _T("member names cannot be the same as their enclosing type"))
+
+        // A static field of a generic type has an initial value.
+        X_D(static_init_in_generic_type,
+            _T("the static field \"%1%\" of the generic type \"%2%\" cannot have an initial ")
+            _T("value, assign it in a method"))
+
+        // ---- AP3200 - AP3299: names and lookup.
+
+        // Variable undefined.
+        X_D(variable_undefined, _T("variable \"%1%\" is not defined"))
+
+        // Type undefined.
+        X_D(type_undefined, _T("type \"%1%\" is not defined"))
+
+        // Typedef unsolved.
+        X_D(type_def_unsolved, _T("typedef \"%1%\" cannot be resolved"))
+
+        // Type undetermind.
+        X_D(type_undetermind, _T("cannot determine the type of \"%1%\""))
+
+        // Cannot determine local type.
+        X_D(cannot_determine_local_variable_type, _T("cannot determine the type of local variable \"%1%\""))
+
+        // Property index undetermind.
+        X_D(property_index_undetermind, _T("cannot determine the property index \"%1%\""))
+
+        // Member not found.
+        X_D(member_not_found, _T("member \"%1%\" is not defined in type \"%2%\""))
 
         // Method not found.
-        X_D(method_not_found, _T("method \"%1%\" undefined in type \"%2%\""))
+        X_D(method_not_found, _T("method \"%1%\" is not defined in type \"%2%\""))
 
         // Method not match.
-        X_D(method_not_match, _T("no matching member function for call to \"%1%\" in type \"%2%\""))
+        X_D(method_not_match, _T("no overload of method \"%1%\" in type \"%2%\" matches the call"))
 
         // Attribute constructor not match.
-        X_D(attribute_constructor_not_match, _T("no matching attribute \"%1%\" constructor: (%2%)"))
+        X_D(attribute_constructor_not_match, _T("no constructor of attribute \"%1%\" matches (%2%)"))
+
+        // The field or the property of an attribute is not found.
+        X_D(attribute_named_argument_not_found, _T("attribute \"%1%\" has no field or property \"%2%\" to assign"))
 
         // Type consturctor not matched.
-        X_D(type_constructor_not_match, _T("no matching type \"%1%\" constructor: (%2%)"))
+        X_D(type_constructor_not_match, _T("no constructor of type \"%1%\" matches (%2%)"))
+
+        // Constructor method not found.
+        X_D(constructor_method_not_found, _T("constructor \"%1%(%2%)\" is not found"))
 
         // Method conflict.
-        X_D(method_conflict, _T("method \"%1%\" conflict in type \"%2%\": %3%"))
+        X_D(method_conflict, _T("method \"%1%\" conflicts in type \"%2%\": %3%"))
+
+        // Cannot find method with prototype.
+        X_D(cannot_find_method_with_prototype, _T("cannot find a method with prototype \"%1%\""))
+
+        // Unexpected symbol.
+        X_D(unexpected_symbol, _T("unexpected symbol \"%1%\""))
+
+        // ---- AP3300 - AP3399: assemblies.
+
+        // A reference of itself.
+        X_D(assembly_reference_itself, _T("assembly \"%1%\" references itself"))
+
+        // Assembly circular reference.
+        X_D(assembly_circular_reference, _T("assembly \"%1%\" has a circular reference"))
+
+        // Assembly not found.
+        X_D(assembly_not_found, _T("assembly \"%1%\" is not found"))
+
+        // ---- AP5100 - AP5199: methods and statements.
 
         // Not all code paths return a value.
         X_D(method_no_return, _T("method \"%1%\": not all code paths return a value"))
 
         // The return keyword must not be followed by an expression in void method.
-        X_D(method_unexpected_return_value, _T("method \"%1%\": The return keyword must not ")
-                                            _T("be followed by an expression in void method"))
+        X_D(method_unexpected_return_value,
+            _T("method \"%1%\": \"return\" cannot be followed by an expression in a ")
+            _T("void method"))
 
         // The return keyword must followed by an expression in non-void method.
-        X_D(method_return_value_missing, _T("method \"%1%\": The return keyword must followed ")
-                                         _T("by an expression in non-void method."))
+        X_D(method_return_value_missing,
+            _T("method \"%1%\": \"return\" must be followed by an expression in a ")
+            _T("non-void method"))
 
-        X_D(method_incompatible_return_value, _T("method \"%1%: Incompatible return type."))
+        // Incompatible return type.
+        X_D(method_incompatible_return_value, _T("method \"%1%\": incompatible return type"))
 
-        // Property index undetermind.
-        X_D(property_index_undetermind, _T("property index \"%1%\" undetermind"))
+        // The type of the expression of a for each statement is not supported.
+        X_D(for_each_type_not_supported, _T("\"foreach\" is not supported for type \"%1%\""))
 
-        // Property method body missing.
-        X_D(property_method_body_missing, _T("property \"%1%\" must declared a body"))
+        // The type of the variable of a using statement has no Dispose().
+        X_D(using_type_not_disposable, _T("\"using\" requires a type with Dispose(): \"%1%\""))
 
-        // Property or indexer must have at least one accessor.
-        X_D(property_accessor_missing, _T("property or indexer \"%1%\" must have at least ")
-                                       _T("one accessor."))
+        // ---- AP5200 - AP5299: lambdas and iterators.
 
-        // Constructor method should no return type.
-        X_D(constructor_method_should_no_return_type,
-                                _T("constructor method %1% should no return type"))
+        // A lambda is only in a method.
+        X_D(lambda_outside_method, _T("a lambda can only be used in a method"))
 
-        // Destructor method should no return type.
-        X_D(destructor_method_should_no_return_type,
-                                _T("destructor method %1% should no return type"))
+        // The return type of a lambda is that of the delegate it is converted to.
+        X_D(lambda_type_undetermined,
+            _T("the type of the lambda cannot be determined, it is not converted to a ")
+            _T("delegate"))
 
-        // Static constructor method should no return type.
-        X_D(static_constructor_method_should_no_return_type,
-                                _T("static constructor method %1% should no return type"))
+        // A lambda that uses local variables is not supported here.
+        X_D(lambda_capture_not_supported, _T("a lambda that uses local variables is not supported: %1%"))
 
-        // Destructor method should no params.
-        X_D(destructor_method_should_no_params,
-                                _T("destructor method %1% should no params"))
+        // A local variable that a lambda uses is modified.
+        X_D(lambda_capture_modified, _T("local variable \"%1%\" is used by a lambda and cannot be modified"))
 
-        // Static constructor method should no params.
-        X_D(static_constructor_method_should_no_params,
-                                _T("static constructor method %1% should no params"))
+        // A lambda that uses local variables uses a member of the object.
+        X_D(lambda_capture_member,
+            _T("a lambda that uses local variables cannot use the members of the ")
+            _T("object"))
 
-        // Constructor method not found.
-        X_D(constructor_method_not_found, _T("constructor method %1%(%2%) not found"))
+        // The iterator cannot be made.
+        X_D(iterator_not_supported, _T("iterator \"%1%\" is not supported: %2%"))
 
-        // Costom struct type should not define a default constructor.
-        X_D(do_not_need_default_constructor,
-                        _T("custom struct type %1% should not define a default constructor"))
+        // A method with yield returns IEnumerable<T> or IEnumerator<T>.
+        X_D(iterator_return_type_invalid,
+            _T("\"%1%\": a method that has yield statements must return ")
+            _T("IEnumerable<T> or IEnumerator<T>"))
 
-        // Partial specialization not supported.
-        X_D(partial_specialization_not_supported,
-                                _T("partial specialization of generic type not supported"))
+        // A yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>.
+        X_D(yield_outside_iterator,
+            _T("\"yield\" can only be used in a method that returns IEnumerable<T> or ")
+            _T("IEnumerator<T>"))
 
-        // No base type.
-        X_D(no_base_type, _T("type '%1%' has no base type"))
+        // ---- AP5300 - AP5399: expressions.
 
-        // Circular base type dependency.
-        X_D(circle_base_type_dependency,
-                                _T("Circular base type dependency involving '%1% and '%2%'"))
+        // Unexpected expression.
+        X_D(unexpected_expression, _T("unexpected expression \"%1%\""))
 
-        // Expected array length.
-        X_D(expected_array_length, _T("expected array length"))
+        // Invalid expression.
+        X_D(invalid_expression, _T("invalid expression \"%1%\""))
 
-        // Array initializer error.
-        X_D(array_initializer_error, _T("array initializer error: %1%"))
+        // Cannot implicitly convert a type to another type.
+        X_D(invalid_type_cast, _T("cannot implicitly convert type \"%1%\" to \"%2%\""))
 
-        // Invalid initialize value.
-        X_D(invalid_initialize_value, _T("Invalid initialize value \"%1%\""))
-
-        // Operator overload prototype error.
-        X_D(operator_overload_prototype_error, _T("Must be declared public and static"))
-
-        // Operator overload prototype error: wrong param count.
-        X_D(unitary_operator_overload_wrong_param_count,
-                _T("Overloaded unitary operator '%1%' takes one parameter"))
-
-        X_D(binary_operator_overload_wrong_param_count,
-                _T("Overloaded binary operator '%1%' takes two parameters"))
-
-        // One of the parameters must be the containing type.
-        X_D(unitary_operator_overload_wrong_containing_type,
-                _T("The parameter of unitary operator '%1%' overloaded must be the ")
-                _T("containing type"))
-
-        // The parameter must be the containing type.
-        X_D(binary_operator_overload_wrong_containing_type,
-                _T("One of the parameters of binary operator '%1%' overloaded must be the ")
-                _T("containing type"))
-
-        // User-defined operators cannot return void.
-        X_D(operator_overload_cannot_return_void, _T("User-defined operators cannot return void"))
-
-        // Operator cannot ber overloaded.
-        X_D(operator_cannot_be_overloaded, _T("Operator '%1%' cannot be overloaded"))
+        // The type arguments for method cannot be inferred from the usage. Try specifying the type arguments explicitly.
+        X_D(type_arguments_cannot_be_inferred,
+            _T("the type arguments of method \"%1%\" in type \"%2%\" cannot be ")
+            _T("inferred from the usage, specify them explicitly"))
 
         // Operator overload not defined.
-        X_D(operator_overload_not_defined, _T("Operator '%1%' not defined for %2%"))
+        X_D(operator_overload_not_defined, _T("operator \"%1%\" is not defined for %2%"))
 
-        // The operator is ambiguous.
-        X_D(operator_overload_ambiguous, _T("Operator '%1%' is ambiguous for %2%"))
+        // The operator is ambiguous: more than one method fits the operands.
+        X_D(operator_overload_ambiguous, _T("operator \"%1%\" is ambiguous for %2%"))
 
         // The value is assigned to a member of ?. .
-        X_D(null_conditional_assign, _T("The left-hand side of an assignment cannot contain a null-conditional operator"))
+        X_D(null_conditional_assign,
+            _T("the left-hand side of an assignment cannot contain a null-conditional ")
+            _T("operator"))
 
         // The operator ?. is used with the object of a type that cannot be null.
         X_D(null_conditional_wrong_type,
-            _T("Operator '?.' cannot be applied to an operand of type '%1%', that cannot be null"))
+            _T("operator \"?.\" cannot be applied to an operand of type \"%1%\", ")
+            _T("which cannot be null"))
 
-        // Cannot determine local type.
-        X_D(cannot_determine_local_variable_type,
-                                            _T("Cannot determine type of local variable '%1%'"))
+        // A constant operation overflows in checked mode.
+        X_D(constant_overflow, _T("the operation overflows at compile time in checked mode"))
 
-        // Cannot find method with prototype.
-        X_D(cannot_find_method_with_prototype,
-                        _T("Cannot find method with prototype %1%"))
+        // A constant conversion overflows in checked mode.
+        X_D(conversion_overflow, _T("the conversion overflows at compile time in checked mode"))
 
-        // Unexpected decorate on enum fields.
-        X_D(unexpected_enum_decorate, _T("Unexpected keyword '%1%' on enum field %2%"))
+        // An array is indexed by a number of indices that is not one, or its dimension.
+        X_D(array_index_count_mismatch,
+            _T("the array \"%1%\" cannot be indexed by %2% indices, expected %3%"))
 
-        // Unexpected type on enum fields.
-        X_D(unexpected_enum_type, _T("Unexpected type '%1%' on enum field %2%"))
+        // Only the items of a params generic parameter, or a tuple of them, can be passed with ... .
+        X_D(items_expected,
+            _T("only the items of a params generic parameter, or a tuple of them, can be passed ")
+            _T("with \"...\""))
 
-        // Enum field prototype error.
-        X_D(enum_field_prototype_error, _T("Enum field '%1%' should be static and const"))
+        // The items of a params generic parameter are passed with ... .
+        X_D(items_without_dots,
+            _T("the items of a params generic parameter \"%1%\" are many arguments, they are ")
+            _T("passed with ...: \"%1% ...\""))
 
-        // Expect constant value.
-        X_D(expect_constant_value,
-                            _T("The expression '%1%' assigned to %2% must be constant"))
+        // An object initializer of a type that is not a class.
+        X_D(object_initializer_not_supported,
+            _T("the members of an object of the type \"%1%\" cannot be set by an object initializer, ")
+            _T("only the objects of a class can"))
 
-        // Type int or unsigned int type expected.
-        X_D(unexpected_underlying_type,
-                _T("Type int or unsigned int type expected, (include short or long types)"))
+        // An init only property is set where it cannot be.
+        X_D(init_only_property_assigned,
+            _T("the property \"%1%\" has an init accessor: it is set only in an object initializer, ")
+            _T("in a constructor of its type, or by its own accessor"))
 
-        // The enum value is too large
-        X_D(enum_value_too_large,
-                _T("The enum value %1% is too large for underlying type %2%"))
+        // ---- AP6100 - AP6199: generics and constraints.
 
-        // The enum value is too small
-        X_D(enum_value_too_small,
-                _T("The enum value %1% is too small for underlying type %2%"))
+        // Class1<T>' does not define type parameter 'K'
+        X_D(generic_parameter_not_defined, _T("\"%1%\" does not define type parameter \"%2%\""))
 
-        // The evaluation of the constant value involves a circular definition.
-        X_D(enum_field_circular_definition,
-                _T("The evaluation of the constant value for '%1%' involves a circular definition"))
-
-        // Member is inaccessible to its protection level.
-        X_D(inaccessible_protection_level,
-                _T("%1% is inaccessible to its protection level"))
-
-        // Cannot change access modifiers when overriding inherited member.
-        X_D(access_modifier_changed,
-                _T("%1%: cannot change access modifiers when overriding '%2%' inherited ")
-                _T("member '%2%'"))
-
-        // Cannot change return types when override inherited members.
-        X_D(return_type_changed,
-                _T("%1%: return type must be '%2%' to match overridden member '%3%'"))
-
-        // Virtual or abstract members cannot be private.
-        X_D(virtual_member_cannot_be_private,
-                _T("%1%: virtual or abstract members cannot be private"))
-
-        // A static member cannot be marked as override, virtual, or abstract.
-        X_D(static_member_cannot_be_virtual,
-                _T("A static member '%1%' cannot be marked as override, virtual, or abstract"))
-
-        // A member marked as override cannot be marked as new or virtual
-        X_D(override_member_cannot_be_new,
-                _T("A member '%1%' marked as override cannot be marked as new or virtual"))
-
-        // member is abstract but it is contained in non-abstract type.
-        X_D(abstract_member_on_non_abstract_type,
-                _T("'%1%' is abstract but it is contained in non-abstract type '%2%'"))
-
-        // The modifier is not valid for this item.
-        X_D(modifier_not_valid,
-                _T("The modifier '%1%' is not valid for this item"))
-
-        // The modifier is not valid for interface members.
-        X_D(modifier_not_valid_for_interface_members,
-                _T("The modifier '%1%' is not valid for interface members"))
-
-        // Extern members should be marked as static.
-        X_D(extern_member_should_be_static,
-                _T("Extern member '%1%' should be marked as static"))
-
-        // Extern method cannot declare a body.
-        X_D(extern_method_cannot_declare_body,
-                _T("Extern method '%1%' cannot declare a body"))
-
-        // Abstract method cannot declare a body.
-        X_D(abstract_method_cannot_declare_body,
-                _T("'%1%': cannot declare a body because it's marked as abstract"))
-
-        // Cannot be sealed because it is not an override member.
-        X_D(sealed_member_but_not_override,
-                _T("'%1%': cannot be sealed because it is not an override member."))
-
-        // No suitable member found to override       
-        X_D(no_suitable_member_to_override,
-                _T("'%1%': no suitable member found to override"))
-
-        // cannot override inherited member because it is sealed.
-        X_D(cannot_override_sealed_members,
-                _T("'%1%': cannot override inherited member '%2%' because it is sealed"))
-
-        // Return type changed when override inherit members.
-        X_D(override_member_return_type_changed,
-                _T("'%1%': return type must be '%2%' to match overridden member '%3%'"))
-
-        // Interface method cannot declare a body.
-        X_D(interface_members_cannot_have_defination,
-                _T("'%1%': interface members cannot have a defination"))
-
-        // A non-abstract type does not implement an inherited abstract member.
-        X_D(abstract_member_not_implemented,
-                _T("'%1%' does not implement inherited abstract member '%2%'"))
-
-        // A non-abstract type does not implement an interface member.
-        X_D(interface_member_not_implemented,
-                _T("'%1%' does not implement interface member '%2%'"))
-
-        // A static member of an interface that is not abstract has a body.
-        X_D(interface_static_member_needs_body,
-                _T("'%1%': a static member of an interface that is not abstract must have a body"))
-
-        // A static abstract (or virtual) member of an interface is called through a generic param.
-        X_D(interface_static_member_through_interface,
-                _T("'%1%': a static abstract or virtual member of an interface can be used only through "
-                   "a generic parameter that has the interface as a constraint"))
-
-        // Interfaces cannot contain instance fields.
-        X_D(interfaces_cannot_contain_instance_fields,
-                _T("interfaces cannot contain instance fields"))
-
-        // Cannot implicitly convert a type to another type.
-        X_D(invalid_type_cast, _T("Cannot implicitly convert type '%1%' to '%2%'"))
-
-        // The type arguments for method cannot be inferred from the usage.
-        // Try specifying the type arguments explicitly.
-        X_D(type_arguments_cannot_be_inferred,
-            _T("The type arguments for method '%1%' in type '%2%' ")
-            _T("cannot be inferred from the usage. ")
-            _T("Try specifying the type arguments explicitly"))
-
-        // The type 'string' cannot be used as type parameter 'T' in the
-        //  generic type or method 'Class1<T>'. There is no implicit reference conversion
-        //  from 'string' to 'Project1.Class2'.
+        // The type 'string' cannot be used as type parameter 'T' in the generic type or method 'Class1<T>'. There is no implicit reference conversion from 'string' to 'Project1.Class2'.
         X_D(constraint_no_implicit_conversion,
-            _T("The type '%1%' cannot be used as type parameter '%2%' in the")
-            _T(" generic type or method '%3%'. There is no implicit reference conversion")
-            _T(" from '%1%' to '%4%'"))
-            
-        // The type 'string' must be a non-nullable value type
-        //  in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+            _T("type \"%1%\" cannot be used as type parameter \"%2%\" in \"%3%\": ")
+            _T("there is no implicit reference conversion from \"%1%\" to \"%4%\""))
+
+        // The type 'string' must be a non-nullable value type in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
         X_D(constraint_expect_value_type,
-            _T("The type '%1%' must be a non-nullable value type")
-            _T(" in order to use it as parameter '%2%' in the generic type or method '%3%'"))
+            _T("type \"%1%\" must be a non-nullable value type to be used as ")
+            _T("parameter \"%2%\" in \"%3%\""))
 
-        // The type 'int' must be a reference type in order to
-        //  use it as parameter 'T' in the generic type or method 'Class1<T>'
+        // The type 'int' must be a reference type in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
         X_D(constraint_expect_reference_type,
-            _T("The type '%1%' must be a reference type in order to")
-            _T(" use it as parameter '%2%' in the generic type or method '%3%'"))
+            _T("type \"%1%\" must be a reference type to be used as parameter \"%2%\" ")
+            _T("in \"%3%\""))
 
-        // 'long' is not a valid constraint. A type used as a constraint
-        //  must be an interface, a non-sealed class or a type parameter
+        // 'long' is not a valid constraint. A type used as a constraint must be an interface, a non-sealed class or a type parameter
         X_D(constraint_invalid_type,
-            _T("'%1%' is not a valid constraint. A type used as a constraint")
-            _T(" must be an interface, a non-sealed class or a type parameter"))
+            _T("\"%1%\" is not a valid constraint: a constraint type must be an ")
+            _T("interface, a non-sealed class or a type parameter"))
 
-        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints
-        //  cannot be combined or duplicated.
+        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints cannot be combined or duplicated.
         X_D(constraint_combined_or_duplicated,
-            _T("The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints")
-            _T("cannot be combined or duplicated"))
+            _T("the \"class\", \"struct\", \"unmanaged\", \"notnull\" and \"default\" ")
+            _T("constraints cannot be combined or duplicated"))
 
-        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints
-        //  must be specified first in the constraints list.
+        // The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints must be specified first in the constraints list.
         X_D(constraint_must_be_first,
-            _T("The 'class', 'struct', 'unmanaged', 'notnull', and 'default' constraints")
-            _T(" must be specified first in the constraints list."))
+            _T("the \"class\", \"struct\", \"unmanaged\", \"notnull\" and \"default\" ")
+            _T("constraints must be specified first in the constraints list"))
 
         // The 'new()' constraint cannot be used with the 'struct' constraint
-        X_D(constraint_new_cannot_be_used_with_struct,
-            _T("The 'new()' constraint cannot be used with the 'struct' constraint"))
+        X_D(constraint_new_cannot_be_used_with_struct, _T("the \"new()\" constraint cannot be used with the \"struct\" constraint"))
 
-        // 'Class2' must be a non-abstract type with a public parameterless constructor
-        //  in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+        // 'Class2' must be a non-abstract type with a public parameterless constructor in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
         X_D(constraint_expect_public_parameterless_constructor,
-            _T("'%1%' must be a non-abstract type with a public parameterless constructor")
-            _T(" in order to use it as parameter '%2%' in the generic type or method '%3%'"))
+            _T("\"%1%\" must be a non-abstract type with a public parameterless ")
+            _T("constructor to be used as parameter \"%2%\" in \"%3%\""))
 
         // Duplicate constraint 'Class2' for type parameter 'T'
-        X_D(constraint_duplicate_types,
-            _T("Duplicate constraint '%1%' for type parameter '%2%'"))
+        X_D(constraint_duplicate_types, _T("duplicate constraint \"%1%\" for type parameter \"%2%\""))
 
         // Constraint cannot be special class 'object'
-        X_D(constraint_cannot_be_special_type,
-            _T("Constraint cannot be special class '%1%'"))
+        X_D(constraint_cannot_be_special_type, _T("constraint cannot be the special class \"%1%\""))
 
-        // A constraint clause has already been specified for type parameter 'T'.
-        // All of the constraints for a type parameter must be specified in a single where clause.
+        // A constraint clause has already been specified for type parameter 'T'. All of the constraints for a type parameter must be specified in a single where clause.
         X_D(constraint_duplicate_specified,
-            _T("A constraint clause has already been specified for type parameter '%1%'.")
-            _T(" All of the constraints for a type parameter must be specified in a single")
-            _T(" where clause"))
+            _T("a constraint clause is already specified for type parameter \"%1%\": ")
+            _T("all constraints of a type parameter must be in one \"where\" clause"))
 
         // The class type constraint 'Class3' must come before any other constraints
-        X_D(constraint_type_position_error,
-            _T("The class type constraint '%1%' must come before any other constraints"))
+        X_D(constraint_type_position_error, _T("the class constraint \"%1%\" must come before any other constraints"))
 
         // Circular constraint dependency involving 'T' and 'K'
-        X_D(constraint_circular_dependency,
-            _T("Circular constraint dependency involving '%1%'"))
+        X_D(constraint_circular_dependency, _T("circular constraint dependency involving \"%1%\""))
+
+        // The type 'string' must be a type that has no references in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
+        X_D(constraint_expect_unmanaged_type,
+            _T("type \"%1%\" must be an unmanaged type (a number, bool, char, pointer, enum, or a struct ")
+            _T("that has only them) to be used as parameter \"%2%\" in \"%3%\""))
 
         // 'Class3': cannot specify both a constraint class and the 'class' or 'struct' constraint
         X_D(constraint_unexpected_class_or_struct,
-            _T("'%1%': cannot specify both a constraint class")
-            _T(" and the 'class' or 'struct' constraint"))
-
-        // Class1<T>' does not define type parameter 'K'
-        X_D(generic_parameter_not_defined,
-            _T("%1%' does not define type parameter '%2%'"))
+            _T("\"%1%\": cannot specify both a constraint class and the \"class\" or ")
+            _T("\"struct\" constraint"))
 
     X_ENUM_INFO_END
 
@@ -1092,7 +1179,25 @@ namespace X_ROOT_NS::modules::compile {
                 }
                 else
                 {
+                    // A member that is a member of an interface of the type too is a way to
+                    // replace a member that is not virtual (ToString of IStringable and the
+                    // ToString of Object): it hides it as it is meant to.
+                    bool implements = false;
                     if (!member->is_new())
+                    {
+                        type->each_super_type([&](type_t * super_type) {
+                            if (super_type->this_ttype() == ttype_t::interface_
+                                    && super_type->check_duplicate(member, true) != nullptr)
+                            {
+                                implements = true;
+                                return false;
+                            }
+
+                            return true;
+                        });
+                    }
+
+                    if (!member->is_new() && !implements)
                     {
                         // Missing new keyword.
                         this->__log(ce, c_t::hides_inherit_member,
@@ -1516,7 +1621,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             generic_constraints_t * constraints = __entity->template_->constraints;
             if (constraints == nullptr)
-                return true;
+                return __check_core_constraints();
 
             __param_types.fill_by_generic(__entity);
 
@@ -1543,6 +1648,31 @@ namespace X_ROOT_NS::modules::compile {
                 this->__log(__c_t::_code, ##_args);                                     \
                 return false;                                                           \
             } while (false)
+
+        // The constraints of the types of the core are not kept by the assemblies: the argument of Ptr<T>
+        // is an unmanaged type.
+        bool __check_core_constraints()
+        {
+            if constexpr (std::is_same<_entity_t, generic_type_t>::value)
+            {
+                if (__entity->template_ != __XPool.get_tptr_type())
+                    return true;
+
+                bool ret = true;
+                for (type_t * arg : __entity->args)
+                {
+                    if (arg != nullptr && !__is_unmanaged(arg))
+                    {
+                        this->__log(__c_t::constraint_expect_unmanaged_type, arg, _T("T"), __entity);
+                        ret = false;
+                    }
+                }
+
+                return ret;
+            }
+
+            return true;
+        }
 
         bool __check(generic_constraint_t * constraint)
         {
@@ -1577,9 +1707,26 @@ namespace X_ROOT_NS::modules::compile {
                     !__has_public_default_constructor(type))
                     __LogAndRet(constraint_expect_public_parameterless_constructor, type, name,
                                                                                 __entity);
+
+                if (bit_has_flag(constraint->cttype, __f_t::unmanaged_) && !__is_unmanaged(type))
+                    __LogAndRet(constraint_expect_unmanaged_type, type, name, __entity);
             }
 
             return true;
+        }
+
+        // Returns whether it's an unmanaged type: a generic param is, when it has the constraint.
+        bool __is_unmanaged(type_t * type)
+        {
+            if (is_generic_param(type))
+            {
+                generic_param_t * gp = (generic_param_t *)type;
+                generic_constraint_t * constraint = __search_constraint(gp->name);
+
+                return constraint != nullptr && bit_has_flag(constraint->cttype, __f_t::unmanaged_);
+            }
+
+            return is_unmanaged(type);
         }
 
         bool __is_type_compatible(type_t * from_type, type_t * to_type)
@@ -2055,8 +2202,15 @@ namespace X_ROOT_NS::modules::compile {
         typedef param_type_t t;
         if (this->atype == t::ref || this->atype == t::out)
         {
+            // A variable, a field of an object (o.f), an element (a[i]).
+            bool is_member = this->expression != nullptr
+                && this->expression->this_family() == expression_family_t::binary
+                && ((binary_expression_t *)this->expression)->op() == operator_t::member_point;
+
             if (this->expression != nullptr
-                    && this->expression->this_family() != expression_family_t::name)
+                    && this->expression->this_family() != expression_family_t::name
+                    && this->expression->this_family() != expression_family_t::index
+                    && !is_member)
             {
                 this->__log(this, __c_t::argument_type_error, _title(this->atype));
             }
@@ -2117,7 +2271,8 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case cvalue_type_t::string:
-                set_value(cvalue_t((const char_t *)data.value));
+                set_value(cvalue_t((const char_t *)data.value, data.string_length != (size_t)-1?
+                                data.string_length : al::strlen((const char_t *)data.value)));
                 break;
 
             case cvalue_type_t::null:
@@ -2225,6 +2380,12 @@ namespace X_ROOT_NS::modules::compile {
     void decorate_ast_node_t::set_extern(__el_t * el)
     {
         this->__assign(__BitField(this, is_extern), true, el, _T("extern"), true);
+    }
+
+    // Sets partial.
+    void decorate_ast_node_t::set_partial(__el_t * el)
+    {
+        this->__assign(__BitField(this, is_partial), true, el, _T("partial"), true);
     }
 
     // Get decorate value.
@@ -2445,7 +2606,9 @@ namespace X_ROOT_NS::modules::compile {
                     type_t * type = exp->get_type();
 
                     if (type == nullptr)
-                        this->__log(this, __c_t::invalid_expression, exp);
+                        // It follows the error that was told when the expression was analyzed.
+                        if (this->__context.compile_context.error_count() == 0)
+                            this->__log(this, __c_t::invalid_expression, exp);
                 }
 
                 return true;
@@ -2691,6 +2854,8 @@ namespace X_ROOT_NS::modules::compile {
                     this->__log(node, __c_t::constructor_calls_itself, type);
                 else
                 {
+                    convert_arguments(args, ctor);
+
                     __statements_t statements;
                     statements.push_back(__new_expression_statement<function_expression_t>(
                         ctor, args
@@ -2777,6 +2942,8 @@ namespace X_ROOT_NS::modules::compile {
             method_t * ctor = find_constructor(this->__context, base_type, args);
             if (ctor == nullptr)
                 this->__log(node, __c_t::constructor_method_not_found, base_type, args);
+            else
+                convert_arguments(args, ctor);
 
             return ctor;
         }
@@ -2820,9 +2987,11 @@ namespace X_ROOT_NS::modules::compile {
             if (exp == nullptr)
                 return false;
 
+            // A value that is not a constant (new Int32[] { 1, 2 }, new Box(), F()) is made by the
+            // constructor, as the constants are.
             cvalue_t cv = this->__execute_expression(exp);
             if (is_nan(cv))
-                throw _ED(__c_t::invalid_initialize_value, exp);
+                return true;
 
             cvalue_t def_cv = default_value_of(type->this_vtype());
             return cv != def_cv;
@@ -2930,7 +3099,19 @@ namespace X_ROOT_NS::modules::compile {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_: {
-                context.push(this->to_eobject());
+                // The parts of a partial type are walked as the first part, with its region.
+                type_ast_node_t * first = __merged_first != nullptr? __merged_first : this;
+
+                if (first->__type_region == nullptr)
+                {
+                    context.push(first->to_eobject());
+                    first->__type_region = context.current_region();
+                }
+                else
+                {
+                    context.push(first->to_eobject(), first->__type_region);
+                }
+
                 bool r = __walk_default(context, step, tag);
                 context.pop();
                 return r;
@@ -2943,11 +3124,376 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    ////////// ////////// ////////// ////////// //////////
+    // partial types
+
+    namespace {
+
+        typedef std::map<string_t, type_ast_node_t *> __partial_firsts_t;
+
+        // Returns whether the type is declared partial.
+        bool __is_partial(type_ast_node_t * type)
+        {
+            return type->decorate != nullptr && type->decorate->is_partial;
+        }
+
+        // Returns the access of a type, or default.
+        access_value_t __access_of(type_ast_node_t * type)
+        {
+            return type->decorate == nullptr? access_value_t::__default__ : type->decorate->access;
+        }
+
+        // Returns the key of a type: the namespace or the host type, the name and the generic
+        // params count.
+        string_t __partial_key(const string_t & scope, type_ast_node_t * type)
+        {
+            size_t count = type->params == nullptr? 0 : type->params->size();
+            return _F(_T("%1%/%2%`%3%"), scope, _str(type->name), count);
+        }
+
+        // Collects the type nodes: the namespaces make the scope of the types.
+        void __collect_types(ast_node_t * node, const string_t & scope,
+                                                    std::vector<std::pair<string_t, type_ast_node_t *>> & types)
+        {
+            if (node == nullptr)
+                return;
+
+            if (type_ast_node_t * type = dynamic_cast<type_ast_node_t *>(node))
+            {
+                types.push_back(std::make_pair(scope, type));
+                return;
+            }
+
+            string_t child_scope = scope;
+            if (namespace_ast_node_t * ns = dynamic_cast<namespace_ast_node_t *>(node))
+            {
+                if (ns->name != nullptr)
+                    child_scope = scope.empty()? _str(ns->name) : scope + _T(".") + _str(ns->name);
+            }
+
+            for (size_t k = 0, count = node->child_count(); k < count; k++)
+                __collect_types(node->child_at(k), child_scope, types);
+        }
+
+        // Appends the items that are not in the list.
+        template<typename list_t, typename items_t>
+        void __append_new_type_names(list_t & list, items_t & items)
+        {
+            for (type_name_t * item : items)
+            {
+                bool found = false;
+                for (type_name_t * exist : list)
+                    found = found || _str(exist) == _str(item);
+
+                if (!found)
+                    list.push_back(item);
+            }
+        }
+
+        // Merges the part into the first one.
+        void __merge_part(type_ast_node_t * first, type_ast_node_t * part, logger_t & logger)
+        {
+            typedef common_log_code_t __c_t;
+
+            if (first->ttype != part->ttype)
+                ast_log(logger, part, __c_t::partial_conflict, _str(first->name), _T("kinds"));
+
+            access_value_t a1 = __access_of(first), a2 = __access_of(part);
+            if (a1 != access_value_t::__default__ && a2 != access_value_t::__default__ && a1 != a2)
+                ast_log(logger, part, __c_t::partial_conflict, _str(first->name), _T("accessibility"));
+
+            // abstract, sealed and static of a part are those of the type.
+            if (part->decorate != nullptr)
+            {
+                if (a1 == access_value_t::__default__)
+                    first->decorate->access = a2;
+
+                first->decorate->is_abstract = first->decorate->is_abstract || part->decorate->is_abstract;
+                first->decorate->is_sealed   = first->decorate->is_sealed   || part->decorate->is_sealed;
+                first->decorate->is_static   = first->decorate->is_static   || part->decorate->is_static;
+            }
+
+            // The generic params have the same names.
+            size_t n1 = first->params == nullptr? 0 : first->params->size();
+            for (size_t k = 0; k < n1; k++)
+            {
+                if ((*first->params)[k]->name != (*part->params)[k]->name)
+                {
+                    ast_log(logger, part, __c_t::partial_conflict, _str(first->name),
+                                                                   _T("type parameter names"));
+                    break;
+                }
+            }
+
+            // The constraints of a part are those of the type.
+            if (part->constraints != nullptr)
+            {
+                for (generic_constraint_t * constraint : *part->constraints)
+                {
+                    for (size_t k = 0; k < n1; k++)
+                    {
+                        generic_param_t * param = (*first->params)[k];
+                        if (param->name == constraint->param_name)
+                            param->constraints.push_back(constraint);
+                    }
+
+                    if (first->constraints != nullptr)
+                        first->constraints->push_back(constraint);
+                }
+            }
+
+            // The attributes.
+            if (part->attributes != nullptr)
+            {
+                if (first->attributes == nullptr)
+                {
+                    first->attributes = part->attributes;
+                    first->attributes->set_owner((general_type_t *)first);
+                }
+                else
+                {
+                    for (attribute_t * attribute : *part->attributes)
+                    {
+                        attribute->set_owner((general_type_t *)first);
+                        first->attributes->push_back(attribute);
+                    }
+                }
+            }
+
+            __append_new_type_names(first->super_type_names, part->super_type_names);
+
+            // The members: the owner of a member is set when it is appended.
+            for (method_t * m : part->methods)          first->methods.push_back(m);
+            for (property_t * m : part->properties)     first->properties.push_back(m);
+            for (field_t * m : part->fields)            first->fields.push_back(m);
+            for (event_t * m : part->events)            first->events.push_back(m);
+            for (type_t * m : part->nest_types)         first->nest_types.push_back(m);
+            for (type_def_t * m : part->type_defs)      first->type_defs.push_back(m);
+
+            part->methods.clear();
+            part->properties.clear();
+            part->fields.clear();
+            part->events.clear();
+            part->nest_types.clear();
+            part->type_defs.clear();
+
+            part->set_merged_into(first);
+            first->set_parts_count(first->parts_count() + 1);
+        }
+
+        // The partial methods of a type: a declaration (no body) that has an implementation in
+        // another part is dropped, the others without an implementation do nothing.
+        void __merge_partial_methods(type_ast_node_t * type)
+        {
+            std::map<string_t, std::vector<method_ast_node_t *>> groups;
+
+            for (method_t * method : type->methods)
+            {
+                method_ast_node_t * node = dynamic_cast<method_ast_node_t *>(method);
+                if (node == nullptr || node->decorate == nullptr || !node->decorate->is_partial)
+                    continue;
+
+                string_t key = _str(node->name);
+                if (node->params != nullptr)
+                {
+                    for (param_t * param : *node->params)
+                        key += _T("|") + _str(param->type_name);
+                }
+
+                groups[key].push_back(node);
+            }
+
+            std::set<method_t *> dropped;
+
+            for (auto & it : groups)
+            {
+                method_ast_node_t * declaration = nullptr, * implementation = nullptr;
+
+                for (method_ast_node_t * node : it.second)
+                {
+                    if (node->body == nullptr)
+                        declaration = node;
+                    else
+                        implementation = node;
+                }
+
+                if (declaration == nullptr)
+                    continue;
+
+                if (implementation != nullptr)
+                {
+                    declaration->set_partial_skipped();
+                    dropped.insert(declaration);
+                }
+                else
+                {
+                    declaration->set_partial_empty();
+                }
+            }
+
+            for (auto & it : groups)
+            {
+                for (method_ast_node_t * node : it.second)
+                    node->decorate->is_partial = false;
+            }
+
+            if (dropped.empty())
+                return;
+
+            std::vector<method_t *> kept;
+            for (method_t * method : type->methods)
+            {
+                if (dropped.find(method) == dropped.end())
+                    kept.push_back(method);
+            }
+
+            type->methods.clear();
+            for (method_t * method : kept)
+                type->methods.push_back(method);
+        }
+
+        // Merges the parts of the types that are in the same scope.
+        void __merge_scope(std::vector<std::pair<string_t, type_ast_node_t *>> & types,
+                                                                        logger_t & logger)
+        {
+            typedef common_log_code_t __c_t;
+
+            std::map<string_t, std::vector<type_ast_node_t *>> groups;
+            std::vector<string_t> order;
+
+            for (auto & it : types)
+            {
+                string_t key = __partial_key(it.first, it.second);
+                if (groups.find(key) == groups.end())
+                    order.push_back(key);
+
+                groups[key].push_back(it.second);
+            }
+
+            for (const string_t & key : order)
+            {
+                std::vector<type_ast_node_t *> & parts = groups[key];
+
+                bool any = false, all = true;
+                for (type_ast_node_t * part : parts)
+                {
+                    any = any || __is_partial(part);
+                    all = all && __is_partial(part);
+                }
+
+                bool merged = false;
+
+                if (!any)
+                {
+                    // A type that is not partial: the duplicate is logged later.
+                }
+                else if (!all)
+                {
+                    for (type_ast_node_t * part : parts)
+                    {
+                        if (!__is_partial(part))
+                            ast_log(logger, part, __c_t::partial_modifier_missing, _str(part->name));
+                    }
+                }
+                else
+                {
+                    for (size_t k = 1; k < parts.size(); k++)
+                        __merge_part(parts[0], parts[k], logger);
+
+                    merged = true;
+                }
+
+                if (any && all)
+                    __merge_partial_methods(parts[0]);
+
+                // The nest types of the type: the parts of them are merged too.
+                std::vector<std::pair<string_t, type_ast_node_t *>> nest_types;
+
+                for (size_t k = 0; k < (merged? 1 : parts.size()); k++)
+                {
+                    for (type_t * nest_type : parts[k]->nest_types)
+                    {
+                        if (type_ast_node_t * node = dynamic_cast<type_ast_node_t *>(nest_type))
+                            nest_types.push_back(std::make_pair(key, node));
+                    }
+                }
+
+                if (!nest_types.empty())
+                {
+                    __merge_scope(nest_types, logger);
+
+                    // The parts that are merged are not types of the host.
+                    for (size_t k = 0; k < (merged? 1 : parts.size()); k++)
+                    {
+                        std::vector<type_t *> kept;
+                        for (type_t * nest_type : parts[k]->nest_types)
+                        {
+                            type_ast_node_t * node = dynamic_cast<type_ast_node_t *>(nest_type);
+                            if (node == nullptr || !node->is_merged_part())
+                                kept.push_back(nest_type);
+                        }
+
+                        if (kept.size() != parts[k]->nest_types.size())
+                        {
+                            parts[k]->nest_types.clear();
+                            for (type_t * nest_type : kept)
+                                parts[k]->nest_types.push_back(nest_type);
+                        }
+                    }
+                }
+            }
+
+            // The decorate of the partial types is that of the other types.
+            for (auto & it : types)
+            {
+                if (it.second->decorate != nullptr)
+                    it.second->decorate->is_partial = false;
+            }
+        }
+    }
+
+    // Merges the parts of the partial types.
+    void merge_partial_types(const std::vector<ast_node_t *> & roots, logger_t & logger)
+    {
+        std::vector<std::pair<string_t, type_ast_node_t *>> types;
+
+        for (ast_node_t * root : roots)
+            __collect_types(root, string_t(), types);
+
+        if (types.empty())
+            return;
+
+        __merge_scope(types, logger);
+    }
+
     // Walks default step.
     bool type_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
     {
         general_type_t * type = (general_type_t *)to_eobject();
         mname_operate_context_t mctx = to_mname_operate_context();
+
+        // A part of a partial type: its members are walked here (the namespace and the usings of
+        // this file), but they belong to the first part.
+        if (__merged_first != nullptr)
+        {
+            // The methods of this part that have yield statements: the new members are those
+            // of the type.
+            __lower_iterators(context);
+
+            for (method_t * method : this->methods)
+                __merged_first->methods.push_back(method);
+
+            this->methods.clear();
+
+            bool r = __super_t::on_walk(context, step, tag);
+
+            type_ast_node_t * first = __merged_first;
+            if (++first->__parts_walked >= first->__parts_count)
+                r = first->__walk_default_end(context) && r;
+
+            return r;
+        }
+
         type->namespace_ = context.current_namespace();
 
         if (!context.assembly.types.append_type(type))
@@ -2958,8 +3504,23 @@ namespace X_ROOT_NS::modules::compile {
         // Set type for enum fields.
         if (is_enum(type))
         {
+            // An enum is its integer: no event, no constructor.
+            for (event_t * event : type->events)
+                this->__log(this, __c_t::enum_instance_member_error, type->name, event->name);
+
             for (field_t * field : type->fields)
             {
+                // A member that is not an item: a const field.
+                if (!field->is_enum_item)
+                {
+                    if (field->decorate == nullptr || !field->decorate->is_const)
+                        this->__log(this, __c_t::enum_instance_member_error, type->name, field->name);
+                    else
+                        field->decorate->is_static = true;      // All const fields are static.
+
+                    continue;
+                }
+
                 if (field->type_name != nullptr)
                     this->__log(this, __c_t::unexpected_enum_type, field->type_name, field->name);
 
@@ -3001,6 +3562,29 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walk members.
         __super_t::on_walk(context, step, tag);
+
+        // The parts of a partial type end together, after all of them are walked.
+        __parts_walked++;
+        if (__parts_walked < __parts_count)
+            return true;
+
+        return __walk_default_end(context);
+    }
+
+    // Ends the default walk of the type: the default constructors, the static constructor.
+    bool type_ast_node_t::__walk_default_end(ast_walk_context_t & context)
+    {
+        general_type_t * type = (general_type_t *)to_eobject();
+
+        // An enum has no constructor.
+        if (is_enum(type))
+        {
+            for (method_t * method : this->methods)
+            {
+                if (method->trait == method_trait_t::constructor)
+                    this->__log(this, __c_t::enum_constructor_error, type->name);
+            }
+        }
 
         // Check default constructors.
         method_t * new_default_constructor = nullptr;
@@ -3044,6 +3628,24 @@ namespace X_ROOT_NS::modules::compile {
                 return f->is_static() && !f->is_const() && f->init_value != nullptr;
             });
 
+            // The static constructor is called when the program starts, with the code of the
+            // types that are not generic: a generic type has a copy of the static fields for each
+            // of its instances, and nothing runs the initial values of them.
+            if (has_static_init && type->is_generic())
+            {
+                for (field_t * f : this->fields)
+                {
+                    if (f->is_static() && !f->is_const() && f->init_value != nullptr)
+                    {
+                        code_element_t * ce = dynamic_cast<code_element_t *>(f);
+                        this->__log(ce != nullptr? ce : (code_element_t *)(ast_node_t *)this,
+                            __c_t::static_init_in_generic_type, f->name, type);
+                    }
+                }
+
+                has_static_init = false;
+            }
+
             if (!has_static_ctor && has_static_init)
             {
                 method_t * method = __new_obj<method_t>();
@@ -3057,6 +3659,7 @@ namespace X_ROOT_NS::modules::compile {
                 method->body->push_back(__new_obj<return_statement_t>());
 
                 this->methods.push_back(method);
+                this->__mark_generated(context, method, method);
                 this->__delay(context, walk_step_t::analysis,
                                     (object_t *)__new_obj<__static_ctor_tag_t>(method));
             }
@@ -3079,7 +3682,7 @@ namespace X_ROOT_NS::modules::compile {
             for (int count = __type->fields.size(); index < count; index++)
             {
                 field_t * field = __type->fields[index];
-                if (!is_static_const(field))
+                if (!is_static_const(field) || !__accepts(field))
                     continue;
 
                 switch (__fill_value(field))
@@ -3119,6 +3722,9 @@ namespace X_ROOT_NS::modules::compile {
 
         virtual __fill_ret_t __fill_value(field_t * field) = 0;
         virtual expression_t * __get_default_value(field_t * field) = 0;
+
+        // Whether the stub fills the field: the items of an enum have their own values.
+        virtual bool __accepts(field_t * field) = 0;
 
         bool __is_all_fields_initialized(field_t * field)
         {
@@ -3253,6 +3859,8 @@ namespace X_ROOT_NS::modules::compile {
 
     protected:
 
+        virtual bool __accepts(field_t * field) override { return field->is_enum_item; }
+
         virtual __fill_ret_t __fill_value(field_t * field) override
         {
             #define __Exp(_v)  _F(_T("'%1% = %2%'"), field->name, _v)
@@ -3349,6 +3957,8 @@ namespace X_ROOT_NS::modules::compile {
 
     public:
         using __super_t::__super_t;
+
+        virtual bool __accepts(field_t * field) override { return !field->is_enum_item; }
 
         virtual __fill_ret_t __fill_value(field_t * field) override
         {
@@ -3886,6 +4496,13 @@ namespace X_ROOT_NS::modules::compile {
 
             if (stub_ != nullptr)
                 this->__delay(context, walk_step_t::analysis, stub_);
+
+            // The static const fields that are not items.
+            typedef __general_fields_init_stub_t member_stub_t;
+            member_stub_t member_stub(this, type);
+
+            if (!member_stub.continue_())
+                this->__delay(context, walk_step_t::analysis, __new_obj<member_stub_t>(member_stub));
         }
         else
         {
@@ -3904,6 +4521,69 @@ namespace X_ROOT_NS::modules::compile {
     {
         size_t length = std::char_traits<char_t>::length(end);
         return s.length() >= length && s.compare(s.length() - length, length, end) == 0;
+    }
+
+    // The owner of what the compiler makes: the type, the method, and the types of its params.
+    static string_t __generated_owner(const string_t & type_name, method_t * method)
+    {
+        string_t text = type_name + _T(".") + _str(method->name) + _T("(");
+
+        if (method->params != nullptr)
+        {
+            bool first = true;
+            for (param_t * param : *method->params)
+            {
+                text += (first? _T("") : _T(", "));
+                text += param->type_name != nullptr? string_t(_str(param->type_name)) : string_t();
+                first = false;
+            }
+        }
+
+        return text + _T(")");
+    }
+
+    // The name of what the compiler makes: __ap_<usage>_<detail>_<hash> (the detail can be empty).
+    // The detail is the serial among those of the same usage that the method has, or the name of
+    // what the member is made for. The hash is made of the usage, the owner and the detail: it is
+    // the same every time the code is compiled.
+    static string_t __generated_name(const char_t * usage, const string_t & detail,
+                                     const string_t & owner)
+    {
+        return to_generated_name(usage, detail, owner);
+    }
+
+    // The name of a type or a method that has a serial.
+    static string_t __generated_name(const char_t * usage, int serial, const string_t & owner)
+    {
+        return __generated_name(usage, _F(_T("%1%"), serial), owner);
+    }
+
+    // Replaces the marks of a text with the names that are made.
+    static void __replace_marks(string_t & text, const char_t * mark, const string_t & name)
+    {
+        auto length = string_t(mark).size();
+
+        for (auto pos = text.find(mark); pos != string_t::npos; pos = text.find(mark, pos))
+        {
+            text.replace(pos, length, name);
+            pos += name.size();
+        }
+    }
+
+    // Returns whether the attributes have CompilerGenerated.
+    static bool __has_generated_attribute(attributes_t * attributes)
+    {
+        if (attributes == nullptr)
+            return false;
+
+        for (attribute_t * attribute : *attributes)
+        {
+            if (attribute->type_name != nullptr
+                    && _str(attribute->type_name).find(_T("CompilerGenerated")) != string_t::npos)
+                return true;
+        }
+
+        return false;
     }
 
     // Makes the iterators of the methods that have yield statements.
@@ -3927,6 +4607,48 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // The type, with the generic params of a list changed to those that are at the same place of
+    // another list (T of a method to T of the class of the state object of an iterator).
+    static type_t * __remap_generic_params(type_t * type, generic_params_t * from,
+                                                         generic_params_t * to)
+    {
+        if (type == nullptr || from == nullptr || to == nullptr)
+            return type;
+
+        if (is_generic_param(type))
+        {
+            for (size_t k = 0, count = std::min(from->size(), to->size()); k < count; k++)
+            {
+                if ((*from)[k] == (generic_param_t *)type)
+                    return (*to)[k];
+            }
+
+            return type;
+        }
+
+        if (is_generic(type))
+        {
+            generic_type_t * generic_type = (generic_type_t *)type;
+
+            type_collection_t args;
+            for (typex_t arg : generic_type->args)
+                args.push_back(__remap_generic_params((type_t *)arg, from, to));
+
+            return __XPool.new_generic_type(generic_type->template_, args, generic_type->host_type);
+        }
+
+        if (type->this_gtype() == gtype_t::array)
+        {
+            array_type_t * array_type = (array_type_t *)type;
+            type_t * element = __remap_generic_params(array_type->element_type, from, to);
+
+            return element == array_type->element_type? type
+                        : __XPool.new_array_type(element, array_type->dimension);
+        }
+
+        return type;
+    }
+
     // Makes the iterator of a method. The method that has yield statements makes an object of
     // a class that is made here, the state, that has the params of the method, and is an
     // IEnumerator<T> and an IEnumerable<T> that calls a delegate to go to the next item. The
@@ -3943,11 +4665,63 @@ namespace X_ROOT_NS::modules::compile {
                 return;                                                                 \
             } while (false)
 
-        if (this->params != nullptr && this->params->size() > 0)
-            __Fail("in a generic type");
+        // A generic method: the state object is a generic class that has the generic params of
+        // the method, the method that does the work is a generic method of the same class (it
+        // is called by the state object, a delegate cannot take the generic params).
+        bool generic_method = method->generic_params != nullptr && method->generic_params->size() > 0;
+        string_t generic_text;
 
-        if (method->generic_params != nullptr && method->generic_params->size() > 0)
-            __Fail("a generic method");
+        // The constraints of the params: where T : class, new(), IFoo. The state class and the method
+        // that does the work have the same ones.
+        string_t constraints_text;
+
+        if (generic_method)
+        {
+            if (method->constraints != nullptr)
+            {
+                for (generic_constraint_t * constraint : *method->constraints)
+                {
+                    string_t items;
+                    auto add = [&](const string_t & item) {
+                        items += (items.empty()? _T("") : _T(", ")) + item;
+                    };
+
+                    if (bit_has_flag(constraint->cttype, generic_constraint_ttype_t::class_))
+                        add(_T("class"));
+
+                    if (bit_has_flag(constraint->cttype, generic_constraint_ttype_t::struct_))
+                        add(_T("struct"));
+
+                    for (type_name_t * type_name : constraint->type_names)
+                        add(_str(type_name));
+
+                    if (bit_has_flag(constraint->cttype, generic_constraint_ttype_t::new_))
+                        add(_T("new()"));
+
+                    if (!items.empty())
+                    {
+                        constraints_text += _T(" where ") + string_t(_str(constraint->param_name))
+                                                                                + _T(" : ") + items;
+                    }
+                }
+            }
+
+            for (generic_param_t * gp : *method->generic_params)
+            {
+                // The items of a params generic param (T ...) are the last ones of the params.
+                bool is_pack = gp->param_type == generic_param_type_t::params;
+                if (gp->param_type != generic_param_type_t::__default__ && !is_pack)
+                    __Fail("a generic method that has an out generic param");
+
+                generic_text += generic_text.empty()? _T("<") : _T(", ");
+                generic_text += _str(gp->name);
+
+                if (is_pack)
+                    generic_text += _T(" ...");
+            }
+
+            generic_text += _T(">");
+        }
 
         // IEnumerable<T> or IEnumerator<T>.
         string_t return_type = method->type_name != nullptr?
@@ -3974,15 +4748,44 @@ namespace X_ROOT_NS::modules::compile {
         // The params.
         string_t params_text, ctor_params, ctor_assigns, fields_text, args_text;
 
+        // The items of a params generic param (T ... items): the state object keeps them as a tuple,
+        // the method that does the work takes them again.
+        string_t pack_param_text, pack_tuple_text;
+
         if (method->params != nullptr)
         {
             for (param_t * param : *method->params)
             {
-                if (param->ptype != param_type_t::__default__)
-                    __Fail("a ref, out or params param");
+                // A params array is an array like any other: the state object keeps it.
+                if (param->ptype == param_type_t::ref || param->ptype == param_type_t::out)
+                    __Fail("a ref or out param");
 
                 string_t type_text = _str(param->type_name);
                 string_t name_text = _str(param->name);
+
+                if (param->ptype == param_type_t::extends)
+                {
+                    if (!pack_param_text.empty())
+                        __Fail("more than one params generic param");
+
+                    pack_tuple_text = _T("ITuple<") + type_text + _T(" ...>");
+                    pack_param_text = type_text + _T(" ... ") + name_text;
+
+                    if (!params_text.empty())
+                    {
+                        params_text += _T(", ");
+                        args_text += _T(", ");
+                    }
+
+                    params_text += pack_param_text;
+                    args_text += _T("ITuple.Create(") + name_text + _T(" ...)");
+
+                    ctor_params += _T(", ") + pack_tuple_text + _T(" p_") + name_text;
+                    ctor_assigns += _T(" this.@PACK@ = p_") + name_text + _T(";");
+                    fields_text += string_t(_T(" public ")) + pack_tuple_text + _T(" @PACK@;");
+
+                    continue;
+                }
 
                 if (!params_text.empty())
                 {
@@ -3995,42 +4798,132 @@ namespace X_ROOT_NS::modules::compile {
 
                 ctor_params += _T(", ") + type_text + _T(" p_") + name_text;
                 ctor_assigns += _T(" this.") + name_text + _T(" = p_") + name_text + _T(";");
-                fields_text += _T(" public ") + type_text + _T(" ") + name_text + _T(";");
+                fields_text += string_t(_T(" public "))
+                                + type_text + _T(" ") + name_text + _T(";");
             }
         }
 
         string_t name = _str(method->name);
-        string_t id_text = _F(_T("%1%"), id);
-        string_t state_name = _T("__Iterator") + name + _T("_") + id_text;
-        string_t move_name = _T("__Move") + name + _T("_") + id_text;
+        string_t owner_text = __generated_owner(this->to_full_name(), (method_t *)method);
+        string_t state_name = __generated_name(_T("iterator"), 0, owner_text);
+        string_t move_name = __generated_name(_T("move"), 0, owner_text);
         bool is_static = method->is_static();
+        string_t G;
 
-        // The state class.
-        string_t state_text =
-            _T("public class ") + state_name + _T(" : IEnumerator<") + element
-            + _T(">, IEnumerable<") + element + _T("> {")
-            + _T(" public Int32 __state; public ") + element + _T(" __current;")
-            + _T(" public Delegate<Boolean, Object> __move;") + fields_text
-            + _T(" public ") + state_name + _T("(Delegate<Boolean, Object> move") + ctor_params
-            + _T(") { __move = move;") + ctor_assigns + _T(" }")
-            + _T(" public ") + element + _T(" Current { get { return __current; } }")
-            + _T(" public Boolean MoveNext() { return __move(this); }")
-            + _T(" public Void Reset() { throw new InvalidOperationException(")
+        string_t state_head = G + _T("public class ") + state_name + generic_text
+            + _T(" : IEnumerator<") + element + _T(">, IEnumerable<") + element + _T(">")
+            + constraints_text + _T(" {");
+
+        string_t state_tail =
+            _T(" ") + G + _T("public ") + element + _T(" Current { get { return @CURRENT@; } }");
+
+        string_t state_end =
+            _T(" ") + G + _T("public Void Reset() { throw new InvalidOperationException(")
             + _T("\"The iterator cannot be reset.\"); }")
-            + _T(" public Void Dispose() { }")
-            + _T(" public Void __finish() { __state = -1; }")
-            + _T(" public IEnumerator<") + element + _T("> GetEnumerator() { return this; }")
+            + _T(" ") + G + _T("public Void Dispose() { }")
+            + _T(" ") + G + _T("public Void @FINISH@() { @STATE@ = -1; }")
+            + _T(" ") + G + _T("public IEnumerator<") + element
+            + _T("> GetEnumerator() { return this; }")
             + _T(" }");
 
-        // The method of the user, that makes the state object, and the method that does the work.
-        string_t methods_text =
-            string_t(_T("public class __Snippet { public ")) + return_type + _T(" ") + name + _T("(") + params_text + _T(") {")
-            + _T(" Delegate<Boolean, Object> __move = ") + move_name + _T(";")
-            + _T(" return new ") + state_name + _T("(__move")
-            + (args_text.empty()? string_t() : _T(", ") + args_text) + _T("); }")
-            + _T(" private ") + string_t(is_static? _T("static ") : _T(""))
-            + _T("Boolean ") + move_name + _T("(Object __iterator) {")
-            + _T(" ((") + state_name + _T(")__iterator).__finish(); return false; } }");
+        string_t state_text, methods_text;
+
+        if (generic_method)
+        {
+            // The method that does the work is a method of the object that has the method of the
+            // user, when it is not static: the state object has it, to call it.
+            string_t host_text = _str(this->name);
+            if (this->params != nullptr && this->params->size() > 0)
+            {
+                host_text += _T("<");
+                for (size_t k = 0; k < this->params->size(); k++)
+                    host_text += (k > 0? _T(", ") : _T("")) + string_t(_str((*this->params)[k]->name));
+
+                host_text += _T(">");
+            }
+
+            string_t owner_field = is_static? string_t() : _T(" ") + G + _T("public ") + host_text
+                                                            + _T(" @HOST@;");
+            string_t owner_param = is_static? string_t() : host_text + _T(" host");
+            string_t owner_assign = is_static? string_t() : _T(" this.@HOST@ = host;");
+            string_t owner_call = is_static? host_text : string_t(_T("@HOST@"));
+
+            // The state class, it calls the method that does the work.
+            state_text = state_head
+                + _T(" ") + G + _T("public Int32 @STATE@; ") + G + _T("public ") + element
+                + _T(" @CURRENT@;") + owner_field + fields_text
+                + _T(" ") + G + _T("public ") + state_name + _T("(") + owner_param
+                + (owner_param.empty() || ctor_params.empty()? string_t() : string_t(_T(", ")))
+                + (ctor_params.empty()? string_t() : ctor_params.substr(2))
+                + _T(") {") + owner_assign + ctor_assigns + _T(" }")
+                + state_tail
+                + _T(" ") + G + _T("public Boolean MoveNext() { return ") + owner_call
+                + _T(".") + move_name + generic_text + _T("(this")
+                + (pack_param_text.empty()? string_t() : string_t(_T(", this.@PACK@ ...")))
+                + _T("); }")
+                + state_end;
+
+            // The method of the user, that makes the state object, and the method that does the
+            // work.
+            methods_text =
+                string_t(_T("public class __Snippet { public ")) + return_type + _T(" ") + name
+                + generic_text + _T("(") + params_text + _T(")") + constraints_text + _T(" {")
+                + _T(" return new ") + state_name + generic_text + _T("(")
+                + (is_static? string_t() : string_t(_T("this")))
+                + (is_static || args_text.empty()? string_t() : string_t(_T(", "))) + args_text
+                + _T("); }")
+                + _T(" ") + G + _T("public ") + string_t(is_static? _T("static ") : _T(""))
+                + _T("Boolean ") + move_name + generic_text
+                + _T("(Object @SOURCE@")
+                + (pack_param_text.empty()? string_t() : _T(", ") + pack_param_text)
+                + _T(")") + constraints_text + _T(" {")
+                + _T(" ((") + state_name + generic_text + _T(")@SOURCE@).@FINISH@();")
+                + _T(" return false; } }");
+        }
+        else
+        {
+            // The state class.
+            state_text = state_head
+                + _T(" ") + G + _T("public Int32 @STATE@; ") + G + _T("public ") + element
+                + _T(" @CURRENT@;")
+                + _T(" ") + G + _T("public Delegate<Boolean, Object> @DELEGATE@;") + fields_text
+                + _T(" ") + G + _T("public ") + state_name
+                + _T("(Delegate<Boolean, Object> move") + ctor_params
+                + _T(") { @DELEGATE@ = move;") + ctor_assigns + _T(" }")
+                + state_tail
+                + _T(" ") + G + _T("public Boolean MoveNext() { return @DELEGATE@(this); }")
+                + state_end;
+
+            // The method of the user, that makes the state object, and the method that does the
+            // work.
+            methods_text =
+                string_t(_T("public class __Snippet { public ")) + return_type + _T(" ") + name + _T("(") + params_text + _T(") {")
+                + _T(" Delegate<Boolean, Object> @DELEGATE@ = ") + move_name + _T(";")
+                + _T(" return new ") + state_name + _T("(@DELEGATE@")
+                + (args_text.empty()? string_t() : _T(", ") + args_text) + _T("); }")
+                + _T(" ") + G + _T("private ") + string_t(is_static? _T("static ") : _T(""))
+                + _T("Boolean ") + move_name + _T("(Object @SOURCE@) {")
+                + _T(" ((") + state_name + _T(")@SOURCE@).@FINISH@(); return false; } }");
+        }
+
+        string_t state_field = __generated_name(_T("state"), string_t(), state_name);
+        string_t current_field = __generated_name(_T("current"), string_t(), state_name);
+        string_t delegate_field = __generated_name(_T("delegate"), string_t(), state_name);
+        string_t finish_name = __generated_name(_T("finish"), string_t(), state_name);
+        string_t source_name = __generated_name(_T("source"), string_t(), state_name);
+        string_t host_field = __generated_name(_T("host"), string_t(), state_name);
+        string_t pack_field = __generated_name(_T("pack"), string_t(), state_name);
+
+        for (string_t * text : { &state_text, &methods_text })
+        {
+            __replace_marks(*text, _T("@STATE@"), state_field);
+            __replace_marks(*text, _T("@CURRENT@"), current_field);
+            __replace_marks(*text, _T("@DELEGATE@"), delegate_field);
+            __replace_marks(*text, _T("@FINISH@"), finish_name);
+            __replace_marks(*text, _T("@SOURCE@"), source_name);
+            __replace_marks(*text, _T("@HOST@"), host_field);
+            __replace_marks(*text, _T("@PACK@"), pack_field);
+        }
 
         ast_node_t * state_root = __parse_snippet(state_text);
         ast_node_t * methods_root = __parse_snippet(methods_text);
@@ -4081,14 +4974,20 @@ namespace X_ROOT_NS::modules::compile {
 
         iterator_info_t * info = __new_obj<iterator_info_t>();
         info->params = method->params;
+        info->user_method = (method_t *)method;
         info->state_type = state_node;
         move_method->iterator_info = info;
 
         this->append_child(__methods__, move_method);
         this->methods.push_back((method_t *)move_method);
 
-        // The state class is walked, it is a class of the same namespace.
-        state_node->on_walk(context, (int)walk_step_t::default_, nullptr);
+        this->__mark_generated_type(context, (general_type_t *)state_node);
+        this->__mark_generated(context, (method_t *)move_method, (method_t *)move_method);
+
+        // The state class is a nest type of this type: it is walked with the members of the type.
+        // (A part of a partial type has its own nodes: the type is the first part.)
+        this->append_child(__nest_types__, state_node);
+        (__merged_first != nullptr? __merged_first : this)->nest_types.push_back((type_t *)state_node);
 
         #undef __Fail
     }
@@ -4107,6 +5006,7 @@ namespace X_ROOT_NS::modules::compile {
         method->body->push_back(__new_obj<return_statement_t>());
 
         this->methods.push_back(method);
+        this->__mark_generated(context, method, method);
 
         return method;
     }
@@ -4255,8 +5155,10 @@ namespace X_ROOT_NS::modules::compile {
     {
         this->transform_child_to(__type_names__, this->type_names);
 
-        // notnull is not a type: the argument cannot be null.
+        // notnull is not a type: the argument cannot be null. unmanaged is not either: the argument
+        // has no references.
         name_t notnull = __to_name(_T("notnull"));
+        name_t unmanaged = __to_name(_T("unmanaged"));
 
         std::vector<type_name_t *> kept;
 
@@ -4266,13 +5168,14 @@ namespace X_ROOT_NS::modules::compile {
 
             if (type_name != nullptr && type_name->units.size() == 1
                     && type_name->units[0] != nullptr && !type_name->units[0]->is_generic()
-                    && type_name->units[0]->name == notnull)
+                    && (type_name->units[0]->name == notnull || type_name->units[0]->name == unmanaged))
             {
                 // The name is not resolved as a type.
                 type_name->type = uncertain_type_t::instance();
 
                 this->cttype = (generic_constraint_ttype_t)(
-                    (int)this->cttype | (int)generic_constraint_ttype_t::notnull_
+                    (int)this->cttype | (int)(type_name->units[0]->name == notnull?
+                        generic_constraint_ttype_t::notnull_ : generic_constraint_ttype_t::unmanaged_)
                 );
 
                 continue;
@@ -4393,6 +5296,12 @@ namespace X_ROOT_NS::modules::compile {
         this->__assign(this->ptype, ptype, el, _T("param type"));
     }
 
+    // Sets this: the first param of an extension method.
+    void param_ast_node_t::set_this(__el_t * el)
+    {
+        this->__assign(this->is_this, true, el, _T("this"));
+    }
+
     // Commits this node.
     void param_ast_node_t::on_commit()
     {
@@ -4476,6 +5385,15 @@ namespace X_ROOT_NS::modules::compile {
     {
         this->type_name = __to_eobject<type_name_t *>(__type_name__);
         this->arguments = __to_eobject<arguments_t *>(__arguments__);
+
+        // The named arguments follow the others: they assign the fields and the properties of the
+        // attribute.
+        this->each_child<argument_t *>(__assigns__, [this](argument_t * argument) {
+            if (this->arguments == nullptr)
+                this->arguments = __new_obj<arguments_t>();
+
+            this->arguments->push_back(argument);
+        });
     }
 
     // Returns this eobject.
@@ -4526,14 +5444,47 @@ namespace X_ROOT_NS::modules::compile {
         if (type_name == nullptr || (type = type_name->type) == nullptr || is_unknown(type))
             return true;
 
-        method_t * method = find_constructor(this->__context, type, this->arguments);
+        // The constructor takes the arguments that are not named.
+        arguments_t * positional = nullptr;
+        if (this->arguments != nullptr)
+        {
+            positional = __new_obj<arguments_t>();
+
+            for (argument_t * argument : *this->arguments)
+            {
+                if (argument->name_type != argument_name_type_t::field)
+                    positional->push_back(argument);
+            }
+        }
+
+        method_t * method = find_constructor(this->__context, type, positional);
         if (method == nullptr)
         {
             __log(this, __c_t::attribute_constructor_not_match, type,
-                to_arg_types_str(this->__context, this->arguments)
+                to_arg_types_str(this->__context, positional)
             );
 
             return true;
+        }
+
+        // The named arguments are fields or properties of the attribute.
+        if (this->arguments != nullptr)
+        {
+            for (argument_t * argument : *this->arguments)
+            {
+                if (argument->name_type != argument_name_type_t::field)
+                    continue;
+
+                analyze_member_args_t field_args(member_type_t::field, argument->name);
+                analyze_member_args_t property_args(member_type_t::property, argument->name);
+
+                if (type->get_member(field_args, true) == nullptr
+                        && type->get_member(property_args, true) == nullptr)
+                {
+                    __log(this, __c_t::attribute_named_argument_not_found, type, argument->name);
+                    return true;
+                }
+            }
         }
 
         if (this->arguments != nullptr)
@@ -4541,6 +5492,18 @@ namespace X_ROOT_NS::modules::compile {
             for (argument_t * argument : *this->arguments)
             {
                 expression_t * exp = argument->expression;
+
+                // typeof(A) is a type, it is not executed (the right side of a named argument too).
+                expression_t * value_exp = exp;
+                if (binary_expression_t * assign = as<binary_expression_t *>(exp))
+                {
+                    if (assign->op() == operator_t::assign)
+                        value_exp = assign->exp2();
+                }
+
+                if (as<type_of_expression_t *>(value_exp) != nullptr)
+                    continue;
+
                 if (exp != nullptr)
                 {
                     try
@@ -4682,7 +5645,7 @@ namespace X_ROOT_NS::modules::compile {
     bool defination_st_ast_node_t::__walk_default(ast_walk_context_t & context)
     {
         this->__check_empty(this->type_name, this, __c_t::type_name_missing,
-                                                        _T("variable defination"));
+                                                        _T("variable definition"));
 
         variable_defination_t vd(this->__context, context, (defination_statement_t *)this);
 
@@ -4720,6 +5683,11 @@ namespace X_ROOT_NS::modules::compile {
         for (int index = 0, count = this->items.size(); index < count; ++index)
         {
             defination_statement_item_t * var_item = this->items[index];
+
+            // The variable that is defined twice has been reported.
+            if (var_item->variable == nullptr)
+                continue;
+
             if (__is_uncertain(var_item->variable->type_name))
             {
                 type_t * type = nullptr;
@@ -4749,6 +5717,9 @@ namespace X_ROOT_NS::modules::compile {
             {
                 type_t * type1 = var_item->variable->type_name->type;
                 bind_lambda_to_type(var_item->expression, type1);
+
+                // An implicit operator of the types converts the initial value.
+                var_item->expression = insert_user_conversion(var_item->expression, type1);
                 type_t * type2 = var_item->expression->get_type();
 
                 if (!is_type_compatible(type2, type1)
@@ -4895,6 +5866,12 @@ namespace X_ROOT_NS::modules::compile {
                 if (method != nullptr && this->expression != nullptr && method->type_name != nullptr)
                     bind_lambda_to_type(this->expression, method->type_name->type);
 
+                // void F() => G(); : the value is not returned.
+                if (this->is_arrow && method != nullptr && (method->type_name == nullptr
+                        || method->type_name->type == nullptr
+                        || is_void_type(method->type_name->type)))
+                    this->discard_value = true;
+
                 return true;
             }
 
@@ -4914,7 +5891,7 @@ namespace X_ROOT_NS::modules::compile {
         if (method->type_name == nullptr || method->type_name->type == nullptr
                                          || is_void_type(method->type_name->type))
         {
-            if (this->expression != nullptr)
+            if (this->expression != nullptr && !this->discard_value)
                 this->__log(this, __c_t::method_unexpected_return_value, method);
         }
         else
@@ -4956,6 +5933,13 @@ namespace X_ROOT_NS::modules::compile {
                         // The type that is made (T? of null and a number).
                         context.commit_types();
                     }
+                }
+
+                // An implicit operator of the types converts the value that is returned.
+                if (return_type != nullptr && !is_type_compatible(return_type, method_type))
+                {
+                    this->expression = insert_user_conversion(this->expression, method_type);
+                    return_type = this->expression->get_type();
                 }
 
                 if (return_type != nullptr && !is_type_compatible(return_type, method_type))
@@ -5130,6 +6114,63 @@ namespace X_ROOT_NS::modules::compile {
         return code->build_ast(__context.compile_context);
     }
 
+    // Gives the attribute CompilerGenerated to a member that the compiler makes.
+    void __utils_t::__mark_generated(ast_walk_context_t & context,
+                                     with_attributes_object_t * target, eobject_t * owner)
+    {
+        general_type_t * type = __get_xpool().get_compiler_generated_attribute_type();
+
+        // The assembly System is compiled: its types are not known by the pool yet.
+        if (type == nullptr)
+        {
+            context.assembly.types.each_general_types([&](general_type_t * type0) {
+                if (type == nullptr && type0->name == __to_name(_T("CompilerGeneratedAttribute"))
+                        && type0->namespace_ != nullptr && type0->namespace_->full_name != nullptr
+                        && (string_t)*type0->namespace_->full_name == _T("Runtime.CompilerServices"))
+                {
+                    type = type0;
+                }
+            });
+        }
+
+        if (type == nullptr || target->has_attribute(type))
+            return;
+
+        method_t * constructor = find_default_constructor(type);
+        if (constructor == nullptr)
+            return;
+
+        attribute_t * attribute = __new_obj<attribute_t>();
+        attribute->type_name    = __new_obj<type_name_t>((type_t *)type);
+        attribute->constructor  = constructor;
+
+        if (owner != nullptr)
+            attribute->set_owner(owner);
+
+        if (target->attributes == nullptr)
+            target->attributes = __new_obj<attributes_t>();
+
+        target->attributes->push_back(attribute);
+    }
+
+    // Gives the attribute CompilerGenerated to a type that the compiler makes, and to its members.
+    void __utils_t::__mark_generated_type(ast_walk_context_t & context, general_type_t * type)
+    {
+        this->__mark_generated(context, type, type);
+
+        for (field_t * field : type->fields)
+            this->__mark_generated(context, field, field);
+
+        for (method_t * method : type->methods)
+            this->__mark_generated(context, method, method);
+
+        for (property_t * property : type->properties)
+            this->__mark_generated(context, property, property);
+
+        for (event_t * event : type->events)
+            this->__mark_generated(context, event, event);
+    }
+
     // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
     // Returns null if the type has no Dispose().
     statement_t * __utils_t::__make_dispose_try(ast_walk_context_t & context,
@@ -5226,12 +6267,12 @@ namespace X_ROOT_NS::modules::compile {
 
         __array = vd.define_local(
             __new_obj<type_name_t>(uncertain_type_t::instance()),
-            __to_name(_F(_T("__foreach_array%1%"), number)), false, nullptr, (object_t *)(ast_node_t *)this
+            __to_name(__generated_name(_T("foreach_array"), _F(_T("%1%"), number), string_t())), false, nullptr, (object_t *)(ast_node_t *)this
         );
 
         __index = vd.define_local(
             __new_obj<type_name_t>(__XPool.get_internal_type(vtype_t::int32_)),
-            __to_name(_F(_T("__foreach_index%1%"), number)), false, nullptr, (object_t *)(ast_node_t *)this
+            __to_name(__generated_name(_T("foreach_index"), _F(_T("%1%"), number), string_t())), false, nullptr, (object_t *)(ast_node_t *)this
         );
 
         // The analysis is delayed before the children are walked: it comes before the analysis
@@ -5357,6 +6398,11 @@ namespace X_ROOT_NS::modules::compile {
     //     for (; index < array.Length; index = index + 1) { variable = array[index]; body } }
     bool for_each_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
+        // The type of the index, when the core types did not exist (the code of System is
+        // analyzed): its place is a field when the foreach is in an iterator.
+        if (__index != nullptr && __index->type_name != nullptr && __index->type_name->type == nullptr)
+            __index->type_name->type = __XPool.get_internal_type(vtype_t::int32_);
+
         if (this->iterator == nullptr || this->body == nullptr || __variable == nullptr)
             return true;
 
@@ -5366,19 +6412,17 @@ namespace X_ROOT_NS::modules::compile {
         type_t * iterator_type = this->iterator->get_type();
         if (iterator_type == nullptr)
         {
-            this->__log(this, __c_t::invalid_expression, this->iterator);
+            // It follows the error that was told when the expression was analyzed.
+            if (this->__context.compile_context.error_count() == 0)
+                this->__log(this, __c_t::invalid_expression, this->iterator);
             return true;
         }
 
         if (iterator_type->this_gtype() != gtype_t::array)
             return __walk_analysis_enumerator(context, iterator_type);
 
-        if (((array_type_t *)iterator_type)->dimension != 1)
-        {
-            this->__log(this, __c_t::for_each_type_not_supported, iterator_type);
-            return true;
-        }
-
+        // An array of any dimension is one-dimensional for the loop, like for its base type
+        // Array<T>: array.Length is the number of the items, array[index] is the item.
         type_t * element_type = ((array_type_t *)iterator_type)->element_type;
 
         __array->type_name->type = iterator_type;
@@ -5472,12 +6516,29 @@ namespace X_ROOT_NS::modules::compile {
         this->__assign_name(this->variable, name, el, _T("var"));
     }
 
+    // Makes this a using declaration.
+    void using_st_ast_node_t::set_declaration(ast_node_t * group)
+    {
+        __declaration_group = group;
+        this->set_child(__body__, group);
+    }
+
     // Commits this node.
     void using_st_ast_node_t::on_commit()
     {
         this->initializer = __to_eobject<expression_t *>(__initializer__);
         this->type_name   = __to_eobject<type_name_t *>(__type_name__);
         this->body        = __to_eobject<statement_t *>(__body__);
+
+        // The object has no variable: using new DisposableObject(); , a name that nothing else
+        // has is its variable.
+        if (this->type_name == nullptr && this->variable == name_t::null)
+        {
+            static int __count = 0;
+
+            this->variable  = __to_name(__generated_name(_T("using"), _F(_T("%1%"), ++__count), string_t()));
+            this->type_name = __new_obj<type_name_t>(uncertain_type_t::instance());
+        }
     }
 
     // Returns this eobject.
@@ -5492,8 +6553,12 @@ namespace X_ROOT_NS::modules::compile {
         if ((walk_step_t)step == walk_step_t::analysis)
             return __walk_analysis(context);
 
+        // The statements of the group were appended after this node was committed.
+        if (__declaration_group != nullptr)
+            __declaration_group->on_commit();
+
         this->__check_name_empty(this->variable, _T("variable"));
-        this->__check_empty(this->initializer, this, __c_t::iterator_missing, "using");
+        this->__check_empty(this->initializer, this, __c_t::expression_missing, _T("using"));
         this->__check_empty(this->body, this, __c_t::body_missing, _T("using"));
 
         context.push_new_region();
@@ -5528,7 +6593,9 @@ namespace X_ROOT_NS::modules::compile {
         type_t * initializer_type = this->initializer->get_type();
         if (initializer_type == nullptr)
         {
-            this->__log(this, __c_t::invalid_expression, this->initializer);
+            // It follows the error that was told when the expression was analyzed.
+            if (this->__context.compile_context.error_count() == 0)
+                this->__log(this, __c_t::invalid_expression, this->initializer);
             return true;
         }
 
@@ -5705,7 +6772,7 @@ namespace X_ROOT_NS::modules::compile {
             this->type_name = __XPool.get_object_type_name();
 
         if (this->name.empty())
-            this->name = __XPool.to_name(_T("__catch_exception_temp_variable__"));
+            this->name = __XPool.to_name(__generated_name(_T("catch"), string_t(), string_t()));
 
         context.push_new_region();
 
@@ -5971,6 +7038,11 @@ namespace X_ROOT_NS::modules::compile {
     {
         this->type_name = __to_eobject<type_name_t *>(__type_name__);
         this->set_arguments(__to_eobject<arguments_t *>(__arguments__));
+
+        // The members that are set: new T { Name = value }.
+        this->each_child_node<argument_ast_t>(__inits__, [this](argument_ast_t * init) {
+            this->inits.push_back(init->to_eobject());
+        });
     }
 
     // Returns this eobject.
@@ -5991,6 +7063,17 @@ namespace X_ROOT_NS::modules::compile {
                 return __super_t::on_walk(context, step, tag);
 
             case walk_step_t::analysis: {
+                // The names of the arguments are bound before the constructor is found by the types of them: the new
+                // expression that is an element of an array initializer is analyzed before the array binds its elements.
+                if (this->arguments() != nullptr)
+                {
+                    for (argument_t * argument : *this->arguments())
+                    {
+                        if (argument != nullptr && argument->expression != nullptr)
+                            walk_expression(this->__context, context, argument->expression);
+                    }
+                }
+
                 type_t * type = to_type(this->type_name);
                 if (type != nullptr && !is_generic_param(type))
                 {
@@ -6004,13 +7087,47 @@ namespace X_ROOT_NS::modules::compile {
                             to_arg_types_str(this->__context, this->arguments())
                         );
                     }
+                    else
+                    {
+                        // The arguments that an implicit operator converts to the types of the params.
+                        convert_arguments(this->arguments(), this->constructor);
+                    }
                 }
+
+                if (type != nullptr && !this->inits.empty())
+                    __walk_inits(context, type);
 
                 return true;
 
             }
 
             default: return true;
+        }
+    }
+
+    // Walks the members that an object initializer sets: each is the assignment of the member of the
+    // object that is on the top of the stack (the target) to its value.
+    void new_ast_node_t::__walk_inits(ast_walk_context_t & context, type_t * type)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        if (type->this_ttype() != ttype_t::class_)
+        {
+            this->__log((ast_node_t *)this, __c_t::object_initializer_not_supported, type);
+            return;
+        }
+
+        for (argument_t * init : this->inits)
+        {
+            auto * target = __new_obj<system_expression_t<this_expression_t>>();
+            target->set_new_target(type);
+
+            expression_t * member = __new_obj<system_expression_t<name_expression_t>>(init->name);
+            expression_t * access = __new_obj<__binary_t>(operator_t::member_point, target, member);
+            expression_t * assign = __new_obj<__binary_t>(operator_t::assign, access, init->expression);
+
+            walk_expression(this->__context, context, assign);
+            this->init_assigns.push_back(assign);
         }
     }
 
@@ -6131,6 +7248,10 @@ namespace X_ROOT_NS::modules::compile {
 
         while (dimension-- > 0 && initializer != nullptr)
         {
+            // An empty initializer has no length of the others: they are 0 too.
+            if (initializer->empty())
+                return 0;
+
             array_initialize_element_t element = (*initializer)[0];
             if (element.type != array_initialize_element_type_t::initializer)
                 return unkown_array_length;
@@ -6355,8 +7476,12 @@ namespace X_ROOT_NS::modules::compile {
             return;
         }
 
-        static int lambda_count = 0;
-        name_t name = __to_name(_F(_T("__lambda%1%"), ++lambda_count));
+        // The serial of the lambda is the one among those of the method.
+        static std::map<method_t *, int> lambda_serials;
+        int lambda_serial = lambda_serials[outer]++;
+
+        string_t owner_text = __generated_owner(((general_type_t *)type)->to_full_name(), outer);
+        name_t name = __to_name(__generated_name(_T("lambda"), lambda_serial, owner_text));
 
         // The params that have no types.
         params_t * untyped_params = nullptr;
@@ -6440,21 +7565,23 @@ namespace X_ROOT_NS::modules::compile {
         // The class of the object that has the values of the variables.
         if (!__captured_names.empty())
         {
-            static int env_count = 0;
-
-            string_t env_name = _F(_T("__Env%1%"), ++env_count);
+            string_t env_name = __generated_name(_T("env"), lambda_serial, owner_text);
             string_t fields_text, params_text, assigns_text;
+            string_t G;
 
             for (size_t index = 0; index < __captured_names.size(); index++)
             {
                 string_t i = _F(_T("%1%"), (int)index);
-                fields_text += _T(" public Object __c") + i + _T(";");
+                string_t field = __generated_name(_T("captured"),
+                                            _str(__captured_names[index]), env_name);
+
+                fields_text += _T(" ") + G + _T("public Object ") + field + _T(";");
                 params_text += string_t(index > 0? _T(", ") : _T("")) + _T("Object p") + i;
-                assigns_text += _T(" this.__c") + i + _T(" = p") + i + _T(";");
+                assigns_text += _T(" this.") + field + _T(" = p") + i + _T(";");
             }
 
-            string_t env_text = _T("public class ") + env_name + _T(" {") + fields_text
-                + _T(" public ") + env_name + _T("(") + params_text + _T(") {")
+            string_t env_text = G + _T("public class ") + env_name + _T(" {") + fields_text
+                + _T(" ") + G + _T("public ") + env_name + _T("(") + params_text + _T(") {")
                 + assigns_text + _T(" } }");
 
             ast_node_t * root = this->__parse_snippet(env_text);
@@ -6467,6 +7594,11 @@ namespace X_ROOT_NS::modules::compile {
             else
             {
                 type_ast_node_t * env_node = (type_ast_node_t *)root->child_at(0);
+
+                this->__mark_generated_type(context, (general_type_t *)env_node);
+
+                // The class is a nest type of the type that has the method.
+                ((general_type_t *)type)->nest_types.push_back((type_t *)env_node);
 
                 auto * env_layer = context.enter_type_level();
                 env_node->on_walk(context, (int)walk_step_t::default_, nullptr);
@@ -6488,11 +7620,14 @@ namespace X_ROOT_NS::modules::compile {
         );
 
         ((general_type_t *)type)->append_member((method_t *)method);
+        this->__mark_generated(context, (method_t *)method, (method_t *)method);
 
         // The body is analyzed after the statements that give the types of the params.
+        // The items of the body are kept apart (see begin_pending), they are ordered among
+        // themselves: the bias of the lambda that has it (a lambda in a lambda) does not add up,
+        // or the steps of the body would be those of the later steps.
         int saved_bias = context.delay_bias;
-        if (untyped_params != nullptr)
-            context.delay_bias = saved_bias + 1;
+        context.delay_bias = untyped_params != nullptr? 1 : 0;
 
         if (captures)
         {
@@ -6576,7 +7711,8 @@ namespace X_ROOT_NS::modules::compile {
         std::vector<field_t *> fields;
         for (size_t index = 0; index < __captured.size(); index++)
         {
-            name_t field_name = __to_name(_F(_T("__c%1%"), (int)index));
+            name_t field_name = __to_name(__generated_name(_T("captured"),
+                                    _str(__captured_names[index]), _str(env->name)));
             field_t * found = nullptr;
 
             for (field_t * field : env->fields)
@@ -6901,10 +8037,39 @@ namespace X_ROOT_NS::modules::compile {
 
         this->__op_property = op_property;
 
+        if (__name_el == nullptr)
+            __name_el = el;
+
         const char_t * op_name = op_property->name;
         _A(op_name != nullptr);
 
-        this->name = __to_name(_F(_T("op_%1%"), op_name));
+        this->name = __to_name(_F(__op_checked? _T("op_Checked%1%") : _T("op_%1%"), op_name));
+    }
+
+    // Sets that the method is a conversion: the name tells the kind (op_Implicit, op_Explicit, op_CheckedExplicit).
+    void method_ast_node_t::set_conversion(__el_t * el)
+    {
+        __is_conversion = true;
+
+        // The place of the name, for the messages (a duplicated conversion).
+        if (__name_el == nullptr)
+            __name_el = el;
+
+        if (__conversion_kind == 0)
+        {
+            this->__log(el, __c_t::conversion_kind_missing);
+            this->name = __to_name(_T("op_Explicit"));
+            return;
+        }
+
+        if (!this->name.empty() || __op_property != nullptr)
+        {
+            __log(el, __c_t::duplicate, _F(_T("method name / operator overload")), _T("conversion"));
+            return;
+        }
+
+        this->name = __to_name(__conversion_kind == 1? _T("op_Implicit")
+                                    : (__op_checked? _T("op_CheckedExplicit") : _T("op_Explicit")));
     }
 
     // Sets trait.
@@ -6926,6 +8091,16 @@ namespace X_ROOT_NS::modules::compile {
         __link_constraints(this->generic_params, this->constraints);
         this->attributes      = __to_eobject_with_owner<attributes_t *>(__attributes__,
                                                                 (method_t *)this);
+    }
+
+    // Returns whether the first param is (this Type name): the method is an extension method.
+    bool method_ast_node_t::has_this_param() const
+    {
+        if (this->params == nullptr || this->params->empty())
+            return false;
+
+        param_ast_node_t * first = dynamic_cast<param_ast_node_t *>((*this->params)[0]);
+        return first != nullptr && first->is_this;
     }
 
     // Returns this eobject.
@@ -6973,6 +8148,11 @@ namespace X_ROOT_NS::modules::compile {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_: {
+                if (__partial_skipped)
+                    return true;
+
+                __check_extension(context);
+
                 context.push(this->to_eobject());
 
                 // The method that does the work of an iterator: the params of the method of
@@ -6982,11 +8162,35 @@ namespace X_ROOT_NS::modules::compile {
                     variable_defination_t vd(this->__context, context,
                                                         (object_t *)(ast_node_t *)this);
 
-                    for (param_t * param : *((iterator_info_t *)this->iterator_info)->params)
+                    // The params of a generic method have the generic params of the method of the
+                    // user: the code has those of this method.
+                    iterator_info_t * info = (iterator_info_t *)this->iterator_info;
+                    generic_params_t * user_params = info->user_method != nullptr?
+                                                        info->user_method->generic_params : nullptr;
+
+                    for (param_t * param : *info->params)
                     {
-                        vd.define_local(param->type_name, param->name, false, nullptr,
+                        // The items of a params generic parameter are params of this method.
+                        if (param->ptype == param_type_t::extends)
+                            continue;
+
+                        type_name_t * type_name = param->type_name;
+
+                        // The types are not known yet: they are given in the step pre_analysis.
+                        if (user_params != nullptr && this->generic_params != nullptr
+                                && type_name != nullptr)
+                        {
+                            type_name_t * copy = __new_obj<type_name_t>();
+                            info->param_remaps.push_back({ type_name, copy });
+                            type_name = copy;
+                        }
+
+                        vd.define_local(type_name, param->name, false, nullptr,
                                                         (object_t *)(ast_node_t *)this);
                     }
+
+                    if (!info->param_remaps.empty())
+                        this->__delay(context, walk_step_t::pre_analysis);
                 }
 
                 // The types of the params of the lambda are checked before its body is analyzed.
@@ -6994,6 +8198,13 @@ namespace X_ROOT_NS::modules::compile {
                     this->__delay(context, walk_step_t::analysis, (void *)this->params);
 
                 __super_t::on_walk(context, step, tag);
+
+                // A partial method that has no implementation does nothing.
+                if (__partial_empty && this->body == nullptr)
+                {
+                    this->body = __new_obj<method_body_t>(context.current_region());
+                    this->body->push_back(__new_obj<return_statement_t>());
+                }
 
                 // The expression that is the body of a lambda.
                 if (this->lambda_expression_node != nullptr)
@@ -7034,6 +8245,11 @@ namespace X_ROOT_NS::modules::compile {
 
                 return __walk_analysis(context);
 
+            case walk_step_t::pre_analysis:
+                __attach_extension(context);
+                __remap_iterator_params();
+                return true;
+
             case walk_step_t::post_analysis:
                 __walk_lambda_analysis(context);
                 return true;
@@ -7044,6 +8260,106 @@ namespace X_ROOT_NS::modules::compile {
 
             default: return true;
         }
+    }
+
+    // Checks the extension method: the param "this" is the first, and the method is a static
+    // method of a static class that is not generic.
+    void method_ast_node_t::__check_extension(ast_walk_context_t & context)
+    {
+        if (this->params == nullptr)
+            return;
+
+        for (size_t index = 1, count = this->params->size(); index < count; index++)
+        {
+            param_ast_node_t * param = dynamic_cast<param_ast_node_t *>((*this->params)[index]);
+            if (param != nullptr && param->is_this)
+                this->__log(param, __c_t::this_param_not_first);
+        }
+
+        if (!this->has_this_param())
+            return;
+
+        type_t * type = context.current_type();
+        bool valid = this->is_static() && type != nullptr && type->this_gtype() == gtype_t::general
+                        && ((general_type_t *)type)->is_static()
+                        && !((general_type_t *)type)->is_generic();
+
+        if (!valid)
+        {
+            this->__log(this, __c_t::extension_method_wrong_container);
+            return;
+        }
+
+        // The attribute is written when the types are known.
+        __extension_type = (general_type_t *)type;
+        this->__delay(context, walk_step_t::pre_analysis);
+    }
+
+    // The types of the params of the method of the user are those of the generic params of the
+    // method that does the work of an iterator.
+    void method_ast_node_t::__remap_iterator_params()
+    {
+        iterator_info_t * info = (iterator_info_t *)this->iterator_info;
+        if (info == nullptr || info->user_method == nullptr)
+            return;
+
+        for (auto & item : info->param_remaps)
+        {
+            item.second->type = __remap_generic_params(
+                item.first->type, info->user_method->generic_params, this->generic_params
+            );
+
+            item.second->nullable = item.first->nullable;
+        }
+    }
+
+    // Marks the extension method, its class and its assembly with the attribute
+    // System.Runtime.CompilerServices.ExtensionAttribute, as .NET does: the extension methods
+    // are found by the assemblies and the classes that have the attribute.
+    void method_ast_node_t::__attach_extension(ast_walk_context_t & context)
+    {
+        general_type_t * extension_type = __get_xpool().get_extension_attribute_type();
+
+        // The assembly System is compiled: its types are not known by the pool yet.
+        if (extension_type == nullptr)
+        {
+            context.assembly.types.each_general_types([&](general_type_t * type) {
+                if (extension_type == nullptr && type->name == __to_name(_T("ExtensionAttribute"))
+                        && type->namespace_ != nullptr && type->namespace_->full_name != nullptr
+                        && (string_t)*type->namespace_->full_name == _T("Runtime.CompilerServices"))
+                {
+                    extension_type = type;
+                }
+            });
+        }
+
+        if (extension_type == nullptr || __extension_type == nullptr)
+            return;
+
+        method_t * constructor = find_default_constructor(extension_type);
+        if (constructor == nullptr)
+            return;
+
+        auto mark = [&](with_attributes_object_t * target, eobject_t * owner) {
+            if (target->has_attribute(extension_type))
+                return;
+
+            attribute_t * attribute = __new_obj<attribute_t>();
+            attribute->type_name    = __new_obj<type_name_t>((type_t *)extension_type);
+            attribute->constructor  = constructor;
+
+            if (owner != nullptr)
+                attribute->set_owner(owner);
+
+            if (target->attributes == nullptr)
+                target->attributes = __new_obj<attributes_t>();
+
+            target->attributes->push_back(attribute);
+        };
+
+        mark((method_t *)this, (method_t *)this);
+        mark(__extension_type, __extension_type);
+        mark(&context.assembly, nullptr);
     }
 
     // Walks the default step.
@@ -7157,9 +8473,46 @@ namespace X_ROOT_NS::modules::compile {
             return nullptr;
         };
 
+        // The state object of a generic method has the generic params, that are not those of this
+        // method: the fields are declared with those of the state object, and the code uses the
+        // fields of the state object that has those of this method (State<T>), like it uses the
+        // fields of any generic object.
+        bool generic_state = state->params != nullptr && state->params->size() > 0
+                                && this->generic_params != nullptr;
+
+        type_t * state_instance = nullptr;
+
+        // The field of the state object that the code uses.
+        auto code_field_of = [&](field_t * field) -> field_t * {
+            if (!generic_state)
+                return field;
+
+            if (state_instance == nullptr)
+            {
+                type_collection_t args;
+                for (generic_param_t * gp : *this->generic_params)
+                    args.push_back((type_t *)gp);
+
+                // The state is nested in the type that has the method: it is the host of the
+                // instance (Box<U>.State<T>), the type itself is Box<U> in its own methods.
+                type_t * host = state->host_type;
+
+                state_instance = __XPool.new_generic_type(state, args, host);
+                context.commit_types();
+
+                // The fields that were made after it.
+                if (state_instance->this_gtype() == gtype_t::generic)
+                    ((generic_type_t *)state_instance)->sync_template_fields();
+            }
+
+            analyze_member_args_t member_args(member_type_t::field, field->name);
+            field_t * found = (field_t *)state_instance->get_member(member_args, true);
+            return found != nullptr? found : field;
+        };
+
         // The variable of a field of the state object: the object is the first param.
         auto variable_of = [&](field_t * field) -> field_variable_t * {
-            auto * variable = __new_obj<field_variable_t>(field);
+            auto * variable = __new_obj<field_variable_t>(code_field_of(field));
             variable->hoist_base = info->base;
             return variable;
         };
@@ -7175,8 +8528,11 @@ namespace X_ROOT_NS::modules::compile {
             return assign;
         };
 
-        // The local variables are fields.
+        // The local variables are fields. (All the fields are made before the variables that
+        // use them: the fields of a generic object are known when it is made.)
         int index = 0;
+        std::vector<std::pair<local_variable_t *, field_t *>> hoisted;
+
         for (local_variable_t * variable : info->locals)
         {
             if (variable->no_hoist)
@@ -7186,17 +8542,32 @@ namespace X_ROOT_NS::modules::compile {
             if (field == nullptr)
             {
                 field = __new_obj<field_t>();
-                field->name = __to_name(_F(_T("__local%1%_%2%"), ++index, _str(variable->name)));
+                field->name = __to_name(__generated_name(_T("local"),
+                    _F(_T("%1%_%2%"), ++index, _str(variable->name)), _str(state->name)));
                 field->type_name = variable->type_name;
+
+                if (generic_state && variable->type_name != nullptr)
+                {
+                    field->type_name = __new_obj<type_name_t>(__remap_generic_params(
+                        variable->type_name->type, this->generic_params, state->params
+                    ));
+                }
+
                 field->decorate = __new_obj<decorate_t>(decorate_value_t::public_);
                 field->host_type = state;
                 field->variable = __new_obj<field_variable_t>(field);
 
                 state->append_member(field);
+                this->__mark_generated(context, field, field);
             }
 
-            variable->hoisted = variable_of(field);
+            hoisted.push_back({ variable, field });
         }
+
+        for (auto & item : hoisted)
+            item.first->hoisted = variable_of(item.second);
+
+        context.commit_types();
 
         // The names are the fields.
         for (name_expression_t * name_exp : info->refs)
@@ -7242,8 +8613,8 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         // The yield statements.
-        field_t * state_field = find_field(__to_name(_T("__state")));
-        field_t * current_field = find_field(__to_name(_T("__current")));
+        field_t * state_field = find_field(__to_name(__generated_name(_T("state"), string_t(), _str(state->name))));
+        field_t * current_field = find_field(__to_name(__generated_name(_T("current"), string_t(), _str(state->name))));
         if (state_field == nullptr || current_field == nullptr)
             return;
 
@@ -7303,6 +8674,7 @@ namespace X_ROOT_NS::modules::compile {
 
         this->body->push_front((statement_t *)dispatch);
 
+        context.commit_types();
     }
 
     // The params of a lambda that has no types are the ones of the delegate, if it is not
@@ -7443,6 +8815,41 @@ namespace X_ROOT_NS::modules::compile {
         if (this->constraints != nullptr && this->constraints->size() > 0)
             __check_generic_template_constraints(this->__context, this, this);
 
+        // A conversion operator: public and static, one parameter, from or to the containing type.
+        if (__is_conversion)
+        {
+            type_t * host_type = context.current_type();
+
+            // The members of an interface are public, its conversions are static abstract (or virtual).
+            if (!this->is_static() || (!this->is_public() && !(host_type != nullptr && is_interface(host_type))))
+                this->__log(this, __c_t::operator_overload_prototype_error);
+
+            if (this->param_count() != 1)
+            {
+                this->__log(this, __c_t::conversion_wrong_param_count);
+            }
+            else
+            {
+                type_t * from_type = this->params->at(0)->get_type();
+                type_t * to_type = ((__w_t<method_t> *)this)->get_type();
+
+                // In an interface, a generic param (TSelf) is the type that implements it.
+                bool in_interface = host_type != nullptr && is_interface(host_type);
+
+                auto is_host = [&](type_t * type) {
+                    return type == host_type
+                        || (type != nullptr && type->this_gtype() == gtype_t::generic
+                                && ((generic_type_t *)type)->template_ == host_type)
+                        || (in_interface && type != nullptr && is_generic_param(type));
+                };
+
+                if (!is_host(from_type) && !is_host(to_type))
+                    this->__log(this, __c_t::conversion_wrong_containing_type);
+            }
+
+            return true;
+        }
+
         // Operator overload, checks prototype.
         if (__op_property == nullptr)
             return true;
@@ -7464,9 +8871,12 @@ namespace X_ROOT_NS::modules::compile {
 
         // One of the parameters is the containing type, or in an interface, a generic param
         // (TSelf) that is the type that implements it.
+        // In a generic type, it is the type made of the generic params of the type (List<T>).
         bool has_containing_type = al::any_of(*this->params, [&](param_t * param) {
             type_t * param_type = param->get_type();
             return param_type == context.current_type()
+                || (param_type != nullptr && param_type->this_gtype() == gtype_t::generic
+                        && ((generic_type_t *)param_type)->template_ == context.current_type())
                 || (in_interface && param_type != nullptr && is_generic_param(param_type));
         });
 
@@ -7636,6 +9046,16 @@ namespace X_ROOT_NS::modules::compile {
             __append_member(this->__context, context, this->set_method);
         }
 
+        // The accessors of a property that the compiler makes (the one of an iterator).
+        if (__has_generated_attribute(this->attributes))
+        {
+            if (this->get_method != nullptr)
+                this->__mark_generated(context, this->get_method, this->get_method);
+
+            if (this->set_method != nullptr)
+                this->__mark_generated(context, this->set_method, this->set_method);
+        }
+
         if (type->this_ttype() != ttype_t::interface_ && !this->is_abstract())
             __generate_ignored_method_bodies(context, value_param);
     }
@@ -7643,7 +9063,11 @@ namespace X_ROOT_NS::modules::compile {
     // Walks analysis step.
     bool property_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
-        this->__check_member(context.current_type(), (property_t *)this, __name_el);
+        // An indexer has no name in the code: the position is that of the property.
+        code_element_t * el = __name_el != nullptr? (code_element_t *)__name_el
+                                                   : (code_element_t *)(ast_node_t *)this;
+
+        this->__check_member(context.current_type(), (property_t *)this, el);
         return true;
     }
 
@@ -7684,7 +9108,8 @@ namespace X_ROOT_NS::modules::compile {
         // Appends a field for the property.
         field_t * field = __new_obj<field_t>();
         field->type_name = this->type_name;
-        field->name = __to_name(_F(_T("__%1%__"), this->name));
+        field->name = __to_name(__generated_name(_T("backing"), _str(this->name),
+                                    ((general_type_t *)context.current_type())->to_full_name()));
 
         decorate_value_t dv = decorate_value_t::default_value;
         dv.is_static = this->is_static();
@@ -7693,6 +9118,16 @@ namespace X_ROOT_NS::modules::compile {
         field->decorate = __new_obj<decorate_t>(dv);
 
         __append_member(this->__context, context, field);
+
+        // What the compiler makes: the field and the accessors, and the property.
+        this->__mark_generated(context, field, field);
+        this->__mark_generated(context, (property_t *)this, (property_t *)this);
+
+        if (this->get_method != nullptr)
+            this->__mark_generated(context, this->get_method, this->get_method);
+
+        if (this->set_method != nullptr)
+            this->__mark_generated(context, this->set_method, this->set_method);
 
         // Appends get method body.
         if (__BodyIgnored(get))
@@ -7756,6 +9191,7 @@ namespace X_ROOT_NS::modules::compile {
         this->decorate        = __to_eobject<decorate_t *>(__decorate__);
         this->add_method      = __to_eobject<method_t *>(__add_method__);
         this->remove_method   = __to_eobject<method_t *>(__remove_method__);
+        this->raise_method    = __to_eobject<method_t *>(__raise_method__);
         this->owner_type_name = __to_eobject<type_name_t *>(__owner_type_name__);
         this->attributes      = __to_eobject_with_owner<attributes_t *>(__attributes__,
                                                                 (event_t *)this);
@@ -7775,11 +9211,15 @@ namespace X_ROOT_NS::modules::compile {
             case walk_step_t::default_:
                 if (__walk_default(context, step, tag))
                 {
+                    this->__delay(context, walk_step_t::confirm);
                     this->__delay(context, walk_step_t::analysis);
                     return true;
                 }
 
                 return false;
+
+            case walk_step_t::confirm:
+                return __walk_confirm(context);
 
             case walk_step_t::analysis:
                 return __walk_analysis(context);
@@ -7788,27 +9228,249 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // Makes the add and remove methods of an event that has no accessors, and the field that keeps
+    // the handlers: `event Handler Changed;` is a field of the list of the handlers, add_Changed
+    // and remove_Changed. The accessors of an abstract event, and of an event of an interface, have
+    // no body and no field.
+    void event_ast_node_t::__make_default_accessors(ast_walk_context_t & context,
+                                                    bool abstract_accessors)
+    {
+        xpool_t & xpool = __get_xpool();
+
+        decorate_value_t dv = decorate_value_t::default_value;
+        dv.is_static = this->is_static();
+        dv.access = access_value_t::private_;
+
+        if (!abstract_accessors)
+        {
+            // The type of the field is that of the handlers of the type of the event: it is made
+            // when the type of the event is known.
+            __list_type_name = __new_obj<type_name_t>();
+
+            this->field = __new_obj<field_t>();
+            this->field->type_name = __list_type_name;
+            this->field->name = __to_name(__generated_name(_T("backing"), _str(this->name),
+                                    ((general_type_t *)context.current_type())->to_full_name()));
+            this->field->decorate = __new_obj<decorate_t>(dv);
+            this->field->variable = __new_obj<field_variable_t>(this->field);
+
+            __append_member(this->__context, context, this->field);
+            this->__mark_generated(context, this->field, this->field);
+        }
+
+        __value_param = __new_obj<param_t>(this->type_name, __to_name(_T("value")));
+
+        auto make_method = [&](const char_t * prefix, operator_t op) {
+            method_t * method = __new_obj<method_t>();
+
+            method->name            = __to_name(_F(_T("%1%_%2%"), prefix, this->name));
+            method->type_name       = xpool.to_type_name(xpool.get_void_type());
+            method->decorate        = this->decorate;
+            method->relation_member = this;
+            method->owner_type_name = this->owner_type_name;
+
+            params_t * params = __new_obj<params_t>();
+            params->push_back(__value_param);
+            method->params = params;
+
+            if (!abstract_accessors)
+            {
+                // field = field + value;  field = field - value;
+                expression_statement_t * statement = (expression_statement_t *)
+                    __new_expression_statement<binary_expression_t>(
+                        operator_t::assign,
+                        __new_field_expression(this->field),
+                        __new_system_expression<binary_expression_t>(op,
+                            __new_field_expression(this->field),
+                            __new_param_expression(__value_param)
+                        )
+                    );
+
+                (op == operator_t::add? __add_expression : __remove_expression) = statement->expression;
+
+                method->body = __new_obj<method_body_t>(std::initializer_list<statement_t *>{
+                    statement, __new_obj<return_statement_t>()
+                }, context.current_region());
+            }
+
+            __append_member(this->__context, context, method);
+
+            if (!abstract_accessors)
+                this->__mark_generated(context, method, method);
+
+            return method;
+        };
+
+        this->add_method    = make_method(_T("add"), operator_t::add);
+        this->remove_method = make_method(_T("remove"), operator_t::sub);
+
+        if (abstract_accessors)
+            return;
+
+        // The raise method: its params and its body are made when the type is known.
+        __return_type_name = __new_obj<type_name_t>();
+        __default_raise = true;
+
+        decorate_value_t raise_dv = decorate_value_t::default_value;
+        raise_dv.is_static = this->is_static();
+        raise_dv.access = access_value_t::private_;
+
+        method_t * raise = __new_obj<method_t>();
+        raise->name            = __to_name(_F(_T("raise_%1%"), this->name));
+        raise->type_name       = __return_type_name;
+        raise->decorate        = __new_obj<decorate_t>(raise_dv);
+        raise->relation_member = this;
+        raise->params          = __new_obj<params_t>();
+
+        this->raise_method = raise;
+        __append_member(this->__context, context, raise);
+        this->__mark_generated(context, raise, raise);
+    }
+
+    // Makes the body of the raise method that an event that has no accessors has: the handlers are
+    // called if there is any, the result is the one of the last of them.
+    void event_ast_node_t::__make_default_raise(generic_type_t * delegate_type)
+    {
+        xpool_t & xpool = __get_xpool();
+        method_t * raise = this->raise_method;
+
+        // The params: those of the delegate.
+        arguments_t * arguments = __new_obj<arguments_t>();
+        for (size_t k = 1, count = delegate_type->args.size(); k < count; k++)
+        {
+            param_t * param = __new_obj<param_t>(
+                xpool.to_type_name(delegate_type->type_at(k)), __to_name(_F(_T("arg%1%"), k - 1))
+            );
+
+            raise->params->push_back(param);
+
+            argument_t * argument = __new_obj<argument_t>();
+            argument->expression = __new_param_expression(param);
+            arguments->push_back(argument);
+        }
+
+        type_t * return_type = delegate_type->type_at(0);
+
+        auto * call = __new_system_expression<function_expression_t>();
+        call->set_variable(this->field->variable);
+        call->set_arguments(arguments);
+
+        // if (field != null) [return] field(args);
+        statement_t * call_statement;
+        if (is_void_type(return_type))
+            call_statement = __new_obj<expression_statement_t>(call);
+        else
+            call_statement = __new_obj<return_statement_t>(call);
+
+        statement_t * check = __new_obj<if_statement_t>(
+            __new_system_expression<binary_expression_t>(
+                operator_t::not_equal, __new_field_expression(this->field),
+                __to_value_expression(nullptr)
+            ),
+            call_statement, nullptr
+        );
+
+        raise->body = __new_obj<method_body_t>(__region);
+        raise->body->push_back(check);
+
+        if (is_void_type(return_type))
+        {
+            raise->body->push_back(__new_obj<return_statement_t>());
+        }
+        else
+        {
+            raise->body->push_back(__new_obj<return_statement_t>(
+                __new_system_expression<default_value_expression_t>(__return_type_name)
+            ));
+        }
+    }
+
     // Walks default step.
     bool event_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
     {
         this->__check_name_empty(this->name, _T("event"));
 
-        if (this->add_method != nullptr)
+        type_t * host_type = context.current_type();
+        bool in_interface = host_type != nullptr && host_type->this_ttype() == ttype_t::interface_;
+
+        __region = context.current_region();
+
+        bool custom = this->add_method != nullptr || this->remove_method != nullptr
+                                                  || this->raise_method != nullptr;
+
+        if (custom)
         {
-            this->add_method->name = __to_name(_F(_T("add_%1%"), this->name));
-            this->add_method->type_name = this->type_name;
-            this->add_method->relation_member = this;
-            this->add_method->owner_type_name = this->owner_type_name;
-            __append_member(this->__context, context, this->add_method);
+            if (this->add_method == nullptr)
+                this->__log(this, __c_t::event_accessor_missing, this->name, _T("add"));
+            else if (this->remove_method == nullptr)
+                this->__log(this, __c_t::event_accessor_missing, this->name, _T("remove"));
+
+            if (this->raise_method != nullptr && in_interface)
+            {
+                this->__log(this, __c_t::event_raise_not_valid, this->name,
+                                                    _T("the events of an interface are only added and removed"));
+            }
+        }
+        else
+        {
+            __make_default_accessors(context, in_interface || this->is_abstract());
         }
 
-        if (this->remove_method != nullptr)
+        xpool_t & xpool = __get_xpool();
+
+        if (custom)
         {
-            this->remove_method->name = __to_name(_F(_T("remove_%1%"), this->name));
-            this->remove_method->type_name = this->type_name;
-            this->remove_method->relation_member = this;
-            this->remove_method->owner_type_name = this->owner_type_name;
-            __append_member(this->__context, context, this->remove_method);
+            __value_param = __new_obj<param_t>(this->type_name, __to_name(_T("value")));
+
+            method_t * accessors[] = { this->add_method, this->remove_method };
+            const char_t * prefixes[] = { _T("add"), _T("remove") };
+
+            for (int k = 0; k < 2; k++)
+            {
+                method_t * method = accessors[k];
+                if (method == nullptr)
+                    continue;
+
+                method->name = __to_name(_F(_T("%1%_%2%"), prefixes[k], this->name));
+                method->type_name = xpool.to_type_name(xpool.get_void_type());
+                method->relation_member = this;
+                method->owner_type_name = this->owner_type_name;
+
+                if (method->decorate == nullptr)
+                    method->decorate = this->decorate;
+
+                params_t * params = __new_obj<params_t>();
+                params->push_back(__value_param);
+                method->params = params;
+
+                __append_member(this->__context, context, method);
+            }
+
+            // The raise method: the type that it returns is that of the delegate.
+            if (this->raise_method != nullptr)
+            {
+                __return_type_name = __new_obj<type_name_t>();
+
+                this->raise_method->name = __to_name(_F(_T("raise_%1%"), this->name));
+                this->raise_method->type_name = __return_type_name;
+                this->raise_method->relation_member = this;
+                this->raise_method->owner_type_name = this->owner_type_name;
+
+                if (this->raise_method->decorate == nullptr)
+                    this->raise_method->decorate = this->decorate;
+
+                if (this->raise_method->params == nullptr)
+                    this->raise_method->params = __new_obj<params_t>();
+
+                __append_member(this->__context, context, this->raise_method);
+            }
+        }
+
+        // The variable of the event, that the code names.
+        if (!this->name.empty())
+        {
+            variable_defination_t vd(this->__context, context, (event_t *)this);
+            vd.define_event(this);
         }
 
         context.push(this->to_eobject());
@@ -7818,9 +9480,75 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    // Walks confirm step: the type of the event is known, before the types that are made of
+    // the generic types are committed.
+    bool event_ast_node_t::__walk_confirm(ast_walk_context_t & context)
+    {
+        xpool_t & xpool = __get_xpool();
+
+        type_t * type = to_type(this->type_name);
+        if (type == nullptr)
+            return true;
+
+        generic_type_t * delegate_type = nullptr;
+        if (type->this_gtype() == gtype_t::generic
+                && ((generic_type_t *)type)->template_ == xpool.get_delegate_type())
+        {
+            delegate_type = (generic_type_t *)type;
+        }
+
+        if (delegate_type == nullptr)
+        {
+            this->__log(__name_el != nullptr? (code_element_t *)__name_el : (code_element_t *)this,
+                __c_t::event_type_not_delegate, type, this->name);
+            return true;
+        }
+
+        // The type of the field is the list of the handlers, the return type of the raise method
+        // is that of the delegate.
+        if (__list_type_name != nullptr)
+        {
+            __list_type_name->type = xpool.new_generic_type(
+                xpool.get_multicast_delegate_type(), delegate_type->args, nullptr
+            );
+        }
+
+        if (__return_type_name != nullptr)
+            __return_type_name->type = delegate_type->type_at(0);
+
+        if (__default_raise)
+        {
+            __make_default_raise(delegate_type);
+        }
+        else if (this->raise_method != nullptr)
+        {
+            // The params of a raise accessor are those of the delegate.
+            size_t count = this->raise_method->params != nullptr? this->raise_method->params->size() : 0;
+            bool match = count + 1 == delegate_type->args.size();
+
+            for (size_t k = 0; match && k < count; k++)
+            {
+                type_t * param_type = to_type((*this->raise_method->params)[k]->type_name);
+                match = param_type == delegate_type->type_at(k + 1);
+            }
+
+            if (!match)
+            {
+                this->__log(this->raise_method, __c_t::event_raise_not_valid, this->name,
+                    _F(_T("its params are not those of \"%1%\""), type));
+            }
+        }
+
+        return true;
+    }
+
     // Walks analysis step.
     bool event_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
+        // The operators of the bodies of the add and remove methods.
+        walk_expression(this->__context, context, __add_expression);
+        walk_expression(this->__context, context, __remove_expression);
+
         this->__check_member(context.current_type(), (event_t *)this, __name_el);
         return true;
     }

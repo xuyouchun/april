@@ -198,9 +198,12 @@ namespace X_ROOT_NS::modules::core {
         
         // Attribute argument.
         attribute_argument  =   33,
+
+        // Resource.
+        resource            =   34,
         
         // Vesion1 assembly.
-        __V1 = attribute_argument,
+        __V1 = resource,
 
     X_ENUM_END
 
@@ -240,7 +243,7 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
 
     // Returns size of object collection.
-    template<typename objs_t> bool __size(objs_t * objs)
+    template<typename objs_t> size_t __size(objs_t * objs)
     {
         return objs == nullptr? 0 : objs->size();
     }
@@ -758,6 +761,7 @@ namespace X_ROOT_NS::modules::core {
         version_t   version;            // Assembly version.
         ref_t       entry_point;        // Assembly entry point.
         res_t       info;               // Assembly information.
+        ref_t       attributes;         // Assembly attributes, [assembly: Extension].
 
     __EndDefineMt(assembly)
 
@@ -1103,6 +1107,7 @@ namespace X_ROOT_NS::modules::core {
 
         ref_t           add_method;         // The add method
         ref_t           remove_method;      // The remove method.
+        ref_t           raise_method;       // The raise method.
 
     __EndDefineMt(event)
 
@@ -1251,10 +1256,22 @@ namespace X_ROOT_NS::modules::core {
 
         res_t       name;                   // Attribute arguemnt name.
         ref_t       value;                  // Attribute argument value.
+        ref_t       value_type;             // The type of the value: the object of an Object param is of it.
 
         argument_name_type_t name_type;     // Attribute argument name type: argument, field.
 
     __EndDefineMt(attribute_argument)
+
+    ////////// ////////// ////////// ////////// //////////
+    // mt_resource_t
+
+    // Metadata: Resource, bytes that are embedded in the assembly.
+    __DefineMt(resource)
+
+        res_t       name;                   // Resource name.
+        res_t       data;                   // The bytes: a block of the heap, null for no bytes.
+
+    __EndDefineMt(resource)
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -1376,6 +1393,13 @@ namespace X_ROOT_NS::modules::core {
             return __heap.append_string(sid);
         }
 
+        // The string can have the character 0.
+        res_t res_of(const string_t & s)
+        {
+            sid_t sid = __spool.to_sid(s);
+            return __heap.append_string(sid);
+        }
+
         // Returns string pool.
         spool_t & get_spool() const { return __spool; }
 
@@ -1472,7 +1496,7 @@ namespace X_ROOT_NS::modules::core {
         // Returns type of System.Type.
         type_t * __get_type_type()
         {
-            return __get_internal_type(__type_type, __to_name(__CoreTypeName(_T("Type"))));
+            return __get_internal_type(__type_type, __to_name(__CoreTypeName(CoreType_Type)));
         }
 
         // Returns system types.
@@ -1786,10 +1810,16 @@ namespace X_ROOT_NS::modules::core {
             if (it != __str_map.end())
                 return it->second;
 
+            // The strings of the assembly are UTF-8, whatever the platform is: the pool of the virtual
+            // machine takes them as they are (UTF-16), the pool of the compiler has the strings of the host.
             const char * p =  (const char *)__heap_at(res);
-            string_t s = string_convert<char, char_t>(p);
+            ustring_t us = utf8_to_ustring(p);
 
-            sid_t sid = __spool.to_sid(s);
+            sid_t sid;
+            if constexpr (requires (spool_t & pool, const ustring_t & u) { pool.to_sid(u); })
+                sid = __spool.to_sid(us);
+            else
+                sid = __spool.to_sid(to_host_string(us));
             __str_map[res] = sid;
 
             return sid;
@@ -1876,7 +1906,7 @@ namespace X_ROOT_NS::modules::core {
                     return cvalue_t(*(bool *)mt.data2);
 
                 case value_type_t::char_:
-                    return cvalue_t(*(char_t *)mt.data2);
+                    return cvalue_t(*(rt_char_t *)mt.data2);
 
                 default:
                     throw _ED(__e_t::unexpected_const_value, _T(""));
@@ -1888,7 +1918,13 @@ namespace X_ROOT_NS::modules::core {
         {
             res_t res = *(res_t *)mt.data2;
             sid_t s = read_sid(res);
-            return cvalue_t(s.c_str());
+
+            // The string of the compiler keeps its length (it can have the character 0), the string
+            // of the virtual machine has it in its head.
+            if constexpr (std::is_same_v<decltype(s.c_str()), const char_t *>)
+                return cvalue_t(s.c_str(), s.length());
+            else
+                return cvalue_t(s.c_str());
         }
 
         // Read constant null.

@@ -17,6 +17,12 @@ namespace X_ROOT_NS::arch::types {
     typedef unsigned long long   uint64_t;
     typedef unsigned long        size_t;
 
+    // The character of the virtual machine (Char, and the characters of String): always 16 bits, UTF-16,
+    // on every platform. The character of the host (the compiler, the command line) is char_t, that is
+    // wchar_t: 16 bits on Windows, 32 bits on Linux.
+    typedef char16_t             rt_char_t;
+    typedef ::std::basic_string<rt_char_t>     ustring_t;
+
     // Strings
     typedef wchar_t              char_t;
     typedef ::std::basic_string<char_t>        string_t;

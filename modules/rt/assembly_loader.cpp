@@ -71,6 +71,12 @@ namespace X_ROOT_NS::modules::rt {
             return __to_sid(res);
         }
 
+        // Reads the value of a constant.
+        cvalue_t read_constant(const mt_constant_t & mt)
+        {
+            return __res_reader.read_const(mt);
+        }
+
         // Reads bytes from resource.
         rt_bytes_t read_bytes(res_t res)
         {
@@ -406,6 +412,22 @@ namespace X_ROOT_NS::modules::rt {
             return __loader.read_bytes(method->mt->body);
         }
 
+        // The resources.
+        virtual int get_resource_count() override
+        {
+            return (int)__mt_manager<__tidx_t::resource>().count();
+        }
+
+        virtual rt_sid_t get_resource_name(int index) override
+        {
+            return __to_sid(__metadata_at<__tidx_t::resource>(ref_t(index)).name);
+        }
+
+        virtual rt_bytes_t get_resource_bytes(int index) override
+        {
+            return __loader.read_bytes(__metadata_at<__tidx_t::resource>(ref_t(index)).data);
+        }
+
         // Gets name of field.
         virtual rt_sid_t get_name(rt_field_t * field) override
         {
@@ -538,6 +560,57 @@ namespace X_ROOT_NS::modules::rt {
         virtual rt_field_t * get_field(ref_t ref) override
         {
             return __entity_at<__tidx_t::field>(ref);
+        }
+
+        // Gets property of ref.
+        virtual rt_property_t * get_property(ref_t ref) override
+        {
+            return __entity_at<__tidx_t::property>(ref);
+        }
+
+        // Gets event of ref.
+        virtual rt_event_t * get_event(ref_t ref) override
+        {
+            return __entity_at<__tidx_t::event>(ref);
+        }
+
+        // Gets the attributes of the assembly.
+        virtual ref_t get_attributes() override
+        {
+            mt_assembly_t * mt = this->mt;
+            return mt->attributes;
+        }
+
+        // Gets attribute of ref.
+        virtual rt_attribute_t * get_attribute(ref_t ref) override
+        {
+            return __entity_at<__tidx_t::attribute>(ref);
+        }
+
+        // Gets attribute argument of ref.
+        virtual rt_attribute_argument_t * get_attribute_argument(ref_t ref) override
+        {
+            return __entity_at<__tidx_t::attribute_argument>(ref);
+        }
+
+        // Gets the value of the constant of ref.
+        virtual cvalue_t get_constant(ref_t ref) override
+        {
+            return __loader.read_constant(__metadata_at<__tidx_t::constant>(ref));
+        }
+
+        // Returns whether the constant is a type, and its type ref.
+        virtual bool get_constant_type(ref_t ref, ref_t * out_type_ref) override
+        {
+            if (ref == ref_t::null)
+                return false;
+
+            mt_constant_t & mt = __metadata_at<__tidx_t::constant>(ref);
+            if (to_cvalue_type(mt.constant_type) != cvalue_type_t::type)
+                return false;
+
+            *out_type_ref = *(ref_t *)mt.data2;
+            return true;
         }
 
         // Gets param of ref.

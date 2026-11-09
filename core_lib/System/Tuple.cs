@@ -20,9 +20,7 @@ public interface ITuple
 
     // Makes a tuple in the heap, as a reference type: it is never boxed.
     public static ITuple<TItems ...> Create<TItems ...>(TItems ... items)
-    {
-        return (ITuple<TItems ...>)Internal.Tuple_Create(typeof(Tuple<TItems ...>), items);
-    }
+        => (ITuple<TItems ...>)Internal.Tuple_Create(typeof(Tuple<TItems ...>), items);
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -44,10 +42,7 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
         Internal.Tuple_SetRange(typeof(__SelfType), items);
     }
 
-    public Int32 Count
-    {
-        get { return Internal.Tuple_GetCount(typeof(__SelfType)); }
-    }
+    public Int32 Count => Internal.Tuple_GetCount(typeof(__SelfType));
 
     public Object Get(Int32 index)
     {

@@ -6,6 +6,8 @@
 
 源码导读：https://github.com/xuyouchun/april/wiki/Source-guidance
 
+诊断信息（错误码 AP0001…、信息风格）：[docs/diagnostics.md](docs/diagnostics.md)，由 `tools/gen_diagnostics.py` 从源码生成
+
 ## 构建
 
 依赖：g++ (C++20)、CMake ≥ 3.16、Python3、Boost (log/system/filesystem)。

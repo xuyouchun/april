@@ -285,6 +285,7 @@ namespace X_ROOT_NS::modules::exec {
         gc_type_resolver_scope_t gc_resolver_scope(__ctx.heap, env);
 
         env.static_heap = __ctx.heap;
+        env.static_data_getter = [this](rt_type_t * type) { return env.static_data_of(type); };
         __ctx.heap->add_root_source(&env);
 
         command_execute_context_t exec_ctx(__ctx.heap, env);

@@ -27,6 +27,7 @@ namespace X_ROOT_NS::modules::april {
     {
         __lang_factory.register_lang_t<lang_cs::cs_lang_t>();
         __lang_factory.register_lang_t<lang_lq::lq_lang_t>();
+        __lang_factory.register_lang_t<lang_c::c_lang_t>();
 
         __compiler = __new_obj<compiler_t>(&__lang_factory, __controller);
         __solution = __new_obj<solution_t>(__global_context(), solution_name);
@@ -305,6 +306,8 @@ namespace X_ROOT_NS::modules::april {
 
     namespace fs = std::filesystem;
 
+    static std::vector<std::pair<string_t, lib::path_t>> __resource_files(project_config_t * config);
+
     // The time of a file as a number.
     static uint64_t __stamp_of(const fs::path & path)
     {
@@ -410,6 +413,20 @@ namespace X_ROOT_NS::modules::april {
             std::sort(sources.begin(), sources.end());
             for (const std::string & source : sources)
                 hasher.add_file(source);
+
+            // The files that are embedded in the assemblies.
+            std::vector<project_config_t *> projects;
+
+            if (file_type == compile_file_type_t::project)
+                projects.push_back((project_config_t *)parse_config(&__xheap, path));
+            else if (file_type == compile_file_type_t::solution)
+                projects = ((solution_config_t *)parse_config(&__xheap, path))->projects;
+
+            for (project_config_t * project_config : projects)
+            {
+                for (auto && resource : __resource_files(project_config))
+                    hasher.add_file(resource.second.string());
+            }
         });
 
         return hasher.hex();
@@ -809,6 +826,62 @@ namespace X_ROOT_NS::modules::april {
         return result;
     }
 
+    // The files of the resources of a project, with the names that Resource.GetBytes takes: the name of the project, and
+    // the path from the directory of the project with . in place of the separators (System.Text.gb18030.bin); or the
+    // name of the config, when the path is one file.
+    static std::vector<std::pair<string_t, lib::path_t>> __resource_files(project_config_t * config)
+    {
+        std::vector<std::pair<string_t, lib::path_t>> result;
+
+        for (const resource_config_t & resource : config->resources)
+        {
+            std::vector<lib::path_t> files;
+            each_files(resource.path, [&](const lib::path_t & path) { files.push_back(path); }, true);
+            std::sort(files.begin(), files.end());
+
+            for (const lib::path_t & path : files)
+            {
+                string_t name;
+
+                if (!resource.name.empty() && files.size() == 1)
+                {
+                    name = resource.name;
+                }
+                else
+                {
+                    std::error_code ec;
+                    fs::path relative = fs::relative(fs::path(path.string()), fs::path(resource.base.string()), ec);
+                    std::string text = ec? fs::path(path.string()).filename().generic_string() : relative.generic_string();
+
+                    for (char & c : text)
+                    {
+                        if (c == '/')
+                            c = '.';
+                    }
+
+                    name = config->name + _T(".") + string_convert<char, char_t>(text);
+                }
+
+                result.push_back(std::make_pair(name, path));
+            }
+        }
+
+        return result;
+    }
+
+    // Adds the resources of the project config to the project.
+    static void __add_resources(project_t * project, project_config_t * config)
+    {
+        for (auto && resource : __resource_files(config))
+        {
+            project_t::resource_t item;
+            item.name = resource.first;
+            item.path = lib::to_str(resource.second);
+
+            project->resources.push_back(item);
+        }
+    }
+
     // Compiles solution.
     bool april_xcompiler_t::__compile_solution(solution_config_t * solution_config)
     {
@@ -827,6 +900,7 @@ namespace X_ROOT_NS::modules::april {
             }
 
             compiler.commit_project();
+            __add_resources(project, project_config);
             __enable_nullable(project, project_config->nullable);
             cas.push_back(__record_project(project));
         }
@@ -871,6 +945,7 @@ namespace X_ROOT_NS::modules::april {
         }
 
         compiler.commit_project();
+        __add_resources(project, project_config);
         __enable_nullable(project, project_config->nullable);
         return __record_project(project);
     }

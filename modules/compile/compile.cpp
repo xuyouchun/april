@@ -236,7 +236,8 @@ namespace X_ROOT_NS::modules::compile {
     {
         if (!__sections.size())
         {
-            code_section_builder_t(global_context, this, lang, __sections, __pool).build();
+            code_section_builder_t(global_context, this, lang, __sections, __pool,
+                                                            __section_errors).build();
         }
 
         return _range(__sections);
@@ -695,17 +696,9 @@ namespace X_ROOT_NS::modules::compile {
                 print(sprintf(_T("* %1%"), level));
             }
 
+            // The codes of the diagnostics are the same for all the languages: AP0001.
             stringstream_t ss;
-            ss << _T(" ");
-
-            const lang_info_t * lang_info;
-            if (__lang != nullptr && (lang_info = __lang->get_info()) != nullptr)
-            {
-                for (char_t c : lang_info->simple_name)
-                {
-                    ss << (char_t)std::toupper(c);
-                }
-            }
+            ss << _T(" AP");
 
             ss.fill('0');
             ss << std::setw(4) << code << _T(": ") << message.c_str();
@@ -834,6 +827,9 @@ namespace X_ROOT_NS::modules::compile {
             __code_relation_map[cfile] = file;
         }
 
+        for (const project_t::resource_t & resource : project->resources)
+            cproject->resources.push_back(std::make_pair(resource.name, resource.path));
+
         return cproject;
     }
 
@@ -857,6 +853,7 @@ namespace X_ROOT_NS::modules::compile {
         core::nullable_analyzer = &core::analyze_nullable;
 
         assemblies_t * assemblies = context.new_obj<assemblies_t>();
+
         __building_context_t bctx(assemblies);
         __assembly_loader_t assembly_loader(bctx, this, context, csolution, ref_assemblies);
 
@@ -931,7 +928,16 @@ namespace X_ROOT_NS::modules::compile {
             nodes.push_back(root);
         }
 
-        ast_walk<__module_ast_node_t>(walk_context, nodes);
+        // The code that has syntax errors is not analyzed: the errors of its meaning would be
+        // those of the code that was repaired.
+        if (context.error_count() == 0)
+        {
+            // The parts of the partial types have one type.
+            merge_partial_types(nodes, logger);
+
+            ast_walk<__module_ast_node_t>(walk_context, nodes);
+        }
+
         if (context.error_count() == 0)
         {
             __call_static_constructors(context, assembly);
@@ -939,6 +945,26 @@ namespace X_ROOT_NS::modules::compile {
             // The fields that cannot be null of the types that have no constructor.
             if (nullable_directive_seen)
                 analyze_nullable_constructors(assembly, logger);
+
+            // The files that are embedded in the assembly.
+            for (const auto & resource : cproject->resources)
+            {
+                assembly_resource_t item;
+                item.name = resource.first;
+
+                try
+                {
+                    auto bytes = lib::read_all_bytes(lib::path_t(resource.second));
+                    item.data.assign(bytes.begin(), bytes.end());
+                }
+                catch (...)
+                {
+                    context.log(__l_t::error, __c_t::resource_file_unreadable, resource.second);
+                    continue;
+                }
+
+                assembly->resources.push_back(std::move(item));
+            }
 
             xostream_t * stream = nullptr;
             if (assembly->name == nullptr || assembly->name->sid == sid_t::null)
@@ -998,11 +1024,59 @@ namespace X_ROOT_NS::modules::compile {
     // Compile log codes.
     X_ENUM_INFO(compile_log_code_t)
 
+        // A syntax error that nothing tells more.
+        X_D(syntax_error, _T("syntax error"))
+
+        // A token that cannot be there.
+        X_D(unexpected_token, _T("unexpected token \"%1%\""))
+
+        // An element that is missing.
+        X_D(expected_element, _T("expected %1%"))
+
+        // The code ends before a block, a statement or a call is complete.
+        X_D(unexpected_end_of_file, _T("unexpected end of file"))
+
+        // Two ways to match the code, nothing tells apart.
+        X_D(ambiguous_syntax, _T("ambiguous syntax: %1%"))
+
+        // A token that cannot be there, and what is expected.
+        X_D(unexpected_token_expected, _T("unexpected token \"%1%\", expected %2%"))
+
+        // A multiline comment has no end.
+        X_D(unterminated_comment, _T("unterminated comment, \"*/\" is expected"))
+
+        // A string literal is wrong.
+        X_D(string_literal_error, _T("%1%"))
+
+        // A character literal is wrong.
+        X_D(char_literal_error, _T("%1%"))
+
+        // A numeric literal is wrong.
+        X_D(numeric_literal_error, _T("invalid numeric literal"))
+
+        // A numeric literal does not fit its type.
+        X_D(numeric_literal_overflow, _T("the numeric literal is too large"))
+
+        // The language of an embedded code is not known.
+        X_D(unknown_embedded_language, _T("unknown embedded language \"%1%\""))
+
+        // The code of an embedded language is missing.
+        X_D(embedded_code_missing, _T("the code of \"%1%\" is expected"))
+
+        // The end flag of an embedded code is missing.
+        X_D(embedded_end_missing, _T("end flag \"%%>\" missing, \"<%%%1%\" is not closed"))
+
         // Writes assembly error.
-        X_D(write_assembly_error, _T("write assembly %1% fail: %2%"))
+        X_D(write_assembly_error, _T("failed to write assembly %1%: %2%"))
 
         // No assembly name.
-        X_D(no_assembly_name, _T("write assembly fail: no assembly name"))
+        X_D(no_assembly_name, _T("failed to write assembly: the assembly has no name"))
+
+        // A method cannot be compiled.
+        X_D(method_compile_failed, _T("the method \"%1%\" cannot be compiled: %2%"))
+
+        // A file of the resources cannot be read.
+        X_D(resource_file_unreadable, _T("the resource file \"%1%\" cannot be read"))
 
     X_ENUM_INFO_END
 
@@ -1079,12 +1153,21 @@ namespace X_ROOT_NS::modules::compile {
     // Token property service, get property of token.
     const token_property_t * lang_service_helper_t::get_token_property(token_value_t value)
     {
+        // The token that ends the code of an embedded language: it is not seen, it is not an operator.
+        static const token_property_t code_end_property = { false, false, false };
+
+        if (value == code_end_token_value)
+            return &code_end_property;
+
         return __RequireService(token_property)->get_token_property(value);
     }
 
     // Token property service, get string description of token.
     const string_t lang_service_helper_t::get_token_string(token_value_t value)
     {
+        if (value == code_end_token_value)
+            return _T("the end of the code");
+
         return __RequireService(token_property)->get_token_string(value);
     }
 

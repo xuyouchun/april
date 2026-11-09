@@ -2896,6 +2896,10 @@ namespace X_ROOT_NS::modules::compile {
 
             __pick_final_leaves();
 
+            // Nothing is complete: the code ends before the end of a statement or a block.
+            if (__leaves.size() == 0 && !allow_incomplete_end)
+                throw _EF(__e_t::format_error, _T("unexpected end of file"));
+
 #if __EnableTrace >= 2
 
             if (!disable_trace)
@@ -3831,6 +3835,10 @@ namespace X_ROOT_NS::modules::compile {
     void analyze_context_t::__detect_check_end_node(__node_keys_t & out_keys,
         __stack_node_t * parent, __stack_node_t * current, __node_unit_t end_unit)
     {
+        // The end of the root branch: nothing follows it.
+        if (__is_root(__owner_branch(end_unit)))
+            return;
+
         __node_value_t end_node_value = __owner_branch_value(end_unit);
         __node_key_t ref_key = to_branch_ref_key(end_node_value);
         analyze_normal_path_node_t * parent_current = (*parent)->current;
@@ -4062,19 +4070,50 @@ namespace X_ROOT_NS::modules::compile {
     // Reads next element.
     __AlwaysInline bool analyzer_element_reader_t::__read_next_element()
     {
+        // The code of an embedded language ends with a token, it is empty.
+        auto read_code_end = [this]() {
+            if (__depth == 0 || __code_end_read || __last_token == nullptr)
+                return false;
+
+            __code_end_read = true;
+
+            const code_unit_t & cu = __last_token->code_unit;
+            __append_element(__context.compile_context.new_obj<token_t>(
+                code_end_token_value, cu.s + cu.length, 0, cu.file
+            ));
+
+            return true;
+        };
+
         token_t * token = __enumerator->next();
         if (token != nullptr)
         {
+            if (token->value == embed_token_value)
+                return __read_embedded(token);
+
+            __last_token = token;
             __append_element(token);
             return true;
         }
 
+        // A reader leaves the section pointer at its last section: the one that reads the sections
+        // of a lower depth goes on from the next one.
         __section = *++__p_section;
         if (__section == nullptr)
-            return false;
+        {
+            __section = *--__p_section;
+            return read_code_end();
+        }
 
         if (__section->depth > __depth)
         {
+            // The code of a language that has no end flag: its analyzer tells where it ends.
+            if (__section->open_ended)
+            {
+                return __read_embedded_code(__section->lang, __section->source_code,
+                    __section->source_code + __section->length, string_t(), nullptr, true);
+            }
+
             ast_node_t * node = __analyze_ast(__context, __p_section);
             expand_ast_node(node, [this](ast_node_t * node0) { __append_element(node0); });
 
@@ -4088,7 +4127,134 @@ namespace X_ROOT_NS::modules::compile {
             return __read_next_element();
         }
 
-        return false;
+        __section = *--__p_section;
+        return read_code_end();
+    }
+
+    // Returns the analyzer of the language.
+    analyzer_t * __get_analyzer(global_context_t & global_context, lang_id_t lang_id);
+
+    // Logs an error of the code of an embedded language, at the flag that starts it.
+    static void __log_embedded_error(compile_context_t & compile_context, lang_id_t lang_id,
+            compile_log_code_t code, const string_t & argument, const char_t * s, size_t length,
+            const code_file_t * file)
+    {
+        global_context_t & global_context = compile_context.global_context;
+
+        ast_context_t & ast_context = *compile_context.new_obj<ast_context_t>(
+            compile_context, global_context.lang_of(lang_id)
+        );
+
+        token_t * token = compile_context.new_obj<token_t>(
+            unknown_token_value, s, (int32_t)length, file
+        );
+
+        xlogger_t logger(ast_context.logger);
+        logger.log_error(token, code, _F(_desc(code), argument));
+        output_code_description(ast_context.logger, token, &token->code_unit);
+    }
+
+    // Reads the code of an embedded language that starts with the token (``lq). The analyzer of
+    // that language finds where its code ends, then the code is analyzed as a section, and the ast
+    // node takes the place of the code. The code of the language that has it goes on after it.
+    bool analyzer_element_reader_t::__read_embedded(token_t * token)
+    {
+        compile_context_t & compile_context = __context.compile_context;
+        global_context_t & global_context = compile_context.global_context;
+
+        const code_unit_t & cu = token->code_unit;
+        string_t name(cu.s + 2, cu.length - 2);
+
+        lang_id_t lang_id = global_context.lang_factory->get_lang_id(name);
+        if (lang_id == unknown_lang_id)
+        {
+            __log_embedded_error(compile_context, __section->lang,
+                compile_log_code_t::unknown_embedded_language, name, cu.s, cu.length,
+                __section->file());
+
+            // Its code is not known: it is skipped to the end of the statement.
+            while (token_t * skipped = __enumerator->next())
+            {
+                if (skipped->code_unit.length == 1 && *skipped->code_unit.s == _T(';'))
+                {
+                    __append_element(skipped);
+                    return true;
+                }
+            }
+
+            return __read_next_element();
+        }
+
+        return __read_embedded_code(lang_id, cu.s + cu.length,
+                    __section->source_code + __section->length, name, &cu, false);
+    }
+
+    // Reads the code of an embedded language that starts at the position, and ends where its
+    // analyzer tells (the code goes on to the end of the section at most). The ast node takes the
+    // place of the code, the code of the language of this reader goes on after it. The code of a
+    // section that has no end flag (<%lq without %>) is read so: the section is the code, and it
+    // has no flag in the host code.
+    bool analyzer_element_reader_t::__read_embedded_code(lang_id_t lang_id, const char_t * start,
+            const char_t * end, const string_t & name, const code_unit_t * flag, bool open_ended)
+    {
+        compile_context_t & compile_context = __context.compile_context;
+        global_context_t & global_context = compile_context.global_context;
+
+        // Where the code ends.
+        size_t length = 0;
+        {
+            code_section_t probe(global_context, start, end - start, lang_id, __depth + 1,
+                                                                        __section->code);
+            code_section_t * sections[] = { &probe, nullptr };
+            code_section_t ** p_probe = sections;
+
+            analyzer_element_reader_t reader(__context, p_probe);
+
+            lang_t * lang = global_context.lang_of(lang_id);
+            ast_context_t & ast_context = *compile_context.new_obj<ast_context_t>(
+                                                                compile_context, lang);
+
+            analyzer_t * analyzer = __get_analyzer(global_context, lang_id);
+            size_t count = analyzer->find_prefix_end(ast_context, &reader);
+
+            if (count > 0)
+            {
+                const code_unit_t * last = reader[count - 1]->code_unit();
+                length = last->s + last->length - start;
+            }
+        }
+
+        if (length == 0)
+        {
+            // The end flag that is missing was told, with the section.
+            if (flag != nullptr)
+            {
+                __log_embedded_error(compile_context, __section->lang,
+                    compile_log_code_t::embedded_code_missing, name, flag->s, flag->length,
+                    __section->file());
+            }
+
+            // Nothing of the section is code of the host language.
+            if (open_ended)
+                __enumerator = __reader->read(end, 0, __section->file());
+
+            return __read_next_element();
+        }
+
+        // The code is analyzed.
+        {
+            code_section_t section(global_context, start, length, lang_id, __depth + 1,
+                                                                        __section->code);
+            code_section_t * sections[] = { &section, nullptr };
+            code_section_t ** p_section = sections;
+
+            ast_node_t * node = __analyze_ast(__context, p_section);
+            expand_ast_node(node, [this](ast_node_t * node0) { __append_element(node0); });
+        }
+
+        // The code of the language that has it goes on after it.
+        __enumerator = __reader->read(start + length, end - start - length, __section->file());
+        return true;
     }
 
     // Appends ast node.
@@ -4167,6 +4333,37 @@ namespace X_ROOT_NS::modules::compile {
                     _action_expr                                                        \
                 __EndAction()
 
+            // The code is not complete at its end: what closes it is missing.
+            if (__end_failing)
+            {
+                __end_failing = false;
+
+                __restore_state(last_state);
+                __analyze_until_end();
+
+                __state_t state = __keep_state();
+                if (__try_repair())
+                {
+                    last_state = std::move(state);
+                    continue;
+                }
+
+                // Nothing closes the code: the error is told, the code is taken as it is.
+                if (__element != nullptr && __reported_token_errors.empty())
+                {
+                    __log_format_error(compile_log_code_t::unexpected_end_of_file,
+                        _desc(compile_log_code_t::unexpected_end_of_file), *__element);
+                }
+
+                __context.allow_incomplete_end = true;
+                __restore_state(last_state);
+                __analyze();
+                break;
+            }
+
+            // The best of inserting, deleting and replacing the current element.
+            __Action(-1, __try_repair())
+
             // Try insert missing elements or delete current element.
             __Action(-1, __try_insert_missing_elements())
 
@@ -4192,6 +4389,61 @@ namespace X_ROOT_NS::modules::compile {
         return analyzer_result_t { std::move(__context.__matched_items) };
     }
 
+    // Returns the count of the elements at the start of the code, that are a complete code. The
+    // elements are pushed until one cannot go on, the code is complete where the end of the code
+    // can be pushed.
+    size_t __analyzer_t::find_prefix_end()
+    {
+        // The elements are analyzed again with the code of the language: their errors are told
+        // then.
+        __quiet = true;
+
+        size_t best = 0, pushed = 0;
+
+        while (true)
+        {
+            size_t position = __reader->position();
+            analyze_element_t * element = __reader->next();
+
+            if (element == nullptr || element->type == __end)
+                break;
+
+            __element = element;
+
+            try
+            {
+                __push_element(element);
+            }
+            catch (const logic_error_t<__e_t> & e)
+            {
+                if (e.code != __e_t::format_error)
+                    throw e;
+
+                break;
+            }
+
+            pushed = position + 1;
+            __state_t state = __keep_state();
+
+            try
+            {
+                __push_end(&element->tag);
+                best = position + 1;
+            }
+            catch (const logic_error_t<__e_t> & e)
+            {
+                if (e.code != __e_t::format_error)
+                    throw e;
+            }
+
+            __restore_state(state);
+        }
+
+        // The code is not complete: the elements that fit are taken, the analysis of them tells
+        // what is missing.
+        return best > 0? best : pushed;
+    }
+
     // Try to do analyzing, return true when succeed.
     bool __analyzer_t::__try_analyze(size_t break_point)
     {
@@ -4210,6 +4462,310 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    // Returns whether the token closes a bracket.
+    static bool __is_closing_token(lang_service_helper_t & h, const analyze_element_t & element)
+    {
+        if (element.type != analyze_element_type_t::token)
+            return false;
+
+        string_t s = (string_t)element;
+        return s == _T(")") || s == _T("]") || s == _T("}");
+    }
+
+    // Returns whether the element is one that is usually missing: ; , a closing bracket, an
+    // expression.
+    static bool __is_natural_missing(lang_service_helper_t & h, const analyze_element_t & element)
+    {
+        if (element.type == analyze_element_type_t::ast_node)
+            return true;
+
+        if (element.type != analyze_element_type_t::token)
+            return false;
+
+        string_t s = (string_t)element;
+        return s == _T(";") || s == _T(",") || s == _T(")") || s == _T("]") || s == _T("}");
+    }
+
+    // Returns how far the analyzing goes after a repair.
+    int __analyzer_t::__repair_score(analyze_element_t * inserted, bool delete_unexpected,
+                                     analyze_element_t * unexpected)
+    {
+        __state_t state = __keep_state();
+        analyze_element_t * saved_element = __element;
+        if (__element == nullptr)
+            __element = unexpected;
+
+        int score = 0;
+
+        try
+        {
+            if (inserted != nullptr)
+                __push_element(inserted);
+
+            if (delete_unexpected)
+                __reader->next();
+
+            bool reach_end = false;
+            score = __detect(__empty_node_key, 32, &reach_end);
+
+            // The elements that are matched, counted from the unexpected element.
+            score = reach_end? 1000 : score + (delete_unexpected? 1 : 0);
+        }
+        catch (const logic_error_t<__e_t> & e)
+        {
+            if (e.code != __e_t::format_error)
+                throw e;
+
+            score = 0;
+        }
+
+        __element = saved_element;
+        __restore_state(state);
+        return score;
+    }
+
+    // Returns the expected elements as a text.
+    string_t __analyzer_t::__expected_text(const __node_keys_t & keys)
+    {
+        lang_service_helper_t h(__lang);
+        std::vector<string_t> names;
+
+        for (const __node_key_t & key : keys)
+        {
+            if (key == __end_node_key)
+                continue;
+
+            // The expected elements are tokens when they are told.
+            if (key.type != analyze_node_type_t::token
+                    || (token_value_t)key.value == unknown_token_value)
+                return string_t();
+
+            names.push_back(_F(_T("\"%1%\""), h.get_token_string((token_value_t)key.value)));
+        }
+
+        if (names.empty() || names.size() > 3)
+            return string_t();
+
+        string_t text;
+        for (size_t k = 0; k < names.size(); k++)
+        {
+            if (k > 0)
+                text += (k + 1 == names.size())? _T(" or ") : _T(", ");
+
+            text += names[k];
+        }
+
+        return text;
+    }
+
+    // Repairs the element that cannot be matched.
+    bool __analyzer_t::__try_repair()
+    {
+        lang_service_helper_t h(__lang);
+
+        __state_t state = __keep_state();
+        size_t position = __reader->position();
+
+        // The element that cannot be matched.
+        analyze_element_t * unexpected = __reader->next();
+        __reader->set_position(position);
+
+        if (unexpected == nullptr)
+            return false;
+
+        bool at_end = unexpected->type == __end;
+
+        // The place of an inserted element is the end of the previous element.
+        // The code unit is kept by the elements that are inserted.
+        const code_unit_t * insert_cu = nullptr;
+        const code_unit_t * previous_cu = __element != nullptr && __element != unexpected?
+                                                        __element->code_unit() : nullptr;
+
+        if (previous_cu != nullptr)
+        {
+            insert_cu = __compile_context.new_obj<code_unit_t>(
+                previous_cu->s + previous_cu->length, 0, previous_cu->file
+            );
+        }
+        else if (!at_end)
+        {
+            insert_cu = unexpected->code_unit();
+        }
+
+        // The element that can be inserted.
+        __node_keys_t keys = __context.detect_next_keys();
+        __node_key_t  best_key;
+        __node_keys_t possible_keys = __try_missing_keys(keys, &best_key);
+
+        analyze_element_t inserted;
+        string_t inserted_title;
+
+        if (insert_cu != nullptr)
+        {
+            detect_missing_element_result result = h.detect_missing_element(
+                __ast_context, *__reader, possible_keys, insert_cu
+            );
+
+            inserted = result.missing_element;
+            inserted_title = result.title;
+
+            if (inserted.is_empty() && best_key != __empty_node_key)
+                inserted = __element_from_key(best_key, insert_cu);
+
+            // The code ends inside a block, a call or an index: what closes it is missing. The
+            // tokens that close are those of the code.
+            if (at_end)
+            {
+                inserted = analyze_element_t::empty;
+                inserted_title.clear();
+
+                int best_closer_score = 0;
+                for (const char_t * closer : { _T("}"), _T(")"), _T("]") })
+                {
+                    token_t * closing = nullptr;
+
+                    for (size_t index = 0; index < position && closing == nullptr; index++)
+                    {
+                        __reader->set_position(index);
+                        analyze_element_t * element = __reader->next();
+
+                        if (element != nullptr && element->type == analyze_element_type_t::token
+                                && element->token->value != unknown_token_value
+                                && (string_t)*element == closer)
+                        {
+                            closing = __compile_context.new_obj<token_t>(
+                                element->token->value, insert_cu
+                            );
+                        }
+                    }
+
+                    __reader->set_position(position);
+
+                    if (closing == nullptr)
+                        continue;
+
+                    analyze_element_t candidate(closing);
+                    int score = __repair_score(&candidate, false, unexpected);
+
+                    if (score > best_closer_score)
+                    {
+                        best_closer_score = score;
+                        inserted = candidate;
+                        inserted_title = closer;
+                    }
+                }
+            }
+
+            if (!inserted.is_empty() && inserted_title.empty())
+                inserted_title = h.get_element_string(inserted);
+        }
+
+        bool has_inserted = !inserted.is_empty();
+
+        // The text of what is expected is told when it is a token, or something that is known.
+        string_t expected;
+        if (has_inserted)
+        {
+            expected = inserted.type == analyze_element_type_t::token?
+                                _F(_T("\"%1%\""), inserted_title) : inserted_title;
+        }
+
+        // Scores: the elements that are matched after the repair, the end of the code is the best.
+        const int none = -1;
+        int insert_score  = has_inserted? __repair_score(&inserted, false, unexpected) : none;
+        int replace_score = has_inserted && !at_end?
+                                    __repair_score(&inserted, true, unexpected) : none;
+        int delete_score  = !at_end? __repair_score(nullptr, true, unexpected) : none;
+
+        bool natural = has_inserted && __is_natural_missing(h, inserted);
+        bool closing = !at_end && __is_closing_token(h, *unexpected);
+
+        // The same score: a missing ; or ) is inserted, a bracket that closes nothing is deleted.
+        int insert_bias  = natural? 3 : 0;
+        int replace_bias = natural? (closing? -1 : 2) : 0;
+        int delete_bias  = closing? 4 : 1;
+
+        enum { k_none, k_insert, k_replace, k_delete } kind = k_none;
+        int best_score = 0, best_bias = -100;
+
+        auto choose = [&](int score, int bias, decltype(kind) k) {
+            if (score < 0)
+                return;
+
+            if (kind == k_none || score > best_score || (score == best_score && bias > best_bias))
+            {
+                kind = k;
+                best_score = score;
+                best_bias = bias;
+            }
+        };
+
+        choose(insert_score,  insert_bias,  k_insert);
+        choose(replace_score, replace_bias, k_replace);
+        choose(delete_score,  delete_bias,  k_delete);
+
+        // A repair that goes a little is a guess: the other ways are tried.
+        const int enough = 6;
+        if (kind == k_none || best_score < enough)
+            return false;
+
+        switch (kind)
+        {
+            case k_insert: {
+                // The code ends before many things are closed: the error is told once.
+                bool told = at_end && __end_of_file_told;
+                __end_of_file_told = __end_of_file_told || at_end;
+
+                // The place of the error is the end of the previous element.
+                analyze_element_t place(__compile_context.new_obj<token_t>(
+                    inserted.type == analyze_element_type_t::token? inserted.token->value
+                                                                   : unknown_token_value,
+                    insert_cu
+                ));
+
+                        // The end of the code that follows a literal that is not complete is no news.
+                if (!told && __reported_token_errors.empty())
+                {
+                    __log_format_error(compile_log_code_t::expected_element,
+                        _F(_desc(compile_log_code_t::expected_element), expected), place, insert_cu);
+                }
+                        __reader->insert(position, inserted);
+            }   break;
+
+            case k_replace:
+                __log_format_error(compile_log_code_t::unexpected_token_expected,
+                    _F(_desc(compile_log_code_t::unexpected_token_expected),
+                                                        _str(unexpected), expected),
+                    *unexpected
+                );
+
+                __reader->delete_(position);
+                __reader->insert(position, inserted);
+                break;
+
+            default: {
+                string_t expected_text = __expected_text(keys);
+
+                if (expected_text.empty())
+                {
+                    __log_format_error(compile_log_code_t::unexpected_token,
+                        _F(_desc(compile_log_code_t::unexpected_token), _str(unexpected)),
+                        *unexpected);
+                }
+                else
+                {
+                    __log_format_error(compile_log_code_t::unexpected_token_expected,
+                        _F(_desc(compile_log_code_t::unexpected_token_expected),
+                                                    _str(unexpected), expected_text),
+                        *unexpected);
+                }
+                __reader->delete_(position);
+            }   break;
+        }
+
+        return true;
+    }
+
     // Try add missing elements when parsing error.
     bool __analyzer_t::__try_insert_missing_elements(analyze_element_t * replaced_element)
     {
@@ -4221,7 +4777,6 @@ namespace X_ROOT_NS::modules::compile {
         // Current element that cause the format error.
         analyze_element_t * element = __element;
 
-        code_unit_t cu;
         const code_unit_t * this_cu = nullptr;
 
         if (replaced_element != nullptr)  // replace
@@ -4230,12 +4785,10 @@ namespace X_ROOT_NS::modules::compile {
         }
         else
         {
-            if (element != nullptr)
-            {
-                const code_unit_t * cu0 = element->code_unit();
-                new (&cu) code_unit_t(cu0->s + cu0->length, 0, cu0->file);
-                this_cu = &cu;
-            }
+            // An element that was inserted (a missing expression) has no place in the code.
+            const code_unit_t * cu0 = element != nullptr? element->code_unit() : nullptr;
+            if (cu0 != nullptr)
+                this_cu = __compile_context.new_obj<code_unit_t>(cu0->s + cu0->length, 0, cu0->file);
         }
 
         // Find the long match distance if insert some element.
@@ -4262,11 +4815,15 @@ namespace X_ROOT_NS::modules::compile {
             if (title.empty())
                 title = h.get_element_string(missing_element);
 
-            string_t message = _F(_T("%1% \"%2%\" here"),
-                replaced_element? _T("expected") : _T("missing"), title
-            );
+            string_t quoted = _F(_T("\"%1%\""), title);
+            string_t message = replaced_element?
+                _F(_desc(compile_log_code_t::unexpected_token_expected), _str(replaced_element),
+                                                                                    quoted)
+              : _F(_desc(compile_log_code_t::expected_element), quoted);
 
-            __log_format_error(message, missing_element, this_cu);
+            __log_format_error(replaced_element? compile_log_code_t::unexpected_token_expected
+                                              : compile_log_code_t::expected_element,
+                               message, missing_element, this_cu);
 
             __reader->insert(position, missing_element);
             return true;
@@ -4293,8 +4850,9 @@ namespace X_ROOT_NS::modules::compile {
 
         if (step >= min_steps || reach_end)
         {
-            __log_format_error(
-                _F(_T("unexpected token \"%1%\""), _str(unexpected_element)), *unexpected_element
+            __log_format_error(compile_log_code_t::unexpected_token,
+                _F(_desc(compile_log_code_t::unexpected_token), _str(unexpected_element)),
+                *unexpected_element
             );
 
             __reader->delete_(position);
@@ -4332,7 +4890,31 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         if (__reader->position() != break_point)
+        {
+            // It stays true when the code is not complete at its end.
+            __end_failing = true;
             __push_end(&__element->tag);
+            __end_failing = false;
+        }
+    }
+
+    // Analyzes all the elements but the end.
+    void __analyzer_t::__analyze_until_end()
+    {
+        while (true)
+        {
+            size_t position = __reader->position();
+            analyze_element_t * element = __reader->next();
+
+            if (element == nullptr || element->type == __end)
+            {
+                __reader->set_position(position);
+                return;
+            }
+
+            __element = element;
+            __push_element(element);
+        }
     }
 
     // Try specified keys, returns possible keys and the best matched key.
@@ -4350,8 +4932,9 @@ namespace X_ROOT_NS::modules::compile {
             if (key == __end_node_key)
                 continue;
 
-            int step = __detect(key, 32);
-            if (step > 1)
+            bool reach_end = false;
+            int step = __detect(key, 32, &reach_end);
+            if (step > 1 || reach_end)
             {
                 possible_keys.push_back(key);
                 if (step > max_step)
@@ -4392,12 +4975,63 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // Tells the lexical error of a token, once.
+    void __analyzer_t::__log_token_error(analyze_element_t * element)
+    {
+        if (__quiet)
+            return;
+
+        token_t * token = element->token;
+        if (token == nullptr || token->data == nullptr)
+            return;
+
+        token_error_t * error = ((token_data_t *)token->data)->error;
+        if (error == nullptr || !__reported_token_errors.insert(token).second)
+            return;
+
+        typedef compile_log_code_t c_t;
+        string_t detail = error->message != nullptr? string_t(error->message) : string_t();
+
+        switch (error->code)
+        {
+            case token_error_code_t::comment_end_missing:
+                __log_format_error(c_t::unterminated_comment, _desc(c_t::unterminated_comment),
+                                                                                    *element);
+                break;
+
+            case token_error_code_t::string_format_error:
+                __log_format_error(c_t::string_literal_error,
+                    _F(_desc(c_t::string_literal_error), detail), *element);
+                break;
+
+            case token_error_code_t::char_format_error:
+                __log_format_error(c_t::char_literal_error,
+                    _F(_desc(c_t::char_literal_error), detail), *element);
+                break;
+
+            case token_error_code_t::numeric_overflow:
+                __log_format_error(c_t::numeric_literal_overflow,
+                                    _desc(c_t::numeric_literal_overflow), *element);
+                break;
+
+            case token_error_code_t::numeric_format_error:
+                __log_format_error(c_t::numeric_literal_error,
+                                    _desc(c_t::numeric_literal_error), *element);
+                break;
+
+            default:
+                // An unknown token is told by the syntax.
+                break;
+        }
+    }
+
     // Push element.
     __AlwaysInline void __analyzer_t::__push_element(analyze_element_t * element)
     {
         switch (element->type)
         {
             case analyze_element_type_t::token:
+                __log_token_error(element);
                 __push_token(element->token, &__element->tag);
                 break;
 
@@ -4416,8 +5050,9 @@ namespace X_ROOT_NS::modules::compile {
         // reported when the program is compiled.
         if (!__context.ambiguity.empty())
         {
-            __log_format_error(_F(_T("ambiguous syntax: %1%"), __context.ambiguity), *element,
-                                                                                    nullptr);
+            __log_format_error(compile_log_code_t::ambiguous_syntax,
+                _F(_desc(compile_log_code_t::ambiguous_syntax), __context.ambiguity), *element,
+                nullptr);
             __context.ambiguity.clear();
         }
     }
@@ -4441,13 +5076,21 @@ namespace X_ROOT_NS::modules::compile {
                 __push_element(element);
             }
 
+            // The end of the code is reached when the code is complete there.
+            bool reach_end = element != nullptr && element->type == __end;
+            if (reach_end && __element != nullptr)
+                __push_end(&__element->tag);
+
             if (out_reach_end != nullptr)
-                *out_reach_end = (element != nullptr && element->type == __end);
+                *out_reach_end = reach_end;
         }
         catch (const logic_error_t<__e_t> & e)
         {
             if (e.code != __e_t::format_error)
                 throw e;
+
+            if (out_reach_end != nullptr)
+                *out_reach_end = false;
         }
 
         return steps;
@@ -4565,15 +5208,15 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     // Log format error.
-    void __analyzer_t::__log_format_error(const string_t & error, analyze_element_t & element,
-                                          const code_unit_t * cu)
+    void __analyzer_t::__log_format_error(compile_log_code_t code, const string_t & error,
+                                          analyze_element_t & element, const code_unit_t * cu)
     {
         xlogger_t logger(__ast_context.logger);
 
         if (cu == nullptr)
             cu = element.code_unit();
 
-        logger.log_error(element, __e_t::format_error, error);
+        logger.log_error(element, code, error);
         output_code_description(__ast_context.logger, element, cu);
     }
 
@@ -4607,6 +5250,10 @@ namespace X_ROOT_NS::modules::compile {
         virtual __node_value_t get_node_value(const string_t & name,
                                                     __node_type_t node_type) override
         {
+            // The token that ends the code of an embedded language is not one of a language.
+            if (node_type == __node_type_t::token && name == _T("code_end"))
+                return (__node_value_t)code_end_token_value;
+
             return __service->get_node_value(__context, name, node_type);
         }
 
@@ -4614,6 +5261,14 @@ namespace X_ROOT_NS::modules::compile {
         global_context_t & __context;
         lang_statement_analyze_service_t * __service;
     };
+
+    // Returns the count of the elements at the start of the code that are a complete code.
+    size_t analyzer_t::find_prefix_end(ast_context_t & ast_context,
+                                        analyzer_element_reader_t * reader)
+    {
+        _A(reader != nullptr);
+        return __analyzer_t(ast_context, __lang, __tree, reader).find_prefix_end();
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -4683,6 +5338,13 @@ namespace X_ROOT_NS::modules::compile {
 
         auto sections = code->sections();
         size_t section_count = sections.size();
+
+        // The errors of the embedded codes that were found when the code was cut.
+        for (const code_section_error_t & error : code->section_errors())
+        {
+            __log_embedded_error(context, code->lang, (compile_log_code_t)error.code,
+                error.argument, error.s, error.length, code->file);
+        }
 
         code_section_t * section_array[section_count + 1];
         std::copy(sections.begin(), sections.end(), section_array);

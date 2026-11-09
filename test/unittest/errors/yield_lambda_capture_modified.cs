@@ -1,9 +1,9 @@
-/* EXPECT_ERROR the local variable "i" is used by a lambda, it cannot be modified */
+/* EXPECT_ERROR local variable "i" is used by a lambda and cannot be modified */
 
 import System;
 
 using System;
-using System.Collections.Generic;
+using System.Collections;
 
 class Program
 {

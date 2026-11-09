@@ -16,10 +16,7 @@ public struct Nullable<T>
     }
 
     // Whether it has a value.
-    public Boolean HasValue
-    {
-        get { return __hasValue; }
-    }
+    public Boolean HasValue => __hasValue;
 
     // The value, it raises InvalidOperationException when there is no value.
     public T Value
@@ -34,10 +31,7 @@ public struct Nullable<T>
     }
 
     // The value, or the default value of the type when there is no value.
-    public T GetValueOrDefault()
-    {
-        return __value;
-    }
+    public T GetValueOrDefault() => __value;
 
     // The value, or the specified value when there is no value.
     public T GetValueOrDefault(T defaultValue)

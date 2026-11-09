@@ -333,11 +333,11 @@ namespace X_ROOT_NS::modules::exec {
     {
         struct __string_key_t
         {
-            __string_key_t(const char_t * s, rt_length_t length) _NE
+            __string_key_t(const rt_char_t * s, rt_length_t length) _NE
                 : s(s), length(length) { }
 
             rt_length_t length;
-            const char_t * s;
+            const rt_char_t * s;
 
             bool operator == (const __string_key_t & other) const _NE
             {
@@ -347,7 +347,7 @@ namespace X_ROOT_NS::modules::exec {
                 if (length != other.length)
                     return false;
 
-                return al::strcmp(s, other.s) == cmp_t::equals;
+                return std::char_traits<rt_char_t>::compare(s, other.s, length) == 0;
             }
         };
 
@@ -375,7 +375,7 @@ namespace X_ROOT_NS::modules::exec {
         rt_string_pool_t() _NE { }
 
         // Gets the specified string.
-        rt_string_t * get(const char_t * s, rt_length_t length);
+        rt_string_t * get(const rt_char_t * s, rt_length_t length);
 
         X_TO_STRING_IMPL(_T("rt_string_pool_t"))
 

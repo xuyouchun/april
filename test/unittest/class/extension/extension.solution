@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<solution>
+
+    <name>extension</name>
+    <projects>
+
+        <project>
+            <path>extlib/extlib.project</path>
+        </project>
+
+        <project>
+            <path>app/app.project</path>
+        </project>
+
+    </projects>
+
+</solution>

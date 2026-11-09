@@ -68,6 +68,36 @@ namespace X_ROOT_NS::modules::native {
             return string_convert<char_t, char>(s);
         }
 
+        // Converts a string of the virtual machine (UTF-16) to a narrow string.
+        std::string __narrow(const rt_char_t * s)
+        {
+            return string_convert<char_t, char>(to_host_string(s));
+        }
+
+        // The code units of a string of the virtual machine: a string constant of the program has them
+        // as they are (16 bits each).
+        std::u32string __units_of(const rt_char_t * s)
+        {
+            std::u32string units;
+            if (s != nullptr)
+            {
+                for (; *s != 0; s++)
+                    units += (char32_t)(uint32_t)*s;
+            }
+
+            return units;
+        }
+
+        // The code units of a string of the program (a String value, it has its length: the character 0 can be in it).
+        std::u32string __units_of_string(const rt_char_t * s)
+        {
+            std::u32string units;
+            for (int32_t k = 0, length = rt_string_length(s); k < length; k++)
+                units += (char32_t)(uint32_t)s[k];
+
+            return units;
+        }
+
         // Converts a narrow string (llvm names) to string_t, for messages.
         string_t __wide(const std::string & s)
         {
@@ -203,8 +233,8 @@ namespace X_ROOT_NS::modules::native {
                 return n;
 
             n.valid = true;
-            n.bits = xt == xil_type_t::bool_? 8 : (int)sizeof(char_t) * 8;
-            n.is_signed = xt == xil_type_t::char_ && std::is_signed<char_t>::value;
+            n.bits = xt == xil_type_t::bool_? 8 : (int)sizeof(rt_char_t) * 8;
+            n.is_signed = xt == xil_type_t::char_ && std::is_signed<rt_char_t>::value;
             n.ll = xt == xil_type_t::bool_? "i8" : (n.bits == 32? "i32" : "i16");
 
             if (xt != xil_type_t::bool_ && xt != xil_type_t::char_)
@@ -257,6 +287,16 @@ namespace X_ROOT_NS::modules::native {
                           v, nt.ll);
         }
 
+        // The LLVM type of a xil type that is a value of an unmanaged type (the content of a pointer), empty if it is not.
+        std::string __ll_of_content(xil_type_t xt)
+        {
+            if (xt == xil_type_t::ptr)
+                return "ptr";
+
+            __num_t n = __conv_num_of(xt);
+            return n.valid? n.ll : std::string();
+        }
+
         // Makes an identifier part: [A-Za-z0-9_] only.
         std::string __ident(const std::string & s)
         {
@@ -270,14 +310,39 @@ namespace X_ROOT_NS::modules::native {
         //-------- ---------- ---------- ---------- ----------
 
         // The generator.
+        // The type that is the template of the current generic type (Box<T>), or a class that is nested
+        // in it (the state of an iterator), is the one of the instance that runs.
+        static rt_type_t * __current_instance_of(rt_type_t * type, rt_type_t * host_type,
+                                                 assembly_analyzer_t & analyzer)
+        {
+            if (type == nullptr || host_type->get_kind() != rt_type_kind_t::generic
+                    || !is_general(type) || !((rt_general_type_t *)type)->is_generic_template())
+                return type;
+
+            rt_generic_type_t * host = (rt_generic_type_t *)host_type;
+            if (!is_host_type_template(type, host->template_))
+                return type;
+
+            if (type == (rt_type_t *)host->template_)
+                return host_type;
+
+            return analyzer.to_generic_type((rt_general_type_t *)type);
+        }
+
         class __generator_t
         {
         public:
 
             // Constructor.
-            __generator_t(rt_context_t & ctx)
-                : __env(ctx.memory, ctx.rpool, ctx.assemblies), __module("april")
+            // `denied` has the methods that only Method.Invoke needs and that could not be generated
+            // by a former try (see generate_ir): they have a body that traps, and no invoker.
+            __generator_t(rt_context_t & ctx, const std::set<string_t> & denied)
+                : __env(ctx.memory, ctx.rpool, ctx.assemblies), __module("april"), __denied(denied)
             { }
+
+            // Thrown when a method that only Method.Invoke needs could not be generated: the module is
+            // made again without it.
+            struct retry_t { string_t method; };
 
             // Generates the module text.
             std::string generate();
@@ -309,10 +374,20 @@ namespace X_ROOT_NS::modules::native {
                 int                         pack_count = 0;
 
                 bool                        queued = false;
+
+                // Only Method.Invoke needs the function: the method that made it needed (itself for
+                // the first of them), null for the functions that the program calls.
+                __fn_t *                    origin = nullptr;
+
+                // The function is not generated: it traps (a former try failed).
+                bool                        denied = false;
             };
 
             executor_env_t          __env;
             llb::module_t           __module;
+            std::set<string_t>      __denied;
+            bool                    __invoke_phase = false;     // The functions of Invoke are made.
+            bool                    __uses_trap = false;        // llvm.trap
 
             std::map<rt_method_base_t *, std::unique_ptr<__fn_t>>   __fns;
             std::deque<__fn_t *>    __queue;
@@ -346,9 +421,100 @@ namespace X_ROOT_NS::modules::native {
                 std::string             name;           // The descriptor in IR.
                 std::map<int, __fn_t *> vfunctions;     // virtual offset -> function
                 std::map<std::pair<size_t, int>, __fn_t *> ifunctions;  // (interface, offset)
+                std::map<size_t, __fn_t *> gfunctions;  // generic site -> function
+
+                // The class is only the Type that the reflection of a type refers to: it has no
+                // objects, its descriptor has the names and the tables of reflection, but no
+                // functions.
+                bool                    meta_only = false;
+
+                // The class is the type of an array (Int32[], Int32[,]): it has the functions of the
+                // class of Array<T> (they are the same), the name, and the key of its own.
+                __class_t *             alias = nullptr;
             };
 
+            // A virtual call of a generic method (or a call by an interface): the function that
+            // runs is the method of the object with the generic arguments of the call, it is
+            // generated for them. The functions follow the virtual functions in the descriptor.
+            struct __generic_site_t
+            {
+                rt_type_t *                 declared;       // The type of the method called.
+                int                         offset;         // The virtual offset, or of the interface.
+                bool                        is_interface;
+                size_t                      interface_index;
+                std::vector<rt_type_t *>    atypes;
+            };
+
+            std::vector<__generic_site_t>              __generic_sites;
+
             std::vector<std::unique_ptr<__class_t>>    __classes;
+            rt_reflection_t                            __reflection { __env };
+            bool                                       __uses_reflection = false;
+            bool                                       __uses_field_access = false;
+
+            // Method.Invoke: the methods of the types of the program are generated, with the
+            // functions that call them (one for each shape of signature).
+            bool                                       __uses_invoke = false;
+
+            // The attributes: the tables of the attributes of the members, and the constructors
+            // that make them.
+            bool                                       __uses_attributes = false;
+            std::set<void *>                           __attributes_done;
+            std::map<void *, std::string>              __attribute_tables;
+            std::string __attributes_of(void * key);
+            rt_reflect_member_t * __named_member_of(rt_type_t * type, const rt_char_t * name);
+            void __encode_attribute_value(const cvalue_t & value, rt_type_t * type,
+                        int64_t value_kind, int64_t size, uint64_t * bits, std::string * text);
+
+            // What an argument is, when the parameter is not a number or a string (Object, Type).
+            struct __attribute_extra_t
+            {
+                int64_t     kind = 0;
+                int64_t     size = 0;
+                std::string type = "null";
+            };
+
+            bool __encode_attribute_argument(rt_assembly_t * assembly, assembly_analyzer_t & analyzer,
+                    rt_attribute_argument_t * argument, rt_type_t * param_type, int64_t value_kind,
+                    int64_t size, uint64_t * bits, std::string * text, __attribute_extra_t * extra);
+            rt_reflect_member_t * __constructor_member_of(rt_method_base_t * constructor);
+            std::string __text_global_of(const rt_char_t * s);
+            std::set<rt_method_base_t *>               __invoke_tried;
+            std::map<std::string, std::string>         __shape_thunks;
+            __fn_t * __invoker_fn_of(rt_reflect_member_t * member);
+            std::string __shape_thunk_of(__fn_t & fn);
+            std::string __interface_key_of(rt_type_t * type);
+            bool __is_interface_member(rt_reflect_member_t * m);
+
+            // The class of a number that a method returns is boxed by the runtime: it is a class of
+            // the program, with its functions.
+            void __promote_result_class(rt_reflect_member_t * m)
+            {
+                rt_type_t * type = (rt_type_t *)m->type;
+                if (m->value_kind != (int64_t)rt_reflect_value_kind_t::value || type == nullptr
+                        || (type->get_kind() != rt_type_kind_t::general
+                            && type->get_kind() != rt_type_kind_t::generic))
+                    return;
+
+                try
+                {
+                    type->pre_new(__env);
+                    __descriptor_of(type);
+                }
+                catch (const error_t &)
+                {
+                }
+            }
+            bool __queue_invokable();
+            void __give_up(__fn_t * failed);
+            bool __is_delegate_invoke(__fn_t & fn);
+            void __emit_delegate_invoke(__fn_t & fn);
+            std::map<rt_reflect_member_t *, std::string> __reflect_members;
+            int                                        __array_blocks = 0;
+            std::string __meta_descriptor_of(rt_type_t * type);
+            std::string __static_data_global_of(rt_type_t * type);
+            std::string __reflect_member_of(rt_reflect_member_t * member);
+            std::string __reflect_meta_of(__class_t & c);
             std::map<rt_type_t *, __class_t *>         __class_of;
             std::set<std::pair<rt_type_t *, int>>      __virtual_sites;     // (declaring type, offset)
             std::vector<rt_type_t *>                   __interfaces;
@@ -360,6 +526,10 @@ namespace X_ROOT_NS::modules::native {
             // The functions that delegates call, with the signature (instance, arguments...):
             // a static method gets a thunk that ignores the instance.
             std::map<__fn_t *, std::string>            __thunks;
+
+            // The functions of the virtual tables of the primitive types (Int32.ToString): the
+            // object that is boxed is the reference, the function takes the value as `this`.
+            std::map<__fn_t *, std::string>            __unbox_thunks;
             int                                        __max_virtual_offset = -1;
 
             // Functions ----------
@@ -402,6 +572,10 @@ namespace X_ROOT_NS::modules::native {
             // Emits the type descriptors.
             void __emit_descriptors();
 
+            // Returns the symbol of a function in the virtual table of a class: the function, or the
+            // function that takes the value from the boxed object when `this` is a value.
+            std::string __virtual_symbol_of(__fn_t * fn);
+
             // Emits `main` and the initializer of the library functions.
             void __emit_main(__fn_t & entry);
 
@@ -433,7 +607,7 @@ namespace X_ROOT_NS::modules::native {
                 case vtype_t::float_:   return "float";
                 case vtype_t::double_:  return "double";
                 case vtype_t::bool_:    return "i8";
-                case vtype_t::char_:    return sizeof(char_t) == 4? "i32" : "i16";
+                case vtype_t::char_:    return "i16";
                 case vtype_t::ptr_:
                 case vtype_t::string_:  return "ptr";       // A string is a const char_t *.
                 case vtype_t::void_:    return "void";
@@ -590,7 +764,8 @@ namespace X_ROOT_NS::modules::native {
             }
 
             fn->display = base->to_string(__env, true);
-            fn->name    = "april.m" + std::to_string(__fn_index++) + "."
+            fn->denied  = __denied.count(fn->display) > 0;
+            fn->name    ="april.m" + std::to_string(__fn_index++) + "."
                         + __ident(__narrow(base->get_name().c_str()));
 
             __read_signature(*fn);
@@ -622,13 +797,227 @@ namespace X_ROOT_NS::modules::native {
             if (name == "Reflection_GetType")
                 return f.load("ptr", f.gep_bytes(args.at(0), -8));
 
-            if (name == "Reflection_GetTypeName")
+            // The same object: the same reference; the hash code is made by the address (the
+            // objects do not move).
+            if (name == "Object_ReferenceEquals")
+            {
+                llb::value_t same = f.icmp("eq", args.at(0), args.at(1));
+                return f.cast("zext", same, "i8");
+            }
+
+            if (name == "Object_GetHashCode")
+            {
+                llb::value_t address = f.cast("ptrtoint", args.at(0), "i64");
+                llb::value_t shifted = f.binop("lshr", address, llb::const_int("i64", 4));
+                llb::value_t hash = f.cast("trunc", shifted, "i32");
+
+                return f.binop("and", hash, llb::const_int("i32", 0x7fffffff));
+            }
+
+            // The names follow the virtual functions: the name, then the full name, then the
+            // tables of reflection (see native_abi.h).
+            if (name == "Reflection_GetTypeName" || name == "Reflection_GetTypeFullName")
             {
                 llb::value_t count = f.load("i64", llb::value_t { llb::types::ptr, "@april.vcount" });
                 llb::value_t offset = f.binop("add", f.binop("mul", count, llb::const_int("i64", 8)),
-                                                     llb::const_int("i64", 32));
+                                                     llb::const_int("i64", name == "Reflection_GetTypeName"? 32 : 40));
 
                 return f.load("ptr", f.gep(llb::types::i8, args.at(0), offset));
+            }
+
+            // The access to the fields is made by the runtime: it reads the table of the field.
+            if (name == "Reflection_CheckFieldAccess")
+            {
+                __uses_reflection = true;
+                __uses_field_access = true;
+                return f.call("i32", APRIL_NATIVE_SYM_REFLECT_CHECK,
+                              { args.at(0), args.at(1), args.at(2), args.at(3) });
+            }
+
+            if (name == "Reflection_CheckInvoke")
+            {
+                __uses_reflection = true;
+                __uses_invoke = true;
+                return f.call("i32", APRIL_NATIVE_SYM_REFLECT_CHECK_INVOKE,
+                              { args.at(0), args.at(1), args.at(2) });
+            }
+
+            if (name == "Reflection_Invoke")
+            {
+                __uses_reflection = true;
+                __uses_invoke = true;
+                return f.call("ptr", APRIL_NATIVE_SYM_REFLECT_INVOKE,
+                              { args.at(0), args.at(1), args.at(2) });
+            }
+
+            if (name == "Reflection_GetFieldValue")
+            {
+                __uses_reflection = true;
+                __uses_field_access = true;
+                return f.call("ptr", APRIL_NATIVE_SYM_REFLECT_GET, { args.at(0), args.at(1) });
+            }
+
+            if (name == "Reflection_SetFieldValue")
+            {
+                __uses_reflection = true;
+                __uses_field_access = true;
+                f.call("void", APRIL_NATIVE_SYM_REFLECT_SET, { args.at(0), args.at(1), args.at(2) });
+                return llb::value_t { };
+            }
+
+            // A table of a member has the bit reflect_flag_member in its flags (+24): a type does not.
+            if (name == "Reflection_IsMember")
+            {
+                __uses_reflection = true;
+                llb::value_t flags = f.load("i64", f.gep_bytes(args.at(0), 24));
+                llb::value_t bit = f.binop("and", f.binop("lshr", flags, llb::const_int("i64", 62)),
+                                           llb::const_int("i64", 1));
+
+                return f.cast("trunc", bit, "i32");
+            }
+
+            // The attributes: the tables of a member have them (+136), those of a type too (+112); the
+            // runtime makes the boxes of the arguments. The objects are made with the size of the
+            // class (+104 of the table of the type).
+            bool is_attribute = name.compare(0, 23, "Reflection_GetAttribute") == 0;
+            bool is_type_attribute = name.compare(0, 27, "Reflection_GetTypeAttribute") == 0;
+
+            if (is_attribute || is_type_attribute || name == "Reflection_NewObject")
+            {
+                __uses_reflection = true;
+                __uses_attributes = true;
+                __uses_invoke = true;
+
+                auto meta_of = [&](llb::value_t type) {
+                    llb::value_t count = f.load("i64", llb::value_t { llb::types::ptr, "@april.vcount" });
+                    llb::value_t offset = f.binop("add", f.binop("mul", count, llb::const_int("i64", 8)),
+                                                         llb::const_int("i64", 48));
+
+                    return f.load("ptr", f.gep(llb::types::i8, type, offset));
+                };
+
+                if (name == "Reflection_NewObject")
+                {
+                    __uses_new_object = true;
+                    llb::value_t size = f.load("i64", f.gep_bytes(meta_of(args.at(0)), 104));
+
+                    return f.call("ptr", APRIL_NATIVE_SYM_NEW_OBJECT, { size, args.at(0) });
+                }
+
+                llb::value_t attributes = is_type_attribute?
+                    f.load("ptr", f.gep_bytes(meta_of(args.at(0)), 112))
+                  : f.load("ptr", f.gep_bytes(args.at(0), 136));
+
+                std::string what = name.substr(is_type_attribute? 27 : 23);
+
+                if (what == "Count")
+                    return f.call("i32", APRIL_NATIVE_SYM_ATTR_COUNT, { attributes });
+
+                if (what == "Constructor")
+                    return f.call("ptr", APRIL_NATIVE_SYM_ATTR_CTOR, { attributes, args.at(1) });
+
+                if (what == "ArgumentCount")
+                    return f.call("i32", APRIL_NATIVE_SYM_ATTR_ARG_COUNT, { attributes, args.at(1) });
+
+                if (what == "Argument")
+                    return f.call("ptr", APRIL_NATIVE_SYM_ATTR_ARG, { attributes, args.at(1), args.at(2) });
+
+                if (what == "NamedCount")
+                    return f.call("i32", APRIL_NATIVE_SYM_ATTR_NAMED_COUNT, { attributes, args.at(1) });
+
+                if (what == "NamedName")
+                    return f.call("ptr", APRIL_NATIVE_SYM_ATTR_NAMED_NAME, { attributes, args.at(1), args.at(2) });
+
+                if (what == "NamedValue")
+                    return f.call("ptr", APRIL_NATIVE_SYM_ATTR_NAMED_VALUE, { attributes, args.at(1), args.at(2) });
+            }
+
+            // The reflection reads the tables (rt_reflect_type_t, rt_reflect_member_t): the
+            // functions are loads of their fields.
+            if (name.compare(0, 14, "Reflection_Get") == 0)
+            {
+                auto load_at = [&](const char * ll, llb::value_t base, int64_t offset) {
+                    return f.load(ll, f.gep_bytes(base, offset));
+                };
+
+                // The table of a type is after the descriptor of it.
+                auto meta_of = [&](llb::value_t type) {
+                    llb::value_t count = f.load("i64", llb::value_t { llb::types::ptr, "@april.vcount" });
+                    llb::value_t offset = f.binop("add", f.binop("mul", count, llb::const_int("i64", 8)),
+                                                         llb::const_int("i64", 48));
+
+                    return f.load("ptr", f.gep(llb::types::i8, type, offset));
+                };
+
+                // The item of an index in a list of members.
+                auto item_at = [&](llb::value_t items, llb::value_t index) {
+                    llb::value_t at = f.binop("mul", f.cast("sext", index, "i64"), llb::const_int("i64", 8));
+                    return f.load("ptr", f.gep(llb::types::i8, items, at));
+                };
+
+                auto list_of = [&](llb::value_t type, int kind) {
+                    return load_at("ptr", meta_of(type), 32 + 16 * kind);
+                };
+
+                std::string what = name.substr(14);
+                __uses_reflection = true;
+
+                if (what == "TypeBase")
+                    return load_at("ptr", meta_of(args.at(0)), 0);
+
+                if (what == "TypeFlags")
+                    return load_at("i64", meta_of(args.at(0)), 8);
+
+                if (what == "TypeAssembly")
+                    return load_at("ptr", meta_of(args.at(0)), 16);
+
+                // The nest types: after the others in the table of a type.
+                if (what == "NestedTypeCount")
+                    return f.cast("trunc", load_at("i64", meta_of(args.at(0)), 120), "i32");
+
+                if (what == "NestedType")
+                    return item_at(load_at("ptr", meta_of(args.at(0)), 128), args.at(1));
+
+                if (what == "MemberCount")
+                {
+                    llb::value_t at = f.binop("add", f.binop("mul", f.cast("sext", args.at(1), "i64"),
+                                                             llb::const_int("i64", 16)),
+                                                     llb::const_int("i64", 24));
+                    llb::value_t count = f.load("i64", f.gep(llb::types::i8, meta_of(args.at(0)), at));
+                    return f.cast("trunc", count, "i32");
+                }
+
+                if (what == "Field")                return item_at(list_of(args.at(0), 0), args.at(1));
+                if (what == "Method")               return item_at(list_of(args.at(0), 1), args.at(1));
+                if (what == "Property")             return item_at(list_of(args.at(0), 2), args.at(1));
+                if (what == "Event")                return item_at(list_of(args.at(0), 3), args.at(1));
+                if (what == "TypeGenericParameter") return item_at(list_of(args.at(0), 4), args.at(1));
+
+                if (what == "InfoName")             return load_at("ptr", args.at(0), 0);
+                if (what == "InfoDeclaringType")    return load_at("ptr", args.at(0), 8);
+                if (what == "InfoType")             return load_at("ptr", args.at(0), 16);
+                if (what == "InfoFlags")            return load_at("i64", args.at(0), 24);
+
+                if (what == "PropertyGetter" || what == "EventAdder")
+                    return load_at("ptr", args.at(0), 32);
+
+                if (what == "PropertySetter" || what == "EventRemover")
+                    return load_at("ptr", args.at(0), 40);
+
+                if (what == "EventRaiser")
+                    return load_at("ptr", args.at(0), 80);
+
+                if (what == "ParameterCount")
+                    return f.cast("trunc", load_at("i64", args.at(0), 48), "i32");
+
+                if (what == "Parameter")
+                    return item_at(load_at("ptr", args.at(0), 56), args.at(1));
+
+                if (what == "GenericParameterCount")
+                    return f.cast("trunc", load_at("i64", args.at(0), 64), "i32");
+
+                if (what == "GenericParameter")
+                    return item_at(load_at("ptr", args.at(0), 72), args.at(1));
             }
 
             // The arrays of native programs have their own layout (see native_abi.h):
@@ -714,6 +1103,32 @@ namespace X_ROOT_NS::modules::native {
         // Generates the body of a function.
         void __generator_t::__emit(__fn_t & fn)
         {
+            // A function that a former try could not make: only the signature, the body traps.
+            if (fn.denied)
+            {
+                std::vector<std::pair<std::string, std::string>> stub_params;
+                if (fn.returns_struct)
+                    stub_params.push_back({ "ptr", "retaddr" });
+
+                for (size_t k = 0; k < fn.param_types.size(); k++)
+                    stub_params.push_back({ fn.param_types[k], "p" + std::to_string(k) });
+
+                llb::function_t & stub = __module.define(fn.name, fn.ret_type, stub_params);
+
+                __uses_trap = true;
+                stub.call("void", "llvm.trap", { });
+                stub.unreachable();
+                return;
+            }
+
+            // Invoke of a delegate has no body that can be made: its calls are expanded inline. The
+            // function (Method.Invoke calls it) is made here: it calls the method of the delegate.
+            if (__is_delegate_invoke(fn))
+            {
+                __emit_delegate_invoke(fn);
+                return;
+            }
+
             rt_method_t * method = fn.method;
             rt_assembly_t * assembly = method->get_assembly();
             rt_type_t * host_type = fn.base->get_host_type();
@@ -786,9 +1201,11 @@ namespace X_ROOT_NS::modules::native {
 
             for (rt_type_t * type : local_rt_types)
             {
+                // A local of a generic param that is Void (the place of the result of a call
+                // that returns it) has no value: it takes a byte.
                 std::string ll_type = __ll_type_of(type);
                 if (ll_type == "void")
-                    throw _ED(__e_t::unsupported_type, _T("void local variable"));
+                    ll_type = "i8";
 
                 locals.push_back({ f.alloca_entry(ll_type, "local"), ll_type });
             }
@@ -799,6 +1216,26 @@ namespace X_ROOT_NS::modules::native {
 
             // Checks that a stack value has the LLVM type of a numeric xil type.
             auto expect = [&](llb::value_t v, xil_type_t xt) {
+                // A pointer is a 64 bits integer for the arithmetic and the compares of the pointers.
+                if (v.type == "ptr" && (xt == xil_type_t::int64 || xt == xil_type_t::uint64))
+                    v = f.cast("ptrtoint", v, "i64");
+
+                if (__num_of(xt).valid && v.type != __num_of(xt).ll)
+                {
+                    // A constant of a number type that is narrower is given to a wider operation
+                    // (an Int32 literal with an Int64: n % 10000): the interpreter reads it as a
+                    // unit of the stack, it is widened here.
+                    auto bits = [](const std::string & ll) -> int {
+                        return ll == "i8"? 8 : ll == "i16"? 16 : ll == "i32"? 32 : ll == "i64"? 64 : 0;
+                    };
+
+                    int from = bits(v.type), to = bits(__num_of(xt).ll);
+                    if (from > 0 && to > from && !__num_of(xt).is_float)
+                    {
+                        return f.cast(__num_of(xt).is_signed? "sext" : "zext", v, __num_of(xt).ll);
+                    }
+                }
+
                 if (!__num_of(xt).valid || v.type != __num_of(xt).ll)
                 {
                     throw _ED(__e_t::bad_stack, fn.display, _F(
@@ -1412,22 +1849,18 @@ namespace X_ROOT_NS::modules::native {
                                     __Const(int64,  int64_t,  llb::const_int("i64", v))
                                     __Const(uint64, uint64_t, llb::const_int("i64", (int64_t)v))
                                     __Const(bool_,  bool,     llb::const_int("i8",  v? 1 : 0))
-                                    __Const(char_,  char_t,   llb::const_int(sizeof(char_t) == 4? "i32" : "i16", (int64_t)v))
+                                    __Const(char_,  rt_char_t, llb::const_int("i16", (int64_t)v))
                                     __Const(float_, float,    llb::const_float(v))
                                     __Const(double_,double,   llb::const_double(v))
 
                                     #undef __Const
 
                                     case xil_type_t::string: {
-                                        const char_t * s = analyzer.to_cstr(
+                                        std::u32string chars = __units_of_string(analyzer.to_cstr(
                                             push->get_extra<res_t>()
-                                        );
+                                        ));
 
-                                        std::u32string chars;
-                                        for (; *s != 0; s++)
-                                            chars += (char32_t)(uint32_t)*s;
-
-                                        stack.push_back(__module.add_wstring(chars, sizeof(char_t) * 8));
+                                        stack.push_back(__module.add_wstring(chars, 16));
                                     }   break;
 
                                     case xil_type_t::object:        // The null constant.
@@ -1491,6 +1924,29 @@ namespace X_ROOT_NS::modules::native {
                                 stack.push_back(v);
                             }   break;
 
+                            case xil_storage_type_t::type_size: {
+                                // sizeof(T): the size of the type, of the instance when it is a generic param.
+                                rt_type_t * sized = analyzer.get_type(push->get_ref());
+                                if (sized == nullptr)
+                                    throw _ED(__e_t::unsupported_type, _T("(unresolved type of sizeof)"));
+
+                                sized = __current_instance_of(sized, host_type, analyzer);
+                                stack.push_back(llb::const_int("i64", (int64_t)sized->get_size(__env)));
+                            }   break;
+
+                            case xil_storage_type_t::ptr_content: {
+                                // *p: the address is at the top; it is not checked (it is what the program says).
+                                llb::value_t addr = pop_value("content of an empty stack");
+                                if (addr.type != "ptr")
+                                    addr = f.cast("inttoptr", addr, "ptr");
+
+                                std::string ll = __ll_of_content(push->dtype());
+                                if (ll.empty())
+                                    throw _ED(__e_t::unsupported_xil, _F(_T("push ptr_content %1%"), push->dtype()));
+
+                                stack.push_back(f.load_unaligned(ll, addr));
+                            }   break;
+
                             case xil_storage_type_t::field:
                             case xil_storage_type_t::field_addr: {
                                 __field_info_t info = field_of(push->get_ref());
@@ -1547,6 +2003,9 @@ namespace X_ROOT_NS::modules::native {
                                     if (data_type == nullptr)
                                         throw _ED(__e_t::unsupported_type, _T("(static data type)"));
 
+                                    // The static fields of a generic type are those of its instance.
+                                    data_type = __current_instance_of(data_type, host_type, analyzer);
+
                                     auto sit = __static_data_map.find(data_type);
                                     if (sit == __static_data_map.end())
                                     {
@@ -1572,8 +2031,29 @@ namespace X_ROOT_NS::modules::native {
                                 if (push->get_object_type() == xil_storage_object_type_t::type_info)
                                 {
                                     rt_type_t * info_type = analyzer.get_type(push->get_ref());
-                                    if (info_type == nullptr || !is_tuple_type(info_type))
+                                    if (info_type == nullptr)
                                         throw _ED(__e_t::unsupported_xil, _T("push object (type info)"));
+
+                                    // The type of an object is its descriptor: typeof is the
+                                    // descriptor of the type.
+                                    if (!is_tuple_type(info_type))
+                                    {
+                                        // The type of an array: it is only its type that is wanted.
+                                        if (info_type->get_kind() == rt_type_kind_t::array)
+                                        {
+                                            stack.push_back(llb::value_t { llb::types::ptr,
+                                                "@" + __meta_descriptor_of(info_type) });
+                                            break;
+                                        }
+
+                                        if (info_type->get_kind() != rt_type_kind_t::general
+                                                && info_type->get_kind() != rt_type_kind_t::generic)
+                                            throw _ED(__e_t::unsupported_xil, _T("push object (type info)"));
+
+                                        stack.push_back(llb::value_t { llb::types::ptr,
+                                            "@" + __descriptor_of(info_type) });
+                                        break;
+                                    }
 
                                     marker_types.push_back(info_type);
                                     stack.push_back(llb::value_t { llb::types::ptr,
@@ -1586,14 +2066,17 @@ namespace X_ROOT_NS::modules::native {
 
                                 // A method info is the function a delegate calls.
                                 rt_method_base_t * method = analyzer.get_method(push->get_ref());
-                                if (method != nullptr && method->this_type() == rt_member_type_t::general
-                                        && host_type->get_kind() == rt_type_kind_t::generic
-                                        && is_host_type_template(method->get_host_type(),
-                                                ((rt_generic_type_t *)host_type)->template_))
+                                if (method != nullptr && method->this_type() == rt_member_type_t::general)
                                 {
-                                    method = analyzer.to_generic_method(
-                                        static_cast<rt_method_t *>(method), host_type
-                                    );
+                                    rt_type_t * method_host = method->get_host_type();
+                                    rt_type_t * instance = __current_instance_of(method_host, host_type, analyzer);
+
+                                    if (instance != method_host)
+                                    {
+                                        method = analyzer.to_generic_method(
+                                            static_cast<rt_method_t *>(method), instance
+                                        );
+                                    }
                                 }
 
                                 if (method == nullptr || method->this_type() == rt_member_type_t::dynamic)
@@ -1650,6 +2133,54 @@ namespace X_ROOT_NS::modules::native {
                                 // The items of the pack: only the functions of the tuples use them.
                                 stack.push_back(llb::value_t { llb::types::ptr, "params:" });
                                 break;
+
+                            case xil_storage_type_t::params_values: {
+                                // The items of the pack are the arguments of a call: the values
+                                // of the arguments of the function from the pack, one by one. A
+                                // struct is the region of its argument (see the call).
+                                if (fn.pack_start < 0)
+                                    throw _ED(__e_t::bad_stack, fn.display, _T("no pack argument"));
+
+                                for (int k = 0; k < fn.pack_count; k++)
+                                {
+                                    __slot_t & slot = args.at((size_t)(fn.pack_start + k));
+
+                                    if (slot.type[0] == '[')
+                                        stack.push_back(llb::value_t { slot.type, "&" + slot.ptr.text });
+                                    else
+                                        stack.push_back(f.load(slot.type, slot.ptr));
+                                }
+                            }   break;
+
+                            case xil_storage_type_t::tuple_values: {
+                                // The items of a tuple are the arguments of a call: the tuple is
+                                // popped, the values of its items are pushed, one by one.
+                                rt_type_t * type = analyzer.get_type(push->get_ref());
+                                if (type == nullptr || !is_tuple_type(type))
+                                    throw _ED(__e_t::unsupported_type, _T("(the items of a type that is not a tuple)"));
+
+                                if (stack.empty())
+                                    throw _ED(__e_t::bad_stack, fn.display, _T("the items of an empty stack"));
+
+                                llb::value_t object = stack.back();
+                                stack.pop_back();
+
+                                rt_generic_type_t * tuple = (rt_generic_type_t *)type;
+                                tuple->pre_new(__env);
+
+                                for (int k = 0, count = tuple->atype_count(); k < count; k++)
+                                {
+                                    std::string ll = __ll_type_of(tuple->atypes[k]);
+                                    msize_t offset = tuple->get_field_offset(__env, k);
+                                    llb::value_t address = f.gep_bytes(object, (int64_t)offset);
+
+                                    // A struct is the region of its item (see the arguments of a call).
+                                    if (ll[0] == '[')
+                                        stack.push_back(llb::value_t { ll, "&" + address.text });
+                                    else
+                                        stack.push_back(f.load(ll, address));
+                                }
+                            }   break;
 
                             case xil_storage_type_t::box: {
                                 // Boxes the value (or the struct at the address) on the top.
@@ -1751,6 +2282,23 @@ namespace X_ROOT_NS::modules::native {
                             case xil_storage_type_t::checked_convert: {
                                 llb::value_t v = pop_value("convert");
 
+                                // A pointer and an integer of 64 bits: the same bits.
+                                if (push->dtype() == xil_type_t::ptr || push->dtype2() == xil_type_t::ptr)
+                                {
+                                    if (push->dtype2() == xil_type_t::ptr)
+                                    {
+                                        if (v.type != "ptr")
+                                            v = f.cast("inttoptr", v, "ptr");
+                                    }
+                                    else if (v.type == "ptr")
+                                    {
+                                        v = f.cast("ptrtoint", v, "i64");
+                                    }
+
+                                    stack.push_back(v);
+                                    break;
+                                }
+
                                 // The interpreter reads the top of the stack as the source
                                 // type, whatever was pushed (e.g. an int64 constant followed
                                 // by a convert from int32): do the same for integers.
@@ -1845,12 +2393,69 @@ namespace X_ROOT_NS::modules::native {
                         }
                     }   break;
 
+                    case xil_command_t::pick:
                     case xil_command_t::pop: {
-                        const pop_xil_t * pop = static_cast<const pop_xil_t *>(xil);
+                        // A pick has the layout of a pop: the value stays in the stack, it is
+                        // copied below the operands of the destination.
+                        const pop_xil_t * pop = reinterpret_cast<const pop_xil_t *>(xil);
+
+                        if (xil->command() == xil_command_t::pick)
+                        {
+                            size_t operands = 0;
+                            if (pop->stype() == xil_storage_type_t::field)
+                            {
+                                operands = 1;
+                            }
+                            else if (pop->stype() == xil_storage_type_t::array_element)
+                            {
+                                rt_type_t * array_type = analyzer.get_type(pop->get_ref());
+                                if (array_type == nullptr || array_type->get_kind() != rt_type_kind_t::array)
+                                    throw _ED(__e_t::unsupported_type, _T("(unresolved array type)"));
+
+                                operands = 1 + ((rt_array_type_t *)array_type)->dimension;
+                            }
+                            else if (pop->stype() != xil_storage_type_t::local
+                                        && pop->stype() != xil_storage_type_t::argument
+                                        && pop->stype() != xil_storage_type_t::argument_addr)
+                            {
+                                throw _ED(__e_t::unsupported_xil, _F(_T("pick %1%"), pop->stype()));
+                            }
+
+                            std::vector<llb::value_t> held;
+                            for (size_t k = 0; k < operands; k++)
+                                held.push_back(pop_value("operand of a pick"));
+
+                            llb::value_t kept = pop_value("value of a pick");
+                            stack.push_back(kept);
+                            stack.push_back(kept);
+
+                            for (size_t k = operands; k > 0; k--)
+                                stack.push_back(held[k - 1]);
+                        }
 
                         switch (pop->stype())
                         {
                             case xil_storage_type_t::empty:         // Discards the top.
+                                // The result of a call whose type is a generic param, that is
+                                // not used: nothing is left when the type is a custom struct
+                                // (the callee writes it at the address that was pushed), else the
+                                // value (nothing for Void) and the address that was pushed.
+                                if (pop->is_call_result())
+                                {
+                                    rt_type_t * result_type = analyzer.get_type(pop->get_ref());
+                                    if (result_type == nullptr)
+                                        throw _ED(__e_t::unsupported_type, _T("(unresolved result type)"));
+
+                                    if (is_custom_struct(__env, result_type))
+                                        break;
+
+                                    if (result_type->get_vtype(__env) != vtype_t::void_)
+                                        pop_value("result of a call");
+
+                                    pop_value("place of the result of a call");
+                                    break;
+                                }
+
                                 pop_value("pop of an empty stack");
                                 break;
 
@@ -1934,6 +2539,31 @@ namespace X_ROOT_NS::modules::native {
                                 f.store(v, f.load("ptr", args[id].ptr));
                             }   break;
 
+                            case xil_storage_type_t::ptr_content: {
+                                // *p = value: the value is at the top, the address is below it.
+                                llb::value_t v = pop_value("pop to a pointer");
+                                llb::value_t addr = pop_value("address of a pointer");
+                                if (addr.type != "ptr")
+                                    addr = f.cast("inttoptr", addr, "ptr");
+
+                                std::string ll = __ll_of_content(pop->dtype());
+                                if (ll.empty())
+                                    throw _ED(__e_t::unsupported_xil, _F(_T("pop ptr_content %1%"), pop->dtype()));
+
+                                if (v.type != ll && ll == "ptr")
+                                    v = f.cast("inttoptr", v, "ptr");
+
+                                if (v.type != ll)
+                                {
+                                    throw _ED(__e_t::bad_stack, fn.display, _F(
+                                        _T("type mismatch storing to a pointer: %1% / %2%"),
+                                        __wide(v.type), __wide(ll)
+                                    ));
+                                }
+
+                                f.store_unaligned(v, addr);
+                            }   break;
+
                             case xil_storage_type_t::field: {
                                 __field_info_t info = field_of(pop->get_ref());
 
@@ -2001,13 +2631,23 @@ namespace X_ROOT_NS::modules::native {
                             rt_type_t * item_type = tuple_type->atypes[position];
 
                             std::string item_ll = __ll_type_of(item_type);
-                            if (item_ll[0] == '[')
-                                throw _ED(__e_t::unsupported_xil, _T("tuple item of a struct"));
 
                             llb::value_t object = pop_value("tuple");
                             raise_if_null(object);
 
                             msize_t offset = tuple_type->get_field_offset(__env, position);
+                            if (item_ll[0] == '[')
+                            {
+                                // A struct is written at the address that is below the tuple.
+                                llb::value_t dst = pop_value("address of a struct result");
+                                __uses_memcpy = true;
+                                f.call("void", "llvm.memcpy.p0.p0.i64", { dst,
+                                    f.gep_bytes(object, (int64_t)offset),
+                                    llb::const_int("i64", (int64_t)item_type->get_size(__env)),
+                                    llb::const_bool(false) });
+                                break;
+                            }
+
                             stack.push_back(f.load(item_ll, f.gep_bytes(object, (int64_t)offset)));
                             break;
                         }
@@ -2018,9 +2658,18 @@ namespace X_ROOT_NS::modules::native {
                         // A member of a generic param: the method of the type that the param is
                         // (the argument is a concrete type here).
                         int constrained_offset = -1;
+                        bool generic_virtual_site = false;
                         if (base->this_type() == rt_member_type_t::generic)
                         {
                             rt_generic_method_t * generic_method = static_cast<rt_generic_method_t *>(base);
+
+                            // The method that implements it is found by the object, with the
+                            // generic arguments of the call (see __generic_site_t).
+                            if (call_type == xil_call_type_t::virtual_
+                                    && generic_method->template_->generic_param_count() > 0)
+                            {
+                                generic_virtual_site = true;
+                            }
 
                             if (call_type == xil_call_type_t::constrained)
                             {
@@ -2048,14 +2697,17 @@ namespace X_ROOT_NS::modules::native {
 
                         // A call to a method of the template of the current generic type:
                         // it is the method of the current instance.
-                        if (base->this_type() == rt_member_type_t::general
-                                && host_type->get_kind() == rt_type_kind_t::generic
-                                && is_host_type_template(base->get_host_type(),
-                                        ((rt_generic_type_t *)host_type)->template_))
+                        if (base->this_type() == rt_member_type_t::general)
                         {
-                            base = analyzer.to_generic_method(
-                                static_cast<rt_method_t *>(base), host_type
-                            );
+                            rt_type_t * base_host = base->get_host_type();
+                            rt_type_t * instance = __current_instance_of(base_host, host_type, analyzer);
+
+                            if (instance != base_host)
+                            {
+                                base = analyzer.to_generic_method(
+                                    static_cast<rt_method_t *>(base), instance
+                                );
+                            }
                         }
 
                         // Delegates: the constructor and Invoke are expanded inline.
@@ -2066,9 +2718,18 @@ namespace X_ROOT_NS::modules::native {
                             rt_generic_type_t * dtype = (rt_generic_type_t *)base->get_host_type();
                             std::string tname = __narrow(dtype->template_->get_name(__env).c_str());
 
-                            if (tname.compare(0, 9, "Delegate<") == 0 || tname.find(".Delegate<") != std::string::npos)
+                            // Only the constructors and Invoke are expanded; the other methods of a
+                            // delegate (Equals) are called.
+                            bool is_delegate_ctor =
+                                static_cast<rt_generic_method_t *>(base)->template_ != nullptr
+                                && (*static_cast<rt_generic_method_t *>(base)->template_)->trait
+                                        == method_trait_t::constructor;
+                            bool is_invoke = __narrow(base->get_name().c_str()) == "Invoke";
+
+                            if ((tname.compare(0, 9, "Delegate<") == 0 || tname.find(".Delegate<") != std::string::npos)
+                                    && (is_delegate_ctor || is_invoke))
                             {
-                                bool invoke = __narrow(base->get_name().c_str()) == "Invoke";
+                                bool invoke = is_invoke;
 
                                 // The fields are __instance and __method, in this order.
                                 std::vector<msize_t> field_offsets;
@@ -2187,11 +2848,19 @@ namespace X_ROOT_NS::modules::native {
                                 for (int k = 0; k < count; k++)
                                 {
                                     std::string ll = __ll_type_of(tuple->atypes[k]);
-                                    if (ll[0] == '[')
-                                        throw _ED(__e_t::unsupported_xil, _T("tuple item of a struct"));
 
                                     __slot_t & slot = pack_arg(k);
                                     msize_t offset = tuple->get_field_offset(__env, k);
+                                    if (ll[0] == '[')
+                                    {
+                                        __uses_memcpy = true;
+                                        f.call("void", "llvm.memcpy.p0.p0.i64", {
+                                            f.gep_bytes(object, (int64_t)offset), slot.ptr,
+                                            llb::const_int("i64", (int64_t)tuple->atypes[k]->get_size(__env)),
+                                            llb::const_bool(false) });
+                                        continue;
+                                    }
+
                                     f.store(f.load(slot.type, slot.ptr), f.gep_bytes(object, (int64_t)offset));
                                 }
                             };
@@ -2246,11 +2915,11 @@ namespace X_ROOT_NS::modules::native {
                             {
                                 rt_type_t * item_type = tuple->atypes[k];
                                 std::string ll = __ll_type_of(item_type);
-                                if (ll[0] == '[')
-                                    throw _ED(__e_t::unsupported_xil, _T("tuple item of a struct"));
+                                bool is_block = ll[0] == '[';
 
                                 msize_t offset = tuple->get_field_offset(__env, k);
-                                llb::value_t value = f.load(ll, f.gep_bytes(object, (int64_t)offset));
+                                llb::value_t address = f.gep_bytes(object, (int64_t)offset);
+                                llb::value_t value = is_block? address : f.load(ll, address);
 
                                 llb::value_t item;
                                 bool is_string = item_type->get_vtype(__env) == vtype_t::string_;
@@ -2269,7 +2938,17 @@ namespace X_ROOT_NS::modules::native {
                                         llb::value_t { llb::types::ptr, "@" + __descriptor_of(item_type) }
                                     });
 
-                                    f.store(value, item);
+                                    if (is_block)
+                                    {
+                                        __uses_memcpy = true;
+                                        f.call("void", "llvm.memcpy.p0.p0.i64", { item, value,
+                                            llb::const_int("i64", (int64_t)item_type->get_size(__env)),
+                                            llb::const_bool(false) });
+                                    }
+                                    else
+                                    {
+                                        f.store(value, item);
+                                    }
 
                                     // A string that is null is a null object.
                                     if (is_string)
@@ -2313,6 +2992,13 @@ namespace X_ROOT_NS::modules::native {
 
                         for (size_t k = 0; k < count; k++)
                         {
+                            // A Char (16 bits, unsigned) is given where a number of 32 or 64 bits is taken.
+                            if (call_args[k].type == "i16" && (callee->param_types[k] == "i32"
+                                                              || callee->param_types[k] == "i64"))
+                            {
+                                call_args[k] = f.cast("zext", call_args[k], callee->param_types[k]);
+                            }
+
                             if (call_args[k].type != callee->param_types[k])
                             {
                                 throw _ED(__e_t::bad_stack, fn.display, _F(
@@ -2337,7 +3023,8 @@ namespace X_ROOT_NS::modules::native {
                             rt_method_base_t * declared = base;
                             ref_t method_ref = call->method_ref();
                             int offset = constrained_offset >= 0? constrained_offset
-                                            : analyzer.get_virtual_method_offset(method_ref);
+                                            : analyzer.get_virtual_method_offset(method_ref,
+                                                                    base->get_host_type());
 
                             llb::value_t object = call_args[hidden_dst? 1 : 0];
                             raise_if_null(object);
@@ -2345,7 +3032,44 @@ namespace X_ROOT_NS::modules::native {
                             llb::value_t desc = f.load("ptr", f.gep_bytes(object, -8));
                             llb::value_t target;
 
-                            if (declared->get_host_type()->get_ttype(__env) == ttype_t::interface_)
+                            if (generic_virtual_site)
+                            {
+                                rt_generic_method_t * gm = static_cast<rt_generic_method_t *>(declared);
+
+                                __generic_site_t site;
+                                site.declared = declared->get_host_type();
+                                site.offset = offset;
+                                site.is_interface = site.declared->get_ttype(__env) == ttype_t::interface_;
+                                site.interface_index = site.is_interface?
+                                                __interface_index(site.declared) : 0;
+
+                                for (int k = 0; k < gm->atype_count(); k++)
+                                    site.atypes.push_back(gm->atypes[k]);
+
+                                size_t g = 0;
+                                for (; g < __generic_sites.size(); g++)
+                                {
+                                    const __generic_site_t & s = __generic_sites[g];
+                                    if (s.declared == site.declared && s.offset == site.offset
+                                            && s.atypes == site.atypes)
+                                        break;
+                                }
+
+                                if (g == __generic_sites.size())
+                                    __generic_sites.push_back(site);
+
+                                // The functions of the generic sites follow the virtual ones.
+                                llb::value_t real = f.load("i64",
+                                    llb::value_t { llb::types::ptr, "@april.vreal" });
+                                llb::value_t slot = f.binop("add", real,
+                                                            llb::const_int("i64", (int64_t)g));
+                                llb::value_t at = f.binop("add", f.binop("mul", slot,
+                                                            llb::const_int("i64", 8)),
+                                                            llb::const_int("i64", 32));
+
+                                target = f.load("ptr", f.gep(llb::types::i8, desc, at));
+                            }
+                            else if (declared->get_host_type()->get_ttype(__env) == ttype_t::interface_)
                             {
                                 size_t index = __interface_index(declared->get_host_type());
                                 __interface_sites.insert({ index, offset });
@@ -2359,7 +3083,16 @@ namespace X_ROOT_NS::modules::native {
                             }
                             else
                             {
-                                __virtual_sites.insert({ declared->get_host_type(), offset });
+                                // The type that declares the method is the instance when the class is
+                                // nested in a generic type: the tables have the instances.
+                                rt_type_t * site_host = declared->get_host_type();
+                                if (is_general(site_host)
+                                        && ((rt_general_type_t *)site_host)->is_generic_template())
+                                {
+                                    site_host = analyzer.to_generic_type((rt_general_type_t *)site_host);
+                                }
+
+                                __virtual_sites.insert({ site_host, offset });
                                 __max_virtual_offset = std::max(__max_virtual_offset, offset);
 
                                 target = f.load("ptr", f.gep_bytes(desc, 32 + 8 * (int64_t)offset));
@@ -2378,13 +3111,24 @@ namespace X_ROOT_NS::modules::native {
                             }
 
                             result = __emit_libfunc_call(f, fn, *callee, call_args);
+
+                            // The method that Reflection_Invoke calls can raise.
+                            if (__narrow(callee->method->get_name().c_str()) == "Reflection_Invoke")
+                                check_exception();
                         }
                         else
                         {
-                            // The object of an instance method is not null.
+                            // The object of an instance method is not null. (A string that is null is the empty string,
+                            // as it is for the interpreter: its methods read it.)
                             size_t this_index = hidden_dst? 1 : 0;
+                            rt_type_t * host_type = callee->base != nullptr? callee->base->get_host_type() : nullptr;
+                            bool string_host = host_type != nullptr && host_type->get_vtype(__env) == vtype_t::string_;
+
+                            // The this of a pointer (Ptr, Ptr<T>) is the address, that can be 0.
+                            bool pointer_host = host_type != nullptr && host_type->get_vtype(__env) == vtype_t::ptr_;
+
                             if (call_type == xil_call_type_t::instance && this_index < call_args.size()
-                                    && call_args[this_index].type == "ptr")
+                                    && call_args[this_index].type == "ptr" && !string_host && !pointer_host)
                             {
                                 raise_if_null(call_args[this_index]);
                             }
@@ -2456,14 +3200,9 @@ namespace X_ROOT_NS::modules::native {
                             if (type == nullptr)
                                 throw _ED(__e_t::unsupported_type, _T("(unresolved allocated type)"));
 
-                            // The template of the current generic type is the current instance.
-                            if (type->get_kind() == rt_type_kind_t::general
-                                    && host_type->get_kind() == rt_type_kind_t::generic
-                                    && is_host_type_template(type,
-                                            ((rt_generic_type_t *)host_type)->template_))
-                            {
-                                type = host_type;
-                            }
+                            // The template of the current generic type is the current instance, and
+                            // a class that is nested in it is one of the instance too.
+                            type = __current_instance_of(type, host_type, analyzer);
 
                             // An instance of a class, or a boxed struct.
                             std::string new_ll = __ll_type_of(type);
@@ -2509,9 +3248,13 @@ namespace X_ROOT_NS::modules::native {
                             std::string element_ll = __ll_type_of(array_type->element_type);
                             bool has_refs = element_ll == "ptr" || element_ll[0] == '[';
 
+                            // The class of an array has the methods of the interfaces that an array
+                            // implements (IReadOnlyList<T>), they are those of Array<T>.
+                            llb::value_t desc { llb::types::ptr, "@" + __descriptor_of(array_type) };
+
                             llb::value_t new_array = f.call("ptr", APRIL_NATIVE_SYM_NEW_ARRAY, {
                                 llb::const_int("i64", (int64_t)array_type->element_type->get_variable_size(__env)),
-                                llb::const_int("i32", dimension), lengths, llb::const_null(),
+                                llb::const_int("i32", dimension), lengths, desc,
                                 llb::const_int("i32", has_refs? 1 : 0)
                             });
 
@@ -2563,13 +3306,20 @@ namespace X_ROOT_NS::modules::native {
                         if (target == nullptr)
                             throw _ED(__e_t::unsupported_type, _T("(unresolved cast type)"));
 
-                        // The classes, the interfaces, and the values that are boxed (o is int): a
-                        // string is not an object.
-                        ttype_t target_ttype = target->get_ttype(__env);
-                        bool target_is_value = (target_ttype == ttype_t::struct_ || target_ttype == ttype_t::enum_)
-                                && target->get_vtype(__env) != vtype_t::string_;
+                        // A class that is nested in a generic type is the one of the instance.
+                        if (is_general(target)
+                                && ((rt_general_type_t *)target)->is_generic_template())
+                        {
+                            target = analyzer.to_generic_type((rt_general_type_t *)target);
+                        }
 
-                        if ((target->get_kind() != rt_type_kind_t::general && target->get_kind() != rt_type_kind_t::generic)
+                        // The classes, the interfaces, and the values that are boxed (o is int, o is
+                        // String).
+                        ttype_t target_ttype = target->get_ttype(__env);
+                        bool target_is_value = target_ttype == ttype_t::struct_ || target_ttype == ttype_t::enum_;
+
+                        if ((target->get_kind() != rt_type_kind_t::general && target->get_kind() != rt_type_kind_t::generic
+                                    && target->get_kind() != rt_type_kind_t::array)
                                 || (target_ttype != ttype_t::interface_ && target_ttype != ttype_t::class_
                                     && !target_is_value))
                         {
@@ -3151,8 +3901,8 @@ namespace X_ROOT_NS::modules::native {
                         if (__num_of(t1).valid && __num_of(t2).valid)
                         {
                             xil_type_t ct = __common_type(t1, t2);
-                            expect(a, t1);
-                            expect(b, t2);
+                            a = expect(a, t1);
+                            b = expect(b, t2);
                             a = __convert(f, a, t1, ct);
                             b = __convert(f, b, t2, ct);
 
@@ -3319,16 +4069,37 @@ namespace X_ROOT_NS::modules::native {
         {
             auto it = __class_of.find(type);
             if (it != __class_of.end())
+            {
+                it->second->meta_only = false;      // The program uses it: it has its functions.
+
+                // The class of an array has the functions of Array<T>.
+                if (it->second->alias != nullptr)
+                    it->second->alias->meta_only = false;
+
                 return it->second->name;
+            }
 
             if (type->get_kind() != rt_type_kind_t::general
-                    && type->get_kind() != rt_type_kind_t::generic)
+                    && type->get_kind() != rt_type_kind_t::generic
+                    && type->get_kind() != rt_type_kind_t::array)
             {
                 throw _ED(__e_t::unsupported_type, type->get_name(__env));
             }
 
+            // An array: its class has the functions of Array<T> (the one of its objects).
+            __class_t * alias = nullptr;
+            if (type->get_kind() == rt_type_kind_t::array)
+            {
+                type->pre_new(__env);
+
+                rt_type_t * generic = ((rt_array_type_t *)type)->as_generic(__env);
+                __descriptor_of(generic);
+                alias = __class_of[generic];
+            }
+
             std::unique_ptr<__class_t> c(new __class_t());
             c->type = type;
+            c->alias = alias;
             c->name = "april.type." + std::to_string(__classes.size());
 
             __class_t * p = c.get();
@@ -3336,6 +4107,67 @@ namespace X_ROOT_NS::modules::native {
             __class_of[type] = p;
 
             return p->name;
+        }
+
+        // Returns the descriptor of a type that the tables of reflection refer to (a class that has
+        // no objects: it is only its names and its tables), or an empty string if the type has
+        // none (the others).
+        std::string __generator_t::__meta_descriptor_of(rt_type_t * type)
+        {
+            auto it = __class_of.find(type);
+            if (it != __class_of.end())
+                return it->second->name;
+
+            if (type->get_kind() != rt_type_kind_t::general
+                    && type->get_kind() != rt_type_kind_t::generic
+                    && type->get_kind() != rt_type_kind_t::array)
+            {
+                return std::string();
+            }
+
+            // An array: only its type is wanted, the class of Array<T> has no objects either.
+            __class_t * alias = nullptr;
+            if (type->get_kind() == rt_type_kind_t::array)
+            {
+                type->pre_new(__env);
+
+                rt_type_t * generic = ((rt_array_type_t *)type)->as_generic(__env);
+                __meta_descriptor_of(generic);
+                alias = __class_of[generic];
+            }
+
+            std::unique_ptr<__class_t> c(new __class_t());
+            c->type = type;
+            c->alias = alias;
+            c->name = "april.type." + std::to_string(__classes.size());
+            c->meta_only = true;
+
+            __class_t * p = c.get();
+            __classes.push_back(std::move(c));
+            __class_of[type] = p;
+
+            return p->name;
+        }
+
+        // Returns the global that holds the object of the static data of a type.
+        std::string __generator_t::__static_data_global_of(rt_type_t * type)
+        {
+            auto sit = __static_data_map.find(type);
+            if (sit == __static_data_map.end())
+            {
+                type->pre_new(__env);
+
+                __static_data_t sd {
+                    "april.static." + std::to_string(__static_data_map.size()),
+                    __descriptor_of(type),
+                    (int64_t)type->get_size(__env)
+                };
+
+                __module.add_global_line("@" + sd.global + " = internal global ptr null");
+                sit = __static_data_map.emplace(type, sd).first;
+            }
+
+            return sit->second.global;
         }
 
         // Returns the name of the function a delegate to the method calls: it takes the
@@ -3388,6 +4220,59 @@ namespace X_ROOT_NS::modules::native {
             return name;
         }
 
+        // Returns the symbol of a function in the virtual table of a class.
+        std::string __generator_t::__virtual_symbol_of(__fn_t * fn)
+        {
+            bool is_static = ((decorate_value_t)(*fn->method)->decorate).is_static;
+
+            // `this` is the reference of the object, a struct is its address: only the value of a
+            // primitive type is not, and a string (the object that boxes a string has its pointer).
+            bool this_is_string = !fn->param_rt_types.empty() && fn->param_rt_types[0] != nullptr
+                    && fn->param_rt_types[0]->get_vtype(__env) == vtype_t::string_;
+
+            if (is_static || fn->param_types.empty() || (fn->param_types[0] == "ptr" && !this_is_string)
+                    || fn->param_types[0][0] == '[')
+                return fn->name;
+
+            auto it = __unbox_thunks.find(fn);
+            if (it != __unbox_thunks.end())
+                return it->second;
+
+            std::string name = fn->name + ".unbox";
+
+            std::vector<std::pair<std::string, std::string>> params;
+            std::vector<llb::value_t> call_args;
+
+            if (fn->returns_struct)
+            {
+                params.push_back({ "ptr", "retaddr" });
+                call_args.push_back(llb::value_t { llb::types::ptr, "%retaddr" });
+            }
+
+            params.push_back({ "ptr", "instance" });
+
+            for (size_t k = 1; k < fn->param_types.size(); k++)
+                params.push_back({ fn->param_types[k], "p" + std::to_string(k) });
+
+            llb::function_t & thunk = __module.define(name, fn->ret_type, params);
+
+            call_args.push_back(thunk.load(fn->param_types[0],
+                                           llb::value_t { llb::types::ptr, "%instance" }));
+
+            for (size_t k = 1; k < fn->param_types.size(); k++)
+                call_args.push_back(llb::value_t { fn->param_types[k], "%p" + std::to_string(k) });
+
+            llb::value_t r = thunk.call(fn->ret_type, fn->name, call_args);
+
+            if (fn->ret_type == "void")
+                thunk.ret();
+            else
+                thunk.ret(r);
+
+            __unbox_thunks[fn] = name;
+            return name;
+        }
+
         // Returns the index of an interface in __interfaces.
         size_t __generator_t::__interface_index(rt_type_t * interface_type)
         {
@@ -3419,8 +4304,19 @@ namespace X_ROOT_NS::modules::native {
                     throw _ED(__e_t::unsupported_method, _T("(vtable)"), _T("a generic method"));
 
                 // The method of a generic type is generated for its type arguments.
+                // A method that a generic type has from a base type that is not generic (Object.Equals)
+                // is the method of that type.
                 if (type->get_kind() == rt_type_kind_t::generic)
-                    return analyzer.to_generic_method(static_cast<rt_method_t *>(base), type);
+                {
+                    rt_type_t * declaring = base->get_host_type();
+                    bool host_is_generic = declaring != nullptr
+                        && (declaring->get_kind() == rt_type_kind_t::generic
+                            || (is_general(declaring)
+                                && ((rt_general_type_t *)declaring)->is_generic_template()));
+
+                    if (host_is_generic)
+                        return analyzer.to_generic_method(static_cast<rt_method_t *>(base), type);
+                }
 
                 return base;
             };
@@ -3439,6 +4335,8 @@ namespace X_ROOT_NS::modules::native {
             for (size_t k = 0; k < __classes.size(); k++)       // The list may grow.
             {
                 __class_t & c = *__classes[k];
+                if (c.meta_only || c.alias != nullptr)
+                    continue;
 
                 c.type->pre_new(__env);                         // Builds the virtual table.
 
@@ -3464,7 +4362,73 @@ namespace X_ROOT_NS::modules::native {
                     if (!derived)
                         continue;
 
-                    c.vfunctions[offset] = queue(method_of(vtbl->functions[offset], c.type));
+                    // An abstract method has no body: the slot of the class that declares it stays empty (a class
+                    // that has static fields has a descriptor, though it has no object).
+                    rt_method_base_t * target = method_of(vtbl->functions[offset], c.type);
+                    rt_method_t * target_method = target->this_type() == rt_member_type_t::general?
+                        (rt_method_t *)target : ((rt_generic_method_t *)target)->template_;
+
+                    if (((decorate_t)(*target_method)->decorate).is_abstract)
+                        continue;
+
+                    c.vfunctions[offset] = queue(target);
+                    added = true;
+                }
+
+                for (size_t g = 0; g < __generic_sites.size(); g++)
+                {
+                    if (c.gfunctions.count(g))
+                        continue;
+
+                    const __generic_site_t & site = __generic_sites[g];
+                    rt_vfunction_t vf;
+
+                    if (site.is_interface)
+                    {
+                        rt_vtable_interface_t * itf = vtbl->search_vtable_interface_variant(__env,
+                                                            __interfaces[site.interface_index]);
+                        if (itf == nullptr)
+                            continue;
+
+                        vf = itf->functions[site.offset];
+                    }
+                    else
+                    {
+                        bool derived = c.type == site.declared;
+                        for (msize_t b = 0; !derived && b < vtbl->base_type_count; b++)
+                            derived = vtbl->base_types[b] == site.declared;
+
+                        if (!derived || (size_t)site.offset >= vcount)
+                            continue;
+
+                        vf = vtbl->functions[site.offset];
+                    }
+
+                    if (vf.initialized())
+                        throw _ED(__e_t::unsupported_method, _T("(vtable)"), _T("a resolved function"));
+
+                    rt_assembly_t * assembly = __env.assemblies.at(vf.assembly_idx);
+                    assembly_analyzer_t analyzer(__env, assembly);
+
+                    rt_method_base_t * base = analyzer.get_method(ref_t(vf.method_idx));
+                    if (base == nullptr || base->this_type() != rt_member_type_t::general)
+                        throw _ED(__e_t::unsupported_method, _T("(vtable)"), _T("a generic method"));
+
+                    // The generic arguments are those of the call, the type is the one of the object.
+                    rt_method_t * method = static_cast<rt_method_t *>(base);
+                    bool is_generic = method->generic_param_count() > 0;
+
+                    rt_method_base_t * target = base;
+                    if (is_generic || c.type->get_kind() == rt_type_kind_t::generic)
+                    {
+                        target = analyzer.to_generic_method(
+                            method, c.type,
+                            is_generic? const_cast<rt_type_t **>(site.atypes.data()) : nullptr,
+                            is_generic? (int)site.atypes.size() : 0
+                        );
+                    }
+
+                    c.gfunctions[g] = queue(target);
                     added = true;
                 }
 
@@ -3486,26 +4450,1031 @@ namespace X_ROOT_NS::modules::native {
             return added;
         }
 
+        // Returns the function that a method of the tables has, null when the method cannot be
+        // called by Invoke: it has no function, or returns a struct.
+        __generator_t::__fn_t * __generator_t::__invoker_fn_of(rt_reflect_member_t * m)
+        {
+            if (!__uses_invoke || m->static_data == nullptr || (m->flags & reflect_flag_field) != 0)
+                return nullptr;
+
+            // A method of an interface has no function: the one of the object is found when it is
+            // called (see __interface_method_of), the signature is the one of the method.
+            __fn_t * interface_fn = nullptr;
+            if (__is_interface_member(m))
+            {
+                try
+                {
+                    interface_fn = __function_of((rt_method_base_t *)m->static_data);
+                }
+                catch (const error_t &)
+                {
+                    return nullptr;
+                }
+            }
+
+            auto it = __fns.find((rt_method_base_t *)m->static_data);
+            if (interface_fn == nullptr && (it == __fns.end() || !it->second->queued))
+                return nullptr;
+
+            __fn_t & fn = interface_fn != nullptr? *interface_fn : *it->second;
+            if (fn.ret_type[0] == '[' || fn.denied)
+                return nullptr;
+
+            bool is_static = (m->flags & 16) != 0;
+            if (fn.param_types.size() != (size_t)m->param_count + (is_static? 0 : 1))
+                return nullptr;
+
+            return &fn;
+        }
+
+        // Returns the function that calls the functions of a shape of signature: it takes the
+        // function, the units of the values (8 bytes each), and the address of the result.
+        std::string __generator_t::__shape_thunk_of(__fn_t & fn)
+        {
+            std::string key = fn.ret_type + (fn.returns_struct? "!" : "");
+            for (const std::string & type : fn.param_types)
+                key += "," + type;
+
+            auto it = __shape_thunks.find(key);
+            if (it != __shape_thunks.end())
+                return it->second;
+
+            std::string name = "april.shape." + std::to_string(__shape_thunks.size());
+            __shape_thunks[key] = name;
+
+            llb::function_t & thunk = __module.define(name, "void", {
+                { "ptr", "function" }, { "ptr", "values" }, { "ptr", "result" }
+            });
+
+            llb::value_t function { llb::types::ptr, "%function" };
+            llb::value_t values   { llb::types::ptr, "%values" };
+            llb::value_t result   { llb::types::ptr, "%result" };
+
+            // A struct is a block of bytes: it takes the units that its size needs. A struct that
+            // the function returns is written to the result, that is passed first.
+            std::vector<llb::value_t> args;
+            if (fn.returns_struct)
+                args.push_back(result);
+
+            int64_t unit = 0;
+            for (size_t k = 0; k < fn.param_types.size(); k++)
+            {
+                const std::string & type = fn.param_types[k];
+                args.push_back(thunk.load(type, thunk.gep_bytes(values, 8 * unit)));
+
+                if (type[0] != '[')
+                {
+                    unit++;
+                    continue;
+                }
+
+                // [N x i64], or [N x i8].
+                int64_t count = std::stoll(type.substr(1));
+                unit += type.find("x i64") != std::string::npos? count : (count + 7) / 8;
+            }
+
+            llb::value_t r = thunk.call_indirect(fn.ret_type, function, args);
+            if (fn.ret_type != "void")
+                thunk.store(r, result);
+
+            thunk.ret();
+            return name;
+        }
+
+        // Returns whether the member is a method of an interface that is called on the objects.
+        bool __generator_t::__is_interface_member(rt_reflect_member_t * m)
+        {
+            return m->offset >= 0 && m->declaring != nullptr
+                    && ((rt_type_t *)m->declaring)->get_ttype(__env) == ttype_t::interface_
+                    && (m->flags & reflect_flag_field) == 0 && (m->flags & 16) == 0;
+        }
+
+        // Returns the key of a type, "null" if it has none.
+        std::string __generator_t::__interface_key_of(rt_type_t * type)
+        {
+            // Object: every object is one (the key is 1, see april_native_is_instance).
+            if (type != nullptr && type->get_kind() == rt_type_kind_t::general
+                    && type->get_ttype(__env) == ttype_t::class_
+                    && type->get_base_type(__env) == nullptr)
+            {
+                return "inttoptr (i64 1 to ptr)";
+            }
+
+            // The objects of reflection (Type, Method, ...) are handles: they have no descriptor
+            // before them (the key is 2: they are not checked).
+            if (type != nullptr && (type->get_kind() == rt_type_kind_t::general))
+            {
+                rt_sid_t sid = type->get_full_name(__env);
+                string_t full = sid.value != nullptr? (string_t)*sid.value : string_t();
+
+                if (full.find(_T("Reflection.")) == 0 || full.find(_T("System.Reflection.")) == 0)
+                    return "inttoptr (i64 2 to ptr)";
+            }
+
+            for (size_t k = 0; k < __interfaces.size(); k++)
+            {
+                if (__interfaces[k] == type)
+                    return "@april.iface." + std::to_string(k);
+            }
+
+            return "null";
+        }
+
+        // Generates the methods that Method.Invoke can call: those of the classes of the program
+        // that have objects. Returns whether it found something to generate.
+        bool __generator_t::__queue_invokable()
+        {
+            if (!__uses_invoke)
+                return false;
+
+            bool added = false;
+
+            // The constructors of the attributes of the members that the tables have: their
+            // classes have objects, and the constructors are called by Invoke.
+            if (__uses_attributes)
+            {
+                auto visit = [&](void * key) {
+                    if (!__attributes_done.insert(key).second)
+                        return;
+
+                    rt_reflect_attributes_t attributes;
+                    if (!__reflection.get_attributes(key, &attributes))
+                        return;
+
+                    assembly_analyzer_t analyzer(__env, attributes.assembly);
+                    for (ref_t ref : attributes.refs)
+                    {
+                        rt_attribute_t * attribute = attributes.assembly->get_attribute(ref);
+                        rt_method_base_t * constructor = analyzer.get_method((*attribute)->constructor);
+
+                        if (constructor == nullptr || constructor->this_type() != rt_member_type_t::general)
+                            continue;
+
+                        try
+                        {
+                            __descriptor_of(constructor->get_host_type());
+                            __invoke_tried.insert(constructor);
+
+                            __fn_t * fn = __function_of(constructor);
+                            if (!fn->queued)
+                            {
+                                fn->queued = true;
+                                __queue.push_back(fn);
+                            }
+
+                            added = true;
+                        }
+                        catch (const error_t &)
+                        {
+                            continue;
+                        }
+
+                        // The types of the values that are the arguments of an Object (the box of
+                        // a number or of a string) and of a Type: their descriptors are needed.
+                        for (ref_t arg_ref : (*attribute)->arguments)
+                        {
+                            rt_attribute_argument_t * argument =
+                                                attributes.assembly->get_attribute_argument(arg_ref);
+                            ref_t value_ref = (*argument)->value;
+                            if (value_ref == ref_t::null)
+                                continue;
+
+                            try
+                            {
+                                ref_t type_ref;
+                                if (attributes.assembly->get_constant_type(value_ref, &type_ref))
+                                {
+                                    rt_type_t * type = analyzer.get_type(type_ref);
+                                    if (type != nullptr)
+                                        __meta_descriptor_of(type);
+                                }
+                                else if ((*argument)->value_type != ref_t::null)
+                                {
+                                    rt_type_t * type = analyzer.get_type((*argument)->value_type);
+                                    if (type != nullptr
+                                            && type->get_vtype(__env) != vtype_t::mobject_)
+                                    {
+                                        type->pre_new(__env);
+                                        __descriptor_of(type);
+                                        added = true;
+                                    }
+                                }
+                            }
+                            catch (const error_t &)
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                };
+
+                for (size_t k = 0; k < __classes.size(); k++)
+                {
+                    __class_t & c = *__classes[k];
+                    if (c.meta_only || (c.type->get_kind() != rt_type_kind_t::general
+                                        && c.type->get_kind() != rt_type_kind_t::generic))
+                        continue;
+
+                    // The table makes the attributes of the type known.
+                    rt_reflect_type_t * info = __reflection.get_type(c.type);
+                    visit(c.type);
+                    visit(info->assembly);
+
+                    for (int kind = 0; kind < 5; kind++)
+                    {
+                        rt_reflect_list_t & list = info->lists[kind];
+                        for (int64_t i = 0; i < list.count; i++)
+                        {
+                            visit(list.items[i]);
+
+                            for (int64_t p = 0; p < list.items[i]->param_count; p++)
+                                visit(list.items[i]->params[p]);
+
+                            for (int64_t p = 0; p < list.items[i]->gparam_count; p++)
+                                visit(list.items[i]->gparams[p]);
+                        }
+                    }
+                }
+            }
+
+            // The methods of the interfaces that the tables have: the classes have their functions in
+            // the tables of their interfaces (the offset is the one of the method in it).
+            for (size_t k = 0; k < __classes.size(); k++)
+            {
+                __class_t & c = *__classes[k];
+                if (c.type->get_ttype(__env) != ttype_t::interface_
+                        || (c.type->get_kind() != rt_type_kind_t::general
+                            && c.type->get_kind() != rt_type_kind_t::generic))
+                    continue;
+
+                rt_reflect_type_t * info = __reflection.get_type(c.type);
+                rt_reflect_list_t & list = info->lists[(int)rt_reflect_kind_t::method];
+
+                for (int64_t i = 0; i < list.count; i++)
+                {
+                    rt_reflect_member_t * m = list.items[i];
+                    if (!__is_interface_member(m) || __invoker_fn_of(m) == nullptr)
+                        continue;
+
+                    size_t index = __interface_index(c.type);
+                    if (__interface_sites.insert({ index, (int)m->offset }).second)
+                    {
+                        __uses_find_interface = true;
+                        added = true;
+
+                        // The box of a number that it returns has its functions (ToString).
+                        __promote_result_class(m);
+                    }
+                }
+            }
+
+            for (size_t k = 0; k < __classes.size(); k++)
+            {
+                __class_t & c = *__classes[k];
+                vtype_t class_vtype = c.type->get_vtype(__env);
+                bool is_number = (class_vtype >= vtype_t::int8_ && class_vtype < vtype_t::ptr_)
+                                    || class_vtype == vtype_t::string_;
+
+                // The classes, and the structs of the program, and the numbers (Int32.ToString).
+                if (c.meta_only || (c.type->get_ttype(__env) != ttype_t::class_
+                                    && !is_custom_struct(__env, c.type) && !is_number)
+                        || (c.type->get_kind() != rt_type_kind_t::general
+                            && c.type->get_kind() != rt_type_kind_t::generic))
+                    continue;
+
+                // The arrays have their own layout in native programs: their methods are the
+                // functions of the runtime. The delegates are made and called by the code (the
+                // constructor and Invoke are expanded inline): they have no functions.
+                bool is_delegate = false;
+                if (c.type->get_kind() == rt_type_kind_t::generic)
+                {
+                    string_t name = c.type->get_name(__env);
+                    if (name.compare(0, 6, _T("Array<")) == 0)
+                        continue;
+
+                    is_delegate = name.compare(0, 9, _T("Delegate<")) == 0;
+                }
+
+                rt_reflect_type_t * info = __reflection.get_type(c.type);
+                rt_reflect_list_t & list = info->lists[(int)rt_reflect_kind_t::method];
+
+                for (int64_t i = 0; i < list.count; i++)
+                {
+                    rt_reflect_member_t * m = list.items[i];
+                    rt_method_base_t * base = (rt_method_base_t *)m->static_data;
+
+                    if (base == nullptr || (base->this_type() != rt_member_type_t::general
+                                            && base->this_type() != rt_member_type_t::generic)
+                            || !__invoke_tried.insert(base).second)
+                        continue;
+
+                    // The method of an instance of a generic type is generated for its arguments.
+                    rt_method_t * method = base->this_type() == rt_member_type_t::general?
+                        (rt_method_t *)base : ((rt_generic_method_t *)base)->template_;
+                    decorate_t decorate = (decorate_t)(*method)->decorate;
+
+                    // The constructors of a delegate that have params are expanded inline (they have
+                    // no body that can be made).
+                    bool inline_delegate_ctor = is_delegate && (*method)->trait == method_trait_t::constructor
+                                                    && m->param_count > 0;
+
+                    if (method->generic_param_count() > 0 || decorate.is_abstract
+                            || decorate.is_extern || inline_delegate_ctor
+                            || (*method)->trait == method_trait_t::static_constructor
+                            || (is_number && (*method)->trait == method_trait_t::constructor))
+                        continue;
+
+                    try
+                    {
+                        __fn_t * fn = __function_of(base);
+                        if (!fn->queued)
+                        {
+                            fn->queued = true;
+                            __queue.push_back(fn);
+                        }
+                    }
+                    catch (const error_t &)
+                    {
+                        continue;
+                    }
+
+                    added = true;
+                    __promote_result_class(m);
+
+                    // A virtual method is called through the descriptor of the object.
+                    if (m->offset >= 0)
+                    {
+                        __virtual_sites.insert({ base->get_host_type(), (int)m->offset });
+                        __max_virtual_offset = std::max(__max_virtual_offset, (int)m->offset);
+                    }
+                }
+            }
+
+            return added;
+        }
+
+        // Returns whether the function is Invoke of a delegate (Delegate<R, A ...>).
+        bool __generator_t::__is_delegate_invoke(__fn_t & fn)
+        {
+            rt_type_t * host = fn.base->get_host_type();
+            if (host == nullptr || host->get_kind() != rt_type_kind_t::generic
+                    || fn.base->this_type() != rt_member_type_t::generic)
+                return false;
+
+            std::string tname = __narrow(((rt_generic_type_t *)host)->template_->get_name(__env).c_str());
+            return tname.compare(0, 9, "Delegate<") == 0 && __narrow(fn.base->get_name().c_str()) == "Invoke";
+        }
+
+        // Makes the function of Invoke of a delegate: the instance and the method are the fields of the
+        // delegate, the method is called with the instance and the arguments.
+        void __generator_t::__emit_delegate_invoke(__fn_t & fn)
+        {
+            rt_generic_type_t * dtype = (rt_generic_type_t *)fn.base->get_host_type();
+
+            std::vector<msize_t> field_offsets;
+            dtype->each_field(__env, [&](ref_t ref, rt_field_base_t *) {
+                field_offsets.push_back(dtype->get_field_offset(__env, ref));
+                return true;
+            });
+
+            if (field_offsets.size() != 2)
+                throw _ED(__e_t::unsupported_type, dtype->get_name(__env));
+
+            std::vector<std::pair<std::string, std::string>> params;
+            if (fn.returns_struct)
+                params.push_back({ "ptr", "retaddr" });
+
+            for (size_t k = 0; k < fn.param_types.size(); k++)
+            {
+                params.push_back({ fn.param_types[k], "p" + std::to_string(k) });
+            }
+
+            const size_t hidden = fn.returns_struct? 1 : 0;
+            llb::function_t & f = __module.define(fn.name, fn.ret_type, params);
+
+            llb::value_t self = f.param(hidden);
+            llb::value_t instance = f.load("ptr", f.gep_bytes(self, (int64_t)field_offsets[0]));
+            llb::value_t target = f.load("ptr", f.gep_bytes(self, (int64_t)field_offsets[1]));
+
+            std::vector<llb::value_t> call_args;
+            if (fn.returns_struct)
+                call_args.push_back(f.param(0));
+
+            call_args.push_back(instance);
+            for (size_t k = 1; k < fn.param_types.size(); k++)
+                call_args.push_back(f.param(hidden + k));
+
+            // A pending exception stays pending: the caller of this function looks at it.
+            llb::value_t r = f.call_indirect(fn.ret_type, target, call_args);
+            if (fn.ret_type == "void")
+                f.ret();
+            else
+                f.ret(r);
+        }
+
+        // A function failed. When only Method.Invoke needs it, the method that made it needed is denied
+        // and the module is made again (the exception retry_t); the others stop the generation.
+        void __generator_t::__give_up(__fn_t * failed)
+        {
+            if (!__invoke_phase || failed->origin == nullptr || __denied.count(failed->origin->display))
+                return;
+
+            throw retry_t { failed->origin->display };
+        }
+
+        // Returns the symbol of a string of the program.
+        std::string __generator_t::__text_global_of(const rt_char_t * s)
+        {
+            return __module.add_wstring(__units_of_string(s), 16).text;
+        }
+
+        // Returns the table of the constructor of an attribute, null if the type has none for it.
+        rt_reflect_member_t * __generator_t::__constructor_member_of(rt_method_base_t * constructor)
+        {
+            rt_reflect_type_t * info = __reflection.get_type(constructor->get_host_type());
+            rt_reflect_list_t & list = info->lists[(int)rt_reflect_kind_t::method];
+
+            for (int64_t k = 0; k < list.count; k++)
+            {
+                if (list.items[k]->static_data == (void *)constructor)
+                    return list.items[k];
+            }
+
+            return nullptr;
+        }
+
+        // Returns the field or the property of a type (or of its base types) that has a name.
+        rt_reflect_member_t * __generator_t::__named_member_of(rt_type_t * type, const rt_char_t * name)
+        {
+            for (rt_type_t * t = type; t != nullptr; t = t->get_base_type(__env))
+            {
+                rt_reflect_type_t * info = __reflection.get_type(t);
+
+                for (int kind : { (int)rt_reflect_kind_t::field, (int)rt_reflect_kind_t::property })
+                {
+                    rt_reflect_list_t & list = info->lists[kind];
+                    for (int64_t k = 0; k < list.count; k++)
+                    {
+                        if (ustring_t(list.items[k]->name) == ustring_t(name))
+                            return list.items[k];
+                    }
+                }
+            }
+
+            return nullptr;
+        }
+
+        // Encodes the value of a constant for the table of the attributes: the bits of a number, in
+        // the type of what it is the value of, or a string.
+        void __generator_t::__encode_attribute_value(const cvalue_t & value, rt_type_t * type,
+                                    int64_t value_kind, int64_t size, uint64_t * bits, std::string * text)
+        {
+            *bits = 0;
+            *text = "null";
+
+            if (type == nullptr || value.is_null())
+                return;
+
+            vtype_t vtype = type->get_vtype(__env);
+
+            if (vtype == vtype_t::string_)
+            {
+                if (value.value_type == cvalue_type_t::string)
+                    *text = __text_global_of(value.rt_string());
+
+                return;
+            }
+
+            if (value_kind != (int64_t)rt_reflect_value_kind_t::value
+                    || value.value_type != cvalue_type_t::number)
+                return;
+
+            cvalue_t number = value.change_type(vtype);
+
+            switch (vtype)
+            {
+                case vtype_t::float_: {
+                    float v = number.number.get_value<float>();
+                    uint32_t u = 0;
+                    memcpy(&u, &v, sizeof(u));
+                    *bits = u;
+                }   break;
+
+                case vtype_t::double_: {
+                    double v = number.number.get_value<double>();
+                    memcpy(bits, &v, sizeof(*bits));
+                }   break;
+
+                case vtype_t::bool_:
+                    *bits = number.number.get_value<bool>()? 1 : 0;
+                    break;
+
+                case vtype_t::uint8_:
+                case vtype_t::uint16_:
+                case vtype_t::uint32_:
+                case vtype_t::uint64_:
+                case vtype_t::char_:
+                    *bits = (uint64_t)number.number.get_value<uint64_t>();
+                    break;
+
+                default:
+                    *bits = (uint64_t)number.number.get_value<int64_t>();
+                    break;
+            }
+
+            if (size > 0 && size < 8)
+                *bits &= ((uint64_t)1 << (8 * size)) - 1;
+        }
+
+        // Encodes the value of an argument.
+        bool __generator_t::__encode_attribute_argument(rt_assembly_t * assembly,
+                assembly_analyzer_t & analyzer, rt_attribute_argument_t * argument,
+                rt_type_t * param_type, int64_t value_kind, int64_t size, uint64_t * bits,
+                std::string * text, __attribute_extra_t * extra)
+        {
+            *bits = 0;
+            *text = "null";
+
+            ref_t value_ref = (*argument)->value;
+            if (value_ref == ref_t::null)
+                return true;
+
+            // An array of numbers or of strings: the constants that follow one another are the rank,
+            // the length of each dimension, and the elements.
+            if (value_ref.extra == 1 && (*argument)->value_type != ref_t::null)
+            {
+                rt_type_t * element = analyzer.get_type((*argument)->value_type);
+                if (element == nullptr)
+                    return true;
+
+                bool is_string = element->get_vtype(__env) == vtype_t::string_;
+                int64_t element_size = is_string? 8 : (int64_t)element->get_size(__env);
+
+                // The units of the block are those of the rank and the lengths, then the elements.
+                auto int_at = [&](uint32_t k) {
+                    cvalue_t value = assembly->get_constant(ref_t(value_ref.index + k, 1, 0));
+                    return value.change_type(vtype_t::int32_).number.get_value<int32_t>();
+                };
+
+                int32_t rank = value_ref.count > 0? int_at(0) : 0;
+                if (rank < 1 || (uint32_t)rank + 1 > value_ref.count)
+                    throw _ED(__e_t::unsupported_type, _T("(an array of an attribute that has no header)"));
+
+                uint32_t first = 1 + (uint32_t)rank;
+                std::string units;
+
+                for (uint32_t k = 0; k < value_ref.count; k++)
+                {
+                    uint64_t item_bits = 0;
+                    std::string item_text = "null";
+
+                    if (k < first)
+                    {
+                        item_bits = (uint64_t)(int64_t)int_at(k);
+                    }
+                    else
+                    {
+                        cvalue_t item = assembly->get_constant(ref_t(value_ref.index + k, 1, 0));
+                        __encode_attribute_value(item, element,
+                                (int64_t)rt_reflect_value_kind_t::value, element_size, &item_bits, &item_text);
+                    }
+
+                    units += std::string(k > 0? ", " : "") + "i64 "
+                           + (k >= first && is_string? "ptrtoint (ptr " + item_text + " to i64)"
+                                                     : std::to_string((int64_t)item_bits));
+                }
+
+                std::string block = "@april.array." + std::to_string(__array_blocks++);
+                __module.add_global_line(block + " = private constant [" + std::to_string(value_ref.count)
+                                         + " x i64] [" + units + "]");
+
+                extra->kind = 5;
+                extra->size = element_size;
+                *bits = value_ref.count;
+                *text = block;
+                return true;
+            }
+
+            // typeof(A): the Type is the class.
+            ref_t type_ref;
+            if (assembly->get_constant_type(value_ref, &type_ref))
+            {
+                rt_type_t * type = analyzer.get_type(type_ref);
+                std::string name = type != nullptr? __meta_descriptor_of(type) : std::string();
+
+                if (!name.empty())
+                {
+                    extra->kind = 4;
+                    extra->type = "@" + name;
+                }
+
+                return true;
+            }
+
+            cvalue_t value = assembly->get_constant(value_ref);
+
+            // An Object takes the type of the value: the number or the string is boxed in it.
+            if (param_type != nullptr && param_type->get_vtype(__env) == vtype_t::mobject_
+                    && (value.value_type == cvalue_type_t::number
+                        || value.value_type == cvalue_type_t::string)
+                    && (*argument)->value_type != ref_t::null)
+            {
+                rt_type_t * value_type = analyzer.get_type((*argument)->value_type);
+                if (value_type == nullptr)
+                    return true;
+
+                value_type->pre_new(__env);
+
+                extra->kind = value.value_type == cvalue_type_t::string? 3 : 2;
+                extra->size = (int64_t)value_type->get_size(__env);
+                extra->type = "@" + __descriptor_of(value_type);
+
+                __encode_attribute_value(value, value_type,
+                        (int64_t)rt_reflect_value_kind_t::value, extra->size, bits, text);
+                return true;
+            }
+
+            __encode_attribute_value(value, param_type, value_kind, size, bits, text);
+            return true;
+        }
+
+        // Returns the symbol of the attributes of a member or of a type (see
+        // april_native_attributes_t), "null" if it has none.
+        std::string __generator_t::__attributes_of(void * key)
+        {
+            if (!__uses_attributes)
+                return "null";
+
+            auto found = __attribute_tables.find(key);
+            if (found != __attribute_tables.end())
+                return found->second;
+
+            rt_reflect_attributes_t attributes;
+            if (!__reflection.get_attributes(key, &attributes))
+                return "null";
+
+            std::string symbol = "@april.attrs." + std::to_string(__attribute_tables.size());
+            __attribute_tables[key] = "null";
+
+            assembly_analyzer_t analyzer(__env, attributes.assembly);
+            std::string items;
+            size_t count = 0;
+
+            for (ref_t ref : attributes.refs)
+            {
+                rt_attribute_t * attribute = attributes.assembly->get_attribute(ref);
+                rt_method_base_t * constructor = analyzer.get_method((*attribute)->constructor);
+                if (constructor == nullptr)
+                    continue;
+
+                rt_reflect_member_t * member = __constructor_member_of(constructor);
+                if (member == nullptr || __invoker_fn_of(member) == nullptr)
+                    continue;
+
+                // The arguments of the constructor: the bits of a number, or a string; then the
+                // named ones: the field or the property, and the value.
+                std::string values, named;
+                int64_t position = 0, named_count = 0;
+
+                std::string prefix = symbol + "." + std::to_string(count);
+
+                for (ref_t arg_ref : (*attribute)->arguments)
+                {
+                    rt_attribute_argument_t * argument = attributes.assembly->get_attribute_argument(arg_ref);
+
+                    uint64_t bits = 0;
+                    std::string text = "null";
+                    __attribute_extra_t extra;
+
+                    if ((*argument)->name_type == argument_name_type_t::field)
+                    {
+                        const rt_char_t * name = analyzer.to_cstr((*argument)->name);
+                        rt_reflect_member_t * target = __named_member_of(constructor->get_host_type(), name);
+                        if (target == nullptr)
+                            continue;
+
+                        __encode_attribute_argument(attributes.assembly, analyzer, argument,
+                                (rt_type_t *)target->type, target->value_kind, target->size,
+                                &bits, &text, &extra);
+
+                        named += std::string(named_count > 0? ", " : "")
+                               + "{ ptr, ptr, i64, ptr, i64, i64, ptr } { ptr "
+                               + __text_global_of(name) + ", ptr " + __reflect_member_of(target) + ", i64 "
+                               + std::to_string((int64_t)bits) + ", ptr " + text + ", i64 "
+                               + std::to_string(extra.kind) + ", i64 " + std::to_string(extra.size)
+                               + ", ptr " + extra.type + " }";
+                        named_count++;
+                        continue;
+                    }
+
+                    rt_reflect_member_t * p = position < member->param_count? member->params[position] : nullptr;
+                    if (p != nullptr)
+                    {
+                        __encode_attribute_argument(attributes.assembly, analyzer, argument,
+                                (rt_type_t *)p->type, p->value_kind, p->size, &bits, &text, &extra);
+                    }
+
+                    values += std::string(position > 0? ", " : "")
+                            + "{ i64, ptr, i64, i64, ptr } { i64 "
+                            + std::to_string((int64_t)bits) + ", ptr " + text + ", i64 "
+                            + std::to_string(extra.kind) + ", i64 " + std::to_string(extra.size)
+                            + ", ptr " + extra.type + " }";
+                    position++;
+                }
+
+                std::string args = "null", named_table = "null";
+                if (position > 0)
+                {
+                    args = prefix + ".a";
+                    __module.add_global_line(args + " = private constant [" + std::to_string(position)
+                                             + " x { i64, ptr, i64, i64, ptr }] [" + values + "]");
+                }
+
+                if (named_count > 0)
+                {
+                    named_table = prefix + ".n";
+                    __module.add_global_line(named_table + " = private constant [" + std::to_string(named_count)
+                                             + " x { ptr, ptr, i64, ptr, i64, i64, ptr }] [" + named + "]");
+                }
+
+                items += std::string(count > 0? ", " : "") + "{ ptr, ptr, i64, ptr } { ptr "
+                       + __reflect_member_of(member) + ", ptr " + args + ", i64 "
+                       + std::to_string(named_count) + ", ptr " + named_table + " }";
+                count++;
+            }
+
+            if (count == 0)
+                return "null";
+
+            __module.add_global_line(symbol + ".items = private constant [" + std::to_string(count)
+                                     + " x { ptr, ptr, i64, ptr }] [" + items + "]");
+            __module.add_global_line(symbol + " = private constant { i64, ptr } { i64 "
+                                     + std::to_string(count) + ", ptr " + symbol + ".items }");
+
+            __attribute_tables[key] = symbol;
+            return symbol;
+        }
+
+        // Returns the symbol of the table of a member (a parameter, an assembly): emitted once.
+        std::string __generator_t::__reflect_member_of(rt_reflect_member_t * m)
+        {
+            auto found = __reflect_members.find(m);
+            if (found != __reflect_members.end())
+                return found->second;
+
+            std::string symbol = "@april.rm." + std::to_string(__reflect_members.size());
+            __reflect_members[m] = symbol;
+
+            auto text_of = [&](const rt_char_t * s) {
+                return __module.add_wstring(__units_of(s), 16).text;
+            };
+
+            // The Type of a member: the descriptor of its class, null if the type has none.
+            auto type_of = [&](void * t) -> std::string {
+                if (t == nullptr)
+                    return "null";
+
+                auto it = __class_of.find((rt_type_t *)t);
+                return it == __class_of.end()? "null" : "@" + it->second->name;
+            };
+
+            auto list_of = [&](rt_reflect_member_t ** items, int64_t count, const char * suffix) {
+                if (count == 0)
+                    return std::string("null");
+
+                std::string text;
+                for (int64_t k = 0; k < count; k++)
+                    text += std::string(k > 0? ", " : "") + "ptr " + __reflect_member_of(items[k]);
+
+                std::string list = symbol + suffix;
+                __module.add_global_line(list + " = private constant [" + std::to_string(count)
+                                         + " x ptr] [" + text + "]");
+                return list;
+            };
+
+            std::string params = list_of(m->params, m->param_count, ".params");
+            std::string gparams = list_of(m->gparams, m->gparam_count, ".gparams");
+            std::string a = m->accessor_a != nullptr? __reflect_member_of(m->accessor_a) : "null";
+            std::string b = m->accessor_b != nullptr? __reflect_member_of(m->accessor_b) : "null";
+            std::string c = m->accessor_c != nullptr? __reflect_member_of(m->accessor_c) : "null";
+
+            // A field: the key of the type that has it, or the global of its static data, and the
+            // key of its type.
+            std::string key_or_static = "null", type_key = "null", invoker = "null";
+            __fn_t * invoker_fn = __invoker_fn_of(m);
+
+            if (invoker_fn != nullptr)
+            {
+                // A method: its function, the key of its type, the function that calls it.
+                if (__is_interface_member(m))
+                {
+                    // The function is the one of the object: found by the key of the interface and
+                    // the offset.
+                    key_or_static = "null";
+                    type_key      = "@april.iface."
+                                  + std::to_string(__interface_index((rt_type_t *)m->declaring));
+                }
+                else
+                {
+                    key_or_static = "@" + invoker_fn->name;
+                    type_key      = __interface_key_of((rt_type_t *)m->declaring);
+                }
+
+                invoker       = "@" + __shape_thunk_of(*invoker_fn);
+            }
+            else if ((m->flags & reflect_flag_field) == 0)
+            {
+                // A parameter: the key of its type.
+                if (m->value_kind == (int64_t)rt_reflect_value_kind_t::reference && m->type != nullptr)
+                    type_key = __interface_key_of((rt_type_t *)m->type);
+            }
+            else if (m->value_kind != 0 && m->declaring != nullptr)
+            {
+                if ((m->flags & 16) != 0)
+                    key_or_static = "@" + __static_data_global_of((rt_type_t *)m->declaring);
+                else
+                    key_or_static = "@april.iface." + std::to_string(__interface_index((rt_type_t *)m->declaring));
+
+                rt_type_t * field_type = (rt_type_t *)m->type;
+                if (field_type != nullptr && (field_type->get_kind() == rt_type_kind_t::general
+                                              || field_type->get_kind() == rt_type_kind_t::generic
+                                              || field_type->get_kind() == rt_type_kind_t::array))
+                {
+                    // Object and the objects of reflection have keys of their own.
+                    std::string special = __interface_key_of(field_type);
+                    type_key = special.compare(0, 8, "inttoptr") == 0? special
+                        : "@april.iface." + std::to_string(__interface_index(field_type));
+                }
+            }
+
+            __module.add_global_line(symbol + " = private constant { ptr, ptr, ptr, i64, ptr, ptr, i64, ptr, i64, ptr, ptr, i64, ptr, i64, i64, ptr, ptr, ptr } { ptr "
+                + text_of(m->name) + ", ptr " + type_of(m->declaring) + ", ptr " + type_of(m->type)
+                + ", i64 " + std::to_string(m->flags) + ", ptr " + a + ", ptr " + b
+                + ", i64 " + std::to_string(m->param_count) + ", ptr " + params
+                + ", i64 " + std::to_string(m->gparam_count) + ", ptr " + gparams + ", ptr " + c + ", i64 " + std::to_string(m->offset)
+                + ", ptr " + key_or_static + ", i64 " + std::to_string(m->size)
+                + ", i64 " + std::to_string(m->value_kind) + ", ptr " + type_key
+                + ", ptr " + invoker + ", ptr " + __attributes_of(m) + " }");
+
+            return symbol;
+        }
+
+        // Emits the table of reflection of a class (see rt_reflect_type_t), returns its symbol.
+        std::string __generator_t::__reflect_meta_of(__class_t & c)
+        {
+            rt_reflect_type_t * info = __reflection.get_type(c.type);
+            std::string meta = "@" + c.name + ".meta";
+
+            auto type_of = [&](void * t) -> std::string {
+                if (t == nullptr)
+                    return "null";
+
+                auto it = __class_of.find((rt_type_t *)t);
+                return it == __class_of.end()? "null" : "@" + it->second->name;
+            };
+
+            std::string lists;
+            for (int k = 0; k < 5; k++)
+            {
+                rt_reflect_list_t & list = info->lists[k];
+                std::string items = "null";
+
+                if (list.count > 0)
+                {
+                    std::string text;
+                    for (int64_t i = 0; i < list.count; i++)
+                        text += std::string(i > 0? ", " : "") + "ptr " + __reflect_member_of(list.items[i]);
+
+                    items = meta + ".l" + std::to_string(k);
+                    __module.add_global_line(items + " = private constant [" + std::to_string(list.count)
+                                             + " x ptr] [" + text + "]");
+                }
+
+                lists += std::string(k > 0? ", " : "") + "{ i64, ptr } { i64 " + std::to_string(list.count)
+                       + ", ptr " + items + " }";
+            }
+
+            std::string assembly = info->assembly != nullptr? __reflect_member_of(info->assembly) : "null";
+
+            // The nest types: the descriptors of their classes.
+            std::string nested_items = "null";
+            if (info->nested.count > 0)
+            {
+                std::string text;
+                for (int64_t i = 0; i < info->nested.count; i++)
+                    text += std::string(i > 0? ", " : "") + "ptr " + type_of((void *)info->nested.items[i]);
+
+                nested_items = meta + ".nested";
+                __module.add_global_line(nested_items + " = private constant [" + std::to_string(info->nested.count)
+                                         + " x ptr] [" + text + "]");
+            }
+
+            // The size of the objects, and the attributes.
+            int64_t size = 0;
+            if (!c.meta_only && c.type->get_ttype(__env) == ttype_t::class_)
+            {
+                c.type->pre_new(__env);
+                size = (int64_t)c.type->get_size(__env);
+            }
+
+            __module.add_global_line(meta + " = private constant { ptr, i64, ptr, [5 x { i64, ptr }], i64, ptr, { i64, ptr } } { ptr "
+                + type_of(info->base) + ", i64 " + std::to_string(info->flags) + ", ptr " + assembly
+                + ", [5 x { i64, ptr }] [" + lists + "], i64 " + std::to_string(size) + ", ptr "
+                + __attributes_of(c.type) + ", { i64, ptr } { i64 " + std::to_string(info->nested.count)
+                + ", ptr " + nested_items + " } }");
+
+            return meta;
+        }
+
         // Emits the type descriptors.
         void __generator_t::__emit_descriptors()
         {
+            // The tables of reflection refer to other types: they are classes of their own (the
+            // list grows).
+            if (__uses_reflection)
+            {
+                for (size_t k = 0; k < __classes.size(); k++)
+                {
+                    rt_reflect_type_t * info = __reflection.get_type(__classes[k]->type);
+                    __reflection.each_referenced_type(info, [&](rt_type_t * type) {
+                        __meta_descriptor_of(type);
+                    });
+                }
+
+                // The fields are read and written by the runtime: the keys of the types of the
+                // checks, and the static data, are made before the tables of the casts are.
+                for (size_t k = 0; k < __classes.size(); k++)
+                {
+                    rt_reflect_type_t * info = __reflection.get_type(__classes[k]->type);
+                    rt_reflect_list_t & fields = info->lists[(int)rt_reflect_kind_t::field];
+
+                    for (int64_t i = 0; i < fields.count; i++)
+                    {
+                        rt_reflect_member_t * m = fields.items[i];
+                        if (m->value_kind == 0 || m->declaring == nullptr)
+                            continue;
+
+                        if ((m->flags & 16) != 0)
+                            __static_data_global_of((rt_type_t *)m->declaring);
+                        else
+                            __interface_index((rt_type_t *)m->declaring);
+
+                        rt_type_t * field_type = (rt_type_t *)m->type;
+                        if (field_type != nullptr && (field_type->get_kind() == rt_type_kind_t::general
+                                                      || field_type->get_kind() == rt_type_kind_t::generic
+                                                      || field_type->get_kind() == rt_type_kind_t::array))
+                            __interface_index(field_type);
+                    }
+                }
+
+                // The methods are called by the runtime: the keys of the types that have them, and of
+                // the types of their parameters that are references.
+                for (size_t k = 0; k < __classes.size(); k++)
+                {
+                    rt_reflect_type_t * info = __reflection.get_type(__classes[k]->type);
+                    rt_reflect_list_t & methods = info->lists[(int)rt_reflect_kind_t::method];
+
+                    for (int64_t i = 0; i < methods.count; i++)
+                    {
+                        rt_reflect_member_t * m = methods.items[i];
+                        if (__invoker_fn_of(m) == nullptr)
+                            continue;
+
+                        __interface_index((rt_type_t *)m->declaring);
+
+                        for (int64_t p = 0; p < m->param_count; p++)
+                        {
+                            rt_type_t * type = (rt_type_t *)m->params[p]->type;
+                            if (m->params[p]->value_kind == (int64_t)rt_reflect_value_kind_t::reference
+                                    && type != nullptr && (type->get_kind() == rt_type_kind_t::general
+                                                           || type->get_kind() == rt_type_kind_t::generic
+                                                           || type->get_kind() == rt_type_kind_t::array))
+                                __interface_index(type);
+                        }
+                    }
+                }
+            }
+
             for (auto & cp : __classes)
             {
                 __class_t & c = *cp;
 
+                // The functions of the class of an array are those of Array<T>.
+                __class_t & functions = c.alias != nullptr? *c.alias : c;
+
                 // The interface table.
                 std::string table = "null";
-                if (!c.ifunctions.empty())
+                if (!functions.ifunctions.empty())
                 {
                     std::string text = "@" + c.name + ".itab = private constant ["
-                                     + std::to_string(c.ifunctions.size()) + " x { ptr, i64, ptr }] [";
+                                     + std::to_string(functions.ifunctions.size()) + " x { ptr, i64, ptr }] [";
 
                     bool first = true;
-                    for (auto & it : c.ifunctions)
+                    for (auto & it : functions.ifunctions)
                     {
                         text += std::string(first? "" : ", ") + "{ ptr, i64, ptr } { ptr @april.iface."
                               + std::to_string(it.first.first) + ", i64 " + std::to_string(it.first.second)
-                              + ", ptr @" + it.second->name + " }";
+                              + ", ptr @" + __virtual_symbol_of(it.second) + " }";
                         first = false;
                     }
 
@@ -3516,6 +5485,7 @@ namespace X_ROOT_NS::modules::native {
                 // The types the class is derived from or implements, among the keys.
                 std::string casts = "null";
                 size_t cast_count = 0;
+                if (!c.meta_only)
                 {
                     c.type->pre_new(__env);
                     rt_vtable_t * vtbl = get_vtable(c.type);
@@ -3544,31 +5514,45 @@ namespace X_ROOT_NS::modules::native {
                 }
 
                 // The virtual functions.
-                size_t vcount = (size_t)(__max_virtual_offset + 1);
+                size_t real_count = (size_t)(__max_virtual_offset + 1);
+                size_t vcount = real_count + __generic_sites.size();
                 std::string vtext;
                 for (size_t k = 0; k < vcount; k++)
                 {
-                    auto it = c.vfunctions.find((int)k);
-                    vtext += std::string(k > 0? ", " : "") + "ptr "
-                           + (it == c.vfunctions.end()? "null" : "@" + it->second->name);
+                    if (k < real_count)
+                    {
+                        auto it = functions.vfunctions.find((int)k);
+                        vtext += std::string(k > 0? ", " : "") + "ptr "
+                               + (it == functions.vfunctions.end()? "null" : "@" + __virtual_symbol_of(it->second));
+                    }
+                    else
+                    {
+                        auto it = functions.gfunctions.find(k - real_count);
+                        vtext += std::string(k > 0? ", " : "") + "ptr "
+                               + (it == functions.gfunctions.end()? "null" : "@" + __virtual_symbol_of(it->second));
+                    }
                 }
 
                 // The name of the type.
-                string_t type_name_text = c.type->get_name(__env);
-                std::string type_name = __narrow(type_name_text.c_str());
-                std::u32string wide_name(type_name.begin(), type_name.end());
-                llb::value_t name_value = __module.add_wstring(wide_name, sizeof(char_t) * 8);
+                llb::value_t name_value = __module.add_wstring(__units_of(c.type->get_name(__env).ce_str()), 16);
+
+                // The full name of the type.
+                llb::value_t full_name_value = __module.add_wstring(__units_of(c.type->get_full_name(__env).ce_str()), 16);
+
+                std::string meta = __uses_reflection? __reflect_meta_of(c) : "null";
 
                 std::string vtype = "[" + std::to_string(vcount) + " x ptr]";
                 __module.add_global_line(
-                    "@" + c.name + " = private constant { ptr, i64, ptr, i64, " + vtype + ", ptr } { ptr "
-                    + table + ", i64 " + std::to_string(c.ifunctions.size()) + ", ptr " + casts
+                    "@" + c.name + " = private constant { ptr, i64, ptr, i64, " + vtype + ", ptr, ptr, ptr } { ptr "
+                    + table + ", i64 " + std::to_string(functions.ifunctions.size()) + ", ptr " + casts
                     + ", i64 " + std::to_string(cast_count) + ", " + vtype + " [" + vtext + "], ptr "
-                    + name_value.text + " }"
+                    + name_value.text + ", ptr " + full_name_value.text + ", ptr " + meta + " }"
                 );
             }
 
             __module.add_global_line("@april.vcount = private constant i64 "
+                                     + std::to_string(__max_virtual_offset + 1 + __generic_sites.size()));
+            __module.add_global_line("@april.vreal = private constant i64 "
                                      + std::to_string(__max_virtual_offset + 1));
 
             for (size_t k = 0; k < __interfaces.size(); k++)
@@ -3597,6 +5581,30 @@ namespace X_ROOT_NS::modules::native {
             if (__uses_find_interface)
                 __module.declare(APRIL_NATIVE_SYM_FIND_IFACE, "ptr", { "ptr", "ptr", "i64" });
 
+            if (__uses_field_access)
+            {
+                __module.declare(APRIL_NATIVE_SYM_REFLECT_CHECK, "i32", { "ptr", "ptr", "ptr", "i32" });
+                __module.declare(APRIL_NATIVE_SYM_REFLECT_GET,   "ptr", { "ptr", "ptr" });
+                __module.declare(APRIL_NATIVE_SYM_REFLECT_SET,   "void", { "ptr", "ptr", "ptr" });
+            }
+
+            if (__uses_attributes)
+            {
+                __module.declare(APRIL_NATIVE_SYM_ATTR_COUNT, "i32", { "ptr" });
+                __module.declare(APRIL_NATIVE_SYM_ATTR_CTOR, "ptr", { "ptr", "i32" });
+                __module.declare(APRIL_NATIVE_SYM_ATTR_ARG_COUNT, "i32", { "ptr", "i32" });
+                __module.declare(APRIL_NATIVE_SYM_ATTR_ARG, "ptr", { "ptr", "i32", "i32" });
+                __module.declare(APRIL_NATIVE_SYM_ATTR_NAMED_COUNT, "i32", { "ptr", "i32" });
+                __module.declare(APRIL_NATIVE_SYM_ATTR_NAMED_NAME, "ptr", { "ptr", "i32", "i32" });
+                __module.declare(APRIL_NATIVE_SYM_ATTR_NAMED_VALUE, "ptr", { "ptr", "i32", "i32" });
+            }
+
+            if (__uses_invoke)
+            {
+                __module.declare(APRIL_NATIVE_SYM_REFLECT_CHECK_INVOKE, "i32", { "ptr", "ptr", "ptr" });
+                __module.declare(APRIL_NATIVE_SYM_REFLECT_INVOKE, "ptr", { "ptr", "ptr", "ptr" });
+            }
+
             if (__uses_arrays)
             {
                 __module.declare(APRIL_NATIVE_SYM_NEW_ARRAY, "ptr", { "i64", "i32", "ptr", "ptr", "i32" });
@@ -3622,6 +5630,9 @@ namespace X_ROOT_NS::modules::native {
 
             if (__uses_trunc)
                 __module.declare("llvm.trunc.f64", "double", { "double" });
+
+            if (__uses_trap)
+                __module.declare("llvm.trap", "void", { });
 
             for (auto && it : __overflow_intrinsics)
                 __module.declare(it.first, "{ " + it.second + ", i1 }", { it.second, it.second });
@@ -3655,6 +5666,33 @@ namespace X_ROOT_NS::modules::native {
             main_f.call("void", APRIL_NATIVE_SYM_ADD_ROOT,
                         { llb::value_t { llb::types::ptr, "@april.exception" } });
             main_f.call("void", "april.init_libfuncs", { });
+
+            // The resources of the assemblies (Resource.GetBytes): they are constants of the program, that the
+            // runtime finds by the name. Only a program that reads resources has them.
+            if (__used_libfuncs.count("Resource_GetSize") != 0 || __used_libfuncs.count("Resource_Read") != 0)
+            {
+                __module.declare(APRIL_NATIVE_SYM_ADD_RESOURCE, "void", { "ptr", "ptr", "i64" });
+
+                for (int k = 0; k < __env.assemblies.count(); k++)
+                {
+                    rt_assembly_t * assembly = __env.assemblies.at(k);
+
+                    for (int index = 0, count = assembly->get_resource_count(); index < count; index++)
+                    {
+                        string_t name = (string_t)assembly->get_resource_name(index);
+                        rt_bytes_t bytes = assembly->get_resource_bytes(index);
+
+                        llb::value_t name_ptr = __module.add_cstring(string_convert<char_t, char>(name));
+                        llb::value_t data_ptr = __module.add_cstring(
+                            std::string((const char *)bytes.bytes, bytes.bytes == nullptr? 0 : bytes.length)
+                        );
+
+                        main_f.call("void", APRIL_NATIVE_SYM_ADD_RESOURCE, {
+                            name_ptr, data_ptr, llb::const_int("i64", (int64_t)bytes.length)
+                        });
+                    }
+                }
+            }
 
             for (auto & it : __static_data_map)
             {
@@ -3706,18 +5744,72 @@ namespace X_ROOT_NS::modules::native {
             entry->queued = true;
             __queue.push_back(entry);
 
+            // The functions that the queue got since `from` have the origin: only Method.Invoke
+            // needs them.
+            auto set_origins = [&](size_t from, __fn_t * origin) {
+                for (size_t k = from; k < __queue.size(); k++)
+                {
+                    if (__queue[k]->origin == nullptr)
+                        __queue[k]->origin = origin != nullptr? origin : __queue[k];
+                }
+            };
+
             // Emitting functions finds classes and call sites, which find functions...
             do
             {
-                while (!__queue.empty())
+                do
                 {
-                    __fn_t * fn = __queue.front();
-                    __queue.pop_front();
+                    while (!__queue.empty())
+                    {
+                        __fn_t * fn = __queue.front();
+                        __queue.pop_front();
 
-                    __emit(*fn);
+                        size_t queued_before = __queue.size();
+
+                        try
+                        {
+                            __emit(*fn);
+                        }
+                        catch (const error_t &)
+                        {
+                            __give_up(fn);
+                            throw;
+                        }
+                        catch (const llb::ll_error_t &)
+                        {
+                            __give_up(fn);
+                            throw;
+                        }
+
+                        if (__invoke_phase)
+                            set_origins(queued_before, fn->origin);
+                    }
+
+                    // The functions that the program needs are all made before the first of those that
+                    // only Invoke needs: a failure of the latter does not stop the program.
+                    size_t queued_before = __queue.size();
+                    bool more = __resolve_virtuals();
+
+                    if (__invoke_phase)
+                        set_origins(queued_before, nullptr);
+
+                    if (!more && __queue.empty())
+                        break;
                 }
+                while (true);
+
+                size_t queued_before = __queue.size();
+                bool more = __queue_invokable();
+
+                if (more)
+                    __invoke_phase = true;
+
+                set_origins(queued_before, nullptr);
+
+                if (!more)
+                    break;
             }
-            while (__resolve_virtuals() || !__queue.empty());
+            while (true);
 
             __emit_descriptors();
             __emit_main(*entry);
@@ -3732,7 +5824,21 @@ namespace X_ROOT_NS::modules::native {
     // Generates the LLVM IR of the program.
     std::string generate_ir(rt_context_t & ctx)
     {
-        return __generator_t(ctx).generate();
+        // A method that only Method.Invoke needs may be one that native programs cannot have: it is
+        // denied (its Invoke fails) and the module is made again, the program stays native.
+        std::set<string_t> denied;
+
+        while (true)
+        {
+            try
+            {
+                return __generator_t(ctx, denied).generate();
+            }
+            catch (const __generator_t::retry_t & retry)
+            {
+                denied.insert(retry.method);
+            }
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////

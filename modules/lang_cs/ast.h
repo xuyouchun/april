@@ -79,6 +79,42 @@ namespace X_ROOT_NS::modules::lang_cs {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // new_assign: Name = value of an object initializer.
+
+    __Ast(new_assign)
+
+        // Expression.
+        __expression__,
+
+    __EndAst(new_assign)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    class new_assign_ast_node_t : public __AstName(new_assign)
+                                , public argument_ast_t
+    {
+        typedef __AstName(new_assign) __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Sets name.
+        void set_name(name_t name, __el_t * el);
+
+        // Commit this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual argument_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        argument_t __argument;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // _attribute_group
 
     __Ast(_attribute_group)
@@ -115,6 +151,86 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     // Attribute group item ast node.
     class _attribute_group_item_ast_node_t : public attribute_ast_node_t
+    {
+        typedef attribute_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group_assign
+
+    // Assembly attribute group assign.
+    __Ast(_assembly_group_assign)
+
+        // Expression.
+        __expression__,
+
+    __EndAst(_assembly_group_assign)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Assembly attribute group assign ast node.
+    class _assembly_group_assign_ast_node_t : public __AstName(_assembly_group_assign)
+                                             , public argument_ast_t
+    {
+        typedef __AstName(_assembly_group_assign) __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Sets name.
+        void set_name(name_t name, __el_t * el);
+
+        // Commit this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual argument_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        argument_t __argument;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group
+
+    __Ast(_assembly_group)
+
+        __items__,
+
+    __EndAst(_assembly_group)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Assembly attribute group ast node.
+    class _assembly_group_ast_node_t : public __AstName(_assembly_group)
+    {
+        typedef __AstName(_assembly_group) __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Assembly attribute group item ast node.
+    class _assembly_group_item_ast_node_t : public attribute_ast_node_t
     {
         typedef attribute_ast_node_t __super_t;
 
@@ -259,6 +375,9 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     public:
         using __super_t::__super_t;
+
+        // Commits this node.
+        virtual void on_commit() override;
     };
 
     ////////// ////////// ////////// ////////// //////////

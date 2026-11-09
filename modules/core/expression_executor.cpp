@@ -34,7 +34,7 @@ namespace X_ROOT_NS::modules::core {
 
     #define __C(type)                                                                   \
         case (int)__VT(type):                                                           \
-            *out_value = unitary_operator_t<_op, __VT(type)>()((type##_t)v);            \
+            *out_value = unitary_operator_t<_op, __VT(type)>()((__X_NUMERIC(type))v);            \
             return true;
 
     enum class __operate_region_t
@@ -224,8 +224,20 @@ namespace X_ROOT_NS::modules::core {
 
         switch (this->op())
         {
-            case operator_t::minus:
-                return __unitary_execute<operator_t::minus, df>(cv);
+            case operator_t::minus: {
+                cvalue_t r = __unitary_execute<operator_t::minus, df>(cv);
+
+                // The minus of an unsigned number is signed (-5 is an Int32, not 4294967291): the
+                // value is converted to other types by its own type.
+                switch (r.number.type)
+                {
+                    case value_type_t::uint8_:  return r.change_type(vtype_t::int8_);
+                    case value_type_t::uint16_: return r.change_type(vtype_t::int16_);
+                    case value_type_t::uint32_: return r.change_type(vtype_t::int32_);
+                    case value_type_t::uint64_: return r.change_type(vtype_t::int64_);
+                    default:                    return r;
+                }
+            }
 
             case operator_t::positive:
                 return __unitary_execute<operator_t::positive, df>(cv);
@@ -269,8 +281,10 @@ namespace X_ROOT_NS::modules::core {
             case operator_t::as:
             case operator_t::assign:
             case operator_t::null_coalescing:
-            case operator_t::null_coalescing_assign:
-                return this->get_type()->this_vtype();
+            case operator_t::null_coalescing_assign: {
+                type_t * type = this->get_type();     // It has none when a name is not resolved.
+                return type != nullptr? type->this_vtype() : vtype_t::__unknown__;
+            }
 
             // o is T, o is T v.
             case operator_t::is:
@@ -307,7 +321,7 @@ namespace X_ROOT_NS::modules::core {
         case ((int)__VT(type1) << 8) | (int)__VT(type2):                                \
             *out_value = tvalue_t(                                                      \
                 binary_operator_t<_op, __VT(type1), __VT(type2)>()(                     \
-                    (type1##_t)v1, (type2##_t)v2)                                       \
+                    (__X_NUMERIC(type1))v1, (__X_NUMERIC(type2))v2)                                       \
             );                                                                          \
             return true;
 
@@ -566,8 +580,13 @@ namespace X_ROOT_NS::modules::core {
         cvalue_t cv1 = e1->execute(), cv2 = e2->execute();
         if (is_string(cv1) || is_string(cv2))
         {
-            string_t s = _F(_T("%1%%2%"), cv1, cv2);
-            return cvalue_t(__SPool.to_sid(s).c_str());
+            // A string is joined as it is (it can have the character 0).
+            auto text_of = [](const cvalue_t & cv) {
+                return is_string(cv)? cv.get_string() : _F(_T("%1%"), cv);
+            };
+
+            sid_t sid = __SPool.to_sid(text_of(cv1) + text_of(cv2));
+            return cvalue_t(sid.c_str(), sid.length());
         }
 
         if (!is_number(cv1) || !is_number(cv2))

@@ -39,7 +39,7 @@ enum disposed
 import System;
 
 using System;
-using System.Collections.Generic;
+using System.Collections;
 
 class Res : IDisposable
 {

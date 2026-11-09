@@ -1,5 +1,5 @@
 
-#include <lang_lq.h>
+#include "lq_service.h"
 
 namespace X_ROOT_NS::modules::lang_lq {
 
@@ -8,60 +8,16 @@ namespace X_ROOT_NS::modules::lang_lq {
 
     ////////// ////////// ////////// ////////// //////////
 
-    /*codedom_analyzer_t * lq_lang_t::create_analyzer(compile_context_t * context)
-    {
-        return context->new_obj<lq_codedom_analyzer_t>(context);
-    }*/
-
-    // Constructor.
+    // Constructor: the services of cs, with the patterns, the nodes and the tokens of its own.
     lq_lang_t::lq_lang_t(const lang_create_args_t & args)
-        : __lang_id(args.lang_id)
-        , __lang_info({ _T("linq"), __default_name__ })
+        : lang_base_t(args.lang_id, _T("linq"), __default_name__)
     {
-
-    }
-
-    // Gets service.
-    lang_service_t * lq_lang_t::get_service(lang_service_type_t service_type)
-    {
-        return nullptr;
-    }
-
-    // Gets language id.
-    lang_id_t lq_lang_t::get_id()
-    {
-        return __lang_id;
-    }
-
-    // Returns language information.
-    const lang_info_t * lq_lang_t::get_info()
-    {
-        return &__lang_info;
+        auto * cs_lang = new_obj<lang_cs::cs_lang_t>(args);
+        set_service(new_obj<lq_lang_service_t>(new_obj<lang_cs::cs_lang_service_t>(cs_lang)));
     }
 
     const char_t * const lq_lang_t::__default_name__ = _T("lq");
 
     ////////// ////////// ////////// ////////// //////////
 
-    /*
-    codedom_node_t * lq_codedom_analyzer_t::push(code_section_t * section,
-                                                 codedom_node_t * current)
-    {
-        return nullptr;
-    }
-
-    codedom_node_t * lq_codedom_analyzer_t::push(codedom_node_t * node)
-    {
-        return nullptr;
-    }
-
-    __codedom_node_t * lq_codedom_analyzer_t::commit()
-    {
-        return nullptr;
-    }
-    */
-
-    ////////// ////////// ////////// ////////// //////////
-
 }   // X_ROOT_NS::modules::lang_lq
-

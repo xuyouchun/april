@@ -11,6 +11,7 @@
 #include <modules/mm.h>
 #include <modules/lang_cs.h>
 #include <modules/lang_lq.h>
+#include <modules/lang_c.h>
 #include <modules/exec.h>
 #include <modules/native.h>
 

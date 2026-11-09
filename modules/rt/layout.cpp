@@ -84,7 +84,7 @@ namespace X_ROOT_NS::modules::rt {
 
             rt_sid_t name = it.first;
             rt_type_t * type = std::get<rt_type_t *>(it.second);
-            ss << name.c_str() << _T(":") << type->get_name(env).c_str();
+            ss << name << _T(":") << type->get_name(env);
         }
 
         return ss.str();
@@ -259,6 +259,19 @@ namespace X_ROOT_NS::modules::rt {
         return mgr.get(index);
     }
 
+    // Returns the placeholder of the types of a params generic parameter (TArgs ...) of a general
+    // type: all of them are one place holder, when the arguments are not known.
+    rt_type_t * __get_pack_place_holder()
+    {
+        return __get_type_place_holder(1000000);
+    }
+
+    // Returns whether the type is the place holder of the types of a params generic parameter.
+    bool is_pack_place_holder(rt_type_t * type)
+    {
+        return type == __get_pack_place_holder();
+    }
+
     ////////// ////////// ////////// ////////// //////////
     // generic_param_manager_builder_t
 
@@ -300,6 +313,15 @@ namespace X_ROOT_NS::modules::rt {
         {
             rt_generic_param_t * gp = __analyzer.get_generic_param(gp_ref);
             rt_sid_t name = __analyzer.to_sid((*gp)->name);
+
+            // The types of a params generic parameter are its place holder, like those of a
+            // generic method that is looked for.
+            if ((generic_param_type_t)(*gp)->param_type == generic_param_type_t::params)
+            {
+                __gp_mgr.append(name, __gp_mgr.size(), 1);
+                __gp_mgr.append(name, __get_pack_place_holder());
+                continue;
+            }
 
             __gp_mgr.append(name, __get_type_place_holder(__gp_mgr.size()));
         }
@@ -663,13 +685,13 @@ namespace X_ROOT_NS::modules::rt {
     msize_t locals_layout_t::__arrange_mixture_variables(__group_t & g,
         msize_t offset, __partial_iterator_t it_begin, __partial_iterator_t it_end)
     {
-        using namespace std::placeholders;
+        // The variables do not share places, as the ones of the other storage types do when a block ends: a struct
+        // that is a temp of a statement keeps its own place. (The places that are shared were arranged by the
+        // partials, and the variables of the inner partials were put from the offset 0: over the other variables.)
         __vector_t<__item_t *> items;
 
-        __arrange_variables_f(g, 0, it_begin, it_end, [&](msize_t offset,
-            __item_iterator_t it_begin, __item_iterator_t it_end) {
-            return std::copy(it_begin, it_end, std::back_inserter(items)), 0;
-        }, std::bind(&locals_layout_t::__arrange_mixture_variables, this, _1, _2, _3, _4));
+        for (__item_t * item : g.items)
+            items.push_back(item);
 
         return __set_offsets(offset, items.begin(), items.end());
     }

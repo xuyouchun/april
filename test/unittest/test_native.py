@@ -128,7 +128,8 @@ def _build(code_file, tmp_path, tools):
 
     log = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
 
-    if "native: unsupported" in log or "native: inconsistent" in log:
+    if ("native: unsupported" in log or "native: inconsistent" in log
+            or "not available to native programs yet" in log):
         first = [l for l in log.splitlines() if l.startswith("native:")][-1]
         pytest.xfail(re.sub(r" \[.*\]$", "", first))
 

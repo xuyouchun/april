@@ -16,9 +16,7 @@ namespace X_ROOT_NS::lib {
         // The narrow strings of the paths are UTF-8 (as the rest of april), not the code page of
         // the system. Every module that has its own copy of boost sets it for itself.
         const bool __path_utf8 = [] {
-            ::boost::filesystem::path::imbue(
-                std::locale(std::locale(), new std::codecvt_utf8<wchar_t>())
-            );
+            ::boost::filesystem::path::imbue(utf8_locale());
 
             return true;
         }();
@@ -133,10 +131,10 @@ namespace X_ROOT_NS::lib {
         typename istream_t, typename c_t = typename istream_t::char_type,
         typename s_t = std::basic_string<c_t, __traits_t<c_t>>
     >
-    s_t __read_all(const path_t & file)
+    s_t __read_all(const path_t & file, std::ios_base::openmode mode = std::ios_base::in)
     {
         istream_t f;
-        f.open(file, std::ios_base::in);
+        f.open(file, mode);
         if (!f.is_open())
             throw _E(file_error_code_t::open_error);
 
@@ -149,17 +147,32 @@ namespace X_ROOT_NS::lib {
     //-------- ---------- ---------- ---------- ----------
     // text file
 
-    // Reads all text from a text file.
+    // Reads all text from a text file: the file is UTF-8 (a byte order mark is skipped), a character that
+    // is not in the basic plane is a character of the host (a pair of surrogates when it is 16 bits).
     string_t read_all_text(const path_t & file)
     {
-        return __read_all<__cifstream_t>(file);
+        // The file is read as a text (on Windows CRLF is LF): the source codes are read so.
+        bytes_t bytes = __read_all<__bifstream_t, byte_t>(file);
+
+        const char * p = (const char *)bytes.c_str();
+        size_t length = bytes.length();
+
+        if (length >= 3 && (uint8_t)p[0] == 0xEF && (uint8_t)p[1] == 0xBB && (uint8_t)p[2] == 0xBF)
+        {
+            p += 3;
+            length -= 3;
+        }
+
+        return to_host_string(utf8_to_ustring(p, length));
     }
 
-    // Writes text to a file.
+    // Writes text to a file: UTF-8.
     void write_all_text(const path_t & file, const char_t * s, size_t length)
     {
         _A(s != nullptr);
-        __write_all<__cofstream_t>(file, s, length, std::ios_base::trunc);
+
+        std::string bytes = ustring_to_utf8(to_ustring(s, length == __empty_length? __len(s) : length));
+        __write_all<__bofstream_t>(file, (const byte_t *)bytes.c_str(), bytes.length(), std::ios_base::trunc);
     }
 
     // Writes text to a file.
@@ -172,7 +185,9 @@ namespace X_ROOT_NS::lib {
     void append_all_text(const path_t & file, const char_t * s, size_t length)
     {
         _A(s != nullptr);
-        __write_all<__cofstream_t>(file, s, length, std::ios_base::app);
+
+        std::string bytes = ustring_to_utf8(to_ustring(s, length == __empty_length? __len(s) : length));
+        __write_all<__bofstream_t>(file, (const byte_t *)bytes.c_str(), bytes.length(), std::ios_base::app);
     }
 
     // Appends text to the end of the file.
@@ -187,7 +202,8 @@ namespace X_ROOT_NS::lib {
     // Reads all bytes from a file.
     bytes_t read_all_bytes(const path_t & file)
     {
-        return __read_all<__bifstream_t, byte_t>(file);
+        // Binary: no byte is changed (on Windows the byte 0x1A ends a text, and CRLF is LF).
+        return __read_all<__bifstream_t, byte_t>(file, std::ios_base::in | std::ios_base::binary);
     }
 
     // Writes bytes to a file.

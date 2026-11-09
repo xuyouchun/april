@@ -10,7 +10,15 @@
         </file>
 
         <file>
-            <path>Collections/Generic/*.cs</path>
+            <path>Runtime/*.cs</path>
+        </file>
+
+        <file>
+            <path>Runtime/CompilerServices/*.cs</path>
+        </file>
+
+        <file>
+            <path>Collections/*.cs</path>
         </file>
 
         <file>
@@ -18,9 +26,29 @@
         </file>
 
         <file>
+            <path>Linq/*.cs</path>
+        </file>
+
+        <file>
+            <path>Globalization/*.cs</path>
+        </file>
+
+        <file>
             <path>Reflection/*.cs</path>
         </file>
 
+        <file>
+            <path>Text/*.cs</path>
+        </file>
+
+        <file>
+            <path>Numerics/*.cs</path>
+        </file>
+
     </files>
+
+    <resources>
+        <resource><path>Text/gb18030.bin</path></resource>
+    </resources>
 
 </project>

@@ -20,6 +20,17 @@ public static class Console
         Internal.Console_WriteStringLine(value);
     }
 
+    // The text that String.Format makes.
+    public static Void Write(String format, params Object[] args)
+    {
+        Internal.Console_WriteString(String.Format(format, args));
+    }
+
+    public static Void WriteLine(String format, params Object[] args)
+    {
+        Internal.Console_WriteStringLine(String.Format(format, args));
+    }
+
     public static Void WriteLine()
     {
         Write("\n");

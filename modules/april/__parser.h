@@ -90,6 +90,14 @@ namespace X_ROOT_NS::modules::april {
 
     class file_config_t;
 
+    // <resource>: files that are embedded in the assembly of the project.
+    struct resource_config_t
+    {
+        lib::path_t path;       // The path of the file, or of the files (a wildcard).
+        string_t    name;       // The name that Resource.GetBytes takes (only for a path of one file).
+        lib::path_t base;       // The directory of the project: the names are made from the paths that are under it.
+    };
+
     class project_config_t : public config_t
     {
         typedef config_t __super_t;
@@ -98,6 +106,9 @@ namespace X_ROOT_NS::modules::april {
         using __super_t::__super_t;
 
         std::vector<file_config_t *> files;
+
+        // <resources><resource><path>data/*.bin</path><name>MyApp.data</name></resource></resources>
+        std::vector<resource_config_t> resources;
 
         // <nullable>enable</nullable>: the null states of the references are analyzed.
         bool nullable = false;

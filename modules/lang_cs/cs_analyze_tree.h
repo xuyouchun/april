@@ -35,6 +35,14 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         _attribute_group_assign,
 
+        _assembly_group,
+
+        _assembly_group_item,
+
+        _assembly_group_assign,
+
+        new_assign,
+
         _attribute_type_name,
 
         _defination_st_item,

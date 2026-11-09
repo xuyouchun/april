@@ -66,7 +66,8 @@ def run_file(file):
 
     code, ret = subprocess.getstatusoutput(command)
     if code != 0:
-        raise RuntimeError("Status code is " + str(code))
+        # The output tells why: a failure that happens now and then leaves nothing else.
+        raise RuntimeError("Status code is " + str(code) + "\n" + ret[-4000:])
         
     return ret
 

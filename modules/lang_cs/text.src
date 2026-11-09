@@ -17,7 +17,7 @@ $index:  $_single_expression ( [ | \?[ ) $arguments ] ;
 # Function name, Can be a real name or any expressions.
 # A lambda in brackets is called at once: ((Int32 x) => x + 1)(2) .
 $_function_name_expression: (
-    name $generic_args? | base | this | $index | $function | $new | $type_cast_exp
+    name $generic_args? | base | this | $index | $function | $new
     | \( $lambda \)
 );
 
@@ -25,10 +25,10 @@ $_function_name_expression: (
 $function: $_function_name_expression \( $arguments? \) ;
 
 # New object expression.
-$new: new $type_name (\( $arguments? \) | (\( $arguments? \))? { $_init_args? }) ;
+$new: new $type_name (\( $arguments? \) | (\( $arguments? \))? { (($__assign: name = $expression) (, $__assign)* ,?)? }) ;
 
-# Array initializer, such as: new int[] { 1, 2, 3 } .
-$array_initializer: { ($__item: $array_initializer | $expression) (, $__item)* ,? } ;
+# Array initializer, such as: new int[] { 1, 2, 3 } . It can be empty: new int[] { } .
+$array_initializer: { (($__item: $array_initializer | $expression) (, $__item)* ,?)? } ;
 
 # Array lengths, such as: new int[10, 20] .
 $array_lengths: $expression? (, $expression? )* ;
@@ -58,13 +58,15 @@ $type_name_exp: $type_name ;
 # A name that declares a variable: out int value, o is string s.
 $declaration_exp: $type_name name ;
 
-# Type cast expression: (T)100 .
-$type_cast_exp: \( $type_name \) $_single_expression ;
+# Type cast expression: (T)100 . Its operand ends where an index, a call or a member of it ends:
+# (Double)items[k] is the cast of an item (the cast is not an item of an expression, or the index
+# would be the one of the cast).
+$type_cast_exp: \( $type_name \) ($_single_expression | $type_cast_exp) ;
 
 # Simple expression.
 $_single_expression: ($__item:
       name | $cvalue | base | this
-    | $index | $function | $new | $new_array | $type_of | $type_cast_exp
+    | $index | $function | $new_array | $new | $type_of
     | $default_value | $checked_exp | $name_unit | $lambda
     | \( $_expression (, $_expression)* \)
   ) !!? ( (. | \?.) $__item !!? )*
@@ -74,7 +76,7 @@ $_single_expression: ($__item:
 
 # Expression, such as a + b * c.
 $_expression: 
-    $_single_expression
+    ($_single_expression | $type_cast_exp)
     (
         (
              \+  | -   | \*  | /   | %
@@ -125,6 +127,7 @@ $decorate:
       ($__complex: protected internal | internal protected | private protected | protected private)
       | public | private | protected | internal
       | static | sealed | abstract | readonly | const | new | abstract | override | virtual | extern
+      | partial
     )*
 ;
 
@@ -144,9 +147,10 @@ $type:
             ($method | $field | $property | $event | $type | $_fields | $type_def) * 
         }
     |
-        enum name (\: underlying:$type_name)?
+        enum name (\: underlying:$type_name (, base:$type_name)*)?
         {
             $_enum_fields
+            (\; ($method | $field | $property | $event | $type | $_fields | $type_def) *)?
         }
     ) \;?
 ;
@@ -202,13 +206,14 @@ $generic_arg: (out | ref | params)? $type_name name?;
 $generic_args: < $generic_arg? (, $generic_arg?) * ...? !:> ;
 
 # Param of methods.
-$param:  $attributes (out | ref | params)? $type_name ...? name (= $expression)? ;
+$param:  $attributes (out | ref | params | this)? $type_name ...? name (= $expression)? ;
 
 # Params of methods.
 $params: $param (, $param)* ;
 
-# Argument of methods calling.
-$argument:  $attributes (out | ref)? (name \:)? ($declaration_exp | $expression) ;
+# Argument of methods calling. The items of a params generic parameter are passed as arguments
+# with ...: f(items ...) (many arguments, not one).
+$argument:  $attributes (out | ref)? (name \:)? ($declaration_exp | $expression ...?) ;
 
 # Arguments of methods calling.
 $arguments: $argument (, $argument)* ;
@@ -230,11 +235,20 @@ $_attribute_group:
 	\) )?) (, $__item)* ]
 ;
 
+# Attributes of the assembly: [assembly: Author("ann")]. It is alone, at the root of the code.
+$_assembly_group:
+    [ assembly \: ($__item: $_attribute_type_name (
+	\(
+		(($arguments | ($__assign: name = $expression)) (, $__assign)*)?
+	\) )?) (, $__item)* ]
+;
+
 # Attributes: [Entrypoint, Trace] [Inline]
 $attributes: ($attribute | $_attribute_group) * ;
 
-# Method body.
-$method_body: { $statement* } ;
+# Method body: a block, or an expression (the body is the return of its value, or the expression
+# itself when the method returns nothing): int GetValue() => 10; , get => value; .
+$method_body: { $statement* } | => $expression \; ;
 
 # Operators.
 $_operator:
@@ -252,7 +266,7 @@ $method:
     $attributes
     $decorate
     ret:$type_name? ~ ? (owner:$type_name .)?
-    ( name | operator ($_operator | overload:$type_name) )
+    ( name | (implicit | explicit)? operator checked? ($_operator | conversion:$type_name) )
     $generic_params? \( $params? \) ( \: (base | this) \( $arguments? \) )?
     $generic_constraints
     ($method_body | \;)
@@ -267,7 +281,7 @@ $_fields:
 
 # Fake method, used in property/event body.
 $_fake_method:
-    $attributes $decorate (get | set | add | remove) ($method_body | \;)
+    $attributes $decorate (get | set | init | add | remove | raise \( $params? \)) ($method_body | \;)
 ;
 
 # Property member.
@@ -275,9 +289,9 @@ $property:
     $attributes
     $decorate
     ret:$type_name ((owner:$type_name .)? name | this [ $params ])
-    {
+    ({
         $_fake_method *
-    }
+    } | => $expression \; )
 ;
 
 # Event member.
@@ -316,10 +330,16 @@ $for_each_st:
     $statement
 ;
 
-# Using statement: using (IDisposable obj = new DisposableObject()) { ... }
+# Using statement: using (IDisposable obj = new DisposableObject()) { ... } , or the using
+# declaration: using IDisposable obj = new DisposableObject(); , the object is disposed at the end
+# of the block, the statements that follow the declaration are the body. The object does not need
+# a variable: using (new DisposableObject()) { ... } , using new DisposableObject(); .
 $using_st:
-    using \( $type_name name = $expression \)
-    $statement
+    using
+    (
+        \( ($type_name name = $expression | $expression) \) $statement
+      | ($type_name name = $expression | $expression) \;
+    )
 ;
 
 # If statement.
@@ -407,6 +427,6 @@ $statement:
 ;
 
 # Root, entrypoint of code analyzer.
-$: $import* ($using | $namespace | $type | $type_def)* ;
+$: $import* ($using | $namespace | $type | $type_def | $_assembly_group)* ;
 
 

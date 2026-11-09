@@ -18,33 +18,16 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
 
     // CS language.
-    class cs_lang_t : public object_t, public lang_t
+    class cs_lang_t : public lang_base_t
     {
     public:
 
         // Constructor.
         cs_lang_t(const lang_create_args_t & args);
 
-        // Returns service of type.
-        virtual lang_service_t * get_service(lang_service_type_t service_type) override;
-
-        // Returns language id.
-        virtual lang_id_t get_id() override;
-
-        // Returns language information.
-        virtual const lang_info_t * get_info() override;
-
         static const char_t * const __default_name__;
 
         X_TO_STRING_IMPL(_T("cs_lang_t"))
-
-    private:
-        object_t *  __service;
-        pool_t      __pool;
-        lang_id_t   __lang_id;
-        lang_info_t __lang_info;
-
-        template<typename service_t> service_t * __get_service();
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -92,6 +75,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     private:
         token_t * __next_token = nullptr;
         bool      __is_pending = false;         // The last token is is.
+        bool      __square_pending = false;     // The last token is [.
     };
 
     typedef ttoken_reader_t<cs_token_enumerator_t> cs_token_reader_t;

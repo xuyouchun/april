@@ -45,12 +45,13 @@ namespace X_ROOT_NS::modules::core {
     #define __CoreTypeName(name) CoreAssembly _T(".") name
 
     // Common types.
-    #define CoreType_Type         _T("Type")
+    #define CoreType_Type         _T("Reflection.Type")
     #define CoreType_Exception    _T("Exception")
     #define CoreType_Nullable     _T("Nullable<>")
     #define CoreType_Void         _T("Void")
     #define CoreType_Object       _T("Object")
     #define CoreType_Ptr          _T("Ptr")
+    #define CoreType_TPtr         _T("Ptr<>")
     #define CoreType_Attribute    _T("Attribute")
     #define CoreType_Array        _T("Array")
     #define CoreType_TArray       _T("Array<>")
@@ -94,11 +95,13 @@ namespace X_ROOT_NS::modules::core {
 
     // Attributes.
     #define CoreType_TraceAttribute     _T("Diagnostics.TraceAttribute")
+    #define CoreType_ExtensionAttribute _T("Runtime.CompilerServices.ExtensionAttribute")
+    #define CoreType_CompilerGeneratedAttribute                                 _T("Runtime.CompilerServices.CompilerGeneratedAttribute")
 
     // Collections.
-    #define CoreType_List               _T("Collections.Generic.List<>")
-    #define CoreType_IEnumerable        _T("Collections.Generic.IEnumerable<>")
-    #define CoreType_IEnumerator        _T("Collections.Generic.IEnumerator<>")
+    #define CoreType_List               _T("Collections.List<>")
+    #define CoreType_IEnumerable        _T("Collections.IEnumerable<>")
+    #define CoreType_IEnumerator        _T("Collections.IEnumerator<>")
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -129,6 +132,7 @@ namespace X_ROOT_NS::modules::core {
     // instance_t
 
     class type_t;
+    class generic_param_t;
     class generic_constraint_t;
     class runtime_mobject_t { };
 
@@ -361,30 +365,18 @@ namespace X_ROOT_NS::modules::core {
         template<typename _code_t>
         log_level_t __log(code_element_t * element, _code_t code, const string_t & message)
         {
-            #define __Code(_code_) ((_code_t)_code_)
-            typedef _code_t  c_t;
+            // The level of a diagnostic is told by its code: AP1000 - AP1999 are informations,
+            // AP4000 - AP4999 are warnings, the others are errors.
+            int value = (int)code;
+            _A(value > 0 && value < 100000);
 
-            _A(__Code(code) > __Code(c_t::__info__) && __Code(code) < __Code(c_t::__the_end__));
-
-            log_level_t level;
-            #define __Between(begin, end) \
-                (__Code(code) >= __Code(c_t::begin) && __Code(code) < __Code(c_t::end))
-
-            if (__Between(__info__, __warning__))
-                level = log_level_t::info;
-            else if (__Between(__warning__, __error__))
-                level = log_level_t::warning;
-            else if (__Between(__error__, __the_end__))
-                level = log_level_t::error;
-            else
-                throw _ECF(argument_error, _T("argument %1% out of range"), __Code(code));
+            log_level_t level = (value >= 1000 && value < 2000)? log_level_t::info
+                              : (value >= 4000 && value < 5000)? log_level_t::warning
+                              : log_level_t::error;
 
             logger.log(element, level, _title(code), (int)code, message);
 
             return level;
-
-            #undef __Code
-            #undef __Between
         }
     };
 
@@ -500,6 +492,15 @@ namespace X_ROOT_NS::modules::core {
 
     const token_value_t   empty_token_value   =  0;
     const token_value_t   unknown_token_value = -1;
+
+    // The token that starts the code of an embedded language: ``lq from x in xs select x. The
+    // reader of the elements analyzes the code that follows it, with the analyzer of that language,
+    // that finds where the code ends.
+    const token_value_t   embed_token_value   = -4;
+
+    // The token that ends the code of an embedded language: the analyzer adds it after the last token of the code (it
+    // is empty), so the last expression ends as the ones that are followed by a token do. A grammar names it code_end.
+    const token_value_t   code_end_token_value = -5;
     const element_value_t document_ast_value  = -2;
     const element_value_t module_ast_value    = -3;
 
@@ -581,40 +582,40 @@ namespace X_ROOT_NS::modules::core {
     //-------- ---------- ---------- ---------- ----------
 
     // Compiler error codes.
-    X_ENUM(compile_error_code_t)
+    X_ENUM_(compile_error_code_t, sizeof(uint16_t))
 
         // Duplicated entry points, two main method.
-        duplicated_entry_point,
+        duplicated_entry_point = 2601,
 
         // Entry point method format error: should no return type.
-        entry_point_prototype_mistake__should_no_return_type,
+        entry_point_prototype_mistake__should_no_return_type = 2602,
 
         // Entry point method format error: should not geneirc.
-        entry_point_prototype_mistake__should_not_generic,
+        entry_point_prototype_mistake__should_not_generic = 2603,
 
         // Entry point method format error: should no params.
-        entry_point_prototype_mistake__should_no_params,
+        entry_point_prototype_mistake__should_no_params = 2604,
 
         // Entry point method format error: should be public and static.
-        entry_point_prototype_mistake__should_be_public_static,
+        entry_point_prototype_mistake__should_be_public_static = 2605,
 
         // Entry point method format error.
-        entry_point_prototype_mistake__decorate_not_allowed,
+        entry_point_prototype_mistake__decorate_not_allowed = 2606,
 
         // Extern method format error: shoud be static..
-        extern_method_prototype_mistake__should_be_static,
+        extern_method_prototype_mistake__should_be_static = 2611,
 
         // Extern method format error: shoud be marked with extern..
-        extern_method_prototype_mistake__should_be_extern,
+        extern_method_prototype_mistake__should_be_extern = 2612,
 
         // Extern method format error: not allowed.
-        extern_method_prototype_mistake__not_allowed,
+        extern_method_prototype_mistake__not_allowed = 2613,
 
         // Type not found.
-        type_not_found,
+        type_not_found = 3230,
 
         // Label not found.
-        label_not_found,
+        label_not_found = 3231,
 
     X_ENUM_END
 
@@ -754,6 +755,7 @@ namespace X_ROOT_NS::modules::core {
         token_error_t  * error;         // Error
         const void     * value;         // Value
         cvalue_type_t    value_type;    // Value type
+        size_t           string_length = (size_t)-1;    // Length of the string value.
 
         // Possible values, a value array, ends with nullptr.
         const token_value_t * possible_values = nullptr;
@@ -1539,8 +1541,9 @@ namespace X_ROOT_NS::modules::core {
         bool is_const           : 1;
         bool is_readonly        : 1;
         bool is_extern          : 1;
+        bool is_partial         : 1;
 
-        uint32_t    ____reserve : 19;
+        uint32_t    ____reserve : 18;
 
         operator uint32_t() const { return *(uint32_t *)this; }
         operator string_t() const;
@@ -1671,6 +1674,19 @@ namespace X_ROOT_NS::modules::core {
         cvalue_t(const char_t * string)
             : value_type(cvalue_type_t::string), string(string) { }
 
+        // A string that has the character 0 (a literal with \u0000): the length is kept.
+        cvalue_t(const char_t * string, size_t length)
+            : value_type(cvalue_type_t::string), string(string), string_length(length) { }
+
+        // A string of the virtual machine (UTF-16): the constants of an assembly that is run have them.
+        // The pointer is kept as it is: it is read by rt_string(), not by the code of the compiler.
+        explicit cvalue_t(const rt_char_t * rt_string)
+            : value_type(cvalue_type_t::string), string((const char_t *)rt_string) { }
+
+        // Returns the string of the virtual machine of a constant that was read from an assembly that
+        // is run.
+        const rt_char_t * rt_string() const { return (const rt_char_t *)string; }
+
         cvalue_t(const tvalue_t & number)
             : value_type(cvalue_type_t::number), number(number) { }
 
@@ -1683,7 +1699,10 @@ namespace X_ROOT_NS::modules::core {
         cvalue_t(int64_t value)     : cvalue_t(tvalue_t(value)) { }
         cvalue_t(uint64_t value)    : cvalue_t(tvalue_t(value)) { }
         cvalue_t(bool value)        : cvalue_t(tvalue_t(value)) { }
-        cvalue_t(char_t value)      : cvalue_t(tvalue_t(value)) { }
+        cvalue_t(rt_char_t value)   : cvalue_t(tvalue_t(value)) { }
+
+        // A character of the host (a character literal of the source code): it is a Char of 16 bits.
+        cvalue_t(char_t value)      : cvalue_t(tvalue_t((rt_char_t)value)) { }
         cvalue_t(float value)       : cvalue_t(tvalue_t(value)) { }
         cvalue_t(double value)      : cvalue_t(tvalue_t(value)) { }
 
@@ -1699,6 +1718,18 @@ namespace X_ROOT_NS::modules::core {
             tvalue_t       number;
             object_t     * mobject;
         };
+
+        // The length of the string, npos if it ends with the character 0 (the string has none).
+        size_t string_length = (size_t)-1;
+
+        // Returns the length of the string of a constant.
+        size_t get_string_length() const _NE
+        {
+            return string_length != (size_t)-1? string_length : (string == nullptr? 0 : al::strlen(string));
+        }
+
+        // Returns the string of a constant.
+        string_t get_string() const { return string == nullptr? string_t() : string_t(string, get_string_length()); }
 
         bool operator == (const cvalue_t & other) const _NE;
         bool operator != (const cvalue_t & other) const _NE;
@@ -1722,7 +1753,7 @@ namespace X_ROOT_NS::modules::core {
         cvalue_t change_type(vtype_t vtype) const _NE;
 
         #define __X_TYPE_OP(_type)                                                      \
-            operator _type##_t() const { return number.get_value<_type##_t>(); }
+            operator __X_NUMERIC(_type)() const { return number.get_value<__X_NUMERIC(_type)>(); }
         __X_EACH_TYPES
         #undef __X_TYPE_OP
 
@@ -2090,12 +2121,12 @@ namespace X_ROOT_NS::modules::core {
 
             case vtype_t::int16_:
             case vtype_t::uint16_:
+            case vtype_t::char_:
                 return 2;
 
             case vtype_t::int32_:
             case vtype_t::uint32_:
             case vtype_t::float_:
-            case vtype_t::char_:
                 return 4;
 
             case vtype_t::int64_:
@@ -2301,6 +2332,10 @@ namespace X_ROOT_NS::modules::core {
 
         type_t * type = nullptr;
         param_type_t ptype = param_type_t::__default__;
+
+        // The method of the argument that is a lambda, nullptr for the others: the types of its
+        // params and its return type are given by the type of the param that takes it.
+        method_t * lambda = nullptr;
 
         // Converts to a string.
         operator string_t() const;
@@ -2523,6 +2558,17 @@ namespace X_ROOT_NS::modules::core {
     // E.g. int32 -> int64. System.String -> System.Object.
     bool is_type_compatible(type_t * from, type_t * to);
 
+    // Finds the method of a user conversion (implicit operator, explicit operator, explicit operator checked) that
+    // converts a value of the type from to the type to: the type that is converted, or the type that is made, has
+    // it. An explicit conversion takes an implicit one too; a checked context takes the checked one first. Returns
+    // null if there is none.
+    method_t * find_user_conversion(type_t * from, type_t * to, bool explicit_conversion, bool checked);
+
+    // Returns the primitive type (a number, a Boolean, a Char, a String) that an implicit operator of the type converts
+    // it to: the type prefer if the type converts to it, or to a type that converts to it; else the first one. Null if
+    // the type has none. It is for the operands of the operators that the language has for the primitive types.
+    type_t * find_user_conversion_target(type_t * from, type_t * prefer);
+
     // Returns the type that both types are converted to, null if there is none:
     // int and long: long. null and String: String. int and uint: long. null and int: int?.
     // Two classes: their nearest common base class. A type that is null (not known) takes the other.
@@ -2615,8 +2661,17 @@ namespace X_ROOT_NS::modules::core {
     // Returns whether it's a custom defined struct type or class type.
     bool is_custom_class_or_struct(type_t * type);
 
+    // Returns whether a type is unmanaged: a number, bool, char, pointer, an enum, or a struct whose
+    // instance fields are all unmanaged. It has no references, so a pointer to it can be used freely.
+    // A generic param is not (its constraint tells).
+    bool is_unmanaged(type_t * type);
+
     // Returns whether it's a tuple type.
     bool is_tuple(type_t * type);
+
+    // Returns the params generic parameter that a tuple type has as its items (ITuple<TItems ...>
+    // is the items of TItems), null if the type is not one.
+    generic_param_t * get_tuple_pack_param(type_t * type);
 
     // Returns whether it's a null type.
     // Returns T if the type is Nullable<T>, otherwise nullptr.
@@ -2659,6 +2714,9 @@ namespace X_ROOT_NS::modules::core {
     // If the expression is a lambda that has no return type yet, and the type is a delegate
     // type, the return type of the lambda is that of the delegate.
     void bind_lambda_to_type(expression_t * exp, type_t * to);
+
+    // Returns the method of the expression if it's a lambda, nullptr if it is not.
+    method_t * get_lambda_method(expression_t * exp);
 
     X_ALWAYS_INLINE bool is_null(type_t * type)
     {
@@ -2866,6 +2924,12 @@ namespace X_ROOT_NS::modules::core {
     // Returns whether it's a multipy generic params.
     bool is_generic_params(type_t * type);
 
+    // The name of what the compiler makes: __ap_<usage>_<detail>_<hash> (the detail can be empty).
+    // The hash is made of the usage, the owner and the detail: it is the same every time the code
+    // is compiled.
+    string_t to_generated_name(const char_t * usage, const string_t & detail,
+                               const string_t & owner);
+
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     typedef eobject_ast_t<generic_param_t *> generic_param_ast_t;
@@ -2934,6 +2998,9 @@ namespace X_ROOT_NS::modules::core {
 
         // class?: the class can be null.
         nullable_   = 1 << 5,
+
+        // The argument is an unmanaged type (see is_unmanaged): no references in it.
+        unmanaged_  = 1 << 6,
 
     X_ENUM_END
 
@@ -3895,6 +3962,10 @@ namespace X_ROOT_NS::modules::core {
         method_t *      get_method      = nullptr;  // The get method binded.
         method_t *      set_method      = nullptr;  // The set method binded.
 
+        // The set method is an init: it is called only in an object initializer, in the
+        // constructors of the type, and by itself (new T { Name = value }).
+        bool            is_init_only    = false;
+
         property_variable_t * variable  = nullptr;  // Property variable.
 
         // Returns this type.
@@ -3948,6 +4019,7 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
 
     class event_variable_t;
+    class field_t;
 
     // Event member.
     class event_t : public __named_member_t
@@ -3962,6 +4034,11 @@ namespace X_ROOT_NS::modules::core {
 
         method_t *      add_method      = nullptr;  // The add method when add a delegate.
         method_t *      remove_method   = nullptr;  // The rmove method when remove a delegate.
+        method_t *      raise_method    = nullptr;  // The raise method when the event is raised.
+
+        // The field that keeps the handlers (a MulticastDelegate), when the event has no accessors
+        // of its own (event Handler Changed;).
+        field_t *       field           = nullptr;
 
         event_variable_t * variable     = nullptr;  // The event variable.
 
@@ -4025,6 +4102,7 @@ namespace X_ROOT_NS::modules::core {
         type_name_t *   type_name   = nullptr;  // Interface type defined the event.
         expression_t *  init_value  = nullptr;  // Initialize default value.
         msize_t         offset      = unknown_msize;    // Offset in it's type.
+        bool            is_enum_item = false;   // It's an item of an enum: Red in enum Color { Red }.
 
         field_variable_t * variable = nullptr;  // Field variable.
 
@@ -4486,6 +4564,9 @@ namespace X_ROOT_NS::modules::core {
         class __transform_context_t;
         void __transform(__transform_context_t & tctx);
 
+        // Adds the fields that the template has and this type has not.
+        void __sync_fields(__transform_context_t & tctx);
+
         // Returns type of specified name.
         type_t * __type_at(general_type_t * template_, const type_collection_t & args,
                                                                 name_t name) const;
@@ -4694,6 +4775,10 @@ namespace X_ROOT_NS::modules::core {
         // Commits it.
         void commit(eobject_commit_context_t & ctx) override;
 
+        // Adds the fields that the template got after this type was committed: the fields of the
+        // state object of an iterator are made when the code of its method is analyzed.
+        void sync_template_fields();
+
         // Returns generic argument count.
         size_t argument_count() const _NE { return args.size(); }
 
@@ -4800,6 +4885,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns base type.
         virtual type_t * get_base_type() override { return base_type; }
+
+        // Returns a prototype name, such as Int32[,].
+        virtual string_t to_prototype() const override;
 
         // Returns member descripted by the args.
         virtual member_t * get_member(analyze_member_args_t & args) override;
@@ -5149,19 +5237,22 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.Ptr type.
         general_type_t * get_ptr_type();
 
+        // Returns System.Ptr<> type.
+        general_type_t * get_tptr_type();
+
         // Returns System.Delegate type.
         general_type_t * get_delegate_type();
 
         // Returns System.MulticastDelegate type.
         general_type_t * get_multicast_delegate_type();
 
-        // Returns System.Collections.Generic.List<> type.
+        // Returns System.Collections.List<> type.
         general_type_t * get_list_type();
 
-        // Returns System.Collections.Generic.IEnumerable<> type.
+        // Returns System.Collections.IEnumerable<> type.
         general_type_t * get_ienumerable_type();
 
-        // Returns System.Collections.Generic.IEnumerator<> type.
+        // Returns System.Collections.IEnumerator<> type.
         general_type_t * get_ienumerator_type();
 
         // Returns System.Exception type.
@@ -5178,6 +5269,15 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns System.Diagnostics.TraceAttribute type.
         general_type_t * get_trace_attribute_type();
+
+        // Returns System.Runtime.CompilerServices.ExtensionAttribute type, that marks the
+        // extension methods, the classes that have them and the assemblies that have the classes.
+        // It is null when the core assembly has not the type.
+        general_type_t * get_extension_attribute_type();
+
+        // Returns System.Runtime.CompilerServices.CompilerGeneratedAttribute type, that marks what
+        // the compiler makes.
+        general_type_t * get_compiler_generated_attribute_type();
 
         // Returns System.Reflection.ReflectionInfo type.
         general_type_t * get_reflection_info_type();
@@ -5258,6 +5358,7 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __type_type        = nullptr;
         general_type_t * __enum_type        = nullptr;
         general_type_t * __ptr_type         = nullptr;
+        general_type_t * __tptr_type        = nullptr;
         general_type_t * __delegate_type    = nullptr;
         general_type_t * __multicast_delegate_type = nullptr;
         general_type_t * __list_type        = nullptr;
@@ -5269,6 +5370,8 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __tuple_type       = nullptr;
         general_type_t * __ituple_type      = nullptr;
         general_type_t * __trace_attribute_type = nullptr;
+        general_type_t * __extension_attribute_type = nullptr;
+        general_type_t * __compiler_generated_attribute_type = nullptr;
 
         general_type_t * __reflection_info_type = nullptr;
         general_type_t * __assembly_type    = nullptr;
@@ -5728,11 +5831,9 @@ namespace X_ROOT_NS::modules::core {
         // Relation event.
         event_t * event = nullptr;
 
-        // Returns type of the event.
-        virtual type_t * get_type() override
-        {
-            return to_type(event->type_name);
-        }
+        // Returns type of the event: the type of the handlers that are kept, a list, when it
+        // has a field; the delegate type of it, when it is added or removed.
+        virtual type_t * get_type() override;
 
         // Returns vtype.
         virtual vtype_t get_vtype() override;
@@ -5747,7 +5848,7 @@ namespace X_ROOT_NS::modules::core {
         }
 
         // Returns whether it's a left value.
-        virtual bool is_lvalue() override { return false; }
+        virtual bool is_lvalue() override { return true; }
 
         // Converts to string.
         X_TO_STRING
@@ -6099,6 +6200,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Push a type.
         void push(type_t * type);
+
+        // Push a type that has the variable region of another part of it (a partial type).
+        void push(type_t * type, variable_region_t * region);
 
         // Push a method.
         void push(method_t * method);
@@ -6688,6 +6792,9 @@ namespace X_ROOT_NS::modules::core {
         // Assembly path.
         string_t         assembly_path;
 
+        // The files that are embedded in the assembly: name and path.
+        std::vector<std::pair<string_t, string_t>> resources;
+
         X_TO_STRING_IMPL(_T("ast_project_t"))
 
     private:
@@ -6782,6 +6889,11 @@ namespace X_ROOT_NS::modules::core {
         // is assigned: it is compiled as the value, without the assignment.
         expression_t * overload_assign_value = nullptr;
 
+        // The objects that the object initializers (new T { Name = value }) that are being compiled set
+        // the members of: each is in a temp local variable. The properties that are init only are set
+        // there.
+        std::vector<local_variable_t *> initializer_targets;
+
         // Relation statement context.
         operator statement_compile_context_t & () const
         {
@@ -6826,6 +6938,10 @@ namespace X_ROOT_NS::modules::core {
     
         default_ = __default__, ref, value,
 
+        // The value of a call that is an argument of another call: the place of it is made for it, as for
+        // value, but it is not copied to the destination of the caller of the method that the code is of.
+        argument,
+
     X_ENUM_END
 
     // Expression compile environment.
@@ -6865,6 +6981,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Converts to string.
         operator string_t() const;
+
+        // Returns whether the value of a call is wanted in a place that is made for it (value, argument).
+        bool is_value_mark() const _NE { return type_mark == type_mark_t::value || type_mark == type_mark_t::argument; }
 
         // Returns whether it's value type.
         bool is_value() const;
@@ -7287,6 +7406,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Type name.
         type_name_t  * type_name = nullptr;
+
+        // The cast that the analysis inserted for an implicit conversion of the types.
+        bool is_implicit = false;
 
         // Expression.
         expression_t * expression() const _NE { return exps[0]; }
@@ -7948,6 +8070,12 @@ namespace X_ROOT_NS::modules::core {
         type_name_t * type_name   = nullptr;        // Type name
         method_t    * constructor = nullptr;        // Constructor.
 
+        // The members that an object initializer sets (new T { Name = value }): the name and the
+        // value as they are written, and the assignments that are made of them, they are compiled
+        // after the constructor (the object is on the top of the stack, the target of them).
+        __vector_t<argument_t *>   inits;
+        __vector_t<expression_t *> init_assigns;
+
         virtual expression_family_t this_family() const override
         {
             return expression_family_t::new_;
@@ -8285,8 +8413,14 @@ namespace X_ROOT_NS::modules::core {
         // Set type.
         void set_type(type_t * type) { __type = type; }
 
+        // The object that an object initializer sets the members of: it is the object that is on the
+        // top of the stack (new T { Name = value }), its type is the one of the new expression.
+        void set_new_target(type_t * type) { __type = type; __new_target = true; }
+        bool is_new_target() const { return __new_target; }
+
     private:
         type_t * __type = nullptr;
+        bool     __new_target = false;
     };
 
     //-------- ---------- ---------- ---------- ----------

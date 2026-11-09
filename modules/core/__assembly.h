@@ -188,9 +188,17 @@ namespace X_ROOT_NS::modules::core {
     ////////// ////////// ////////// ////////// //////////
     // assembly_t
 
+    // A resource of an assembly: bytes that are embedded in it, found by the name.
+    struct assembly_resource_t
+    {
+        string_t                name;
+        std::vector<byte_t>     data;
+    };
+
     // Assembly.
     class assembly_t : public object_t
                      , public named_object_t, public no_copy_ctor_t
+                     , public with_attributes_object_t
     {
     public:
 
@@ -215,6 +223,9 @@ namespace X_ROOT_NS::modules::core {
         version_t   version;                        // Assembly version.
         method_t *  entry_point     = nullptr;      // Entry point.
         sid_t       information;                    // Information.
+
+        // The resources: files that are embedded in the assembly (Resource.GetBytes(name) reads them).
+        std::vector<assembly_resource_t> resources;
 
         // Returns whether the assembly has a entry point.
         bool has_entry_point() const { return entry_point != nullptr; }

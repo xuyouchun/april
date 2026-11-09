@@ -61,9 +61,12 @@ namespace X_ROOT_NS::modules::lang_cs {
         if (!__skip_whitespace())
             return nullptr;
 
-        // The token after is.
+        // The token after is, and after [.
         bool __after_is = __is_pending;
         __is_pending = false;
+
+        bool __after_square = __square_pending;
+        __square_pending = false;
 
         char_t c;
         token_data_t * d;
@@ -76,6 +79,21 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __Eqk(abstract);
                 __Eqk(as);
                 __Eqks(add, __Wt(k_add), __Wt(name));
+
+                // assembly is a keyword in [assembly: Attribute]: after [, and before :.
+                if (__after_square && __equals_keyword(__p, _S(assembly)))
+                {
+                    const char_t * q = __p + 7;
+                    while (al::is_whitespace(*q))
+                        q++;
+
+                    if (*q == _T(':'))
+                    {
+                        __p += 7;
+                        return __new_token(__Wt(k_assembly), p0, 8, nullptr);
+                    }
+                }
+
                 break;
 
             case _T('b'):
@@ -134,6 +152,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __Eqk(int);
                 __Eqk(interface);
                 __Eqk(internal);
+                __Eqks(init, __Wt(k_init), __Wt(name));
 
                 if (__equals_keyword(__p, _S(is)))
                 {
@@ -170,6 +189,24 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case _T('p'):
                 __Eqk(params);
+
+                // partial is a keyword only before class, struct, interface and void (a partial method).
+                if (__equals_keyword(__p, _S(partial)))
+                {
+                    const char_t * q = __p + 6;
+                    while (al::is_whitespace(*q))
+                        q++;
+
+                    if ((*q == _T('c') && __equals_keyword(q + 1, _S(class)))
+                        || (*q == _T('s') && __equals_keyword(q + 1, _S(struct)))
+                        || (*q == _T('i') && __equals_keyword(q + 1, _S(interface)))
+                        || (*q == _T('v') && __equals_keyword(q + 1, _S(void))))
+                    {
+                        __p += 6;
+                        return __new_token(__Wt(k_partial), p0, 7, nullptr);
+                    }
+                }
+
                 __Eqk(private);
                 __Eqk(protected);
                 __Eqk(public);
@@ -180,6 +217,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __Eqk(ref);
                 __Eqk(return);
                 __Eqks(remove, __Wt(k_remove), __Wt(name));
+                __Eqks(raise, __Wt(k_raise), __Wt(name));
                 break;
 
             case _T('s'):
@@ -236,6 +274,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                 return __Nw(right_bracket);
 
             case _T('['):   // [
+                __square_pending = true;
                 return __Nw(left_square);
 
             case _T(']'):   // ]
@@ -555,6 +594,21 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case _T('\''):  // char
                 return __Nw_(cvalue, __read_char());
+
+            case _T('`'):   // ``lq : the start of the code of an embedded language
+                if (*__p == _T('`') && is_name_prefix(__p[1]))
+                {
+                    const char_t * q = __p + 1;
+                    while (al::is_word(*q))
+                        q++;
+
+                    if (al::is_whitespace(*q))
+                    {
+                        __p = q;
+                        return __new_token(embed_token_value, p0, __p - p0, nullptr);
+                    }
+                }
+                break;
 
         }
 

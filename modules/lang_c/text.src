@@ -1,0 +1,36 @@
+#! tools/text2cpp.py
+
+//-------- ---------- ---------- ---------- ----------
+__pattern
+
+#----------------------------------------
+
+# The patterns of the language c are added to the patterns of the language cs: the statements, the expressions and the
+# type names are those of cs, with the syntax of the pointers.
+
+# The statement of the code of c: a statement, or a block { ... } of them.
+$c_stmt: $statement ;
+
+# The simple expression of cs has the pointers (the rule is changed where it is, see c_tree.cpp): *p, &x, and p->x (the
+# token -> is made by the token reader of c).
+
+# Pointer type name: int*, Point**, void* (the type name of cs has it, see c_tree.cpp). It is System.Ptr<T>, System.Ptr for void*,
+# one for each *.
+$c_pointer_type_name: ($general_type_name | $array_type_name) \*+ ;
+
+# The size of a type: sizeof(T), sizeof(int*). It is NativeMemory.SizeOf<T>().
+$c_sizeof: sizeof \( ($type_name | $c_pointer_type_name) \) ;
+
+# Memory that lives while the method runs: stackalloc T[n]. It is NativeMemory.StackAlloc<T>(n).
+$c_stackalloc: stackalloc ($type_name | $c_pointer_type_name) [ $expression ] ;
+
+# The value that a pointer points to: *p. The operand is what a unary operator of C takes: a simple expression (with its
+# members, indexes, calls, p++; it can be another *x or &x), or a cast: *p++ is *(p++), *(int*)p .
+$c_deref: \* ($_single_expression | $type_cast_exp) ;
+
+# The address of a variable, a field, an element: &x .
+$c_address: & $_single_expression ;
+
+# Root, entrypoint of code analyzer: the code of an embedded statement, <%c { ... } %> , ``c p = &x; .
+# The analyzer adds the token code_end after the code (see the root of lq).
+$: $c_stmt code_end? ;

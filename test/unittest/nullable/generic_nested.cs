@@ -7,7 +7,7 @@
 #nullable enable
 import System;
 using System;
-using System.Collections.Generic;
+using System.Collections;
 class Program {
   static List<String?> Make() { return new List<String?>(); }
   static void Take(String s) { }

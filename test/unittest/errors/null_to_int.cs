@@ -1,4 +1,4 @@
-/* EXPECT_ERROR Cannot implicitly convert */
+/* EXPECT_ERROR cannot implicitly convert */
 
 // null is converted to references and to T?, not to a number.
 

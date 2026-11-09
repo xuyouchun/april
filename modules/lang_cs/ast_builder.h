@@ -234,6 +234,26 @@ namespace X_ROOT_NS::modules::lang_cs {
     __SimpleBuilder(_attribute_group_assign)
 
     ////////// ////////// ////////// ////////// //////////
+    // new.__assign
+
+    __SimpleBuilder(new_assign)
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group
+
+    __SimpleBuilder(_assembly_group)
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group.__item
+
+    __SimpleBuilder(_assembly_group_item)
+
+    ////////// ////////// ////////// ////////// //////////
+    // _assembly_group.__assign
+
+    __SimpleBuilder(_assembly_group_assign)
+
+    ////////// ////////// ////////// ////////// //////////
     // _attribute_type_name
 
     __SimpleBuilder(_attribute_type_name)

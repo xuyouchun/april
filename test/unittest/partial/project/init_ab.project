@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<project>
+
+    <name>partial_init_ab</name>
+    <files>
+        <file><path>init_a.cs</path></file>
+        <file><path>init_b.cs</path></file>
+    </files>
+
+</project>

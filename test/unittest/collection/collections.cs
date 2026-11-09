@@ -1,4 +1,4 @@
-// Lists, stacks and queues of System.Collections.Generic, and foreach over them.
+// Lists, stacks and queues of System.Collections, and foreach over them.
 
 /* EXPECT
 
@@ -30,7 +30,7 @@ b
 import System;
 
 using System;
-using System.Collections.Generic;
+using System.Collections;
 
 class Program
 {

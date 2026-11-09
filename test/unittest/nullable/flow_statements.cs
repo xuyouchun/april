@@ -16,7 +16,7 @@ two
 #nullable enable
 import System;
 using System;
-using System.Collections.Generic;
+using System.Collections;
 class Node { public String? Name; public Node? Next; public int N;
   public String? Cached;
   public int Len() {
