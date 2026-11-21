@@ -1,5 +1,5 @@
 // System.Enum: the text of a value, Parse and TryParse (a name, a number, flags; the case), the class structure
-// (enums are Enums, structs are Structs and ValueTypes).
+// (enums are Enums and ValueTypes, structs are Structs and ValueTypes).
 
 /* EXPECT
 
@@ -8,8 +8,9 @@ parse Blue A10 3 Minus 7
 try False True Green False
 many 12 A0 A5 A11 A7
 flags Read, None
+generic Green Blue Red False Red
 error bad bad bad
-types True False True True True True
+types True True True True True True
 
 */
 
@@ -53,6 +54,11 @@ class Program
 
         Console.WriteLine("flags " + Enum.Parse(typeof(Mode), "Read") + ", "
                           + Enum.Parse(typeof(Mode), "none", true));
+
+        Color g1 = Enum.Parse<Color>("Green"), g2, g3;
+        Boolean g2ok = Enum.TryParse<Color>("blue", true, out g2);
+        Boolean g3ok = Enum.TryParse<Color>("x", out g3);
+        Console.WriteLine("generic " + g1 + " " + g2 + " " + Enum.Parse<Color>("red", true) + " " + g3ok + " " + g3);
 
         Int32 errors = 0;
         try { Enum.Parse(typeof(Color), "Nope"); } catch (ArgumentException e) { errors++; }

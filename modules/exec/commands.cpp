@@ -6955,6 +6955,85 @@ namespace X_ROOT_NS::modules::exec {
         bool        __is_string;
     };
 
+    // The command of (T)obj, T is a generic param whose argument is a number, an enum or a string: the value of the
+    // box is pushed (a string that is null is a null string); the one of a custom struct is copied to the destination
+    // that is below the object.
+    #define __GenericUnboxCmd   __Cmd(unbox, generic)
+    __DefineCmdValue_(__GenericUnboxCmd)
+
+    class __generic_unbox_command_t : public __command_base_t<__GenericUnboxCmd>
+    {
+        typedef __generic_unbox_command_t   __self_t;
+
+    public:
+        __generic_unbox_command_t(rt_type_t * type, size_t size, bool is_string, bool is_struct)
+            : __type(type), __size(size), __is_string(is_string), __is_struct(is_struct) { }
+
+        __BeginExecute(ctx)
+
+            rt_ref_t obj = ctx.stack.pop<rt_ref_t>();
+
+            if (__This->__is_string && obj == nullptr)
+            {
+                ctx.stack.push<void *>(nullptr);
+                return;
+            }
+
+            __CheckNullReference(ctx, obj);
+
+            if (__RtTypeOf(obj) != __This->__type)
+                __RaiseInvalidCastException(ctx);
+
+            if (__This->__is_struct)
+            {
+                void * dst = ctx.stack.pop<void *>();
+                al::quick_copy(dst, (void *)obj, __This->__size);
+                return;
+            }
+
+            switch (__This->__size)
+            {
+                case 1: ctx.stack.push<uint8_t>(*(uint8_t *)(void *)obj); break;
+                case 2: ctx.stack.push<uint16_t>(*(uint16_t *)(void *)obj); break;
+                case 4: ctx.stack.push<uint32_t>(*(uint32_t *)(void *)obj); break;
+                default: ctx.stack.push<uint64_t>(*(uint64_t *)(void *)obj); break;
+            }
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("unbox generic"));
+
+        #endif  // EXEC_TRACE
+
+    private:
+        rt_type_t * __type;
+        size_t      __size;
+        bool        __is_string;
+        bool        __is_struct;
+    };
+
+    struct __generic_unbox_command_template_t
+    {
+        template<command_value_t _cv, typename ... _args_t>
+        static auto new_command(memory_t * memory, rt_type_t * type, size_t size, bool is_string, bool is_struct)
+        {
+            return __new_command<__generic_unbox_command_t>(memory, type, size, is_string, is_struct);
+        }
+    };
+
+    static command_t * __get_generic_unbox_command(rt_type_t * type, size_t size, bool is_string, bool is_struct)
+    {
+        static __command_manager_t<
+            __generic_unbox_command_template_t
+        >::with_args_t<rt_type_t *, size_t, bool, bool> __generic_unbox_command_manager;
+
+        return __generic_unbox_command_manager.template get_command<__GenericUnboxCmd>(
+            type, size, is_string, is_struct
+        );
+    }
+
     struct __generic_box_command_template_t
     {
         template<command_value_t _cv, typename ... _args_t>
@@ -7082,6 +7161,19 @@ namespace X_ROOT_NS::modules::exec {
 
                     return __get_generic_box_command(
                         type, size, type->get_vtype(ctx.env) == vtype_t::string_
+                    );
+                }
+
+                // (T)obj: a reference is the object (it was checked by the cast).
+                if (kind == xil_copy_kind_t::unbox)
+                {
+                    bool is_string = type->get_vtype(ctx.env) == vtype_t::string_;
+
+                    if (is_ref_type(type->get_ttype(ctx.env)) && !is_string)
+                        __ReturnInstance(__empty_command_t);
+
+                    return __get_generic_unbox_command(
+                        type, size, is_string, is_custom_struct(ctx.env, type)
                     );
                 }
 

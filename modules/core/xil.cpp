@@ -501,6 +501,8 @@ namespace X_ROOT_NS::modules::core {
 
         X_C(store,          _T("store"))
 
+        X_C(unbox,          _T("unbox"))
+
     X_ENUM_INFO_END
 
     //-------- ---------- ---------- ---------- ----------

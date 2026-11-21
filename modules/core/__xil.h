@@ -437,6 +437,10 @@ namespace X_ROOT_NS::modules::core {
                                         //   below the value in the stack; if the generic param is a
                                         //   custom struct, the call has written it, nothing is done.
 
+        unbox           = 8,            // The object on the top is made the value of the generic param
+                                        //   (T)obj: a reference is kept, a number, an enum and a string are
+                                        //   loaded, a custom struct is copied to the destination below.
+
     __EnumEnd
 
     //-------- ---------- ---------- ---------- ----------

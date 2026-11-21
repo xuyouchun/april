@@ -140,8 +140,15 @@ namespace X_ROOT_NS::modules::compile {
                 type_cast_expression_t * cast = (type_cast_expression_t *)exp;
                 type_t * to = cast->get_type();
 
-                return is_generic_param(to) && cast->expression() != nullptr
-                    && find_user_conversion(cast->expression()->get_type(), to, !cast->is_implicit, false) != nullptr;
+                if (!is_generic_param(to) || cast->expression() == nullptr)
+                    return false;
+
+                // (T)obj: the value that the object is (see the cast of a generic param).
+                type_t * from = cast->expression()->get_type();
+                if (from != nullptr && is_ref_type(from) && !is_generic_param(from))
+                    return true;
+
+                return find_user_conversion(from, to, !cast->is_implicit, false) != nullptr;
             }
 
             default:
@@ -5165,6 +5172,17 @@ namespace X_ROOT_NS::modules::compile {
             // The destination, that is below, takes the value like the other structs.
             __push_variable_address(ctx, pool, temp);
             pool.append<x_object_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::reverse);
+            return;
+        }
+
+        // (T)obj, T is a generic param: the value that the object is, or the object itself when T is a reference.
+        if (is_generic_param(type) && is_ref_type(exp_type) && !is_generic_param(exp_type))
+        {
+            exp->compile(ctx, pool);
+            pool.append<x_cast_xil_t>(xil_cast_command_t::default_, __ref_of(ctx, type));
+            pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::unbox);
+
+            __post_compile_expression(ctx, pool, this, env);
             return;
         }
 

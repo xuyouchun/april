@@ -3496,6 +3496,49 @@ namespace X_ROOT_NS::modules::native {
                             break;
                         }
 
+                        // (T)obj: a reference is the object (it was checked by the cast), a value is loaded
+                        // from the box (a string that is null is null), a struct is copied to the
+                        // destination below.
+                        if (copy->copy_kind() == xil_copy_kind_t::unbox)
+                        {
+                            bool is_string = type->get_vtype(__env) == vtype_t::string_;
+                            if (is_ref_type(type->get_ttype(__env)) && !is_string)
+                                break;
+
+                            std::string ll = __ll_type_of(type);
+                            llb::value_t obj = pop_value("unbox source");
+                            if (obj.type != "ptr")
+                                throw _ED(__e_t::bad_stack, fn.display, _T("unbox of a non reference"));
+
+                            if (is_string)
+                            {
+                                llb::value_t is_null = f.icmp("eq", obj, llb::const_null());
+                                llb::value_t value = f.load("ptr", obj);
+                                stack.push_back(f.select(is_null, llb::const_null(), value));
+                                break;
+                            }
+
+                            llb::value_t key { llb::types::ptr,
+                                "@april.iface." + std::to_string(__interface_index(type)) };
+                            __uses_cast = true;
+                            raise_if_null(obj);
+                            checked_cast(obj, key);
+
+                            if (ll[0] == '[')
+                            {
+                                llb::value_t dst = pop_value("unbox destination");
+                                __uses_memcpy = true;
+                                f.call("void", "llvm.memcpy.p0.p0.i64", { dst, obj,
+                                    llb::const_int("i64", (int64_t)type_size), llb::const_bool(false) });
+                            }
+                            else
+                            {
+                                stack.push_back(f.load(ll, obj));
+                            }
+
+                            break;
+                        }
+
                         // The object at the address is made an object: a reference is loaded, a
                         // value is boxed.
                         if (copy->copy_kind() == xil_copy_kind_t::box)

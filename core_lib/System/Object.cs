@@ -114,6 +114,27 @@ public class Enum : ValueType
     public static Boolean TryParse(Type enumType, String text, out Object? result)
         => TryParse(enumType, text, false, out result);
 
+    // Parses the text to the enum T.
+    public static T Parse<T>(String text, Boolean ignoreCase) => (T)Parse(typeof(T), text, ignoreCase);
+
+    public static T Parse<T>(String text) => (T)Parse(typeof(T), text, false);
+
+    // Parses the text to the enum T, returns whether it is a value of it.
+    public static Boolean TryParse<T>(String text, Boolean ignoreCase, out T result)
+    {
+        Object? value = __Parse(typeof(T), text, ignoreCase);
+        if (value == null)
+        {
+            result = default(T);
+            return false;
+        }
+
+        result = (T)value;
+        return true;
+    }
+
+    public static Boolean TryParse<T>(String text, out T result) => TryParse<T>(text, false, out result);
+
     private static Object? __Parse(Type enumType, String text, Boolean ignoreCase)
     {
         if (enumType == null || !enumType.IsEnum || text == null)
