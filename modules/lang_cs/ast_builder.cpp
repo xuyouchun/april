@@ -1855,6 +1855,10 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         switch (token->value)
         {
+            case __TokenValue(k_lock):
+                __This->set_lock();
+                break;
+
             case __TokenValue(name):
                 __This->set_variable(this->__to_name(token), token);
                 break;
@@ -2589,6 +2593,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case __TokenValue(k_partial):
                 __This->set_partial(token);
+                break;
+
+            // Accepted, it has no effect: one managed thread runs at a time.
+            case __TokenValue(k_volatile):
                 break;
         }
     }

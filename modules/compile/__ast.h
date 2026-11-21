@@ -910,6 +910,9 @@ namespace X_ROOT_NS::modules::compile {
         // The type of the variable of a using statement has no Dispose().
         using_type_not_disposable = 5105,
 
+        // The expression of a lock statement is not a reference.
+        lock_type_not_reference = 5106,
+
         // ---- AP5200 - AP5299: lambdas and iterators.
 
         // A lambda is only in a method.
@@ -3889,6 +3892,9 @@ namespace X_ROOT_NS::modules::compile {
         // Sets variable.
         void set_variable(name_t name, __el_t * el);
 
+        // Makes this a lock statement: lock (obj) { ... } .
+        void set_lock() { __is_lock = true; }
+
         // Makes this a using declaration: using T obj = ...; , the group has the statements that
         // follow it in the block.
         void set_declaration(ast_node_t * group);
@@ -3906,12 +3912,16 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
+        bool                __is_lock = false;
         ast_node_t *        __declaration_group = nullptr;
         variable_region_t * __region = nullptr;     // The region of the variable.
         local_variable_t *  __variable = nullptr;   // The variable.
 
         // Walks the analysis step: makes the statements.
         bool __walk_analysis(ast_walk_context_t & context);
+
+        // Walks the analysis step of a lock statement.
+        bool __walk_analysis_lock(ast_walk_context_t & context, expression_t * assign, type_t * variable_type);
     };
 
     ////////// ////////// ////////// ////////// //////////

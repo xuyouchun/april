@@ -202,6 +202,7 @@ the others are errors.
 | AP5103 | error | `method_incompatible_return_value` | method "%1%": incompatible return type |
 | AP5104 | error | `for_each_type_not_supported` | "foreach" is not supported for type "%1%" |
 | AP5105 | error | `using_type_not_disposable` | "using" requires a type with Dispose(): "%1%" |
+| AP5106 | error | `lock_type_not_reference` | "lock" requires a reference: "%1%" |
 | AP5200 | error | `lambda_outside_method` | a lambda can only be used in a method |
 | AP5201 | error | `lambda_type_undetermined` | the type of the lambda cannot be determined, it is not converted to a delegate |
 | AP5202 | error | `lambda_capture_not_supported` | a lambda that uses local variables is not supported: %1% |

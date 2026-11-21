@@ -26,6 +26,10 @@
         </file>
 
         <file>
+            <path>Threading/*.cs</path>
+        </file>
+
+        <file>
             <path>Linq/*.cs</path>
         </file>
 

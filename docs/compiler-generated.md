@@ -75,6 +75,22 @@ of a tuple of a params generic parameter as the arguments of a call).
 * The tuple that keeps the items of a params generic parameter cannot have items that are custom
   structs in the native back end.
 
+## The lock statement, volatile, and the delegates of threads
+
+`lock (obj) body` is made by the compiler as the using statement is (a hidden variable that keeps the object, so it is
+evaluated once):
+
+    { variable = obj; System.Threading.Monitor.Enter(variable); try { body } finally { System.Threading.Monitor.Exit(variable); } }
+
+`obj` is a reference (`AP5106` otherwise). The lock is released by `return`, `break`, `continue`, `goto` and exceptions.
+The `Monitor` of the core library needs `System.Threading.Monitor.Enter(Object)` and `Exit(Object)`.
+
+`volatile` is accepted as a modifier of fields and ignored: one managed thread runs at a time (the global lock of the
+plan of System.Threading), and the thread switches only at the safepoints, so every read sees the last write.
+
+The delegates of the threads are the ones that the language has, there is no type for each of them:
+`ThreadStart` is `Delegate<Void>`, `ParameterizedThreadStart` is `Delegate<Void, Object>`.
+
 ## The temporary variables
 
 The temporaries of an expression (the struct that a property or a call returns and whose member is

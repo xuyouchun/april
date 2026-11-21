@@ -121,13 +121,13 @@ $using: using (name =)? $mname \; ;
 # Multipy name: System.Text.StringBuilder .
 $mname: name ( . name ) * ;
 
-# Decorates of type or members.
+# Decorates of type or members. volatile is accepted and ignored: one managed thread runs at a time.
 $decorate: 
     (
       ($__complex: protected internal | internal protected | private protected | protected private)
       | public | private | protected | internal
       | static | sealed | abstract | readonly | const | new | abstract | override | virtual | extern
-      | partial
+      | partial | volatile
     )*
 ;
 
@@ -335,10 +335,13 @@ $for_each_st:
 # of the block, the statements that follow the declaration are the body. The object does not need
 # a variable: using (new DisposableObject()) { ... } , using new DisposableObject(); .
 $using_st:
-    using
     (
-        \( ($type_name name = $expression | $expression) \) $statement
-      | ($type_name name = $expression | $expression) \;
+        using
+        (
+            \( ($type_name name = $expression | $expression) \) $statement
+          | ($type_name name = $expression | $expression) \;
+        )
+      | lock \( $expression \) $statement
     )
 ;
 

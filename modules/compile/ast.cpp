@@ -671,6 +671,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // The type of the variable of a using statement has no Dispose().
         X_D(using_type_not_disposable, _T("\"using\" requires a type with Dispose(): \"%1%\""))
+        X_D(lock_type_not_reference, _T("\"lock\" requires a reference: \"%1%\""))
 
         // ---- AP5200 - AP5299: lambdas and iterators.
 
@@ -6615,6 +6616,10 @@ namespace X_ROOT_NS::modules::compile {
 
         walk_expression(this->__context, context, assign);
 
+        // lock (obj) body: { variable = obj; Monitor.Enter(variable); try { body } finally { Monitor.Exit(variable); } }
+        if (__is_lock)
+            return __walk_analysis_lock(context, assign, variable_type);
+
         statement_t * protected_body = this->__make_dispose_try(context, __variable,
                                                                 variable_type, this->body);
         if (protected_body == nullptr)
@@ -6626,6 +6631,60 @@ namespace X_ROOT_NS::modules::compile {
         statement_group_t * lowered = __new_obj<statement_group_t>();
         lowered->variable_region = __region;
         lowered->push_back(__new_obj<expression_statement_t>(assign));
+        lowered->push_back(protected_body);
+
+        this->lowered = lowered;
+        return true;
+    }
+
+    // Walks the analysis step of a lock statement.
+    bool using_st_ast_node_t::__walk_analysis_lock(ast_walk_context_t & context, expression_t * assign,
+                                                   type_t * variable_type)
+    {
+        if (!is_ref_type(variable_type) || variable_type->this_gtype() == gtype_t::null)
+        {
+            this->__log(this, __c_t::lock_type_not_reference, variable_type);
+            return true;
+        }
+
+        general_type_t * monitor = __XPool.get_monitor_type();
+        method_t * enter = nullptr, * exit = nullptr;
+
+        for (method_t * m : monitor->methods)
+        {
+            if (m->name == __to_name(_T("Enter")) && m->param_count() == 1)
+                enter = m;
+            else if (m->name == __to_name(_T("Exit")) && m->param_count() == 1)
+                exit = m;
+        }
+
+        if (enter == nullptr || exit == nullptr)
+        {
+            this->__log(this, __c_t::invalid_expression, this->initializer);
+            return true;
+        }
+
+        auto make_call = [&](method_t * method) -> statement_t * {
+            argument_t * argument = __new_obj<argument_t>();
+            argument->expression = __new_obj<system_expression_t<name_expression_t>>(__variable->get_name());
+            walk_expression(this->__context, context, argument->expression);
+
+            arguments_t * arguments = __new_obj<arguments_t>();
+            arguments->push_back(argument);
+
+            expression_t * call = __new_system_expression<function_expression_t>(method, arguments);
+            walk_expression(this->__context, context, call);
+
+            return __new_obj<expression_statement_t>(call);
+        };
+
+        statement_t * enter_statement = make_call(enter);
+        statement_t * protected_body = __new_obj<try_statement_t>(this->body, make_call(exit));
+
+        statement_group_t * lowered = __new_obj<statement_group_t>();
+        lowered->variable_region = __region;
+        lowered->push_back(__new_obj<expression_statement_t>(assign));
+        lowered->push_back(enter_statement);
         lowered->push_back(protected_body);
 
         this->lowered = lowered;
