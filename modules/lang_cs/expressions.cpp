@@ -59,8 +59,13 @@ namespace X_ROOT_NS::modules::lang_cs {
         // Numbers of different types: both branches are converted to the type of the
         // whole expression.
         type_t * result_type = __numeric_result_type(value1(), value2());
-        __environment_t branch_env = result_type != nullptr? __environment_t(result_type)
-                                                           : env;
+        // A generic param: the value of each branch is in the stack (a variable is loaded, a call returns it, default(T) is
+        // read), like the value that a method returns.
+        type_t * generic_type = this->get_type();
+        bool generic_value = generic_type != nullptr && is_generic_param(generic_type);
+
+        __environment_t branch_env = generic_value? __environment_t(generic_type, false)
+                                   : result_type != nullptr? __environment_t(result_type) : env;
 
         if (value1_effective || value2_effective)
         {

@@ -101,6 +101,10 @@ namespace X_ROOT_NS::modules::compile {
         if (exp == nullptr)
             return false;
 
+        // c? a : b: its value is in the stack, the branches are loaded or called.
+        if (exp->is_condition())
+            return true;
+
         switch (exp->this_family())
         {
             case expression_family_t::function:
@@ -535,8 +539,12 @@ namespace X_ROOT_NS::modules::compile {
         type_t * host_type = field->host_type;
         __FailedWhenNull(host_type, "static field '%1%' has no host type", field);
 
+        // [ThreadStatic]: each thread has its own copy of the static fields of the type (the data of the other fields of
+        // the type are in the copies too, they are not used: the shared ones are in the object of the others).
         pool.append<x_push_object_xil_t>(
-            xil_storage_object_type_t::static_data, __ref_of(ctx, host_type)
+            is_thread_static_field(field)? xil_storage_object_type_t::thread_static_data
+                                         : xil_storage_object_type_t::static_data,
+            __ref_of(ctx, host_type)
         );
     }
 
@@ -2384,7 +2392,7 @@ namespace X_ROOT_NS::modules::compile {
                 }
 
                 function_expression_t * call = as<function_expression_t *>(binary->exp2());
-                if (call == nullptr || call->get_method() == nullptr)
+                if (call == nullptr || call->get_ftype() != function_expression_type_t::method || call->get_method() == nullptr)
                     return false;
 
                 method_base_t * method = call->get_method();
@@ -4996,6 +5004,21 @@ namespace X_ROOT_NS::modules::compile {
 
         // A struct result needs a place to be written.
         __pre_call_method(ctx, pool, this, method->get_type());
+
+        // obj.Field(args): the object that has the field is pushed first, the delegate is read from it.
+        if (__is_right_member(this->parent, this))
+        {
+            type_t * host_type = nullptr;
+            if (variable->this_type() == variable_type_t::field)
+                host_type = ((field_variable_t *)variable)->field->host_type;
+
+            expression_t * exp1 = ((binary_expression_t *)this->parent)->exp1();
+
+            if (host_type != nullptr)
+                exp1->compile(ctx, pool, host_type);
+            else
+                exp1->compile(ctx, pool);
+        }
 
         __compile_variable(ctx, pool, variable, xil_type_t::ptr, this);
 

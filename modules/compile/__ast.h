@@ -879,6 +879,9 @@ namespace X_ROOT_NS::modules::compile {
         // A variable that is not a delegate is called.
         variable_not_callable = 3216,
 
+        // A property that holds a delegate is called: obj.Property(args).
+        property_not_callable = 3217,
+
         // ---- AP3300 - AP3399: assemblies.
 
         // A reference of itself.

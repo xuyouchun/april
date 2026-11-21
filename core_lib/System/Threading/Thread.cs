@@ -147,6 +147,19 @@ public sealed class Thread
         Internal.Thread_Yield();
     }
 
+    // The thread that is running waits in a loop of some iterations (the other threads can take their turn in the loop).
+    public static Void SpinWait(Int32 iterations)
+    {
+        for (Int32 k = 0; k < iterations; k++)
+        {
+        }
+    }
+
+    // A barrier of the memory: the threads see the operations in order, nothing to do.
+    public static Void MemoryBarrier()
+    {
+    }
+
     private Void __Start(Object? parameter)
     {
         if (__started)

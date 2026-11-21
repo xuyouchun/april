@@ -181,6 +181,7 @@ the others are errors.
 | AP3214 | error | `unexpected_symbol` | unexpected symbol "%1%" |
 | AP3215 | error | `attribute_named_argument_not_found` | attribute "%1%" has no field or property "%2%" to assign |
 | AP3216 | error | `variable_not_callable` | "%1%" is of the type "%2%", it is not a delegate and cannot be called |
+| AP3217 | error | `property_not_callable` | the delegate of the property "%1%" cannot be called: read it into a variable first |
 | AP3230 | error | `type_not_found` | type "%1%" is not found |
 | AP3231 | error | `label_not_found` | label "%1%" is not found |
 | AP3300 | error | `assembly_reference_itself` | assembly "%1%" references itself |

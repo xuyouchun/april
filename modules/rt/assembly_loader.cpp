@@ -404,6 +404,24 @@ namespace X_ROOT_NS::modules::rt {
             return __loader.get_entry_point();
         }
 
+        // The static constructors of the types that are not generic.
+        virtual void each_static_constructor(const std::function<void (ref_t)> & f) override
+        {
+            auto & methods = __mt_manager<__tidx_t::method>();
+
+            for (int index = 0, count = methods.count(); index < count; index++)
+            {
+                if (methods[index].trait != method_trait_t::static_constructor)
+                    continue;
+
+                ref_t ref((uint32_t)index, 1, (int32_t)mt_member_extra_t::internal);
+
+                rt_general_type_t * host = get_host_by_method_ref(ref);
+                if (host != nullptr && !host->is_generic_template())
+                    f(ref);
+            }
+        }
+
         // Gets method body.
         virtual rt_bytes_t get_method_body(rt_method_t * method) override
         {

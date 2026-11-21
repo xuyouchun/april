@@ -242,6 +242,27 @@ namespace X_ROOT_NS::modules::exec {
         return obj;
     }
 
+    // Returns the object that holds the thread static fields of the type for the running thread.
+    rt_ref_t executor_env_t::thread_static_data_of(rt_type_t * type)
+    {
+        rtlib::thread_t * thread = rtlib::thread_manager_t::instance().current();
+        int64_t id = thread != nullptr? thread->id() : 1;
+
+        auto key = std::make_pair(id, type);
+
+        auto it = __thread_static_map.find(key);
+        if (it != __thread_static_map.end())
+            return it->second;
+
+        _A(static_heap != nullptr);
+
+        type->pre_new(*this);
+        rt_ref_t obj = static_heap->new_obj(type);
+        __thread_static_map[key] = obj;
+
+        return obj;
+    }
+
     // Gets exec_method_t from cache, returns nullptr if not found.
     exec_method_t * executor_env_t::__from_cache(void * method)
     {
@@ -326,10 +347,34 @@ namespace X_ROOT_NS::modules::exec {
 
         command_creating_context_t creating_ctx(env, main_assembly, host_type, entry_point);
 
-        command_t * commands[] = {
-            new_static_call_command(creating_ctx,  (*main_assembly)->entry_point),
-            new_end_command(),
+        // The static constructors of the libraries (the assemblies that are not the main one) run first: the main assembly
+        // calls its own at the beginning of its entry point.
+        std::vector<command_t *> commands;
+
+        auto add_static_constructors = [&](rt_assembly_t * assembly) {
+            if (assembly == main_assembly)
+                return;
+
+            assembly->each_static_constructor([&](ref_t ref) {
+                rt_general_type_t * host = assembly->get_host_by_method_ref(ref);
+                rt_method_t * method = assembly->get_method(ref);
+
+                command_creating_context_t ctor_ctx(env, assembly, host, method);
+                commands.push_back(new_static_call_command(ctor_ctx, ref));
+            });
         };
+
+        // The core library first: the others use it.
+        add_static_constructors(env.get_core_assembly());
+
+        for (int k = 0; k < env.assemblies.count(); k++)
+        {
+            if (env.assemblies.at(k) != env.get_core_assembly())
+                add_static_constructors(env.assemblies.at(k));
+        }
+
+        commands.push_back(new_static_call_command(creating_ctx, (*main_assembly)->entry_point));
+        commands.push_back(new_end_command());
 
         // Lets the gc tell which parts of objects hold references.
         gc_type_resolver_scope_t gc_resolver_scope(__ctx.heap, env);
@@ -346,7 +391,7 @@ namespace X_ROOT_NS::modules::exec {
         threads.set_host(&thread_host);
 
         command_execute_context_t exec_ctx(__ctx.heap, env);
-        execute_commands(exec_ctx, commands);
+        execute_commands(exec_ctx, commands.data());
 
         // The program ends when the threads that are not in the background end.
         if (!exec_ctx.unhandled)

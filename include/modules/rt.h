@@ -2077,6 +2077,10 @@ namespace X_ROOT_NS::modules::rt {
         // Gets entity point.
         virtual rt_method_t * get_entry_point() = 0;
 
+        // Calls the function for the ref of each static constructor of the assembly (of the types that are not generic): the
+        // program runs them of the libraries at its beginning, those of the main assembly are called by its entry point.
+        virtual void each_static_constructor(const std::function<void (ref_t)> & f) = 0;
+
         // Gets method body.
         virtual rt_bytes_t get_method_body(rt_method_t * method) = 0;
 

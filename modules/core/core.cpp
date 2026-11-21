@@ -7524,6 +7524,32 @@ namespace X_ROOT_NS::modules::core {
         );
     }
 
+    // Returns System.ThreadStaticAttribute type.
+    general_type_t * xpool_t::get_thread_static_attribute_type()
+    {
+        if (__thread_static_attribute_type == nullptr)
+        {
+            auto it = __new_system_type_dict.find(
+                spool.to_sid(__CoreTypeName(CoreType_ThreadStaticAttribute))
+            );
+
+            if (it != __new_system_type_dict.end())
+                __thread_static_attribute_type = it->second;
+        }
+
+        return __thread_static_attribute_type;
+    }
+
+    // Returns whether the field is a static field that each thread has its own copy of ([ThreadStatic]).
+    bool is_thread_static_field(field_t * field)
+    {
+        if (field == nullptr || !field->is_static() || field->is_const())
+            return false;
+
+        general_type_t * attribute_type = __XPool.get_thread_static_attribute_type();
+        return attribute_type != nullptr && field->has_attribute(attribute_type);
+    }
+
     // Returns System.Runtime.CompilerServices.ExtensionAttribute type.
     general_type_t * xpool_t::get_extension_attribute_type()
     {

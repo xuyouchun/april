@@ -820,6 +820,9 @@ namespace X_ROOT_NS::modules::core {
         // The object that holds the static fields of a type (the type ref is the xil ref).
         static_data,
 
+        // The object that holds the static fields of a type that each thread has its own copy of ([ThreadStatic]).
+        thread_static_data,
+
     __EnumEnd
 
     #define XIL_CALLING_BOTTOM_IDENTITY        65535U

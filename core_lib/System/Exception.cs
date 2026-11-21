@@ -161,3 +161,33 @@ public class NotSupportedException : SystemException
 
     public NotSupportedException(String? message) : base(message) { }
 }
+
+////////// ////////// ////////// ////////// //////////
+
+// OperationCanceledException: an operation was canceled (see System.Threading.CancellationToken).
+public class OperationCanceledException : SystemException
+{
+    public OperationCanceledException() { }
+
+    public OperationCanceledException(String? message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// ObjectDisposedException: an object that was disposed is used.
+public class ObjectDisposedException : InvalidOperationException
+{
+    public ObjectDisposedException() { }
+
+    public ObjectDisposedException(String? message) : base(message) { }
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// TimeoutException: the time of an operation is over.
+public class TimeoutException : SystemException
+{
+    public TimeoutException() { }
+
+    public TimeoutException(String? message) : base(message) { }
+}

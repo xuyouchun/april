@@ -1802,6 +1802,33 @@ namespace X_ROOT_NS::modules::exec {
     #define __PushObjectCmd  __Cmd(push, object)
     __DefineCmdValue_(__PushObjectCmd)
 
+    // Pushes the object that holds the thread static fields of a type, for the running thread.
+    #define __PushThreadStaticCmd  __Cmd(push, thread_static)
+    __DefineCmdValue_(__PushThreadStaticCmd)
+
+    class __push_thread_static_command_t : public __command_base_t<__PushThreadStaticCmd>
+    {
+        typedef __push_thread_static_command_t __self_t;
+
+    public:
+        __push_thread_static_command_t(rt_type_t * type) : __type(type) { }
+
+        __BeginExecute(ctx)
+
+            ctx.stack.push((void *)ctx.env.thread_static_data_of(__This->__type));
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("push thread static"))
+
+        #endif  // EXEC_TRACE
+
+    private:
+        rt_type_t * __type;
+    };
+
     class __push_object_command_t : public __command_base_t<__PushObjectCmd>
     {
         typedef __push_object_command_t __self_t;
@@ -1938,6 +1965,16 @@ namespace X_ROOT_NS::modules::exec {
                 *out_name = type->get_name(ctx.env);
                 #endif
                 object = (rt_object_t *)(void *)ctx.env.static_data_of(type);
+            }   break;
+
+            // The object of a thread is not known when the commands are made: the command asks it each time, the object
+            // that is given here is the type.
+            case xil_storage_object_type_t::thread_static_data: {
+                rt_type_t * type = __instance_of_template(ctx, ctx.get_type(ref));
+                #if EXEC_TRACE
+                *out_name = type->get_name(ctx.env);
+                #endif
+                object = (rt_object_t *)(void *)type;
             }   break;
 
             default:
@@ -2242,6 +2279,9 @@ namespace X_ROOT_NS::modules::exec {
             }
 
             case xil_storage_type_t::object: {       // Push object command.
+
+                if (args.object.type == xil_storage_object_type_t::thread_static_data)
+                    return __new_command<__push_thread_static_command_t>(&__command_heap, (rt_type_t *)(void *)args.object.object);
 
                 static __command_manager_t<
                     __push_object_template_t

@@ -452,6 +452,7 @@ namespace X_ROOT_NS::modules::native {
             bool                                       __uses_reflection = false;
             bool                                       __uses_field_access = false;
             bool                                       __uses_enum_number = false;
+            bool                                       __uses_thread_static = false;
             bool                                       __uses_poll = false;        // The jumps that go back are safepoints.
             bool                                       __uses_thread_start = false;
 
@@ -581,6 +582,8 @@ namespace X_ROOT_NS::modules::native {
 
             // Emits `main` and the initializer of the library functions.
             void __emit_main(__fn_t & entry);
+
+            std::vector<__fn_t *>                      __static_constructors;      // Of the libraries, run before the entry point.
 
             // The name of the global that holds a library function pointer.
             static std::string __libfunc_global(const std::string & name)
@@ -2101,6 +2104,25 @@ namespace X_ROOT_NS::modules::native {
 
                                     stack.push_back(f.load("ptr",
                                         llb::value_t { llb::types::ptr, "@" + sit->second.global }));
+                                    break;
+                                }
+
+                                // The static data of a thread: the runtime keeps the objects of the threads.
+                                if (push->get_object_type() == xil_storage_object_type_t::thread_static_data)
+                                {
+                                    rt_type_t * data_type = analyzer.get_type(push->get_ref());
+                                    if (data_type == nullptr)
+                                        throw _ED(__e_t::unsupported_type, _T("(thread static data type)"));
+
+                                    data_type = __current_instance_of(data_type, host_type, analyzer);
+                                    data_type->pre_new(__env);
+
+                                    __uses_thread_static = true;
+
+                                    stack.push_back(f.call("ptr", APRIL_NATIVE_SYM_THREAD_STATIC, {
+                                        llb::const_int("i64", (int64_t)data_type->get_size(__env)),
+                                        llb::value_t { llb::types::ptr, "@" + __descriptor_of(data_type) }
+                                    }));
                                     break;
                                 }
 
@@ -5719,6 +5741,9 @@ namespace X_ROOT_NS::modules::native {
             if (__uses_poll)
                 __module.declare(APRIL_NATIVE_SYM_SAFEPOINT, "void", { });
 
+            if (__uses_thread_static)
+                __module.declare(APRIL_NATIVE_SYM_THREAD_STATIC, "ptr", { "i64", "ptr" });
+
             if (__uses_thread_start)
                 __module.declare(APRIL_NATIVE_SYM_THREAD_START, "i64", { "ptr", "ptr", "i8" });
 
@@ -5863,6 +5888,9 @@ namespace X_ROOT_NS::modules::native {
                 main_f.call("void", APRIL_NATIVE_SYM_ADD_ROOT, { slot });
             }
 
+            for (__fn_t * ctor : __static_constructors)
+                main_f.call("void", ctor->name, { });
+
             main_f.call("void", entry.name, { });
 
             // An exception that nothing caught.
@@ -5900,6 +5928,32 @@ namespace X_ROOT_NS::modules::native {
 
             entry->queued = true;
             __queue.push_back(entry);
+
+            // The static constructors of the libraries run before the entry point (the main assembly calls its own at the
+            // beginning of the entry point): the core library first, the others use it.
+            auto add_static_constructors = [&](rt_assembly_t * assembly) {
+                if (assembly == main_assembly)
+                    return;
+
+                assembly->each_static_constructor([&](ref_t ref) {
+                    __fn_t * ctor = __function_of(assembly->get_method(ref));
+                    if (!ctor->queued)
+                    {
+                        ctor->queued = true;
+                        __queue.push_back(ctor);
+                    }
+
+                    __static_constructors.push_back(ctor);
+                });
+            };
+
+            add_static_constructors(__env.get_core_assembly());
+
+            for (int k = 0; k < __env.assemblies.count(); k++)
+            {
+                if (__env.assemblies.at(k) != __env.get_core_assembly())
+                    add_static_constructors(__env.assemblies.at(k));
+            }
 
             // The functions that the queue got since `from` have the origin: only Method.Invoke
             // needs them.

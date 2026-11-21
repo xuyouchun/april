@@ -28,6 +28,8 @@ namespace X_ROOT_NS::modules::lang_cs {
             return expression_family_t::__unknown__;
         }
 
+        virtual bool is_condition() const override { return true; }
+
         virtual vtype_t get_vtype() const override;
         virtual type_t * get_type() const override;
 

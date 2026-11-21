@@ -99,6 +99,7 @@ namespace X_ROOT_NS::modules::core {
     // Attributes.
     #define CoreType_TraceAttribute     _T("Diagnostics.TraceAttribute")
     #define CoreType_ExtensionAttribute _T("Runtime.CompilerServices.ExtensionAttribute")
+    #define CoreType_ThreadStaticAttribute _T("ThreadStaticAttribute")
     #define CoreType_CompilerGeneratedAttribute                                 _T("Runtime.CompilerServices.CompilerGeneratedAttribute")
 
     // Collections.
@@ -4032,6 +4033,9 @@ namespace X_ROOT_NS::modules::core {
     class event_variable_t;
     class field_t;
 
+    // Returns whether the field is a static field that each thread has its own copy of ([ThreadStatic]).
+    bool is_thread_static_field(field_t * field);
+
     // Event member.
     class event_t : public __named_member_t
     {
@@ -5287,6 +5291,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.Diagnostics.TraceAttribute type.
         general_type_t * get_trace_attribute_type();
 
+        // Returns System.ThreadStaticAttribute type, null when the core library does not have it.
+        general_type_t * get_thread_static_attribute_type();
+
         // Returns System.Runtime.CompilerServices.ExtensionAttribute type, that marks the
         // extension methods, the classes that have them and the assemblies that have the classes.
         // It is null when the core assembly has not the type.
@@ -5391,6 +5398,7 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __ituple_type      = nullptr;
         general_type_t * __trace_attribute_type = nullptr;
         general_type_t * __extension_attribute_type = nullptr;
+        general_type_t * __thread_static_attribute_type = nullptr;
         general_type_t * __compiler_generated_attribute_type = nullptr;
 
         general_type_t * __reflection_info_type = nullptr;
@@ -7035,6 +7043,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Returns expression at specified index.
         virtual expression_t * expression_at(size_t index) const = 0;
+
+        // Returns whether it is the condition expression (c? a : b).
+        virtual bool is_condition() const { return false; }
 
         // Converts to a string.
         virtual const string_t to_string() const override;

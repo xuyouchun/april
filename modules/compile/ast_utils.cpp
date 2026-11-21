@@ -67,6 +67,23 @@ namespace X_ROOT_NS::modules::compile {
             return nullptr;
 
         expression_family_t family = parent_exp->this_family();
+
+        // An argument of a call or of a new expression (Take(Method), new Thread(Method)): the type that it is converted to
+        // is that of the parameter, which the overload tells later, not the one of what the call is assigned to.
+        if (family == expression_family_t::function || family == expression_family_t::new_)
+        {
+            arguments_t * arguments = ((__arguments_expression_base_t *)parent_exp)->arguments();
+
+            if (arguments != nullptr)
+            {
+                for (argument_t * argument : *arguments)
+                {
+                    if (argument->expression == exp)
+                        return nullptr;
+                }
+            }
+        }
+
         if (family == expression_family_t::binary)
         {
             binary_expression_t * binary_exp = (binary_expression_t *)parent_exp;
@@ -1174,6 +1191,22 @@ namespace X_ROOT_NS::modules::compile {
                     name_exp->set(field->variable);
                     return true;
                 }
+
+                // A property of the base type (static or not).
+                for (property_t * property : ((general_type_t *)type)->properties)
+                {
+                    if (property->name != name_exp->name || property->variable == nullptr)
+                        continue;
+
+                    if (to_access_value(property->decorate) == access_value_t::private_)
+                        continue;
+
+                    if (method != nullptr && method->is_static() && !property->is_static())
+                        continue;
+
+                    name_exp->set(property->variable);
+                    return true;
+                }
             }
 
             return false;
@@ -2235,8 +2268,11 @@ namespace X_ROOT_NS::modules::compile {
                     }
                     else
                     {
-                        // obj.E(args): the raise method, when the member is an event.
-                        __walk_call(type, ((name_expression_t *)namex_exp)->name, function_exp);
+                        name_t member_name = ((name_expression_t *)namex_exp)->name;
+
+                        // obj.A(args), A holds a delegate; else obj.E(args): the raise method, when the member is an event.
+                        if (!__walk_delegate_member_call(type, member_name, function_exp))
+                            __walk_call(type, member_name, function_exp);
                     }
                 }   return;
 
@@ -2257,6 +2293,7 @@ namespace X_ROOT_NS::modules::compile {
                             case expression_family_t::name: {
                                 auto name_exp = (name_expression_t *)exp2;
                                 type_t * type = get_expression_type(__cctx, exp1);
+
                                 __walk_call(type, name_exp->name, function_exp);
                             }   break;
 
@@ -2284,6 +2321,52 @@ namespace X_ROOT_NS::modules::compile {
                     __walk_arguments(function_exp->arguments());
                     break;
             }
+        }
+
+        // obj.Field(args): the field of the type holds a delegate, that is called. Returns whether the
+        // name is such a member.
+        bool __walk_delegate_member_call(type_t * type, name_t name, function_expression_t * function_exp)
+        {
+            if (type == nullptr)
+                return false;
+
+            member_t * member = nullptr;
+
+            try
+            {
+                analyze_member_args_t args(member_type_t::all, name);
+                member = type->get_member(args, true);
+            }
+            catch (const logic_error_t<common_error_code_t> &)
+            {
+                return false;
+            }
+            catch (const method_compare_error_t &)
+            {
+                return false;
+            }
+
+            variable_t * variable = nullptr;
+
+            if (member != nullptr && member->this_type() == member_type_t::field
+                    && __is_delegate_type(((field_t *)member)->get_type()))
+                variable = ((field_t *)member)->variable;
+            else if (member != nullptr && member->this_type() == member_type_t::property
+                    && __is_delegate_type(((property_t *)member)->get_type()))
+            {
+                // The getter returns the delegate: a call needs it in a variable.
+                ast_log(__cctx, function_exp, __c_t::property_not_callable, name);
+                __walk_arguments(function_exp->arguments());
+                return true;
+            }
+
+            if (variable == nullptr)
+                return false;
+
+            function_exp->set_variable(variable);
+            __walk_arguments(function_exp->arguments());
+
+            return true;
         }
 
         // Walks a lambda that is called at once: ((Int32 x) => x + 1)(2). It has no delegate that

@@ -103,6 +103,13 @@ namespace X_ROOT_NS::modules::native {
         };
 
         __thread_host_t __host;
+
+        // The objects that hold the thread static fields: (thread id, descriptor of the class) to the object.
+        std::map<std::pair<int64_t, void *>, void *> & __thread_statics()
+        {
+            static std::map<std::pair<int64_t, void *>, void *> table;
+            return table;
+        }
     }
 
 }   // namespace X_ROOT_NS::modules::native
@@ -123,6 +130,9 @@ extern "C" {
         // The objects of the threads that have not ended (System.Threading.Thread) are roots.
         april_native_gc::set_root_provider([](void (* mark)(void *)) {
             rtlib::thread_manager_t::instance().each_gc_root([mark](void * obj) { mark(obj); });
+
+            for (auto & it : native::__thread_statics())
+                mark(it.second);
         });
         threads.attach_main(stack_base);
 
@@ -144,6 +154,27 @@ extern "C" {
         X_ROOT_NS::modules::rtlib::thread_manager_t::instance().wait_for_foreground();
 
         april_native_gc::shutdown();
+    }
+
+    void * april_native_thread_static(int64_t size, void * descriptor)
+    {
+        using namespace X_ROOT_NS::modules;
+
+        // A table of the objects of the threads, in the order of the keys: the collector reads the values.
+        rtlib::thread_t * thread = rtlib::thread_manager_t::instance().current();
+        int64_t id = thread != nullptr? thread->id() : 1;
+
+        auto key = std::make_pair(id, descriptor);
+
+        auto & table = native::__thread_statics();
+        auto it = table.find(key);
+        if (it != table.end())
+            return it->second;
+
+        void * object = april_native_new_object((uint64_t)size, descriptor);
+        table[key] = object;
+
+        return object;
     }
 
     void april_native_set_exception_slot(void ** slot)

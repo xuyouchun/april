@@ -1241,6 +1241,9 @@ namespace X_ROOT_NS::modules::exec {
         // Returns the object that holds the static fields of the type, created on demand.
         rt_ref_t static_data_of(rt_type_t * type);
 
+        // Returns the object that holds the thread static fields of the type for the running thread, created on demand.
+        rt_ref_t thread_static_data_of(rt_type_t * type);
+
         // Heap that holds the static data, nullptr when not executing.
         rt_heap_t * static_heap = nullptr;
 
@@ -1254,12 +1257,16 @@ namespace X_ROOT_NS::modules::exec {
             for (auto & it : __static_data_map)
                 f(it.second);
 
+            for (auto & it : __thread_static_map)
+                f(it.second);
+
             // The objects of the threads that are running.
             rtlib::thread_manager_t::instance().each_gc_root([&f](void * obj) { f((rt_ref_t)obj); });
         }
 
     private:
         std::map<rt_type_t *, rt_ref_t> __static_data_map;
+        std::map<std::pair<int64_t, rt_type_t *>, rt_ref_t> __thread_static_map;
         std::map<void *, exec_method_t *> __method_map;
         __command_heap_t        __command_heap;
         __method_block_heap_t   __method_block_heap;

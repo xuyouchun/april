@@ -20,6 +20,7 @@
 #define APRIL_NATIVE_SYM_REFLECT_GET    "april_native_reflect_get"
 #define APRIL_NATIVE_SYM_REFLECT_SET    "april_native_reflect_set"
 #define APRIL_NATIVE_SYM_ENUM_NUMBER    "april_native_enum_number"
+#define APRIL_NATIVE_SYM_THREAD_STATIC  "april_native_thread_static"
 #define APRIL_NATIVE_SYM_THREAD_START   "april_native_thread_start"
 #define APRIL_NATIVE_SYM_YIELD_FLAG     "april_native_yield_flag"
 #define APRIL_NATIVE_SYM_SAFEPOINT      "april_native_safepoint"
@@ -101,6 +102,10 @@ extern "C" {
 
     // Returns 1 if the object is an instance of the type (null is not), else 0.
     int8_t april_native_is_instance(void * object, void * key);
+
+    // Returns the object that holds the thread static fields of a class for the running thread (made on the first call, the
+    // size and the descriptor are those of the object of the static data of the class); a root of the collector.
+    void * april_native_thread_static(int64_t size, void * descriptor);
 
     // Tells the runtime where the pending exception of the program is (the variable that every call is followed by a check
     // of): the threads that run one at a time keep it apart. Called by `main`.

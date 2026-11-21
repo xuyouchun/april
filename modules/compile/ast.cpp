@@ -636,6 +636,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // A variable that is not a delegate is called.
         X_D(variable_not_callable, _T("\"%1%\" is of the type \"%2%\", it is not a delegate and cannot be called"))
+        X_D(property_not_callable, _T("the delegate of the property \"%1%\" cannot be called: read it into a variable first"))
 
         // ---- AP3300 - AP3399: assemblies.
 
