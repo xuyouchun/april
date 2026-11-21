@@ -42,6 +42,10 @@
         </file>
 
         <file>
+            <path>Text/RegularExpressions/*.cs</path>
+        </file>
+
+        <file>
             <path>Numerics/*.cs</path>
         </file>
 

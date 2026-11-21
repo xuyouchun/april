@@ -371,6 +371,27 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // The order of the entities that are shared: the one of the type. The constants are ordered by the
+    // type of the number too, because the numbers of two types are equal by their values (the Boolean
+    // false and the Int32 0), and they are not the same constant.
+    template<typename entity_t>
+    struct mt_entity_less_t : public std::less<entity_t> { };
+
+    template<>
+    struct mt_entity_less_t<cvalue_t>
+    {
+        bool operator () (const cvalue_t & a, const cvalue_t & b) const
+        {
+            if (a.value_type != b.value_type)
+                return a.value_type < b.value_type;
+
+            if (a.value_type == cvalue_type_t::number && a.number.type != b.number.type)
+                return a.number.type < b.number.type;
+
+            return a < b;
+        }
+    };
+
     // Base class of metadata manager.
     template<__tidx_t tidx, typename _mt_t=mt_t<tidx>>
     class mt_manager_base_t : public mt_manager_object_t
@@ -566,7 +587,7 @@ namespace X_ROOT_NS::modules::core {
         X_TO_STRING_IMPL(_T("mt_manager_base_t"))
 
     private:
-        std::map<entity_t, ref_t> __mt_map;
+        std::map<entity_t, ref_t, mt_entity_less_t<entity_t>> __mt_map;
         __heap_t __heap;
     };
 

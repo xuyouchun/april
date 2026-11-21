@@ -10128,6 +10128,18 @@ namespace X_ROOT_NS::modules::core {
                 }
                 return exp2()->get_type();
 
+            // A | B, A & B, A ^ B of two values of the same enum is a value of that enum (the flags).
+            case operator_t::bit_and:
+            case operator_t::bit_or:
+            case operator_t::bit_xor:
+                if (type_t * type1 = exp1()->get_type(); type1 != nullptr && is_enum(type1)
+                    && exp2()->get_type() == type1)
+                {
+                    return type1;
+                }
+
+                return __XPool.get_internal_type(get_vtype());
+
             default:
                 return __XPool.get_internal_type(get_vtype());
         }

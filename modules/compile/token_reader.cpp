@@ -297,7 +297,7 @@ namespace X_ROOT_NS::modules::compile {
                 break;
 
             case _T('f'):
-                *out_c = _T('f');
+                *out_c = _T('\f');
                 break;
 
             default:

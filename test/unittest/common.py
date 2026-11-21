@@ -51,6 +51,16 @@ def code_files(directory):
     path = os.path.join(get_test_path(), directory)
     return sorted(f for f in os.listdir(path) if f.endswith('.cs'))
 
+""" Returns the code files (*.cs) of a directory and its sub directories, as paths (with /) that are relative to it """
+def code_files_recursive(directory):
+    root = os.path.join(get_test_path(), directory)
+    result = []
+    for path, dirs, files in os.walk(root):
+        for f in files:
+            if f.endswith('.cs'):
+                result.append(os.path.relpath(os.path.join(path, f), root).replace(os.sep, '/'))
+    return sorted(result)
+
 """ Runs a code file or project file or solution file """
 def run_file(file):
     april_path = get_april_path()

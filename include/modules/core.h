@@ -5704,6 +5704,9 @@ namespace X_ROOT_NS::modules::core {
         // Relation property.
         property_t * property = nullptr;
 
+        // The indexers (the properties that have params) can be overloaded.
+        virtual bool allow_duplicate() _NE override { return property->params != nullptr; }
+
         // Returns type of the property.
         virtual type_t * get_type() override
         {

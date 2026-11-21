@@ -1392,6 +1392,23 @@ namespace X_ROOT_NS::modules::compile {
         {
             __walk_qualified_type(exp);
 
+            // A method has no members: the name of a method that is the name of a type too is the
+            // type (Match.Empty, in a class that has the method Match).
+            if (expression_t * object = exp->exp1(); object->this_family() == expression_family_t::name)
+            {
+                name_expression_t * object_name = (name_expression_t *)object;
+                variable_t * variable;
+
+                if (object_name->expression_type == name_expression_type_t::__default__
+                        && object_name->declare_type_name == nullptr
+                        && __region != nullptr
+                        && (variable = __region->get(object_name->name)) != nullptr
+                        && variable->this_type() == variable_type_t::method)
+                {
+                    __walk_type(object_name);
+                }
+            }
+
             expression_t * exp1 = exp->exp1(), * exp2 = exp->exp2();
 
             __walk(exp1);

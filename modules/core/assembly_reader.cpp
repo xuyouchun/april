@@ -960,7 +960,7 @@ namespace X_ROOT_NS::modules::core {
         // Load constants.
         void __load_constants()
         {
-            std::map<cvalue_t, expression_t *> map;
+            std::map<cvalue_t, expression_t *, mt_entity_less_t<cvalue_t>> map;
 
             auto & mgr = __mt_manager<__tidx_t::constant>();
             for (mt_constant_t * mt : mgr)

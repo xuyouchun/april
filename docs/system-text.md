@@ -153,6 +153,46 @@ does not write it and `GetString` does not skip it; the program that writes a fi
 UTF-8 is made by internal functions (`Utf8_GetByteCount`, `Utf8_GetBytes`, `Utf8_GetString` in `rtlib/string.cpp`);
 the others are written in the library.
 
+## Regular expressions (System.Text.RegularExpressions)
+
+`Regex` is written in April (`core_lib/System/Text/RegularExpressions/`), with the syntax and the API of .NET. A
+pattern is read to a tree (`RegexParser`, `RegexNode`), made into instructions (`RegexCompiler`, `RegexProgram`) and
+run by backtracking (`RegexRunner`). The choices are kept in an array that grows, not in the calls, so a text of any
+length can be run; `x{n,m}` is made by copies of `x`.
+
+* `new Regex(pattern[, options])`, `IsMatch`, `Match`, `Matches`, `Replace`, `Split` (each with an index or a count
+  where .NET has it), and the static ones that take the pattern (the 15 last patterns are kept). `Escape`,
+  `Unescape`, `GetGroupNames`, `GetGroupNumbers`, `GroupNameFromNumber`, `GroupNumberFromName`, `Options`.
+* `Match` (`Success`, `Index`, `Length`, `Value`, `Groups`, `Captures`, `NextMatch()`, `Result(replacement)`), `Group`
+  (`Success`, `Name`, `Captures`), `Capture`, and the collections of them. A group in a loop has all its captures; the
+  value is the last one. The numbers of the groups that have no name come first, then those that have one.
+* The replacement has `$1`, `${name}`, `$&`, ``$` ``, `$'`, `$+`, `$_` and `$$`; what is not a group stays as it is.
+* Syntax: characters and the escapes (`\n \t \f \v \e \a \0 \012 \xHH \uHHHH \cX`), `. ^ $ \A \z \Z \b \B`, the classes
+  `[...] [^...] [a-z-[aeiou]]` with `\d \w \s \D \W \S`, `(...) (?:...) (?<name>...) (?'name'...) (?#...)`, `| * + ?
+  {n} {n,} {n,m}` and the lazy ones with `?`, the options `(?imnsx-imnsx)` and `(?imnsx-imnsx:...)`, the references to a
+  group `\1 \k<name> \k'name' \k<1>` (a group that did not match is not matched by them; `\10` is a reference when the
+  pattern has 10 groups, else an octal character), the assertions `(?=...) (?!...) (?<=...) (?<!...)`, the atomic group
+  `(?>...)`, and the conditions `(?(1)yes|no) (?(name)yes|no) (?(?=...)yes|no)` (the `no` is optional).
+* How they run: an atomic group and an assertion put a mark on the stack of the choices; at the end the choices
+  that were made after the mark are dropped and the changes of the groups stay (so they are undone when the run goes
+  back before them). `(?!...)` and `(?<!...)` have a mark that goes on when the part did not match. A look behind goes
+  back by the length of the part, so the part must have a fixed length (`a|bc` does not, `ab|cd` and `\d{3}` do): a
+  part that has none, or a reference, is an error of the pattern. The condition of an assertion is made of
+  `(?:(?=x)yes|(?!x)no)`.
+* Options: `IgnoreCase` (by `Char.ToLower`/`ToUpper`, there are no cultures), `Multiline`, `Singleline`,
+  `ExplicitCapture`, `IgnorePatternWhitespace`. `Compiled` and `CultureInvariant` are accepted and do nothing;
+  `RightToLeft` and `ECMAScript` are a `NotSupportedException`.
+* A pattern that is not valid is a `RegexParseException` (an `ArgumentException`) with `Pattern` and `Offset`.
+  These are errors of the pattern for now: the balancing groups `(?<a-b>...)`, a look behind that has no fixed length,
+  `\G`, and `\p{..}` (the library has no categories of Unicode).
+* Replace takes a replacement text or an evaluator: `Replace(input, m => ...)` (a `Delegate<String, Match>`, the language
+  has no named delegate types, so there is no `MatchEvaluator`).
+* The library has no clock, so the match timeout is a limit of steps: `new Regex(pattern, options, maxSteps)` throws a
+  `RegexMatchTimeoutException` (`Input`, `Pattern`, `MaxSteps`) when a search ran more instructions. 0 is no limit.
+* The group of a name is `match.Groups["name"]`, the options are combined with `|`, and `Match.Empty` is the match
+  of a search that found nothing, as in .NET. The enum with `[Flags]` is not needed: `A | B` of two values of an enum is a
+  value of that enum.
+
 ## Limits of the library
 
 * The static fields of a library have no initial values: the static constructors are called at the start of the
