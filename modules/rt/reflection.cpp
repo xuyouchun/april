@@ -134,6 +134,10 @@ namespace X_ROOT_NS::modules::rt {
         info->flags = ((int64_t)type->get_ttype(__env) << reflect_flag_ttype_shift)
                     | __decorate_flags((decorate_value_t)(*template_)->decorate);
         info->base = type->get_base_type(__env);
+
+        // The type of the number of an enum: the native back end reads the number of a box by it.
+        if (type->get_ttype(__env) == ttype_t::enum_)
+            info->flags |= (int64_t)type->get_vtype(__env) << reflect_flag_underlying_shift;
         info->assembly = __assembly_of(assembly);
         __set_attributes(type, assembly, (*template_)->attributes);
 
@@ -245,6 +249,21 @@ namespace X_ROOT_NS::modules::rt {
                                           : rt_reflect_value_kind_t::value);
                 m->size = (int64_t)(ttype == ttype_t::struct_? field_type->get_size(__env)
                                                               : field_type->get_variable_size(__env));
+            }
+
+            // The value of a constant of a number or an enum (an item of an enum) is in the table: the offset.
+            else if (field_type != nullptr && (*field)->init_value != ref_t::null
+                        && (field_type->get_ttype(__env) == ttype_t::enum_
+                            || is_integer(field_type->get_vtype(__env))))
+            {
+                cvalue_t value = assembly->get_constant((*field)->init_value);
+
+                if (value.value_type == cvalue_type_t::number)
+                {
+                    m->offset     = value.change_type(vtype_t::int64_).number.get_value<int64_t>();
+                    m->value_kind = (int64_t)rt_reflect_value_kind_t::value;
+                    m->size       = (int64_t)field_type->get_variable_size(__env);
+                }
             }
 
             __set_attributes(m, assembly, (*field)->attributes);

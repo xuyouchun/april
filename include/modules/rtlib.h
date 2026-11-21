@@ -263,6 +263,7 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(reflection_generic_parameter_count);
     __DefineFunc(reflection_generic_parameter);
     __DefineFunc(object_get_hash_code);
+    __DefineFunc(enum_get_number);
     __DefineFunc(object_reference_equals);
 
     // Math functions.

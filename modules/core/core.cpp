@@ -3176,7 +3176,7 @@ namespace X_ROOT_NS::modules::core {
         // number is not converted to an enum): the cast tells what is meant. It is boxed.
         if (is_enum(from) || is_enum(to))
         {
-            if (is_enum(from) && to == __XPool.get_object_type())
+            if (is_enum(from) && (to == __XPool.get_object_type() || to == __XPool.get_enum_type()))
                 return true;
 
             // It is boxed as an interface that it implements.
@@ -6103,7 +6103,7 @@ namespace X_ROOT_NS::modules::core {
         if (!__ensure_size_initialize() || is_generic())
             __super_t::commit(ctx);
 
-        if (this->ttype == ttype_t::struct_)
+        if (this->ttype == ttype_t::struct_ || this->ttype == ttype_t::enum_)
             this->set_sealed(true);
 
         if (get_base_type() == nullptr)

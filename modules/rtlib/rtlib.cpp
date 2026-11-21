@@ -174,6 +174,7 @@ namespace X_ROOT_NS::modules::rtlib {
             __append_libfunc(_T("Reflection_GetGenericParameterCount"), reflection_generic_parameter_count);
             __append_libfunc(_T("Reflection_GetGenericParameter"), reflection_generic_parameter);
             __append_libfunc(_T("Object_GetHashCode"),      object_get_hash_code);
+            __append_libfunc(_T("Enum_GetNumber"),          enum_get_number);
             __append_libfunc(_T("Object_ReferenceEquals"),  object_reference_equals);
 
             // Math functions.

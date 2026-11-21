@@ -3010,15 +3010,6 @@ namespace X_ROOT_NS::modules::compile {
         method_t * method;
     };
 
-    // Tag of the delayed analysis of the ToString of an enum.
-    class __enum_to_string_tag_t : public object_t
-    {
-    public:
-        __enum_to_string_tag_t(method_t * method) : method(method) { }
-
-        method_t * method;
-    };
-
     ////////// ////////// ////////// ////////// //////////
     // type
 
@@ -3591,21 +3582,11 @@ namespace X_ROOT_NS::modules::compile {
         // An enum has no constructor.
         if (is_enum(type))
         {
-            bool has_to_string = false;
-            name_t to_string_name = __to_name(_T("ToString"));
-
             for (method_t * method : this->methods)
             {
                 if (method->trait == method_trait_t::constructor)
                     this->__log(this, __c_t::enum_constructor_error, type->name);
-
-                if (method->name == to_string_name && method->param_count() == 0)
-                    has_to_string = true;
             }
-
-            // The text of a value: the name of its item, unless the enum has a ToString of its own.
-            if (!has_to_string)
-                this->__append_enum_to_string(context);
         }
 
         // Check default constructors.
@@ -4437,12 +4418,6 @@ namespace X_ROOT_NS::modules::compile {
         method_t * new_default_constructor = nullptr;
         __fields_init_stub_t * fields_init_stub = nullptr;
 
-        if (__enum_to_string_tag_t * to_string_tag = dynamic_cast<__enum_to_string_tag_t *>(tag_obj))
-        {
-            __finish_enum_to_string(to_string_tag->method);
-            return true;
-        }
-
         __static_ctor_tag_t * static_ctor_tag = nullptr;
 
         dynamic_cast_tie(tag_obj, &new_default_constructor, &fields_init_stub,
@@ -5037,103 +5012,6 @@ namespace X_ROOT_NS::modules::compile {
         this->__mark_generated(context, method, method);
 
         return method;
-    }
-
-    // Appends the method ToString of an enum: the name of the item that the value is, the number when the value has
-    // no item (a number that is cast to the enum, a combination of flags). It is the text of the boxed value too
-    // (Object.ToString(obj), "" + value), by the method that the object has.
-    //
-    //      public String ToString()
-    //      {
-    //          if (this == Red) return "Red";
-    //          if (this == Green) return "Green";
-    //          return "" + (Int64)this;
-    //      }
-    method_t * type_ast_node_t::__append_enum_to_string(ast_walk_context_t & context)
-    {
-        xpool_t & xpool = __get_xpool();
-        general_type_t * type = (general_type_t *)to_eobject();
-
-        method_t * method = __new_obj<method_t>();
-
-        method->name        = __to_name(_T("ToString"));
-        method->type_name   = xpool.to_type_name(xpool.get_string_type());
-        method->decorate    = __new_obj<decorate_t>();
-        method->decorate->access = access_value_t::public_;
-        method->params      = __new_obj<params_t>();
-        method->body        = __new_obj<method_body_t>(context.current_region());
-
-        auto new_this = [&]() {
-            auto * this_exp = __new_system_expression<this_expression_t>();
-            this_exp->set_type(type);
-            return this_exp;
-        };
-
-        for (field_t * field : this->fields)
-        {
-            if (!field->is_enum_item)
-                continue;
-
-            sid_t name = __to_sid(_str(field->name));
-
-            method->body->push_back(__new_obj<if_statement_t>(
-                __new_system_expression<binary_expression_t>(
-                    operator_t::equal, new_this(), __new_field_expression(field)
-                ),
-                __new_obj<return_statement_t>(__new_system_expression<cvalue_expression_t>(
-                    __new_obj<cvalue_t>(name.c_str(), name.length())
-                )),
-                nullptr
-            ));
-        }
-
-        // The number, for the value that has no item, is appended when all the types are known.
-        this->__delay(context, walk_step_t::analysis, (object_t *)__new_obj<__enum_to_string_tag_t>(method));
-
-        this->methods.push_back(method);
-        this->__mark_generated(context, method, method);
-
-        return method;
-    }
-
-    // Appends the end of the method ToString of an enum: the text of the number (the value has no item).
-    void type_ast_node_t::__finish_enum_to_string(method_t * method)
-    {
-        xpool_t & xpool = __get_xpool();
-        general_type_t * type = (general_type_t *)to_eobject();
-
-        auto new_this = [&]() {
-            auto * this_exp = __new_system_expression<this_expression_t>();
-            this_exp->set_type(type);
-            return this_exp;
-        };
-
-        // The text of the number: Enum.__Number((Int64)this).
-        method_t * number_method = nullptr;
-        for (method_t * m : ((general_type_t *)xpool.get_enum_type())->methods)
-        {
-            if (m->name == __to_name(_T("__Number")))
-                number_method = m;
-        }
-
-        if (number_method != nullptr)
-        {
-            argument_t * argument = __new_obj<argument_t>();
-            argument->expression = __new_obj<system_expression_t<type_cast_expression_t>>(
-                xpool.to_type_name(vtype_t::int64_), (expression_t *)new_this()
-            );
-
-            arguments_t * arguments = __new_obj<arguments_t>();
-            arguments->push_back(argument);
-
-            method->body->push_back(__new_obj<return_statement_t>(
-                __new_system_expression<function_expression_t>(number_method, arguments)
-            ));
-        }
-        else
-        {
-            method->body->push_back(__new_obj<return_statement_t>(__to_value_expression(_T(""))));
-        }
     }
 
     // Check circle base types.

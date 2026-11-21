@@ -19,6 +19,7 @@
 #define APRIL_NATIVE_SYM_REFLECT_CHECK  "april_native_reflect_check"
 #define APRIL_NATIVE_SYM_REFLECT_GET    "april_native_reflect_get"
 #define APRIL_NATIVE_SYM_REFLECT_SET    "april_native_reflect_set"
+#define APRIL_NATIVE_SYM_ENUM_NUMBER    "april_native_enum_number"
 #define APRIL_NATIVE_SYM_REFLECT_CHECK_INVOKE "april_native_reflect_check_invoke"
 #define APRIL_NATIVE_SYM_REFLECT_INVOKE "april_native_reflect_invoke"
 #define APRIL_NATIVE_SYM_ATTR_COUNT     "april_native_reflect_attribute_count"
@@ -94,6 +95,9 @@ extern "C" {
 
     // Returns 1 if the object is an instance of the type (null is not), else 0.
     int8_t april_native_is_instance(void * object, void * key);
+
+    // Returns the number of a box of an enum, of its underlying type; `table` is the table of reflection of its type.
+    int64_t april_native_enum_number(const void * table, void * object);
 
     // The table of a member of a type, for the reflection (rt_reflect_member_t of rt.h): the
     // fields have the offset of the value, the size, the kind (1 a reference, 2 a value that is

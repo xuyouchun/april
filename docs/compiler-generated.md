@@ -75,15 +75,6 @@ of a tuple of a params generic parameter as the arguments of a call).
 * The tuple that keeps the items of a params generic parameter cannot have items that are custom
   structs in the native back end.
 
-## The ToString of an enum
-
-An enum that does not declare a `ToString()` gets one that is made by the compiler: it returns the
-name of the item that the value is (`Color.Green.ToString()` is `"Green"`), and the number when the
-value has no item (a number that is cast to the enum, a combination of items: `"9"`, `"3"`). An enum
-that declares its own `ToString()` keeps it. The text of a boxed enum (`"" + color`,
-`Object.ToString(obj)`) is the one of this method, read by reflection. The number is made by
-`Enum.__Number`, a method of the core library. The method is a member of the enum, public, not marked.
-
 ## The temporary variables
 
 The temporaries of an expression (the struct that a property or a call returns and whose member is

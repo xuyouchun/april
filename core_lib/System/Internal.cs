@@ -118,6 +118,10 @@ internal static class Internal
     [Internal]
     public static extern Int32 Object_GetHashCode(Object obj);
 
+    // The number of a boxed enum, of its underlying type.
+    [Internal]
+    public static extern Int64 Enum_GetNumber(Object? value);
+
     [Internal]
     public static extern Boolean Object_ReferenceEquals(Object? obj1, Object? obj2);
 

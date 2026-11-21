@@ -322,6 +322,12 @@ namespace X_ROOT_NS::modules::rtlib {
         rt_ref_t value = (rt_ref_t)args->value;
         rt_type_t * type = (rt_type_t *)info->type;
 
+        // A constant has its value in the table, it is read, not written.
+        bool is_const = (info->flags & (1 << 10)) != 0;
+        if (is_const)
+            return ctx.return_<int32_t>(info->value_kind == (int64_t)rt_reflect_value_kind_t::value
+                                                        && *args->mode == 0? 0 : 2);
+
         if (info->value_kind == (int64_t)rt_reflect_value_kind_t::none || info->offset < 0)
             return ctx.return_<int32_t>(2);
 
@@ -386,6 +392,18 @@ namespace X_ROOT_NS::modules::rtlib {
     {
         __field_value_args_t * args = ctx.args<__field_value_args_t>();
         rt_reflect_member_t * info = args->info;
+
+        // A constant: the number is the offset.
+        if ((info->flags & (1 << 10)) != 0)
+        {
+            rt_type_t * const_type = (rt_type_t *)info->type;
+            const_type->pre_new(*ctx.exec_env);
+
+            rt_ref_t boxed = ctx.heap->new_obj(const_type);
+            set_variable_value((void *)boxed, &info->offset, (msize_t)info->size);
+
+            return ctx.return_(boxed);
+        }
 
         byte_t * address = __field_address(ctx, info, (rt_ref_t)args->obj);
         if (address == nullptr)
@@ -964,6 +982,41 @@ namespace X_ROOT_NS::modules::rtlib {
 
         uintptr_t address = (uintptr_t)args->get_object();
         ctx.return_<int32_t>((int32_t)((address >> 4) & 0x7fffffff));
+    }
+
+    // Enum_GetNumber: the number of a boxed enum, of its underlying type (a signed one is extended by its sign).
+    void enum_get_number(rtlib_context_t & ctx)
+    {
+        __reflection_args_t * args = ctx.args<__reflection_args_t>();
+
+        void * obj = args->get_object();
+        if (obj == nullptr)
+            return ctx.return_<int64_t>(0);
+
+        rt_type_t * type = mm::get_object_type(obj);
+        int64_t number = 0;
+
+        switch (type->get_vtype(*ctx.exec_env))
+        {
+            #define __Case(_vt, _t)                                                     \
+                case vtype_t::_vt: number = (int64_t)*(_t *)obj; break;
+
+            __Case(int8_,   int8_t)
+            __Case(uint8_,  uint8_t)
+            __Case(int16_,  int16_t)
+            __Case(uint16_, uint16_t)
+            __Case(int32_,  int32_t)
+            __Case(uint32_, uint32_t)
+            __Case(int64_,  int64_t)
+            __Case(uint64_, uint64_t)
+
+            #undef __Case
+
+            default:
+                break;
+        }
+
+        ctx.return_<int64_t>(number);
     }
 
     // Object_ReferenceEquals: whether the two are the same object.

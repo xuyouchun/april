@@ -287,6 +287,10 @@ extern "C" {
     int32_t april_native_reflect_check(const april_native_member_t * member, void * object,
                                        void * value, int32_t mode)
     {
+        // A constant has its value in the table, it is read, not written.
+        if ((member->flags & (1 << 10)) != 0)
+            return member->value_kind == 2 && mode == 0? 0 : 2;
+
         if (member->value_kind == 0 || member->offset < 0)
             return 2;
 
@@ -331,6 +335,15 @@ extern "C" {
 
     void * april_native_reflect_get(const april_native_member_t * member, void * object)
     {
+        // A constant: the number is the offset.
+        if ((member->flags & (1 << 10)) != 0)
+        {
+            void * boxed = april_native_new_object((uint64_t)member->size, member->type);
+            memcpy(boxed, &member->offset, (size_t)member->size);
+
+            return boxed;
+        }
+
         uint8_t * address = __reflect_address(member, object);
 
         if (member->value_kind == 1)
@@ -343,6 +356,32 @@ extern "C" {
         memcpy(boxed, address, (size_t)member->size);
 
         return boxed;
+    }
+
+    // The number of a box of an enum, of its underlying type: `table` is the table of reflection of its type, whose flags
+    // have the vtype of the number (see reflect_flag_underlying_shift of rt.h).
+    int64_t april_native_enum_number(const void * table, void * object)
+    {
+        if (table == nullptr || object == nullptr)
+            return 0;
+
+        int64_t flags = *(const int64_t *)((const uint8_t *)table + 8);
+        int vtype = (int)((flags >> 36) & 0xff);
+
+        using X_ROOT_NS::modules::core::vtype_t;
+
+        switch ((vtype_t)vtype)
+        {
+            case vtype_t::int8_:    return *(int8_t *)object;
+            case vtype_t::uint8_:   return *(uint8_t *)object;
+            case vtype_t::int16_:   return *(int16_t *)object;
+            case vtype_t::uint16_:  return *(uint16_t *)object;
+            case vtype_t::int32_:   return *(int32_t *)object;
+            case vtype_t::uint32_:  return *(uint32_t *)object;
+            case vtype_t::int64_:   return *(int64_t *)object;
+            case vtype_t::uint64_:  return (int64_t)*(uint64_t *)object;
+            default:                return 0;
+        }
     }
 
     void april_native_reflect_set(const april_native_member_t * member, void * object, void * value)

@@ -48,13 +48,17 @@ public class Object
         if (stringable != null)
             return stringable.ToString();
 
-        // An enum: its ToString (made by the compiler) gives the name of the item.
+        // An enum: the ToString that it declares, or the one of System.Enum (the name of the item).
         Type type = Type.GetType(obj);
         if (type.IsEnum)
         {
             Method? toString = type.GetMethod("ToString", new Type[0]);
             if (toString != null)
                 return (String)toString.Invoke(obj, new Object?[0]);
+
+            Enum? value = obj as Enum;
+            if (value != null)
+                return value.ToString();
         }
 
         return type.FullName;
@@ -66,6 +70,28 @@ public class Object
 [Internal]
 public class Enum
 {
-    // The text of a value of an enum that has no item (the ToString of the enums, made by the compiler): its number.
-    public static String __Number(Int64 value) => "" + value;
+    // The text of the value: the name of its item, the number when the value has no item (a number that is
+    // cast to the enum, a combination of flags). An enum that declares a ToString keeps its own.
+    public virtual String ToString()
+    {
+        Type type = Type.GetType(this);
+        Int64 number = __Number(this);
+
+        Array<Field> fields = type.GetFields();
+        for (Int32 k = 0; k < fields.Length; k++)
+        {
+            Field field = fields[k];
+            if (field.IsConst && field.FieldType.FullName == type.FullName
+                              && __Number(field.GetValue(null)) == number)
+                return field.Name;
+        }
+
+        return "" + number;
+    }
+
+    // The number of a boxed enum value, of its underlying type: a signed one is extended by its sign.
+    private static Int64 __Number(Object? value)
+    {
+        return Internal.Enum_GetNumber(value);
+    }
 }

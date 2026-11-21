@@ -2301,6 +2301,9 @@ namespace X_ROOT_NS::modules::rt {
         // Returns array type.
         rt_general_type_t * get_tarray_type();
 
+        // Returns the type System.Enum: the base type of the enums.
+        rt_general_type_t * get_enum_type();
+
         // Returns tuple type.
         rt_general_type_t * get_tuple_type();
 
@@ -2309,6 +2312,7 @@ namespace X_ROOT_NS::modules::rt {
     private:
         rt_assembly_t * __core_assembly = nullptr;
         rt_general_type_t * __t_array_type = nullptr;
+        rt_general_type_t * __enum_type = nullptr;
         rt_general_type_t * __t_tuple_type = nullptr;
     };
 
@@ -2766,6 +2770,7 @@ namespace X_ROOT_NS::modules::rt {
     const int64_t reflect_flag_param_shift  = 16;       // param_type_t of a parameter (8 bits).
     const int64_t reflect_flag_position_shift = 24;     // The position of a parameter (16 bits).
     const int64_t reflect_flag_ttype_shift  = 32;       // ttype_t of a type (4 bits).
+    const int64_t reflect_flag_underlying_shift = 36;   // vtype_t of the number of an enum (8 bits).
     const int64_t reflect_flag_field        = 1 << 14;  // The member is a field.
     const int64_t reflect_flag_value_this   = 1 << 15;  // The this of the method is a value (a number),
                                                         // its size is in the bits 24..31.

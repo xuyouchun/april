@@ -704,6 +704,10 @@ namespace X_ROOT_NS::modules::rt {
     rt_type_t * rt_general_type_t::get_base_type(analyzer_env_t & env,
                                                  const generic_param_manager_t * gp_manager)
     {
+        // The base type of an enum is System.Enum (its super type is the underlying type).
+        if (get_ttype(env) == ttype_t::enum_)
+            return this == env.get_enum_type()? nullptr : env.get_enum_type();
+
         ref_t super_types = mt->super_types;
         if (super_types == ref_t::null)
             return nullptr;
@@ -2984,6 +2988,15 @@ namespace X_ROOT_NS::modules::rt {
             __t_array_type = get_core_type(_T(""), _T("Array"), 1);
 
         return __t_array_type;
+    }
+
+    // Returns the type System.Enum.
+    rt_general_type_t * analyzer_env_t::get_enum_type()
+    {
+        if (__enum_type == nullptr)
+            __enum_type = get_core_type(_T(""), _T("Enum"), 0);
+
+        return __enum_type;
     }
 
     // Returns tuple type.

@@ -8,6 +8,7 @@ High Minus Plus
 9 7 3
 text Green Green Low Zero
 named-1 named-0
+True True Green named-0 High
 
 */
 
@@ -27,7 +28,7 @@ enum Named
 {
     A, B;
 
-    public String ToString() { return "named-" + (Int32)this; }
+    public override String ToString() { return "named-" + (Int32)this; }
 }
 
 class Program
@@ -48,5 +49,12 @@ class Program
 
         // The ToString of the enum.
         Console.WriteLine(Named.B.ToString() + " " + Object.ToString(Named.A));
+
+        // Every enum is a System.Enum: the ToString of it is the one of System.Enum, or the one that the enum overrides.
+        Object boxed = Level.High;
+        Enum asEnum = c;
+        Enum named = Named.A;
+        Console.WriteLine((boxed is Enum) + " " + (boxed as Enum != null) + " " + asEnum.ToString() + " " + named.ToString()
+                          + " " + ((Enum)boxed).ToString());
     }
 }

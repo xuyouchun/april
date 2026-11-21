@@ -451,6 +451,7 @@ namespace X_ROOT_NS::modules::native {
             rt_reflection_t                            __reflection { __env };
             bool                                       __uses_reflection = false;
             bool                                       __uses_field_access = false;
+            bool                                       __uses_enum_number = false;
 
             // Method.Invoke: the methods of the types of the program are generated, with the
             // functions that call them (one for each shape of signature).
@@ -823,6 +824,21 @@ namespace X_ROOT_NS::modules::native {
                                                      llb::const_int("i64", name == "Reflection_GetTypeName"? 32 : 40));
 
                 return f.load("ptr", f.gep(llb::types::i8, args.at(0), offset));
+            }
+
+            // The number of a box of an enum: the table of reflection of its type holds the type of the number (the
+            // table is after the names, see native_abi.h).
+            if (name == "Enum_GetNumber")
+            {
+                __uses_reflection = true;
+                __uses_enum_number = true;
+
+                llb::value_t count = f.load("i64", llb::value_t { llb::types::ptr, "@april.vcount" });
+                llb::value_t offset = f.binop("add", f.binop("mul", count, llb::const_int("i64", 8)),
+                                                     llb::const_int("i64", 48));
+                llb::value_t table = f.load("ptr", f.gep(llb::types::i8, f.load("ptr", f.gep_bytes(args.at(0), -8)), offset));
+
+                return f.call("i64", APRIL_NATIVE_SYM_ENUM_NUMBER, { table, args.at(0) });
             }
 
             // The access to the fields is made by the runtime: it reads the table of the field.
@@ -5288,6 +5304,11 @@ namespace X_ROOT_NS::modules::native {
                 if (m->value_kind == (int64_t)rt_reflect_value_kind_t::reference && m->type != nullptr)
                     type_key = __interface_key_of((rt_type_t *)m->type);
             }
+            else if (m->value_kind != 0 && m->declaring != nullptr && (m->flags & (1 << 10)) != 0)
+            {
+                // A constant: the value is in the table.
+                key_or_static = "null";
+            }
             else if (m->value_kind != 0 && m->declaring != nullptr)
             {
                 if ((m->flags & 16) != 0)
@@ -5587,6 +5608,9 @@ namespace X_ROOT_NS::modules::native {
                 __module.declare(APRIL_NATIVE_SYM_REFLECT_GET,   "ptr", { "ptr", "ptr" });
                 __module.declare(APRIL_NATIVE_SYM_REFLECT_SET,   "void", { "ptr", "ptr", "ptr" });
             }
+
+            if (__uses_enum_number)
+                __module.declare(APRIL_NATIVE_SYM_ENUM_NUMBER, "i64", { "ptr", "ptr" });
 
             if (__uses_attributes)
             {
