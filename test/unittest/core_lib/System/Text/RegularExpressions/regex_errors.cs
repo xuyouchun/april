@@ -44,10 +44,13 @@ a\ | offset 2 | True
 \k | offset 2 | True
 \k<> | offset 3 | True
 \k<a-b> | offset 4 | True
-(?<=a+)b | offset 4 | True
-(?<!a|bc)d | offset 4 | True
-(?<=(a)\1)b | offset 4 | True
 (?=a | offset 4 | True
+(?<=a | offset 5 | True
+(?<a->x) | offset 6 | True
+(?<-n>x) | offset 0 | True
+(?<a-b-c>x) | offset 6 | True
+(?<n>a)(?<2-n>b) | offset 14 | True
+(?<-1a>x) | offset 7 | True
 (?>a | offset 4 | True
 (?(1)a|b|c) | offset 8 | True
 (?(2)a|b)(a) | offset 2 | True
@@ -57,8 +60,7 @@ a\ | offset 2 | True
 \p{L} | offset 2 | True
 \P{L} | offset 2 | True
 [\p{L}] | offset 3 | True
-\G | offset 2 | True
-(?<a-b>x) | offset 4 | True
+(?<a-b>x) | offset 0 | True
 { | valid
 a{ | valid
 } | valid
@@ -89,15 +91,23 @@ a{1}{ | valid
 (?=a)(?!b)(?<=c)(?<!d)(?>e) | valid
 (?<=ab|cd)x | valid
 (?<=a{2}[bc]\d)x | valid
+(?<=a+)b | valid
+(?<!a|bc)d | valid
+(?<=\1(a))b | valid
+(?<=a*b?)c | valid
+\G\w | valid
+(?<n>a)(?<m-n>b) | valid
+(?<-n>x)(?<n>y) | valid
+(?<n>a)(?<-1>b) | valid
+(?<a-1>x) | valid
 (?<=(a)(b))x | valid
 a\10 | valid
 (a)(b)(c)(d)(e)(f)(g)(h)(i)(j)\10 | valid
 \101\0 | valid
 message True True True
 unsupported True
-look behind True 4
 undefined True 3
-righttoleft
+righttoleft True False
 ecmascript
 ignored True True
 null
@@ -192,10 +202,13 @@ class Program
         Bad("\\k");
         Bad("\\k<>");
         Bad("\\k<a-b>");
-        Bad("(?<=a+)b");
-        Bad("(?<!a|bc)d");
-        Bad("(?<=(a)\\1)b");
         Bad("(?=a");
+        Bad("(?<=a");
+        Bad("(?<a->x)");
+        Bad("(?<-n>x)");
+        Bad("(?<a-b-c>x)");
+        Bad("(?<n>a)(?<2-n>b)");
+        Bad("(?<-1a>x)");
         Bad("(?>a");
         Bad("(?(1)a|b|c)");
         Bad("(?(2)a|b)(a)");
@@ -207,7 +220,6 @@ class Program
         Bad("\\p{L}");
         Bad("\\P{L}");
         Bad("[\\p{L}]");
-        Bad("\\G");
         Bad("(?<a-b>x)");
 
         // The patterns that look wrong and are valid.
@@ -241,6 +253,15 @@ class Program
         Ok("(?=a)(?!b)(?<=c)(?<!d)(?>e)");
         Ok("(?<=ab|cd)x");
         Ok("(?<=a{2}[bc]\\d)x");
+        Ok("(?<=a+)b");
+        Ok("(?<!a|bc)d");
+        Ok("(?<=\\1(a))b");
+        Ok("(?<=a*b?)c");
+        Ok("\\G\\w");
+        Ok("(?<n>a)(?<m-n>b)");
+        Ok("(?<-n>x)(?<n>y)");
+        Ok("(?<n>a)(?<-1>b)");
+        Ok("(?<a-1>x)");
         Ok("(?<=(a)(b))x");
         Ok("a\\10");
         Ok("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)\\10");
@@ -267,15 +288,6 @@ class Program
 
         try
         {
-            new Regex("(?<=a+)b");
-        }
-        catch (RegexParseException e)
-        {
-            Console.WriteLine("look behind " + e.Message.Contains("variable length") + " " + e.Offset);
-        }
-
-        try
-        {
             new Regex("(a)\\3");
         }
         catch (RegexParseException e)
@@ -284,14 +296,7 @@ class Program
         }
 
         // The options that are not supported.
-        try
-        {
-            new Regex("a", RegexOptions.RightToLeft);
-        }
-        catch (NotSupportedException)
-        {
-            Console.WriteLine("righttoleft");
-        }
+        Console.WriteLine("righttoleft " + new Regex("a", RegexOptions.RightToLeft).RightToLeft + " " + new Regex("a").RightToLeft);
 
         try
         {

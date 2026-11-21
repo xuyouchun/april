@@ -10,8 +10,8 @@ using Collections;
 
 ////////// ////////// ////////// ////////// //////////
 
-// Reads a pattern. The syntax is the one of .NET, without: the balancing groups, the look behind of a part that has no
-// fixed length, \G and the categories of Unicode (\p{..}): they are errors of the pattern for now.
+// Reads a pattern. The syntax is the one of .NET, without the categories of Unicode (\\p{..}): they are errors of the pattern
+// for now.
 internal class RegexParser
 {
     internal RegexParser(String pattern, RegexOptions options)
@@ -471,7 +471,7 @@ internal class RegexParser
         if (c == 'Z') return new RegexNode(RegexNodeKind.EosNl);
 
         if (c == 'G')
-            throw __Error("\\G is not supported");
+            return new RegexNode(RegexNodeKind.StartAt);
 
         if (c == 'p' || c == 'P')
             throw __Error("The categories of Unicode (\\" + c + ") are not supported");
@@ -750,6 +750,7 @@ internal class RegexParser
         Int32 flags = __SaveFlags();
 
         String? name = null;
+        String? balance = null;
         Boolean capture = !__explicit;
 
         if (__More && __Cur == '?')
@@ -803,8 +804,10 @@ internal class RegexParser
             {
                 Char close = c == '<' ? '>' : '\'';
                 __pos++;
-                name = __ReadName(close);
-                capture = true;
+                __ReadGroupNames(close);
+                name = __nameA;
+                balance = __nameB;
+                capture = name != null;
             }
             else
             {
@@ -840,12 +843,31 @@ internal class RegexParser
         }
 
         RegexNode? group = null;
-        if (capture)
+        if (capture || balance != null)
         {
             group = new RegexNode(RegexNodeKind.Group);
-            group.GroupIndex = __groups.Count;
-            __groups.Add(group);
-            __names.Add(name);
+            if (capture)
+            {
+                group.GroupIndex = __groups.Count;
+                __groups.Add(group);
+                __names.Add(name);
+            }
+            else
+            {
+                group.GroupNumber = -1;
+            }
+
+            if (balance != null)
+            {
+                group.Balance = true;
+                group.Pos = start;
+                if (Char.IsDigit(balance[0]))
+                    group.RefNumber = __NumberOfName(balance);
+                else
+                    group.Name = balance;
+
+                __refs.Add(group);
+            }
         }
 
         RegexNode inner = __ParseAlt();
@@ -863,12 +885,7 @@ internal class RegexParser
     // The part of an assertion, after (?= (?! (?<= (?<! : up to the ) .
     private RegexNode __ParseAssertion(Boolean negative, Boolean behind, Int32 flags)
     {
-        Int32 start = __pos;
         RegexNode body = __ParseAlt();
-
-        if (behind && body.FixedLength() < 0)
-            throw new RegexParseException("The look behind assertions of a variable length are not supported", __pattern, start);
-
         __ExpectClose();
         __RestoreFlags(flags);
 
@@ -996,14 +1013,18 @@ internal class RegexParser
         return name;
     }
 
-    // The name of a group, up to the closing character.
-    private String __ReadName(Char close)
+    // The names of a group, up to the closing character: name, name1-name2 or -name2 (a balancing group). They are in
+    // __nameA (null when the group has none) and __nameB (null when it is not a balancing group).
+    private Void __ReadGroupNames(Char close)
     {
         Int32 start = __pos;
+        Int32 dash = -1;
         while (__More && __Cur != close)
         {
             Char c = __Cur;
-            if (!(Char.IsLetterOrDigit(c) || c == '_'))
+            if (c == '-' && dash < 0)
+                dash = __pos;
+            else if (!(Char.IsLetterOrDigit(c) || c == '_'))
                 throw __Error("Invalid group name");
 
             __pos++;
@@ -1012,19 +1033,39 @@ internal class RegexParser
         if (!__More)
             throw __Error("Invalid group name");
 
-        String name = __pattern.Substring(start, __pos - start);
+        String text = __pattern.Substring(start, __pos - start);
         __pos++;
 
-        if (name.Length == 0 || Char.IsDigit(name[0]))
+        String first = dash < 0 ? text : text.Substring(0, dash - start);
+        String? second = dash < 0 ? null : text.Substring(dash - start + 1);
+
+        if (first.Length == 0 && second == null)
             throw __Error("Invalid group name");
 
-        return name;
+        if (first.Length > 0 && Char.IsDigit(first[0]))
+            throw __Error("Invalid group name");
+
+        if (second != null)
+        {
+            // A number is all digits.
+            Boolean digits = second.Length > 0 && Char.IsDigit(second[0]);
+            for (Int32 i = 1; i < second.Length && digits; i++)
+                digits = Char.IsDigit(second[i]);
+
+            if (second.Length == 0 || (Char.IsDigit(second[0]) && !digits))
+                throw __Error("Invalid group name");
+        }
+
+        __nameA = first.Length == 0 ? null : first;
+        __nameB = second;
     }
 
     private String __pattern;
     private Int32 __length;
     private Int32 __pos;
     private Int32 __min;
+    private String? __nameA;
+    private String? __nameB;
     private Int32 __max;
 
     private Boolean __ignoreCase;

@@ -158,7 +158,10 @@ the others are written in the library.
 `Regex` is written in April (`core_lib/System/Text/RegularExpressions/`), with the syntax and the API of .NET. A
 pattern is read to a tree (`RegexParser`, `RegexNode`), made into instructions (`RegexCompiler`, `RegexProgram`) and
 run by backtracking (`RegexRunner`). The choices are kept in an array that grows, not in the calls, so a text of any
-length can be run; `x{n,m}` is made by copies of `x`.
+length can be run; `x{n,m}` is made by copies of `x`, except when `x` is one character (a character, a set, a dot):
+the loop is an instruction that takes the characters and puts one entry on the stack, that gives the characters back
+(greedy) or takes one more (lazy) when the run goes back to it. A match that starts with a text (`foo\d`, `\bfoo`) is
+searched with `IndexOf`.
 
 * `new Regex(pattern[, options])`, `IsMatch`, `Match`, `Matches`, `Replace`, `Split` (each with an index or a count
   where .NET has it), and the static ones that take the pattern (the 15 last patterns are kept). `Escape`,
@@ -175,16 +178,26 @@ length can be run; `x{n,m}` is made by copies of `x`.
   `(?>...)`, and the conditions `(?(1)yes|no) (?(name)yes|no) (?(?=...)yes|no)` (the `no` is optional).
 * How they run: an atomic group and an assertion put a mark on the stack of the choices; at the end the choices
   that were made after the mark are dropped and the changes of the groups stay (so they are undone when the run goes
-  back before them). `(?!...)` and `(?<!...)` have a mark that goes on when the part did not match. A look behind goes
-  back by the length of the part, so the part must have a fixed length (`a|bc` does not, `ab|cd` and `\d{3}` do): a
-  part that has none, or a reference, is an error of the pattern. The condition of an assertion is made of
-  `(?:(?=x)yes|(?!x)no)`.
+  back before them). `(?!...)` and `(?<!...)` have a mark that goes on when the part did not match. A look behind of
+  any length is run from the right to the left, from the position (the parts of a concatenation in the opposite
+  order, a group is closed at its left): `(?<=\1(a))` works, `(?<=(a)\1)` does not, as in .NET. The condition of an
+  assertion is made of `(?:(?=x)yes|(?!x)no)`.
+* `\G` is the index where the search started (the end of the match before, for `Matches` and `NextMatch`).
+* Balancing groups: `(?<a-b>x)` and `(?<-b>x)` cancel the last capture of the group `b` (the match fails when there is
+  none) and the group `a` gets the text between the capture of `b` and `x`. A cancelled capture is not in `Captures`, and
+  is not seen by `\k<b>` and `(?(b)...)`: the log of the captures has an entry that takes away the last capture of
+  the group, and it is undone as the others when the run goes back. The balanced parentheses:
+  `^(?:[^()]|(?<o>\()|(?<-o>\)))*(?(o)(?!))$`.
+* `RegexOptions.RightToLeft`: the search starts at the end of the text (or at the index) and goes to the left, the
+  pattern is matched from the right to the left (a lazy or a greedy loop takes the characters from the right, `\1(a)`
+  uses a group that is on its right), `Matches` and `NextMatch` give the matches from the right, `Replace` calls the
+  evaluator in that order, `Split` gives the parts in the order of the text. The instructions that read a character
+  have a variant for the direction (`CharR`, `SetR` ...).
 * Options: `IgnoreCase` (by `Char.ToLower`/`ToUpper`, there are no cultures), `Multiline`, `Singleline`,
   `ExplicitCapture`, `IgnorePatternWhitespace`. `Compiled` and `CultureInvariant` are accepted and do nothing;
-  `RightToLeft` and `ECMAScript` are a `NotSupportedException`.
+  `ECMAScript` is a `NotSupportedException`.
 * A pattern that is not valid is a `RegexParseException` (an `ArgumentException`) with `Pattern` and `Offset`.
-  These are errors of the pattern for now: the balancing groups `(?<a-b>...)`, a look behind that has no fixed length,
-  `\G`, and `\p{..}` (the library has no categories of Unicode).
+  The categories of Unicode `\p{..}` are an error of the pattern for now (the library has no categories).
 * Replace takes a replacement text or an evaluator: `Replace(input, m => ...)` (a `Delegate<String, Match>`, the language
   has no named delegate types, so there is no `MatchEvaluator`).
 * The library has no clock, so the match timeout is a limit of steps: `new Regex(pattern, options, maxSteps)` throws a

@@ -59,9 +59,6 @@ public class Regex
         if (pattern == null)
             throw new ArgumentException("pattern is null");
 
-        if ((options & RegexOptions.RightToLeft) != RegexOptions.None)
-            throw new NotSupportedException("RegexOptions.RightToLeft is not supported");
-
         if ((options & RegexOptions.ECMAScript) != RegexOptions.None)
             throw new NotSupportedException("RegexOptions.ECMAScript is not supported");
 
@@ -71,12 +68,15 @@ public class Regex
 
         RegexParser parser = new RegexParser(pattern, options);
         RegexNode root = parser.Parse();
-        __program = new RegexCompiler(parser).Compile(root);
+        __program = new RegexCompiler(parser, options).Compile(root);
         __program.Source = pattern;
     }
 
     // The options of the constructor.
     public RegexOptions Options => __options;
+
+    // Whether the search goes from the end of the text to the beginning (RegexOptions.RightToLeft).
+    public Boolean RightToLeft => __program.RightToLeft;
 
     // The most instructions of a search, 0 when it is not limited.
     public Int64 MaxSteps => __maxSteps;
@@ -135,70 +135,86 @@ public class Regex
     // Searching.
 
     // Whether the pattern matches somewhere in the text.
-    public Boolean IsMatch(String input) => IsMatch(input, 0);
+    public Boolean IsMatch(String input) => IsMatch(input, -1);
 
-    // Whether the pattern matches somewhere in the text, from the index.
+    // Whether the pattern matches somewhere in the text, from the index (-1: the beginning, or the end for a search to
+    // the left).
     public Boolean IsMatch(String input, Int32 startAt)
     {
-        __CheckInput(input, startAt);
+        Int32 start = __Start(input, startAt);
         RegexRunner runner = __NewRunner();
-        return runner.Scan(input, startAt);
+        return runner.Scan(input, start);
     }
 
     // The first match in the text.
-    public Match Match(String input) => Match(input, 0);
+    public Match Match(String input) => Match(input, -1);
 
     // The first match in the text, from the index. A ^ is the beginning of the text, not the index.
     public Match Match(String input, Int32 startAt)
     {
-        __CheckInput(input, startAt);
+        Int32 start = __Start(input, startAt);
         RegexRunner runner = __NewRunner();
-        if (!runner.Scan(input, startAt))
+        if (!runner.Scan(input, start))
             return Match.Empty;
 
         return __MakeMatch(input, runner);
     }
 
     // All the matches in the text.
-    public MatchCollection Matches(String input) => Matches(input, 0);
+    public MatchCollection Matches(String input) => Matches(input, -1);
 
     // All the matches in the text, from the index.
     public MatchCollection Matches(String input, Int32 startAt)
     {
-        __CheckInput(input, startAt);
-        return new MatchCollection(__All(input, startAt, -1));
+        return new MatchCollection(__All(input, __Start(input, startAt), -1));
     }
 
-    // Up to count matches (all of them when count is -1).
+    // The index where a search starts: the one that is given, or the beginning (the end for a search to the left).
+    private Int32 __Start(String input, Int32 startAt)
+    {
+        if (input == null)
+            throw new ArgumentException("input is null");
+
+        if (startAt == -1)
+            return __program.RightToLeft ? input.Length : 0;
+
+        if (startAt < 0 || startAt > input.Length)
+            throw new OutOfRangeException();
+
+        return startAt;
+    }
+
+    // Up to count matches (all of them when count is -1), in the order that they are found.
     private Match[] __All(String input, Int32 startAt, Int32 count)
     {
         List<Match> list = new List<Match>();
         RegexRunner runner = __NewRunner();
+        Boolean rtl = __program.RightToLeft;
         Int32 at = startAt;
 
         while (count < 0 || list.Count < count)
         {
-            if (at > input.Length || !runner.Scan(input, at))
+            if (at < 0 || at > input.Length || !runner.Scan(input, at))
                 break;
 
             Match m = __MakeMatch(input, runner);
             list.Add(m);
 
-            at = m.Index + m.Length;
-            if (m.Length == 0)
-                at++;
+            if (rtl)
+            {
+                at = m.Index;
+                if (m.Length == 0)
+                    at--;
+            }
+            else
+            {
+                at = m.Index + m.Length;
+                if (m.Length == 0)
+                    at++;
+            }
         }
 
         return list.ToArray();
-    }
-
-    private Void __CheckInput(String input, Int32 startAt)
-    {
-        if (input == null)
-            throw new ArgumentException("input is null");
-
-        if (startAt < 0 || startAt > input.Length)
-            throw new OutOfRangeException();
     }
 
     // Makes the match of the last scan of the runner.
@@ -214,21 +230,18 @@ public class Regex
         Group[] groups = new Group[count];
         for (Int32 g = 1; g < count; g++)
         {
-            Int32 n = 0;
+            // The captures of the group in the order that they were made: a balancing group takes away the last one.
+            List<Capture> list = new List<Capture>();
             for (Int32 i = 0; i < logLength; i += 3)
             {
                 if (log[i] == g)
-                    n++;
+                    list.Add(new Capture(input, log[i + 1], log[i + 2] - log[i + 1]));
+                else if (log[i] == -g - 1 && list.Count > 0)
+                    list.RemoveAt(list.Count - 1);
             }
 
-            Capture[] captures = new Capture[n];
-            Int32 k = 0;
-            for (Int32 i = 0; i < logLength; i += 3)
-            {
-                if (log[i] == g)
-                    captures[k++] = new Capture(input, log[i + 1], log[i + 2] - log[i + 1]);
-            }
-
+            Capture[] captures = list.ToArray();
+            Int32 n = captures.Length;
             if (n == 0)
                 groups[g] = new Group(input, 0, 0, __program.GroupNames[g], captures);
             else
@@ -244,57 +257,62 @@ public class Regex
     // Replacing and splitting.
 
     // The text with each match replaced. The replacement can have the substitutions: $1 ${name} $& $` $' $+ $_ $$.
-    public String Replace(String input, String replacement) => Replace(input, replacement, -1, 0);
+    public String Replace(String input, String replacement) => Replace(input, replacement, -1, -1);
 
     // The text with the first count matches replaced (all of them when count is -1).
-    public String Replace(String input, String replacement, Int32 count) => Replace(input, replacement, count, 0);
+    public String Replace(String input, String replacement, Int32 count) => Replace(input, replacement, count, -1);
 
     // The text with the first count matches replaced, from the index.
     public String Replace(String input, String replacement, Int32 count, Int32 startAt)
     {
-        __CheckInput(input, startAt);
+        Int32 start = __Start(input, startAt);
         if (replacement == null)
             throw new ArgumentException("replacement is null");
 
-        Match[] matches = __All(input, startAt, count);
-        if (matches.Length == 0)
-            return input;
-
-        StringBuilder sb = new StringBuilder();
-        Int32 prev = 0;
+        Match[] matches = __All(input, start, count);
+        String[] texts = new String[matches.Length];
         for (Int32 i = 0; i < matches.Length; i++)
         {
-            Match m = matches[i];
-            sb.Append(input, prev, m.Index - prev);
-            RegexReplacement.Expand(sb, replacement, m);
-            prev = m.Index + m.Length;
+            StringBuilder one = new StringBuilder();
+            RegexReplacement.Expand(one, replacement, matches[i]);
+            texts[i] = one.ToString();
         }
 
-        sb.Append(input, prev, input.Length - prev);
-        return sb.ToString();
+        return __Join(input, matches, texts);
     }
 
     // The text with each match replaced by the text that the evaluator gives for it (it is called with the match).
-    public String Replace(String input, Delegate<String, Match> evaluator) => Replace(input, evaluator, -1, 0);
+    public String Replace(String input, Delegate<String, Match> evaluator) => Replace(input, evaluator, -1, -1);
 
-    public String Replace(String input, Delegate<String, Match> evaluator, Int32 count) => Replace(input, evaluator, count, 0);
+    public String Replace(String input, Delegate<String, Match> evaluator, Int32 count) => Replace(input, evaluator, count, -1);
 
     public String Replace(String input, Delegate<String, Match> evaluator, Int32 count, Int32 startAt)
     {
-        __CheckInput(input, startAt);
+        Int32 start = __Start(input, startAt);
 
-        Match[] matches = __All(input, startAt, count);
+        Match[] matches = __All(input, start, count);
+        String[] texts = new String[matches.Length];
+        for (Int32 i = 0; i < matches.Length; i++)
+            texts[i] = evaluator(matches[i]);
+
+        return __Join(input, matches, texts);
+    }
+
+    // The text with the matches (in the order that they were found) replaced by the texts.
+    private String __Join(String input, Match[] matches, String[] texts)
+    {
         if (matches.Length == 0)
             return input;
 
+        Boolean rtl = __program.RightToLeft;
         StringBuilder sb = new StringBuilder();
         Int32 prev = 0;
-        for (Int32 i = 0; i < matches.Length; i++)
+        for (Int32 k = 0; k < matches.Length; k++)
         {
-            Match m = matches[i];
-            sb.Append(input, prev, m.Index - prev);
-            sb.Append(evaluator(m));
-            prev = m.Index + m.Length;
+            Int32 i = rtl ? matches.Length - 1 - k : k;
+            sb.Append(input, prev, matches[i].Index - prev);
+            sb.Append(texts[i]);
+            prev = matches[i].Index + matches[i].Length;
         }
 
         sb.Append(input, prev, input.Length - prev);
@@ -302,26 +320,31 @@ public class Regex
     }
 
     // The parts of the text between the matches. The text of the groups of a match is in the result too.
-    public String[] Split(String input) => Split(input, 0, 0);
+    public String[] Split(String input) => Split(input, 0, -1);
 
     // The most count parts (all when count is 0).
-    public String[] Split(String input, Int32 count) => Split(input, count, 0);
+    public String[] Split(String input, Int32 count) => Split(input, count, -1);
 
-    // The most count parts (all when count is 0), from the index.
+    // The most count parts (all when count is 0), from the index. The parts are in the order of the text, for a
+    // search to the left too.
     public String[] Split(String input, Int32 count, Int32 startAt)
     {
-        __CheckInput(input, startAt);
+        Int32 start = __Start(input, startAt);
         if (count < 0)
             throw new OutOfRangeException();
 
         if (count == 1)
             return new String[] { input };
 
-        Match[] matches = __All(input, startAt, count == 0 ? -1 : count - 1);
+        Match[] found = __All(input, start, count == 0 ? -1 : count - 1);
+        Int32 n = found.Length;
+        Match[] matches = new Match[n];
+        for (Int32 i = 0; i < n; i++)
+            matches[i] = found[__program.RightToLeft ? n - 1 - i : i];
 
         List<String> parts = new List<String>();
         Int32 prev = 0;
-        for (Int32 i = 0; i < matches.Length; i++)
+        for (Int32 i = 0; i < n; i++)
         {
             Match m = matches[i];
             parts.Add(input.Substring(prev, m.Index - prev));

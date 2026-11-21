@@ -165,12 +165,25 @@ public class Match : Group
         if (__empty)
             return this;
 
-        Int32 start = this.Index + this.Length;
-        if (this.Length == 0)
-            start++;
+        Int32 start;
+        if (__regex.RightToLeft)
+        {
+            start = this.Index;
+            if (this.Length == 0)
+                start--;
 
-        if (start > this.Source.Length)
-            return Match.Empty;
+            if (start < 0)
+                return Match.Empty;
+        }
+        else
+        {
+            start = this.Index + this.Length;
+            if (this.Length == 0)
+                start++;
+
+            if (start > this.Source.Length)
+                return Match.Empty;
+        }
 
         return __regex.Match(this.Source, start);
     }

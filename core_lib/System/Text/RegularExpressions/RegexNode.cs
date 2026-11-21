@@ -14,7 +14,7 @@ internal enum RegexNodeKind : Int32
 {
     Empty, Char, Set, Any, Concat, Alt, Group, Repeat,
     Bos, Bol, Eol, Eos, EosNl, WordBoundary, NotWordBoundary,
-    BackRef, Look, Atomic, Cond;
+    BackRef, Look, Atomic, Cond, StartAt;
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -52,6 +52,10 @@ internal class RegexNode
     internal String? Name;
     internal Int32 RefNumber;
     internal Int32 Pos;
+
+    // Group: the group cancels the last capture of the group Name (RefNumber is its number): a balancing group,
+    // (?<a-b>x) or (?<-b>x). GroupNumber is -1 when it has no name of its own.
+    internal Boolean Balance;
 
     // Look: the assertion is that the part does not match, or it is a look behind. Atomic and Look have the part
     // as the only child. Cond: the children are the part for yes, and the part for no.
@@ -131,59 +135,5 @@ internal class RegexNode
             default:
                 return true;
         }
-    }
-
-    // The number of characters that the part matches, or -1 when it is not always the same.
-    internal Int32 FixedLength()
-    {
-        RegexNodeKind kind = Kind;
-
-        if (kind == RegexNodeKind.Char || kind == RegexNodeKind.Set || kind == RegexNodeKind.Any)
-            return 1;
-
-        if (kind == RegexNodeKind.Group || kind == RegexNodeKind.Atomic)
-            return Children[0].FixedLength();
-
-        if (kind == RegexNodeKind.Concat)
-        {
-            Int32 total = 0;
-            for (Int32 i = 0; i < Children.Count; i++)
-            {
-                Int32 n = Children[i].FixedLength();
-                if (n < 0)
-                    return -1;
-
-                total += n;
-            }
-
-            return total;
-        }
-
-        if (kind == RegexNodeKind.Alt || kind == RegexNodeKind.Cond)
-        {
-            Int32 first = Children[0].FixedLength();
-            for (Int32 i = 1; i < Children.Count; i++)
-            {
-                if (Children[i].FixedLength() != first)
-                    return -1;
-            }
-
-            return first;
-        }
-
-        if (kind == RegexNodeKind.Repeat)
-        {
-            Int32 n = Children[0].FixedLength();
-            if (n == 0)
-                return 0;
-
-            return n > 0 && Min == Max ? n * Min : -1;
-        }
-
-        if (kind == RegexNodeKind.BackRef)
-            return -1;
-
-        // The anchors and the assertions match no character.
-        return 0;
     }
 }
