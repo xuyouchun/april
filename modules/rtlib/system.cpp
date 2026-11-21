@@ -1,5 +1,6 @@
 #include <rtlib.h>
 #include <charconv>
+#include <chrono>
 
 namespace X_ROOT_NS::modules::rtlib {
 
@@ -370,6 +371,27 @@ namespace X_ROOT_NS::modules::rtlib {
 
         const rt_char_t * s = *args->s;
         ctx.return_<void *>(s == nullptr? nullptr : (void *)(s + *args->index));
+    }
+
+    // Time_UtcNowTicks: the time of the clock of the system, UTC, in ticks: 100 nanoseconds since 0001-01-01 (the ticks of
+    // DateTime). The clock can be set, so two calls can go back.
+    void time_utc_now_ticks(rtlib_context_t & ctx)
+    {
+        using namespace std::chrono;
+
+        // The clock of the system counts from 1970-01-01 (C++20); 621355968000000000 ticks are before it.
+        int64_t nanoseconds = duration_cast<std::chrono::nanoseconds>(system_clock::now().time_since_epoch()).count();
+        ctx.return_<int64_t>(nanoseconds / 100 + (int64_t)621355968000000000LL);
+    }
+
+    // Time_MonotonicTicks: a clock that only goes on, in ticks of 100 nanoseconds. Its zero is not defined: it is for the
+    // differences (Stopwatch, the timeouts, Environment.TickCount64).
+    void time_monotonic_ticks(rtlib_context_t & ctx)
+    {
+        using namespace std::chrono;
+
+        int64_t nanoseconds = duration_cast<std::chrono::nanoseconds>(steady_clock::now().time_since_epoch()).count();
+        ctx.return_<int64_t>(nanoseconds / 100);
     }
 
     // Ptr_ToInt64, PtrT_ToInt64: the address of a pointer.

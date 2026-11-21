@@ -36,6 +36,17 @@ internal static class Internal
     [Internal]
     public static extern Void Memory_Free(Ptr ptr);
 
+
+    // Time
+
+    // The clock of the system, UTC, in ticks of 100 nanoseconds since 0001-01-01 (the ticks of DateTime and TimeSpan).
+    [Internal]
+    public static extern Int64 Time_UtcNowTicks();
+
+    // A clock that only goes on, in ticks of 100 nanoseconds; its zero is not defined.
+    [Internal]
+    public static extern Int64 Time_MonotonicTicks();
+
     // Copies the bytes (the ranges may overlap), fills them.
     [Internal]
     public static extern Void Memory_Copy(Ptr destination, Ptr source, Int64 bytes);

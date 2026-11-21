@@ -1871,7 +1871,8 @@ namespace X_ROOT_NS::modules::core {
             if (!mt.constant_flag.extern_)
             {
                 uint32_t v2 = *(uint32_t *)mt.data2;
-                uint32_t v1 = *(uint32_t *)mt.data1;
+                // The high part has 16 bits (data1 is two bytes; the writer stores a uint16).
+                uint32_t v1 = *(uint16_t *)mt.data1;
 
                 if (mt.constant_flag.cpl)
                     v1 = ~v1;

@@ -85,8 +85,8 @@ class Program
             Console.WriteLine("atomic " + new Regex("(?>a+)b").Match(text).Length + " " + new Regex("^(?>a+)ab").IsMatch(text) + " " + new Regex("^(?=a+b)a+").Match(text).Length + " " + new Regex("(?<=a)b").Match(text).Index + " " + new Regex("^(?:(?>a)|b)+$").IsMatch(text));
         }
 
-        // The limit of the steps of a search (the library has no clock): a pattern that takes the time of 2 to the
-        // power of the length of the text.
+        // The limit of the steps of a search, an extra of this library: a pattern that takes the time of 2 to the power of the
+        // length of the text.
         {
             String text = Repeat("a", 30) + "c";
             Regex limited = new Regex("(a+)+b", RegexOptions.None, 100000);

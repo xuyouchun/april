@@ -215,8 +215,12 @@ searched with `IndexOf`.
   `Char.IsWhiteSpace`.
 * Replace takes a replacement text or an evaluator: `Replace(input, m => ...)` (a `Delegate<String, Match>`, the language
   has no named delegate types, so there is no `MatchEvaluator`).
-* The library has no clock, so the match timeout is a limit of steps: `new Regex(pattern, options, maxSteps)` throws a
-  `RegexMatchTimeoutException` (`Input`, `Pattern`, `MaxSteps`) when a search ran more instructions. 0 is no limit.
+* The match timeout: `new Regex(pattern, options, TimeSpan matchTimeout)` and the static methods that take one stop a search that
+  takes more time with a `RegexMatchTimeoutException` (`Input`, `Pattern`, `MatchTimeout`). The clock is read once in 1024
+  instructions, so the search stops a little late. The timeout is more than zero and not more than 24 days, or
+  `Regex.InfiniteMatchTimeout` (the default); `regex.MatchTimeout` tells it. An extra of this library: `new Regex(pattern,
+  options, Int64 maxSteps)` stops a search that ran more instructions (`MaxSteps`), whatever the time is; it is the same
+  every time, so it is what a test can use.
 * The group of a name is `match.Groups["name"]`, the options are combined with `|`, and `Match.Empty` is the match
   of a search that found nothing, as in .NET. The enum with `[Flags]` is not needed: `A | B` of two values of an enum is a
   value of that enum.

@@ -54,10 +54,24 @@ public class Regex
 
     // A regular expression whose search stops with a RegexMatchTimeoutException when it ran more than maxSteps
     // instructions (0: no limit). The library has no clock, so this is the limit that stands for the match timeout.
-    public Regex(String pattern, RegexOptions options, Int64 maxSteps)
+    public Regex(String pattern, RegexOptions options, Int64 maxSteps) : this(pattern, options, maxSteps, new TimeSpan(InfiniteTicks))
+    {
+    }
+
+    // A regular expression whose search stops with a RegexMatchTimeoutException when it took more than the time: a length of time
+    // that is more than zero, or InfiniteMatchTimeout.
+    public Regex(String pattern, RegexOptions options, TimeSpan matchTimeout) : this(pattern, options, 0, matchTimeout)
+    {
+    }
+
+    private Regex(String pattern, RegexOptions options, Int64 maxSteps, TimeSpan matchTimeout)
     {
         if (pattern == null)
             throw new ArgumentException("pattern is null");
+
+        // The timeout: more than zero, and not more than 2147483646 milliseconds (24 days), or infinite.
+        if (matchTimeout.Ticks != InfiniteTicks && (matchTimeout.Ticks <= 0 || matchTimeout.Ticks > 21474836460000))
+            throw new OutOfRangeException("The match timeout is not more than zero, or infinite");
 
         // ECMAScript goes with the options of the case, of the lines and Compiled only.
         RegexOptions allowed = RegexOptions.ECMAScript | RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled;
@@ -67,6 +81,7 @@ public class Regex
         __pattern = pattern;
         __options = options;
         __maxSteps = maxSteps;
+        __matchTimeout = matchTimeout;
 
         RegexParser parser = new RegexParser(pattern, options);
         RegexNode root = parser.Parse();
@@ -82,6 +97,15 @@ public class Regex
 
     // The most instructions of a search, 0 when it is not limited.
     public Int64 MaxSteps => __maxSteps;
+
+    // The time that a search can take: InfiniteMatchTimeout when it is not limited.
+    public TimeSpan MatchTimeout => __matchTimeout;
+
+    // The timeout that is no timeout.
+    public static TimeSpan InfiniteMatchTimeout => new TimeSpan(InfiniteTicks);
+
+    // The ticks of InfiniteMatchTimeout: -1 millisecond.
+    private const Int64 InfiniteTicks = -10000;
 
     // The pattern.
     public String ToString() => __pattern;
@@ -408,6 +432,22 @@ public class Regex
 
     public static String[] Split(String input, String pattern, RegexOptions options) => Get(pattern, options).Split(input);
 
+    // The same, with a match timeout.
+    public static Boolean IsMatch(String input, String pattern, RegexOptions options, TimeSpan matchTimeout) =>
+        Get(pattern, options, matchTimeout).IsMatch(input);
+
+    public static Match Match(String input, String pattern, RegexOptions options, TimeSpan matchTimeout) =>
+        Get(pattern, options, matchTimeout).Match(input);
+
+    public static MatchCollection Matches(String input, String pattern, RegexOptions options, TimeSpan matchTimeout) =>
+        Get(pattern, options, matchTimeout).Matches(input);
+
+    public static String Replace(String input, String pattern, String replacement, RegexOptions options, TimeSpan matchTimeout) =>
+        Get(pattern, options, matchTimeout).Replace(input, replacement);
+
+    public static String[] Split(String input, String pattern, RegexOptions options, TimeSpan matchTimeout) =>
+        Get(pattern, options, matchTimeout).Split(input);
+
     // The text with the characters that have a meaning in a pattern (\ * + ? | { [ ( ) ^ $ . # and the spaces)
     // written as characters of the text.
     public static String Escape(String str)
@@ -494,12 +534,14 @@ public class Regex
     ////////// ////////// ////////// ////////// //////////
 
     // The regular expression of the pattern, from the cache.
-    private static Regex Get(String pattern, RegexOptions options)
+    private static Regex Get(String pattern, RegexOptions options) => Get(pattern, options, new TimeSpan(InfiniteTicks));
+
+    private static Regex Get(String pattern, RegexOptions options, TimeSpan matchTimeout)
     {
         if (pattern == null)
             throw new ArgumentException("pattern is null");
 
-        String key = (Int32)options + ":" + pattern;
+        String key = (Int32)options + ":" + matchTimeout.Ticks + ":" + pattern;
 
         if (__cache == null)
         {
@@ -510,7 +552,7 @@ public class Regex
         if (__cache.ContainsKey(key))
             return __cache[key];
 
-        Regex regex = new Regex(pattern, options);
+        Regex regex = new Regex(pattern, options, matchTimeout);
         if (__cacheKeys.Count >= 15)
         {
             __cache.Remove(__cacheKeys[0]);
@@ -528,12 +570,14 @@ public class Regex
     private String __pattern;
     private RegexOptions __options;
     private Int64 __maxSteps;
+    private TimeSpan __matchTimeout;
     private RegexProgram __program;
 
     private RegexRunner __NewRunner()
     {
         RegexRunner runner = new RegexRunner(__program);
         runner.MaxSteps = __maxSteps;
+        runner.MatchTimeoutTicks = __matchTimeout.Ticks == InfiniteTicks ? 0 : __matchTimeout.Ticks;
         return runner;
     }
 }

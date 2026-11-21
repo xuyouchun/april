@@ -108,6 +108,8 @@ namespace X_ROOT_NS::modules::rtlib {
             __append_libfunc(_T("Ptr_ToInt64"), ptr_to_int64);
             __append_libfunc(_T("Memory_Alloc"), memory_alloc);
             __append_libfunc(_T("Memory_Free"), memory_free);
+            __append_libfunc(_T("Time_UtcNowTicks"), time_utc_now_ticks);
+            __append_libfunc(_T("Time_MonotonicTicks"), time_monotonic_ticks);
             __append_libfunc(_T("Memory_Copy"), memory_copy);
             __append_libfunc(_T("Memory_Fill"), memory_fill);
             __append_libfunc(_T("String_AddressOf"), string_address_of);

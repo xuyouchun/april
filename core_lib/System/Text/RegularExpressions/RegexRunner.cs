@@ -38,6 +38,10 @@ internal class RegexRunner
     // The most instructions of a search (a RegexMatchTimeoutException when there are more), 0 when it is not limited.
     internal Int64 MaxSteps;
 
+    // The time that a search can take, in ticks (a RegexMatchTimeoutException when it takes more), 0 when it is not limited. The
+    // clock is read once in 1024 instructions.
+    internal Int64 MatchTimeoutTicks;
+
     // Where the match that was found starts and ends.
     internal Int32 MatchStart;
     internal Int32 MatchEnd;
@@ -55,6 +59,8 @@ internal class RegexRunner
         __text = text;
         __steps = 0;
         __scanStart = startAt;
+        __limited = MaxSteps > 0 || MatchTimeoutTicks > 0;
+        __deadline = MatchTimeoutTicks > 0 ? Diagnostics.Stopwatch.GetTimestamp() + MatchTimeoutTicks : 0;
         Int32 length = text.Length;
 
         if (__program.RightToLeft)
@@ -203,8 +209,15 @@ internal class RegexRunner
             Boolean ok = true;
             Int32 op = code[pc];
 
-            if (MaxSteps > 0 && ++__steps > MaxSteps)
-                throw new RegexMatchTimeoutException(text, __program.Source, MaxSteps);
+            if (__limited)
+            {
+                __steps++;
+                if (MaxSteps > 0 && __steps > MaxSteps)
+                    throw new RegexMatchTimeoutException(text, __program.Source, MaxSteps);
+
+                if (__deadline != 0 && (__steps & 1023) == 0 && Diagnostics.Stopwatch.GetTimestamp() > __deadline)
+                    throw new RegexMatchTimeoutException(text, __program.Source, new TimeSpan(MatchTimeoutTicks));
+            }
 
             switch (op)
             {
@@ -893,6 +906,8 @@ internal class RegexRunner
     private Int32 __refStart;
     private Int32 __refEnd;
     private Int64 __steps;
+    private Boolean __limited;
+    private Int64 __deadline;
     private Int32 __scanStart;
     private RegexProgram __program;
     private String __text;

@@ -182,6 +182,8 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(ptr_to_int64);
     __DefineFunc(memory_alloc);
     __DefineFunc(memory_free);
+    __DefineFunc(time_utc_now_ticks);
+    __DefineFunc(time_monotonic_ticks);
     __DefineFunc(memory_copy);
     __DefineFunc(memory_fill);
     __DefineFunc(string_address_of);

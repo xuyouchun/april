@@ -3903,7 +3903,12 @@ namespace X_ROOT_NS::modules::exec {
             if (context.ret_code == rtlib::rtlib_ret_invalid_cast)
                 __RaiseInvalidCastException(ctx);
 
-            ctx.stack.pop(__This->__pop_unit_size);
+            // The function has fewer arguments than its result has units (Time_UtcNowTicks()): the result is above the
+            // top, and the stack grows by it.
+            if (__This->__pop_unit_size >= 0)
+                ctx.stack.pop((size_t)__This->__pop_unit_size);
+            else
+                ctx.stack.alloc_units((size_t)(-__This->__pop_unit_size));
 
         __EndExecute()
 

@@ -3626,7 +3626,9 @@ namespace X_ROOT_NS::modules::compile {
 
         expression_t * exp1;
 
-        if (__is_member_expression(owner_exp->parent, &exp1))
+        // The object is the left operand of obj.Property. A property that is the left operand itself (Property.Member) is
+        // read from this: it is not the object of itself.
+        if (__is_member_expression(owner_exp->parent, &exp1) && __is_right_member(owner_exp->parent, owner_exp))
         {
             // A property of a generic param (t.Value, where T : IFoo): the object is a
             // reference, or the address of a struct.
@@ -3659,7 +3661,17 @@ namespace X_ROOT_NS::modules::compile {
         if (is_nan(cv))
             __Failed("expected constant value for static const field '%1%'", field->name);
 
-        __compile_cvalue(ctx, pool, cv, dtype);
+        // The value is pushed with the type of the field (const Double D = 1; is a double): the conversion to the type that the
+        // expression needs, (Double)Big, is made once, by __post_compile_expression, from the type of the field. Converting it
+        // here to the needed type too would convert it twice.
+        if (cv.value_type == cvalue_type_t::number)
+        {
+            vtype_t field_vtype = field->get_vtype();
+            if (is_system_value_type(field_vtype))
+                cv = cv.change_type(field_vtype);
+        }
+
+        __compile_cvalue(ctx, pool, cv, __environment_t::empty);
     }
 
     // Compiles variable.
