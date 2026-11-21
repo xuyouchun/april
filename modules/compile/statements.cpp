@@ -326,7 +326,11 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles this statement group.
     void statement_group_t::compile(statement_compile_context_t & ctx)
     {
-        ctx.current_region()->variable_region = this->variable_region;
+        // The group has a region of its own: the variable region is read when the xilxes are written, after all the
+        // statements are compiled, so the groups that follow in the same region (`{ ... } { ... }`) would replace
+        // it, and the temporary variables of the first one would be defined in the region of the last one.
+        statement_region_t * region = ctx.begin_region<__statement_region_t< >>();
+        region->variable_region = this->variable_region;
 
         bool checked = ctx.checked;
         if (this->has_checked)
@@ -353,6 +357,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         ctx.checked = checked;
+        ctx.end_region();
     }
 
     // Returns exit type.

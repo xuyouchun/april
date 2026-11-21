@@ -342,6 +342,7 @@ namespace X_ROOT_NS::modules::rt {
             storage_type_t storage_type;    // Storage type.
             rt_type_t *     type;           // Xil type.
             bool region_flag = false;       // Region flag.
+            bool is_temp = false;           // A temporary variable of the compiler: it has a place of its own.
 
             msize_t offset;                 // Offset
             msize_t new_index;              // The new index.
@@ -388,6 +389,11 @@ namespace X_ROOT_NS::modules::rt {
 
             __vector_t<__item_t *> items;
             __partials_t partials;
+
+            // The temporary variables of the compiler: they do not share places with the other variables, the places
+            // that are shared depend on the order of the definations, and a temporary variable is defined when its
+            // statement is compiled, after all the variables of the blocks.
+            __vector_t<__item_t *> temps;
 
         } __groups[(size_t)storage_type_t::__end__];
 

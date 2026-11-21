@@ -4460,9 +4460,31 @@ namespace X_ROOT_NS::modules::compile {
 
                     break;
 
+                // The operand of a cast to a reference type is boxed: the box reads the struct from its
+                // address, there is no destination to copy to ((Object)p).
+                case expression_family_t::type_cast:
+                {
+                    type_t * cast_type = ((type_cast_expression_t *)parent_exp)->get_type();
+                    if (cast_type != nullptr && is_ref_type(cast_type) && is_custom_struct(exp->get_type()))
+                    {
+                        // A new object and a call write at the destination that the cast makes (see the cast).
+                        expression_behaviour_t behaviour = exp->get_behaviour();
+                        if (behaviour != expression_behaviour_t::new_
+                                && behaviour != expression_behaviour_t::execute)
+                            return false;
+                    }
+
+                    break;
+                }
+
                 // An argument of a call is a value: what the call is, does not matter to it
                 // (Plain(p).V copies p to the argument).
                 case expression_family_t::function:
+                    return true;
+
+                // The same for the arguments of a constructor (new Box(1, values[i]).Get()): they are not
+                // the left of the member that follows the new expression.
+                case expression_family_t::new_:
                     return true;
 
                 // The same for the arguments of an index (lookup[key].GetEnumerator()), not for

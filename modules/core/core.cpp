@@ -1540,7 +1540,7 @@ namespace X_ROOT_NS::modules::core {
             if (ref == ref_t::null)
                 throw _ED(compile_error_code_t::type_not_found, type);
 
-            local_variable_defination_t defination = { ref, variable->index };
+            local_variable_defination_t defination = { ref, variable->index, variable->is_temp };
             defination.write(layout, buffer);
 
         };
@@ -1690,7 +1690,7 @@ namespace X_ROOT_NS::modules::core {
     void local_variable_defination_t::write(__assembly_layout_t & layout, xil_buffer_t & buffer)
     {
         buffer.write(type);
-        buffer.write(index);
+        buffer.write((msize_t)(is_temp? (index | temp_flag) : index));
     }
 
     //-------- ---------- ---------- ---------- ----------
@@ -8843,7 +8843,10 @@ namespace X_ROOT_NS::modules::core {
             _F(_T("%1%"), new_variable_region->current_local_index()), string_t()
         ));
 
-        return new_variable_region->define_local(xpool.to_type_name(type), name);
+        local_variable_t * variable = new_variable_region->define_local(xpool.to_type_name(type), name);
+        variable->is_temp = true;
+
+        return variable;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -9418,11 +9421,15 @@ namespace X_ROOT_NS::modules::core {
     type_t * get_delegate_return_type(type_t * type)
     {
         _A(type != nullptr);
-        _A(type->this_gtype() == gtype_t::generic);
+
+        // The call of a variable that is not a delegate is an error that the walk reports (AP3216): it has no type.
+        if (type->this_gtype() != gtype_t::generic)
+            return nullptr;
 
         generic_type_t * generic_type = (generic_type_t *)type;
-        _A(generic_type->template_ == __XPool.get_delegate_type()
-            || generic_type->template_ == __XPool.get_multicast_delegate_type());
+        if (generic_type->template_ != __XPool.get_delegate_type()
+                && generic_type->template_ != __XPool.get_multicast_delegate_type())
+            return nullptr;
 
         return get_delegate_return_type(generic_type);
     }

@@ -1,4 +1,5 @@
-// Regex: the match timeout (a length of time): a search that takes more time is stopped with a RegexMatchTimeoutException.
+// Regex: the match timeout (a length of time): a search that takes more time is stopped with a RegexMatchTimeoutException; a
+// timeout that is zero, negative (but the infinite one) or more than 24 days is an OutOfRangeException of the constructor.
 
 /* EXPECT
 
@@ -9,6 +10,7 @@ static timeout
 matches timeout
 quick True 2000 xb 2
 fast False
+timeouts invalid invalid invalid valid valid
 done
 
 */
@@ -80,6 +82,26 @@ class Program
             Regex quick = new Regex("a+b", RegexOptions.None, TimeSpan.FromSeconds(30));
             Console.WriteLine("quick " + quick.IsMatch("aab") + " " + quick.Matches(Repeat("aab ", 2000)).Count + " " + Regex.Replace("aab", "a+", "x", RegexOptions.None, TimeSpan.FromSeconds(30)) + " " + Regex.Split("a-b", "-", RegexOptions.None, TimeSpan.FromSeconds(30)).Length);
             Console.WriteLine("fast " + new Regex("(?>a+)+b", RegexOptions.None, TimeSpan.FromMilliseconds(500)).IsMatch(text));
+        }
+
+        // The timeouts that are not valid.
+        {
+            String[] results = new String[5];
+            TimeSpan[] values = new TimeSpan[] { TimeSpan.Zero, TimeSpan.FromMilliseconds(-5), TimeSpan.FromDays(25), TimeSpan.FromDays(24), TimeSpan.FromMilliseconds(-1) };
+            for (Int32 i = 0; i < values.Length; i++)
+            {
+                try
+                {
+                    new Regex("a", RegexOptions.None, values[i]);
+                    results[i] = "valid";
+                }
+                catch (OutOfRangeException)
+                {
+                    results[i] = "invalid";
+                }
+            }
+
+            Console.WriteLine("timeouts " + results[0] + " " + results[1] + " " + results[2] + " " + results[3] + " " + results[4]);
         }
 
         Console.WriteLine("done");

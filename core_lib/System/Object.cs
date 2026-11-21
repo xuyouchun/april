@@ -45,7 +45,19 @@ public class Object
             return "";
 
         IStringable stringable = obj as IStringable;
-        return stringable != null? stringable.ToString() : Type.GetType(obj).FullName;
+        if (stringable != null)
+            return stringable.ToString();
+
+        // An enum: its ToString (made by the compiler) gives the name of the item.
+        Type type = Type.GetType(obj);
+        if (type.IsEnum)
+        {
+            Method? toString = type.GetMethod("ToString", new Type[0]);
+            if (toString != null)
+                return (String)toString.Invoke(obj, new Object?[0]);
+        }
+
+        return type.FullName;
     }
 }
 
@@ -54,5 +66,6 @@ public class Object
 [Internal]
 public class Enum
 {
-
+    // The text of a value of an enum that has no item (the ToString of the enums, made by the compiler): its number.
+    public static String __Number(Int64 value) => "" + value;
 }

@@ -29,8 +29,13 @@ namespace X_ROOT_NS::modules::exec {
             int variable_count = stub->count();
             for (int k = 0; k < variable_count; k++)
             {
+                ref_t type = __read<ref_t>();
+                msize_t index = __read<uint16_t>();
+
+                // The highest bit of the index tells a temporary variable of the compiler.
                 local_variable_defination_t def = {
-                    __read<ref_t>(), __read<uint16_t>()
+                    type, (msize_t)(index & ~local_variable_defination_t::temp_flag),
+                    (index & local_variable_defination_t::temp_flag) != 0
                 };
 
                 f(def);

@@ -876,6 +876,9 @@ namespace X_ROOT_NS::modules::compile {
         // Unexpected symbol.
         unexpected_symbol = 3214,
 
+        // A variable that is not a delegate is called.
+        variable_not_callable = 3216,
+
         // ---- AP3300 - AP3399: assemblies.
 
         // A reference of itself.
@@ -3306,6 +3309,10 @@ namespace X_ROOT_NS::modules::compile {
 
         // Appends default constructors.
         method_t * __append_default_constructor(ast_walk_context_t & context);
+
+        // Appends the method ToString of an enum.
+        method_t * __append_enum_to_string(ast_walk_context_t & context);
+        void __finish_enum_to_string(method_t * method);
 
         // Walks analysis step.
         bool __walk_analysis(ast_walk_context_t & context, void * tag);

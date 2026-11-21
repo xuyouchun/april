@@ -491,6 +491,21 @@ namespace X_ROOT_NS::modules::rt {
         rt_type_t * type = __get_type(def.type);
         msize_t size = __ctx.variable_size_of(type, &storage_type);
 
+        // A temporary variable of the compiler has a place of its own: the places that the other variables share are
+        // by the order of the definations (a block that ends gives its places to the next one), and it is defined
+        // after all of them.
+        if (def.is_temp)
+        {
+            __item_t * temp = __items.new_obj(
+                def.index, __current_identity(), size, storage_type, type
+            );
+
+            temp->is_temp = true;
+            __groups[(size_t)storage_type].temps.push_back(temp);
+
+            return;
+        }
+
         if (__items.size() > 0 && def.index <= __items[__items.size() - 1].index)
         {
             for (int k = 0; k < X_ARRAY_SIZE(__groups); k++)
@@ -569,6 +584,10 @@ namespace X_ROOT_NS::modules::rt {
                         X_UNEXPECTED();
                 }
             }
+
+            // The temporary variables follow the others of the group, each one has its place.
+            if (!g.temps.empty())
+                offset = __set_offsets(offset, g.temps.begin(), g.temps.end());
         }
 
         __local_unit_size = unit_align(offset, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);

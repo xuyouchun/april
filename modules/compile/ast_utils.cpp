@@ -2158,6 +2158,17 @@ namespace X_ROOT_NS::modules::compile {
             return (event_variable_t *)variable;
         }
 
+        // Returns whether the type is a delegate (Delegate<..>, MulticastDelegate<..>).
+        static bool __is_delegate_type(type_t * type)
+        {
+            if (type->this_gtype() != gtype_t::generic)
+                return false;
+
+            type_t * template_ = ((generic_type_t *)type)->template_;
+            return template_ == __XPool.get_delegate_type()
+                || template_ == __XPool.get_multicast_delegate_type();
+        }
+
         // Walks function.
         void __walk_function(function_expression_t * function_exp, type_t * type = nullptr)
         {
@@ -2183,6 +2194,14 @@ namespace X_ROOT_NS::modules::compile {
                     {
                         function_exp->set_variable(variable);
                         __walk_arguments(function_exp->arguments());
+
+                        // Only a delegate is called: x(1) of a number or of a nullable delegate is an error.
+                        if (type_t * variable_type = variable->get_type();
+                                variable_type != nullptr && !__is_delegate_type(variable_type))
+                        {
+                            ast_log(__cctx, namex_exp, __c_t::variable_not_callable,
+                                                                    name_exp->name, variable_type);
+                        }
 
                         // The call of a delegate takes the items of a params generic parameter as
                         // arguments: they are written with ...

@@ -3208,6 +3208,14 @@ namespace X_ROOT_NS::modules::core {
         // Variable index defination in method.
         msize_t     index;
 
+        // The variable is a temporary one of the compiler (defined when a statement is compiled, after all the variables
+        // of the blocks): it has a place of its own, it does not share the one of the other variables. It is the highest
+        // bit of the index in the assembly.
+        bool        is_temp = false;
+
+        // The highest bit of the index.
+        static const msize_t temp_flag = 0x8000;
+
         // Write the local variable as xil to buffer.
         void write(__assembly_layout_t & layout, xil_buffer_t & buffer);
     };
@@ -5582,6 +5590,7 @@ namespace X_ROOT_NS::modules::core {
         bool           no_hoist     = false;            // It stays a local variable.
         msize_t        identity     = unknown_msize;    // Identity of the variable.
         msize_t        index        = unknown_msize;    // Index of the variable.
+        bool           is_temp      = false;            // A temporary variable of the compiler.
         bool           constant     = false;            // A constant variable.
         bool           inline_      = false;            // Cound be inline. ( only write/read once. )
         expression_t * expression   = nullptr;          // Constant initialize value.
