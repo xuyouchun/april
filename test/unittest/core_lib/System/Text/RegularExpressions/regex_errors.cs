@@ -49,7 +49,12 @@ a\ | offset 2 | True
 (?<a->x) | offset 6 | True
 (?<-n>x) | offset 0 | True
 (?<a-b-c>x) | offset 6 | True
-(?<n>a)(?<2-n>b) | offset 14 | True
+(?<0>a) | offset 5 | True
+(?<0-1>a) | offset 7 | True
+(?<2>a)\3 | offset 7 | True
+(?<2-3>x)(?<2>a) | offset 0 | True
+(?<2a>a) | offset 6 | True
+(?<99999999>a) | offset 12 | True
 (?<-1a>x) | offset 7 | True
 (?>a | offset 4 | True
 (?(1)a|b|c) | offset 8 | True
@@ -57,9 +62,17 @@ a\ | offset 2 | True
 (?(n)a|b) | offset 2 | True
 (?(a | offset 4 | True
 (?(:a)b) | offset 3 | True
-\p{L} | offset 2 | True
-\P{L} | offset 2 | True
-[\p{L}] | offset 3 | True
+\p | offset 2 | True
+\pL | offset 2 | True
+\p{ | offset 3 | True
+\p{L | offset 4 | True
+\p{} | offset 3 | True
+\p{Xx} | offset 3 | True
+\p{lu} | offset 3 | True
+\P{IsKlingon} | offset 3 | True
+[\p{Q}] | offset 4 | True
+\p{L-} | offset 3 | True
+\p{L M} | offset 4 | True
 (?<a-b>x) | offset 0 | True
 { | valid
 a{ | valid
@@ -96,19 +109,29 @@ a{1}{ | valid
 (?<=\1(a))b | valid
 (?<=a*b?)c | valid
 \G\w | valid
+\p{L} | valid
+\P{Lu}\p{Nd} | valid
+[\p{L}\p{N}_] | valid
+[^\P{L}] | valid
+\p{IsGreek}\p{IsLatin-1Supplement}\P{IsArabicPresentationForms-A} | valid
+\p{C}\p{Cn}\p{Cs}\p{Co}\p{Pc}\p{Sk} | valid
 (?<n>a)(?<m-n>b) | valid
 (?<-n>x)(?<n>y) | valid
 (?<n>a)(?<-1>b) | valid
 (?<a-1>x) | valid
+(?<n>a)(?<2-n>b) | valid
+(?<2>a)\2 | valid
+(?<2>a)(?<2>b)(?<n>c)(d) | valid
+(?<5>a)(?<3-5>b) | valid
 (?<=(a)(b))x | valid
 a\10 | valid
 (a)(b)(c)(d)(e)(f)(g)(h)(i)(j)\10 | valid
 \101\0 | valid
 message True True True
-unsupported True
+unknown property True 4
 undefined True 3
 righttoleft True False
-ecmascript
+ecmascript True
 ignored True True
 null
 null input
@@ -207,7 +230,12 @@ class Program
         Bad("(?<a->x)");
         Bad("(?<-n>x)");
         Bad("(?<a-b-c>x)");
-        Bad("(?<n>a)(?<2-n>b)");
+        Bad("(?<0>a)");
+        Bad("(?<0-1>a)");
+        Bad("(?<2>a)\\3");
+        Bad("(?<2-3>x)(?<2>a)");
+        Bad("(?<2a>a)");
+        Bad("(?<99999999>a)");
         Bad("(?<-1a>x)");
         Bad("(?>a");
         Bad("(?(1)a|b|c)");
@@ -216,10 +244,20 @@ class Program
         Bad("(?(a");
         Bad("(?(:a)b)");
 
+        // The properties of Unicode (\\p{..}).
+        Bad("\\p");
+        Bad("\\pL");
+        Bad("\\p{");
+        Bad("\\p{L");
+        Bad("\\p{}");
+        Bad("\\p{Xx}");
+        Bad("\\p{lu}");
+        Bad("\\P{IsKlingon}");
+        Bad("[\\p{Q}]");
+        Bad("\\p{L-}");
+        Bad("\\p{L M}");
+
         // The syntax that is not supported yet.
-        Bad("\\p{L}");
-        Bad("\\P{L}");
-        Bad("[\\p{L}]");
         Bad("(?<a-b>x)");
 
         // The patterns that look wrong and are valid.
@@ -258,10 +296,20 @@ class Program
         Ok("(?<=\\1(a))b");
         Ok("(?<=a*b?)c");
         Ok("\\G\\w");
+        Ok("\\p{L}");
+        Ok("\\P{Lu}\\p{Nd}");
+        Ok("[\\p{L}\\p{N}_]");
+        Ok("[^\\P{L}]");
+        Ok("\\p{IsGreek}\\p{IsLatin-1Supplement}\\P{IsArabicPresentationForms-A}");
+        Ok("\\p{C}\\p{Cn}\\p{Cs}\\p{Co}\\p{Pc}\\p{Sk}");
         Ok("(?<n>a)(?<m-n>b)");
         Ok("(?<-n>x)(?<n>y)");
         Ok("(?<n>a)(?<-1>b)");
         Ok("(?<a-1>x)");
+        Ok("(?<n>a)(?<2-n>b)");
+        Ok("(?<2>a)\\2");
+        Ok("(?<2>a)(?<2>b)(?<n>c)(d)");
+        Ok("(?<5>a)(?<3-5>b)");
         Ok("(?<=(a)(b))x");
         Ok("a\\10");
         Ok("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)\\10");
@@ -279,11 +327,11 @@ class Program
 
         try
         {
-            new Regex("\\p{L}");
+            new Regex("a\\p{Klingon}");
         }
         catch (RegexParseException e)
         {
-            Console.WriteLine("unsupported " + e.Message.Contains("not supported"));
+            Console.WriteLine("unknown property " + e.Message.Contains("Unknown property 'Klingon'") + " " + e.Offset);
         }
 
         try
@@ -298,14 +346,7 @@ class Program
         // The options that are not supported.
         Console.WriteLine("righttoleft " + new Regex("a", RegexOptions.RightToLeft).RightToLeft + " " + new Regex("a").RightToLeft);
 
-        try
-        {
-            new Regex("a", RegexOptions.ECMAScript);
-        }
-        catch (NotSupportedException)
-        {
-            Console.WriteLine("ecmascript");
-        }
+        Console.WriteLine("ecmascript " + new Regex("a", RegexOptions.ECMAScript).IsMatch("a"));
 
         // The options that have no effect.
         Console.WriteLine("ignored " + new Regex("a", RegexOptions.Compiled).IsMatch("a") + " " + new Regex("a", RegexOptions.CultureInvariant).IsMatch("a"));

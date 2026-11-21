@@ -59,8 +59,10 @@ public class Regex
         if (pattern == null)
             throw new ArgumentException("pattern is null");
 
-        if ((options & RegexOptions.ECMAScript) != RegexOptions.None)
-            throw new NotSupportedException("RegexOptions.ECMAScript is not supported");
+        // ECMAScript goes with the options of the case, of the lines and Compiled only.
+        RegexOptions allowed = RegexOptions.ECMAScript | RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled;
+        if ((options & RegexOptions.ECMAScript) != RegexOptions.None && (options & allowed) != options)
+            throw new OutOfRangeException("RegexOptions.ECMAScript can only be used with IgnoreCase, Multiline and Compiled");
 
         __pattern = pattern;
         __options = options;
@@ -97,12 +99,12 @@ public class Regex
         return names;
     }
 
-    // The numbers of the groups: 0, 1, 2 ...
+    // The numbers of the groups, in order: 0, 1, 2 ... (the numbers that the pattern gives to its groups: (?<5>a) has 0 and 5).
     public Int32[] GetGroupNumbers()
     {
         Int32[] numbers = new Int32[__program.GroupCount];
         for (Int32 i = 0; i < numbers.Length; i++)
-            numbers[i] = i;
+            numbers[i] = __program.GroupNumbers[i];
 
         return numbers;
     }
@@ -110,10 +112,20 @@ public class Regex
     // The name of the group of the number, the empty string when there is no group.
     public String GroupNameFromNumber(Int32 groupNumber)
     {
-        if (groupNumber < 0 || groupNumber >= __program.GroupCount)
-            return "";
+        Int32 index = IndexOfNumber(groupNumber);
+        return index < 0 ? "" : __program.GroupNames[index];
+    }
 
-        return __program.GroupNames[groupNumber];
+    // The place of the group in the groups of a match (the order of the numbers), -1 when there is no such group.
+    internal Int32 IndexOfNumber(Int32 groupNumber)
+    {
+        for (Int32 i = 0; i < __program.GroupCount; i++)
+        {
+            if (__program.GroupNumbers[i] == groupNumber)
+                return i;
+        }
+
+        return -1;
     }
 
     // The number of the group of the name (or of the number written as a text), -1 when there is no group.
@@ -125,7 +137,7 @@ public class Regex
         for (Int32 i = 0; i < __program.GroupCount; i++)
         {
             if (__program.GroupNames[i] == name)
-                return i;
+                return __program.GroupNumbers[i];
         }
 
         return -1;
@@ -230,13 +242,15 @@ public class Regex
         Group[] groups = new Group[count];
         for (Int32 g = 1; g < count; g++)
         {
+            Int32 number = __program.GroupNumbers[g];
+
             // The captures of the group in the order that they were made: a balancing group takes away the last one.
             List<Capture> list = new List<Capture>();
             for (Int32 i = 0; i < logLength; i += 3)
             {
-                if (log[i] == g)
+                if (log[i] == number)
                     list.Add(new Capture(input, log[i + 1], log[i + 2] - log[i + 1]));
-                else if (log[i] == -g - 1 && list.Count > 0)
+                else if (log[i] == -number - 1 && list.Count > 0)
                     list.RemoveAt(list.Count - 1);
             }
 
@@ -353,8 +367,9 @@ public class Regex
             GroupCollection groups = m.Groups;
             for (Int32 g = 1; g < groups.Count; g++)
             {
-                if (groups[g].Success)
-                    parts.Add(groups[g].Value);
+                Group group = groups.At(g);
+                if (group.Success)
+                    parts.Add(group.Value);
             }
         }
 
@@ -574,7 +589,7 @@ internal static class RegexReplacement
             else if (d == '+')
             {
                 GroupCollection groups = match.Groups;
-                sb.Append(groups[groups.Count - 1].Value);
+                sb.Append(groups.At(groups.Count - 1).Value);
 
                 i += 2;
             }
@@ -585,7 +600,7 @@ internal static class RegexReplacement
                 while (end < n && replacement[end] >= '0' && replacement[end] <= '9' && end - i <= 9)
                     end++;
 
-                Int32 count = match.Groups.Count;
+                Regex? owner = match.Owner;
                 Boolean done = false;
                 while (end > i + 1 && !done)
                 {
@@ -593,7 +608,7 @@ internal static class RegexReplacement
                     for (Int32 k = i + 1; k < end; k++)
                         number = number * 10 + ((Int32)replacement[k] - (Int32)'0');
 
-                    if (number < count)
+                    if (owner != null && owner.IndexOfNumber(number) >= 0)
                     {
                         sb.Append(match.Groups[number].Value);
                         done = true;

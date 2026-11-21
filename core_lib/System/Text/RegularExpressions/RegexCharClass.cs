@@ -26,6 +26,8 @@ internal class RegexCharClass
         __lo = new List<Int32>();
         __hi = new List<Int32>();
         __cats = new List<Int32>();
+        __masks = new List<Int32>();
+        __negated = new List<Boolean>();
     }
 
     // A set of the characters that are not in it.
@@ -53,6 +55,14 @@ internal class RegexCharClass
     internal Void AddCategory(Int32 category)
     {
         __cats.Add(category);
+    }
+
+    // The characters whose category of Unicode is one of those of the set (a bit for each number of UnicodeCategory), or
+    // are not when it is negated: \p{..} and \P{..}.
+    internal Void AddUnicode(Int32 mask, Boolean negated)
+    {
+        __masks.Add(mask);
+        __negated.Add(negated);
     }
 
     // Sorts the ranges and joins those that touch each other.
@@ -99,6 +109,8 @@ internal class RegexCharClass
         __rhi = rhi;
         __count = count;
         __catArray = __cats.ToArray();
+        __maskArray = __masks.ToArray();
+        __negatedArray = __negated.ToArray();
 
         if (Subtract != null)
             Subtract.Seal();
@@ -107,7 +119,7 @@ internal class RegexCharClass
     // Whether the character is in the set.
     internal Boolean Contains(Char c)
     {
-        Boolean r = In(c);
+        Boolean r = In(c) || __InUnicode(c);
         if (!r && IgnoreCase)
         {
             Char lower = Char.ToLower(c);
@@ -122,10 +134,42 @@ internal class RegexCharClass
         return r;
     }
 
-    // Whether the character is a letter, a digit or _ (the characters of \w).
+    // Whether the character is one of those of \w: a letter, a mark that takes no room, a decimal digit or a connector
+    // punctuation (_ is one).
     internal static Boolean IsWordChar(Char c)
     {
-        return Char.IsLetterOrDigit(c) || c == '_';
+        Int32 v = (Int32)c;
+        if (v < 128)
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+
+        return ((RegexUnicode.WordMask >> Globalization.CharUnicodeInfo.GetCategoryNumber(v)) & 1) != 0;
+    }
+
+    // Whether the character is a decimal digit of Unicode (\d).
+    internal static Boolean IsDigitChar(Char c)
+    {
+        Int32 v = (Int32)c;
+        if (v < 128)
+            return c >= '0' && c <= '9';
+
+        return Globalization.CharUnicodeInfo.GetCategoryNumber(v) == 8;
+    }
+
+    // Whether the character is in one of the sets of the categories of Unicode (\p{..}). The case option does not change
+    // them.
+    private Boolean __InUnicode(Char c)
+    {
+        if (__maskArray.Length == 0)
+            return false;
+
+        Int32 category = Globalization.CharUnicodeInfo.GetCategoryNumber((Int32)c);
+        for (Int32 i = 0; i < __maskArray.Length; i++)
+        {
+            if ((((__maskArray[i] >> category) & 1) != 0) != __negatedArray[i])
+                return true;
+        }
+
+        return false;
     }
 
     private Boolean In(Char c)
@@ -151,7 +195,7 @@ internal class RegexCharClass
             Int32 cat = __catArray[i];
             Boolean r;
             if (cat == Digit || cat == NotDigit)
-                r = Char.IsDigit(c) == (cat == Digit);
+                r = IsDigitChar(c) == (cat == Digit);
             else if (cat == Word || cat == NotWord)
                 r = IsWordChar(c) == (cat == Word);
             else
@@ -171,4 +215,8 @@ internal class RegexCharClass
     private Int32[] __rhi;
     private Int32 __count;
     private Int32[] __catArray;
+    private List<Int32> __masks;
+    private List<Boolean> __negated;
+    private Int32[] __maskArray;
+    private Boolean[] __negatedArray;
 }

@@ -10,8 +10,7 @@ using Collections;
 
 ////////// ////////// ////////// ////////// //////////
 
-// Reads a pattern. The syntax is the one of .NET, without the categories of Unicode (\\p{..}): they are errors of the pattern
-// for now.
+// Reads a pattern. The syntax is the one of .NET; the blocks of \p{..} are those of RegexUnicode (the basic plane).
 internal class RegexParser
 {
     internal RegexParser(String pattern, RegexOptions options)
@@ -22,19 +21,30 @@ internal class RegexParser
         __groups = new List<RegexNode>();
         __names = new List<String?>();
         __refs = new List<RegexNode>();
-        __total = -1;
+        __explicitNumbers = new List<Int32>();
+        __defined = null;
+        __nameANumber = -1;
 
         __ignoreCase = (options & RegexOptions.IgnoreCase) != RegexOptions.None;
         __multiline = (options & RegexOptions.Multiline) != RegexOptions.None;
         __explicit = (options & RegexOptions.ExplicitCapture) != RegexOptions.None;
         __singleline = (options & RegexOptions.Singleline) != RegexOptions.None;
         __extended = (options & RegexOptions.IgnorePatternWhitespace) != RegexOptions.None;
+        __ecma = (options & RegexOptions.ECMAScript) != RegexOptions.None;
+        __explicitAtStart = __explicit;
     }
 
     // The number of the groups, group 0 (the whole match) too. Known after Parse.
     internal Int32 GroupCount;
 
-    // The name of each group by its number: a group that has no name has its number as the name.
+    // The numbers of the groups, in the order of the numbers: 0 and the others. A pattern can leave numbers out:
+    // (?<5>a) has the groups 0 and 5.
+    internal Int32[] GroupNumbers;
+
+    // The room that the groups need: the greatest number and one.
+    internal Int32 SlotCount;
+
+    // The name of each group (in the order of GroupNumbers): a group that has no name has its number as the name.
     internal String[] GroupNames;
 
     // The parts of the pattern.
@@ -50,21 +60,38 @@ internal class RegexParser
         return node;
     }
 
-    // Numbers the groups: the groups that have no name first, from left to right, then the named ones.
+    // Numbers the groups: the groups that have a number in their name keep it, then the groups that have no name take the
+    // numbers that are not used, from left to right, then the named ones (the groups of one name have one number).
     private Void __Number()
     {
-        Int32 n = 1;
+        List<Int32> used = new List<Int32>();
         for (Int32 i = 0; i < __groups.Count; i++)
         {
-            if (__names[i] == null)
-                __groups[i].GroupNumber = n++;
+            Int32 e = __explicitNumbers[i];
+            if (e >= 0)
+            {
+                __groups[i].GroupNumber = e;
+                if (!__Has(used, e))
+                    used.Add(e);
+            }
         }
 
-        List<String> names = new List<String>();
-        names.Add("0");
-        for (Int32 i = 1; i < n; i++)
-            names.Add(i.ToString());
+        Int32 next = 1;
+        for (Int32 i = 0; i < __groups.Count; i++)
+        {
+            if (__names[i] == null && __explicitNumbers[i] < 0)
+            {
+                while (__Has(used, next))
+                    next++;
 
+                __groups[i].GroupNumber = next;
+                used.Add(next);
+                next++;
+            }
+        }
+
+        List<String> namedNames = new List<String>();
+        List<Int32> namedNumbers = new List<Int32>();
         for (Int32 i = 0; i < __groups.Count; i++)
         {
             String? name = __names[i];
@@ -72,26 +99,74 @@ internal class RegexParser
                 continue;
 
             Int32 found = -1;
-            for (Int32 k = n; k < names.Count; k++)
+            for (Int32 k = 0; k < namedNames.Count; k++)
             {
-                if (names[k] == name)
+                if (namedNames[k] == name)
                     found = k;
             }
 
-            if (found < 0)
+            if (found >= 0)
             {
-                found = names.Count;
-                names.Add(name);
+                __groups[i].GroupNumber = namedNumbers[found];
+                continue;
             }
 
-            __groups[i].GroupNumber = found;
+            while (__Has(used, next))
+                next++;
+
+            __groups[i].GroupNumber = next;
+            used.Add(next);
+            namedNames.Add(name);
+            namedNumbers.Add(next);
+            next++;
         }
 
-        GroupCount = names.Count;
-        GroupNames = names.ToArray();
+        // The numbers in order, and the names that go with them.
+        Int32 count = used.Count + 1;
+        Int32[] numbers = new Int32[count];
+        numbers[0] = 0;
+        for (Int32 i = 1; i < count; i++)
+        {
+            Int32 value = used[i - 1];
+            Int32 j = i - 1;
+            while (j >= 1 && numbers[j] > value)
+            {
+                numbers[j + 1] = numbers[j];
+                j--;
+            }
+
+            numbers[j + 1] = value;
+        }
+
+        String[] names = new String[count];
+        for (Int32 i = 0; i < count; i++)
+        {
+            names[i] = numbers[i].ToString();
+            for (Int32 k = 0; k < namedNumbers.Count; k++)
+            {
+                if (namedNumbers[k] == numbers[i])
+                    names[i] = namedNames[k];
+            }
+        }
+
+        GroupCount = count;
+        GroupNumbers = numbers;
+        GroupNames = names;
+        SlotCount = numbers[count - 1] + 1;
     }
 
-    // The references to a group (\1, \k<name>, (?(1)..)) are numbers of groups that exist.
+    private Boolean __Has(List<Int32> list, Int32 value)
+    {
+        for (Int32 i = 0; i < list.Count; i++)
+        {
+            if (list[i] == value)
+                return true;
+        }
+
+        return false;
+    }
+
+    // The references to a group (\1, \k<name>, (?(1)..), (?<a-b>..)) are numbers of groups that exist.
     private Void __ResolveRefs()
     {
         for (Int32 i = 0; i < __refs.Count; i++)
@@ -103,7 +178,7 @@ internal class RegexParser
                 for (Int32 k = 0; k < GroupCount; k++)
                 {
                     if (GroupNames[k] == node.Name)
-                        found = k;
+                        found = GroupNumbers[k];
                 }
 
                 if (found < 0)
@@ -111,21 +186,32 @@ internal class RegexParser
 
                 node.RefNumber = found;
             }
-            else if (node.RefNumber >= GroupCount)
+            else
             {
-                throw new RegexParseException("Reference to undefined group number " + node.RefNumber, __pattern, node.Pos);
+                Boolean exists = false;
+                for (Int32 k = 0; k < GroupCount; k++)
+                {
+                    if (GroupNumbers[k] == node.RefNumber)
+                        exists = true;
+                }
+
+                if (!exists)
+                    throw new RegexParseException("Reference to undefined group number " + node.RefNumber, __pattern, node.Pos);
             }
         }
     }
 
-    // The number of the groups of the pattern, group 0 too, counted before the pattern is read (a \10 is a
-    // reference when there are so many groups, an octal character when there are not).
-    private Int32 __TotalGroups()
+    // The numbers of the groups of the pattern, group 0 too, found before the pattern is read: a \10 is a reference
+    // when there is a group 10, an octal character when there is not. They are numbered as __Number does.
+    private List<Int32> __DefinedNumbers()
     {
-        if (__total >= 0)
-            return __total;
+        if (__defined != null)
+            return __defined;
 
-        Int32 n = 1;
+        List<Int32> used = new List<Int32>();
+        used.Add(0);
+        List<String> named = new List<String>();
+        Int32 unnamed = 0;
         Int32 i = 0;
         while (i < __length)
         {
@@ -171,11 +257,41 @@ internal class RegexParser
                 {
                     if (i + 3 < __length && (__pattern[i + 2] == '<' || __pattern[i + 2] == '\'')
                             && __pattern[i + 3] != '=' && __pattern[i + 3] != '!')
-                        n++;
+                    {
+                        Char close = __pattern[i + 2] == '<' ? '>' : '\'';
+                        Int32 end = i + 3;
+                        while (end < __length && __pattern[end] != close)
+                            end++;
+
+                        String text = __pattern.Substring(i + 3, end - (i + 3));
+                        Int32 dash = text.IndexOf('-');
+                        String first = dash < 0 ? text : text.Substring(0, dash);
+                        if (first.Length > 0)
+                        {
+                            if (__AllDigits(first))
+                            {
+                                Int32 n = __NumberOfName(first);
+                                if (n > 0 && !__Has(used, n))
+                                    used.Add(n);
+                            }
+                            else
+                            {
+                                Boolean seen = false;
+                                for (Int32 k = 0; k < named.Count; k++)
+                                {
+                                    if (named[k] == first)
+                                        seen = true;
+                                }
+
+                                if (!seen)
+                                    named.Add(first);
+                            }
+                        }
+                    }
                 }
-                else if (!__explicit)
+                else if (!__explicitAtStart)
                 {
-                    n++;
+                    unnamed++;
                 }
 
                 i++;
@@ -186,8 +302,33 @@ internal class RegexParser
             }
         }
 
-        __total = n;
-        return n;
+        Int32 next = 1;
+        for (Int32 k = 0; k < unnamed + named.Count; k++)
+        {
+            while (__Has(used, next))
+                next++;
+
+            used.Add(next);
+            next++;
+        }
+
+        __defined = used;
+        return used;
+    }
+
+    // Whether the text is all digits (and not empty).
+    private Boolean __AllDigits(String text)
+    {
+        if (text.Length == 0)
+            return false;
+
+        for (Int32 i = 0; i < text.Length; i++)
+        {
+            if (!Char.IsDigit(text[i]))
+                return false;
+        }
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -444,8 +585,69 @@ internal class RegexParser
     private RegexNode __OfCategory(Int32 category)
     {
         RegexCharClass set = new RegexCharClass();
-        set.AddCategory(category);
+        __AddCategory(set, category);
         return RegexNode.OfSet(set);
+    }
+
+    // Adds \d \w \s (or the others) to the set. With RegexOptions.ECMAScript they are the characters of ASCII only:
+    // \d is 0-9, \w is a-z A-Z 0-9 _, \s is the space and \t \n \v \f \r; the others are the characters that are left.
+    private Void __AddCategory(RegexCharClass set, Int32 category)
+    {
+        if (!__ecma)
+        {
+            set.AddCategory(category);
+            return;
+        }
+
+        switch (category)
+        {
+            case RegexCharClass.Digit:
+            {
+                set.AddRange(48, 57);
+                break;
+            }
+
+            case RegexCharClass.NotDigit:
+            {
+                set.AddRange(0, 47);
+                set.AddRange(58, 65535);
+                break;
+            }
+
+            case RegexCharClass.Word:
+            {
+                set.AddRange(48, 57);
+                set.AddRange(65, 90);
+                set.AddRange(95, 95);
+                set.AddRange(97, 122);
+                break;
+            }
+
+            case RegexCharClass.NotWord:
+            {
+                set.AddRange(0, 47);
+                set.AddRange(58, 64);
+                set.AddRange(91, 94);
+                set.AddRange(96, 96);
+                set.AddRange(123, 65535);
+                break;
+            }
+
+            case RegexCharClass.Space:
+            {
+                set.AddRange(9, 13);
+                set.AddRange(32, 32);
+                break;
+            }
+
+            default:
+            {
+                set.AddRange(0, 8);
+                set.AddRange(14, 31);
+                set.AddRange(33, 65535);
+                break;
+            }
+        }
     }
 
     // A \ outside a character class.
@@ -474,7 +676,11 @@ internal class RegexParser
             return new RegexNode(RegexNodeKind.StartAt);
 
         if (c == 'p' || c == 'P')
-            throw __Error("The categories of Unicode (\\" + c + ") are not supported");
+        {
+            RegexCharClass property = new RegexCharClass();
+            __AddProperty(property, c == 'P');
+            return RegexNode.OfSet(property);
+        }
 
         if (c == 'k')
         {
@@ -505,8 +711,52 @@ internal class RegexParser
             while (end < __length && __pattern[end] >= '0' && __pattern[end] <= '9' && end - first < 6)
                 end++;
 
+            if (__ecma)
+            {
+                // The most digits that are the number of a group; when there is none it is an octal character, and
+                // 8 and 9 are themselves.
+                Int32 best = -1;
+                Int32 bestEnd = first;
+                Int32 value = 0;
+                for (Int32 e = first; e < end; e++)
+                {
+                    value = value * 10 + ((Int32)__pattern[e] - (Int32)'0');
+                    if (__Has(__DefinedNumbers(), value))
+                    {
+                        best = value;
+                        bestEnd = e + 1;
+                    }
+                }
+
+                if (best >= 0)
+                {
+                    RegexNode ecmaRef = new RegexNode(RegexNodeKind.BackRef);
+                    ecmaRef.RefNumber = best;
+                    ecmaRef.IgnoreCase = __ignoreCase;
+                    ecmaRef.Pos = first - 1;
+                    __refs.Add(ecmaRef);
+                    __pos = bestEnd;
+                    return ecmaRef;
+                }
+
+                if (c > '7')
+                    return RegexNode.OfChar((Int32)c, __ignoreCase);
+
+                Int32 octal = 0;
+                __pos = first;
+                Int32 count = 0;
+                while (count < 3 && __More && __Cur >= '0' && __Cur <= '7')
+                {
+                    octal = octal * 8 + ((Int32)__Cur - (Int32)'0');
+                    __pos++;
+                    count++;
+                }
+
+                return RegexNode.OfChar(octal, __ignoreCase);
+            }
+
             Int32 n = __NumberOfName(__pattern.Substring(first, end - first));
-            if (n < __TotalGroups())
+            if (__Has(__DefinedNumbers(), n))
             {
                 RegexNode numbered = new RegexNode(RegexNodeKind.BackRef);
                 numbered.RefNumber = n;
@@ -614,6 +864,60 @@ internal class RegexParser
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The property of a \\p{name} or \\P{name} (the position is after the p): a category of Unicode (L, Lu, Nd ...) or a
+    // block (IsGreek ...). It is added to the set; \\P is the characters that do not have it.
+    private Void __AddProperty(RegexCharClass set, Boolean negated)
+    {
+        if (__ecma)
+            throw __Error("The properties of Unicode (\\p) are not supported with RegexOptions.ECMAScript");
+
+        if (!__More || __Cur != '{')
+            throw __Error("Incomplete \\p{X} character escape");
+
+        __pos++;
+        Int32 start = __pos;
+        while (__More && __Cur != '}')
+        {
+            Char c = __Cur;
+            if (!(Char.IsLetterOrDigit(c) || c == '-' || c == '_'))
+                throw __Error("Incomplete \\p{X} character escape");
+
+            __pos++;
+        }
+
+        if (!__More)
+            throw __Error("Incomplete \\p{X} character escape");
+
+        String name = __pattern.Substring(start, __pos - start);
+        __pos++;
+
+        Int32 mask = RegexUnicode.CategoryMask(name);
+        if (mask != 0)
+        {
+            set.AddUnicode(mask, negated);
+            return;
+        }
+
+        Int32 block = RegexUnicode.FindBlock(name);
+        if (block < 0)
+            throw new RegexParseException("Unknown property '" + name + "'", __pattern, start);
+
+        Int32 first = RegexUnicode.BlockStart(block);
+        Int32 last = RegexUnicode.BlockEnd(block);
+        if (!negated)
+        {
+            set.AddRange(first, last);
+        }
+        else
+        {
+            if (first > 0)
+                set.AddRange(0, first - 1);
+
+            if (last < 0xFFFF)
+                set.AddRange(last + 1, 0xFFFF);
+        }
+    }
+
     // A character class: [abc] [^abc] [a-z] [\d_] [a-z-[aeiou]].
     private RegexNode __ParseClass()
     {
@@ -701,16 +1005,19 @@ internal class RegexParser
         Char e = __Cur;
         __pos++;
 
-        if (e == 'd') { set.AddCategory(RegexCharClass.Digit); return -1; }
-        if (e == 'D') { set.AddCategory(RegexCharClass.NotDigit); return -1; }
-        if (e == 'w') { set.AddCategory(RegexCharClass.Word); return -1; }
-        if (e == 'W') { set.AddCategory(RegexCharClass.NotWord); return -1; }
-        if (e == 's') { set.AddCategory(RegexCharClass.Space); return -1; }
-        if (e == 'S') { set.AddCategory(RegexCharClass.NotSpace); return -1; }
+        if (e == 'd') { __AddCategory(set, RegexCharClass.Digit); return -1; }
+        if (e == 'D') { __AddCategory(set, RegexCharClass.NotDigit); return -1; }
+        if (e == 'w') { __AddCategory(set, RegexCharClass.Word); return -1; }
+        if (e == 'W') { __AddCategory(set, RegexCharClass.NotWord); return -1; }
+        if (e == 's') { __AddCategory(set, RegexCharClass.Space); return -1; }
+        if (e == 'S') { __AddCategory(set, RegexCharClass.NotSpace); return -1; }
         if (e == 'b') return 8;
 
         if (e == 'p' || e == 'P')
-            throw __Error("The categories of Unicode (\\" + e + ") are not supported");
+        {
+            __AddProperty(set, e == 'P');
+            return -1;
+        }
 
         return __CharEscape(e);
     }
@@ -751,6 +1058,7 @@ internal class RegexParser
 
         String? name = null;
         String? balance = null;
+        Int32 explicitNumber = -1;
         Boolean capture = !__explicit;
 
         if (__More && __Cur == '?')
@@ -807,7 +1115,8 @@ internal class RegexParser
                 __ReadGroupNames(close);
                 name = __nameA;
                 balance = __nameB;
-                capture = name != null;
+                explicitNumber = __nameANumber;
+                capture = name != null || explicitNumber >= 0;
             }
             else
             {
@@ -851,6 +1160,7 @@ internal class RegexParser
                 group.GroupIndex = __groups.Count;
                 __groups.Add(group);
                 __names.Add(name);
+                __explicitNumbers.Add(explicitNumber);
             }
             else
             {
@@ -1013,8 +1323,9 @@ internal class RegexParser
         return name;
     }
 
-    // The names of a group, up to the closing character: name, name1-name2 or -name2 (a balancing group). They are in
-    // __nameA (null when the group has none) and __nameB (null when it is not a balancing group).
+    // The names of a group, up to the closing character: name, name1-name2 or -name2 (a balancing group), or the
+    // number of the group instead of the first name. They are in __nameA (null when the group has none, or a number),
+    // __nameANumber (-1 when it is not a number) and __nameB (null when it is not a balancing group).
     private Void __ReadGroupNames(Char close)
     {
         Int32 start = __pos;
@@ -1042,16 +1353,28 @@ internal class RegexParser
         if (first.Length == 0 && second == null)
             throw __Error("Invalid group name");
 
-        if (first.Length > 0 && Char.IsDigit(first[0]))
-            throw __Error("Invalid group name");
+        __nameANumber = -1;
+        if (first.Length > 0)
+        {
+            if (__AllDigits(first))
+            {
+                Int32 number = __NumberOfName(first);
+                if (number == 0 || number > 100000)
+                    throw __Error("Capture group numbers must be greater than zero");
+
+                __nameANumber = number;
+                first = "";
+            }
+            else if (Char.IsDigit(first[0]))
+            {
+                throw __Error("Invalid group name");
+            }
+        }
 
         if (second != null)
         {
             // A number is all digits.
-            Boolean digits = second.Length > 0 && Char.IsDigit(second[0]);
-            for (Int32 i = 1; i < second.Length && digits; i++)
-                digits = Char.IsDigit(second[i]);
-
+            Boolean digits = __AllDigits(second);
             if (second.Length == 0 || (Char.IsDigit(second[0]) && !digits))
                 throw __Error("Invalid group name");
         }
@@ -1077,5 +1400,9 @@ internal class RegexParser
     private List<RegexNode> __groups;
     private List<String?> __names;
     private List<RegexNode> __refs;
-    private Int32 __total;
+    private List<Int32> __explicitNumbers;
+    private List<Int32>? __defined;
+    private Int32 __nameANumber;
+    private Boolean __ecma;
+    private Boolean __explicitAtStart;
 }

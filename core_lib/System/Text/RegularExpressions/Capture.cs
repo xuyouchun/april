@@ -110,11 +110,18 @@ public class GroupCollection : IReadOnlyList<Group>
     {
         get
         {
-            if (groupNumber < 0 || groupNumber >= __groups.Length)
+            Int32 index = __regex == null ? -1 : __regex.IndexOfNumber(groupNumber);
+            if (index < 0)
                 return __Failed();
 
-            return __groups[groupNumber];
+            return __groups[index];
         }
+    }
+
+    // The group at the place (the groups are in the order of their numbers).
+    internal Group At(Int32 index)
+    {
+        return __groups[index];
     }
 
     // The group of the name: a name that is not in the pattern is a group that did not match.
@@ -122,11 +129,11 @@ public class GroupCollection : IReadOnlyList<Group>
     {
         get
         {
-            Int32 number = __regex == null ? -1 : __regex.GroupNumberFromName(groupName);
-            if (number < 0)
+            Int32 index = __regex == null ? -1 : __regex.IndexOfNumber(__regex.GroupNumberFromName(groupName));
+            if (index < 0)
                 return __Failed();
 
-            return __groups[number];
+            return __groups[index];
         }
     }
 

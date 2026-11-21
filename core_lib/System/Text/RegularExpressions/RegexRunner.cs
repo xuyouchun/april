@@ -29,7 +29,7 @@ internal class RegexRunner
         __program = program;
         __stack = new Int32[96];
         __sp = 0;
-        __starts = new Int32[program.GroupCount];
+        __starts = new Int32[program.SlotCount];
         __registers = new Int32[program.RegisterCount];
         __log = new Int32[48];
         __logLength = 0;
@@ -132,7 +132,14 @@ internal class RegexRunner
 
     private Boolean __IsWordAt(Int32 index)
     {
-        return index >= 0 && index < __text.Length && RegexCharClass.IsWordChar(__text[index]);
+        if (index < 0 || index >= __text.Length)
+            return false;
+
+        Char c = __text[index];
+        if (__program.Ecma)
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+
+        return RegexCharClass.IsWordChar(c);
     }
 
     // Whether the character that is read at the position is the one of a loop of one character (RegexSingle).
@@ -542,6 +549,12 @@ internal class RegexRunner
 
                 case RegexOp.BackRef:
                 {
+                    if (__program.Ecma && !__LastCapture(code[pc + 1]))
+                    {
+                        pc += 2;
+                        break;
+                    }
+
                     ok = __MatchBackRef(code[pc + 1], pos, false, false);
                     if (ok)
                     {
@@ -554,6 +567,12 @@ internal class RegexRunner
 
                 case RegexOp.BackRefIgnoreCase:
                 {
+                    if (__program.Ecma && !__LastCapture(code[pc + 1]))
+                    {
+                        pc += 2;
+                        break;
+                    }
+
                     ok = __MatchBackRef(code[pc + 1], pos, true, false);
                     if (ok)
                     {
@@ -566,6 +585,12 @@ internal class RegexRunner
 
                 case RegexOp.BackRefR:
                 {
+                    if (__program.Ecma && !__LastCapture(code[pc + 1]))
+                    {
+                        pc += 2;
+                        break;
+                    }
+
                     ok = __MatchBackRef(code[pc + 1], pos, false, true);
                     if (ok)
                     {
@@ -578,6 +603,12 @@ internal class RegexRunner
 
                 case RegexOp.BackRefIgnoreCaseR:
                 {
+                    if (__program.Ecma && !__LastCapture(code[pc + 1]))
+                    {
+                        pc += 2;
+                        break;
+                    }
+
                     ok = __MatchBackRef(code[pc + 1], pos, true, true);
                     if (ok)
                     {

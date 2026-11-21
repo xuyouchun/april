@@ -122,6 +122,9 @@ public struct Rune : IComparable<Rune>, IEquatable<Rune>, IEquality, IStringable
 
     public static Boolean IsLower(Rune r) => r.__value < 0x10000 && Char.IsLower((Char)r.__value);
 
+    // The general category of Unicode of the rune, of any plane.
+    public static Globalization.UnicodeCategory GetUnicodeCategory(Rune r) => Globalization.CharUnicodeInfo.GetUnicodeCategory(r.__value);
+
     public static Rune ToUpper(Rune r) => r.__value < 0x10000 ? new Rune((Int32)Char.ToUpper((Char)r.__value)) : r;
 
     public static Rune ToLower(Rune r) => r.__value < 0x10000 ? new Rune((Int32)Char.ToLower((Char)r.__value)) : r;

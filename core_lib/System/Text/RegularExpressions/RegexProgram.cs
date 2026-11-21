@@ -86,6 +86,14 @@ internal class RegexProgram
     internal String[] GroupNames;
     internal Int32 RegisterCount;
 
+    // The numbers of the groups (in the order of the names: they are not 0, 1, 2 ... when the pattern gives numbers to
+    // its groups), and the room that they need.
+    internal Int32[] GroupNumbers;
+    internal Int32 SlotCount;
+
+    // RegexOptions.ECMAScript: a reference to a group that did not match matches nothing, and a word is of ASCII.
+    internal Boolean Ecma;
+
     // The first character of every match, or -1 when it is not known; the text that every match starts with, or null.
     internal Int32 FirstChar;
     internal String? Prefix;
@@ -112,6 +120,7 @@ internal class RegexCompiler
         __code = new List<Int32>();
         __sets = new List<RegexCharClass>();
         __registers = 0;
+        __options = options;
         __rtl = (options & RegexOptions.RightToLeft) != RegexOptions.None;
         __rightToLeft = __rtl;
     }
@@ -126,6 +135,9 @@ internal class RegexCompiler
         p.Sets = __sets.ToArray();
         p.GroupCount = __parser.GroupCount;
         p.GroupNames = __parser.GroupNames;
+        p.GroupNumbers = __parser.GroupNumbers;
+        p.SlotCount = __parser.SlotCount;
+        p.Ecma = (__options & RegexOptions.ECMAScript) != RegexOptions.None;
         p.RegisterCount = __registers;
         p.RightToLeft = __rightToLeft;
 
@@ -652,6 +664,7 @@ internal class RegexCompiler
     private List<Int32> __code;
     private List<RegexCharClass> __sets;
     private Int32 __registers;
+    private RegexOptions __options;
     private Boolean __rtl;
     private Boolean __rightToLeft;
 }

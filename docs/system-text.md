@@ -195,9 +195,24 @@ searched with `IndexOf`.
   have a variant for the direction (`CharR`, `SetR` ...).
 * Options: `IgnoreCase` (by `Char.ToLower`/`ToUpper`, there are no cultures), `Multiline`, `Singleline`,
   `ExplicitCapture`, `IgnorePatternWhitespace`. `Compiled` and `CultureInvariant` are accepted and do nothing;
-  `ECMAScript` is a `NotSupportedException`.
+  `ECMAScript`: `\d \w \s` (and `\D \W \S`) and `\b` are of ASCII, a reference to a group that did not match matches the empty
+  text (so `(a\1)` and `(a)?b\1` match), `\N` is a reference only when the group `N` exists (`\12` is the reference
+  `\1` and a `2` when there is no group 12), else it is an octal character (`\8` is `8`), and `\p` is an error of the
+  pattern; it can go with `IgnoreCase`, `Multiline` and `Compiled` only (an `OutOfRangeException` for the others).
+* The groups that have a number for a name, `(?<5>a)`, `(?<2-1>x)`: the number is kept, the groups that have no name take
+  the numbers that are left (from 1, from left to right) and the named ones the numbers after them, as in .NET. The numbers
+  can have holes: `(?<5>a)(?<3>b)` has the groups 0, 3 and 5 (`GetGroupNumbers`, `Groups.Count` 3, `Groups[5]`; a number
+  that is not a group is a group that did not match, and `Groups[i]` is by the number, not by the place). `0` and a number
+  over 100000 are errors of the pattern.
 * A pattern that is not valid is a `RegexParseException` (an `ArgumentException`) with `Pattern` and `Offset`.
-  The categories of Unicode `\p{..}` are an error of the pattern for now (the library has no categories).
+  The properties `\p{..}` and `\P{..}` (in a class too) are the categories of Unicode and the blocks (below).
+* `\p{L}` (the groups `L M N Z C P S`), `\p{Lu}` (the 30 categories, with the case of .NET), `\p{IsGreek}`
+  `\p{IsCJKUnifiedIdeographs}` ... (64 blocks of the basic plane, with the names of .NET: `IsBasicLatin`, `IsLatin-1Supplement`,
+  `IsLatinExtended-A` ... `IsSpecials`; a name that is not known is an error of the pattern). `\P{..}` is the other
+  characters. The case option does not change them. The text is matched by the units of UTF-16: a character of
+  another plane is a pair of surrogates (`Cs`), as in .NET.
+* `\w` is `[\p{L}\p{Mn}\p{Nd}\p{Pc}]` and `\d` is `\p{Nd}` (the letters and the digits of every script); `\s` is
+  `Char.IsWhiteSpace`.
 * Replace takes a replacement text or an evaluator: `Replace(input, m => ...)` (a `Delegate<String, Match>`, the language
   has no named delegate types, so there is no `MatchEvaluator`).
 * The library has no clock, so the match timeout is a limit of steps: `new Regex(pattern, options, maxSteps)` throws a
@@ -205,6 +220,23 @@ searched with `IndexOf`.
 * The group of a name is `match.Groups["name"]`, the options are combined with `|`, and `Match.Empty` is the match
   of a search that found nothing, as in .NET. The enum with `[Flags]` is not needed: `A | B` of two values of an enum is a
   value of that enum.
+
+## Unicode categories (System.Globalization)
+
+`CharUnicodeInfo.GetUnicodeCategory(Char)`, `(Int32 codePoint)` (any plane) and `(String, Int32 index)` (a pair of
+surrogates is one character) give the `UnicodeCategory` (the enum of .NET with its numbers: `UppercaseLetter` 0 ...
+`OtherNotAssigned` 29). `Char.GetUnicodeCategory(c)` and `Rune.GetUnicodeCategory(r)` call it.
+
+The table is a resource of the library (`System.Globalization.unicode_category.bin`, 16 KB): the runs of the code points
+that have the same category (4099 runs of Unicode 16.0), sorted, found by a binary search; the characters of ASCII have a
+table of their own. It is read the first time that a category is asked for, so it is not needed by the programs that do
+not use it, and there is no change of the runtime: the resources of a project are read by `Resource.GetBytes`
+(see `resources.md`; the native programs have them too). `tools/gen_unicode_category.py` makes the file from the
+`unicodedata` of Python (the file is committed; run it again for another version of Unicode, and change the number in
+the comment of `CharUnicodeInfo` and in this text).
+
+`Char.IsLetter`, `IsDigit`, `IsUpper`, ... are still those of the runtime (`Internal.Char_*`), the ones of the host:
+they are not the categories of this table.
 
 ## Limits of the library
 

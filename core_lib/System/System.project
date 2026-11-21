@@ -53,6 +53,7 @@
 
     <resources>
         <resource><path>Text/gb18030.bin</path></resource>
+        <resource><path>Globalization/unicode_category.bin</path></resource>
     </resources>
 
 </project>

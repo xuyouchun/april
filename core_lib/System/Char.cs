@@ -31,6 +31,9 @@ public partial struct Char
 
     public static Boolean IsLower(Char c) => Internal.Char_ToUpper(c) != c;
 
+    // The general category of Unicode (Lu, Nd, Zs ...), from the table of CharUnicodeInfo.
+    public static Globalization.UnicodeCategory GetUnicodeCategory(Char c) => Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+
     public static Char ToUpper(Char c) => Internal.Char_ToUpper(c);
 
     public static Char ToLower(Char c) => Internal.Char_ToLower(c);
