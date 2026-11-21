@@ -828,15 +828,24 @@ namespace X_ROOT_NS::modules::native {
 
             // The number of a box of an enum: the table of reflection of its type holds the type of the number (the
             // table is after the names, see native_abi.h).
-            if (name == "Enum_GetNumber")
+            if (name == "Enum_GetNumber" || name == "Enum_ToString" || name == "Enum_Parse")
             {
                 __uses_reflection = true;
                 __uses_enum_number = true;
 
+                // The type of the enum: the descriptor of the box, or the Type that is the argument.
+                llb::value_t desc = name == "Enum_Parse"? args.at(0) : f.load("ptr", f.gep_bytes(args.at(0), -8));
+
                 llb::value_t count = f.load("i64", llb::value_t { llb::types::ptr, "@april.vcount" });
                 llb::value_t offset = f.binop("add", f.binop("mul", count, llb::const_int("i64", 8)),
                                                      llb::const_int("i64", 48));
-                llb::value_t table = f.load("ptr", f.gep(llb::types::i8, f.load("ptr", f.gep_bytes(args.at(0), -8)), offset));
+                llb::value_t table = f.load("ptr", f.gep(llb::types::i8, desc, offset));
+
+                if (name == "Enum_ToString")
+                    return f.call("ptr", APRIL_NATIVE_SYM_ENUM_TO_STRING, { table, args.at(0) });
+
+                if (name == "Enum_Parse")
+                    return f.call("ptr", APRIL_NATIVE_SYM_ENUM_PARSE, { desc, table, args.at(1), args.at(2) });
 
                 return f.call("i64", APRIL_NATIVE_SYM_ENUM_NUMBER, { table, args.at(0) });
             }
@@ -5392,7 +5401,7 @@ namespace X_ROOT_NS::modules::native {
 
             // The size of the objects, and the attributes.
             int64_t size = 0;
-            if (!c.meta_only && c.type->get_ttype(__env) == ttype_t::class_)
+            if (!c.meta_only && (c.type->get_ttype(__env) == ttype_t::class_ || c.type->get_ttype(__env) == ttype_t::enum_))
             {
                 c.type->pre_new(__env);
                 size = (int64_t)c.type->get_size(__env);
@@ -5610,7 +5619,11 @@ namespace X_ROOT_NS::modules::native {
             }
 
             if (__uses_enum_number)
+            {
                 __module.declare(APRIL_NATIVE_SYM_ENUM_NUMBER, "i64", { "ptr", "ptr" });
+                __module.declare(APRIL_NATIVE_SYM_ENUM_TO_STRING, "ptr", { "ptr", "ptr" });
+                __module.declare(APRIL_NATIVE_SYM_ENUM_PARSE, "ptr", { "ptr", "ptr", "ptr", "i8" });
+            }
 
             if (__uses_attributes)
             {

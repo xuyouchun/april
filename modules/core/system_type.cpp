@@ -371,6 +371,36 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // Impl for System.ValueType.
+    class __value_type_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __value_type_type_impl_t::type_name[] = __CoreTypeName(CoreType_ValueType);
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Impl for System.Struct.
+    class __struct_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
+    {
+        typedef __tcore_type_impl_t<vtype_t::mobject_> __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        static const char_t type_name[];
+    };
+
+    const char_t __struct_type_impl_t::type_name[] = __CoreTypeName(CoreType_Struct);
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Impl for System.Array.
     class __array_type_impl_t : public __tcore_type_impl_t<vtype_t::mobject_>
     {
@@ -873,6 +903,8 @@ namespace X_ROOT_NS::modules::core {
             __impls.append<__overflow_exception_type_impl_t>();
             __impls.append<__attribute_type_impl_t>();
             __impls.append<__enum_type_impl_t>();
+            __impls.append<__value_type_type_impl_t>();
+            __impls.append<__struct_type_impl_t>();
             __impls.append<__array_type_impl_t>();
             __impls.append<__t_array_type_impl_t>();
             __impls.append<__t_ituple_type_impl_t>();

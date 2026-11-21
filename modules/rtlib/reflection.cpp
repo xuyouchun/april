@@ -984,22 +984,12 @@ namespace X_ROOT_NS::modules::rtlib {
         ctx.return_<int32_t>((int32_t)((address >> 4) & 0x7fffffff));
     }
 
-    // Enum_GetNumber: the number of a boxed enum, of its underlying type (a signed one is extended by its sign).
-    void enum_get_number(rtlib_context_t & ctx)
+    // The number of a box of an enum, of its underlying type (a signed one is extended by its sign).
+    static int64_t __enum_number_of(analyzer_env_t & env, rt_type_t * type, void * obj)
     {
-        __reflection_args_t * args = ctx.args<__reflection_args_t>();
-
-        void * obj = args->get_object();
-        if (obj == nullptr)
-            return ctx.return_<int64_t>(0);
-
-        rt_type_t * type = mm::get_object_type(obj);
-        int64_t number = 0;
-
-        switch (type->get_vtype(*ctx.exec_env))
+        switch (type->get_vtype(env))
         {
-            #define __Case(_vt, _t)                                                     \
-                case vtype_t::_vt: number = (int64_t)*(_t *)obj; break;
+            #define __Case(_vt, _t)     case vtype_t::_vt: return (int64_t)*(_t *)obj;
 
             __Case(int8_,   int8_t)
             __Case(uint8_,  uint8_t)
@@ -1013,10 +1003,54 @@ namespace X_ROOT_NS::modules::rtlib {
             #undef __Case
 
             default:
-                break;
+                return 0;
         }
+    }
 
-        ctx.return_<int64_t>(number);
+    // Enum_GetNumber: the number of a boxed enum.
+    void enum_get_number(rtlib_context_t & ctx)
+    {
+        __reflection_args_t * args = ctx.args<__reflection_args_t>();
+
+        void * obj = args->get_object();
+        ctx.return_<int64_t>(obj == nullptr? 0 : __enum_number_of(*ctx.exec_env, mm::get_object_type(obj), obj));
+    }
+
+    // Enum_ToString: the text of a boxed enum: the name of its item, the number when it has no item.
+    void enum_to_string(rtlib_context_t & ctx)
+    {
+        __reflection_args_t * args = ctx.args<__reflection_args_t>();
+
+        void * obj = args->get_object();
+        if (obj == nullptr)
+            return ctx.return_<const rt_char_t *>(rt_empty_string());
+
+        rt_type_t * type = mm::get_object_type(obj);
+        int64_t number = __enum_number_of(*ctx.exec_env, type, obj);
+
+        ctx.return_<const rt_char_t *>(enum_text_of(__reflection_of(ctx).get_type(type), number));
+    }
+
+    // Enum_Parse: the box of the value of a text, null when the text is not a value of the enum.
+    void enum_parse(rtlib_context_t & ctx)
+    {
+        struct args_t { robject_t type; rstring_t text; rbool_t ignore_case; };
+        args_t * args = ctx.args<args_t>();
+
+        analyzer_env_t & env = *ctx.exec_env;
+        rt_type_t * type = (rt_type_t *)(void *)(rt_ref_t)args->type;
+
+        int64_t number;
+        if (type == nullptr || type->get_ttype(env) != ttype_t::enum_
+                || !enum_parse_text(__reflection_of(ctx).get_type(type), *args->text, *args->ignore_case, &number))
+            return ctx.return_((rt_ref_t)nullptr);
+
+        type->pre_new(env);
+
+        rt_ref_t boxed = ctx.heap->new_obj(type);
+        set_variable_value((void *)boxed, &number, (msize_t)type->get_variable_size(env));
+
+        ctx.return_(boxed);
     }
 
     // Object_ReferenceEquals: whether the two are the same object.

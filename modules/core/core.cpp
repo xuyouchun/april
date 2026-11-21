@@ -6108,7 +6108,9 @@ namespace X_ROOT_NS::modules::core {
 
         if (get_base_type() == nullptr)
         {
-            type_name_t * object_type_name = __XPool.get_object_type_name();
+            // The base type of a struct is System.Struct, the one of the others System.Object.
+            type_name_t * object_type_name = this_ttype() == ttype_t::struct_?
+                            __XPool.get_struct_type_name() : __XPool.get_object_type_name();
             if (object_type_name->type != this && this_ttype() != ttype_t::interface_)
             {
                 type_name_t * base_types[] = { object_type_name };
@@ -7425,6 +7427,19 @@ namespace X_ROOT_NS::modules::core {
     general_type_t * xpool_t::get_enum_type()
     {
         return __get_specified_type(__CoreTypeName(CoreType_Enum), __enum_type);
+    }
+
+    // Returns System.Struct type name.
+    type_name_t * xpool_t::get_struct_type_name()
+    {
+        if (__struct_type_name.type == nullptr)
+        {
+            __struct_type_name.type = __get_specified_type(
+                __CoreTypeName(CoreType_Struct), __struct_type
+            );
+        }
+
+        return &__struct_type_name;
     }
 
     // Returns System.Ptr type.

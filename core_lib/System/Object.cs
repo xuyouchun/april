@@ -67,31 +67,58 @@ public class Object
 
 ////////// ////////// ////////// ////////// //////////
 
+// The base type of the types that are values: ValueType is the base of Struct, Enum is a type of its own.
 [Internal]
-public class Enum
+public class ValueType : Object
+{
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// The base type of all the structs (the compiler gives it to each struct that does not derive from other).
+[Internal]
+public class Struct : ValueType
+{
+}
+
+////////// ////////// ////////// ////////// //////////
+
+[Internal]
+public class Enum : ValueType
 {
     // The text of the value: the name of its item, the number when the value has no item (a number that is
-    // cast to the enum, a combination of flags). An enum that declares a ToString keeps its own.
-    public virtual String ToString()
+    // cast to the enum). An enum that declares a ToString keeps its own.
+    public virtual String ToString() => Internal.Enum_ToString(this);
+
+    // Parses the text: the name of an item, a number, or the ones that are separated by commas (the flags: they are
+    // or-ed). The result is the box of a value of the enum.
+    // Throws ArgumentException when the type is not an enum, or the text is not a value of it.
+    public static Object Parse(Type enumType, String text, Boolean ignoreCase)
     {
-        Type type = Type.GetType(this);
-        Int64 number = __Number(this);
+        Object? result = __Parse(enumType, text, ignoreCase);
+        if (result == null)
+            throw new ArgumentException("the text is not a value of the enum " + enumType.FullName);
 
-        Array<Field> fields = type.GetFields();
-        for (Int32 k = 0; k < fields.Length; k++)
-        {
-            Field field = fields[k];
-            if (field.IsConst && field.FieldType.FullName == type.FullName
-                              && __Number(field.GetValue(null)) == number)
-                return field.Name;
-        }
-
-        return "" + number;
+        return result;
     }
 
-    // The number of a boxed enum value, of its underlying type: a signed one is extended by its sign.
-    private static Int64 __Number(Object? value)
+    public static Object Parse(Type enumType, String text) => Parse(enumType, text, false);
+
+    // Parses the text, returns whether it is a value of the enum.
+    public static Boolean TryParse(Type enumType, String text, Boolean ignoreCase, out Object? result)
     {
-        return Internal.Enum_GetNumber(value);
+        result = __Parse(enumType, text, ignoreCase);
+        return result != null;
+    }
+
+    public static Boolean TryParse(Type enumType, String text, out Object? result)
+        => TryParse(enumType, text, false, out result);
+
+    private static Object? __Parse(Type enumType, String text, Boolean ignoreCase)
+    {
+        if (enumType == null || !enumType.IsEnum || text == null)
+            return null;
+
+        return Internal.Enum_Parse(enumType, text, ignoreCase);
     }
 }

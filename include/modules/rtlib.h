@@ -49,6 +49,14 @@ namespace X_ROOT_NS::modules::rtlib {
     // Runtime times.
 
     typedef rt_arg_t<const rt_char_t *> rstring_t;
+
+    // Creates a string of the runtime from a text.
+    const rt_char_t * new_rt_string(const std::wstring & text);
+
+    // The names and the values of the items of an enum (enum.cpp), by the table of reflection of its type (the
+    // interpreter and the native programs have the same tables).
+    const rt_char_t * enum_text_of(const rt_reflect_type_t * table, int64_t number);
+    bool enum_parse_text(const rt_reflect_type_t * table, const rt_char_t * text, bool ignore_case, int64_t * out);
     typedef rt_arg_t<rt_char_t>         rchar_t;
 
     typedef rt_arg_t<int8_t>            rint8_t;
@@ -264,6 +272,8 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(reflection_generic_parameter);
     __DefineFunc(object_get_hash_code);
     __DefineFunc(enum_get_number);
+    __DefineFunc(enum_to_string);
+    __DefineFunc(enum_parse);
     __DefineFunc(object_reference_equals);
 
     // Math functions.

@@ -48,6 +48,12 @@ namespace X_ROOT_NS::modules::rtlib {
         return __new_string(text.c_str(), text.size());
     }
 
+    // Creates a string of the runtime from a text (for the other files of the library).
+    const rt_char_t * new_rt_string(const std::wstring & text)
+    {
+        return __new_string(text);
+    }
+
     ////////// ////////// ////////// ////////// //////////
 
     struct __string2_args_t

@@ -384,6 +384,37 @@ extern "C" {
         }
     }
 
+    const void * april_native_enum_to_string(const void * table, void * object)
+    {
+        using namespace X_ROOT_NS::modules;
+
+        if (object == nullptr)
+            return X_ROOT_NS::modules::rt::rt_empty_string();
+
+        return rtlib::enum_text_of((const rt::rt_reflect_type_t *)table, april_native_enum_number(table, object));
+    }
+
+    void * april_native_enum_parse(void * type, const void * table, const void * text, int8_t ignore_case)
+    {
+        using namespace X_ROOT_NS::modules;
+
+        if (table == nullptr)
+            return nullptr;
+
+        int64_t number;
+        if (!rtlib::enum_parse_text((const rt::rt_reflect_type_t *)table, (const X_ROOT_NS::rt_char_t *)text,
+                                    ignore_case != 0, &number))
+            return nullptr;
+
+        // The size of the objects is in the table.
+        int64_t size = *(const int64_t *)((const uint8_t *)table + 104);
+
+        void * boxed = april_native_new_object((uint64_t)size, type);
+        memcpy(boxed, &number, (size_t)size);
+
+        return boxed;
+    }
+
     void april_native_reflect_set(const april_native_member_t * member, void * object, void * value)
     {
         uint8_t * address = __reflect_address(member, object);

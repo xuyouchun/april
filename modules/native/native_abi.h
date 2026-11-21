@@ -20,6 +20,8 @@
 #define APRIL_NATIVE_SYM_REFLECT_GET    "april_native_reflect_get"
 #define APRIL_NATIVE_SYM_REFLECT_SET    "april_native_reflect_set"
 #define APRIL_NATIVE_SYM_ENUM_NUMBER    "april_native_enum_number"
+#define APRIL_NATIVE_SYM_ENUM_TO_STRING "april_native_enum_to_string"
+#define APRIL_NATIVE_SYM_ENUM_PARSE     "april_native_enum_parse"
 #define APRIL_NATIVE_SYM_REFLECT_CHECK_INVOKE "april_native_reflect_check_invoke"
 #define APRIL_NATIVE_SYM_REFLECT_INVOKE "april_native_reflect_invoke"
 #define APRIL_NATIVE_SYM_ATTR_COUNT     "april_native_reflect_attribute_count"
@@ -98,6 +100,13 @@ extern "C" {
 
     // Returns the number of a box of an enum, of its underlying type; `table` is the table of reflection of its type.
     int64_t april_native_enum_number(const void * table, void * object);
+
+    // Returns the text of a box of an enum (the name of its item, or its number), a string.
+    const void * april_native_enum_to_string(const void * table, void * object);
+
+    // Returns the box of the value of a text, or null if the text is not a value of the enum: `type` is the descriptor of
+    // the enum, `table` is its table of reflection.
+    void * april_native_enum_parse(void * type, const void * table, const void * text, int8_t ignore_case);
 
     // The table of a member of a type, for the reflection (rt_reflect_member_t of rt.h): the
     // fields have the offset of the value, the size, the kind (1 a reference, 2 a value that is

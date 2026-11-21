@@ -122,6 +122,15 @@ internal static class Internal
     [Internal]
     public static extern Int64 Enum_GetNumber(Object? value);
 
+    // The text of a boxed enum: the name of its item, the number when it has no item.
+    [Internal]
+    public static extern String Enum_ToString(Object value);
+
+    // The box of the value of a text (a name of an item, a number, or the ones separated by commas) of an enum, null
+    // when the text is not a value of it.
+    [Internal]
+    public static extern Object? Enum_Parse(Type type, String text, Boolean ignoreCase);
+
     [Internal]
     public static extern Boolean Object_ReferenceEquals(Object? obj1, Object? obj2);
 
