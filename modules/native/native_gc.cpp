@@ -100,6 +100,37 @@ namespace april_native_gc {
             }
         }
 
+
+        // The threads: the one that runs scans its own stack, the others have kept theirs when they stopped.
+        std::vector<thread_record_t *>  __threads;
+        root_provider_t                 __root_provider = nullptr;
+        thread_local thread_record_t *  __current = nullptr;
+    }
+
+    struct thread_record_t
+    {
+        uintptr_t       base = 0;               // The highest address of the stack that has frames.
+        uintptr_t       sp = 0;                 // The top of the stack when the thread stopped.
+        std::jmp_buf    registers;
+        void *          exception = nullptr;    // The exception that was pending when it stopped.
+        bool            stopped = false;        // It is created by the thread that runs.
+    };
+
+    namespace
+    {
+        void __scan_stopped_threads()
+        {
+            for (thread_record_t * record : __threads)
+            {
+                if (record == __current || !record->stopped)
+                    continue;
+
+                __scan((uintptr_t)&record->registers, (uintptr_t)&record->registers + sizeof(record->registers));
+                __scan(record->sp, record->base);
+                __mark_word((uintptr_t)record->exception);
+            }
+        }
+
         // The stack is scanned from here: not inlined, so that the registers are saved
         // below the frames of the caller.
         __attribute__((noinline)) void __collect_from_stack()
@@ -111,8 +142,16 @@ namespace april_native_gc {
             uintptr_t low = (uintptr_t)&marker;
             uintptr_t regs = (uintptr_t)&registers;
 
+            // The stack of the running thread: up to its base.
+            uintptr_t base = __current != nullptr? __current->base : __stack_base;
+
             __scan(regs, regs + sizeof(registers));
-            __scan(low < regs? low : regs, __stack_base);
+            __scan(low < regs? low : regs, base);
+
+            __scan_stopped_threads();
+
+            if (__root_provider != nullptr)
+                __root_provider([](void * address) { __mark_word((uintptr_t)address); });
 
             for (void ** slot : __roots)
                 __mark_word((uintptr_t)*slot);
@@ -176,6 +215,61 @@ namespace april_native_gc {
         }
 
         __threshold = __min_threshold;
+    }
+
+    void set_root_provider(root_provider_t provider)
+    {
+        __root_provider = provider;
+    }
+
+    thread_record_t * attach_thread(void * stack_base)
+    {
+        thread_record_t * record = new thread_record_t();
+        record->base = (uintptr_t)stack_base;
+        record->sp = record->base;
+
+        __threads.push_back(record);
+        __current = record;
+
+        return record;
+    }
+
+    void detach_thread(thread_record_t * record)
+    {
+        for (auto it = __threads.begin(); it != __threads.end(); ++it)
+        {
+            if (*it == record)
+            {
+                __threads.erase(it);
+                break;
+            }
+        }
+
+        if (__current == record)
+            __current = nullptr;
+
+        delete record;
+    }
+
+    // The registers are saved below the frames of the callers.
+    __attribute__((noinline)) void thread_stopping(thread_record_t * record, void * exception)
+    {
+        setjmp(record->registers);
+
+        volatile char marker = 0;
+        record->sp = (uintptr_t)&marker;
+        record->exception = exception;
+        record->stopped = true;
+    }
+
+    void * thread_resumed(thread_record_t * record)
+    {
+        void * exception = record->exception;
+
+        record->stopped = false;
+        record->exception = nullptr;
+
+        return exception;
     }
 
     void shutdown()

@@ -6326,6 +6326,10 @@ namespace X_ROOT_NS::modules::exec {
             }
             else if (__jmp_model_t<_model>()(ctx))
             {
+                // A jump that goes back is a loop: the other threads get their turn.
+                if (__This->__step < 0)
+                    rtlib::thread_poll();
+
                 ctx.current += __This->__step;
             }
 
@@ -7948,6 +7952,40 @@ namespace X_ROOT_NS::modules::exec {
     command_t * new_end_command()
     {
         __ReturnInstance(__execute_end_command_t);
+    }
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // Pushes a reference: the argument of the method that a new thread runs.
+    #define __PushRefCmd    __Cmd(push, ref_value)
+    __DefineCmdValue_(__PushRefCmd)
+
+    class __push_ref_command_t : public __command_base_t<__PushRefCmd>
+    {
+        typedef __push_ref_command_t    __self_t;
+
+    public:
+        __push_ref_command_t(void * ref) : __ref(ref) { }
+
+        __BeginExecute(ctx)
+
+            ctx.stack.push(__This->__ref);
+
+        __EndExecute()
+
+        #if EXEC_TRACE
+
+        __ToString(_T("push ref"))
+
+        #endif  // EXEC_TRACE
+
+    private:
+        void *  __ref;
+    };
+
+    command_t * new_push_ref_command(void * ref)
+    {
+        return __new_command<__push_ref_command_t>(&__command_heap, ref);
     }
 
     ////////// ////////// ////////// ////////// //////////

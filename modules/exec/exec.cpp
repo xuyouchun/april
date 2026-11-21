@@ -262,6 +262,56 @@ namespace X_ROOT_NS::modules::exec {
         std::exit(1);
     }
 
+    namespace
+    {
+        // Runs the threads of the program: the method System.Threading.Thread.__Entry(thread) in a new context.
+        class __thread_host_t : public rtlib::thread_host_t
+        {
+        public:
+            __thread_host_t(executor_env_t & env, rt_heap_t * heap) : __env(env), __heap(heap) { }
+
+            virtual bool run(rtlib::thread_t * thread) override
+            {
+                rt_assembly_t * core_assembly = __env.get_core_assembly();
+                rt_general_type_t * type = __env.get_core_type(_T("Threading"), _T("Thread"), 0);
+
+                ref_t entry_ref = ref_t::null;
+                rt_method_base_t * entry_method = nullptr;
+
+                type->each_method(__env, [&](ref_t ref, rt_method_base_t * method) {
+                    if (string_t(method->get_name()) == _T("__Entry"))
+                    {
+                        entry_ref = ref;
+                        entry_method = method;
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                if (entry_method == nullptr)
+                    throw _ED(exec_error_code_t::method_no_body, _T("System.Threading.Thread.__Entry"));
+
+                command_creating_context_t creating_ctx(__env, core_assembly, type, entry_method);
+
+                command_t * commands[] = {
+                    new_push_ref_command(thread->entry()),
+                    new_static_call_command(creating_ctx, entry_ref),
+                    new_end_command(),
+                };
+
+                command_execute_context_t exec_ctx(__heap, __env);
+                execute_commands(exec_ctx, commands);
+
+                return !exec_ctx.unhandled;
+            }
+
+        private:
+            executor_env_t &    __env;
+            rt_heap_t *         __heap;
+        };
+    }
+
     // Executes commands.
     bool executor_t::execute()
     {
@@ -288,9 +338,21 @@ namespace X_ROOT_NS::modules::exec {
         env.static_data_getter = [this](rt_type_t * type) { return env.static_data_of(type); };
         __ctx.heap->add_root_source(&env);
 
+        // The program runs in the main thread; the other threads run when it gives them the lock.
+        rtlib::thread_manager_t & threads = rtlib::thread_manager_t::instance();
+        threads.attach_main();
+
+        __thread_host_t thread_host(env, __ctx.heap);
+        threads.set_host(&thread_host);
+
         command_execute_context_t exec_ctx(__ctx.heap, env);
         execute_commands(exec_ctx, commands);
 
+        // The program ends when the threads that are not in the background end.
+        if (!exec_ctx.unhandled)
+            threads.wait_for_foreground();
+
+        threads.set_host(nullptr);
         __ctx.heap->remove_root_source(&env);
         env.static_heap = nullptr;
 

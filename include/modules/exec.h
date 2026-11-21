@@ -6,6 +6,7 @@
 #include <jc.h>
 #include <core.h>
 #include <rt.h>
+#include <thread_manager.h>
 
 namespace X_ROOT_NS::modules::exec {
 
@@ -1008,6 +1009,9 @@ namespace X_ROOT_NS::modules::exec {
         // Pushes calling context.
         __AlwaysInline void push_calling(exec_method_t * method) _NE
         {
+            // A call is a safepoint: the other threads get their turn (the arguments are in the stack).
+            rtlib::thread_poll();
+
             // Like the runtimes of other languages, a stack overflow ends the process:
             // it cannot be handled.
             if (!stack.fits(method->stack_unit_size + 16)) [[unlikely]]
@@ -1249,6 +1253,9 @@ namespace X_ROOT_NS::modules::exec {
         {
             for (auto & it : __static_data_map)
                 f(it.second);
+
+            // The objects of the threads that are running.
+            rtlib::thread_manager_t::instance().each_gc_root([&f](void * obj) { f((rt_ref_t)obj); });
         }
 
     private:

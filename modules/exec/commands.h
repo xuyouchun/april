@@ -61,6 +61,9 @@ namespace X_ROOT_NS::modules::exec {
     // Creates end command.
     command_t * new_end_command();
 
+    // Creates the command that pushes a reference.
+    command_t * new_push_ref_command(void * ref);
+
     // Returns whether it's a ret command.
     bool is_ret_command(command_t * command);
 

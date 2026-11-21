@@ -744,6 +744,9 @@ namespace X_ROOT_NS::modules::mm {
     // Returns the high bound of the current thread stack.
     void ** gc_heap_t::__native_stack_high()
     {
+        // Each thread has its own stack: the bound is kept by the thread.
+        static thread_local void ** __stack_high = nullptr;
+
         if (__stack_high == nullptr)
         {
         #if defined(__linux__)

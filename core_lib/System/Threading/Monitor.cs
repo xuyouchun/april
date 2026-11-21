@@ -4,13 +4,11 @@
  *  Monitor: the lock of an object, the lock statement.
  */
 
-using Collections;
-
 namespace Threading;
 
 ////////// ////////// ////////// ////////// //////////
 
-// Exit is called by a thread that does not hold the lock of the object.
+// A method of Monitor is called by a thread that does not hold the lock of the object.
 public class SynchronizationLockException : SystemException
 {
     public SynchronizationLockException() { }
@@ -21,62 +19,110 @@ public class SynchronizationLockException : SystemException
 ////////// ////////// ////////// ////////// //////////
 
 // The lock of an object: lock (obj) { ... } is Monitor.Enter(obj); try { ... } finally { Monitor.Exit(obj); }.
-// One managed thread runs at a time, so a lock can only be held again by the thread that holds it (it counts how
-// many times); the threads that wait for it come with System.Threading.Thread.
+// A thread can take the lock of an object again (it counts how many times); the other threads wait until the thread has
+// released it as many times. Wait and Pulse are for the threads that wait for a change of the state that the lock guards.
 public static class Monitor
 {
-    private static Dictionary<Object, Int32>? __table;
-
-    // The locks that are held, and how many times each (made when it is first needed).
-    private static Dictionary<Object, Int32> __held
-    {
-        get
-        {
-            if (__table == null)
-                __table = new Dictionary<Object, Int32>();
-
-            return __table;
-        }
-    }
-
     // Takes the lock of the object, waits until it is free.
     public static Void Enter(Object obj)
     {
-        if (obj == null)
-            throw new ArgumentException("the object of a lock is null");
-
-        Int32 count;
-        __held.TryGetValue(obj, out count);
-        __held[obj] = count + 1;
+        __CheckObject(obj);
+        Internal.Monitor_Enter(obj);
     }
 
     // Takes the lock if it is free (or held by this thread), returns whether it was taken.
     public static Boolean TryEnter(Object obj)
     {
-        Enter(obj);
-        return true;
+        __CheckObject(obj);
+        return Internal.Monitor_TryEnter(obj, 0);
     }
 
-    // Releases the lock of the object.
+    // Takes the lock if it is free before the time is over (milliseconds, -1 is for ever), returns whether it was taken.
+    public static Boolean TryEnter(Object obj, Int32 millisecondsTimeout)
+    {
+        __CheckObject(obj);
+        __CheckTimeout(millisecondsTimeout);
+
+        return Internal.Monitor_TryEnter(obj, millisecondsTimeout);
+    }
+
+    public static Boolean TryEnter(Object obj, TimeSpan timeout)
+    {
+        __CheckObject(obj);
+        return Internal.Monitor_TryEnter(obj, __ToMilliseconds(timeout));
+    }
+
+    // Releases the lock of the object, throws SynchronizationLockException when the thread does not hold it.
     public static Void Exit(Object obj)
+    {
+        __CheckObject(obj);
+
+        if (Internal.Monitor_Exit(obj) != 0)
+            throw new SynchronizationLockException("the lock of the object is not held by this thread");
+    }
+
+    // Returns whether the thread holds the lock of the object.
+    public static Boolean IsEntered(Object obj)
+    {
+        __CheckObject(obj);
+        return Internal.Monitor_IsEntered(obj);
+    }
+
+    // Releases the lock of the object and waits for a Pulse (or PulseAll) of another thread, then takes the lock again.
+    // Returns false when the time was over (milliseconds, -1 is for ever), the lock is taken in both cases.
+    public static Boolean Wait(Object obj, Int32 millisecondsTimeout)
+    {
+        __CheckObject(obj);
+        __CheckTimeout(millisecondsTimeout);
+
+        Int32 result = Internal.Monitor_Wait(obj, millisecondsTimeout);
+        if (result == 0)
+            throw new SynchronizationLockException("the lock of the object is not held by this thread");
+
+        return result == 1;
+    }
+
+    public static Boolean Wait(Object obj) => Wait(obj, -1);
+
+    public static Boolean Wait(Object obj, TimeSpan timeout) => Wait(obj, __ToMilliseconds(timeout));
+
+    // Wakes up the thread that has waited the longest in the object.
+    public static Void Pulse(Object obj)
+    {
+        __CheckObject(obj);
+
+        if (!Internal.Monitor_Pulse(obj, false))
+            throw new SynchronizationLockException("the lock of the object is not held by this thread");
+    }
+
+    // Wakes up all the threads that wait in the object.
+    public static Void PulseAll(Object obj)
+    {
+        __CheckObject(obj);
+
+        if (!Internal.Monitor_Pulse(obj, true))
+            throw new SynchronizationLockException("the lock of the object is not held by this thread");
+    }
+
+    private static Void __CheckObject(Object? obj)
     {
         if (obj == null)
             throw new ArgumentException("the object of a lock is null");
-
-        Int32 count;
-        if (!__held.TryGetValue(obj, out count) || count == 0)
-            throw new SynchronizationLockException("the lock is not held");
-
-        if (count == 1)
-            __held.Remove(obj);
-        else
-            __held[obj] = count - 1;
     }
 
-    // Returns whether the lock of the object is held.
-    public static Boolean IsEntered(Object obj)
+    private static Void __CheckTimeout(Int32 milliseconds)
     {
-        Int32 count;
-        return obj != null && __held.TryGetValue(obj, out count) && count > 0;
+        if (milliseconds < -1)
+            throw new ArgumentException("the time is negative");
+    }
+
+    private static Int32 __ToMilliseconds(TimeSpan timeout)
+    {
+        Double milliseconds = timeout.TotalMilliseconds;
+
+        if (milliseconds < -1.0 || milliseconds > 2147483647.0)
+            throw new ArgumentException("the time is out of range");
+
+        return (Int32)milliseconds;
     }
 }

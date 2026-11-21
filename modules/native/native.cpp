@@ -452,6 +452,8 @@ namespace X_ROOT_NS::modules::native {
             bool                                       __uses_reflection = false;
             bool                                       __uses_field_access = false;
             bool                                       __uses_enum_number = false;
+            bool                                       __uses_poll = false;        // The jumps that go back are safepoints.
+            bool                                       __uses_thread_start = false;
 
             // Method.Invoke: the methods of the types of the program are generated, with the
             // functions that call them (one for each shape of signature).
@@ -828,6 +830,40 @@ namespace X_ROOT_NS::modules::native {
 
             // The number of a box of an enum: the table of reflection of its type holds the type of the number (the
             // table is after the names, see native_abi.h).
+            // A thread runs System.Threading.Thread.__Entry of the program: its function is given to the runtime.
+            if (name == "Thread_Start")
+            {
+                rt_general_type_t * thread_type = __env.get_core_type(_T("Threading"), _T("Thread"), 0);
+
+                rt_method_base_t * entry_method = nullptr;
+                thread_type->each_method(__env, [&](ref_t, rt_method_base_t * method) {
+                    if (string_t(method->get_name()) == _T("__Entry"))
+                    {
+                        entry_method = method;
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                if (entry_method == nullptr)
+                    throw _ED(__e_t::unsupported_method, caller.display, _T("Thread.__Entry"));
+
+                __fn_t * entry_fn = __function_of(entry_method);
+                if (!entry_fn->queued)
+                {
+                    entry_fn->queued = true;
+                    __queue.push_back(entry_fn);
+                }
+
+                __uses_thread_start = true;
+                __uses_poll = true;
+
+                return f.call("i64", APRIL_NATIVE_SYM_THREAD_START, {
+                    llb::value_t { llb::types::ptr, "@" + entry_fn->name }, args.at(0), args.at(1)
+                });
+            }
+
             if (name == "Enum_GetNumber" || name == "Enum_ToString" || name == "Enum_Parse")
             {
                 __uses_reflection = true;
@@ -1760,6 +1796,23 @@ namespace X_ROOT_NS::modules::native {
 
             auto raise_if_null = [&](const llb::value_t & obj) {
                 raise_if(f.icmp("eq", obj, llb::const_null()), CoreType_NullReferenceException);
+            };
+
+            // A safepoint, at the jumps that go back: another thread that waits for its turn asks it by a flag.
+            auto poll = [&]() {
+                __uses_poll = true;
+
+                llb::value_t flag = f.load("ptr", llb::value_t { llb::types::ptr, "@april.yield" });
+                llb::value_t requested = f.load_volatile("i8", flag);
+
+                std::string give = f.new_block("safepoint"), go_on = f.new_block("running");
+                f.cond_br(f.icmp("ne", requested, llb::const_int("i8", 0)), give, go_on);
+
+                f.set_block(give);
+                f.call("void", APRIL_NATIVE_SYM_SAFEPOINT, { });
+                f.br(go_on);
+
+                f.set_block(go_on);
             };
 
             // The address of an element of an array: the array is on the top of the stack,
@@ -3698,8 +3751,14 @@ namespace X_ROOT_NS::modules::native {
 
                         std::string target = block_labels.at(jump_target(xil_index, jmp));
 
+                        // A jump that goes back is a loop.
+                        bool goes_back = jmp->step() <= 0;
+
                         if (jmp->model() == xil_jmp_model_t::none)
                         {
+                            if (goes_back)
+                                poll();
+
                             spill(target);
                             f.br(target);
                             break;
@@ -3717,6 +3776,9 @@ namespace X_ROOT_NS::modules::native {
                         spill(next);
 
                         llb::value_t c = f.icmp("ne", v, llb::const_int("i8", 0));
+
+                        if (goes_back)
+                            poll();
 
                         if (jmp->model() == xil_jmp_model_t::true_)
                             f.cond_br(c, target, next);
@@ -5649,7 +5711,16 @@ namespace X_ROOT_NS::modules::native {
                 __module.declare(APRIL_NATIVE_SYM_NEW_OBJECT, "ptr", { "i64", "ptr" });
 
             __module.add_global_line("@april.exception = global ptr null");
+            __module.add_global_line("@april.yield = global ptr null");
             __module.declare(APRIL_NATIVE_SYM_UNHANDLED, "void", { "ptr" });
+            __module.declare(APRIL_NATIVE_SYM_SET_EXCEPTION, "void", { "ptr" });
+            __module.declare(APRIL_NATIVE_SYM_YIELD_FLAG, "ptr", { });
+
+            if (__uses_poll)
+                __module.declare(APRIL_NATIVE_SYM_SAFEPOINT, "void", { });
+
+            if (__uses_thread_start)
+                __module.declare(APRIL_NATIVE_SYM_THREAD_START, "i64", { "ptr", "ptr", "i8" });
 
             if (__uses_find_interface)
                 __module.declare(APRIL_NATIVE_SYM_FIND_IFACE, "ptr", { "ptr", "ptr", "i64" });
@@ -5745,6 +5816,12 @@ namespace X_ROOT_NS::modules::native {
             main_f.call("void", APRIL_NATIVE_SYM_INIT, { stack_base });
             main_f.call("void", APRIL_NATIVE_SYM_ADD_ROOT,
                         { llb::value_t { llb::types::ptr, "@april.exception" } });
+
+            // The runtime keeps the pending exception of each thread, and tells where the flag of the safepoints is.
+            main_f.call("void", APRIL_NATIVE_SYM_SET_EXCEPTION,
+                        { llb::value_t { llb::types::ptr, "@april.exception" } });
+            main_f.store(main_f.call("ptr", APRIL_NATIVE_SYM_YIELD_FLAG, { }),
+                         llb::value_t { llb::types::ptr, "@april.yield" });
             main_f.call("void", "april.init_libfuncs", { });
 
             // The resources of the assemblies (Resource.GetBytes): they are constants of the program, that the

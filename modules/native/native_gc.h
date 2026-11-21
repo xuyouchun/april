@@ -11,6 +11,27 @@ namespace april_native_gc {
     // the frame of `main`.
     void init(void * stack_base);
 
+    // The stack of a thread of the program. The threads run one at a time: the one that does not run is stopped at a place
+    // that is known, with its registers and the top of its stack kept here, and the collector scans them.
+    struct thread_record_t;
+
+    // A thread begins (it is the running one): its stack is scanned up to `stack_base`.
+    thread_record_t * attach_thread(void * stack_base);
+
+    // The thread ended.
+    void detach_thread(thread_record_t * record);
+
+    // The collector asks the roots that it does not know (the objects of the threads): the function marks each by `mark`.
+    typedef void (* root_provider_t)(void (* mark)(void * address));
+    void set_root_provider(root_provider_t provider);
+
+    // The thread stops (it gives its turn, or it waits): keeps its registers and the top of its stack. `exception` is the
+    // exception that is pending, it is a root while the thread is stopped.
+    void thread_stopping(thread_record_t * record, void * exception);
+
+    // The thread runs again: returns the exception that was kept.
+    void * thread_resumed(thread_record_t * record);
+
     // Prints the statistics if they were asked (APRIL_GC_STATS).
     void shutdown();
 

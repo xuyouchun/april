@@ -191,6 +191,17 @@ namespace X_ROOT_NS::modules::native::ll {
             return value_t { type, r };
         }
 
+        // load volatile <type>, ptr <ptr>: a value that other threads change (the optimizer does not keep it).
+        value_t load_volatile(const std::string & type, const value_t & ptr)
+        {
+            __expect_ptr(ptr);
+
+            std::string r = __temp();
+            __emit(r + " = load volatile " + type + ", ptr " + ptr.text);
+
+            return value_t { type, r };
+        }
+
         // store <type> <value>, ptr <ptr>
         void store(const value_t & value, const value_t & ptr)
         {

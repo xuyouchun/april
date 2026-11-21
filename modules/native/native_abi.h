@@ -20,6 +20,10 @@
 #define APRIL_NATIVE_SYM_REFLECT_GET    "april_native_reflect_get"
 #define APRIL_NATIVE_SYM_REFLECT_SET    "april_native_reflect_set"
 #define APRIL_NATIVE_SYM_ENUM_NUMBER    "april_native_enum_number"
+#define APRIL_NATIVE_SYM_THREAD_START   "april_native_thread_start"
+#define APRIL_NATIVE_SYM_YIELD_FLAG     "april_native_yield_flag"
+#define APRIL_NATIVE_SYM_SAFEPOINT      "april_native_safepoint"
+#define APRIL_NATIVE_SYM_SET_EXCEPTION  "april_native_set_exception_slot"
 #define APRIL_NATIVE_SYM_ENUM_TO_STRING "april_native_enum_to_string"
 #define APRIL_NATIVE_SYM_ENUM_PARSE     "april_native_enum_parse"
 #define APRIL_NATIVE_SYM_REFLECT_CHECK_INVOKE "april_native_reflect_check_invoke"
@@ -97,6 +101,20 @@ extern "C" {
 
     // Returns 1 if the object is an instance of the type (null is not), else 0.
     int8_t april_native_is_instance(void * object, void * key);
+
+    // Tells the runtime where the pending exception of the program is (the variable that every call is followed by a check
+    // of): the threads that run one at a time keep it apart. Called by `main`.
+    void april_native_set_exception_slot(void ** slot);
+
+    // Starts a thread that runs `entry(thread)` (a function of the program, System.Threading.Thread.__Entry), returns its id.
+    int64_t april_native_thread_start(void * entry, void * thread, int8_t background);
+
+    // The flag that tells that another thread asks the one that runs to give its turn: the jumps that go back read it, and
+    // call april_native_safepoint when it is not 0.
+    volatile uint8_t * april_native_yield_flag();
+
+    // Gives the turn to the threads that wait for it.
+    void april_native_safepoint();
 
     // Returns the number of a box of an enum, of its underlying type; `table` is the table of reflection of its type.
     int64_t april_native_enum_number(const void * table, void * object);

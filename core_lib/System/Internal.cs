@@ -538,6 +538,59 @@ internal static class Internal
 
     [Internal]
     public static extern Double Math_Log10(Double val);
+
+    // Threads: see thread_manager.cpp. The time is in milliseconds, -1 is for ever.
+
+    // Starts the thread of the object (a System.Threading.Thread, that runs its __Entry), returns its id.
+    [Internal]
+    public static extern Int64 Thread_Start(Object thread, Boolean background);
+
+    [Internal]
+    public static extern Boolean Thread_Join(Int64 id, Int32 timeout);
+
+    [Internal]
+    public static extern Void Thread_Sleep(Int32 milliseconds);
+
+    [Internal]
+    public static extern Void Thread_Yield();
+
+    [Internal]
+    public static extern Int64 Thread_CurrentId();
+
+    // The object of the running thread, null for the thread that started the program.
+    [Internal]
+    public static extern Object? Thread_GetCurrent();
+
+    [Internal]
+    public static extern Boolean Thread_IsAlive(Int64 id);
+
+    [Internal]
+    public static extern Void Thread_SetBackground(Int64 id, Boolean background);
+
+    [Internal]
+    public static extern Boolean Thread_IsBackground(Int64 id);
+
+    // The lock of an object.
+    [Internal]
+    public static extern Void Monitor_Enter(Object obj);
+
+    [Internal]
+    public static extern Boolean Monitor_TryEnter(Object obj, Int32 timeout);
+
+    // 0 when the lock is released, 1 when the thread does not hold it.
+    [Internal]
+    public static extern Int32 Monitor_Exit(Object obj);
+
+    // 0 when the thread does not hold the lock, 1 when it was pulsed, 2 when the time was over.
+    [Internal]
+    public static extern Int32 Monitor_Wait(Object obj, Int32 timeout);
+
+    // Returns whether the thread holds the lock.
+    [Internal]
+    public static extern Boolean Monitor_Pulse(Object obj, Boolean all);
+
+    [Internal]
+    public static extern Boolean Monitor_IsEntered(Object obj);
 }
 
 

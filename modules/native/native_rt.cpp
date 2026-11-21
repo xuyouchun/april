@@ -23,6 +23,88 @@ namespace X_ROOT_NS::modules::native {
         alignas(assembly_analyzer_t) unsigned char __no_analyzer[sizeof(assembly_analyzer_t)];
     }
 
+    namespace
+    {
+        // The variable of the pending exception of the program (see april_native_set_exception_slot).
+        void ** __exception_slot = nullptr;
+
+        // The function that a thread runs: System.Threading.Thread.__Entry of the program.
+        void (* __thread_entry)(void *) = nullptr;
+
+        april_native_gc::thread_record_t * __record_of(thread_t * thread)
+        {
+            return (april_native_gc::thread_record_t *)thread->host_data;
+        }
+
+        // The threads run one at a time. The one that stops keeps its stack, its registers and its pending exception (the
+        // variable is one for the program), for the collector; the one that runs takes its exception back.
+        void __thread_attached(thread_t * thread, void * stack_base)
+        {
+            thread->host_data = april_native_gc::attach_thread(stack_base);
+        }
+
+        void __thread_stopping(thread_t * thread)
+        {
+            if (__record_of(thread) == nullptr)
+                return;
+
+            void * exception = nullptr;
+            if (__exception_slot != nullptr)
+            {
+                exception = *__exception_slot;
+                *__exception_slot = nullptr;
+            }
+
+            april_native_gc::thread_stopping(__record_of(thread), exception);
+        }
+
+        void __thread_resumed(thread_t * thread)
+        {
+            if (__record_of(thread) == nullptr)
+                return;
+
+            void * exception = april_native_gc::thread_resumed(__record_of(thread));
+            if (__exception_slot != nullptr)
+                *__exception_slot = exception;
+        }
+
+        void __thread_detached(thread_t * thread)
+        {
+            if (__record_of(thread) != nullptr)
+                april_native_gc::detach_thread(__record_of(thread));
+
+            thread->host_data = nullptr;
+        }
+
+        thread_switch_hooks_t __hooks = {
+            __thread_attached, __thread_stopping, __thread_resumed, __thread_detached
+        };
+
+        // Runs a thread of the program.
+        class __thread_host_t : public thread_host_t
+        {
+        public:
+            virtual bool run(thread_t * thread) override
+            {
+                if (__thread_entry == nullptr)
+                    return false;
+
+                __thread_entry(thread->entry());
+
+                // An exception that nothing catches ends the program.
+                if (__exception_slot != nullptr && *__exception_slot != nullptr)
+                {
+                    std::fputs("native: unhandled exception\n", stderr);
+                    return false;
+                }
+
+                return true;
+            }
+        };
+
+        __thread_host_t __host;
+    }
+
 }   // namespace X_ROOT_NS::modules::native
 
 extern "C" {
@@ -30,6 +112,19 @@ extern "C" {
     void april_native_init(void * stack_base)
     {
         april_native_gc::init(stack_base);
+
+        // The program is the main thread.
+        using namespace X_ROOT_NS::modules;
+        rtlib::set_thread_switch_hooks(&native::__hooks);
+
+        rtlib::thread_manager_t & threads = rtlib::thread_manager_t::instance();
+        threads.set_host(&native::__host);
+
+        // The objects of the threads that have not ended (System.Threading.Thread) are roots.
+        april_native_gc::set_root_provider([](void (* mark)(void *)) {
+            rtlib::thread_manager_t::instance().each_gc_root([mark](void * obj) { mark(obj); });
+        });
+        threads.attach_main(stack_base);
 
         // The wide streams write UTF-8: a character that is not ASCII would stop them, else.
         std::locale utf8 = X_ROOT_NS::utf8_locale();
@@ -45,7 +140,33 @@ extern "C" {
 
     void april_native_shutdown()
     {
+        // The program ends when the threads that are not in the background end.
+        X_ROOT_NS::modules::rtlib::thread_manager_t::instance().wait_for_foreground();
+
         april_native_gc::shutdown();
+    }
+
+    void april_native_set_exception_slot(void ** slot)
+    {
+        X_ROOT_NS::modules::native::__exception_slot = slot;
+    }
+
+    int64_t april_native_thread_start(void * entry, void * thread, int8_t background)
+    {
+        using namespace X_ROOT_NS::modules;
+
+        native::__thread_entry = (void (*)(void *))entry;
+        return rtlib::thread_manager_t::instance().start(thread, background != 0)->id();
+    }
+
+    volatile uint8_t * april_native_yield_flag()
+    {
+        return (volatile uint8_t *)&X_ROOT_NS::modules::rtlib::thread_yield_requested;
+    }
+
+    void april_native_safepoint()
+    {
+        X_ROOT_NS::modules::rtlib::thread_safepoint();
     }
 
     void april_native_add_root(void ** slot)

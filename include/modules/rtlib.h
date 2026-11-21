@@ -5,6 +5,7 @@
 #include <algorithm.h>
 #include <jc.h>
 #include <rt.h>
+#include <thread_manager.h>
 
 namespace X_ROOT_NS::modules::rtlib {
 
@@ -274,6 +275,23 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(enum_get_number);
     __DefineFunc(enum_to_string);
     __DefineFunc(enum_parse);
+
+    // Thread functions: the threads and the locks of the objects.
+    __DefineFunc(thread_start);
+    __DefineFunc(thread_join);
+    __DefineFunc(thread_sleep);
+    __DefineFunc(thread_yield);
+    __DefineFunc(thread_current_id);
+    __DefineFunc(thread_get_current);
+    __DefineFunc(thread_is_alive);
+    __DefineFunc(thread_set_background);
+    __DefineFunc(thread_is_background);
+    __DefineFunc(monitor_enter);
+    __DefineFunc(monitor_try_enter);
+    __DefineFunc(monitor_exit);
+    __DefineFunc(monitor_wait);
+    __DefineFunc(monitor_pulse);
+    __DefineFunc(monitor_is_entered);
     __DefineFunc(object_reference_equals);
 
     // Math functions.

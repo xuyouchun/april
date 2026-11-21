@@ -177,6 +177,23 @@ namespace X_ROOT_NS::modules::rtlib {
             __append_libfunc(_T("Enum_GetNumber"),          enum_get_number);
             __append_libfunc(_T("Enum_ToString"),           enum_to_string);
             __append_libfunc(_T("Enum_Parse"),              enum_parse);
+
+            // Threads.
+            __append_libfunc(_T("Thread_Start"),            thread_start);
+            __append_libfunc(_T("Thread_Join"),             thread_join);
+            __append_libfunc(_T("Thread_Sleep"),            thread_sleep);
+            __append_libfunc(_T("Thread_Yield"),            thread_yield);
+            __append_libfunc(_T("Thread_CurrentId"),        thread_current_id);
+            __append_libfunc(_T("Thread_GetCurrent"),       thread_get_current);
+            __append_libfunc(_T("Thread_IsAlive"),          thread_is_alive);
+            __append_libfunc(_T("Thread_SetBackground"),    thread_set_background);
+            __append_libfunc(_T("Thread_IsBackground"),     thread_is_background);
+            __append_libfunc(_T("Monitor_Enter"),           monitor_enter);
+            __append_libfunc(_T("Monitor_TryEnter"),        monitor_try_enter);
+            __append_libfunc(_T("Monitor_Exit"),            monitor_exit);
+            __append_libfunc(_T("Monitor_Wait"),            monitor_wait);
+            __append_libfunc(_T("Monitor_Pulse"),           monitor_pulse);
+            __append_libfunc(_T("Monitor_IsEntered"),       monitor_is_entered);
             __append_libfunc(_T("Object_ReferenceEquals"),  object_reference_equals);
 
             // Math functions.

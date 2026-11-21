@@ -301,7 +301,6 @@ namespace X_ROOT_NS::modules::mm {
         size_t          __gc_threshold;             // Next gc when allocated exceeds it.
         size_t          __live_bytes = 0;           // Live bytes after last gc.
 
-        void **         __stack_high = nullptr;     // Cached thread stack high bound.
     };
 
     ////////// ////////// ////////// ////////// //////////
