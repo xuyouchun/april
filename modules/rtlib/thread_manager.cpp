@@ -61,7 +61,8 @@ namespace X_ROOT_NS::modules::rtlib {
 
         // The threads that run the managed code (parallel mode), and the collector that asks them to stop.
         std::mutex                  state_mutex;
-        std::condition_variable     state_cv;
+        std::condition_variable     state_cv;           // The threads wait for the end of a collection.
+        std::condition_variable     stopped_cv;         // The collector waits for the threads to stop.
         int                         running = 0;
         bool                        gc_requested = false;
 
@@ -76,6 +77,24 @@ namespace X_ROOT_NS::modules::rtlib {
         void acquire(thread_t * thread)
         {
             std::unique_lock<std::mutex> lock(gil_mutex);
+
+            // The threads run in parallel: the lock is held in the runtime only, for a short time. There is no queue: the first that
+            // asks takes it (a thread that goes back to the runtime at once, to allocate again, does not wait for the others
+            // to wake up: with a queue each call of the runtime would be a change of thread).
+            if (thread_parallel.load())
+            {
+                while (owner != nullptr)
+                    gil_cv.wait(lock);
+
+                owner = thread;
+                lock.unlock();
+
+                if (__hooks != nullptr && __hooks->resumed != nullptr)
+                    __hooks->resumed(thread);
+
+                return;
+            }
+
             ready.push_back(thread);
 
             while (owner != nullptr || ready.front() != thread)
@@ -108,7 +127,11 @@ namespace X_ROOT_NS::modules::rtlib {
                 owner = nullptr;
             }
 
-            gil_cv.notify_all();
+            // (In the parallel mode all wait for the same thing: one is enough, it takes the lock or another one does.)
+            if (thread_parallel.load())
+                gil_cv.notify_one();
+            else
+                gil_cv.notify_all();
         }
 
         // Wakes up a thread that is parked (or that is about to be).
@@ -261,12 +284,18 @@ namespace X_ROOT_NS::modules::rtlib {
     // The thread leaves the managed code (it enters the runtime or it stops): the collector does not wait for it.
     static void __running_leave(thread_manager_data_t & data)
     {
+        bool last;
+
         {
             std::lock_guard<std::mutex> lock(data.state_mutex);
             data.running--;
+
+            // Only a collector that waits for the threads has something to know.
+            last = data.gc_requested && data.running == 0;
         }
 
-        data.state_cv.notify_all();
+        if (last)
+            data.stopped_cv.notify_one();
     }
 
     // The thread calls the runtime: it gives the code of the program, takes the global lock.
@@ -365,7 +394,7 @@ namespace X_ROOT_NS::modules::rtlib {
             __data->gc_requested = true;
             thread_yield_requested.store(true);
 
-            __data->state_cv.wait(lock, [this] { return __data->running == 0; });
+            __data->stopped_cv.wait(lock, [this] { return __data->running == 0; });
         }
     }
 

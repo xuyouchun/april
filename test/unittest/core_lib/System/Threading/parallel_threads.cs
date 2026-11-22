@@ -5,7 +5,7 @@
 /* EXPECT
 
 scale True
-alloc 2415468000 6
+alloc 483093600 6
 counter 600000 600000 True
 
 */
@@ -44,12 +44,14 @@ class Program
         __values[k] = Spin(30000000);
     }
 
+    // (Few rounds: a program that collects at each allocation, APRIL_GC_STRESS, stops and starts all the threads for each one, that takes
+    // some milliseconds: the test has the same number of threads and objects, and runs in a minute then.)
     static Void Allocate(Object o)
     {
         Int32 id = (Int32)o;
         Int64 sum = 0;
 
-        for (Int32 round = 0; round < 20; round++)
+        for (Int32 round = 0; round < 4; round++)
         {
             Node? head = null;
             for (Int32 i = 0; i < 2000; i++)
