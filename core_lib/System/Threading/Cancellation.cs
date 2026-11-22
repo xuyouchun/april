@@ -87,6 +87,29 @@ public class CancellationTokenSource : IDisposable
             throw first;
     }
 
+    // Cancels after some milliseconds (-1: never).
+    public Void CancelAfter(Int32 millisecondsDelay)
+    {
+        Waiting.Check(millisecondsDelay);
+
+        if (millisecondsDelay < 0)
+            return;
+
+        Delegate<Void, Object> cancel = __CancelFromTimer;
+        Timer timer = new Timer(cancel, null, millisecondsDelay, -1);
+    }
+
+    public Void CancelAfter(TimeSpan delay)
+    {
+        CancelAfter(Waiting.ToMilliseconds(delay));
+    }
+
+    private Void __CancelFromTimer(Object state)
+    {
+        if (!__disposed)
+            Cancel();
+    }
+
     // A source that is canceled when one of the tokens is.
     public static CancellationTokenSource CreateLinkedTokenSource(CancellationToken token1, CancellationToken token2)
     {

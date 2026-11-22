@@ -30,6 +30,14 @@
         </file>
 
         <file>
+            <path>Threading/Tasks/*.cs</path>
+        </file>
+
+        <file>
+            <path>Collections/Concurrent/*.cs</path>
+        </file>
+
+        <file>
             <path>Linq/*.cs</path>
         </file>
 

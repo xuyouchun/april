@@ -170,6 +170,13 @@ namespace X_ROOT_NS::modules::rtlib {
         ctx.return_<bool>(done);
     }
 
+    // Environment_ProcessorCount(): the processors of the machine (1 when it is not known).
+    void environment_processor_count(rtlib_context_t & ctx)
+    {
+        unsigned count = std::thread::hardware_concurrency();
+        ctx.return_<int32_t>(count == 0? 1 : (int32_t)count);
+    }
+
     // Monitor_IsEntered(obj).
     void monitor_is_entered(rtlib_context_t & ctx)
     {

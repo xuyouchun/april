@@ -194,6 +194,7 @@ namespace X_ROOT_NS::modules::rtlib {
             __append_libfunc(_T("Monitor_Wait"),            monitor_wait);
             __append_libfunc(_T("Monitor_Pulse"),           monitor_pulse);
             __append_libfunc(_T("Monitor_IsEntered"),       monitor_is_entered);
+            __append_libfunc(_T("Environment_ProcessorCount"), environment_processor_count);
             __append_libfunc(_T("Object_ReferenceEquals"),  object_reference_equals);
 
             // Math functions.

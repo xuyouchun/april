@@ -292,6 +292,7 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(monitor_wait);
     __DefineFunc(monitor_pulse);
     __DefineFunc(monitor_is_entered);
+    __DefineFunc(environment_processor_count);
     __DefineFunc(object_reference_equals);
 
     // Math functions.

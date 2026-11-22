@@ -591,6 +591,10 @@ internal static class Internal
 
     [Internal]
     public static extern Boolean Monitor_IsEntered(Object obj);
+
+    // The processors of the machine.
+    [Internal]
+    public static extern Int32 Environment_ProcessorCount();
 }
 
 

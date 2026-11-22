@@ -17,4 +17,7 @@ public static class Environment
 
     // The end of a line.
     public static String NewLine => "\n";
+
+    // The number of the processors of the machine.
+    public static Int32 ProcessorCount => Internal.Environment_ProcessorCount();
 }

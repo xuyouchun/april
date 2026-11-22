@@ -32,6 +32,12 @@ fairness, not of correctness, as everything that blocks gives the lock.
 | `ThreadLocal<T>`, `[ThreadStatic]` | `Value`, `IsValueCreated`, a factory; the attribute `System.ThreadStaticAttribute` on a static field |
 | `CancellationTokenSource`, `CancellationToken`, `CancellationTokenRegistration` | `Cancel`, `Token`, `Register`, `ThrowIfCancellationRequested`, `CreateLinkedTokenSource` |
 | `Lazy<T>` (namespace `System`) | `Value`, `IsValueCreated`, a factory, thread safe or not |
+| `ThreadPool` | `QueueUserWorkItem` (with a state, without), `ThreadCount`, `PendingWorkItemCount`, `CompletedWorkItemCount`, `SetMaxThreads` |
+| `Timer` | `Timer(callback, state, dueTime, period)`, `Change`, `Dispose`; `CancellationTokenSource.CancelAfter` |
+| `Task`, `Task<T>`, `TaskCompletionSource<T>`, `TaskStatus` (namespace `Threading.Tasks`) | `Run`, `Start`, `Wait`, `Result`, `Status`, `Exception`, `ContinueWith`, `WhenAll`, `WhenAny`, `WaitAll`, `WaitAny`, `Delay`, `FromResult`, `CompletedTask` |
+| `Parallel` | `For`, `ForEach`, `Invoke` |
+| `ConcurrentQueue<T>`, `ConcurrentStack<T>`, `ConcurrentBag<T>`, `ConcurrentDictionary<K,V>`, `BlockingCollection<T>` (namespace `Collections.Concurrent`) | `TryDequeue`, `TryPop`, `TryTake`, `TryAdd`, `GetOrAdd`, `AddOrUpdate`, `Take`, `CompleteAdding`, `GetConsumingEnumerable`... |
+| `AggregateException` (`System`) | `InnerExceptions`, `Flatten` |
 | `Timeout` | `Infinite`, `InfiniteTimeSpan` |
 | exceptions | `SynchronizationLockException`, `SemaphoreFullException`; `OperationCanceledException`, `ObjectDisposedException`, `TimeoutException` (`System`) |
 
@@ -92,9 +98,27 @@ of the collector. The object has the layout of the static data of the type, only
 of it. As in .NET, the initial value of the field is for the thread that runs the static constructor; a thread that begins reads
 the default of the type. The objects of the threads that ended are not freed (a thread is small).
 
+## The pool, the timers and the tasks
+
+* **The pool** (`ThreadPool.cs`): a queue and background threads. A thread is made when there is more queued work than idle
+  threads (the work can wait for other work, so the pool grows, up to 64 threads, instead of blocking), and ends after 3 seconds
+  without work. An exception that nothing catches in a work item ends the program.
+* **The timers** (`Timer.cs`): one background thread waits for the earliest due time (`Monitor.Wait` with the time); the call is
+  queued to the pool, so a slow callback does not delay the others. A period is counted from the moment of the call.
+* **The tasks** (`Threading/Tasks`): a task runs once in the pool. It ends ran to completion, faulted (an `AggregateException`)
+  or canceled (it threw `OperationCanceledException`, or its token was canceled before it began). `Wait`, `Result` and
+  `WaitAll` throw the `AggregateException`; what `ContinueWith` takes runs in the pool when the task has ended, in any state.
+  `WhenAll`, `WhenAny` and `Delay` make tasks that nothing runs, that are ended by the other tasks and by a timer.
+* **`Parallel`**: the thread that calls works with at most `Environment.ProcessorCount - 1` tasks of the pool; the iterations
+  are taken one at a time; the first exception stops the loop.
+* **The concurrent collections** hold the lock of the object for each call; the enumerators go through a copy. The factories
+  of `GetOrAdd` and `AddOrUpdate` run out of the lock.
+
+There is no `async` / `await` (it needs a state machine of the compiler).
+
 ## Not done yet
 
-The upgradeable `ReaderWriterLockSlim`, `CancelAfter` and the timers, the thread pool and the tasks (phase 3). `Thread.Abort`,
+The upgradeable `ReaderWriterLockSlim`, `async` / `await`, `TaskScheduler`, the options of `ContinueWith`, `Parallel` with a loop state. `Thread.Abort`,
 priorities and the affinity are not planned. The GIL can be taken away (phase 4); the safepoints and the registry of the threads
 are what it needs. A condition expression `c? a : b` whose value is a struct of a generic param and that has a call as a branch
 is not supported.
