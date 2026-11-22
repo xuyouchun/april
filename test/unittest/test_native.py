@@ -88,10 +88,11 @@ def _all_files():
             result.append(directory + "/" + name)
 
     # The tests of System.Threading are run by the back ends too: the threads are made by them.
-    threading_dir = "core_lib/System/Threading"
-    for name in sorted(os.listdir(os.path.join(common.get_test_path(), threading_dir))):
-        if name.endswith(".cs"):
-            result.append(threading_dir + "/" + name)
+    # The same for System.IO: the files are used by the runtime (the waits of the threads).
+    for threading_dir in ("core_lib/System/Threading", "core_lib/System/IO", "core_lib/System/Net"):
+        for name in sorted(os.listdir(os.path.join(common.get_test_path(), threading_dir))):
+            if name.endswith(".cs"):
+                result.append(threading_dir + "/" + name)
 
     return result
 

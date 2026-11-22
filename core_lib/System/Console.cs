@@ -31,6 +31,9 @@ public static class Console
         Internal.Console_WriteStringLine(String.Format(format, args));
     }
 
+    // The next line of the input, null at the end of the input.
+    public static String? ReadLine() => Internal.Console_ReadLine();
+
     public static Void WriteLine()
     {
         Write("\n");

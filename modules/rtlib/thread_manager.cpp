@@ -579,6 +579,22 @@ namespace X_ROOT_NS::modules::rtlib {
         __data->acquire(self);
     }
 
+    // Runs a function that waits for the system, without the lock.
+    void thread_manager_t::blocking(const std::function<void ()> & f)
+    {
+        if (__current_thread == nullptr && __data->threads.empty())
+        {
+            f();
+            return;
+        }
+
+        __Self();
+
+        __data->release(self);
+        f();
+        __data->acquire(self);
+    }
+
     // Gives the lock to the threads that wait for it.
     void thread_manager_t::yield()
     {

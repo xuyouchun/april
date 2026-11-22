@@ -596,6 +596,139 @@ internal static class Internal
     [Internal]
     public static extern Int32 Environment_ProcessorCount();
 
+
+    // Files and directories (System.IO). A function that can fail returns a negative code: -1 not found, -2 exists, -3 no
+    // permission, -4 other error, -5 the directory was not found. The functions that wait give the lock of the runtime back.
+
+    // The handle of the file, or the code. mode: CreateNew 1, Create 2, Open 3, OpenOrCreate 4, Truncate 5, Append 6;
+    // access: Read 1, Write 2, ReadWrite 3.
+    [Internal]
+    public static extern Int64 File_Open(String path, Int32 mode, Int32 access);
+
+    // The number of bytes that were read (0 at the end of the file) or written, or the code.
+    [Internal]
+    public static extern Int32 File_Read(Int64 handle, Ptr buffer, Int32 count);
+
+    [Internal]
+    public static extern Int32 File_Write(Int64 handle, Ptr buffer, Int32 count);
+
+    // The new position (origin: 0 begin, 1 current, 2 end), or -1.
+    [Internal]
+    public static extern Int64 File_Seek(Int64 handle, Int64 offset, Int32 origin);
+
+    [Internal]
+    public static extern Int64 File_Length(Int64 handle);
+
+    [Internal]
+    public static extern Int32 File_SetLength(Int64 handle, Int64 length);
+
+    [Internal]
+    public static extern Int32 File_Flush(Int64 handle);
+
+    [Internal]
+    public static extern Void File_Close(Int64 handle);
+
+    [Internal]
+    public static extern Boolean File_Exists(String path);
+
+    [Internal]
+    public static extern Boolean Directory_Exists(String path);
+
+    [Internal]
+    public static extern Int32 File_Delete(String path);
+
+    [Internal]
+    public static extern Int32 File_Move(String source, String destination, Boolean overwrite);
+
+    [Internal]
+    public static extern Int32 File_Copy(String source, String destination, Boolean overwrite);
+
+    [Internal]
+    public static extern Int32 Directory_Create(String path);
+
+    [Internal]
+    public static extern Int32 Directory_Delete(String path, Boolean recursive);
+
+    // The entries of a directory, a line for each: "d:" or "f:" and the name (null if the directory does not exist).
+    [Internal]
+    public static extern String? Directory_List(String path);
+
+    [Internal]
+    public static extern String Directory_Current();
+
+    // The next line of the input (null at the end).
+    [Internal]
+    public static extern String? Console_ReadLine();
+
+
+    // Sockets (System.Net.Sockets): TCP over IPv4. The sockets do not wait: a call that cannot go on returns -1 (would block;
+    // also: the connection is being made). The other codes: -2 refused, -3 reset or closed, -4 other error, -5 the address is in use,
+    // -6 timed out.
+
+    // The handle of a new socket, or the code.
+    [Internal]
+    public static extern Int64 Socket_Create();
+
+    [Internal]
+    public static extern Int32 Socket_Bind(Int64 handle, String address, Int32 port);
+
+    [Internal]
+    public static extern Int32 Socket_Listen(Int64 handle, Int32 backlog);
+
+    // The handle of the connection that was accepted, or the code.
+    [Internal]
+    public static extern Int64 Socket_Accept(Int64 handle);
+
+    [Internal]
+    public static extern Int32 Socket_Connect(Int64 handle, String address, Int32 port);
+
+    // After the socket became writable: 0 if the connection was made, the code of the error if not.
+    [Internal]
+    public static extern Int32 Socket_FinishConnect(Int64 handle);
+
+    // The bytes that were sent or received (0 received: the other side closed), or the code.
+    [Internal]
+    public static extern Int32 Socket_Send(Int64 handle, Ptr buffer, Int32 count);
+
+    [Internal]
+    public static extern Int32 Socket_Receive(Int64 handle, Ptr buffer, Int32 count);
+
+    // how: 0 receive, 1 send, 2 both.
+    [Internal]
+    public static extern Int32 Socket_Shutdown(Int64 handle, Int32 how);
+
+    [Internal]
+    public static extern Void Socket_Close(Int64 handle);
+
+    [Internal]
+    public static extern Int32 Socket_LocalPort(Int64 handle);
+
+    [Internal]
+    public static extern Int32 Socket_RemotePort(Int64 handle);
+
+    [Internal]
+    public static extern String? Socket_RemoteAddress(Int64 handle);
+
+    // option: 1 NoDelay, 2 ReuseAddress, 3 KeepAlive.
+    [Internal]
+    public static extern Int32 Socket_SetOption(Int64 handle, Int32 option, Int32 value);
+
+    // Waits until a socket can be read (events 1) or written (2), or the time is over (milliseconds, -1 is for ever). The arrays have
+    // count items; results: 1 can read, 2 can write, 4 error or closed. Returns how many are ready, or the code.
+    [Internal]
+    public static extern Int32 Socket_Poll(Ptr handles, Ptr events, Ptr results, Int32 count, Int32 timeout);
+
+    // The socket that Socket_Wake sends a byte to (it goes on a thread that waits in Socket_Poll), or the code.
+    [Internal]
+    public static extern Int64 Socket_WakeHandle();
+
+    [Internal]
+    public static extern Void Socket_Wake();
+
+    // The first IPv4 address of a name as text (null if it is not known).
+    [Internal]
+    public static extern String? Net_Resolve(String host);
+
     // Whether the code of the threads runs in parallel (the native programs): the numbers of Interlocked are atomic instructions.
     [Internal]
     public static extern Boolean Thread_IsParallel();

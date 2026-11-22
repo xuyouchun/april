@@ -52,7 +52,8 @@ $default_value: default \( $type_name \) ;
 # OverflowException when the result does not fit its type, or not.
 $checked_exp: (checked | unchecked) \( $expression \) ;
 
-# Await expression: await task . The operand is a name, a call, a member... (await a.F() waits for what a.F() returns).
+# Await expression: await task . The operand is a name, a call, a member, an index... (await a.F() waits for what a.F() returns;
+# await a + b is (await a) + b). It is an operand of an expression, so that an index or a call after it belongs to its operand.
 $await_exp: await $_single_expression ;
 
 # Type name expression: System.Int32.
@@ -70,7 +71,7 @@ $type_cast_exp: \( $type_name \) ($_single_expression | $type_cast_exp) ;
 $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new_array | $new | $type_of
-    | $default_value | $checked_exp | $await_exp | $name_unit | $lambda
+    | $default_value | $checked_exp | $name_unit | $lambda
     | \( $_expression (, $_expression)* \)
   ) !!? ( (. | \?.) $__item !!? )*
 #|
@@ -79,7 +80,7 @@ $_single_expression: ($__item:
 
 # Expression, such as a + b * c.
 $_expression: 
-    ($_single_expression | $type_cast_exp)
+    ($_single_expression | $type_cast_exp | $await_exp)
     (
         (
              \+  | -   | \*  | /   | %

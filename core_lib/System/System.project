@@ -26,6 +26,18 @@
         </file>
 
         <file>
+            <path>IO/*.cs</path>
+        </file>
+
+        <file>
+            <path>Net/*.cs</path>
+        </file>
+
+        <file>
+            <path>Net/Sockets/*.cs</path>
+        </file>
+
+        <file>
             <path>Threading/*.cs</path>
         </file>
 

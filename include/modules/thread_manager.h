@@ -186,6 +186,10 @@ namespace X_ROOT_NS::modules::rtlib {
         // Waits some milliseconds, the others run.
         void sleep(int64_t milliseconds);
 
+        // Runs a function that waits for the system (a file, the console): the lock is given back while it runs, so the other
+        // threads go on (it must not use the objects of the program).
+        void blocking(const std::function<void ()> & f);
+
         // Gives the lock to the threads that wait for it.
         void yield();
 
