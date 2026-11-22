@@ -656,6 +656,13 @@ internal static class Internal
     [Internal]
     public static extern String Directory_Current();
 
+    // The number of a text that was checked: [-]digits[.digits][e[+-]digits] (a number too big is the infinity).
+    [Internal]
+    public static extern Double Double_Parse(String text);
+
+    [Internal]
+    public static extern Single Single_Parse(String text);
+
     // The next line of the input (null at the end).
     [Internal]
     public static extern String? Console_ReadLine();

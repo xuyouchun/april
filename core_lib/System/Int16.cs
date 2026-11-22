@@ -24,6 +24,30 @@ public partial struct Int16
     public String ToString(String? format, IFormatProvider? provider)
         => NumberFormat.FormatSigned((Int64)this, 16, format, Globalization.NumberFormatInfo.GetInstance(provider));
 
+    // The number of a text: spaces, a sign and digits (see NumberParse). FormatException, OverflowException.
+    public static Int16 Parse(String text) => Parse(text, null);
+
+    public static Int16 Parse(String text, IFormatProvider? provider)
+    {
+        Int64 value;
+        Int32 status = NumberParse.Signed(text, Globalization.NumberFormatInfo.GetInstance(provider), -32768, 32767, out value);
+        if (status != 0)
+            NumberParse.Throw(status, text, "Int16");
+
+        return (Int16)value;
+    }
+
+    public static Boolean TryParse(String? text, out Int16 result) => TryParse(text, null, out result);
+
+    public static Boolean TryParse(String? text, IFormatProvider? provider, out Int16 result)
+    {
+        Int64 value;
+        Int32 status = NumberParse.Signed(text, Globalization.NumberFormatInfo.GetInstance(provider), -32768, 32767, out value);
+
+        result = (Int16)value;
+        return status == 0;
+    }
+
     // ---- generic math: made by tools/gen_numerics.py, do not edit it here ----
 
     public static Int16 operator +(Int16 left, Int16 right) => (Int16)((Int32)left + (Int32)right);

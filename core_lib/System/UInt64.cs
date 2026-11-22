@@ -24,6 +24,30 @@ public partial struct UInt64
     public String ToString(String? format, IFormatProvider? provider)
         => NumberFormat.FormatUnsigned((UInt64)this, 64, format, Globalization.NumberFormatInfo.GetInstance(provider));
 
+    // The number of a text: spaces, a sign and digits (see NumberParse). FormatException, OverflowException.
+    public static UInt64 Parse(String text) => Parse(text, null);
+
+    public static UInt64 Parse(String text, IFormatProvider? provider)
+    {
+        UInt64 value;
+        Int32 status = NumberParse.Unsigned(text, Globalization.NumberFormatInfo.GetInstance(provider), (UInt64)18446744073709551615, out value);
+        if (status != 0)
+            NumberParse.Throw(status, text, "UInt64");
+
+        return (UInt64)value;
+    }
+
+    public static Boolean TryParse(String? text, out UInt64 result) => TryParse(text, null, out result);
+
+    public static Boolean TryParse(String? text, IFormatProvider? provider, out UInt64 result)
+    {
+        UInt64 value;
+        Int32 status = NumberParse.Unsigned(text, Globalization.NumberFormatInfo.GetInstance(provider), (UInt64)18446744073709551615, out value);
+
+        result = (UInt64)value;
+        return status == 0;
+    }
+
     // ---- generic math: made by tools/gen_numerics.py, do not edit it here ----
 
     public static UInt64 operator +(UInt64 left, UInt64 right) => (UInt64)(left + right);

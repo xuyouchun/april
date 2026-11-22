@@ -45,6 +45,7 @@ The files use the pool (`docs/io.md`): a file is not a thing that can be waited 
 ## Limits
 
 * IPv4 only (`Dns` returns the first IPv4 address); no UDP, no TLS, no unix sockets, no `SocketOptions` other than the three above.
+* HTTP on top of them: `docs/http.md`.
 * `Socket` has no timeouts: use a `CancellationToken` with the `Async` methods.
 * The name of a machine is resolved by a call that blocks (in the pool for `GetHostAddressAsync`).
 * A stream does not do two operations of the same kind at the same time (two `ReceiveAsync` on one socket).

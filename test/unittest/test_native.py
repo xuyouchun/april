@@ -94,6 +94,9 @@ def _all_files():
             if name.endswith(".cs"):
                 result.append(threading_dir + "/" + name)
 
+    # The numbers' Parse (the runtime parses the floating numbers).
+    result.append("core_lib/System/parse.cs")
+
     return result
 
 

@@ -38,6 +38,10 @@
         </file>
 
         <file>
+            <path>Net/Http/*.cs</path>
+        </file>
+
+        <file>
             <path>Threading/*.cs</path>
         </file>
 

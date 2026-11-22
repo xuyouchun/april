@@ -24,6 +24,30 @@ public partial struct Int8
     public String ToString(String? format, IFormatProvider? provider)
         => NumberFormat.FormatSigned((Int64)this, 8, format, Globalization.NumberFormatInfo.GetInstance(provider));
 
+    // The number of a text: spaces, a sign and digits (see NumberParse). FormatException, OverflowException.
+    public static Int8 Parse(String text) => Parse(text, null);
+
+    public static Int8 Parse(String text, IFormatProvider? provider)
+    {
+        Int64 value;
+        Int32 status = NumberParse.Signed(text, Globalization.NumberFormatInfo.GetInstance(provider), -128, 127, out value);
+        if (status != 0)
+            NumberParse.Throw(status, text, "Int8");
+
+        return (Int8)value;
+    }
+
+    public static Boolean TryParse(String? text, out Int8 result) => TryParse(text, null, out result);
+
+    public static Boolean TryParse(String? text, IFormatProvider? provider, out Int8 result)
+    {
+        Int64 value;
+        Int32 status = NumberParse.Signed(text, Globalization.NumberFormatInfo.GetInstance(provider), -128, 127, out value);
+
+        result = (Int8)value;
+        return status == 0;
+    }
+
     // ---- generic math: made by tools/gen_numerics.py, do not edit it here ----
 
     public static Int8 operator +(Int8 left, Int8 right) => (Int8)((Int32)left + (Int32)right);

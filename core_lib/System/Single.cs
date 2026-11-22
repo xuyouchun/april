@@ -24,4 +24,47 @@ public partial struct Single
 
     public String ToString(String? format, IFormatProvider? provider)
         => NumberFormat.FormatFloating((Double)this, Internal.Single_ToString(this), format, Globalization.NumberFormatInfo.GetInstance(provider));
+
+    // The number of a text: spaces, a sign and digits (see NumberParse). FormatException, OverflowException.
+    public static Single Parse(String text) => Parse(text, null);
+
+    public static Single Parse(String text, IFormatProvider? provider)
+    {
+        String normalized;
+        Int32 kind = NumberParse.Floating(text, Globalization.NumberFormatInfo.GetInstance(provider), out normalized);
+        if (kind == 0)
+            NumberParse.Throw(1, text, "Single");
+
+        return __Make(kind, normalized);
+    }
+
+    public static Boolean TryParse(String? text, out Single result) => TryParse(text, null, out result);
+
+    public static Boolean TryParse(String? text, IFormatProvider? provider, out Single result)
+    {
+        String normalized;
+        Int32 kind = NumberParse.Floating(text, Globalization.NumberFormatInfo.GetInstance(provider), out normalized);
+        if (kind == 0)
+        {
+            result = 0;
+            return false;
+        }
+
+        result = __Make(kind, normalized);
+        return true;
+    }
+
+    private static Single __Make(Int32 kind, String normalized)
+    {
+        if (kind == 2)
+            return (Single)NumberParse.NaNValue();
+
+        if (kind == 3)
+            return (Single)NumberParse.InfinityValue();
+
+        if (kind == 4)
+            return (Single)(-NumberParse.InfinityValue());
+
+        return Internal.Single_Parse(normalized);
+    }
 }

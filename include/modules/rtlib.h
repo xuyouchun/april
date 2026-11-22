@@ -312,6 +312,8 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(directory_list);
     __DefineFunc(directory_current);
     __DefineFunc(console_read_line);
+    __DefineFunc(double_parse);
+    __DefineFunc(single_parse);
     __DefineFunc(socket_create);
     __DefineFunc(socket_bind);
     __DefineFunc(socket_listen);

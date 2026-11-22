@@ -11,6 +11,9 @@ using Reflection;
 [Internal]
 public class Object
 {
+    // The type of the object (the one that it was made with, not the one of the variable).
+    public Type GetType() => Type.GetType(this);
+
     // Returns whether the two are the same object.
     public static Boolean ReferenceEquals(Object? obj1, Object? obj2)
         => Internal.Object_ReferenceEquals(obj1, obj2);

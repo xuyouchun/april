@@ -85,6 +85,23 @@ european.NumberGroupSeparator = ".";
 1234567.891.ToString("N2", european)  // 1.234.567,89
 ```
 
+## Parse and TryParse
+
+`Int8`, `Int16`, `Int32`, `Int64`, `UInt8`, `UInt16`, `UInt32`, `UInt64`, `Single`, `Double`, `Boolean` have
+`Parse(text[, provider])` and `TryParse(text[, provider], out result)`; the signs, the decimal separator and the names of NaN and the
+infinities are those of the `NumberFormatInfo` of the provider (the current ones when it is null).
+
+* Integers: spaces around, an optional sign, digits. `FormatException` for what is not a number, `OverflowException` for a number
+  that does not fit (a negative number for an unsigned type, except `-0`), `ArgumentException` for null; `TryParse` returns false
+  for all of them (and 0 as the result).
+* Floating numbers: also `.` digits, an exponent (`e`, `E`), `NaN`, `Infinity`, `-Infinity` (any case). The result is the nearest number
+  (the runtime reads it with `from_chars`); a number that is too big is the infinity, a number that is too small is 0.
+* `Boolean`: `True` or `False`, any case, spaces around.
+* Not accepted: hexadecimal numbers, thousands separators, currency, parentheses, `NumberStyles`.
+
+`Object.GetType()` gives the `Reflection.Type` of an object, as `Type.GetType(obj)` does (the type of the object, not the one of the
+variable): `error.GetType().Name`. `Type` has no `==`: use `Object.ReferenceEquals(a, b)` to compare two of them.
+
 ## Limits
 
 * No cultures, no `ICustomFormatter`; a `IFormatProvider` of the program gives its info by `GetFormat(typeof(NumberFormatInfo))`.

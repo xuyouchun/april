@@ -24,4 +24,30 @@ public partial struct Boolean
 
         return "False";
     }
+
+    // "True" or "False" (the case does not matter, the spaces around are skipped).
+    public static Boolean Parse(String text)
+    {
+        Boolean result;
+        if (!TryParse(text, out result))
+            NumberParse.Throw(1, text, "Boolean");
+
+        return result;
+    }
+
+    public static Boolean TryParse(String? text, out Boolean result)
+    {
+        result = false;
+        if (text == null)
+            return false;
+
+        String lower = text.Trim().ToLower();
+        if (lower == "true")
+        {
+            result = true;
+            return true;
+        }
+
+        return lower == "false";
+    }
 }

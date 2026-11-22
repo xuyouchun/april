@@ -214,6 +214,8 @@ namespace X_ROOT_NS::modules::rtlib {
             __append_libfunc(_T("Directory_List"), directory_list);
             __append_libfunc(_T("Directory_Current"), directory_current);
             __append_libfunc(_T("Console_ReadLine"), console_read_line);
+            __append_libfunc(_T("Double_Parse"), double_parse);
+            __append_libfunc(_T("Single_Parse"), single_parse);
             __append_libfunc(_T("Socket_Create"), socket_create);
             __append_libfunc(_T("Socket_Bind"), socket_bind);
             __append_libfunc(_T("Socket_Listen"), socket_listen);

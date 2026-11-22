@@ -48,6 +48,51 @@ namespace X_ROOT_NS::modules::rtlib {
         return __new_string(text.c_str(), text.size());
     }
 
+    namespace
+    {
+        struct __parse_args_t
+        {
+            rstring_t   text;
+        };
+
+        // The number that the characters of a text are (the text was checked by the library of the language: an ASCII number of
+        // the form [-]digits[.digits][e[+-]digits]); the result is the nearest one, a number too big is the infinity.
+        template<typename t> t __parse_floating(const rt_char_t * s)
+        {
+            std::string text;
+            for (size_t k = 0, length = s == nullptr? 0 : (size_t)rt_string_length(s); k < length; k++)
+                text += (char)s[k];
+
+            t value = 0;
+            auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+
+            if (result.ec == std::errc::result_out_of_range)
+            {
+                // Too big (the infinity) or too small (zero): from_chars tells nothing of the value then.
+                bool negative = !text.empty() && text[0] == '-';
+                bool small = text.find("e-") != std::string::npos || text.find("E-") != std::string::npos;
+
+                if (small)
+                    return negative? (t)-0.0 : (t)0.0;
+
+                return negative? -std::numeric_limits<t>::infinity() : std::numeric_limits<t>::infinity();
+            }
+
+            return value;
+        }
+    }
+
+    // Double_Parse(text), Single_Parse(text).
+    void double_parse(rtlib_context_t & ctx)
+    {
+        ctx.return_<double>(__parse_floating<double>(*ctx.args<__parse_args_t>()->text));
+    }
+
+    void single_parse(rtlib_context_t & ctx)
+    {
+        ctx.return_<float>(__parse_floating<float>(*ctx.args<__parse_args_t>()->text));
+    }
+
     // Creates a string of the runtime from a text (for the other files of the library).
     const rt_char_t * new_rt_string(const std::wstring & text)
     {
