@@ -25,8 +25,9 @@ namespace X_ROOT_NS::modules::native {
 
     namespace
     {
-        // The variable of the pending exception of the program (see april_native_set_exception_slot).
-        void ** __exception_slot = nullptr;
+        // The variable of the pending exception of each thread, for the programs that start threads (the code of such a program
+        // asks it by april_native_exception_slot); the others have one variable, in the program.
+        thread_local void * __tls_exception = nullptr;
 
         // The function that a thread runs: System.Threading.Thread.__Entry of the program.
         void (* __thread_entry)(void *) = nullptr;
@@ -36,36 +37,22 @@ namespace X_ROOT_NS::modules::native {
             return (april_native_gc::thread_record_t *)thread->host_data;
         }
 
-        // The threads run one at a time. The one that stops keeps its stack, its registers and its pending exception (the
-        // variable is one for the program), for the collector; the one that runs takes its exception back.
+        // A thread that stops keeps its stack, its registers (its exception is read from its variable), for the collector.
         void __thread_attached(thread_t * thread, void * stack_base)
         {
-            thread->host_data = april_native_gc::attach_thread(stack_base);
+            thread->host_data = april_native_gc::attach_thread(stack_base, &__tls_exception);
         }
 
         void __thread_stopping(thread_t * thread)
         {
-            if (__record_of(thread) == nullptr)
-                return;
-
-            void * exception = nullptr;
-            if (__exception_slot != nullptr)
-            {
-                exception = *__exception_slot;
-                *__exception_slot = nullptr;
-            }
-
-            april_native_gc::thread_stopping(__record_of(thread), exception);
+            if (__record_of(thread) != nullptr)
+                april_native_gc::thread_stopping(__record_of(thread));
         }
 
         void __thread_resumed(thread_t * thread)
         {
-            if (__record_of(thread) == nullptr)
-                return;
-
-            void * exception = april_native_gc::thread_resumed(__record_of(thread));
-            if (__exception_slot != nullptr)
-                *__exception_slot = exception;
+            if (__record_of(thread) != nullptr)
+                april_native_gc::thread_resumed(__record_of(thread));
         }
 
         void __thread_detached(thread_t * thread)
@@ -92,7 +79,7 @@ namespace X_ROOT_NS::modules::native {
                 __thread_entry(thread->entry());
 
                 // An exception that nothing catches ends the program.
-                if (__exception_slot != nullptr && *__exception_slot != nullptr)
+                if (__tls_exception != nullptr)
                 {
                     std::fputs("native: unhandled exception\n", stderr);
                     return false;
@@ -100,6 +87,9 @@ namespace X_ROOT_NS::modules::native {
 
                 return true;
             }
+
+            // The code of the threads runs in parallel.
+            virtual bool parallel() override { return true; }
         };
 
         __thread_host_t __host;
@@ -127,6 +117,12 @@ extern "C" {
         rtlib::thread_manager_t & threads = rtlib::thread_manager_t::instance();
         threads.set_host(&native::__host);
 
+        // A collection stops the threads that run in parallel.
+        april_native_gc::set_world_hooks(
+            []() { rtlib::thread_manager_t::instance().stop_world(); },
+            []() { rtlib::thread_manager_t::instance().resume_world(); }
+        );
+
         // The objects of the threads that have not ended (System.Threading.Thread) are roots.
         april_native_gc::set_root_provider([](void (* mark)(void *)) {
             rtlib::thread_manager_t::instance().each_gc_root([mark](void * obj) { mark(obj); });
@@ -148,8 +144,15 @@ extern "C" {
         });
     }
 
+    void * april_native_exception_slot()
+    {
+        return &X_ROOT_NS::modules::native::__tls_exception;
+    }
+
     void april_native_shutdown()
     {
+        X_ROOT_NS::modules::rtlib::runtime_guard_t guard;
+
         // The program ends when the threads that are not in the background end.
         X_ROOT_NS::modules::rtlib::thread_manager_t::instance().wait_for_foreground();
 
@@ -159,6 +162,8 @@ extern "C" {
     void * april_native_thread_static(int64_t size, void * descriptor)
     {
         using namespace X_ROOT_NS::modules;
+
+        rtlib::runtime_guard_t guard;
 
         // A table of the objects of the threads, in the order of the keys: the collector reads the values.
         rtlib::thread_t * thread = rtlib::thread_manager_t::instance().current();
@@ -177,14 +182,12 @@ extern "C" {
         return object;
     }
 
-    void april_native_set_exception_slot(void ** slot)
-    {
-        X_ROOT_NS::modules::native::__exception_slot = slot;
-    }
-
     int64_t april_native_thread_start(void * entry, void * thread, int8_t background)
     {
         using namespace X_ROOT_NS::modules;
+
+        // The first thread of the program makes the threads parallel: the guard (that did nothing) ends it.
+        rtlib::runtime_guard_t guard;
 
         native::__thread_entry = (void (*)(void *))entry;
         return rtlib::thread_manager_t::instance().start(thread, background != 0)->id();
@@ -252,6 +255,8 @@ extern "C" {
 
     void * april_native_new_object(uint64_t size, void * type)
     {
+        X_ROOT_NS::modules::rtlib::runtime_guard_t guard;
+
         // A header of 16 bytes keeps the objects aligned; the type is its last word.
         // An object without fields still owns a byte: a reference points to its payload, which
         // must not be the end of the block, or the collector takes it for the next block.
@@ -264,6 +269,8 @@ extern "C" {
     void * april_native_new_array(int64_t element_size, int32_t dimension,
                                   const int32_t * lengths, void * type, int32_t has_refs)
     {
+        X_ROOT_NS::modules::rtlib::runtime_guard_t guard;
+
         int64_t total = 1;
         for (int32_t k = 0; k < dimension; k++)
         {
@@ -487,6 +494,7 @@ extern "C" {
 
     void * april_native_reflect_get(const april_native_member_t * member, void * object)
     {
+        X_ROOT_NS::modules::rtlib::runtime_guard_t guard;
         // A constant: the number is the offset.
         if ((member->flags & (1 << 10)) != 0)
         {
@@ -540,6 +548,8 @@ extern "C" {
     {
         using namespace X_ROOT_NS::modules;
 
+        rtlib::runtime_guard_t guard;
+
         if (object == nullptr)
             return X_ROOT_NS::modules::rt::rt_empty_string();
 
@@ -549,6 +559,8 @@ extern "C" {
     void * april_native_enum_parse(void * type, const void * table, const void * text, int8_t ignore_case)
     {
         using namespace X_ROOT_NS::modules;
+
+        rtlib::runtime_guard_t guard;
 
         if (table == nullptr)
             return nullptr;
@@ -656,6 +668,7 @@ extern "C" {
     void * april_native_reflect_invoke(const april_native_member_t * member, void * object,
                                        void ** args)
     {
+        X_ROOT_NS::modules::rtlib::runtime_guard_t guard;
         bool is_static = (member->flags & 16) != 0;
         april_native_member_t ** params = (april_native_member_t **)member->params;
 
@@ -744,7 +757,14 @@ extern "C" {
             result = (uint64_t *)boxed;
         }
 
+        // The method is code of the program: it runs without the lock.
+        X_ROOT_NS::modules::rtlib::thread_manager_t & threads = X_ROOT_NS::modules::rtlib::thread_manager_t::instance();
+        int32_t depth = X_ROOT_NS::modules::rtlib::thread_parallel.load()? threads.runtime_suspend() : 0;
+
         ((void (*)(void *, uint64_t *, uint64_t *))member->invoker)(function, values, result);
+
+        if (depth > 0)
+            threads.runtime_resume(depth);
 
         switch (member->value_kind)
         {
@@ -794,6 +814,7 @@ extern "C" {
     void * april_native_reflect_attribute_argument(const april_native_attributes_t * attributes,
                                                    int32_t index, int32_t position)
     {
+        X_ROOT_NS::modules::rtlib::runtime_guard_t guard;
         april_native_member_t * constructor =
                 (april_native_member_t *)april_native_reflect_attribute_constructor(attributes, index);
 
@@ -995,6 +1016,9 @@ extern "C" {
     void april_native_invoke(void * libfunc, uint64_t * args)
     {
         using namespace X_ROOT_NS::modules;
+
+        // The functions of the library use the data of the runtime: one thread at a time (the ones that wait give the lock).
+        rtlib::runtime_guard_t guard;
 
         rtlib::rtlib_context_t context(
             *reinterpret_cast<rt::assembly_analyzer_t *>(native::__no_analyzer),

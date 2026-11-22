@@ -595,6 +595,29 @@ internal static class Internal
     // The processors of the machine.
     [Internal]
     public static extern Int32 Environment_ProcessorCount();
+
+    // Whether the code of the threads runs in parallel (the native programs): the numbers of Interlocked are atomic instructions.
+    [Internal]
+    public static extern Boolean Thread_IsParallel();
+
+    // The operations of Interlocked: they work on the place of a number, Add returns the new value, the others the old one.
+    [Internal]
+    public static extern Int32 Interlocked_Add32(ref Int32 location, Int32 value);
+
+    [Internal]
+    public static extern Int64 Interlocked_Add64(ref Int64 location, Int64 value);
+
+    [Internal]
+    public static extern Int32 Interlocked_Exchange32(ref Int32 location, Int32 value);
+
+    [Internal]
+    public static extern Int64 Interlocked_Exchange64(ref Int64 location, Int64 value);
+
+    [Internal]
+    public static extern Int32 Interlocked_CompareExchange32(ref Int32 location, Int32 value, Int32 comparand);
+
+    [Internal]
+    public static extern Int64 Interlocked_CompareExchange64(ref Int64 location, Int64 value, Int64 comparand);
 }
 
 

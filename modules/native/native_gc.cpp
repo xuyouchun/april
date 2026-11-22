@@ -104,6 +104,8 @@ namespace april_native_gc {
         // The threads: the one that runs scans its own stack, the others have kept theirs when they stopped.
         std::vector<thread_record_t *>  __threads;
         root_provider_t                 __root_provider = nullptr;
+        void (* __stop_world)() = nullptr;
+        void (* __resume_world)() = nullptr;
         thread_local thread_record_t *  __current = nullptr;
     }
 
@@ -112,7 +114,7 @@ namespace april_native_gc {
         uintptr_t       base = 0;               // The highest address of the stack that has frames.
         uintptr_t       sp = 0;                 // The top of the stack when the thread stopped.
         std::jmp_buf    registers;
-        void *          exception = nullptr;    // The exception that was pending when it stopped.
+        void **         exception_slot = nullptr;   // The variable of the exception that is pending in the thread.
         bool            stopped = false;        // It is created by the thread that runs.
     };
 
@@ -127,7 +129,8 @@ namespace april_native_gc {
 
                 __scan((uintptr_t)&record->registers, (uintptr_t)&record->registers + sizeof(record->registers));
                 __scan(record->sp, record->base);
-                __mark_word((uintptr_t)record->exception);
+                if (record->exception_slot != nullptr)
+                    __mark_word((uintptr_t)*record->exception_slot);
             }
         }
 
@@ -150,6 +153,9 @@ namespace april_native_gc {
 
             __scan_stopped_threads();
 
+            if (__current != nullptr && __current->exception_slot != nullptr)
+                __mark_word((uintptr_t)*__current->exception_slot);
+
             if (__root_provider != nullptr)
                 __root_provider([](void * address) { __mark_word((uintptr_t)address); });
 
@@ -165,6 +171,10 @@ namespace april_native_gc {
                 return;                 // Not initialized.
 
             size_t before = __live_bytes;
+
+            // The threads that run in parallel stop first.
+            if (__stop_world != nullptr)
+                __stop_world();
 
             __collect_from_stack();
 
@@ -186,6 +196,9 @@ namespace april_native_gc {
                     it = __blocks.erase(it);
                 }
             }
+
+            if (__resume_world != nullptr)
+                __resume_world();
 
             __collections++;
             __allocated_since = 0;
@@ -222,9 +235,16 @@ namespace april_native_gc {
         __root_provider = provider;
     }
 
-    thread_record_t * attach_thread(void * stack_base)
+    void set_world_hooks(void (* stop)(), void (* resume)())
+    {
+        __stop_world = stop;
+        __resume_world = resume;
+    }
+
+    thread_record_t * attach_thread(void * stack_base, void ** exception_slot)
     {
         thread_record_t * record = new thread_record_t();
+        record->exception_slot = exception_slot;
         record->base = (uintptr_t)stack_base;
         record->sp = record->base;
 
@@ -252,24 +272,18 @@ namespace april_native_gc {
     }
 
     // The registers are saved below the frames of the callers.
-    __attribute__((noinline)) void thread_stopping(thread_record_t * record, void * exception)
+    __attribute__((noinline)) void thread_stopping(thread_record_t * record)
     {
         setjmp(record->registers);
 
         volatile char marker = 0;
         record->sp = (uintptr_t)&marker;
-        record->exception = exception;
         record->stopped = true;
     }
 
-    void * thread_resumed(thread_record_t * record)
+    void thread_resumed(thread_record_t * record)
     {
-        void * exception = record->exception;
-
         record->stopped = false;
-        record->exception = nullptr;
-
-        return exception;
     }
 
     void shutdown()

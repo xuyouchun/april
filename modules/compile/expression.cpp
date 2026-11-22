@@ -4932,9 +4932,10 @@ namespace X_ROOT_NS::modules::compile {
                 {
                     // Array get value.
                     case __xil_call_command_t::array_get_value:
-                        pool.append<x_push_array_element_xil_t>(
-                            env.dtype, __ref_of(ctx, __get_generic_array_type())
-                        );
+                        // The address of the element, and the copy of the value, as for any value of a generic param: a struct is
+                        // copied to the place of the result, a number and a reference are loaded.
+                        pool.append<x_push_array_element_addr_xil_t>(__ref_of(ctx, __get_generic_array_type()));
+                        pool.append<x_generic_copy_xil_t>(__ref_of(ctx, method->get_type()), xil_copy_kind_t::ret);
                         break;
 
                     // Array set value.

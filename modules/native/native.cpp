@@ -867,6 +867,19 @@ namespace X_ROOT_NS::modules::native {
                 });
             }
 
+            // The operations of Interlocked are atomic instructions (the threads run in parallel).
+            if (name == "Interlocked_Add32" || name == "Interlocked_Add64")
+            {
+                llb::value_t old = f.atomic_rmw("add", args.at(0), args.at(1));
+                return f.binop("add", old, args.at(1));
+            }
+
+            if (name == "Interlocked_Exchange32" || name == "Interlocked_Exchange64")
+                return f.atomic_rmw("xchg", args.at(0), args.at(1));
+
+            if (name == "Interlocked_CompareExchange32" || name == "Interlocked_CompareExchange64")
+                return f.atomic_cmpxchg(args.at(0), args.at(2), args.at(1));
+
             if (name == "Enum_GetNumber" || name == "Enum_ToString" || name == "Enum_Parse")
             {
                 __uses_reflection = true;
@@ -1535,7 +1548,9 @@ namespace X_ROOT_NS::modules::native {
                 return block_labels.at(xil_blocks[b].entry_point);
             };
 
-            llb::value_t exception_global { llb::types::ptr, "@april.exception" };
+            // The variable of the pending exception: a program that starts threads has one for each thread, the function
+            // `april.exc_slot` (made at the end) tells it; for the others it is a constant that is inlined.
+            llb::value_t exception_global = f.call("ptr", "april.exc_slot", { });
 
             // Finally blocks: the selector of where to go at their end, and the blocks of
             // the `end finally`.
@@ -2588,10 +2603,29 @@ namespace X_ROOT_NS::modules::native {
 
                                 std::string ll = __ll_type_of(e.type);
                                 xil_type_t xt = __xil_type_of(e.type);
-                                if (ll[0] == '[' || xt == xil_type_t::empty)
+
+                                // A struct that is the value of a generic param (it is in a region of the stack): its bytes are copied.
+                                if (ll[0] == '[')
+                                {
+                                    llb::value_t region = pop_value("pop to an array element");
+                                    if (region.type != ll || region.text[0] != '&')
+                                        throw _ED(__e_t::unsupported_type, e.type->get_name(__env));
+
+                                    __uses_memcpy = true;
+                                    f.call("void", "llvm.memcpy.p0.p0.i64", { e.address,
+                                        llb::value_t { llb::types::ptr, region.text.substr(1) },
+                                        llb::const_int("i64", (int64_t)e.type->get_size(__env)), llb::const_bool(false) });
+                                    break;
+                                }
+
+                                if (xt == xil_type_t::empty)
                                     throw _ED(__e_t::unsupported_type, e.type->get_name(__env));
 
                                 llb::value_t v = pop_value("pop to an array element");
+
+                                // The value of a generic param was copied to a place of the stack (a region): it is read.
+                                if (v.type[0] == '[' && v.text[0] == '&')
+                                    v = f.load(ll, llb::value_t { llb::types::ptr, v.text.substr(1) });
                                 if (pop->dtype() != xt && __conv_num_of(xt).valid
                                                         && __conv_num_of(pop->dtype()).valid)
                                 {
@@ -4103,7 +4137,14 @@ namespace X_ROOT_NS::modules::native {
             };
 
             for (xil_index = 0; xil_index < xils.size(); xil_index++)
+            {
+                // The beginning of a function is a safepoint (a recursion without a loop): a collection of another thread
+                // that runs in parallel waits for this one to stop.
+                if (xil_index == 0)
+                    poll();
+
                 emit_xil(xils[xil_index]);
+            }
 
             // A body that ends without `ret` (or only with dead code) stays well formed.
             if (!f.terminated())
@@ -5735,7 +5776,8 @@ namespace X_ROOT_NS::modules::native {
             __module.add_global_line("@april.exception = global ptr null");
             __module.add_global_line("@april.yield = global ptr null");
             __module.declare(APRIL_NATIVE_SYM_UNHANDLED, "void", { "ptr" });
-            __module.declare(APRIL_NATIVE_SYM_SET_EXCEPTION, "void", { "ptr" });
+            if (__uses_thread_start)
+                __module.declare(APRIL_NATIVE_SYM_EXCEPTION_SLOT, "ptr", { });
             __module.declare(APRIL_NATIVE_SYM_YIELD_FLAG, "ptr", { });
 
             if (__uses_poll)
@@ -5831,6 +5873,13 @@ namespace X_ROOT_NS::modules::native {
             }
             init.ret();
 
+            // The variable of the pending exception: one for each thread when the program starts threads.
+            llb::function_t & exc_slot = __module.define("april.exc_slot", "ptr", { });
+            if (__uses_thread_start)
+                exc_slot.ret(exc_slot.call("ptr", APRIL_NATIVE_SYM_EXCEPTION_SLOT, { }));
+            else
+                exc_slot.ret(llb::value_t { llb::types::ptr, "@april.exception" });
+
             // main.
             llb::function_t & main_f = __module.define("main", "i32",
                 { { "i32", "argc" }, { "ptr", "argv" } }
@@ -5842,9 +5891,7 @@ namespace X_ROOT_NS::modules::native {
             main_f.call("void", APRIL_NATIVE_SYM_ADD_ROOT,
                         { llb::value_t { llb::types::ptr, "@april.exception" } });
 
-            // The runtime keeps the pending exception of each thread, and tells where the flag of the safepoints is.
-            main_f.call("void", APRIL_NATIVE_SYM_SET_EXCEPTION,
-                        { llb::value_t { llb::types::ptr, "@april.exception" } });
+            // The runtime tells where the flag of the safepoints is.
             main_f.store(main_f.call("ptr", APRIL_NATIVE_SYM_YIELD_FLAG, { }),
                          llb::value_t { llb::types::ptr, "@april.yield" });
             main_f.call("void", "april.init_libfuncs", { });
@@ -5894,7 +5941,7 @@ namespace X_ROOT_NS::modules::native {
             main_f.call("void", entry.name, { });
 
             // An exception that nothing caught.
-            llb::value_t pending = main_f.load("ptr", llb::value_t { llb::types::ptr, "@april.exception" });
+            llb::value_t pending = main_f.load("ptr", main_f.call("ptr", "april.exc_slot", { }));
             std::string unhandled = main_f.new_block("unhandled"), finish = main_f.new_block("finish");
             main_f.cond_br(main_f.icmp("ne", pending, llb::const_null()), unhandled, finish);
 

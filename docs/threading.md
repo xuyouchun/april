@@ -116,9 +116,32 @@ the default of the type. The objects of the threads that ended are not freed (a 
 
 There is no `async` / `await` (it needs a state machine of the compiler).
 
+## Parallel threads (phase 4): the native programs and the JIT
+
+The interpreter keeps the global lock for all the time (one managed thread runs at a time). A native program (compiled or JIT) that
+starts a thread runs the code of the threads **in parallel**: `Thread.IsParallel` is true. The lock is not given up: it is held only
+while a thread is in the runtime.
+
+* **The runtime and the program.** A call of the runtime (`april_native_new_object`, `new_array`, `invoke` of the functions of the
+  library, the threads and the locks, the reflection, `thread_static`, the enums) is made between `runtime_enter` and `runtime_leave`
+  (`runtime_guard_t`); they nest. The first takes the global lock, the last gives it. Method.Invoke gives it for the time of the
+  method (`runtime_suspend` / `runtime_resume`). So the heap, the tables of the collector, the monitors and the registry of the threads
+  are used by one thread at a time, and the code of the program (the loops, the fields, the calls of the program) is not locked.
+  A program that has not started a thread does not use the lock (`thread_parallel` is false: the guards do nothing).
+* **The collection stops the world.** The thread that collects (it is in the runtime) sets the flag of the safepoints and waits until
+  no thread runs the code of the program (`stop_world`): a thread that is in the runtime or waits for the lock is stopped (its stack and
+  registers were kept when it entered, `thread_stopping`), a thread that runs reads the flag at a safepoint and stops there. The
+  safepoints are the beginning of every function and the jumps that go back.
+* **The pending exception** is a variable of each thread (`april_native_exception_slot`); the function `april.exc_slot` of the program
+  gives it (for a program that starts no thread it is the constant that is inlined). The collector reads it as a root.
+* **Interlocked** on numbers is made of atomic instructions (`atomicrmw`, `cmpxchg`); the interpreter calls the same functions of the
+  library (`__atomic_*`). `SpinLock` uses `CompareExchange`.
+* What the code of the program does with the fields of the objects is not locked: a program that shares data between threads needs
+  `lock`, `Interlocked` or `Volatile` (the loads and the stores are not atomic instructions).
+
 ## Not done yet
 
 The upgradeable `ReaderWriterLockSlim`, `async` / `await`, `TaskScheduler`, the options of `ContinueWith`, `Parallel` with a loop state. `Thread.Abort`,
-priorities and the affinity are not planned. The GIL can be taken away (phase 4); the safepoints and the registry of the threads
-are what it needs. A condition expression `c? a : b` whose value is a struct of a generic param and that has a call as a branch
+priorities and the affinity are not planned. The interpreter runs one thread at a time (the runtime is not made to be used in parallel: the commands, the lazy tables, the string
+pool). A condition expression `c? a : b` whose value is a struct of a generic param and that has a call as a branch
 is not supported.

@@ -24,7 +24,7 @@
 #define APRIL_NATIVE_SYM_THREAD_START   "april_native_thread_start"
 #define APRIL_NATIVE_SYM_YIELD_FLAG     "april_native_yield_flag"
 #define APRIL_NATIVE_SYM_SAFEPOINT      "april_native_safepoint"
-#define APRIL_NATIVE_SYM_SET_EXCEPTION  "april_native_set_exception_slot"
+#define APRIL_NATIVE_SYM_EXCEPTION_SLOT "april_native_exception_slot"
 #define APRIL_NATIVE_SYM_ENUM_TO_STRING "april_native_enum_to_string"
 #define APRIL_NATIVE_SYM_ENUM_PARSE     "april_native_enum_parse"
 #define APRIL_NATIVE_SYM_REFLECT_CHECK_INVOKE "april_native_reflect_check_invoke"
@@ -107,9 +107,9 @@ extern "C" {
     // size and the descriptor are those of the object of the static data of the class); a root of the collector.
     void * april_native_thread_static(int64_t size, void * descriptor);
 
-    // Tells the runtime where the pending exception of the program is (the variable that every call is followed by a check
-    // of): the threads that run one at a time keep it apart. Called by `main`.
-    void april_native_set_exception_slot(void ** slot);
+    // Returns the variable of the pending exception of the running thread (every call of the program is followed by a check of
+    // it): the programs that start threads use it, the others have one variable in the program.
+    void * april_native_exception_slot();
 
     // Starts a thread that runs `entry(thread)` (a function of the program, System.Threading.Thread.__Entry), returns its id.
     int64_t april_native_thread_start(void * entry, void * thread, int8_t background);

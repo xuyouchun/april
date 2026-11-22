@@ -202,6 +202,32 @@ namespace X_ROOT_NS::modules::native::ll {
             return value_t { type, r };
         }
 
+        // atomicrmw <op> ptr, <value> seq_cst: the value that was in the place (op is add, xchg...).
+        value_t atomic_rmw(const std::string & op, const value_t & ptr, const value_t & value)
+        {
+            __expect_ptr(ptr);
+
+            std::string r = __temp();
+            __emit(r + " = atomicrmw " + op + " ptr " + ptr.text + ", " + value.type + " " + value.text + " seq_cst");
+
+            return value_t { value.type, r };
+        }
+
+        // cmpxchg ptr, <comparand>, <value> seq_cst seq_cst: the value that was in the place.
+        value_t atomic_cmpxchg(const value_t & ptr, const value_t & comparand, const value_t & value)
+        {
+            __expect_ptr(ptr);
+
+            std::string pair = __temp();
+            __emit(pair + " = cmpxchg ptr " + ptr.text + ", " + comparand.type + " " + comparand.text + ", "
+                   + value.type + " " + value.text + " seq_cst seq_cst");
+
+            std::string r = __temp();
+            __emit(r + " = extractvalue { " + comparand.type + ", i1 } " + pair + ", 0");
+
+            return value_t { comparand.type, r };
+        }
+
         // store <type> <value>, ptr <ptr>
         void store(const value_t & value, const value_t & ptr)
         {

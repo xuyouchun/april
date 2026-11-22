@@ -8,87 +8,69 @@ namespace Threading;
 
 ////////// ////////// ////////// ////////// //////////
 
-// The threads run one at a time and switch only at the calls that wait and at the jumps that go back, so the operations
-// of numbers (that have neither a call nor a loop) are not interrupted. The ones of references take the lock of the class.
+// The operations of numbers are atomic instructions of the machine (the code of the threads runs in parallel in the native
+// programs); the ones of references take the lock of the class.
 public static class Interlocked
 {
     // Adds one, returns the new value.
     public static Int32 Increment(ref Int32 location)
     {
-        location = location + 1;
-        return location;
+        return Internal.Interlocked_Add32(ref location, 1);
     }
 
     public static Int64 Increment(ref Int64 location)
     {
-        location = location + 1;
-        return location;
+        return Internal.Interlocked_Add64(ref location, 1);
     }
 
     // Subtracts one, returns the new value.
     public static Int32 Decrement(ref Int32 location)
     {
-        location = location - 1;
-        return location;
+        return Internal.Interlocked_Add32(ref location, -1);
     }
 
     public static Int64 Decrement(ref Int64 location)
     {
-        location = location - 1;
-        return location;
+        return Internal.Interlocked_Add64(ref location, -1);
     }
 
     // Adds a value, returns the new value.
     public static Int32 Add(ref Int32 location, Int32 value)
     {
-        location = location + value;
-        return location;
+        return Internal.Interlocked_Add32(ref location, value);
     }
 
     public static Int64 Add(ref Int64 location, Int64 value)
     {
-        location = location + value;
-        return location;
+        return Internal.Interlocked_Add64(ref location, value);
     }
 
     // Sets a value, returns the one that was there.
     public static Int32 Exchange(ref Int32 location, Int32 value)
     {
-        Int32 old = location;
-        location = value;
-        return old;
+        return Internal.Interlocked_Exchange32(ref location, value);
     }
 
     public static Int64 Exchange(ref Int64 location, Int64 value)
     {
-        Int64 old = location;
-        location = value;
-        return old;
+        return Internal.Interlocked_Exchange64(ref location, value);
     }
 
     // Sets the value if the variable has the compared one, returns the one that was there.
     public static Int32 CompareExchange(ref Int32 location, Int32 value, Int32 comparand)
     {
-        Int32 old = location;
-        if (old == comparand)
-            location = value;
-
-        return old;
+        return Internal.Interlocked_CompareExchange32(ref location, value, comparand);
     }
 
     public static Int64 CompareExchange(ref Int64 location, Int64 value, Int64 comparand)
     {
-        Int64 old = location;
-        if (old == comparand)
-            location = value;
-
-        return old;
+        return Internal.Interlocked_CompareExchange64(ref location, value, comparand);
     }
 
     // Reads a 64 bits number.
     public static Int64 Read(ref Int64 location)
     {
-        return location;
+        return Internal.Interlocked_CompareExchange64(ref location, 0, 0);
     }
 
     // Sets a reference, returns the one that was there.

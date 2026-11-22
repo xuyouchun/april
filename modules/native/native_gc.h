@@ -16,7 +16,11 @@ namespace april_native_gc {
     struct thread_record_t;
 
     // A thread begins (it is the running one): its stack is scanned up to `stack_base`.
-    thread_record_t * attach_thread(void * stack_base);
+    // `exception_slot` is the variable of the exception that is pending in the thread (a root).
+    thread_record_t * attach_thread(void * stack_base, void ** exception_slot);
+
+    // The collector asks the others to stop, and lets them go on (the threads that run in parallel): called around a collection.
+    void set_world_hooks(void (* stop)(), void (* resume)());
 
     // The thread ended.
     void detach_thread(thread_record_t * record);
@@ -25,12 +29,11 @@ namespace april_native_gc {
     typedef void (* root_provider_t)(void (* mark)(void * address));
     void set_root_provider(root_provider_t provider);
 
-    // The thread stops (it gives its turn, or it waits): keeps its registers and the top of its stack. `exception` is the
-    // exception that is pending, it is a root while the thread is stopped.
-    void thread_stopping(thread_record_t * record, void * exception);
+    // The thread stops (it gives its turn, or it waits): keeps its registers and the top of its stack.
+    void thread_stopping(thread_record_t * record);
 
-    // The thread runs again: returns the exception that was kept.
-    void * thread_resumed(thread_record_t * record);
+    // The thread runs again.
+    void thread_resumed(thread_record_t * record);
 
     // Prints the statistics if they were asked (APRIL_GC_STATS).
     void shutdown();

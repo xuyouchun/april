@@ -147,6 +147,9 @@ public sealed class Thread
         Internal.Thread_Yield();
     }
 
+    // Whether the threads of the program run in parallel (the native programs), or one at a time.
+    public static Boolean IsParallel => Internal.Thread_IsParallel();
+
     // The thread that is running waits in a loop of some iterations (the other threads can take their turn in the loop).
     public static Void SpinWait(Int32 iterations)
     {

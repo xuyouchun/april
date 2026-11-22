@@ -226,10 +226,8 @@ public struct SpinLock
 
         for (;;)
         {
-            // No call between the test and the set: no thread takes its turn.
-            if (__owner == 0)
+            if (Interlocked.CompareExchange(ref __owner, id, 0) == 0)
             {
-                __owner = id;
                 lockTaken = true;
                 return;
             }
@@ -246,11 +244,8 @@ public struct SpinLock
 
         Int64 id = Thread.CurrentThread.ManagedThreadId;
 
-        if (__owner == 0)
-        {
-            __owner = id;
+        if (Interlocked.CompareExchange(ref __owner, id, 0) == 0)
             lockTaken = true;
-        }
     }
 
     public Void Exit()

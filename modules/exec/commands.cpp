@@ -1335,6 +1335,49 @@ namespace X_ROOT_NS::modules::exec {
     };
 
     //-------- ---------- ---------- ---------- ----------
+    // Pop the element of an array that is a custom struct, when the code does not know it (Array<T>.this[] = value, the type is a
+    // generic param): the stack has the bytes of the value (copied to a place of the stack by the argument), the index and the
+    // array; the bytes are copied to the element and popped.
+
+    #define __PopStructElementCmd   __Cmd(pop, struct_array_element)
+    __DefineCmdValue_(__PopStructElementCmd)
+
+    class __pop_struct_element_command_t : public __command_base_t<__PopStructElementCmd>
+    {
+        typedef __pop_struct_element_command_t  __self_t;
+
+    public:
+        __pop_struct_element_command_t(msize_t size) : __size(size) { }
+
+        #if EXEC_TRACE
+
+        __ToString(_T("pop struct array element"));
+
+        #endif  // EXEC_TRACE
+
+        __BeginExecute(ctx)
+
+            rt_ref_t array_ref = ctx.stack.pop<rt_ref_t>();
+            __CheckNullReference(ctx, array_ref);
+            array_length_t index = ctx.stack.pop<array_length_t>();
+
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
+
+            size_t units = _alignf(__This->__size, sizeof(rt_stack_unit_t)) / sizeof(rt_stack_unit_t);
+
+            al::quick_copy((void *)(array_ref + index * __This->__size), (void *)(ctx.stack.top() - units), __This->__size);
+            ctx.stack.pop(units);
+
+        __EndExecute()
+
+    private:
+        msize_t __size;
+    };
+
+    static rt_type_t * __array_element_type(__context_t & ctx, ref_t type_ref);
+
+    //-------- ---------- ---------- ---------- ----------
     // Push array element address.
 
     template<command_value_t _cv, dimension_t _dimension>
@@ -3251,6 +3294,18 @@ namespace X_ROOT_NS::modules::exec {
 
     static command_t * __new_pop_command(__context_t & ctx, const pop_xil_t & xil)
     {
+        // An element that is a custom struct: it is copied by its bytes.
+        if (xil.stype() == xil_storage_type_t::array_element)
+        {
+            rt_type_t * element_type = __array_element_type(ctx, xil.get_ref());
+            if (is_custom_struct(ctx.env, element_type))
+            {
+                return __new_command<__pop_struct_element_command_t>(
+                    &__command_heap, element_type->get_size(ctx.env)
+                );
+            }
+        }
+
         static __command_manager_t<
             __pop_command_template_t, xil_storage_type_t, xil_type_t, xil_type_t
         >::with_args_t<msize_t> __command_manager;

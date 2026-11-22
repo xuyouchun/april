@@ -10,6 +10,7 @@ namespace X_ROOT_NS::modules::rtlib {
     ////////// ////////// ////////// ////////// //////////
 
     std::atomic<bool> thread_yield_requested { false };
+    std::atomic<bool> thread_parallel { false };
 
     namespace
     {
@@ -58,6 +59,12 @@ namespace X_ROOT_NS::modules::rtlib {
         thread_t *                  owner = nullptr;
         std::deque<thread_t *>      ready;
 
+        // The threads that run the managed code (parallel mode), and the collector that asks them to stop.
+        std::mutex                  state_mutex;
+        std::condition_variable     state_cv;
+        int                         running = 0;
+        bool                        gc_requested = false;
+
         // The rest is used by the thread that holds the global lock only.
         std::vector<std::unique_ptr<thread_t>>      threads;
         int64_t                                     next_id = 1;
@@ -73,13 +80,16 @@ namespace X_ROOT_NS::modules::rtlib {
 
             while (owner != nullptr || ready.front() != thread)
             {
-                if (gil_cv.wait_for(lock, __time_slice) == std::cv_status::timeout)
+                // The threads that run in parallel do not ask for a turn.
+                if (gil_cv.wait_for(lock, __time_slice) == std::cv_status::timeout && !thread_parallel.load())
                     thread_yield_requested.store(true, std::memory_order_relaxed);
             }
 
             ready.pop_front();
             owner = thread;
-            thread_yield_requested.store(false, std::memory_order_relaxed);
+
+            if (!thread_parallel.load())
+                thread_yield_requested.store(false, std::memory_order_relaxed);
 
             lock.unlock();
 
@@ -239,6 +249,140 @@ namespace X_ROOT_NS::modules::rtlib {
         return thread;
     }
 
+    // The threads that run the managed code: the thread has been in the runtime, it is not now.
+    static void __running_enter(thread_manager_data_t & data)
+    {
+        {
+            std::lock_guard<std::mutex> lock(data.state_mutex);
+            data.running++;
+        }
+    }
+
+    // The thread leaves the managed code (it enters the runtime or it stops): the collector does not wait for it.
+    static void __running_leave(thread_manager_data_t & data)
+    {
+        {
+            std::lock_guard<std::mutex> lock(data.state_mutex);
+            data.running--;
+        }
+
+        data.state_cv.notify_all();
+    }
+
+    // The thread calls the runtime: it gives the code of the program, takes the global lock.
+    void thread_manager_t::runtime_enter()
+    {
+        thread_t * self = __current_thread;
+        if (self == nullptr || self->__depth++ > 0)
+            return;
+
+        // It is stopped (its stack and its registers are kept) while it waits for the lock.
+        if (__hooks != nullptr && __hooks->stopping != nullptr)
+            __hooks->stopping(self);
+
+        __running_leave(*__data);
+        __data->acquire(self);
+    }
+
+    // The thread goes back to the code of the program.
+    void thread_manager_t::runtime_leave()
+    {
+        thread_t * self = __current_thread;
+        if (self == nullptr || --self->__depth > 0)
+            return;
+
+        // It runs again before the lock is given: a collection that begins then waits for it.
+        __running_enter(*__data);
+        __data->release(nullptr);
+    }
+
+    int32_t thread_manager_t::runtime_suspend()
+    {
+        thread_t * self = __current_thread;
+        if (self == nullptr || self->__depth == 0)
+            return 0;
+
+        int32_t depth = self->__depth;
+
+        __running_enter(*__data);
+        self->__depth = 0;
+        __data->release(nullptr);
+
+        return depth;
+    }
+
+    void thread_manager_t::runtime_resume(int32_t depth)
+    {
+        thread_t * self = __current_thread;
+        if (self == nullptr || depth == 0)
+            return;
+
+        if (__hooks != nullptr && __hooks->stopping != nullptr)
+            __hooks->stopping(self);
+
+        __running_leave(*__data);
+        __data->acquire(self);
+
+        self->__depth = depth;
+    }
+
+    // A thread that runs the managed code stops until the collection ends.
+    void thread_manager_t::__stop_for_collection(thread_t * self)
+    {
+        thread_manager_data_t & data = *__data;
+
+        {
+            std::unique_lock<std::mutex> lock(data.state_mutex);
+            if (!data.gc_requested)
+                return;
+        }
+
+        if (__hooks != nullptr && __hooks->stopping != nullptr)
+            __hooks->stopping(self);
+
+        __running_leave(data);
+
+        {
+            std::unique_lock<std::mutex> lock(data.state_mutex);
+
+            // It runs again when no collection waits (a new one that begins now waits for it).
+            data.state_cv.wait(lock, [&data] { return !data.gc_requested; });
+            data.running++;
+        }
+
+        if (__hooks != nullptr && __hooks->resumed != nullptr)
+            __hooks->resumed(self);
+    }
+
+    // The collector asks the threads that run the managed code to stop, and waits until they have.
+    void thread_manager_t::stop_world()
+    {
+        if (!thread_parallel.load())
+            return;
+
+        {
+            std::unique_lock<std::mutex> lock(__data->state_mutex);
+            __data->gc_requested = true;
+            thread_yield_requested.store(true);
+
+            __data->state_cv.wait(lock, [this] { return __data->running == 0; });
+        }
+    }
+
+    void thread_manager_t::resume_world()
+    {
+        if (!thread_parallel.load())
+            return;
+
+        {
+            std::lock_guard<std::mutex> lock(__data->state_mutex);
+            __data->gc_requested = false;
+            thread_yield_requested.store(false);
+        }
+
+        __data->state_cv.notify_all();
+    }
+
     // Makes the running OS thread the main thread.
     thread_t * thread_manager_t::attach_main(void * stack_base)
     {
@@ -295,12 +439,43 @@ namespace X_ROOT_NS::modules::rtlib {
         thread_manager_data_t * data = __data;
         thread_host_t * host = __host;
 
+        // The first thread of a program that can run them in parallel: the one that starts it goes on without the lock when
+        // it goes back to the program (its call of the runtime ends).
+        if (host != nullptr && host->parallel() && !thread_parallel.load())
+        {
+            self->__depth = 1;
+            thread_parallel.store(true);
+        }
+
         std::thread([data, host, t] {
 
             int stack_mark = 0;
             __attach(*data, t, &stack_mark);
 
+            bool parallel = thread_parallel.load();
+
+            // The code of the thread runs without the lock.
+            if (parallel)
+            {
+                t->__depth = 1;
+                __running_enter(*data);
+                data->release(nullptr);
+                t->__depth = 0;
+            }
+
             bool ok = host != nullptr && host->run(t);
+
+            if (parallel)
+            {
+                // Back in the runtime: it ends holding the lock.
+                t->__depth = 1;
+                if (__hooks != nullptr && __hooks->stopping != nullptr)
+                    __hooks->stopping(t);
+
+                __running_leave(*data);
+                data->acquire(t);
+            }
+
             if (!ok)
             {
                 // An exception that nothing catches ends the program.
@@ -328,6 +503,7 @@ namespace X_ROOT_NS::modules::rtlib {
             if (__hooks != nullptr && __hooks->detached != nullptr)
                 __hooks->detached(t);
 
+            t->__depth = 0;
             data->release(nullptr);
 
         }).detach();
@@ -583,13 +759,19 @@ namespace X_ROOT_NS::modules::rtlib {
     void thread_safepoint()
     {
         thread_manager_t & manager = thread_manager_t::instance();
-        if (manager.current() == nullptr)
+        thread_t * self = manager.current();
+
+        if (self == nullptr)
         {
             thread_yield_requested.store(false, std::memory_order_relaxed);
             return;
         }
 
-        manager.yield();
+        // The threads run in parallel: a collection asks the thread that runs to stop (the flag may be old).
+        if (thread_parallel.load())
+            manager.__stop_for_collection(self);
+        else
+            manager.yield();
     }
 
 }   // namespace X_ROOT_NS::modules::rtlib

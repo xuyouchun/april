@@ -16,6 +16,15 @@
 
 // The threads of the managed programs, for the interpreter and for the native programs.
 //
+// There are two modes. In the first one (the interpreter, and a native program that has not started a thread) one managed
+// thread runs at a time: the one that holds the global lock. In the second one (a native program that started a thread: the
+// host says that it can) the managed code runs in parallel, and the lock is held only while a thread is in the runtime: a thread
+// takes it when it calls a function of the runtime (the allocation, the functions of the library, the threads, the locks),
+// gives it when it goes back to the code of the program. A collection stops the world: the thread that collects asks the
+// others to stop (they look at the flag at the safepoints), and waits until each of them is stopped (running managed code is
+// the only state that is not).
+//
+// The mode that is first:
 // The OS threads are real, but one managed thread runs at a time: the one that holds the global lock (the GIL). A thread
 // gives it to the others at the safepoints (the back ends call thread_poll() at the calls and at the jumps that go back),
 // and when it blocks (Sleep, Join, Monitor.Enter that waits, Monitor.Wait). So the heap, the garbage collector and the
@@ -52,6 +61,10 @@ namespace X_ROOT_NS::modules::rtlib {
         // The thread has a place for the data of the back end (the context of the execution).
         void * host_data = nullptr;
 
+        // How many times the thread entered the runtime (the calls of the runtime that are in each other): the lock is taken by
+        // the first and given by the last.
+        int32_t depth() const { return __depth; }
+
     private:
         int64_t         __id = 0;
         bool            __background = false;
@@ -68,6 +81,8 @@ namespace X_ROOT_NS::modules::rtlib {
         // The state in a monitor (see thread_manager.cpp).
         int             __state = 0;
         int32_t         __pending_count = 0;
+
+        int32_t         __depth = 0;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -80,6 +95,9 @@ namespace X_ROOT_NS::modules::rtlib {
         virtual ~thread_host_t() = default;
 
         virtual bool run(thread_t * thread) = 0;
+
+        // Whether the managed code of the threads can run in parallel (see the beginning of this file).
+        virtual bool parallel() { return false; }
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -135,6 +153,23 @@ namespace X_ROOT_NS::modules::rtlib {
         // Sets the back end that runs the threads.
         void set_host(thread_host_t * host) { __host = host; }
 
+        // The code of the program that runs in parallel calls the runtime between runtime_enter and runtime_leave (they nest).
+        // When the threads do not run in parallel they do nothing.
+        void runtime_enter();
+        void runtime_leave();
+
+        // A function of the runtime that calls the code of the program (Method.Invoke) gives the lock for the time of the call:
+        // runtime_suspend gives it whatever the depth is (it returns the depth), runtime_resume takes it back.
+        int32_t runtime_suspend();
+        void runtime_resume(int32_t depth);
+
+        // Whether the host runs the managed code of the threads in parallel.
+        bool host_is_parallel() const { return __host != nullptr && __host->parallel(); }
+
+        // The collector (that holds the lock) stops the other threads, and lets them go on.
+        void stop_world();
+        void resume_world();
+
         // Starts a thread: `entry` is the managed object, that the back end passes to the method of the thread.
         // The new thread runs when the starting one gives the lock.
         thread_t * start(void * entry, bool background);
@@ -178,6 +213,9 @@ namespace X_ROOT_NS::modules::rtlib {
         // Returns whether the running thread holds the lock of the object.
         bool monitor_is_entered(void * obj);
 
+        // A thread that runs the managed code stops, while a collection is made (used by thread_safepoint).
+        void __stop_for_collection(thread_t * thread);
+
     private:
         thread_manager_t();
         ~thread_manager_t();
@@ -191,8 +229,28 @@ namespace X_ROOT_NS::modules::rtlib {
     // A thread that waits for the lock asks the one that runs to give it, after a time slice.
     extern std::atomic<bool> thread_yield_requested;
 
-    // The slow part of the safepoint: gives the lock to the threads that wait.
+    // Whether the threads run in parallel (it is set when the first thread of a program that can start).
+    extern std::atomic<bool> thread_parallel;
+
+    // The slow part of the safepoint: gives the lock to the threads that wait; when the threads run in parallel, a thread that
+    // runs stops there when the collector asks it.
     void thread_safepoint();
+
+    // A call of the runtime (see thread_manager_t::runtime_enter).
+    struct runtime_guard_t
+    {
+        runtime_guard_t()
+        {
+            if (thread_parallel.load(std::memory_order_relaxed))
+                thread_manager_t::instance().runtime_enter();
+        }
+
+        ~runtime_guard_t()
+        {
+            if (thread_parallel.load(std::memory_order_relaxed))
+                thread_manager_t::instance().runtime_leave();
+        }
+    };
 
     // The safepoint: the back ends call it at the calls and at the jumps that go back.
     inline void thread_poll()

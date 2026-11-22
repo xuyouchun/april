@@ -177,6 +177,58 @@ namespace X_ROOT_NS::modules::rtlib {
         ctx.return_<int32_t>(count == 0? 1 : (int32_t)count);
     }
 
+    // Thread_IsParallel(): whether the code of the threads runs in parallel (a native program).
+    void thread_is_parallel(rtlib_context_t & ctx)
+    {
+        ctx.return_<bool>(__manager().host_is_parallel());
+    }
+
+    namespace
+    {
+        template<typename t> struct __interlocked_args_t
+        {
+            rptr_t              location;
+            rt_arg_t<t>         value;
+        };
+
+        template<typename t> struct __interlocked_compare_args_t
+        {
+            rptr_t              location;
+            rt_arg_t<t>         value;
+            rt_arg_t<t>         comparand;
+        };
+    }
+
+    // The operations of Interlocked on the places of numbers (the arguments are the address, and the values).
+    #define __DefineInterlocked(_suffix, _t)                                                                        \
+        void interlocked_add##_suffix(rtlib_context_t & ctx)                                                        \
+        {                                                                                                           \
+            auto * a = ctx.args<__interlocked_args_t<_t>>();                                                        \
+            _t * p = (_t *)*a->location;                                                                            \
+            ctx.return_<_t>(__atomic_add_fetch(p, (_t)*a->value, __ATOMIC_SEQ_CST));                                \
+        }                                                                                                           \
+                                                                                                                    \
+        void interlocked_exchange##_suffix(rtlib_context_t & ctx)                                                   \
+        {                                                                                                           \
+            auto * a = ctx.args<__interlocked_args_t<_t>>();                                                        \
+            _t * p = (_t *)*a->location;                                                                            \
+            ctx.return_<_t>(__atomic_exchange_n(p, (_t)*a->value, __ATOMIC_SEQ_CST));                               \
+        }                                                                                                           \
+                                                                                                                    \
+        void interlocked_compare_exchange##_suffix(rtlib_context_t & ctx)                                           \
+        {                                                                                                           \
+            auto * a = ctx.args<__interlocked_compare_args_t<_t>>();                                                \
+            _t * p = (_t *)*a->location;                                                                            \
+            _t expected = (_t)*a->comparand;                                                                        \
+            __atomic_compare_exchange_n(p, &expected, (_t)*a->value, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);    \
+            ctx.return_<_t>(expected);                                                                              \
+        }
+
+    __DefineInterlocked(32, int32_t)
+    __DefineInterlocked(64, int64_t)
+
+    #undef __DefineInterlocked
+
     // Monitor_IsEntered(obj).
     void monitor_is_entered(rtlib_context_t & ctx)
     {

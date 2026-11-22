@@ -293,6 +293,13 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(monitor_pulse);
     __DefineFunc(monitor_is_entered);
     __DefineFunc(environment_processor_count);
+    __DefineFunc(thread_is_parallel);
+    __DefineFunc(interlocked_add32);
+    __DefineFunc(interlocked_add64);
+    __DefineFunc(interlocked_exchange32);
+    __DefineFunc(interlocked_exchange64);
+    __DefineFunc(interlocked_compare_exchange32);
+    __DefineFunc(interlocked_compare_exchange64);
     __DefineFunc(object_reference_equals);
 
     // Math functions.

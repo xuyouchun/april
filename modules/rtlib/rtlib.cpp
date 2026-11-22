@@ -195,6 +195,13 @@ namespace X_ROOT_NS::modules::rtlib {
             __append_libfunc(_T("Monitor_Pulse"),           monitor_pulse);
             __append_libfunc(_T("Monitor_IsEntered"),       monitor_is_entered);
             __append_libfunc(_T("Environment_ProcessorCount"), environment_processor_count);
+            __append_libfunc(_T("Thread_IsParallel"),       thread_is_parallel);
+            __append_libfunc(_T("Interlocked_Add32"),       interlocked_add32);
+            __append_libfunc(_T("Interlocked_Add64"),       interlocked_add64);
+            __append_libfunc(_T("Interlocked_Exchange32"),  interlocked_exchange32);
+            __append_libfunc(_T("Interlocked_Exchange64"),  interlocked_exchange64);
+            __append_libfunc(_T("Interlocked_CompareExchange32"), interlocked_compare_exchange32);
+            __append_libfunc(_T("Interlocked_CompareExchange64"), interlocked_compare_exchange64);
             __append_libfunc(_T("Object_ReferenceEquals"),  object_reference_equals);
 
             // Math functions.
