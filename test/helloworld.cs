@@ -3,17 +3,29 @@ import System;
 using System;
 using System.Collections;
 using System.Linq;
+using System.Net.Http;
 
 class Program
 {
     [EntryPoint]
     public static void Main()
     {
-        int[] arr = new int[] { 1, 2, 3, 4, 5, 6, 7 };
+        try
+        {
+            string url = @"http://www.baidu.com";
 
-        // var result = arr.Where(x => x % 2 == 0).ToArray();
-        var result = ``lq from item in arr where item % 2 == 0 orderby item descending select item;
-        PrintArray(result);
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+            HttpResponseMessage message = await client.GetAsync(url);
+            HttpContent content = message.Content;
+            string body = await content.ReadAsStringAsync();
+
+            Console.WriteLine(body);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
     }
 
     private static void PrintArray(IEnumerable<int> arr)

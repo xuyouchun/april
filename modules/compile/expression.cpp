@@ -5496,8 +5496,20 @@ namespace X_ROOT_NS::modules::compile {
         {
             // (A value of a generic param is what the param is when the code runs: it is not converted here.)
             type_t * type = variable->property->get_method->get_type();
+
             if (type != nullptr && !is_generic_param(type) && is_value_type(type))
-                __try_append_convert_xil(pool, type, env.dtype);
+            {
+                // A number that is taken as an object (Object o = items[k]) is boxed: it is not a conversion of numbers. (The
+                // other values, a struct, are copied or loaded as they were.)
+                vtype_t vtype = type->this_vtype();
+                bool is_number = vtype != vtype_t::void_ && vtype != vtype_t::__default__ && vtype != vtype_t::__unknown__
+                                    && to_xil_type(vtype) != xil_type_t::object;
+
+                if (env.dtype == xil_type_t::object && is_number)
+                    pool.append<x_push_box_xil_t>(__ref_of(ctx, type));
+                else
+                    __try_append_convert_xil(pool, type, env.dtype);
+            }
         }
     }
 

@@ -3,6 +3,7 @@
 #define __LANG_CS_H__
 
 #include <compile.h>
+#include <deque>
 #include <modules/lang_cs/__cs_token_type.h>
 
 namespace X_ROOT_NS::modules::lang_cs {
@@ -73,6 +74,12 @@ namespace X_ROOT_NS::modules::lang_cs {
         X_TO_STRING_IMPL(_T("cs_token_enumerator_t"))
 
     private:
+        // The tokens that were made and are not given yet (the rest of a string that has holes, see cs_interpolated.cpp).
+        std::deque<token_t *> __pending;
+
+        // Reads a string that has holes ($"..{x}.."), or a raw string ("""...""").
+        token_t * __read_interpolated(const char_t * p0, int dollars, bool verbatim);
+
         token_t * __next_token = nullptr;
         bool      __is_pending = false;         // The last token is is.
         bool      __square_pending = false;     // The last token is [.

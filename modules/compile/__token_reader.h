@@ -172,6 +172,16 @@ namespace X_ROOT_NS::modules::compile {
             return __tokens.new_obj(value, s, length, data, __file);
         }
 
+        // Returns a new token that is not in the source: it has the place of the characters that made it (s, length: for the messages
+        // of the compiler and the places of the expressions), and its own text (it must live as long as the token).
+        token_t * __new_token_with_text(token_value_t value, const char_t * s, int32_t length, const char_t * text)
+        {
+            token_data_t * data = __token_datas.new_obj();
+            data->text = text;
+
+            return __tokens.new_obj(value, s, length, data, __file);
+        }
+
     private:
         al::heap_t<token_t>             __tokens;
         al::heap_t<tvalue_t>            __values;

@@ -12,6 +12,45 @@ String.Format("{{0}} is the index");              // {0} is the index
 
 `Console.WriteLine(format, args)` and `Console.Write(format, args)` are `String.Format` written.
 
+## Interpolated strings: `$"..."`
+
+`$"Error: {ex.Message}"` is `String.Format("Error: {0}", ex.Message)`: the lexer reads the string and makes the tokens of the call
+(`lang_cs/cs_interpolated.cpp`), so a hole has any expression, with the places of its own characters in the messages of the compiler.
+A string that has no holes is a string. The items of a hole are those of a format: `{expression[,alignment][:format]}`.
+
+```csharp
+Console.WriteLine($"{x,5} {x,-5} {price:F2} {a + b} {(ok ? "yes" : "no")} {{not a hole}}");
+String path = $@"C:\temp\{name}\""{file}""";          // $@"..." and @$"..." are verbatim: no escapes, "" is a quote, lines can end
+```
+
+* In `$"..."` the escapes are those of the strings (`
+`, `\"`...), `{{` and `}}` are the braces; a `{` that is not closed, a `}` alone
+  and a hole that has no expression are errors of the compiler.
+* The expression ends at the `}` that is not in a string, a character or brackets. The first `,` and the first `:` that are not in
+  brackets begin the alignment and the format: put a conditional expression in parentheses (`{(a ? b : c)}`), as in C#.
+* A hole can have strings and another interpolated string: `$"a {$"{x}b"} c"`.
+
+## Raw strings: `"""..."""`
+
+A string of three quotes or more, that ends with the same number of quotes: the text between has no escapes and can have quotes
+(`""""four """quotes""" inside""""`). When the opening quotes end their line and the closing quotes are alone in theirs, the text is the
+lines between, **without the indentation of the closing quotes** (a line that has less is an error; the line ends are `
+`):
+
+```csharp
+String json = """
+    {
+      "name": "april"
+    }
+    """;                                  // {
+  "name": "april"
+}
+```
+
+`$"""..."""` has holes: `{x}` is a hole, the other text is the text (`{` and `}` are not doubled; a `{{` is an error). With
+`$$"""..."""` a hole has two braces (`{{x}}`) and the single braces are text: for texts that have many braces (JSON, code); `$$$` has three.
+A raw string that has holes keeps the line rules above.
+
 ## The items of a format
 
 `{index[,alignment][:format]}`

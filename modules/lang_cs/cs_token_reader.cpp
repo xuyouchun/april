@@ -55,6 +55,14 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         token_t * next_token;
 
+        if (!__pending.empty())
+        {
+            next_token = __pending.front();
+            __pending.pop_front();
+
+            return next_token;
+        }
+
         if (__next_token != nullptr)
             return next_token = __next_token, __next_token = nullptr, next_token;
 
@@ -356,9 +364,6 @@ namespace X_ROOT_NS::modules::lang_cs {
                 }
                 break;
 
-            case _T('$'):   // ?
-                return __Nw(dollar);
-
             case _T('<'):   // < <= << <<=
                 switch (*__p)
                 {
@@ -504,9 +509,49 @@ namespace X_ROOT_NS::modules::lang_cs {
                 break;
 
             case _T('"'):   // string
+                // Three quotes: a raw string ("""...""").
+                if (__p[0] == _T('"') && __p[1] == _T('"'))
+                {
+                    __p--;
+                    return __read_interpolated(p0, 0, false);
+                }
+
                 return __Nw_(cvalue, __read_string());
 
+            case _T('$'): {     // $"..{x}.."   $@"..."   $"""..{x}.."""   $$"""..{{x}}..""", or the token $
+                int dollars = 1, read = 0;
+                while (*__p == _T('$'))
+                {
+                    dollars++;
+                    __p++;
+                    read++;
+                }
+
+                bool verbatim = false;
+                if (*__p == _T('@'))
+                {
+                    verbatim = true;
+                    __p++;
+                    read++;
+                }
+
+                if (*__p == _T('"') && (dollars == 1 || (!verbatim && __p[1] == _T('"') && __p[2] == _T('"'))))
+                    return __read_interpolated(p0, dollars, verbatim);
+
+                // Not a string: the $ is the token that it was.
+                for (; read > 0; read--)
+                    __p--;
+
+                return __Nw(dollar);
+            }
+
             case _T('@'):   // multiline string
+                if (*__p == _T('$') && __p[1] == _T('"'))       // @$"..."
+                {
+                    __p++;
+                    return __read_interpolated(p0, 1, true);
+                }
+
                 if (*__p == _T('"'))
                 {
                     __p++;

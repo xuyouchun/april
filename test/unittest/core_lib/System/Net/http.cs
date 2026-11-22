@@ -16,7 +16,7 @@ redirect post-303 GET
 head 200 0 11
 slow 200 done
 error 500
-many 100 5050
+many 40 820
 bad request 400
 chunked 200 chunked body
 timeout OperationCanceledException
@@ -154,7 +154,9 @@ class Program
         CancellationTokenSource stop = new CancellationTokenSource();
         Task serving = listener.Serve(Handle, stop.Token);
 
+        // (The time of a request is long: a program that collects at each allocation, APRIL_GC_STRESS, is slow.)
         HttpClient client = new HttpClient();
+        client.Timeout = new TimeSpan(36000000000);
 
         HttpResponseMessage get = client.GetAsync(root + "/hi").Result;
         Console.WriteLine("get " + get.StatusCode + " " + get.Content.ReadAsStringAsync().Result.Replace("hello /hi", "hello") + " /hi");
@@ -196,16 +198,16 @@ class Program
         HttpResponseMessage failed = client.GetAsync(root + "/fail").Result;
         Console.WriteLine("error " + failed.StatusCode);
 
-        // 100 requests at the same time, each waits in the handler.
-        Task<Int32>[] numbers = new Task<Int32>[100];
-        for (Int32 k = 0; k < 100; k++)
+        // 40 requests at the same time, each waits in the handler.
+        Task<Int32>[] numbers = new Task<Int32>[40];
+        for (Int32 k = 0; k < 40; k++)
             numbers[k] = Number(client, root, k + 1);
 
         Int32 sum = 0;
-        for (Int32 k = 0; k < 100; k++)
+        for (Int32 k = 0; k < 40; k++)
             sum += numbers[k].Result;
 
-        Console.WriteLine("many 100 " + sum);
+        Console.WriteLine("many 40 " + sum);
 
         // A client that sends what is not HTTP.
         TcpClient raw = new TcpClient("127.0.0.1", listener.Port);

@@ -539,8 +539,9 @@ namespace X_ROOT_NS::modules::core {
         // Token value.
         token_value_t value;
 
-        // Converts to string.
-        operator string_t() const { return (string_t)code_unit; }
+        // Converts to string: the characters of the source, or the text that the data has (a token that the lexer makes of the
+        // characters of a string that has holes, see lang_cs/cs_interpolated.cpp).
+        operator string_t() const;
 
         // Code unit.
         code_unit_t code_unit;
@@ -761,9 +762,21 @@ namespace X_ROOT_NS::modules::core {
         cvalue_type_t    value_type;    // Value type
         size_t           string_length = (size_t)-1;    // Length of the string value.
 
+        // The text of the token, when it is not the characters of the source (null: the characters of the source).
+        const char_t *   text = nullptr;
+
         // Possible values, a value array, ends with nullptr.
         const token_value_t * possible_values = nullptr;
     };
+
+    // Converts a token to string.
+    inline token_t::operator string_t() const
+    {
+        if (data != nullptr && data->text != nullptr)
+            return string_t(data->text);
+
+        return (string_t)code_unit;
+    }
 
     ////////// ////////// ////////// ////////// //////////
 
