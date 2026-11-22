@@ -570,10 +570,19 @@ namespace X_ROOT_NS::modules::compile {
         {
             _A(item->variable != nullptr);
 
-            // The variable is a field of the state object of an iterator.
-            if (item->hoist_assign != nullptr)
+            // The variable is a field of a cell: the cell is made here (each time the statement runs).
+            if (item->cell_new != nullptr)
             {
-                append_expression(ctx, item->hoist_assign, false);
+                append_xilx<local_define_xilx_t>(ctx, item->variable->cell_local);
+                append_expression(ctx, item->cell_new, false);
+            }
+
+            // The variable is a field of the state object of an iterator, or of a cell.
+            if (item->hoist_assign != nullptr || item->cell_new != nullptr)
+            {
+                if (item->hoist_assign != nullptr)
+                    append_expression(ctx, item->hoist_assign, false);
+
                 continue;
             }
 

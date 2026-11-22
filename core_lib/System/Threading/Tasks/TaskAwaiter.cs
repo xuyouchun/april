@@ -14,6 +14,20 @@ namespace Threading.Tasks;
 // throws TaskCanceledException.
 public class TaskAwaiter
 {
+    // The method that runs the continuation in the context of the code that waits (the continuation queues the rest of the method to the
+    // pool, the pool keeps the context that is set then).
+    internal static Delegate<Void> ContinuationOf(Delegate<Void> continuation)
+    {
+        ExecutionContext? context = ExecutionContext.Capture();
+        if (context == null)
+            return continuation;
+
+        ContextCall call = new ContextCall(context, continuation);
+        Delegate<Void> run = call.Run;
+
+        return run;
+    }
+
     private Task __task;
 
     internal TaskAwaiter(Task task)
@@ -26,7 +40,7 @@ public class TaskAwaiter
     // Runs the callback when the task has ended (at once if it did), in the thread that ends it.
     public Void OnCompleted(Delegate<Void> continuation)
     {
-        __task.__OnCompleted(continuation);
+        __task.__OnCompleted(ContinuationOf(continuation));
     }
 
     // Waits for the end of the task, throws its exception.
@@ -51,7 +65,7 @@ public class TaskAwaiter<T>
 
     public Void OnCompleted(Delegate<Void> continuation)
     {
-        __task.__OnCompleted(continuation);
+        __task.__OnCompleted(TaskAwaiter.ContinuationOf(continuation));
     }
 
     // Waits for the end of the task, returns its result or throws its exception.

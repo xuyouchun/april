@@ -13,6 +13,12 @@ They are not seen in the namespace. A type that is generic has them with its gen
 The lambdas are methods of the type that has the method; the part of an iterator that does the
 work is a method of it too.
 
+A variable of a method that a lambda uses is copied into the environment, unless the variable is modified (by the lambda or by
+the method): then the method and the lambdas share it, the variable is a field `value` of a *cell*, a small class that is nested
+like the environment (`__ap_cell_...`), and the environment has the cell. A variable that is defined in a loop gets a new cell in
+each turn (the lambdas that were made in a turn keep its variable). A param, a variable of an iterator or of a method that
+awaits, and the variable of a `foreach` or a `catch` cannot be shared yet (AP5203).
+
 `Type.GetNestedTypes()` lists them, after the types that the user wrote.
 
 ## Names

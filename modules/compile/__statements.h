@@ -134,6 +134,9 @@ namespace X_ROOT_NS::modules::compile {
         // object of an iterator.
         expression_t * hoist_assign = nullptr;
 
+        // The variable is a field of a cell that a lambda shares (see local_variable_t::cell_local): this makes the cell.
+        expression_t * cell_new = nullptr;
+
         // Converts to string.
         X_TO_STRING
     };

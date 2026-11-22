@@ -10,10 +10,16 @@ namespace Threading;
 
 // A lock that many readers or one writer hold. A writer that waits stops the new readers (the writers do not starve). The lock
 // cannot be taken again by the thread that holds it (it would wait for itself): Enter...Lock throws then.
+//
+// One thread at a time can hold it upgradeable (EnterUpgradeableReadLock): it reads, with the other readers, and can go on to write
+// (EnterWriteLock waits for the readers to leave, ExitWriteLock goes back to the upgradeable lock) without a writer or another
+// thread that wants to upgrade getting in between: the reads of the thread stay valid until it writes.
 public class ReaderWriterLockSlim : IDisposable
 {
     private Int32 __readers;
     private Int64 __writer;             // The id of the thread that writes, 0 when there is none.
+    private Int64 __upgrader;           // The id of the thread that holds the upgradeable lock, 0 when there is none.
+    private Int32 __waitingUpgraders;
     private Int32 __waitingWriters;
     private Int32 __waitingReaders;
 
@@ -25,7 +31,11 @@ public class ReaderWriterLockSlim : IDisposable
 
     public Boolean IsWriteLockHeld => __writer == Thread.CurrentThread.ManagedThreadId;
 
+    public Boolean IsUpgradeableReadLockHeld => __upgrader == Thread.CurrentThread.ManagedThreadId;
+
     public Int32 WaitingReadCount => __waitingReaders;
+
+    public Int32 WaitingUpgradeCount => __waitingUpgraders;
 
     public Int32 WaitingWriteCount => __waitingWriters;
 
@@ -44,6 +54,9 @@ public class ReaderWriterLockSlim : IDisposable
         {
             if (__writer == id)
                 throw new InvalidOperationException("the thread holds the write lock");
+
+            if (__upgrader == id)
+                throw new InvalidOperationException("the thread holds the upgradeable read lock");
 
             Int64 end = Waiting.End(millisecondsTimeout);
 
@@ -97,12 +110,14 @@ public class ReaderWriterLockSlim : IDisposable
             if (__writer == id)
                 throw new InvalidOperationException("the thread holds the write lock");
 
+            // The thread that holds the upgradeable lock goes on to write: the others that want to write wait until it is left.
+            Boolean upgrading = __upgrader == id;
             Int64 end = Waiting.End(millisecondsTimeout);
 
             __waitingWriters = __waitingWriters + 1;
             try
             {
-                while (__writer != 0 || __readers > 0)
+                while (__writer != 0 || __readers > 0 || (__upgrader != 0 && !upgrading))
                 {
                     Int32 left = Waiting.Left(end, millisecondsTimeout);
                     if (left == 0)
@@ -136,7 +151,68 @@ public class ReaderWriterLockSlim : IDisposable
             if (__writer != Thread.CurrentThread.ManagedThreadId)
                 throw new SynchronizationLockException("the write lock is not held by this thread");
 
+            // The thread that went on from the upgradeable lock still holds it.
             __writer = 0;
+            Monitor.PulseAll(this);
+        }
+    }
+
+    public Void EnterUpgradeableReadLock()
+    {
+        TryEnterUpgradeableReadLock(-1);
+    }
+
+    // Takes the lock for reading, with the right to write later, for some milliseconds (-1 is for ever): returns whether it was
+    // taken. Only one thread holds it at a time (the readers are not stopped by it).
+    public Boolean TryEnterUpgradeableReadLock(Int32 millisecondsTimeout)
+    {
+        Waiting.Check(millisecondsTimeout);
+        Int64 id = Thread.CurrentThread.ManagedThreadId;
+
+        lock (this)
+        {
+            if (__writer == id)
+                throw new InvalidOperationException("the thread holds the write lock");
+
+            if (__upgrader == id)
+                throw new InvalidOperationException("the thread holds the upgradeable read lock");
+
+            Int64 end = Waiting.End(millisecondsTimeout);
+
+            while (__writer != 0 || __upgrader != 0 || __waitingWriters > 0)
+            {
+                Int32 left = Waiting.Left(end, millisecondsTimeout);
+                if (left == 0)
+                    return false;
+
+                __waitingUpgraders = __waitingUpgraders + 1;
+                try { Monitor.Wait(this, left); }
+                finally { __waitingUpgraders = __waitingUpgraders - 1; }
+            }
+
+            __upgrader = id;
+            return true;
+        }
+    }
+
+    public Boolean TryEnterUpgradeableReadLock(TimeSpan timeout)
+    {
+        return TryEnterUpgradeableReadLock(Waiting.ToMilliseconds(timeout));
+    }
+
+    public Void ExitUpgradeableReadLock()
+    {
+        lock (this)
+        {
+            Int64 id = Thread.CurrentThread.ManagedThreadId;
+
+            if (__upgrader != id)
+                throw new SynchronizationLockException("the upgradeable read lock is not held by this thread");
+
+            if (__writer == id)
+                throw new SynchronizationLockException("the write lock is held: exit it first");
+
+            __upgrader = 0;
             Monitor.PulseAll(this);
         }
     }

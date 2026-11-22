@@ -3985,6 +3985,15 @@ namespace X_ROOT_NS::modules::rt {
 
         _A(template_ != nullptr);
         _A(host_type != nullptr);
+        // The host is the generic type itself (a method of Box<T> that calls another generic method of Box<T>): it has the
+        // arguments that the method that calls has.
+        if (gp_mgr != nullptr && host_type->get_kind() == rt_type_kind_t::general
+                && ((rt_general_type_t *)host_type)->is_generic_template())
+        {
+            rt_type_t * instance = analyzer.to_generic_type((rt_general_type_t *)host_type);
+            if (instance != nullptr)
+                host_type = instance;
+        }
 
         // The argument may be the types of a params generic parameter of the method that calls
         // (Build<R, TArgs ...> calls Build2<R, TArgs ...>): they are many arguments.

@@ -16,6 +16,7 @@ namespace Threading;
 public sealed class Timer : IDisposable
 {
     private Delegate<Void, Object> __callback;
+    private ExecutionContext? __context = ExecutionContext.Capture();
     private Object? __state;
     private Int64 __next;               // The time of the next call (milliseconds of the clock that only goes on), -1 when none.
     private Int32 __period;             // Milliseconds, -1 for none.
@@ -142,8 +143,13 @@ public sealed class Timer : IDisposable
                 }
             }
 
+            // The call has the context of the code that made the timer (the pool keeps the one that is queuing).
             for (Int32 k = 0; k < due.Count; k++)
+            {
+                ExecutionContext? saved = ExecutionContext.__Swap(due[k].__context);
                 ThreadPool.QueueUserWorkItem(due[k].__callback, due[k].__state);
+                ExecutionContext.__Swap(saved);
+            }
         }
     }
 }

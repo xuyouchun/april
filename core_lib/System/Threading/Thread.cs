@@ -15,6 +15,7 @@ namespace Threading;
 public sealed class Thread
 {
     private Delegate<Void> __start;
+    private ExecutionContext? __context;
     private Delegate<Void, Object> __parameterized;
     private Boolean __hasParameter;
     private Object? __parameter;
@@ -169,6 +170,7 @@ public sealed class Thread
             throw new InvalidOperationException("the thread has started");
 
         __parameter = parameter;
+        __context = ExecutionContext.Capture();
         __started = true;
         __id = Internal.Thread_Start(this, __background);
     }
@@ -181,6 +183,9 @@ public sealed class Thread
 
     private Void __Run()
     {
+        // The thread has the values of the code that started it.
+        ExecutionContext.__Swap(__context);
+
         if (__hasParameter)
             __parameterized(__parameter);
         else

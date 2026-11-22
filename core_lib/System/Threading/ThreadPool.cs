@@ -17,13 +17,23 @@ internal sealed class WorkItem
     internal Delegate<Void> Plain;
     internal Boolean HasState;
     internal Object? State;
+    internal ExecutionContext? Context = ExecutionContext.Capture();
 
     internal Void Run()
     {
-        if (HasState)
-            WithState(State);
-        else
-            Plain();
+        ExecutionContext? saved = ExecutionContext.__Swap(Context);
+
+        try
+        {
+            if (HasState)
+                WithState(State);
+            else
+                Plain();
+        }
+        finally
+        {
+            ExecutionContext.__Swap(saved);
+        }
     }
 }
 

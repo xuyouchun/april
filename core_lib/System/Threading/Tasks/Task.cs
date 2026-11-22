@@ -374,13 +374,71 @@ public class Task
         return result;
     }
 
-    // Runs the method when the task has ended, in the pool; the new task is what the method does.
+    // Runs the method when the task has ended, in the pool; the new task is what the method does. The options say when it runs
+    // (OnlyOnFaulted...): if they do not allow it, or the token was canceled, it does not run and its task is canceled.
     public Task ContinueWith(Delegate<Void, Task> continuation)
     {
         Task next = new Task(true);
 
         ContinueVoid<Task> state = new ContinueVoid<Task>();
         state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(TaskContinuationOptions.None);
+        state.Token = CancellationToken.None;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task ContinueWith(Delegate<Void, Task> continuation, TaskContinuationOptions options)
+    {
+        Task next = new Task(true);
+
+        ContinueVoid<Task> state = new ContinueVoid<Task>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(options);
+        state.Token = CancellationToken.None;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task ContinueWith(Delegate<Void, Task> continuation, CancellationToken cancellationToken)
+    {
+        Task next = new Task(true);
+
+        ContinueVoid<Task> state = new ContinueVoid<Task>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(TaskContinuationOptions.None);
+        state.Token = cancellationToken;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task ContinueWith(Delegate<Void, Task> continuation, CancellationToken cancellationToken, TaskContinuationOptions options)
+    {
+        Task next = new Task(true);
+
+        ContinueVoid<Task> state = new ContinueVoid<Task>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(options);
+        state.Token = cancellationToken;
         state.Method = continuation;
         state.Next = next;
 
@@ -396,6 +454,63 @@ public class Task
 
         ContinueResult<Task, TResult> state = new ContinueResult<Task, TResult>();
         state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(TaskContinuationOptions.None);
+        state.Token = CancellationToken.None;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task<TResult> ContinueWith<TResult>(Delegate<TResult, Task> continuation, TaskContinuationOptions options)
+    {
+        Task<TResult> next = new Task<TResult>(true);
+
+        ContinueResult<Task, TResult> state = new ContinueResult<Task, TResult>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(options);
+        state.Token = CancellationToken.None;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task<TResult> ContinueWith<TResult>(Delegate<TResult, Task> continuation, CancellationToken cancellationToken)
+    {
+        Task<TResult> next = new Task<TResult>(true);
+
+        ContinueResult<Task, TResult> state = new ContinueResult<Task, TResult>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(TaskContinuationOptions.None);
+        state.Token = cancellationToken;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task<TResult> ContinueWith<TResult>(Delegate<TResult, Task> continuation, CancellationToken cancellationToken, TaskContinuationOptions options)
+    {
+        Task<TResult> next = new Task<TResult>(true);
+
+        ContinueResult<Task, TResult> state = new ContinueResult<Task, TResult>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(options);
+        state.Token = cancellationToken;
         state.Method = continuation;
         state.Next = next;
 
@@ -583,13 +698,70 @@ public class Task<T> : Task
         __result = __function();
     }
 
-    // Runs the method when the task has ended, in the pool.
+    // Runs the method when the task has ended, in the pool (see Task.ContinueWith).
     public Task ContinueWith(Delegate<Void, Task<T>> continuation)
     {
         Task next = new Task(true);
 
         ContinueVoid<Task<T>> state = new ContinueVoid<Task<T>>();
         state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(TaskContinuationOptions.None);
+        state.Token = CancellationToken.None;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task ContinueWith(Delegate<Void, Task<T>> continuation, TaskContinuationOptions options)
+    {
+        Task next = new Task(true);
+
+        ContinueVoid<Task<T>> state = new ContinueVoid<Task<T>>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(options);
+        state.Token = CancellationToken.None;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task ContinueWith(Delegate<Void, Task<T>> continuation, CancellationToken cancellationToken)
+    {
+        Task next = new Task(true);
+
+        ContinueVoid<Task<T>> state = new ContinueVoid<Task<T>>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(TaskContinuationOptions.None);
+        state.Token = cancellationToken;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task ContinueWith(Delegate<Void, Task<T>> continuation, CancellationToken cancellationToken, TaskContinuationOptions options)
+    {
+        Task next = new Task(true);
+
+        ContinueVoid<Task<T>> state = new ContinueVoid<Task<T>>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(options);
+        state.Token = cancellationToken;
         state.Method = continuation;
         state.Next = next;
 
@@ -605,6 +777,63 @@ public class Task<T> : Task
 
         ContinueResult<Task<T>, TResult> state = new ContinueResult<Task<T>, TResult>();
         state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(TaskContinuationOptions.None);
+        state.Token = CancellationToken.None;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task<TResult> ContinueWith<TResult>(Delegate<TResult, Task<T>> continuation, TaskContinuationOptions options)
+    {
+        Task<TResult> next = new Task<TResult>(true);
+
+        ContinueResult<Task<T>, TResult> state = new ContinueResult<Task<T>, TResult>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(options);
+        state.Token = CancellationToken.None;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task<TResult> ContinueWith<TResult>(Delegate<TResult, Task<T>> continuation, CancellationToken cancellationToken)
+    {
+        Task<TResult> next = new Task<TResult>(true);
+
+        ContinueResult<Task<T>, TResult> state = new ContinueResult<Task<T>, TResult>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(TaskContinuationOptions.None);
+        state.Token = cancellationToken;
+        state.Method = continuation;
+        state.Next = next;
+
+        Delegate<Void> queue = state.Queue;
+        __OnCompleted(queue);
+
+        return next;
+    }
+
+    public Task<TResult> ContinueWith<TResult>(Delegate<TResult, Task<T>> continuation, CancellationToken cancellationToken, TaskContinuationOptions options)
+    {
+        Task<TResult> next = new Task<TResult>(true);
+
+        ContinueResult<Task<T>, TResult> state = new ContinueResult<Task<T>, TResult>();
+        state.Antecedent = this;
+        state.Base = this;
+        state.Options = (Int32)(options);
+        state.Token = cancellationToken;
         state.Method = continuation;
         state.Next = next;
 

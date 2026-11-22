@@ -6036,6 +6036,8 @@ namespace X_ROOT_NS::modules::compile {
             && type_name->type->this_gtype() == gtype_t::uncertain;
     }
 
+    static bool __method_has_lambda(method_t * method);
+
     // Walks default step.
     bool defination_st_ast_node_t::__walk_default(ast_walk_context_t & context)
     {
@@ -6055,6 +6057,23 @@ namespace X_ROOT_NS::modules::compile {
 
             // The variable may be a field of the state object of an iterator.
             method_t * current_method = context.current_method();
+            if (var_item->variable != nullptr)
+            {
+                var_item->variable->definition = var_item;
+                var_item->variable->owner_method = current_method;
+
+                // A variable of a method that has lambdas may be shared with them (see lambda_ast_node_t): the slot of its
+                // cell is made here, in the region of the variable (it holds an object, the type is that of the cell).
+                if (!this->constant && current_method != nullptr && current_method->iterator_info == nullptr
+                        && __method_has_lambda(current_method))
+                {
+                    var_item->variable->cell_local = vd.define_local(
+                        __new_obj<type_name_t>(__XPool.get_object_type()),
+                        __to_name(_T("__cell_") + _str(var_item->name)), false, nullptr, var_item
+                    );
+                }
+            }
+
             if (current_method != nullptr && current_method->iterator_info != nullptr)
                 ((iterator_info_t *)current_method->iterator_info)->defs.push_back(var_item);
 
@@ -8054,6 +8073,60 @@ namespace X_ROOT_NS::modules::compile {
         return ((local_variable_t *)variable)->type_name;
     }
 
+    // Returns whether the code of the method has a lambda.
+    static bool __method_has_lambda(method_t * method)
+    {
+        static std::map<method_t *, bool> cache;
+
+        auto found = cache.find(method);
+        if (found != cache.end())
+            return found->second;
+
+        method_ast_node_t * ast = dynamic_cast<method_ast_node_t *>(method);
+        bool has = false;
+
+        if (ast != nullptr)
+        {
+            std::vector<expression_t *> exps;
+            __collect_expressions(ast->child_at(method_ast_node_t::__body__), exps);
+            __collect_expressions(ast->lambda_expression_node, exps);
+
+            for (expression_t * exp : exps)
+                has = has || dynamic_cast<lambda_ast_node_t *>(exp) != nullptr;
+        }
+
+        cache[method] = has;
+        return has;
+    }
+
+    // Returns whether the expression is the target of an assignment (x = ..., x += ..., x++).
+    static bool __is_written_target(expression_t * exp)
+    {
+        expression_t * parent = exp->parent;
+        op_expression_base_t * op_exp = dynamic_cast<op_expression_base_t *>(parent);
+        if (op_exp == nullptr)
+            return false;
+
+        switch (op_exp->get_operator_property()->op)
+        {
+            case operator_t::assign:
+            case operator_t::add_assign: case operator_t::sub_assign:
+            case operator_t::mul_assign: case operator_t::div_assign:
+            case operator_t::mod_assign:
+            case operator_t::left_shift_assign: case operator_t::right_shift_assign:
+            case operator_t::bit_and_assign: case operator_t::bit_or_assign:
+            case operator_t::bit_xor_assign: case operator_t::null_coalescing_assign:
+                return parent->expression_at(0) == exp;
+
+            case operator_t::left_increment: case operator_t::left_decrement:
+            case operator_t::right_increment: case operator_t::right_decrement:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     // Makes the method of the lambda, a method of the type that has the current method: it
     // is static if that one is. It is walked as a method of the type, so it cannot see the
     // variables of the method that has the lambda. The lambda is then the name of it.
@@ -8152,6 +8225,73 @@ namespace X_ROOT_NS::modules::compile {
                     __captured_names.push_back(used_name);
                 }
             }
+        }
+
+        // A variable that is modified (by the lambda, or by the method) is shared by the method and the lambdas: it is a field of a
+        // cell, an object that they have. (The lambda has the cell, the method has it in a local variable.) The ones that are
+        // not modified are copied.
+        for (name_t captured_name : __captured_names)
+        {
+            variable_region_t * cell_region = context.current_region();
+            variable_t * found = cell_region != nullptr? cell_region->get(captured_name) : nullptr;
+            if (found == nullptr || found->this_type() != variable_type_t::local)
+                continue;
+
+            local_variable_t * local = (local_variable_t *)found;
+            if (local->cell_local == nullptr || local->cell_value != nullptr || local->definition == nullptr || local->constant
+                    || local->owner_method == nullptr || local->owner_method->iterator_info != nullptr)
+            {
+                continue;
+            }
+
+            method_ast_node_t * owner_ast = (method_ast_node_t *)local->owner_method;
+            std::vector<expression_t *> owner_exps;
+            __collect_expressions(owner_ast->child_at(method_ast_node_t::__body__), owner_exps);
+            __collect_expressions(owner_ast->lambda_expression_node, owner_exps);
+
+            bool written = false;
+            for (expression_t * exp : owner_exps)
+            {
+                written = written || (exp->this_family() == expression_family_t::name
+                    && ((name_expression_t *)exp)->name == captured_name && __is_written_target(exp));
+            }
+
+            if (!written)
+                continue;
+
+            string_t cell_name = __generated_name(_T("cell"), lambda_serial, owner_text) + _str(captured_name);
+            string_t cell_text = _T("public class ") + cell_name + _T(" { public Object value; }");
+
+            ast_node_t * cell_root = this->__parse_snippet(cell_text);
+            if (cell_root == nullptr || cell_root->child_count() == 0)
+                continue;
+
+            type_ast_node_t * cell_node = (type_ast_node_t *)cell_root->child_at(0);
+            this->__mark_generated_type(context, (general_type_t *)cell_node);
+            ((general_type_t *)type)->nest_types.push_back((type_t *)cell_node);
+
+            auto * cell_layer = context.enter_type_level();
+            cell_node->on_walk(context, (int)walk_step_t::default_, nullptr);
+            context.leave_type_level(cell_layer);
+
+            general_type_t * cell_type = (general_type_t *)cell_node;
+            field_t * value_field = nullptr;
+            for (field_t * field : cell_type->fields)
+                value_field = field;
+
+            if (value_field == nullptr)
+                continue;
+
+            // The type of the field is the one of the variable (it may be known later: the type name is the same object).
+            value_field->type_name = local->type_name;
+
+            // The local variable of the cell was made where the variable was defined (it was an object).
+            local->cell_local->type_name->type = (type_t *)cell_type;
+            if (value_field->variable == nullptr)
+                value_field->variable = __new_obj<field_variable_t>(value_field);
+
+            local->cell_value = __new_obj<field_variable_t>(value_field);
+            local->cell_value->hoist_base = local->cell_local;
         }
 
         // The class of the object that has the values of the variables.
@@ -8341,35 +8481,20 @@ namespace X_ROOT_NS::modules::compile {
         {
             type_name_t * type_name = __type_name_of(__captured[index]);
 
+            // A variable that is modified: the lambda has its cell.
+            if (__captured[index]->this_type() == variable_type_t::local
+                    && ((local_variable_t *)__captured[index])->cell_value != nullptr)
+            {
+                type_name = ((local_variable_t *)__captured[index])->cell_local->type_name;
+            }
+
             fields[index]->type_name = type_name;
             (*constructor->params)[index]->type_name = type_name;
         }
 
         // The variables are not modified.
         auto is_written = [&](expression_t * exp) -> bool {
-            expression_t * parent = exp->parent;
-            op_expression_base_t * op_exp = dynamic_cast<op_expression_base_t *>(parent);
-            if (op_exp == nullptr)
-                return false;
-
-            switch (op_exp->get_operator_property()->op)
-            {
-                case operator_t::assign:
-                case operator_t::add_assign: case operator_t::sub_assign:
-                case operator_t::mul_assign: case operator_t::div_assign:
-                case operator_t::mod_assign:
-                case operator_t::left_shift_assign: case operator_t::right_shift_assign:
-                case operator_t::bit_and_assign: case operator_t::bit_or_assign:
-                case operator_t::bit_xor_assign: case operator_t::null_coalescing_assign:
-                    return parent->expression_at(0) == exp;
-
-                case operator_t::left_increment: case operator_t::left_decrement:
-                case operator_t::right_increment: case operator_t::right_decrement:
-                    return true;
-
-                default:
-                    return false;
-            }
+            return __is_written_target(exp);
         };
 
         std::vector<expression_t *> all(__used);
@@ -8389,7 +8514,11 @@ namespace X_ROOT_NS::modules::compile {
                 continue;
             }
 
-            if (std::find(__captured.begin(), __captured.end(), name_exp->variable)
+            // The ones that have a cell are shared: they can be modified.
+            bool has_cell = name_exp->variable->this_type() == variable_type_t::local
+                        && ((local_variable_t *)name_exp->variable)->cell_value != nullptr;
+
+            if (!has_cell && std::find(__captured.begin(), __captured.end(), name_exp->variable)
                                                                     != __captured.end())
             {
                 this->__log((ast_node_t *)this, __c_t::lambda_capture_modified,
@@ -8474,14 +8603,90 @@ namespace X_ROOT_NS::modules::compile {
 
             for (size_t index = 0; index < __captured.size(); index++)
             {
-                if (name_exp->variable != __captured[index])
-                    continue;
+                local_variable_t * cell_owner = __captured[index]->this_type() == variable_type_t::local?
+                                                    (local_variable_t *)__captured[index] : nullptr;
+                bool cell = cell_owner != nullptr && cell_owner->cell_value != nullptr;
 
                 field_t * field = fields[index];
                 if (field->variable == nullptr)
                     field->variable = __new_obj<field_variable_t>(field);
 
-                name_exp->variable = field->variable;
+                // The cell that a lambda in this one passes to its own environment: the field that has it.
+                if (cell && name_exp->variable == cell_owner->cell_local)
+                {
+                    name_exp->variable = field->variable;
+                    continue;
+                }
+
+                if (name_exp->variable != __captured[index])
+                    continue;
+
+                if (!cell)
+                {
+                    name_exp->variable = field->variable;
+                    continue;
+                }
+
+                // The value of the variable is the field of the cell that the field of the environment has.
+                auto * value = __new_obj<field_variable_t>(cell_owner->cell_value->field);
+                value->hoist_base = field->variable;
+                name_exp->variable = value;
+            }
+        }
+
+        // The variables of the method that makes the lambda that are cells: the method uses the field of the cell, and makes
+        // the cell where the variable is defined.
+        {
+            std::vector<expression_t *> outer_own;
+            __collect_expressions(outer_ast->child_at(method_ast_node_t::__body__), outer_own, false);
+            __collect_expressions(outer_ast->lambda_expression_node, outer_own, false);
+
+            for (variable_t * variable : __captured)
+            {
+                if (variable->this_type() != variable_type_t::local)
+                    continue;
+
+                local_variable_t * local = (local_variable_t *)variable;
+                if (local->cell_value == nullptr || local->owner_method != (method_t *)__outer)
+                    continue;
+
+                for (expression_t * exp : outer_own)
+                {
+                    if (exp->this_family() == expression_family_t::name
+                            && ((name_expression_t *)exp)->variable == variable)
+                    {
+                        ((name_expression_t *)exp)->variable = local->cell_value;
+                    }
+                }
+
+                defination_statement_item_t * item = (defination_statement_item_t *)local->definition;
+                if (item->cell_new != nullptr)
+                    continue;
+
+                typedef system_expression_t<name_expression_t> __name_t;
+
+                auto * cell_class = (type_t *)local->cell_local->get_type();
+                auto * new_cell = __new_obj<system_expression_t<new_expression_t>>();
+                new_cell->type_name = __new_obj<type_name_t>(cell_class);
+                new_cell->set_arguments(__new_obj<arguments_t>());
+
+                expression_t * make = __new_obj<system_expression_t<binary_expression_t>>(operator_t::assign,
+                    __new_obj<__name_t>((variable_t *)local->cell_local), new_cell
+                );
+
+                walk_expression(this->__context, context, make);
+                new_cell->constructor = find_constructor(this->__context, cell_class, new_cell->arguments());
+                item->cell_new = make;
+
+                if (item->expression != nullptr)
+                {
+                    expression_t * assign = __new_obj<system_expression_t<binary_expression_t>>(operator_t::assign,
+                        __new_obj<__name_t>((variable_t *)local->cell_value), item->expression
+                    );
+
+                    walk_expression(this->__context, context, assign);
+                    item->hoist_assign = assign;
+                }
             }
         }
 
@@ -8490,9 +8695,20 @@ namespace X_ROOT_NS::modules::compile {
         for (variable_t * variable : __captured)
         {
             argument_t * argument = __new_obj<argument_t>();
-            argument->expression = __new_obj<system_expression_t<name_expression_t>>(
-                variable->get_name()
-            );
+
+            if (variable->this_type() == variable_type_t::local
+                    && ((local_variable_t *)variable)->cell_value != nullptr)
+            {
+                argument->expression = __new_obj<system_expression_t<name_expression_t>>(
+                    (variable_t *)((local_variable_t *)variable)->cell_local
+                );
+            }
+            else
+            {
+                argument->expression = __new_obj<system_expression_t<name_expression_t>>(
+                    variable->get_name()
+                );
+            }
 
             arguments->push_back(argument);
         }

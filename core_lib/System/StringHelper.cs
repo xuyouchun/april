@@ -9,7 +9,7 @@
 // The compiler makes the text of each operand of a chain of + of strings with Text (the same text as the operator + of String has
 // for it), and joins the texts with one String.Concat. A hole of an interpolated string that has a format or an alignment is a call of
 // Part. See docs/string-format.md.
-internal static class StringHelper
+public static class StringHelper
 {
     // The text of a value, as the operators + have it (the compiler joins the texts of a chain of + with one Concat).
     public static String Text(String? value) => value == null ? "" : value;

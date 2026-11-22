@@ -5626,6 +5626,13 @@ namespace X_ROOT_NS::modules::core {
         name_t         name         = name_t::null;     // Name of the variable.
         field_variable_t * hoisted  = nullptr;          // The field of the state object that holds it.
         bool           no_hoist     = false;            // It stays a local variable.
+
+        // The variable that a lambda modifies is a field of a cell, an object that the method and the lambdas share (the
+        // variable is the cell_local, a local variable of the method that declares it; its uses are the field cell_value).
+        void *         definition   = nullptr;          // The item of the statement that defines it.
+        method_t *     owner_method = nullptr;          // The method that defines it.
+        local_variable_t * cell_local = nullptr;
+        field_variable_t * cell_value = nullptr;
         msize_t        identity     = unknown_msize;    // Identity of the variable.
         msize_t        index        = unknown_msize;    // Index of the variable.
         bool           is_temp      = false;            // A temporary variable of the compiler.

@@ -559,9 +559,25 @@ namespace X_ROOT_NS::modules::compile {
         if (base == nullptr)
             return false;
 
-        pool.append<x_push_argument_xil_t>(
-            xil_type_t::object, __param_index(ctx, (param_variable_t *)base)
-        );
+        switch (base->this_type())
+        {
+            case variable_type_t::local:        // The cell of a variable that a lambda modifies.
+                pool.append<x_push_local_xil_t>(xil_type_t::object, ((local_variable_t *)base)->identity);
+                break;
+
+            case variable_type_t::field:        // The field of the environment of a lambda that has the cell.
+                pool.append<x_push_this_ref_xil_t>();
+                pool.append<x_push_field_xil_t>(
+                    __search_field_ref(ctx, ((field_variable_t *)base)->field), xil_type_t::object
+                );
+                break;
+
+            default:
+                pool.append<x_push_argument_xil_t>(
+                    xil_type_t::object, __param_index(ctx, (param_variable_t *)base)
+                );
+                break;
+        }
 
         return true;
     }
@@ -5098,7 +5114,19 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             if (env.dtype != xil_type_t::empty && !generic_value_return)
-                __try_append_convert_xil(pool, method->get_type(), env);
+            {
+                type_t * ret_type = method->get_type();
+
+                // A value that a method returns (a number, a string; T = Int32 of a generic method) is used as an Object: it is
+                // boxed, like (Object)Method().
+                if (env.dtype == xil_type_t::object && ret_type != nullptr && ret_type->this_vtype() != vtype_t::void_
+                        && (is_system_value_type(ret_type->this_vtype()) || ret_type->this_vtype() == vtype_t::string_))
+                {
+                    pool.append<x_push_box_xil_t>(__ref_of(ctx, ret_type));
+                }
+                else
+                    __try_append_convert_xil(pool, ret_type, env);
+            }
             else if (env.dtype == xil_type_t::empty)
                 __try_pop_empty_for_method(ctx, pool, method, this);
         }

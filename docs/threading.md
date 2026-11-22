@@ -27,7 +27,7 @@ fairness, not of correctness, as everything that blocks gives the lock.
 | `WaitHandle` | `WaitOne` (with a time), `WaitAll`, `WaitAny`, `WaitTimeout` |
 | `ManualResetEvent`, `AutoResetEvent`, `Semaphore`, `Mutex` | wait handles (`Set/Reset`, `Release`, `ReleaseMutex`); the mutex is of the program and can be taken again |
 | `SemaphoreSlim`, `ManualResetEventSlim`, `CountdownEvent`, `Barrier` | the light ones, each with the lock of its own object |
-| `ReaderWriterLockSlim` | `Enter/Exit` + `TryEnter` of the read and of the write lock (no upgradeable lock, no recursion) |
+| `ReaderWriterLockSlim` | `Enter/Exit` + `TryEnter` of the read, the write and the upgradeable read lock (one thread holds the upgradeable lock; it reads with the others and goes on to write, `ExitWriteLock` goes back to it; no recursion) |
 | `SpinWait`, `SpinLock` | `SpinOnce`, `SpinUntil`; `Enter(ref Boolean)`, `TryEnter`, `Exit` |
 | `ThreadLocal<T>`, `[ThreadStatic]` | `Value`, `IsValueCreated`, a factory; the attribute `System.ThreadStaticAttribute` on a static field |
 | `CancellationTokenSource`, `CancellationToken`, `CancellationTokenRegistration` | `Cancel`, `Token`, `Register`, `ThrowIfCancellationRequested`, `CreateLinkedTokenSource` |
@@ -109,8 +109,21 @@ the default of the type. The objects of the threads that ended are not freed (a 
   or canceled (it threw `OperationCanceledException`, or its token was canceled before it began). `Wait`, `Result` and
   `WaitAll` throw the `AggregateException`; what `ContinueWith` takes runs in the pool when the task has ended, in any state.
   `WhenAll`, `WhenAny` and `Delay` make tasks that nothing runs, that are ended by the other tasks and by a timer.
-* **`Parallel`**: the thread that calls works with at most `Environment.ProcessorCount - 1` tasks of the pool; the iterations
-  are taken one at a time; the first exception stops the loop.
+* **`Parallel`**: the thread that calls works with at most `MaxDegreeOfParallelism - 1` tasks of the pool (`ParallelOptions`; -1 is
+  `Environment.ProcessorCount`); the iterations are taken one at a time; the first exception stops the loop. A body can have a
+  `ParallelLoopState` (`Break()`: the iterations after this one do not begin and the ones before it run; `Stop()`: no iteration begins;
+  `ShouldExitCurrentIteration`, `IsStopped`, `LowestBreakIteration`). `For`, `ForEach` and `Invoke` return a `ParallelLoopResult`
+  (`IsCompleted`, `LowestBreakIteration`, -1 when no iteration broke); a canceled `ParallelOptions.CancellationToken` throws
+  `OperationCanceledException`. (No `Int64` loops, no `ParallelLoopState` for `Invoke`, no `ForEach` of a partitioner.)
+* **`ContinueWith`** has the overloads with `TaskContinuationOptions` (`OnlyOnFaulted`, `NotOnRanToCompletion`, `OnlyOnCanceled`...,
+  `ExecuteSynchronously`: in the thread that ended the antecedent) and with a `CancellationToken`; a continuation that the options do
+  not allow, or whose token is canceled, does not run and its task is canceled.
+* **`ExecutionContext` and `AsyncLocal<T>`**: the value of an `AsyncLocal<T>` goes with the flow of the work. A thread has the values
+  of the code that started it (`Thread.Start`), a work item of the pool the ones of the code that queued it, a timer the ones of the
+  code that made it, a continuation of `ContinueWith` the ones of the code that asked for it, and the code after an `await` the ones
+  it had before it (`TaskAwaiter.OnCompleted`). A change is seen only by what is started after it (the context is not changed, a
+  set makes a new one): a change inside a task is not seen by the code that started it. `ExecutionContext.Capture()` and
+  `Run(context, method)` are public; there is no `SuppressFlow`, and no notification when a value changes.
 * **The concurrent collections** hold the lock of the object for each call; the enumerators go through a copy. The factories
   of `GetOrAdd` and `AddOrUpdate` run out of the lock.
 
@@ -141,7 +154,7 @@ while a thread is in the runtime.
 
 ## Not done yet
 
-The upgradeable `ReaderWriterLockSlim`, `TaskScheduler`, the options of `ContinueWith`, `Parallel` with a loop state. `Thread.Abort`,
-priorities and the affinity are not planned. The interpreter runs one thread at a time (the runtime is not made to be used in parallel: the commands, the lazy tables, the string
+`TaskScheduler`, `TaskFactory`, `SynchronizationContext`, `PeriodicTimer`, `Thread.Interrupt`.
+`Thread.Abort`, priorities and the affinity are not planned. The interpreter runs one thread at a time (the runtime is not made to be used in parallel: the commands, the lazy tables, the string
 pool). A condition expression `c? a : b` whose value is a struct of a generic param and that has a call as a branch
 is not supported.

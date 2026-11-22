@@ -143,17 +143,64 @@ internal sealed class WhenAnyState
 
 ////////// ////////// ////////// ////////// //////////
 
+// The conditions of a continuation (TaskContinuationOptions): whether the antecedent allows it to run. The continuation does not run
+// (its task is canceled) when the antecedent ended as an option says (NotOn...), or the token was canceled.
+internal static class ContinueRules
+{
+    internal static Boolean Allows(Task antecedent, Int32 options, CancellationToken token)
+    {
+        if (token.IsCancellationRequested)
+            return false;
+
+        if ((options & 0x10000) != 0 && antecedent.IsCompletedSuccessfully)
+            return false;
+
+        if ((options & 0x20000) != 0 && antecedent.IsFaulted)
+            return false;
+
+        if ((options & 0x40000) != 0 && antecedent.IsCanceled)
+            return false;
+
+        return true;
+    }
+}
+
 // ContinueWith of a method that has no result: it is queued to the pool when the task has ended.
 internal sealed class ContinueVoid<TTask>
 {
+    internal ExecutionContext? Context = ExecutionContext.Capture();
     internal TTask Antecedent;
+    internal Task Base;
+    internal Int32 Options;
+    internal CancellationToken Token;
     internal Delegate<Void, TTask> Method;
     internal Task Next;
 
     internal Void Queue()
     {
+        if (!ContinueRules.Allows(Base, Options, Token))
+        {
+            Next.__Finish(TaskStatus.Canceled, null);
+            return;
+        }
+
         Delegate<Void> run = Run;
-        ThreadPool.QueueUserWorkItem(run);
+
+        // The continuation has the context of the code that asked for it (ContinueWith), not the one of the thread that ended the task.
+        ExecutionContext? saved = ExecutionContext.__Swap(Context);
+
+        try
+        {
+            // ExecuteSynchronously: in the thread that ended the antecedent.
+            if ((Options & 0x80000) != 0)
+                run();
+            else
+                ThreadPool.QueueUserWorkItem(run);
+        }
+        finally
+        {
+            ExecutionContext.__Swap(saved);
+        }
     }
 
     private Void Run()
@@ -180,14 +227,39 @@ internal sealed class ContinueVoid<TTask>
 // ContinueWith of a method that has a result.
 internal sealed class ContinueResult<TTask, TResult>
 {
+    internal ExecutionContext? Context = ExecutionContext.Capture();
     internal TTask Antecedent;
+    internal Task Base;
+    internal Int32 Options;
+    internal CancellationToken Token;
     internal Delegate<TResult, TTask> Method;
     internal Task<TResult> Next;
 
     internal Void Queue()
     {
+        if (!ContinueRules.Allows(Base, Options, Token))
+        {
+            Next.__Finish(TaskStatus.Canceled, null);
+            return;
+        }
+
         Delegate<Void> run = Run;
-        ThreadPool.QueueUserWorkItem(run);
+
+        // The continuation has the context of the code that asked for it (ContinueWith), not the one of the thread that ended the task.
+        ExecutionContext? saved = ExecutionContext.__Swap(Context);
+
+        try
+        {
+            // ExecuteSynchronously: in the thread that ended the antecedent.
+            if ((Options & 0x80000) != 0)
+                run();
+            else
+                ThreadPool.QueueUserWorkItem(run);
+        }
+        finally
+        {
+            ExecutionContext.__Swap(saved);
+        }
     }
 
     private Void Run()
