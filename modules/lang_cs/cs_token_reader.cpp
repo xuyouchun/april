@@ -78,6 +78,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             case _T('a'):
                 __Eqk(abstract);
                 __Eqk(as);
+                __Eqk(await);
                 __Eqks(add, __Wt(k_add), __Wt(name));
 
                 // assembly is a keyword in [assembly: Attribute]: after [, and before :.

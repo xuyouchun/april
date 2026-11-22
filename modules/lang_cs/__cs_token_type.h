@@ -15,7 +15,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __keyword_begin,
 
         // keywords: a...
-        k_abstract,      k_add,        k_assembly,
+        k_abstract,      k_add,        k_assembly, k_await,
         
         // keywords: b...
         k_base,         k_bool,     k_break,    k_byte,

@@ -12,7 +12,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(empty, _T("empty"))
 
         // keywords: a...
-        __K(abstract)    __K(as)       __K(add)      __K(assembly)
+        __K(abstract)    __K(as)       __K(add)      __K(assembly) __K(await)
 
         // keywords: b...
         __K(base)        __K(bool)     __K(break)     __K(byte)

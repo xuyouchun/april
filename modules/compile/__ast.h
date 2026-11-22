@@ -187,6 +187,7 @@ namespace X_ROOT_NS::modules::compile {
         default_value,              // Default value. e.g. default(int).
 
         checked_exp,                // Checked expression. e.g. checked(a + b).
+        await_exp,                  // Await expression. e.g. await task.
 
         lambda,                     // Lambda expression. e.g. (int x) => x + 1.
 
@@ -348,6 +349,7 @@ namespace X_ROOT_NS::modules::compile {
         default_value       =   __X_BRANCH_ENUM_ITEM(default_value),                    \
                                                                                         \
         checked_exp         =   __X_BRANCH_ENUM_ITEM(checked_exp),                      \
+        await_exp           =   __X_BRANCH_ENUM_ITEM(await_exp),                        \
                                                                                         \
         lambda              =   __X_BRANCH_ENUM_ITEM(lambda),                           \
                                                                                         \
@@ -434,6 +436,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(new_array,              _T("new_array"))                                    \
         X_C(default_value,          _T("default_value"))                                \
         X_C(checked_exp,            _T("checked_exp"))                                  \
+        X_C(await_exp,              _T("await_exp"))                                    \
         X_C(lambda,                 _T("lambda"))                                       \
 
 
@@ -942,6 +945,9 @@ namespace X_ROOT_NS::modules::compile {
         // A yield statement is only in a method that returns IEnumerable<T> or IEnumerator<T>.
         yield_outside_iterator = 5207,
 
+        // The method that waits with await cannot be made.
+        await_not_supported = 5208,
+
         // ---- AP5300 - AP5399: expressions.
 
         // Unexpected expression.
@@ -1422,8 +1428,10 @@ namespace X_ROOT_NS::modules::compile {
 
             // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
             // Returns null if the type has no Dispose().
+            // (async_dispose: DisposeAsync().Wait() instead of Dispose()).
             statement_t * __make_dispose_try(ast_walk_context_t & context,
-                            local_variable_t * variable, type_t * type, statement_t * body);
+                            local_variable_t * variable, type_t * type, statement_t * body,
+                            bool async_dispose = false);
 
             // Check member duplicate or format correct.
             template<typename _code_element_t>
@@ -3336,6 +3344,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Makes the iterator of a method: a class for the state, and a method that does the work.
         void __lower_iterator(ast_walk_context_t & context, method_ast_node_t * method, int id);
+
+        // Makes the state machine of a method that returns a task and has await expressions.
+        void __lower_async(ast_walk_context_t & context, method_ast_node_t * method, int id);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3601,6 +3612,8 @@ namespace X_ROOT_NS::modules::compile {
     private:
         // Walks post analysis step.
         bool __walk_post_analysis(ast_walk_context_t & context);
+
+        bool __async_registered = false;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3625,6 +3638,12 @@ namespace X_ROOT_NS::modules::compile {
         std::vector<function_expression_t *>        calls;      // The calls of delegates that are local variables.
         std::vector<defination_statement_item_t *>  defs;       // The initial values.
         std::vector<yield_statement_t *>            yields;     // The yield statements.
+
+        // A method that waits (a state machine, see type_ast_node_t::__lower_async): the awaits, and the return statements.
+        bool                                        is_async = false;
+        bool                                        async_iterator = false;     // It returns IAsyncEnumerable<T> (it has yield too).
+        std::vector<checked_expression_t *>         awaits;
+        std::vector<return_statement_t *>           returns;
 
         X_TO_STRING_IMPL(_T("iterator_info_t"))
     };
@@ -3842,6 +3861,9 @@ namespace X_ROOT_NS::modules::compile {
         // Sets variable.
         void set_variable(name_t name, __el_t * el);
 
+        // It is await foreach: the items are waited for (the iterator is an IAsyncEnumerable<T>).
+        bool is_await = false;
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -3897,6 +3919,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Makes this a lock statement: lock (obj) { ... } .
         void set_lock() { __is_lock = true; }
+
+        // Returns whether this is a lock statement.
+        bool is_lock() const { return __is_lock; }
 
         // Makes this a using declaration: using T obj = ...; , the group has the statements that
         // follow it in the block.
@@ -4592,6 +4617,43 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
+    // await_exp
+
+    // Await expression: await x.
+    Ast(await_exp, __xcvalue_t::await_exp)
+
+        // Expression.
+        __expression__,
+
+    EndAst(await_exp)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Await ast node. Its expression is a checked_expression_t that has the flag is_await: its operand is
+    // x.GetAwaiter().GetResult() (see await_exp_ast_node_t::on_commit).
+    class await_exp_ast_node_t : public __await_exp_ast_node_t
+                               , public expression_ast_t
+                               , public __wexp_t<checked_expression_t>
+    {
+        typedef __await_exp_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        bool __registered = false;
     };
 
     ////////// ////////// ////////// ////////// //////////

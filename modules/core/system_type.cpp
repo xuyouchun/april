@@ -1089,7 +1089,17 @@ namespace X_ROOT_NS::modules::core {
                 cpl_log_errorf(ctx.logger, method,                                      \
                     __e_t::entry_point_prototype_mistake__##error_name, ##args)
 
-            if (ret_type != nullptr && !is_void_type(ret_type))
+            // Task and Task<T> are allowed: the program ends when the task does (the method is a state machine, see
+            // type_ast_node_t::__lower_async).
+            bool returns_task = false;
+            if (ret_type != nullptr)
+            {
+                string_t text = _str(ret_type);
+                returns_task = text.compare(0, 27, _T("System.Threading.Tasks.Task")) == 0
+                                    && (text.size() == 27 || text[27] == _T('<'));
+            }
+
+            if (ret_type != nullptr && !is_void_type(ret_type) && !returns_task)
                 __CplLogError(should_no_return_type);
 
             if (method->is_generic())

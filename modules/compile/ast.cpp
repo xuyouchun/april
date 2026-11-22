@@ -179,6 +179,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // Checked expression.
         X_C(checked_exp,                _T("checked_exp"))
+        X_C(await_exp,                  _T("await_exp"))
 
     X_ENUM_INFO_END
 
@@ -707,6 +708,9 @@ namespace X_ROOT_NS::modules::compile {
         X_D(yield_outside_iterator,
             _T("\"yield\" can only be used in a method that returns IEnumerable<T> or ")
             _T("IEnumerator<T>"))
+
+        // The method that waits with await cannot be made.
+        X_D(await_not_supported, _T("the await of \"%1%\" is not supported: %2%"))
 
         // ---- AP5300 - AP5399: expressions.
 
@@ -3037,6 +3041,118 @@ namespace X_ROOT_NS::modules::compile {
         return false;
     }
 
+    // Returns whether the node is an await expression, or an await foreach statement.
+    static bool __is_await_node(ast_node_t * node)
+    {
+        ast_value_t value = node->value();
+        if (value == (ast_value_t)__xcvalue_t::await_exp)
+            return true;
+
+        if (value == (ast_value_t)__xcvalue_t::for_each_st)
+        {
+            for_each_st_ast_node_t * each = dynamic_cast<for_each_st_ast_node_t *>(node);
+            return each != nullptr && each->is_await;
+        }
+
+        return false;
+    }
+
+    // Returns whether the node has an await expression, the lambdas are other methods.
+    static bool __has_await(ast_node_t * node)
+    {
+        if (node == nullptr)
+            return false;
+
+        ast_value_t value = node->value();
+        if (__is_await_node(node))
+            return true;
+
+        if (value == (ast_value_t)__xcvalue_t::lambda)
+            return false;
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            if (__has_await(node->child_at(index)))
+                return true;
+        }
+
+        return false;
+    }
+
+    // Returns why an await of the node cannot be made by a state machine (null if all can): the method cannot go on inside the
+    // handlers of the exceptions, and the lock belongs to the thread.
+    static const char_t * __await_problem(ast_node_t * node, bool in_handler)
+    {
+        if (node == nullptr)
+            return nullptr;
+
+        ast_value_t value = node->value();
+        if (value == (ast_value_t)__xcvalue_t::lambda)
+            return nullptr;
+
+        if (__is_await_node(node) && in_handler)
+            return _T("it is in a catch or finally block");
+
+        bool lock_body = false;
+        if (value == (ast_value_t)__xcvalue_t::using_st)
+        {
+            using_st_ast_node_t * using_node = dynamic_cast<using_st_ast_node_t *>(node);
+            lock_body = using_node != nullptr && using_node->is_lock();
+        }
+
+        for (size_t index = 0, count = node->child_count(); index < count; index++)
+        {
+            ast_node_t * child = node->child_at(index);
+            bool handler = in_handler;
+
+            if (value == (ast_value_t)__xcvalue_t::try_st
+                    && (index == (size_t)try_st_ast_node_t::__catches__
+                        || index == (size_t)try_st_ast_node_t::__finally__))
+            {
+                handler = true;
+            }
+
+            if (lock_body && __has_await(child))
+                return _T("it is in a lock statement (use a SemaphoreSlim: using (await semaphore.LockAsync()))");
+
+            const char_t * problem = __await_problem(child, handler);
+            if (problem != nullptr)
+                return problem;
+        }
+
+        return nullptr;
+    }
+
+    // Returns whether the text of a type is Task or Task<T>.
+    static bool __is_task_text(const string_t & text)
+    {
+        size_t lt = text.find(_T('<'));
+        string_t head = lt == string_t::npos? text : text.substr(0, lt);
+
+        if (head.size() < 4 || head.compare(head.size() - 4, 4, _T("Task")) != 0)
+            return false;
+
+        return head.size() == 4 || head[head.size() - 5] == _T('.');
+    }
+
+    // Returns whether the text of a type is IAsyncEnumerable<T> or IAsyncEnumerator<T>.
+    static bool __is_async_enumerable_text(const string_t & text)
+    {
+        size_t lt = text.find(_T('<'));
+        if (lt == string_t::npos)
+            return false;
+
+        string_t head = text.substr(0, lt);
+        for (const char_t * name : { _T("IAsyncEnumerable"), _T("IAsyncEnumerator") })
+        {
+            size_t length = string_t(name).size();
+            if (head.size() >= length && head.compare(head.size() - length, length, name) == 0)
+                return true;
+        }
+
+        return false;
+    }
+
     // Sets name.
     void type_ast_node_t::set_name(const name_t & name, __el_t * el)
     {
@@ -4597,18 +4713,35 @@ namespace X_ROOT_NS::modules::compile {
         static int iterator_count = 0;
 
         // The methods are found first: the iterators change the members.
-        std::vector<method_ast_node_t *> methods;
+        std::vector<method_ast_node_t *> methods, async_methods;
         this->each_child_node<method_ast_node_t>(__methods__, [&](method_ast_node_t * method) {
-            if (method != nullptr
-                    && __has_yield(method->child_at(method_ast_node_t::__body__)))
+            if (method == nullptr)
+                return;
+
+            ast_node_t * body = method->child_at(method_ast_node_t::__body__);
+            if (__has_yield(body))
             {
-                methods.push_back(method);
+                // yield and await in a method that returns IAsyncEnumerable<T>.
+                if (method->type_name != nullptr && __is_async_enumerable_text(string_t(_str(method->type_name))))
+                    async_methods.push_back(method);
+                else
+                    methods.push_back(method);
+            }
+            else if (__has_await(body) && method->type_name != nullptr
+                        && __is_task_text(string_t(_str(method->type_name))))
+            {
+                async_methods.push_back(method);
             }
         });
 
         for (method_ast_node_t * method : methods)
         {
             __lower_iterator(context, method, ++iterator_count);
+        }
+
+        for (method_ast_node_t * method : async_methods)
+        {
+            __lower_async(context, method, ++iterator_count);
         }
     }
 
@@ -4991,6 +5124,263 @@ namespace X_ROOT_NS::modules::compile {
 
         // The state class is a nest type of this type: it is walked with the members of the type.
         // (A part of a partial type has its own nodes: the type is the first part.)
+        this->append_child(__nest_types__, state_node);
+        (__merged_first != nullptr? __merged_first : this)->nest_types.push_back((type_t *)state_node);
+
+        #undef __Fail
+    }
+
+    // Makes the state machine of a method that returns Task or Task<T> and has await expressions. Like an iterator: the
+    // method makes an object of a class that is made here (the state), that has the params of the method and the builder of the
+    // task, and runs the method that does the work (the body of the method) until the first await that waits. That await
+    // keeps the state, asks the awaiter to queue the method again to the thread pool, and returns. The method that does the work
+    // is called by another one that gives the exception that it throws to the task. See method_ast_node_t::__walk_iterator_end.
+    void type_ast_node_t::__lower_async(ast_walk_context_t & context,
+                                        method_ast_node_t * method, int id)
+    {
+        #define __Fail(_reason)                                                         \
+            do {                                                                        \
+                this->__log((ast_node_t *)method, __c_t::await_not_supported,           \
+                                                    _str(method->name), _T(_reason));   \
+                return;                                                                 \
+            } while (false)
+
+        if (method->generic_params != nullptr && method->generic_params->size() > 0)
+            __Fail("a generic method");
+
+        // The problems of the awaits.
+        const char_t * problem = __await_problem(method->child_at(method_ast_node_t::__body__), false);
+        if (problem != nullptr)
+        {
+            this->__log((ast_node_t *)method, __c_t::await_not_supported, _str(method->name), problem);
+            return;
+        }
+
+        // Task or Task<T>, or IAsyncEnumerable<T> (an iterator: each MoveNextAsync runs the method until the next yield).
+        string_t return_type = _str(method->type_name);
+        size_t lt = return_type.find(_T('<')), gt = return_type.rfind(_T('>'));
+
+        bool has_result = lt != string_t::npos && gt != string_t::npos && gt > lt;
+        string_t result = has_result? return_type.substr(lt + 1, gt - lt - 1) : string_t();
+
+        bool iterator_mode = __is_async_enumerable_text(return_type);
+        string_t element = iterator_mode? result : string_t();
+
+        string_t builder_type = iterator_mode? string_t(_T("AsyncTaskBuilder<Boolean>"))
+                                : string_t(_T("AsyncTaskBuilder"))
+                                    + (has_result? _T("<") + result + _T(">") : string_t());
+
+        // The params.
+        string_t params_text, ctor_params, ctor_assigns, fields_text, args_text;
+
+        if (method->params != nullptr)
+        {
+            for (param_t * param : *method->params)
+            {
+                if (param->ptype == param_type_t::ref || param->ptype == param_type_t::out)
+                    __Fail("a ref or out param");
+
+                if (param->ptype == param_type_t::extends)
+                    __Fail("a params generic param");
+
+                string_t type_text = _str(param->type_name);
+                string_t name_text = _str(param->name);
+
+                if (!params_text.empty())
+                {
+                    params_text += _T(", ");
+                    args_text += _T(", ");
+                }
+
+                params_text += type_text + _T(" ") + name_text;
+                args_text += name_text;
+
+                ctor_params += _T(", ") + type_text + _T(" p_") + name_text;
+                ctor_assigns += _T(" this.") + name_text + _T(" = p_") + name_text + _T(";");
+                fields_text += string_t(_T(" public "))
+                                + type_text + _T(" ") + name_text + _T(";");
+            }
+        }
+
+        string_t name = _str(method->name);
+        string_t owner_text = __generated_owner(this->to_full_name(), (method_t *)method);
+        string_t state_name = __generated_name(_T("async"), 0, owner_text);
+        string_t move_name = __generated_name(_T("move"), 0, owner_text);
+        string_t work_name = __generated_name(_T("work"), 0, owner_text);
+        string_t static_text = method->is_static()? _T("static ") : _T("");
+        string_t G;
+
+        // Task Main(): the program ends when the task does.
+        bool entry_main = !iterator_mode && method->is_static() && name == _T("Main")
+                            && (method->params == nullptr || method->params->size() == 0);
+
+        // The state class.
+        string_t state_text, methods_text;
+
+        if (!iterator_mode)
+        {
+            state_text = G + _T("public class ") + state_name + _T(" {")
+                + _T(" public Int32 @STATE@; public ") + builder_type + _T(" @BUILDER@;")
+                + _T(" public Delegate<Void, Object> @DELEGATE@;")
+                + _T(" public Delegate<Void> @CONT@; public Delegate<Void> @RUNDEL@;") + fields_text
+                + _T(" public ") + state_name + _T("(Delegate<Void, Object> move") + ctor_params + _T(") {")
+                + _T(" @DELEGATE@ = move; @BUILDER@ = new ") + builder_type + _T("();")
+                + _T(" @RUNDEL@ = @RUN@; @CONT@ = @QUEUE@;") + ctor_assigns + _T(" }")
+                + _T(" public Void @RUN@() { @DELEGATE@(this); }")
+                + _T(" public Void @QUEUE@() { AsyncTaskBuilder.Schedule(@RUNDEL@); }")
+                + _T(" }");
+
+            // The method of the user (it makes the state object and runs it), the method that calls the one that does the
+            // work, and the method that does the work (its body is the one of the method of the user).
+            methods_text =
+                string_t(_T("public class __Snippet { public ")) + return_type + _T(" ") + name + _T("(") + params_text + _T(") {")
+                + _T(" Delegate<Void, Object> @DELEGATE@ = ") + move_name + _T(";")
+                + _T(" ") + state_name + _T(" @MACHINE@ = new ") + state_name + _T("(@DELEGATE@")
+                + (args_text.empty()? string_t() : _T(", ") + args_text) + _T(");")
+                + _T(" @MACHINE@.@RUN@();")
+                + (entry_main? _T(" @MACHINE@.@BUILDER@.Task.Wait();") : _T(""))
+                + _T(" return @MACHINE@.@BUILDER@.Task; }")
+                + _T(" private ") + static_text + _T("Void ") + move_name + _T("(Object @SOURCE@) {")
+                + _T(" try { ") + work_name + _T("(@SOURCE@); }")
+                + _T(" catch (Exception @ERROR@) { ((") + state_name + _T(")@SOURCE@).@BUILDER@.SetException(@ERROR@); } }")
+                + _T(" private ") + static_text + _T("Void ") + work_name + _T("(Object @SOURCE@) {")
+                + _T(" ((") + state_name + _T(")@SOURCE@).@BUILDER@.SetResult(")
+                + (has_result? _T("default(") + result + _T(")") : string_t()) + _T("); } }");
+        }
+        else
+        {
+            // An async iterator: MoveNextAsync makes the task of the next item, and runs the method until it gives the item (yield
+            // return: the task ends with true), or ends (false).
+            string_t task_type = _T("Task");
+
+            state_text = G + _T("public class ") + state_name + _T(" : IAsyncEnumerator<") + element
+                + _T(">, IAsyncEnumerable<") + element + _T("> {")
+                + _T(" public Int32 @STATE@; public ") + element + _T(" @CURRENT@; public ") + builder_type + _T(" @BUILDER@;")
+                + _T(" public Delegate<Void, Object> @DELEGATE@;")
+                + _T(" public Delegate<Void> @CONT@; public Delegate<Void> @RUNDEL@;") + fields_text
+                + _T(" public ") + state_name + _T("(Delegate<Void, Object> move") + ctor_params + _T(") {")
+                + _T(" @DELEGATE@ = move; @RUNDEL@ = @RUN@; @CONT@ = @QUEUE@;") + ctor_assigns + _T(" }")
+                + _T(" public ") + element + _T(" Current { get { return @CURRENT@; } }")
+                + _T(" public ") + task_type + _T("<Boolean> MoveNextAsync() {")
+                + _T(" if (@STATE@ == -1) return ") + task_type + _T(".FromResult<Boolean>(false);")
+                + _T(" ") + builder_type + _T(" next = new ") + builder_type + _T("(); @BUILDER@ = next;")
+                + _T(" @RUN@(); return next.Task; }")
+                + _T(" public ") + task_type + _T(" DisposeAsync() { @STATE@ = -1; return ") + task_type + _T(".CompletedTask; }")
+                + _T(" public IAsyncEnumerator<") + element + _T("> GetAsyncEnumerator() { return this; }")
+                + _T(" public Void @FINISH@() { @STATE@ = -1; }")
+                + _T(" public Void @RUN@() { @DELEGATE@(this); }")
+                + _T(" public Void @QUEUE@() { AsyncTaskBuilder.Schedule(@RUNDEL@); }")
+                + _T(" }");
+
+            methods_text =
+                string_t(_T("public class __Snippet { public ")) + return_type + _T(" ") + name + _T("(") + params_text + _T(") {")
+                + _T(" Delegate<Void, Object> @DELEGATE@ = ") + move_name + _T(";")
+                + _T(" return new ") + state_name + _T("(@DELEGATE@")
+                + (args_text.empty()? string_t() : _T(", ") + args_text) + _T("); }")
+                + _T(" private ") + static_text + _T("Void ") + move_name + _T("(Object @SOURCE@) {")
+                + _T(" try { ") + work_name + _T("(@SOURCE@); }")
+                + _T(" catch (Exception @ERROR@) { ((") + state_name + _T(")@SOURCE@).@FINISH@();")
+                + _T(" ((") + state_name + _T(")@SOURCE@).@BUILDER@.SetException(@ERROR@); } }")
+                + _T(" private ") + static_text + _T("Void ") + work_name + _T("(Object @SOURCE@) {")
+                + _T(" ((") + state_name + _T(")@SOURCE@).@FINISH@();")
+                + _T(" ((") + state_name + _T(")@SOURCE@).@BUILDER@.SetResult(false); } }");
+        }
+
+        string_t state_field = __generated_name(_T("state"), string_t(), state_name);
+        string_t current_field = __generated_name(_T("current"), string_t(), state_name);
+        string_t finish_name = __generated_name(_T("finish"), string_t(), state_name);
+        string_t builder_field = __generated_name(_T("builder"), string_t(), state_name);
+        string_t delegate_field = __generated_name(_T("delegate"), string_t(), state_name);
+        string_t cont_field = __generated_name(_T("cont"), string_t(), state_name);
+        string_t run_delegate_field = __generated_name(_T("rundelegate"), string_t(), state_name);
+        string_t run_name = __generated_name(_T("run"), string_t(), state_name);
+        string_t queue_name = __generated_name(_T("queue"), string_t(), state_name);
+        string_t machine_name = __generated_name(_T("machine"), string_t(), state_name);
+        string_t error_name = __generated_name(_T("error"), string_t(), state_name);
+        string_t source_name = __generated_name(_T("source"), string_t(), state_name);
+
+        for (string_t * text : { &state_text, &methods_text })
+        {
+            __replace_marks(*text, _T("@STATE@"), state_field);
+            __replace_marks(*text, _T("@CURRENT@"), current_field);
+            __replace_marks(*text, _T("@FINISH@"), finish_name);
+            __replace_marks(*text, _T("@BUILDER@"), builder_field);
+            __replace_marks(*text, _T("@DELEGATE@"), delegate_field);
+            __replace_marks(*text, _T("@CONT@"), cont_field);
+            __replace_marks(*text, _T("@RUNDEL@"), run_delegate_field);
+            __replace_marks(*text, _T("@RUN@"), run_name);
+            __replace_marks(*text, _T("@QUEUE@"), queue_name);
+            __replace_marks(*text, _T("@MACHINE@"), machine_name);
+            __replace_marks(*text, _T("@ERROR@"), error_name);
+            __replace_marks(*text, _T("@SOURCE@"), source_name);
+        }
+
+        ast_node_t * state_root = __parse_snippet(state_text);
+        ast_node_t * methods_root = __parse_snippet(methods_text);
+
+        if (state_root == nullptr || methods_root == nullptr
+                    || state_root->child_count() == 0 || methods_root->child_count() == 0)
+        {
+            __Fail("its code cannot be made");
+        }
+
+        type_ast_node_t * state_node = (type_ast_node_t *)state_root->child_at(0);
+        type_ast_node_t * snippet = (type_ast_node_t *)methods_root->child_at(0);
+
+        ast_node_t * methods_node = snippet->child_at(__methods__);
+        if (state_node == nullptr || methods_node == nullptr || methods_node->child_count() < 3)
+            __Fail("its code cannot be made");
+
+        method_ast_node_t * new_method = (method_ast_node_t *)methods_node->child_at(0);
+        method_ast_node_t * move_method = (method_ast_node_t *)methods_node->child_at(1);
+        method_ast_node_t * work_method = (method_ast_node_t *)methods_node->child_at(2);
+
+        // The body of the method of the user goes to the method that does the work, and the method of the user has the body
+        // that makes the state object.
+        ast_node_t * old_body = method->child_at(method_ast_node_t::__body__);
+        method_body_t * old_body_object = method->body;
+
+        method->set_child(method_ast_node_t::__body__,
+                                    new_method->child_at(method_ast_node_t::__body__));
+        method->body = new_method->body;
+
+        // The end of the method that does the work: the task ends when the body does.
+        method_body_ast_node_t * tail_node =
+                    (method_body_ast_node_t *)work_method->child_at(method_ast_node_t::__body__);
+        method_body_ast_node_t * old_body_node = (method_body_ast_node_t *)old_body;
+
+        tail_node->each_child_node<ast_node_t>(method_body_ast_node_t::__statements__,
+            [&](ast_node_t * statement) {
+                old_body_node->append_child(method_body_ast_node_t::__statements__, statement);
+            }
+        );
+
+        for (statement_t * statement : work_method->body->statements)
+        {
+            old_body_object->statements.push_back(statement);
+        }
+
+        work_method->set_child(method_ast_node_t::__body__, old_body);
+        work_method->body = old_body_object;
+
+        iterator_info_t * info = __new_obj<iterator_info_t>();
+        info->params = method->params;
+        info->user_method = (method_t *)method;
+        info->state_type = state_node;
+        info->is_async = true;
+        info->async_iterator = iterator_mode;
+        work_method->iterator_info = info;
+
+        this->append_child(__methods__, move_method);
+        this->methods.push_back((method_t *)move_method);
+
+        this->append_child(__methods__, work_method);
+        this->methods.push_back((method_t *)work_method);
+
+        this->__mark_generated_type(context, (general_type_t *)state_node);
+        this->__mark_generated(context, (method_t *)move_method, (method_t *)move_method);
+        this->__mark_generated(context, (method_t *)work_method, (method_t *)work_method);
+
         this->append_child(__nest_types__, state_node);
         (__merged_first != nullptr? __merged_first : this)->nest_types.push_back((type_t *)state_node);
 
@@ -5856,6 +6246,19 @@ namespace X_ROOT_NS::modules::compile {
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
+                // A method that is a state machine gives the value to the task (see method_ast_node_t::__walk_iterator_end).
+                if (!__async_registered)
+                {
+                    __async_registered = true;
+
+                    method_t * method = context.current_method();
+                    if (method != nullptr && method->iterator_info != nullptr
+                            && ((iterator_info_t *)method->iterator_info)->is_async)
+                    {
+                        ((iterator_info_t *)method->iterator_info)->returns.push_back((return_statement_t *)this);
+                    }
+                }
+
                 if (__super_t::on_walk(context, step, tag))
                 {
                     this->__delay(context, walk_step_t::analysis);
@@ -5892,6 +6295,47 @@ namespace X_ROOT_NS::modules::compile {
     {
         method_t * method = context.current_method();
         _A(method != nullptr);
+
+        // A method that is a state machine returns the value of the task: Task<T> returns T, Task returns nothing.
+        iterator_info_t * async_info = method->iterator_info != nullptr?
+                                            (iterator_info_t *)method->iterator_info : nullptr;
+        if (async_info != nullptr && async_info->is_async && async_info->user_method != nullptr)
+        {
+            method_t * user_method = async_info->user_method;
+            type_t * user_type = user_method->type_name != nullptr? user_method->type_name->type : nullptr;
+
+            type_t * result_type = nullptr;
+            if (user_type != nullptr && is_generic(user_type)
+                    && ((generic_type_t *)user_type)->args.size() == 1)
+            {
+                result_type = (type_t *)((generic_type_t *)user_type)->args[0];
+            }
+
+            if (result_type == nullptr)
+            {
+                if (this->expression != nullptr)
+                    this->__log(this, __c_t::method_unexpected_return_value, user_method);
+            }
+            else if (this->expression == nullptr)
+            {
+                this->__log(this, __c_t::method_return_value_missing, user_method);
+            }
+            else
+            {
+                type_t * return_type = this->expression->get_type();
+
+                if (return_type != nullptr && !is_type_compatible(return_type, result_type))
+                {
+                    this->expression = insert_user_conversion(this->expression, result_type);
+                    return_type = this->expression->get_type();
+                }
+
+                if (return_type != nullptr && !is_type_compatible(return_type, result_type))
+                    this->__log(this, __c_t::method_incompatible_return_value, user_method);
+            }
+
+            return true;
+        }
 
         if (method->type_name == nullptr || method->type_name->type == nullptr
                                          || is_void_type(method->type_name->type))
@@ -6179,13 +6623,14 @@ namespace X_ROOT_NS::modules::compile {
     // Makes: try { body } finally { if (variable != null) variable.Dispose(); }
     // Returns null if the type has no Dispose().
     statement_t * __utils_t::__make_dispose_try(ast_walk_context_t & context,
-                    local_variable_t * variable, type_t * type, statement_t * body)
+                    local_variable_t * variable, type_t * type, statement_t * body,
+                    bool async_dispose)
     {
         typedef system_expression_t<binary_expression_t> __binary_t;
 
         atypes_t no_atypes;
         analyze_member_args_t dispose_args(
-            member_type_t::method, __to_name(_T("Dispose")), &no_atypes
+            member_type_t::method, __to_name(async_dispose? _T("DisposeAsync") : _T("Dispose")), &no_atypes
         );
 
         if (type == nullptr || type->get_member(dispose_args, true) == nullptr)
@@ -6197,12 +6642,22 @@ namespace X_ROOT_NS::modules::compile {
 
         auto * function = __new_obj<system_expression_t<function_expression_t>>();
         function->set_namex(__new_obj<system_expression_t<name_expression_t>>(
-            __to_name(_T("Dispose"))
+            __to_name(async_dispose? _T("DisposeAsync") : _T("Dispose"))
         ));
 
         expression_t * call = __new_obj<__binary_t>(
             operator_t::member_point, name_of(), function
         );
+
+        // DisposeAsync() returns a task: it is waited for here (the finally block cannot wait for it, the method cannot go on
+        // inside it).
+        if (async_dispose)
+        {
+            auto * wait = __new_obj<system_expression_t<function_expression_t>>();
+            wait->set_namex(__new_obj<system_expression_t<name_expression_t>>(__to_name(_T("Wait"))));
+
+            call = __new_obj<__binary_t>(operator_t::member_point, call, wait);
+        }
 
         walk_expression(this->__context, context, call);
         statement_t * dispose = __new_obj<expression_statement_t>(call);
@@ -6302,14 +6757,14 @@ namespace X_ROOT_NS::modules::compile {
         // The members of the type that foreach uses.
         atypes_t no_atypes;
         analyze_member_args_t get_enumerator_args(
-            member_type_t::method, __to_name(_T("GetEnumerator")), &no_atypes
+            member_type_t::method, __to_name(this->is_await? _T("GetAsyncEnumerator") : _T("GetEnumerator")), &no_atypes
         );
 
         method_t * get_enumerator = (method_t *)iterator_type->get_member(get_enumerator_args, true);
         type_t * enumerator_type = get_enumerator != nullptr? get_enumerator->get_type() : nullptr;
 
         analyze_member_args_t move_next_args(
-            member_type_t::method, __to_name(_T("MoveNext")), &no_atypes
+            member_type_t::method, __to_name(this->is_await? _T("MoveNextAsync") : _T("MoveNext")), &no_atypes
         );
 
         analyze_member_args_t current_args(member_type_t::property, __to_name(_T("Current")));
@@ -6354,14 +6809,29 @@ namespace X_ROOT_NS::modules::compile {
         expression_t * assign_enumerator = __new_obj<__binary_t>(
             operator_t::assign, name_of(__array),
             __new_obj<__binary_t>(
-                operator_t::member_point, this->iterator, call_of(_T("GetEnumerator"))
+                operator_t::member_point, this->iterator,
+                call_of(this->is_await? _T("GetAsyncEnumerator") : _T("GetEnumerator"))
             )
         );
 
         // enumerator.MoveNext()
         expression_t * condition = __new_obj<__binary_t>(
-            operator_t::member_point, name_of(__array), call_of(_T("MoveNext"))
+            operator_t::member_point, name_of(__array), call_of(this->is_await? _T("MoveNextAsync") : _T("MoveNext"))
         );
+
+        // await foreach: the condition waits for the task: await enumerator.MoveNextAsync()
+        checked_expression_t * await_condition = nullptr;
+        if (this->is_await)
+        {
+            expression_t * awaiter = __new_obj<__binary_t>(operator_t::member_point, condition, call_of(_T("GetAwaiter")));
+            expression_t * result = __new_obj<__binary_t>(operator_t::member_point, awaiter, call_of(_T("GetResult")));
+
+            auto * wrapper = __new_obj<system_expression_t<checked_expression_t>>(false, result);
+            wrapper->is_await = true;
+
+            await_condition = wrapper;
+            condition = wrapper;
+        }
 
         // variable = enumerator.Current
         expression_t * assign_variable = __new_obj<__binary_t>(
@@ -6375,6 +6845,17 @@ namespace X_ROOT_NS::modules::compile {
         for (expression_t * exp : { assign_enumerator, condition, assign_variable })
             walk_expression(this->__context, context, exp);
 
+        // In a method that is a state machine the method goes on after the wait.
+        if (await_condition != nullptr)
+        {
+            method_t * current_method = context.current_method();
+            if (current_method != nullptr && current_method->iterator_info != nullptr
+                    && ((iterator_info_t *)current_method->iterator_info)->is_async)
+            {
+                ((iterator_info_t *)current_method->iterator_info)->awaits.push_back(await_condition);
+            }
+        }
+
         statement_group_t * loop_body = __new_obj<statement_group_t>();
         loop_body->push_back(__new_obj<expression_statement_t>(assign_variable));
         loop_body->push_back(this->body);
@@ -6385,7 +6866,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // The enumerator is disposed when the loop exits.
         statement_t * loop = this->__make_dispose_try(context, __array, enumerator_type,
-                                                                            for_statement);
+                                                                            for_statement, this->is_await);
         if (loop == nullptr)
             loop = for_statement;
 
@@ -6423,7 +6904,7 @@ namespace X_ROOT_NS::modules::compile {
             return true;
         }
 
-        if (iterator_type->this_gtype() != gtype_t::array)
+        if (iterator_type->this_gtype() != gtype_t::array || this->is_await)
             return __walk_analysis_enumerator(context, iterator_type);
 
         // An array of any dimension is one-dimensional for the loop, like for its base type
@@ -6990,6 +7471,54 @@ namespace X_ROOT_NS::modules::compile {
 
         context.checked_mode = saved;
         return r;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // await_exp
+
+    // Commits this node: the operand is x.GetAwaiter().GetResult(), that waits for the end of x in the methods that are not
+    // asynchronous (the others make a state machine of the method, and change it).
+    void await_exp_ast_node_t::on_commit()
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        expression_t * operand = __to_eobject<expression_t *>(__expression__);
+
+        auto call_of = [this](const char_t * name) -> expression_t * {
+            auto * function = __new_obj<system_expression_t<function_expression_t>>();
+            function->set_namex(__new_obj<system_expression_t<name_expression_t>>(__to_name(name)));
+            return function;
+        };
+
+        expression_t * awaiter = __new_obj<__binary_t>(operator_t::member_point, operand, call_of(_T("GetAwaiter")));
+        expression_t * result = __new_obj<__binary_t>(operator_t::member_point, awaiter, call_of(_T("GetResult")));
+
+        this->is_await = true;
+        this->set_expression(result);
+    }
+
+    // Returns this eobject.
+    expression_t * await_exp_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node: in a method that is a state machine the await is registered, it is changed when the types are known.
+    bool await_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        if (!__registered && step == (int)walk_step_t::default_)
+        {
+            __registered = true;
+
+            method_t * method = context.current_method();
+            if (method != nullptr && method->iterator_info != nullptr
+                    && ((iterator_info_t *)method->iterator_info)->is_async)
+            {
+                ((iterator_info_t *)method->iterator_info)->awaits.push_back((checked_expression_t *)this);
+            }
+        }
+
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -8678,6 +9207,245 @@ namespace X_ROOT_NS::modules::compile {
         // The yield statements.
         field_t * state_field = find_field(__to_name(__generated_name(_T("state"), string_t(), _str(state->name))));
         field_t * current_field = find_field(__to_name(__generated_name(_T("current"), string_t(), _str(state->name))));
+
+        // A state machine of a method that waits: the awaits and the returns are statements that suspend the method, or give
+        // the value to the task. (The awaiter of each await is a field of the state object.)
+        if (info->is_async)
+        {
+            typedef system_expression_t<name_expression_t> __name_t;
+
+            field_t * builder_field = find_field(__to_name(__generated_name(_T("builder"), string_t(), _str(state->name))));
+            field_t * cont_field = find_field(__to_name(__generated_name(_T("cont"), string_t(), _str(state->name))));
+            if (state_field == nullptr || builder_field == nullptr || cont_field == nullptr)
+                return;
+
+            auto statement_of = [&](expression_t * exp) -> statement_t * {
+                return __new_obj<expression_statement_t>(exp);
+            };
+
+            auto walk = [&](expression_t * exp) -> expression_t * {
+                walk_expression(this->__context, context, exp);
+                return exp;
+            };
+
+            auto call_of = [&](const char_t * call_name, std::vector<expression_t *> args) -> expression_t * {
+                auto * function = __new_obj<system_expression_t<function_expression_t>>();
+                function->set_namex(__new_obj<__name_t>(__to_name(call_name)));
+
+                if (!args.empty())
+                {
+                    arguments_t * arguments = __new_obj<arguments_t>();
+                    for (expression_t * arg_exp : args)
+                    {
+                        argument_t * argument = __new_obj<argument_t>();
+                        argument->expression = arg_exp;
+                        arguments->push_back(argument);
+                    }
+
+                    function->set_arguments(arguments);
+                }
+
+                return function;
+            };
+
+            auto member_of = [&](expression_t * target, expression_t * member) -> expression_t * {
+                return __new_obj<__binary_t>(operator_t::member_point, target, member);
+            };
+
+            auto group_of = [&]() -> statement_group_t * {
+                statement_group_t * group = __new_obj<statement_group_t>();
+                group->variable_region = this->body->variable_region;
+                return group;
+            };
+
+            string_t user_name = info->user_method != nullptr? string_t(_str(info->user_method->name)) : string_t();
+
+            // The returns: task.SetResult(value); return;
+            if (info->async_iterator && !info->returns.empty())
+            {
+                this->__log((ast_node_t *)this, __c_t::await_not_supported, user_name,
+                                _T("an async iterator cannot have return (use yield break)"));
+                info->returns.clear();
+            }
+
+            for (return_statement_t * ret : info->returns)
+            {
+                std::vector<expression_t *> args;
+                if (ret->expression != nullptr)
+                    args.push_back(ret->expression);
+
+                statement_group_t * group = group_of();
+                group->push_back(statement_of(walk(member_of(name_of(builder_field),
+                                                             call_of(_T("SetResult"), args)))));
+                group->push_back(__new_obj<return_statement_t>());
+
+                ret->lowered = group;
+            }
+
+            // The fields of the awaiters (their types are known now).
+            std::vector<std::pair<checked_expression_t *, field_t *>> awaiters;
+            int awaiter_index = 0;
+
+            for (checked_expression_t * aw : info->awaits)
+            {
+                // The await of an expression that is evaluated only sometimes would be made before the condition.
+                bool conditional = false;
+                for (expression_t * child = aw, * up = aw->parent; up != nullptr; child = up, up = up->parent)
+                {
+                    op_expression_base_t * op_exp = as<op_expression_base_t *>(up);
+                    if (op_exp != nullptr && up->expression_count() == 2 && up->expression_at(1) == child)
+                    {
+                        const operator_property_t * property = op_exp->get_operator_property();
+                        operator_t op = property != nullptr? property->op : operator_t::__default__;
+
+                        if (op == operator_t::logic_and || op == operator_t::logic_or
+                                || op == operator_t::null_coalescing)
+                        {
+                            conditional = true;
+                        }
+                    }
+
+                    if (up->is_condition() && up->expression_at(0) != child)
+                        conditional = true;
+                }
+
+                if (conditional)
+                {
+                    this->__log((ast_node_t *)this, __c_t::await_not_supported, user_name,
+                                    _T("it is in an expression that does not always run (&&, ||, ??, ?:)"));
+                    continue;
+                }
+
+                expression_t * chain = aw->expression();
+                type_t * awaiter_type = nullptr;
+
+                if (chain != nullptr && chain->expression_count() > 0 && chain->expression_at(0) != nullptr
+                        && chain->expression_at(0)->walked)
+                {
+                    awaiter_type = chain->expression_at(0)->get_type();
+                }
+
+                if (awaiter_type == nullptr)
+                    continue;
+
+                field_t * field = __new_obj<field_t>();
+                field->name = __to_name(__generated_name(_T("awaiter"),
+                                                _F(_T("%1%"), ++awaiter_index), _str(state->name)));
+                field->type_name = __XPool.to_type_name(awaiter_type);
+                field->decorate = __new_obj<decorate_t>(decorate_value_t::public_);
+                field->host_type = state;
+                field->variable = __new_obj<field_variable_t>(field);
+
+                state->append_member(field);
+                this->__mark_generated(context, field, field);
+
+                awaiters.push_back({ aw, field });
+            }
+
+            context.commit_types();
+
+            iterator_dispatch_statement_t * dispatch = __new_obj<iterator_dispatch_statement_t>();
+            int await_state = 0;
+
+            for (auto & item : awaiters)
+            {
+                checked_expression_t * aw = item.first;
+                field_t * field = item.second;
+
+                expression_t * awaiter_exp = aw->expression()->expression_at(0);
+
+                // awaiter = task.GetAwaiter();
+                // if (awaiter.IsCompleted == false) { state = n; awaiter.OnCompleted(callback); return; }
+                // ... the method goes on here (state n) ...
+                // and the value of the await is awaiter.GetResult().
+                expression_t * assign = walk(__new_obj<__binary_t>(operator_t::assign, name_of(field), awaiter_exp));
+
+                expression_t * not_completed = walk(__new_obj<__binary_t>(operator_t::equal,
+                    member_of(name_of(field), __new_obj<__name_t>(__to_name(_T("IsCompleted")))),
+                    __to_value_expression(false)
+                ));
+
+                int32_t state_value = ++await_state;
+
+                statement_group_t * suspend = group_of();
+                suspend->push_back(statement_of(assign_of(state_field, __to_value_expression(state_value))));
+                suspend->push_back(statement_of(walk(member_of(name_of(field),
+                                        call_of(_T("OnCompleted"), { name_of(cont_field) })))));
+
+                // The method returns, and goes on later: the finally blocks that it is in do not run.
+                return_statement_t * suspend_return = __new_obj<return_statement_t>();
+                suspend_return->suspend = true;
+                suspend->push_back(suspend_return);
+
+                statement_group_t * prepare = group_of();
+                prepare->push_back(statement_of(assign));
+                prepare->push_back(__new_obj<if_statement_t>(not_completed, suspend, nullptr));
+
+                expression_t * value = walk(member_of(name_of(field), call_of(_T("GetResult"), {})));
+
+                aw->await_prepare = (object_t *)prepare;
+                aw->await_state = state_value;
+                aw->set_expression(value);
+
+                expression_t * condition = __new_obj<__binary_t>(operator_t::equal,
+                    name_of(state_field), __to_value_expression(state_value)
+                );
+
+                walk(condition);
+
+                dispatch->awaits.push_back(aw);
+                dispatch->await_conditions.push_back(condition);
+            }
+
+            // The yield statements of an async iterator: the item is the current one, the task of MoveNextAsync ends with true, and
+            // the method returns until the next call (state n); yield break ends it.
+            if (info->async_iterator && current_field != nullptr)
+            {
+                for (yield_statement_t * yield : info->yields)
+                {
+                    statement_group_t * group = group_of();
+
+                    if (yield->is_break)
+                    {
+                        group->push_back(statement_of(assign_of(state_field, __to_value_expression((int32_t)-1))));
+                        group->push_back(statement_of(walk(member_of(name_of(builder_field),
+                                                            call_of(_T("SetResult"), { __to_value_expression(false) })))));
+                        group->push_back(__new_obj<return_statement_t>());
+                    }
+                    else
+                    {
+                        yield->state = ++await_state;
+
+                        group->push_back(statement_of(assign_of(current_field, yield->expression)));
+                        group->push_back(statement_of(assign_of(state_field, __to_value_expression((int32_t)yield->state))));
+                        group->push_back(statement_of(walk(member_of(name_of(builder_field),
+                                                            call_of(_T("SetResult"), { __to_value_expression(true) })))));
+
+                        return_statement_t * suspend_return = __new_obj<return_statement_t>();
+                        suspend_return->suspend = true;
+                        group->push_back(suspend_return);
+
+                        expression_t * condition = __new_obj<__binary_t>(operator_t::equal,
+                            name_of(state_field), __to_value_expression((int32_t)yield->state)
+                        );
+
+                        walk(condition);
+
+                        dispatch->yields.push_back(yield);
+                        dispatch->conditions.push_back(condition);
+                    }
+
+                    yield->lowered = group;
+                }
+            }
+
+            if (!dispatch->awaits.empty() || !dispatch->yields.empty())
+                this->body->push_front((statement_t *)dispatch);
+
+            context.commit_types();
+            return;
+        }
+
         if (state_field == nullptr || current_field == nullptr)
             return;
 
@@ -8712,7 +9480,11 @@ namespace X_ROOT_NS::modules::compile {
 
                 group->push_back(statement_of(assign_of(current_field, yield->expression)));
                 group->push_back(statement_of(assign_of(state_field, value_of(yield->state))));
-                group->push_back(return_of(true));
+
+                // The iterator goes on from here: the finally blocks that it is in do not run now.
+                statement_t * suspend = return_of(true);
+                ((return_statement_t *)suspend)->suspend = true;
+                group->push_back(suspend);
 
                 expression_t * condition = __new_obj<__binary_t>(operator_t::equal,
                     name_of(state_field), value_of(yield->state)

@@ -52,6 +52,9 @@ $default_value: default \( $type_name \) ;
 # OverflowException when the result does not fit its type, or not.
 $checked_exp: (checked | unchecked) \( $expression \) ;
 
+# Await expression: await task . The operand is a name, a call, a member... (await a.F() waits for what a.F() returns).
+$await_exp: await $_single_expression ;
+
 # Type name expression: System.Int32.
 $type_name_exp: $type_name ;
 
@@ -67,7 +70,7 @@ $type_cast_exp: \( $type_name \) ($_single_expression | $type_cast_exp) ;
 $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new_array | $new | $type_of
-    | $default_value | $checked_exp | $name_unit | $lambda
+    | $default_value | $checked_exp | $await_exp | $name_unit | $lambda
     | \( $_expression (, $_expression)* \)
   ) !!? ( (. | \?.) $__item !!? )*
 #|
@@ -324,9 +327,9 @@ $for_st:
     $statement
 ;
 
-# For ... each statement.
+# For ... each statement. await foreach goes through an IAsyncEnumerable<T>: it waits for each item.
 $for_each_st:
-    foreach \( $type_name name in $expression \)
+    await? foreach \( $type_name name in $expression \)
     $statement
 ;
 

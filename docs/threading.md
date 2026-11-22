@@ -114,7 +114,7 @@ the default of the type. The objects of the threads that ended are not freed (a 
 * **The concurrent collections** hold the lock of the object for each call; the enumerators go through a copy. The factories
   of `GetOrAdd` and `AddOrUpdate` run out of the lock.
 
-There is no `async` / `await` (it needs a state machine of the compiler).
+`async` / `await`: see `docs/async.md`.
 
 ## Parallel threads (phase 4): the native programs and the JIT
 
@@ -141,7 +141,7 @@ while a thread is in the runtime.
 
 ## Not done yet
 
-The upgradeable `ReaderWriterLockSlim`, `async` / `await`, `TaskScheduler`, the options of `ContinueWith`, `Parallel` with a loop state. `Thread.Abort`,
+The upgradeable `ReaderWriterLockSlim`, `TaskScheduler`, the options of `ContinueWith`, `Parallel` with a loop state. `Thread.Abort`,
 priorities and the affinity are not planned. The interpreter runs one thread at a time (the runtime is not made to be used in parallel: the commands, the lazy tables, the string
 pool). A condition expression `c? a : b` whose value is a struct of a generic param and that has a call as a branch
 is not supported.

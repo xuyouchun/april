@@ -3432,6 +3432,11 @@ namespace X_ROOT_NS::modules::compile {
         if (__is_member_expression(exp))
             return __is_whole_effective(exp->parent);
 
+        // The behaviour of an await is that of the call that waits (that is its operand): what is done with its value
+        // depends on what holds it.
+        if (exp->this_family() == expression_family_t::checked && ((checked_expression_t *)exp)->is_await)
+            return __is_whole_effective(exp->parent);
+
         return __is_effective(exp->get_behaviour()) || __is_whole_effective(exp->parent);
     }
 
@@ -5092,7 +5097,8 @@ namespace X_ROOT_NS::modules::compile {
         __FailedWhenNull(exp, _T("expression empty"));
 
         bool checked = ctx.checked;
-        ctx.checked = this->checked;
+        if (!this->is_await)
+            ctx.checked = this->checked;
 
         exp->compile(ctx, pool, env);
 

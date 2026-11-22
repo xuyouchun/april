@@ -4,6 +4,9 @@
  *  The light synchronization types: each has the lock of its own object, not the gate of the wait handles.
  */
 
+using Collections;
+using Threading.Tasks;
+
 namespace Threading;
 
 ////////// ////////// ////////// ////////// //////////
@@ -13,6 +16,7 @@ public class SemaphoreSlim : IDisposable
 {
     private Int32 __count;
     private Int32 __maximum;
+    private List<Task>? __waiters;
 
     public SemaphoreSlim(Int32 initialCount) : this(initialCount, 2147483647)
     {
@@ -64,6 +68,35 @@ public class SemaphoreSlim : IDisposable
         return Wait(Waiting.ToMilliseconds(timeout));
     }
 
+    // The task ends when a count is taken (at once if there is one). The ones that wait go on in the order they asked.
+    public Task WaitAsync()
+    {
+        lock (this)
+        {
+            if (__count > 0)
+            {
+                __count = __count - 1;
+                return Task.CompletedTask;
+            }
+
+            if (__waiters == null)
+                __waiters = new List<Task>();
+
+            Task waiter = new Task(true);
+            __waiters.Add(waiter);
+
+            return waiter;
+        }
+    }
+
+    // Takes a count (waits for it), and gives it back when what it returns is disposed:
+    //     using (await semaphore.LockAsync()) { ... await ... }
+    public Task<IDisposable> LockAsync()
+    {
+        await WaitAsync();
+        return new SemaphoreReleaser(this);
+    }
+
     public Int32 Release()
     {
         return Release(1);
@@ -75,21 +108,59 @@ public class SemaphoreSlim : IDisposable
         if (releaseCount < 1)
             throw new ArgumentException("the count is not positive");
 
+        List<Task>? ready = null;
+        Int32 before;
+
         lock (this)
         {
-            Int32 before = __count;
+            before = __count;
             if (__maximum - __count < releaseCount)
                 throw new SemaphoreFullException("the count is over the maximum");
 
             __count = __count + releaseCount;
             Monitor.PulseAll(this);
 
-            return before;
+            // The counts go to the tasks that wait.
+            while (__count > 0 && __waiters != null && __waiters.Count > 0)
+            {
+                if (ready == null)
+                    ready = new List<Task>();
+
+                ready.Add(__waiters[0]);
+                __waiters.RemoveAt(0);
+                __count = __count - 1;
+            }
         }
+
+        if (ready != null)
+        {
+            for (Int32 k = 0; k < ready.Count; k++)
+                ready[k].__Finish(TaskStatus.RanToCompletion, null);
+        }
+
+        return before;
     }
 
     public Void Dispose()
     {
+    }
+}
+
+////////// ////////// ////////// ////////// //////////
+
+// What SemaphoreSlim.LockAsync returns: disposing it gives the count back.
+internal class SemaphoreReleaser : IDisposable
+{
+    private SemaphoreSlim __semaphore;
+
+    internal SemaphoreReleaser(SemaphoreSlim semaphore)
+    {
+        __semaphore = semaphore;
+    }
+
+    public Void Dispose()
+    {
+        __semaphore.Release();
     }
 }
 

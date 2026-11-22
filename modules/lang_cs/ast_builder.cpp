@@ -1539,6 +1539,24 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(checked_exp, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // await_exp
+
+    __ApplyToken(await_exp, token, args) { }
+
+    __ApplyAst(await_exp, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(_single_expression):
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(await_exp, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // statements
 
     __ApplyToken(statements, token, args) { }
@@ -1824,6 +1842,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __TokenValue(name):
                 __This->set_variable(this->__to_name(token), token);
+                break;
+
+            case __TokenValue(k_await):
+                __This->is_await = true;
                 break;
         }
     }

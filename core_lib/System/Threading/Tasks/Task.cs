@@ -110,6 +110,38 @@ public class Task
         Wait(-1);
     }
 
+    // What `await task` uses.
+    public TaskAwaiter GetAwaiter()
+    {
+        return new TaskAwaiter(this);
+    }
+
+    // Waits for the end of the task: throws the exception of the task as it is (the first one of the AggregateException, a
+    // TaskCanceledException for a canceled task).
+    internal Void __AwaitResult()
+    {
+        lock (this)
+        {
+            if (__status == TaskStatus.Created)
+                throw new InvalidOperationException("the task has not been started");
+
+            while (!IsCompleted)
+                Monitor.Wait(this);
+        }
+
+        if (__status == TaskStatus.Faulted)
+        {
+            AggregateException? aggregate = __error as AggregateException;
+            if (aggregate != null && aggregate.InnerExceptions.Length > 0)
+                throw aggregate.InnerExceptions[0];
+
+            throw __error;
+        }
+
+        if (__status == TaskStatus.Canceled)
+            throw new TaskCanceledException("the task was canceled");
+    }
+
     // Waits for some milliseconds (-1 is for ever): returns whether the task ended.
     public Boolean Wait(Int32 millisecondsTimeout)
     {
@@ -230,6 +262,16 @@ public class Task
     public static Task Delay(Int32 millisecondsDelay)
     {
         return Delay(millisecondsDelay, CancellationToken.None);
+    }
+
+    // A task that has not ended: await Task.Yield() goes on in the thread pool (it gives the turn to the other work).
+    public static Task Yield()
+    {
+        Task task = new Task(true);
+        Delegate<Void> finish = () => task.__Finish(TaskStatus.RanToCompletion, null);
+        ThreadPool.QueueUserWorkItem(finish);
+
+        return task;
     }
 
     public static Task Delay(TimeSpan delay)
@@ -503,6 +545,19 @@ public class Task<T> : Task
             Wait();
             return __result;
         }
+    }
+
+    // What `await task` uses.
+    public new TaskAwaiter<T> GetAwaiter()
+    {
+        return new TaskAwaiter<T>(this);
+    }
+
+    // Waits for the end of the task, returns the result or throws the exception (see Task.__AwaitResult).
+    internal T __AwaitValue()
+    {
+        __AwaitResult();
+        return __result;
     }
 
     // Sets the result and ends the task, returns false when it had ended.

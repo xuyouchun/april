@@ -270,6 +270,13 @@ namespace X_ROOT_NS::modules::compile {
         // run, and its value is not returned.
         bool discard_value = false;
 
+        // The statements that do it in a method that is a state machine: the task gets the value, and the method returns.
+        statement_t * lowered = nullptr;
+
+        // The return is a suspension of an iterator (or of an asynchronous method): the method goes on later from
+        // the place where it was, so the finally blocks it is in do not run.
+        bool suspend = false;
+
         // Compiles this statement.
         virtual void compile(statement_compile_context_t & ctx) override;
 
@@ -428,6 +435,10 @@ namespace X_ROOT_NS::modules::compile {
         std::vector<yield_statement_t *> yields;
         std::vector<expression_t *>      conditions;
         statement_t *                    end_check = nullptr;
+
+        // The awaits of a state machine, and their conditions (state == n): the method goes on after the await.
+        std::vector<checked_expression_t *> awaits;
+        std::vector<expression_t *>         await_conditions;
 
         // Compiles this statement.
         virtual void compile(statement_compile_context_t & ctx) override;

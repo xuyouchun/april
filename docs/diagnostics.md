@@ -212,6 +212,7 @@ the others are errors.
 | AP5205 | error | `iterator_not_supported` | iterator "%1%" is not supported: %2% |
 | AP5206 | error | `iterator_return_type_invalid` | "%1%": a method that has yield statements must return IEnumerable<T> or IEnumerator<T> |
 | AP5207 | error | `yield_outside_iterator` | "yield" can only be used in a method that returns IEnumerable<T> or IEnumerator<T> |
+| AP5208 | error | `await_not_supported` | the await of "%1%" is not supported: %2% |
 | AP5300 | error | `unexpected_expression` | unexpected expression "%1%" |
 | AP5301 | error | `invalid_expression` | invalid expression "%1%" |
 | AP5302 | error | `invalid_type_cast` | cannot implicitly convert type "%1%" to "%2%" |

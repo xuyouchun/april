@@ -96,11 +96,52 @@ namespace X_ROOT_NS::modules::compile {
             return label;
         }
 
+        // A method that is a state machine waits at the beginning of the statement, where nothing is on the stack of the
+        // evaluation (it is left there when the method returns, and the method goes on from there): for each await of the
+        // expression (the inner ones first) the awaiter is got, and the method suspends if the task has not ended.
+        static void __append_await_prepares(__context_t & ctx, expression_t * expression)
+        {
+            if (expression == nullptr || ctx.method == nullptr || ctx.method->iterator_info == nullptr)
+                return;
+
+            std::vector<checked_expression_t *> awaits;
+
+            std::function<void (expression_t *)> collect = [&](expression_t * e) {
+                if (e == nullptr)
+                    return;
+
+                for (size_t k = 0, count = e->expression_count(); k < count; k++)
+                    collect(e->expression_at(k));
+
+                if (e->this_family() == expression_family_t::checked)
+                {
+                    checked_expression_t * aw = (checked_expression_t *)e;
+                    if (aw->is_await && aw->await_prepare != nullptr)
+                        awaits.push_back(aw);
+                }
+            };
+
+            collect(expression);
+
+            for (checked_expression_t * aw : awaits)
+            {
+                if (std::find(ctx.awaits_made.begin(), ctx.awaits_made.end(), (void *)aw) != ctx.awaits_made.end())
+                    continue;
+
+                ctx.awaits_made.push_back((void *)aw);
+
+                _A(aw->await_label >= 0);
+                compile_statement(ctx, (statement_t *)aw->await_prepare);
+                append_local_label(ctx, aw->await_label);
+            }
+        }
+
         // Appends expression condition.
         void append_expression(__context_t & ctx, expression_t * expression, bool sealed_parent)
         {
             if (expression != nullptr)
             {
+                __append_await_prepares(ctx, expression);
                 __walk_variables(expression);
 
                 if (sealed_parent)
@@ -674,6 +715,13 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles this statement.
     void return_statement_t::compile(statement_compile_context_t & ctx) 
     {
+        // A state machine: the value is given to the task (that has its own awaits).
+        if (lowered != nullptr)
+        {
+            compile_statement(ctx, lowered);
+            return;
+        }
+
         if (expression != nullptr)
         {
             __walk_variables(expression);
@@ -692,7 +740,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // In protected regions, a leave command is inserted before the return, after the
         // value of the expression.
-        append_xilx<return_xilx_t>(ctx, expression, __need_leave(ctx));
+        append_xilx<return_xilx_t>(ctx, expression, !suspend && __need_leave(ctx));
     }
 
     // Returns exit type.
@@ -1048,6 +1096,14 @@ namespace X_ROOT_NS::modules::compile {
 
             append_expression(ctx, conditions[index]);
             append_jmp(ctx, yields[index]->label, xil_jmp_model_t::true_);
+        }
+
+        for (size_t index = 0; index < awaits.size(); index++)
+        {
+            awaits[index]->await_label = ctx.next_local_label();
+
+            append_expression(ctx, await_conditions[index]);
+            append_jmp(ctx, awaits[index]->await_label, xil_jmp_model_t::true_);
         }
     }
 

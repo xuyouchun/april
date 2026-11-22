@@ -1690,7 +1690,14 @@ namespace X_ROOT_NS::modules::native {
                 if (it == entry_types.end())
                     entry_types[label] = types;
                 else if (it->second != types)
-                    throw _ED(__e_t::bad_stack, fn.display, _T("stacks differ at a branch"));
+                {
+                    string_t first, second;
+                    for (const std::string & t : it->second) first += __wide(t) + _T(" ");
+                    for (const std::string & t : types) second += __wide(t) + _T(" ");
+
+                    throw _ED(__e_t::bad_stack, fn.display, _F(_T("stacks differ at a branch (xil %1%): [%2%] and [%3%]"),
+                                                                 xil_index, first, second));
+                }
 
                 for (size_t k = 0; k < stack.size(); k++)
                 {
@@ -1707,8 +1714,15 @@ namespace X_ROOT_NS::modules::native {
             // The end of the finally blocks are made at the end.
             std::vector<std::pair<int, std::string>> finally_ends;
 
+            // A `leave.ret` was seen: the return that follows is made in a protected block, and runs the finally blocks. The
+            // return of a suspension (an iterator that waits for the next call) has not one: it does not run them.
+            bool leave_ret_seen = false;
+
             // Returns, running the finally blocks that contain the return first.
             auto emit_return = [&]() {
+                bool unwinds = leave_ret_seen;
+                leave_ret_seen = false;
+
                 llb::value_t v;
                 if (fn.ret_type != "void")
                 {
@@ -1722,7 +1736,7 @@ namespace X_ROOT_NS::modules::native {
                 }
 
                 bool through_finally = false;
-                for (int b = inner_block(xil_index); b != -1; b = parent_of[b])
+                for (int b = inner_block(xil_index); unwinds && b != -1; b = parent_of[b])
                     through_finally = through_finally
                                     || xil_blocks[b].type == method_xil_block_type_t::finally_;
 
@@ -3770,6 +3784,7 @@ namespace X_ROOT_NS::modules::native {
                                 // compute the result, which the interpreter returns without.
                                 // The `ret` that follows runs the finally blocks, after the
                                 // result is computed.
+                                leave_ret_seen = true;
                                 break;
                             }
 
@@ -5938,7 +5953,7 @@ namespace X_ROOT_NS::modules::native {
             for (__fn_t * ctor : __static_constructors)
                 main_f.call("void", ctor->name, { });
 
-            main_f.call("void", entry.name, { });
+            main_f.call(entry.ret_type, entry.name, { });
 
             // An exception that nothing caught.
             llb::value_t pending = main_f.load("ptr", main_f.call("ptr", "april.exc_slot", { }));
@@ -5967,7 +5982,8 @@ namespace X_ROOT_NS::modules::native {
 
             __fn_t * entry = __function_of(entry_point);
 
-            if (!entry->param_types.empty() || entry->ret_type != "void")
+            // (A task that the program waits for in the entry point is a reference that nothing uses.)
+            if (!entry->param_types.empty() || (entry->ret_type != "void" && entry->ret_type != "ptr"))
             {
                 throw _ED(__e_t::unsupported_method, entry->display,
                           _T("entry points with arguments or a return value"));

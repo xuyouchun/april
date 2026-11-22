@@ -7492,6 +7492,15 @@ namespace X_ROOT_NS::modules::core {
         // checked or unchecked.
         bool checked = true;
 
+        // The expression is an await: its operand is the call that waits for the task (the checked-ness is not changed).
+        bool is_await = false;
+
+        // In a method that is a state machine: the statement that gets the awaiter and suspends the method when the task has not
+        // ended (a statement_t), the state of the method after it, and the label where the method goes on.
+        object_t * await_prepare = nullptr;
+        int        await_state   = 0;
+        int        await_label   = -1;
+
         // Expression.
         expression_t * expression() const _NE { return exps[0]; }
 
@@ -8962,6 +8971,9 @@ namespace X_ROOT_NS::modules::core {
 
         // The arithmetic raises on overflow: in checked { ... }.
         bool                    checked = false;
+
+        // The awaits (checked_expression_t) whose code that waits has been made.
+        std::vector<void *>     awaits_made;
 
         jmp_manager_t           jmp_manager;            // Jmp manager.
         switch_manager_t        switch_manager;         // Switch-case manager.

@@ -369,6 +369,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     __SimpleBuilder(checked_exp)
 
     ////////// ////////// ////////// ////////// //////////
+    // await_exp
+
+    __SimpleBuilder(await_exp)
+
+    ////////// ////////// ////////// ////////// //////////
     // statements
 
     __SimpleBuilder(statements)
