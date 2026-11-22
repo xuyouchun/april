@@ -3998,6 +3998,129 @@ namespace X_ROOT_NS::modules::compile {
         xil::append_label_xil(sctx, pool, end_jmp_xil);
     }
 
+    // A chain of + of strings (a + b + c + d) is the texts of its operands joined by one call of String.Concat (a call of
+    // the operator + makes a string for each +, and copies the ones that were made before). Each operand that is not a string is
+    // changed to its text by StringHelper.Text(operand), the same text as the operator + of String has for it. The order of the
+    // evaluation is the same (from the left to the right).
+    static bool __is_string_plus(expression_t * exp)
+    {
+        if (exp == nullptr || exp->this_family() != expression_family_t::binary)
+            return false;
+
+        binary_expression_t * binary = (binary_expression_t *)exp;
+        if (binary->op() != operator_t::add || binary->overload_method == nullptr || binary->op_property->is_assign)
+            return false;
+
+        type_t * host = binary->overload_method->get_host_type();
+        return host != nullptr && is_string_type(host);
+    }
+
+    // The operands of a chain, from the left to the right (the parentheses are not operands).
+    static void __collect_string_operands(expression_t * exp, std::vector<expression_t *> & operands)
+    {
+        while (exp->this_family() == expression_family_t::expressions && exp->expression_count() == 1)
+            exp = exp->expression_at(0);
+
+        if (__is_string_plus(exp))
+        {
+            __collect_string_operands(exp->expression_at(0), operands);
+            __collect_string_operands(exp->expression_at(1), operands);
+            return;
+        }
+
+        operands.push_back(exp);
+    }
+
+    // Returns the method of a type that has the name and the types of the arguments (the best that the arguments are converted to).
+    static method_t * __find_static_method(type_t * type, const char_t * name, const std::vector<type_t *> & types)
+    {
+        atypes_t atypes;
+        for (type_t * t : types)
+            atypes.push_back(atype_t(t));
+
+        analyze_member_args_t args(member_type_t::method, __XPool.to_name(name), &atypes);
+        return (method_t *)type->get_member(args, true);
+    }
+
+    static bool __try_compile_string_concat(__cctx_t & ctx, xil_pool_t & pool, binary_expression_t * top)
+    {
+        if (!__is_string_plus(top))
+            return false;
+
+        std::vector<expression_t *> operands;
+        __collect_string_operands(top, operands);
+
+        // Two operands are what the operator does.
+        if (operands.size() < 3)
+            return false;
+
+        type_t * string_type = top->overload_method->get_host_type();
+        type_t * helper_type = __XPool.get_string_helper_type();
+        if (helper_type == nullptr)
+            return false;
+
+        // The methods: the text of each operand (StringHelper.Text), Concat of the number of the texts.
+        std::vector<method_t *> texts(operands.size(), nullptr);
+        for (size_t k = 0; k < operands.size(); k++)
+        {
+            type_t * type = operands[k]->get_type();
+            if (type == nullptr || is_string_type(type))
+                continue;
+
+            texts[k] = __find_static_method(helper_type, _T("Text"), { type });
+            if (texts[k] == nullptr)
+                return false;
+        }
+
+        auto concat_of = [&](size_t count) -> method_t * {
+            return __find_static_method(string_type, _T("Concat"), std::vector<type_t *>(count, string_type));
+        };
+
+        for (size_t count = 2; count <= 8; count++)
+        {
+            if (concat_of(count) == nullptr)
+                return false;
+        }
+
+        // The texts are pushed and joined by groups of 8: the result of a group is the first text of the next one.
+        size_t index = 0;
+        bool first_group = true;
+
+        while (index < operands.size())
+        {
+            size_t room = first_group? 8 : 7;
+            size_t count = std::min<size_t>(room, operands.size() - index);
+
+            // The texts of the group: the result of the group before (it is the first one), and the operands.
+            size_t total = count + (first_group? 0 : 1);
+
+            method_t * concat = concat_of(total);
+
+            for (size_t k = 0; k < count; k++)
+            {
+                expression_t * operand = operands[index + k];
+                size_t position = k + (first_group? 0 : 1);
+
+                if (texts[index + k] != nullptr)
+                {
+                    __compile_argument(ctx, pool, operand, texts[index + k], 0);
+                    pool.append<x_method_call_xil_t>(xil_call_type_t::static_, __search_method_ref(ctx, texts[index + k]));
+                }
+                else
+                {
+                    __compile_argument(ctx, pool, operand, concat, (int)position);
+                }
+            }
+
+            pool.append<x_method_call_xil_t>(xil_call_type_t::static_, __search_method_ref(ctx, concat));
+
+            index += count;
+            first_group = false;
+        }
+
+        return true;
+    }
+
     // Compiles binary expression.
     void __sys_t<binary_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                        const __environment_t & env)
@@ -4032,6 +4155,10 @@ namespace X_ROOT_NS::modules::compile {
             }
             else
             {
+                // A chain of + of strings: one Concat of all the texts.
+                if (__try_compile_string_concat(ctx, pool, this))
+                    return;
+
                 // The value of x += y is made by the method, assigned by the caller.
                 bool is_value = ctx.overload_assign_value == this;
                 __compile_operator_overload(ctx, pool, !is_value, !is_value, env);

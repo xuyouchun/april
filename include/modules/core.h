@@ -61,6 +61,7 @@ namespace X_ROOT_NS::modules::core {
     #define CoreType_MulticastDelegate _T("MulticastDelegate<,...>")
     #define CoreType_Enum         _T("Enum")
     #define CoreType_Monitor      _T("Threading.Monitor")
+    #define CoreType_StringHelper _T("StringHelper")
     #define CoreType_Struct       _T("Struct")
     #define CoreType_ValueType    _T("ValueType")
     #define CoreType_Int8         _T("Int8")
@@ -5265,6 +5266,9 @@ namespace X_ROOT_NS::modules::core {
         // Returns System.Threading.Monitor type: the lock statement calls it.
         general_type_t * get_monitor_type();
 
+        // Returns System.StringHelper type (the methods that the compiler calls for the strings that have holes and for the chains of +).
+        general_type_t * get_string_helper_type();
+
         // Returns System.Struct type name: the base type of the structs.
         type_name_t * get_struct_type_name();
 
@@ -5395,6 +5399,7 @@ namespace X_ROOT_NS::modules::core {
         general_type_t * __type_type        = nullptr;
         general_type_t * __enum_type        = nullptr;
         general_type_t * __monitor_type     = nullptr;
+        general_type_t * __string_helper_type = nullptr;
         general_type_t * __struct_type      = nullptr;
         type_name_t      __struct_type_name;
         general_type_t * __ptr_type         = nullptr;

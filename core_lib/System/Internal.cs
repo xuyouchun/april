@@ -101,6 +101,24 @@ internal static class Internal
     public static extern String String_Concat(String a, String b);
 
     [Internal]
+    public static extern String String_Concat3(String? a, String? b, String? c);
+
+    [Internal]
+    public static extern String String_Concat4(String? a, String? b, String? c, String? d);
+
+    [Internal]
+    public static extern String String_Concat5(String? a, String? b, String? c, String? d, String? e);
+
+    [Internal]
+    public static extern String String_Concat6(String? a, String? b, String? c, String? d, String? e, String? f);
+
+    [Internal]
+    public static extern String String_Concat7(String? a, String? b, String? c, String? d, String? e, String? f, String? g);
+
+    [Internal]
+    public static extern String String_Concat8(String? a, String? b, String? c, String? d, String? e, String? f, String? g, String? h);
+
+    [Internal]
     public static extern Boolean String_Equals(String a, String b);
 
     [Internal]

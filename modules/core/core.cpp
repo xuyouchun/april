@@ -7435,6 +7435,12 @@ namespace X_ROOT_NS::modules::core {
         return __get_specified_type(__CoreTypeName(CoreType_Monitor), __monitor_type);
     }
 
+    // Returns System.StringHelper type.
+    general_type_t * xpool_t::get_string_helper_type()
+    {
+        return __get_specified_type(__CoreTypeName(CoreType_StringHelper), __string_helper_type);
+    }
+
     // Returns System.Struct type name.
     type_name_t * xpool_t::get_struct_type_name()
     {

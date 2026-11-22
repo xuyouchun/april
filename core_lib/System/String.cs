@@ -237,6 +237,18 @@ public partial struct String
 
     public static String Concat(String? a, String? b) => Internal.String_Concat(a, b);
 
+    public static String Concat(String? a, String? b, String? c) => Internal.String_Concat3(a, b, c);
+
+    public static String Concat(String? a, String? b, String? c, String? d) => Internal.String_Concat4(a, b, c, d);
+
+    public static String Concat(String? a, String? b, String? c, String? d, String? e) => Internal.String_Concat5(a, b, c, d, e);
+
+    public static String Concat(String? a, String? b, String? c, String? d, String? e, String? f) => Internal.String_Concat6(a, b, c, d, e, f);
+
+    public static String Concat(String? a, String? b, String? c, String? d, String? e, String? f, String? g) => Internal.String_Concat7(a, b, c, d, e, f, g);
+
+    public static String Concat(String? a, String? b, String? c, String? d, String? e, String? f, String? g, String? h) => Internal.String_Concat8(a, b, c, d, e, f, g, h);
+
     // The text of the format, where {index[,alignment][:format]} is the text of the argument at the index and {{ and }} are
     // the braces. A positive alignment is the width of the text of the argument (it is at the right of it), a negative one
     // has it at the left. The format is given to the arguments that are IFormattable (the numbers: "X2", "F3"), the others

@@ -107,6 +107,52 @@ namespace X_ROOT_NS::modules::rtlib {
         rstring_t   b;
     };
 
+    // String_Concat3 ... String_Concat8: the strings joined, one allocation (a null string is nothing).
+    namespace
+    {
+        struct __string8_args_t
+        {
+            rstring_t   a[8];
+        };
+
+        void __concat_n(rtlib_context_t & ctx, size_t count)
+        {
+            __string8_args_t * args = ctx.args<__string8_args_t>();
+
+            const rt_char_t * parts[8];
+            size_t lengths[8];
+            size_t total = 0;
+
+            for (size_t k = 0; k < count; k++)
+            {
+                parts[k] = *args->a[k];
+                lengths[k] = __length_of(parts[k]);
+                total += lengths[k];
+            }
+
+            rt_char_t * result = rt_string_init(allocate_string_memory(rt_string_bytes(total)), total);
+            size_t offset = 0;
+
+            for (size_t k = 0; k < count; k++)
+            {
+                if (lengths[k] > 0)
+                    std::memcpy(result + offset, parts[k], lengths[k] * sizeof(rt_char_t));
+
+                offset += lengths[k];
+            }
+
+            result[total] = 0;
+            ctx.return_<const rt_char_t *>(result);
+        }
+    }
+
+    void string_concat3(rtlib_context_t & ctx) { __concat_n(ctx, 3); }
+    void string_concat4(rtlib_context_t & ctx) { __concat_n(ctx, 4); }
+    void string_concat5(rtlib_context_t & ctx) { __concat_n(ctx, 5); }
+    void string_concat6(rtlib_context_t & ctx) { __concat_n(ctx, 6); }
+    void string_concat7(rtlib_context_t & ctx) { __concat_n(ctx, 7); }
+    void string_concat8(rtlib_context_t & ctx) { __concat_n(ctx, 8); }
+
     // String_Concat
     void string_concat(rtlib_context_t & ctx)
     {

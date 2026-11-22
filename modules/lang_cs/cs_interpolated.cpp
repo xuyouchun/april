@@ -11,6 +11,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     typedef token_error_code_t e_t;
 
     #define __Wt(value)  ((core::token_value_t)cs_token_value_t::value)
+    #define __Wt_of(value)  ((core::token_value_t)(value))
 
     ////////// ////////// ////////// ////////// //////////
 
@@ -584,10 +585,128 @@ namespace X_ROOT_NS::modules::lang_cs {
             return __new_token(__Wt(cvalue), p0, __p - p0, data);
         }
 
-        // String . Format ( "format" , expression ...
         std::vector<token_t *> tokens;
 
         int32_t length = (int32_t)(__p - p0);
+
+        // The tokens of the expression of a hole.
+        auto expression_tokens = [&](const __part_t & part) {
+            cs_token_enumerator_t * reader = __context.compile_context.new_obj<cs_token_enumerator_t>(
+                __context, __lang, part.begin, (size_t)(part.end - part.begin), __file
+            );
+
+            while (token_t * token = reader->next())
+                tokens.push_back(token);
+        };
+
+        auto punctuation = [&](cs_token_value_t value, const char_t * text) {
+            tokens.push_back(__new_token_with_text(__Wt_of(value), p0, length, text));
+        };
+
+        // A chain of + of strings when the alignments are numbers: ("a" + (x) + "b" + StringHelper.Part((y), "F2", 5)). The holes that have
+        // neither alignment nor format are operands of the +, the others are the text that StringHelper.Part makes (the compiler joins
+        // the texts of a chain of + with one call of String.Concat).
+        bool concat = true;
+        std::vector<int32_t> alignments(parts.size(), 0);
+
+        for (size_t k = 0; k < parts.size(); k++)
+        {
+            const string_t & alignment = parts[k].alignment;
+            if (!parts[k].hole || alignment.empty())
+                continue;
+
+            size_t i = alignment[0] == _T('-')? 1 : 0;
+            int64_t value = 0;
+            bool valid = i < alignment.size() && alignment.size() - i < 9;
+
+            for (size_t j = i; valid && j < alignment.size(); j++)
+            {
+                valid = alignment[j] >= _T('0') && alignment[j] <= _T('9');
+                value = value * 10 + (alignment[j] - _T('0'));
+            }
+
+            if (!valid)
+                concat = false;
+            else
+                alignments[k] = (int32_t)(i == 1? -value : value);
+        }
+
+        if (concat)
+        {
+            auto string_token = [&](const string_t & value) {
+                tokens.push_back(__new_token(__Wt(cvalue), p0, length, __new_token_data(value)));
+            };
+
+            auto plus = [&]() {
+                // + is a token that is an operator of two operands or of one (see the lexer of +).
+                token_data_t * data = __new_token_values_data(__Wt(add), __Wt(positive));
+                data->text = _T("+");
+                tokens.push_back(__new_token(__Wt(__unknown__), p0, length, data));
+            };
+
+            punctuation(cs_token_value_t::left_bracket, _T("("));
+
+            // The first operand is a string: the + that follow are those of String.
+            bool first = true;
+            if (parts.front().hole || parts.front().text.empty())
+            {
+                string_token(string_t());
+                first = false;
+            }
+
+            for (size_t k = 0; k < parts.size(); k++)
+            {
+                const __part_t & part = parts[k];
+
+                if (!part.hole)
+                {
+                    if (part.text.empty())
+                        continue;
+
+                    if (!first)
+                        plus();
+
+                    string_token(part.text);
+                    first = false;
+                    continue;
+                }
+
+                plus();
+
+                if (part.alignment.empty() && part.format.empty())
+                {
+                    punctuation(cs_token_value_t::left_bracket, _T("("));
+                    expression_tokens(part);
+                    punctuation(cs_token_value_t::right_bracket, _T(")"));
+                    continue;
+                }
+
+                // StringHelper.Part((x), "format", alignment)
+                tokens.push_back(__new_token_with_text(__Wt(name), p0, length, _T("StringHelper")));
+                punctuation(cs_token_value_t::member_point, _T("."));
+                tokens.push_back(__new_token_with_text(__Wt(name), p0, length, _T("Part")));
+                punctuation(cs_token_value_t::left_bracket, _T("("));
+                punctuation(cs_token_value_t::left_bracket, _T("("));
+                expression_tokens(part);
+                punctuation(cs_token_value_t::right_bracket, _T(")"));
+                punctuation(cs_token_value_t::comma, _T(","));
+
+                string_token(part.format);
+
+                punctuation(cs_token_value_t::comma, _T(","));
+                tokens.push_back(__new_token(__Wt(cvalue), p0, length, __new_token_data(tvalue_t((int32_t)alignments[k]))));
+                punctuation(cs_token_value_t::right_bracket, _T(")"));
+            }
+
+            punctuation(cs_token_value_t::right_bracket, _T(")"));
+
+            for (size_t k = 1; k < tokens.size(); k++)
+                __pending.push_back(tokens[k]);
+
+            return tokens[0];
+        }
+
+        // String . Format ( "format" , expression ...
 
         tokens.push_back(__new_token_with_text(__Wt(name), p0, length, _T("String")));
         tokens.push_back(__new_token_with_text(__Wt(member_point), p0, length, _T(".")));

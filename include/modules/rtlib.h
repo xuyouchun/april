@@ -153,6 +153,12 @@ namespace X_ROOT_NS::modules::rtlib {
 
     // String functions.
     __DefineFunc(string_concat);
+    __DefineFunc(string_concat3);
+    __DefineFunc(string_concat4);
+    __DefineFunc(string_concat5);
+    __DefineFunc(string_concat6);
+    __DefineFunc(string_concat7);
+    __DefineFunc(string_concat8);
     __DefineFunc(string_equals);
     __DefineFunc(string_compare);
     __DefineFunc(string_get_length);

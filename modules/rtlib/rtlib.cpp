@@ -70,6 +70,12 @@ namespace X_ROOT_NS::modules::rtlib {
 
             // String functions.
             __append_libfunc(_T("String_Concat"),           string_concat);
+            __append_libfunc(_T("String_Concat3"), string_concat3);
+            __append_libfunc(_T("String_Concat4"), string_concat4);
+            __append_libfunc(_T("String_Concat5"), string_concat5);
+            __append_libfunc(_T("String_Concat6"), string_concat6);
+            __append_libfunc(_T("String_Concat7"), string_concat7);
+            __append_libfunc(_T("String_Concat8"), string_concat8);
             __append_libfunc(_T("String_Equals"),           string_equals);
             __append_libfunc(_T("String_Compare"),          string_compare);
             __append_libfunc(_T("String_GetLength"),        string_get_length);

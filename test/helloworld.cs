@@ -12,15 +12,15 @@ class Program
     {
         try
         {
-            string url = @"http://www.baidu.com";
+            string s = "world";
+            // string sss = $"Hello {s}!";
 
-            HttpClient client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
-            HttpResponseMessage message = await client.GetAsync(url);
-            HttpContent content = message.Content;
-            string body = await content.ReadAsStringAsync();
+            string sss = $"""
+            Hi, \n
+            Hello {s}!!!
+            """;
 
-            Console.WriteLine(body);
+            Console.WriteLine(sss);
         }
         catch (Exception ex)
         {

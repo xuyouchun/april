@@ -40,6 +40,23 @@ public class Object
         return equality != null? equality.GetHashCode() : Internal.Object_GetHashCode(obj);
     }
 
+    // Returns the text of the object by a format: IFormattable of it (the numbers), or its text when it is not (the format is
+    // ignored), and an empty string for null. What {obj:format} of String.Format and of the interpolated strings is.
+    public static String Format(Object? obj, String? format)
+    {
+        if (obj == null)
+            return "";
+
+        if (format != null && format.Length > 0)
+        {
+            IFormattable formattable = obj as IFormattable;
+            if (formattable != null)
+                return formattable.ToString(format);
+        }
+
+        return ToString(obj);
+    }
+
     // Returns the text of the object: IStringable of it, or the full name of its type when the type
     // does not have it (the text of null is an empty string).
     public static String ToString(Object? obj)
