@@ -1798,6 +1798,10 @@ namespace X_ROOT_NS::modules::core {
         if (nullable_directive_seen && nullable_analyzer != nullptr)
             nullable_analyzer(this, mctx.logger);
 
+        // The cells of the params that lambdas modify.
+        for (statement_t * statement : lambda_prologue)
+            statement->compile(sctx);
+
         // Compiles statements to xilxes.
         for (statement_t * statement : body->statements)
         {

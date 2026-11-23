@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Linq;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 class Program
 {
@@ -12,15 +13,9 @@ class Program
     {
         try
         {
-            string s = "world";
-            // string sss = $"Hello {s}!";
+            int value = await __GetValueAsync();
 
-            string sss = $"""
-            Hi, \n
-            Hello {s}!!!
-            """;
-
-            Console.WriteLine(sss);
+            Console.WriteLine(value);
         }
         catch (Exception ex)
         {
@@ -28,12 +23,12 @@ class Program
         }
     }
 
-    private static void PrintArray(IEnumerable<int> arr)
+    private static Task<int> __GetValueAsync()
     {
-        foreach (int i in arr)
-        {
-            Console.WriteLine(i);
-        }
+        return Task.Run(() => {
+            return 42;
+        });
     }
-}
+
+ }
 

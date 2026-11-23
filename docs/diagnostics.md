@@ -207,7 +207,7 @@ the others are errors.
 | AP5200 | error | `lambda_outside_method` | a lambda can only be used in a method |
 | AP5201 | error | `lambda_type_undetermined` | the type of the lambda cannot be determined, it is not converted to a delegate |
 | AP5202 | error | `lambda_capture_not_supported` | a lambda that uses local variables is not supported: %1% |
-| AP5203 | error | `lambda_capture_modified` | local variable "%1%" is used by a lambda and cannot be modified (only the variables that cannot be shared: a param, a variable of an iterator or of a method that awaits, of foreach or catch) |
+| AP5203 | error | `lambda_capture_modified` | local variable "%1%" is used by a lambda and cannot be modified (only the variables that cannot be shared: a ref/out param, a param of a lambda, a variable or a param of an iterator or of a method that awaits, of foreach or catch) |
 | AP5204 | error | `lambda_capture_member` | a lambda that uses local variables cannot use the members of the object |
 | AP5205 | error | `iterator_not_supported` | iterator "%1%" is not supported: %2% |
 | AP5206 | error | `iterator_return_type_invalid` | "%1%": a method that has yield statements must return IEnumerable<T> or IEnumerator<T> |

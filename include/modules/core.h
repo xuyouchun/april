@@ -3697,6 +3697,9 @@ namespace X_ROOT_NS::modules::core {
         // The names of the variables that the lambda uses: a lambda in it uses them too.
         std::vector<name_t> lambda_captured_names;
 
+        // The statements that are run at the start of the method: they make the cells of the params that lambdas modify.
+        std::vector<statement_t *> lambda_prologue;
+
         // The arithmetic of the method raises on overflow: a lambda in checked(...) or
         // checked { ... }, 0 is not set, 1 is checked, 2 is unchecked.
         int checked_mode = 0;
@@ -5674,6 +5677,12 @@ namespace X_ROOT_NS::modules::core {
 
         // Param relation.
         param_t * param     = nullptr;
+
+        // A param that a lambda modifies is a field of a cell, like a local variable (see local_variable_t::cell_local): the
+        // cell is made, and holds the value of the param, at the start of the method.
+        local_variable_t * cell_local = nullptr;
+        field_variable_t * cell_value = nullptr;
+        bool               cell_ready = false;          // The code that makes the cell is added to the method.
 
         // Returns type of the param.
         virtual type_t * get_type() override;

@@ -8127,6 +8127,129 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // Returns whether the code of the method writes the variable of the name (x = ..., x++).
+    static bool __is_name_written(method_t * method, name_t name)
+    {
+        method_ast_node_t * ast = dynamic_cast<method_ast_node_t *>(method);
+        if (ast == nullptr)
+            return false;
+
+        std::vector<expression_t *> exps;
+        __collect_expressions(ast->child_at(method_ast_node_t::__body__), exps);
+        __collect_expressions(ast->lambda_expression_node, exps);
+
+        for (expression_t * exp : exps)
+        {
+            if (exp->this_family() == expression_family_t::name
+                    && ((name_expression_t *)exp)->name == name && __is_written_target(exp))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Returns the param of the method that a lambda may share (it is written, and the method is a plain one), or null.
+    static param_t * __shareable_param(method_t * method, name_t name)
+    {
+        if (method == nullptr || method->params == nullptr || method->is_lambda || method->iterator_info != nullptr)
+            return nullptr;
+
+        for (param_t * param : *method->params)
+        {
+            if (param->name != name)
+                continue;
+
+            if (is_addr_param(param->ptype) || param->ptype == param_type_t::extends
+                    || !__method_has_lambda(method) || !__is_name_written(method, name))
+            {
+                return nullptr;
+            }
+
+            return param;
+        }
+
+        return nullptr;
+    }
+
+    // The classes of the cells of the params.
+    struct __param_cell_t
+    {
+        method_t *      method;
+        name_t          name;
+        param_t *       param;
+        general_type_t * cell_type;
+        field_t *       value_field;
+    };
+
+    static std::vector<__param_cell_t> __param_cells;
+
+    static __param_cell_t * __find_param_cell(method_t * method, name_t name)
+    {
+        for (__param_cell_t & cell : __param_cells)
+        {
+            if (cell.method == method && cell.name == name)
+                return &cell;
+        }
+
+        return nullptr;
+    }
+
+    static __param_cell_t * __find_param_cell(param_t * param)
+    {
+        for (__param_cell_t & cell : __param_cells)
+        {
+            if (cell.param == param)
+                return &cell;
+        }
+
+        return nullptr;
+    }
+
+    // Returns whether the param is one of the method.
+    static bool __is_param_of(method_t * method, param_t * param)
+    {
+        if (method == nullptr || method->params == nullptr)
+            return false;
+
+        for (param_t * item : *method->params)
+        {
+            if (item == param)
+                return true;
+        }
+
+        return false;
+    }
+
+    // The slot and the field of the cell of a variable (null when it has none).
+    static local_variable_t * __cell_local_of(variable_t * variable)
+    {
+        if (variable == nullptr)
+            return nullptr;
+
+        if (variable->this_type() == variable_type_t::local)
+            return ((local_variable_t *)variable)->cell_value != nullptr? ((local_variable_t *)variable)->cell_local : nullptr;
+
+        if (variable->this_type() == variable_type_t::param)
+            return ((param_variable_t *)variable)->cell_value != nullptr? ((param_variable_t *)variable)->cell_local : nullptr;
+
+        return nullptr;
+    }
+
+    static field_variable_t * __cell_value_of(variable_t * variable)
+    {
+        if (variable == nullptr)
+            return nullptr;
+
+        switch (variable->this_type())
+        {
+            case variable_type_t::local:    return ((local_variable_t *)variable)->cell_value;
+            case variable_type_t::param:    return ((param_variable_t *)variable)->cell_value;
+            default:                        return nullptr;
+        }
+    }
+
     // Makes the method of the lambda, a method of the type that has the current method: it
     // is static if that one is. It is walked as a method of the type, so it cannot see the
     // variables of the method that has the lambda. The lambda is then the name of it.
@@ -8232,6 +8355,45 @@ namespace X_ROOT_NS::modules::compile {
         // not modified are copied.
         for (name_t captured_name : __captured_names)
         {
+            // A param of the method: it is not defined yet (its cell is made at the start of the method, see the end step).
+            param_t * shared_param = __shareable_param((method_t *)outer, captured_name);
+            if (shared_param != nullptr)
+            {
+                if (__find_param_cell((method_t *)outer, captured_name) != nullptr)
+                    continue;
+
+                string_t param_cell_name = __generated_name(_T("cell"), lambda_serial, owner_text) + _str(captured_name);
+                ast_node_t * param_cell_root = this->__parse_snippet(
+                    _T("public class ") + param_cell_name + _T(" { public Object value; }")
+                );
+
+                if (param_cell_root == nullptr || param_cell_root->child_count() == 0)
+                    continue;
+
+                type_ast_node_t * param_cell_node = (type_ast_node_t *)param_cell_root->child_at(0);
+                this->__mark_generated_type(context, (general_type_t *)param_cell_node);
+                ((general_type_t *)type)->nest_types.push_back((type_t *)param_cell_node);
+
+                auto * param_cell_layer = context.enter_type_level();
+                param_cell_node->on_walk(context, (int)walk_step_t::default_, nullptr);
+                context.leave_type_level(param_cell_layer);
+
+                general_type_t * param_cell_type = (general_type_t *)param_cell_node;
+                field_t * param_value_field = nullptr;
+                for (field_t * field : param_cell_type->fields)
+                    param_value_field = field;
+
+                if (param_value_field == nullptr)
+                    continue;
+
+                param_value_field->type_name = shared_param->type_name;
+                if (param_value_field->variable == nullptr)
+                    param_value_field->variable = __new_obj<field_variable_t>(param_value_field);
+
+                __param_cells.push_back({ (method_t *)outer, captured_name, shared_param, param_cell_type, param_value_field });
+                continue;
+            }
+
             variable_region_t * cell_region = context.current_region();
             variable_t * found = cell_region != nullptr? cell_region->get(captured_name) : nullptr;
             if (found == nullptr || found->this_type() != variable_type_t::local)
@@ -8249,14 +8411,7 @@ namespace X_ROOT_NS::modules::compile {
             __collect_expressions(owner_ast->child_at(method_ast_node_t::__body__), owner_exps);
             __collect_expressions(owner_ast->lambda_expression_node, owner_exps);
 
-            bool written = false;
-            for (expression_t * exp : owner_exps)
-            {
-                written = written || (exp->this_family() == expression_family_t::name
-                    && ((name_expression_t *)exp)->name == captured_name && __is_written_target(exp));
-            }
-
-            if (!written)
+            if (!__is_name_written(local->owner_method, captured_name))
                 continue;
 
             string_t cell_name = __generated_name(_T("cell"), lambda_serial, owner_text) + _str(captured_name);
@@ -8439,6 +8594,22 @@ namespace X_ROOT_NS::modules::compile {
             __captured.push_back(variable);
         }
 
+        // A param that is shared: its cell is a local variable that the method makes at its start.
+        for (variable_t * variable : __captured)
+        {
+            if (variable->this_type() != variable_type_t::param)
+                continue;
+
+            param_variable_t * param_var = (param_variable_t *)variable;
+            __param_cell_t * param_cell = __find_param_cell(param_var->param);
+            if (param_cell == nullptr || param_var->cell_local == nullptr || param_var->cell_value != nullptr)
+                continue;
+
+            param_var->cell_local->type_name->type = (type_t *)param_cell->cell_type;
+            param_var->cell_value = __new_obj<field_variable_t>(param_cell->value_field);
+            param_var->cell_value->hoist_base = param_var->cell_local;
+        }
+
         // The fields and the constructor.
         std::vector<field_t *> fields;
         for (size_t index = 0; index < __captured.size(); index++)
@@ -8482,11 +8653,8 @@ namespace X_ROOT_NS::modules::compile {
             type_name_t * type_name = __type_name_of(__captured[index]);
 
             // A variable that is modified: the lambda has its cell.
-            if (__captured[index]->this_type() == variable_type_t::local
-                    && ((local_variable_t *)__captured[index])->cell_value != nullptr)
-            {
-                type_name = ((local_variable_t *)__captured[index])->cell_local->type_name;
-            }
+            if (__cell_local_of(__captured[index]) != nullptr)
+                type_name = __cell_local_of(__captured[index])->type_name;
 
             fields[index]->type_name = type_name;
             (*constructor->params)[index]->type_name = type_name;
@@ -8515,8 +8683,7 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             // The ones that have a cell are shared: they can be modified.
-            bool has_cell = name_exp->variable->this_type() == variable_type_t::local
-                        && ((local_variable_t *)name_exp->variable)->cell_value != nullptr;
+            bool has_cell = __cell_local_of(name_exp->variable) != nullptr;
 
             if (!has_cell && std::find(__captured.begin(), __captured.end(), name_exp->variable)
                                                                     != __captured.end())
@@ -8603,16 +8770,15 @@ namespace X_ROOT_NS::modules::compile {
 
             for (size_t index = 0; index < __captured.size(); index++)
             {
-                local_variable_t * cell_owner = __captured[index]->this_type() == variable_type_t::local?
-                                                    (local_variable_t *)__captured[index] : nullptr;
-                bool cell = cell_owner != nullptr && cell_owner->cell_value != nullptr;
+                local_variable_t * cell_holder = __cell_local_of(__captured[index]);
+                bool cell = cell_holder != nullptr;
 
                 field_t * field = fields[index];
                 if (field->variable == nullptr)
                     field->variable = __new_obj<field_variable_t>(field);
 
                 // The cell that a lambda in this one passes to its own environment: the field that has it.
-                if (cell && name_exp->variable == cell_owner->cell_local)
+                if (cell && name_exp->variable == cell_holder)
                 {
                     name_exp->variable = field->variable;
                     continue;
@@ -8628,7 +8794,7 @@ namespace X_ROOT_NS::modules::compile {
                 }
 
                 // The value of the variable is the field of the cell that the field of the environment has.
-                auto * value = __new_obj<field_variable_t>(cell_owner->cell_value->field);
+                auto * value = __new_obj<field_variable_t>(__cell_value_of(__captured[index])->field);
                 value->hoist_base = field->variable;
                 name_exp->variable = value;
             }
@@ -8643,6 +8809,61 @@ namespace X_ROOT_NS::modules::compile {
 
             for (variable_t * variable : __captured)
             {
+                if (variable->this_type() == variable_type_t::param)
+                {
+                    param_variable_t * param_var = (param_variable_t *)variable;
+                    if (param_var->cell_value == nullptr || !__is_param_of((method_t *)__outer, param_var->param))
+                        continue;
+
+                    for (expression_t * exp : outer_own)
+                    {
+                        if (exp->this_family() == expression_family_t::name
+                                && ((name_expression_t *)exp)->variable == variable)
+                        {
+                            ((name_expression_t *)exp)->variable = param_var->cell_value;
+                        }
+                    }
+
+                    if (param_var->cell_ready)
+                        continue;
+
+                    typedef system_expression_t<name_expression_t> __name_t;
+
+                    auto * cell_class = (type_t *)param_var->cell_local->get_type();
+                    auto * new_cell = __new_obj<system_expression_t<new_expression_t>>();
+                    new_cell->type_name = __new_obj<type_name_t>(cell_class);
+                    new_cell->set_arguments(__new_obj<arguments_t>());
+
+                    expression_t * make = __new_obj<system_expression_t<binary_expression_t>>(operator_t::assign,
+                        __new_obj<__name_t>((variable_t *)param_var->cell_local), new_cell
+                    );
+
+                    walk_expression(this->__context, context, make);
+                    new_cell->constructor = find_constructor(this->__context, cell_class, new_cell->arguments());
+
+                    expression_t * assign = __new_obj<system_expression_t<binary_expression_t>>(operator_t::assign,
+                        __new_obj<__name_t>((variable_t *)param_var->cell_value),
+                        __new_obj<__name_t>(variable)
+                    );
+
+                    walk_expression(this->__context, context, assign);
+
+                    // The statement that makes the cell, and gives it the value of the param, is run at the start of the method.
+                    auto * holder = __new_obj<local_variable_t>(param_var->cell_local->type_name, param_var->param->name);
+                    holder->cell_local = param_var->cell_local;
+
+                    auto * item = __new_obj<defination_statement_item_t>(param_var->param->name, nullptr, holder);
+                    item->cell_new = make;
+                    item->hoist_assign = assign;
+
+                    auto * prologue = __new_obj<defination_statement_t>();
+                    prologue->push_back(item);
+
+                    ((method_t *)__outer)->lambda_prologue.push_back(prologue);
+                    param_var->cell_ready = true;
+                    continue;
+                }
+
                 if (variable->this_type() != variable_type_t::local)
                     continue;
 
@@ -8696,11 +8917,10 @@ namespace X_ROOT_NS::modules::compile {
         {
             argument_t * argument = __new_obj<argument_t>();
 
-            if (variable->this_type() == variable_type_t::local
-                    && ((local_variable_t *)variable)->cell_value != nullptr)
+            if (__cell_local_of(variable) != nullptr)
             {
                 argument->expression = __new_obj<system_expression_t<name_expression_t>>(
-                    (variable_t *)((local_variable_t *)variable)->cell_local
+                    (variable_t *)__cell_local_of(variable)
                 );
             }
             else
@@ -9228,6 +9448,16 @@ namespace X_ROOT_NS::modules::compile {
             for (param_t * param : *this->params)
             {
                 param_variable_t * variable = vd.define_param(param);
+
+                // A param that a lambda may modify has the slot of its cell (it holds an object; the type is that of the cell).
+                if (variable != nullptr && __shareable_param((method_t *)this, param->name) != nullptr)
+                {
+                    variable->cell_local = vd.define_local(
+                        __new_obj<type_name_t>(__XPool.get_object_type()),
+                        __to_name(_T("__cell_") + _str(param->name)), false, nullptr,
+                        (object_t *)(ast_node_t *)this
+                    );
+                }
 
                 // The state object of an iterator: the first param.
                 if (this->iterator_info != nullptr && ((iterator_info_t *)this->iterator_info)->base == nullptr)
