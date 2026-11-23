@@ -13,7 +13,8 @@
 // The base of all tuples, to use a tuple without knowing its items.
 public interface ITuple
 {
-    Int32 Count { get; }
+    // Returns the count of the items.
+    Int32 GetSize();
 
     // Returns the item of the index, a value is boxed.
     Object Get(Int32 index);
@@ -28,6 +29,7 @@ public interface ITuple
 [Internal]
 public interface ITuple<TItems ...> : ITuple
 {
+    // Empty.
 }
 
 ////////// ////////// ////////// ////////// //////////
@@ -42,11 +44,11 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
         Internal.Tuple_SetRange(typeof(__SelfType), items);
     }
 
-    public Int32 Count => Internal.Tuple_GetCount(typeof(__SelfType));
+    public Int32 GetSize() => Internal.Tuple_GetCount(typeof(__SelfType));
 
     public Object Get(Int32 index)
     {
-        if (index < 0 || index >= Count)
+        if (index < 0 || index >= GetSize())
             throw new OutOfRangeException();
 
         return Internal.Tuple_Get(typeof(__SelfType), index);

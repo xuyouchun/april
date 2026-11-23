@@ -364,6 +364,79 @@ namespace X_ROOT_NS::modules::core {
             return type_name;
         }
 
+        // Returns typename of ref, with the names of the items of a tuple.
+        type_name_t * __to_type_name(ref_t ref, bool nullable, res_t item_names)
+        {
+            if (item_names == res_t::null)
+                return __to_type_name(ref, nullable);
+
+            type_t * type = __get_type(ref);
+            if (type == nullptr)
+                return __to_type_name(type);
+
+            string_t text = (string_t)__to_sid(item_names);
+            size_t pos = 0;
+
+            type_name_t * type_name = __parse_item_names(text, pos, 0);
+            type_name->type = type;
+            type_name->nullable = nullable;
+
+            return type_name;
+        }
+
+        // Reads the names of the items: names := "Number,,Str", names<names|names> (see the writer).
+        type_name_t * __parse_item_names(const string_t & text, size_t & pos, int depth)
+        {
+            type_name_t * type_name = __new_obj<type_name_t>();
+            type_name->args_known = true;
+
+            size_t end = text.find_first_of(_T("<|>"), pos);
+            string_t names = text.substr(pos, end == string_t::npos? string_t::npos : end - pos);
+            pos = end == string_t::npos? text.size() : end;
+
+            if (!names.empty())
+            {
+                size_t begin = 0;
+
+                while (true)
+                {
+                    size_t comma = names.find(_T(','), begin);
+                    string_t item = names.substr(begin, comma == string_t::npos? string_t::npos : comma - begin);
+
+                    type_name->item_names.push_back(item.empty()? name_t::null
+                                                               : name_t(__SPool.to_sid(item)));
+                    if (comma == string_t::npos)
+                        break;
+
+                    begin = comma + 1;
+                }
+            }
+
+            if (pos < text.size() && text[pos] == _T('<') && depth < 8)
+            {
+                pos++;
+
+                while (pos <= text.size())
+                {
+                    type_name_t * arg = __parse_item_names(text, pos, depth + 1);
+                    type_name->arg_type_names.push_back(arg->has_item_names()? arg : nullptr);
+
+                    if (pos < text.size() && text[pos] == _T('|'))
+                    {
+                        pos++;
+                        continue;
+                    }
+
+                    if (pos < text.size() && text[pos] == _T('>'))
+                        pos++;
+
+                    break;
+                }
+            }
+
+            return type_name;
+        }
+
         // Returns type of ref.
         type_t * __get_type(ref_t ref)
         {
@@ -1170,7 +1243,7 @@ namespace X_ROOT_NS::modules::core {
             field->name             = __to_name(mt.name);
             field->decorate         = __to_decorate(mt.decorate);
 
-            field->type_name        = __to_type_name(mt.type, mt.nullable != 0);
+            field->type_name        = __to_type_name(mt.type, mt.nullable != 0, mt.item_names);
             field->attributes       = __to_attributes(mt.attributes, field);
             field->init_value       = __get_constant(mt.init_value);
 
@@ -1183,7 +1256,7 @@ namespace X_ROOT_NS::modules::core {
             method->name            = __to_name(mt.name);
             method->decorate        = __to_decorate(mt.decorate);
 
-            method->type_name       = __to_type_name(mt.type, mt.nullable != 0);
+            method->type_name       = __to_type_name(mt.type, mt.nullable != 0, mt.item_names);
             method->generic_params  = __to_generic_params(mt.generic_params);
             method->params          = __to_params(mt.params);
             method->trait           = mt.trait;
@@ -1198,7 +1271,7 @@ namespace X_ROOT_NS::modules::core {
             property->name          = __to_name(mt.name);
             property->decorate      = __to_decorate(mt.decorate);
 
-            property->type_name     = __to_type_name(mt.type, mt.nullable != 0);
+            property->type_name     = __to_type_name(mt.type, mt.nullable != 0, mt.item_names);
             property->attributes    = __to_attributes(mt.attributes, property);
             property->params        = __to_params(mt.params);
 
@@ -1230,7 +1303,7 @@ namespace X_ROOT_NS::modules::core {
             type_def->name          = __to_name(mt.name);
             type_def->decorate      = __to_decorate(mt.decorate);
 
-            type_def->type_name     = __to_type_name(mt.type);
+            type_def->type_name     = __to_type_name(mt.type, false, mt.item_names);
             type_def->params        = __to_type_def_params(mt.params);
             type_def->namespace_    = __to_namespace(mt.namespace_);
         }
@@ -1248,7 +1321,7 @@ namespace X_ROOT_NS::modules::core {
         {
             param->name             = __to_name(mt.name);
             param->attributes       = __to_attributes(mt.attributes, param);
-            param->type_name        = __to_type_name(mt.type, mt.nullable != 0);
+            param->type_name        = __to_type_name(mt.type, mt.nullable != 0, mt.item_names);
             param->ptype            = mt.param_type;
             param->default_value    = __get_constant(mt.default_value);
         }

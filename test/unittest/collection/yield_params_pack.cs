@@ -25,7 +25,7 @@ public static class Tools
     // How many items.
     public static Int32 Count<T ...>(T ... items)
     {
-        return ITuple.Create(items ...).Count;
+        return ITuple.Create(items ...).GetSize();
     }
 
     // A fixed param and the items; the items are given to a method.

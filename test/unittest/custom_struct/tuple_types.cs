@@ -41,11 +41,11 @@ class Program
         Console.WriteLine(t.Item1);
         Console.WriteLine(t.Item2);
         Console.WriteLine(t.Item3);
-        Console.WriteLine(t.Count);
+        Console.WriteLine(t.GetSize());
 
         Tuple<int, String> d = default(Tuple<int, String>);
         ITuple<int, String> b = d;
-        Console.WriteLine(b.Count);
+        Console.WriteLine(b.GetSize());
         Console.WriteLine(d.Item1);
 
         Tuple<int> one = new Tuple<int>(5);
@@ -64,7 +64,7 @@ class Program
 
         // Create makes the tuple in the heap.
         ITuple<int, String, bool> c = ITuple.Create(7, "hi", false);
-        Console.WriteLine(c.Count);
+        Console.WriteLine(c.GetSize());
         Console.WriteLine(c.Item1);
         Console.WriteLine(c.Item2);
         Console.WriteLine((int)c.Get(0));
@@ -72,7 +72,7 @@ class Program
 
         // ITuple is the base of all tuples.
         ITuple any = c;
-        Console.WriteLine(any.Count);
+        Console.WriteLine(any.GetSize());
         Console.WriteLine((String)any.Get(1));
 
         try

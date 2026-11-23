@@ -417,6 +417,11 @@ namespace X_ROOT_NS::modules::compile {
 
         analyze_stack_t stack(__context, __elements, property->pair_to, __deep + 1);
         __expression_t * expression = stack.analyze();
+
+        // A tuple that is in parentheses is complete.
+        if (expression != nullptr && expression->this_family() == expression_family_t::tuple)
+            ((tuple_expression_t *)expression)->closed = true;
+
         __push_expression(expression);
     }
 

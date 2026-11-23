@@ -191,6 +191,9 @@ the others are errors.
 | AP3215 | error | `attribute_named_argument_not_found` | attribute "%1%" has no field or property "%2%" to assign |
 | AP3216 | error | `variable_not_callable` | "%1%" is of the type "%2%", it is not a delegate and cannot be called |
 | AP3217 | error | `property_not_callable` | the delegate of the property "%1%" cannot be called: read it into a variable first |
+| AP3218 | error | `tuple_item_undetermined` | cannot determine the type of item %1% of the tuple |
+| AP3219 | error | `tuple_item_count_mismatch` | a tuple of %1% items cannot be made for type "%2%" |
+| AP3220 | error | `tuple_item_name_invalid` | "%1%" cannot be the name of an item of a tuple |
 | AP3230 | error | `type_not_found` | type "%1%" is not found |
 | AP3231 | error | `label_not_found` | label "%1%" is not found |
 | AP3300 | error | `assembly_reference_itself` | assembly "%1%" references itself |

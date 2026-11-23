@@ -825,9 +825,39 @@ namespace X_ROOT_NS::modules::compile {
         return __is_member_expression(exp, &exp0, nullptr) && exp0 == exp1;
     }
 
+    // Returns the expression that holds the value of exp, as the member sees it: ((T)new T(..)).X, the cast of
+    // a struct to its own type changes nothing, the value is still what the member is read from. A tuple literal
+    // is what it is lowered to (the new expression is its content).
+    static expression_t * __see_through(expression_t * exp)
+    {
+        while (exp->parent != nullptr)
+        {
+            expression_t * parent = exp->parent;
+
+            if (parent->this_family() == expression_family_t::tuple)
+            {
+                exp = parent;
+                continue;
+            }
+
+            if (parent->this_family() != expression_family_t::type_cast)
+                break;
+
+            type_t * type = parent->get_type(), * exp_type = exp->get_type();
+            if (type == nullptr || exp_type == nullptr || !is_custom_struct(type) || type != exp_type)
+                break;
+
+            exp = parent;
+        }
+
+        return exp;
+    }
+
     // Returns whether it's the left member expression.
     static bool __is_left_member(expression_t * exp)
     {
+        exp = __see_through(exp);
+
         if (exp->parent == nullptr)
             return false;
 
@@ -3414,7 +3444,7 @@ namespace X_ROOT_NS::modules::compile {
                 local_variable_t * variable = ctx.define_temp_local(ret_type);
                 __compile_local_variable(ctx, pool, variable);
             }
-            else if (__is_left_member(exp->parent, exp, true) || __is_function_namex(exp) || __is_index_namex(exp))
+            else if (__is_left_member(__see_through(exp)->parent, __see_through(exp), true) || __is_function_namex(exp) || __is_index_namex(exp))
             {
                 local_variable_t * variable = ctx.define_temp_local(ret_type);
                 __compile_local_variable(ctx, pool, variable);
@@ -6044,6 +6074,23 @@ namespace X_ROOT_NS::modules::compile {
             if (this_effective)
                 pool.append<x_array_end_xil_t>(dtype);
         }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // tuple_expression_t
+
+    // Executes tuple expression.
+    cvalue_t __sys_t<tuple_expression_t>::execute()
+    {
+        return cvalue_t::nan;
+    }
+
+    // Compiles tuple expression: the expression that makes the tuple.
+    void __sys_t<tuple_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
+                                                            const __environment_t & env)
+    {
+        __FailedWhenNull(this->lowered, _T("tuple expression is not analyzed"));
+        this->lowered->compile(ctx, pool, env);
     }
 
     ////////// ////////// ////////// ////////// //////////

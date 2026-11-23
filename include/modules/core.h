@@ -1917,6 +1917,31 @@ namespace X_ROOT_NS::modules::core {
         // String? can be null (see the nullable analysis).
         bool nullable = false;
 
+        // The names of the items, when the type is a tuple that is written with them: (Int32 Number, String Str),
+        // or a typedef of it. An item that has no name is name_t::null.
+        std::vector<name_t> item_names;
+
+        // The type names of the generic arguments (of the element, for an array), that tell the names of the items of
+        // the tuples that are in them: List<(Int32 A, Int32 B)>. A type name that has units tells them by its units; the
+        // others (the type of a var, a typedef, what a library has) keep them here, args_known marks that.
+        std::vector<type_name_t *> arg_type_names;
+        bool args_known = false;
+
+        // The count of the type names of the generic arguments.
+        virtual size_t arg_name_count() const { return arg_type_names.size(); }
+
+        // The type name of the generic argument, null if it is unknown.
+        virtual type_name_t * arg_name_at(size_t index) const
+        {
+            return index < arg_type_names.size()? arg_type_names[index] : nullptr;
+        }
+
+        // Returns whether it, or a generic argument of it, has the names of the items of a tuple.
+        bool has_item_names(int depth = 0) const;
+
+        // Takes the names of the items from another type name (the type of a var).
+        void take_item_names(const type_name_t * from);
+
         X_TO_STRING
     };
 
@@ -2986,6 +3011,9 @@ namespace X_ROOT_NS::modules::core {
 
         // Argument type.
         generic_arg_type_t atype = generic_arg_type_t::__default__;
+
+        // The name of the item, when the arguments are the items of a tuple type: (Int32 Number, String Str).
+        name_t name = name_t::null;
 
         // Returns type of the generic argument.
         type_t * get_type() const { return type_name? type_name->type : nullptr; }
@@ -7091,7 +7119,7 @@ namespace X_ROOT_NS::modules::core {
 
         new_, new_array, default_value, type_of, type_name, type_cast,
 
-        this_, base, name_unit, is, as, checked,
+        this_, base, name_unit, is, as, checked, tuple,
 
     X_ENUM_END
 
@@ -7865,6 +7893,9 @@ namespace X_ROOT_NS::modules::core {
         // Whether it is a member that is accessed only when the object is not null: a?.b
         bool null_conditional = false;
 
+        // The item of a tuple that has a name, Number: 1: the expression of the name and the value, it is not an operation.
+        bool named_item = false;
+
         // Returns whether this is the member of a chain that has a null conditional member
         // (a?.b.c): when the object of that is null, the whole chain is null.
         bool in_null_conditional_chain() const { return core::in_null_conditional_chain((expression_t *)this); }
@@ -8001,6 +8032,45 @@ namespace X_ROOT_NS::modules::core {
 
     private:
         std::vector<expression_t *> __expressions;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // A tuple literal: (1, "2"). Its items are the expressions that it has. The analysis turns it into an
+    // expression that makes the tuple (lowered), by the type that the context wants: new Tuple<A, B>(..) for
+    // a struct, ITuple.Create<A, B>(..) for a reference type (it is made in the heap, not boxed).
+    class tuple_expression_t : public expressions_t
+    {
+        typedef expressions_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        bool         closed  = false;       // It is in parentheses: a comma after it makes a new tuple.
+        std::vector<name_t> item_names;     // The names of the items: (Number: 1, Str: "2"), name_t::null for an item that has none.
+        expression_t * lowered = nullptr;   // The expression that makes the tuple.
+        type_t *     target  = nullptr;     // The type that the tuple is made for.
+
+        // Returns this family.
+        virtual expression_family_t this_family() const override
+        {
+            return expression_family_t::tuple;
+        }
+
+        // Returns vtype.
+        virtual vtype_t get_vtype() const override;
+
+        // Returns type.
+        virtual type_t * get_type() const override;
+
+        // The behaviour is that of what it is lowered to: a new expression, or a call.
+        virtual expression_behaviour_t get_behaviour() const override
+        {
+            return lowered != nullptr? lowered->get_behaviour() : expression_behaviour_t::default_;
+        }
+
+        // Converts to a string.
+        virtual const string_t to_string() const override;
     };
 
     //-------- ---------- ---------- ---------- ----------

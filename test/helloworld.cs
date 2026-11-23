@@ -6,6 +6,8 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
+typedef MyTuple<T1, T2> = Tuple<Tuple<T1, T2>, Tuple<T1, T2>, Tuple<T1, T2>>;
+
 class Program
 {
     [EntryPoint]
@@ -13,26 +15,15 @@ class Program
     {
         try
         {
-            typedef Dict = System.Collections.Dictionary<int, int>;
+            var tuple = (Name: "Wangbo", Value: 2, 3);
+            var tuple2 = tuple;
 
-            Dict dict = new Dict();
-            dict[1] = 111;
-            dict[2] = 222;
-
-            Console.WriteLine($"{dict[1]}, {dict[2]}");
+            Console.WriteLine($"{tuple2.Name}");
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
         }
     }
-
-    private static Task<int> __GetValueAsync()
-    {
-        return Task.Run(() => {
-            return 42;
-        });
-    }
-
  }
 

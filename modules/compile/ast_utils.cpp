@@ -68,6 +68,14 @@ namespace X_ROOT_NS::modules::compile {
 
         expression_family_t family = parent_exp->this_family();
 
+        // An item of a tuple: the tuple tells the type of it.
+        if (family == expression_family_t::tuple)
+            return nullptr;
+
+        // An item of the initializer of an array (new Tuple<Int32, String>[] { (1, "2") }): the type of the elements.
+        if (family == expression_family_t::new_array)
+            return ((new_array_expression_t *)parent_exp)->get_element_type();
+
         // An argument of a call or of a new expression (Take(Method), new Thread(Method)): the type that it is converted to
         // is that of the parameter, which the overload tells later, not the one of what the call is assigned to.
         if (family == expression_family_t::function || family == expression_family_t::new_)
@@ -585,6 +593,41 @@ namespace X_ROOT_NS::modules::compile {
             if (type == nullptr)
                 throw _E(ascertain_type_error_t::type_def_unsolved);
 
+            // The names of the items of a tuple that the typedef names, and those in its generic arguments.
+            if (type_def->type_name != nullptr
+                    && !__type_name->units.empty() && __type_name->units[__type_name->units.size() - 1] == unit)
+            {
+                __type_name->item_names = type_def->type_name->item_names;
+
+                // The arguments of the name are not those of the type that it names: a param of the typedef is the
+                // argument that the name is given.
+                __type_name->arg_type_names.clear();
+                __type_name->args_known = true;
+
+                for (size_t index = 0, count = type_def->type_name->arg_name_count(); index < count; index++)
+                {
+                    type_name_t * arg = type_def->type_name->arg_name_at(index);
+
+                    general_type_name_t * general = dynamic_cast<general_type_name_t *>(arg);
+                    if (general != nullptr && type_def->params != nullptr && unit->args != nullptr
+                            && general->units.size() == 1 && general->units[0] != nullptr
+                            && general->units[0]->args == nullptr)
+                    {
+                        for (size_t k = 0; k < type_def->params->size(); k++)
+                        {
+                            if ((*type_def->params)[k]->name == general->units[0]->name)
+                            {
+                                arg = k < unit->args->size() && (*unit->args)[k] != nullptr?
+                                                                    (*unit->args)[k]->type_name : nullptr;
+                                break;
+                            }
+                        }
+                    }
+
+                    __type_name->arg_type_names.push_back(arg);
+                }
+            }
+
             return __assign_type_def_param(type, unit, host_type);
         }
 
@@ -992,6 +1035,15 @@ namespace X_ROOT_NS::modules::compile {
             __walk(exp);
         }
 
+        // The tuple literal is made for the type that the context wants: (1, "2") that is given to
+        // an ITuple<Int32, String> is made in the heap, to a Tuple<Int32, String> is a struct.
+        void retarget(expression_t * exp, type_t * type)
+        {
+            if (exp != nullptr && exp->this_family() == expression_family_t::tuple
+                    && exp->walked && type != nullptr)
+                __lower_tuple((tuple_expression_t *)exp, type);
+        }
+
     private:
         ast_context_t       & __cctx;
         ast_walk_context_t  & __wctx;
@@ -1079,10 +1131,180 @@ namespace X_ROOT_NS::modules::compile {
                     __each(exp);
                 }   break;
 
+                case expression_family_t::tuple:
+                    __walk_tuple((tuple_expression_t *)exp);
+                    break;
+
                 default:
                     __each(exp);
                     break;
             }
+        }
+
+        // Walks a tuple literal: its items first, then the expression that makes it, for the type
+        // that the context wants (the declared type of the variable that it is assigned to, the type of
+        // a cast). A call, a return and the others tell it later (retarget), the tuple is
+        // made of the types of its items until then.
+        void __walk_tuple(tuple_expression_t * exp)
+        {
+            for (expression_t * item : *exp)
+                __walk(item);
+
+            type_t * target = pick_type_from_current_context(exp);
+            if (target != nullptr && target->this_gtype() == gtype_t::uncertain)
+                target = nullptr;
+
+            __lower_tuple(exp, target);
+        }
+
+        // Returns the type System.ITuple, that has the method Create.
+        type_t * __ituple_class()
+        {
+            general_type_name_t type_name;
+            name_unit_t system_unit(__to_name_of(_T("System")), nullptr);
+            name_unit_t ituple_unit(__to_name_of(_T("ITuple")), nullptr);
+            type_name.units.push_back(&system_unit);
+            type_name.units.push_back(&ituple_unit);
+
+            return ::april::modules::compile::__ascertain_type(__cctx, __wctx, &type_name);
+        }
+
+        // Makes the name of the string.
+        name_t __to_name_of(const char_t * s)
+        {
+            return name_t(__SPool.to_sid(s));
+        }
+
+        // Makes the expression that makes the tuple: new Tuple<..>(items) for a struct,
+        // ITuple.Create<..>(items) for a reference type.
+        void __lower_tuple(tuple_expression_t * exp, type_t * target)
+        {
+            xpool_t & xpool = __XPool;
+            size_t count = exp->expression_count();
+
+            type_t * type = target;
+            if (type != nullptr)
+            {
+                if (type_t * underlying = get_nullable_underlying(type); underlying != nullptr)
+                    type = underlying;
+            }
+
+            // The target tells the kind of the tuple, and the types of the items.
+            bool by_ref = false, has_item_types = false;
+            type_collection_t types;
+
+            if (type != nullptr && type->this_gtype() == gtype_t::generic)
+            {
+                generic_type_t * generic_type = (generic_type_t *)type;
+                general_type_t * template_ = generic_type->template_;
+
+                if (template_ == xpool.get_tuple_type() || template_ == xpool.get_ituple_type())
+                {
+                    by_ref = template_ == xpool.get_ituple_type();
+
+                    if (generic_type->args.size() != count)
+                    {
+                        ast_log(__cctx, exp, __c_t::tuple_item_count_mismatch, count, target);
+                        return;
+                    }
+
+                    for (type_t * arg : generic_type->args) types.push_back(arg);
+                    has_item_types = true;
+                }
+            }
+
+            // A reference that is not a tuple (Object, ITuple): the tuple is made in the heap.
+            if (!has_item_types && type != nullptr && type->this_gtype() != gtype_t::uncertain
+                    && can_be_null(type))
+                by_ref = true;
+
+            for (size_t index = 0; index < count; index++)
+            {
+                expression_t * item = exp->expression_at(index);
+
+                if (has_item_types)
+                {
+                    // A tuple that is an item is made for the type of the item.
+                    if (item->this_family() == expression_family_t::tuple)
+                        __lower_tuple((tuple_expression_t *)item, types[index]);
+                }
+                else
+                {
+                    type_t * item_type = get_expression_type(__cctx, item);
+                    if (item_type == nullptr || is_null(item_type))
+                    {
+                        ast_log(__cctx, item, __c_t::tuple_item_undetermined, index + 1);
+                        return;
+                    }
+
+                    types.push_back(item_type);
+                }
+            }
+
+            arguments_t * arguments = __new_obj<arguments_t>();
+            for (expression_t * item : *exp)
+            {
+                argument_t * argument = __new_obj<argument_t>();
+                argument->expression = item;
+                arguments->push_back(argument);
+            }
+
+            exp->target = target;
+
+            if (!by_ref)
+            {
+                type_t * tuple_type = xpool.new_generic_type(xpool.get_tuple_type(), types, nullptr);
+                __wctx.commit_types();
+
+                auto * new_exp = __new_obj<system_expression_t<new_expression_t>>();
+                new_exp->type_name = __new_obj<type_name_t>(tuple_type);
+                new_exp->set_arguments(arguments);
+                new_exp->parent = exp;
+                exp->lowered = new_exp;
+
+                __walk(new_exp);
+
+                new_exp->constructor = find_constructor(__cctx, tuple_type, arguments);
+                if (new_exp->constructor == nullptr)
+                {
+                    ast_log(__cctx, exp, __c_t::type_constructor_not_match, tuple_type,
+                                                        to_arg_types_str(__cctx, arguments));
+                    return;
+                }
+
+                convert_arguments(__cctx, __wctx, arguments, new_exp->constructor);
+                return;
+            }
+
+            type_t * ituple = __ituple_class();
+            if (ituple == nullptr)
+            {
+                ast_log(__cctx, exp, __c_t::type_undefined, _T("System.ITuple"));
+                return;
+            }
+
+            auto * type_exp = __new_obj<system_expression_t<name_expression_t>>(ituple);
+            auto * name_exp = __new_obj<system_expression_t<name_expression_t>>(__to_name_of(_T("Create")));
+            auto * member = __new_obj<system_expression_t<binary_expression_t>>(
+                operator_t::member_point, type_exp, name_exp
+            );
+
+            auto * call = __new_obj<system_expression_t<function_expression_t>>();
+            call->set_namex(member);
+            call->set_arguments(arguments);
+            call->generic_args = __new_obj<generic_args_t>();
+
+            for (type_t * item_type : types)
+            {
+                generic_arg_t * generic_arg = __new_obj<generic_arg_t>();
+                generic_arg->type_name = __new_obj<type_name_t>(item_type);
+                call->generic_args->push_back(generic_arg);
+            }
+
+            call->parent = exp;
+            exp->lowered = call;
+
+            __walk(call);
         }
 
         // Avoid to walk expression.
@@ -1842,6 +2064,305 @@ namespace X_ROOT_NS::modules::compile {
             return true;
         }
 
+        // Returns whether the type is a tuple.
+        static bool __is_tuple_type(type_t * type)
+        {
+            if (type == nullptr || type->this_gtype() != gtype_t::generic)
+                return false;
+
+            general_type_t * template_ = ((generic_type_t *)type)->template_;
+            return template_ == __XPool.get_tuple_type() || template_ == __XPool.get_ituple_type();
+        }
+
+        // The type name that the member of a generic type declares: the instance of a member has the types that
+        // replace the params, the raw member has the params (T this[Int32 index]).
+        static type_name_t * __raw_type_name(field_t * field)
+        {
+            impl_field_t * impl = dynamic_cast<impl_field_t *>(field);
+            return impl != nullptr && impl->raw != nullptr? impl->raw->type_name : field->type_name;
+        }
+
+        static type_name_t * __raw_type_name(property_t * property)
+        {
+            impl_property_t * impl = dynamic_cast<impl_property_t *>(property);
+            return impl != nullptr && impl->raw != nullptr? impl->raw->type_name : property->type_name;
+        }
+
+        static type_name_t * __raw_type_name(method_t * method)
+        {
+            impl_method_t * impl = dynamic_cast<impl_method_t *>(method);
+            return impl != nullptr && impl->raw != nullptr? impl->raw->type_name : method->type_name;
+        }
+
+        // The declared type name of the expression, that has the names of the items of a tuple: of a
+        // variable, a field, a property, a method that is called, a member of them, a cast.
+        static type_name_t * __declared_type_name(expression_t * exp)
+        {
+            if (exp == nullptr)
+                return nullptr;
+
+            switch (exp->this_family())
+            {
+                case expression_family_t::name: {
+                    variable_t * variable = ((name_expression_t *)exp)->variable;
+                    if (variable == nullptr)
+                        return nullptr;
+
+                    switch (variable->this_type())
+                    {
+                        case variable_type_t::local:
+                            return ((local_variable_t *)variable)->type_name;
+
+                        case variable_type_t::param:
+                            return ((param_variable_t *)variable)->param->type_name;
+
+                        case variable_type_t::field:
+                            return __raw_type_name(((field_variable_t *)variable)->field);
+
+                        case variable_type_t::property:
+                            return __raw_type_name(((property_variable_t *)variable)->property);
+
+                        default:
+                            return nullptr;
+                    }
+                }
+
+                case expression_family_t::binary:
+                    if (((binary_expression_t *)exp)->op() == operator_t::member_point)
+                        return __declared_type_name(((binary_expression_t *)exp)->exp2());
+
+                    return nullptr;
+
+                case expression_family_t::function: {
+                    function_expression_t * function_exp = (function_expression_t *)exp;
+                    if (function_exp->get_ftype() != function_expression_type_t::method)
+                        return nullptr;
+
+                    method_base_t * method = function_exp->get_method();
+                    if (method == nullptr || dynamic_cast<method_t *>(method) == nullptr)
+                        return nullptr;
+
+                    return __raw_type_name((method_t *)method);
+                }
+
+                case expression_family_t::type_cast:
+                    return ((type_cast_expression_t *)exp)->type_name;
+
+                default:
+                    return nullptr;
+            }
+        }
+
+        // The index of the param in the params of the generic type, -1 if it is not one of them.
+        static int __param_index_of(type_t * owner_type, type_t * param)
+        {
+            if (owner_type == nullptr || param == nullptr || owner_type->this_gtype() != gtype_t::generic)
+                return -1;
+
+            general_type_t * template_ = ((generic_type_t *)owner_type)->template_;
+            if (template_ == nullptr || template_->params == nullptr)
+                return -1;
+
+            for (size_t index = 0, count = template_->params->size(); index < count; index++)
+            {
+                if ((*template_->params)[index] == param)
+                    return (int)index;
+            }
+
+            return -1;
+        }
+
+        // The names of a member of a generic type: the type of the member is declared with the params of the type
+        // (T this[Int32 index], KeyValuePair<K, V> Current), the arguments of the object give the names that they have.
+        type_name_t * __substitute_names(type_name_t * declared, type_name_t * owner, type_t * owner_type,
+                                                                                        int depth = 0)
+        {
+            if (declared == nullptr || owner == nullptr || depth > 8)
+                return declared;
+
+            int index = __param_index_of(owner_type, declared->type);
+            if (index >= 0)
+                return owner->arg_name_at(index);
+
+            size_t count = declared->arg_name_count();
+            if (count == 0)
+                return declared;
+
+            std::vector<type_name_t *> args;
+            bool changed = false;
+
+            for (size_t k = 0; k < count; k++)
+            {
+                type_name_t * arg = declared->arg_name_at(k);
+                type_name_t * substituted = __substitute_names(arg, owner, owner_type, depth + 1);
+
+                changed = changed || substituted != arg;
+                args.push_back(substituted);
+            }
+
+            if (!changed)
+                return declared;
+
+            type_name_t * result = __new_obj<type_name_t>(declared->type);
+            result->item_names = declared->item_names;
+            result->nullable = declared->nullable;
+            result->arg_type_names = args;
+            result->args_known = true;
+
+            return result;
+        }
+
+    public:
+
+        // The type name that has the names of the items of the tuples that the expression is, or has in its generic
+        // arguments: of a variable, a field, a property, an indexer, a method that is called, a member of them, a cast.
+        type_name_t * names_of(expression_t * exp)
+        {
+            if (exp == nullptr)
+                return nullptr;
+
+            switch (exp->this_family())
+            {
+                case expression_family_t::name:
+                case expression_family_t::function:
+                case expression_family_t::type_cast:
+                    return __declared_type_name(exp);
+
+                case expression_family_t::binary: {
+                    binary_expression_t * binary = (binary_expression_t *)exp;
+                    if (binary->op() != operator_t::member_point)
+                        return nullptr;
+
+                    expression_t * exp1 = binary->exp1(), * exp2 = binary->exp2();
+                    type_name_t * owner = names_of(exp1);
+                    type_t * owner_type = exp1->get_type();
+
+                    // Item2 of a tuple is its second argument.
+                    if (owner != nullptr && exp2->this_family() == expression_family_t::name && __is_tuple_type(owner_type))
+                    {
+                        string_t text = (string_t)(sid_t)((name_expression_t *)exp2)->name;
+                        if (text.size() > 4 && text.compare(0, 4, _T("Item")) == 0
+                                && text.find_first_not_of(_T("0123456789"), 4) == string_t::npos)
+                            {
+                            size_t number = 0;
+                            for (size_t k = 4; k < text.size(); k++)
+                                number = number * 10 + (size_t)(text[k] - _T('0'));
+
+                            return number > 0? owner->arg_name_at(number - 1) : nullptr;
+                        }
+                    }
+
+                    return __substitute_names(__declared_type_name(exp2), owner, owner_type);
+                }
+
+                case expression_family_t::index: {
+                    index_expression_t * index_exp = (index_expression_t *)exp;
+                    expression_t * namex = index_exp->namex();
+                    if (namex == nullptr)
+                        return nullptr;
+
+                    type_name_t * owner = names_of(namex);
+                    type_t * owner_type = namex->get_type();
+
+                    variable_t * variable = index_exp->variable;
+                    if (variable != nullptr && variable->this_type() == variable_type_t::property_index)
+                    {
+                        return __substitute_names(__raw_type_name(((property_index_variable_t *)variable)->property),
+                                                                                            owner, owner_type);
+                    }
+
+                    // The element of an array.
+                    if (owner != nullptr && owner_type != nullptr && owner_type->this_gtype() == gtype_t::array)
+                        return owner->arg_name_at(0);
+
+                    return nullptr;
+                }
+
+                default:
+                    return nullptr;
+            }
+        }
+
+        // The names of the element that a foreach gets from the iterator: the element is an argument of the type of the
+        // iterator (List<T>), or has them (KeyValuePair<K, V> of Dictionary<K, V>).
+        type_name_t * element_names(expression_t * iterator, type_t * element_type)
+        {
+            type_name_t * source = names_of(iterator);
+            type_t * type = iterator != nullptr? iterator->get_type() : nullptr;
+
+            if (source == nullptr || type == nullptr || element_type == nullptr)
+                return nullptr;
+
+            if (type->this_gtype() == gtype_t::array)
+                return source->arg_name_at(0);
+
+            if (type->this_gtype() != gtype_t::generic)
+                return nullptr;
+
+            generic_type_t * generic = (generic_type_t *)type;
+            for (size_t k = 0; k < generic->argument_count(); k++)
+            {
+                if (generic->type_at(k) == element_type)
+                    return source->arg_name_at(k);
+            }
+
+            if (element_type->this_gtype() != gtype_t::generic)
+                return nullptr;
+
+            generic_type_t * element = (generic_type_t *)element_type;
+            type_name_t * result = __new_obj<type_name_t>(element_type);
+            result->args_known = true;
+
+            for (size_t j = 0; j < element->argument_count(); j++)
+            {
+                type_name_t * arg = nullptr;
+                for (size_t k = 0; k < generic->argument_count() && arg == nullptr; k++)
+                {
+                    if (generic->type_at(k) == element->type_at(j))
+                        arg = source->arg_name_at(k);
+                }
+
+                result->arg_type_names.push_back(arg);
+            }
+
+            return result->has_item_names()? result : nullptr;
+        }
+
+    private:
+
+        // The name of an item of a tuple is that of its declaration: tuple.Number is tuple.Item1. When
+        // the item has a name, Item1 is not its name. Returns whether the lookup goes on.
+        bool __use_item_name(expression_t * object, name_expression_t * name_exp, type_t * type)
+        {
+            type_name_t * type_name = names_of(object);
+            if (type_name == nullptr || type_name->item_names.empty())
+                return true;
+
+            const std::vector<name_t> & names = type_name->item_names;
+            const string_t & text = (string_t)(sid_t)name_exp->name;
+
+            for (size_t index = 0; index < names.size(); index++)
+            {
+                if (names[index] != name_t::null && names[index] == name_exp->name)
+                {
+                    name_exp->name = __to_name_of(_F(_T("Item%1%"), index + 1).c_str());
+                    return true;
+                }
+            }
+
+            // ItemN of an item that has a name.
+            for (size_t index = 0; index < names.size(); index++)
+            {
+                if (names[index] != name_t::null && text == _F(_T("Item%1%"), index + 1))
+                {
+                    ast_log(__cctx, name_exp, __c_t::member_not_found, name_exp->name, type);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         // Walks member.
         __exp2_walked_t __walk_member(expression_t * exp1, expression_t * exp2)
         {
@@ -1855,6 +2376,13 @@ namespace X_ROOT_NS::modules::compile {
                     ast_log(__cctx, exp1, __c_t::type_undetermind, exp1);
 
                 return __exp2_walked_t::yes;
+            }
+
+            // The items of a tuple that is written with names have them: tuple.Number.
+            if (exp2->this_family() == expression_family_t::name && __is_tuple_type(type))
+            {
+                if (!__use_item_name(exp1, (name_expression_t *)exp2, type))
+                    return __exp2_walked_t::yes;
             }
 
             // field & property
@@ -2054,7 +2582,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             member_t * member;
             if (!__try_get_member(type, name_exp, &member))
-                return __exp2_walked_t::no;
+                return __exp2_walked_t::yes;    // The error is told, the name is not looked up again.
 
             // _PP(member->this_type());
             switch (member->this_type())
@@ -2107,7 +2635,7 @@ namespace X_ROOT_NS::modules::compile {
         {
             member_t * member;
             if (!__try_get_member(type, name_unit_exp, &member))
-                return __exp2_walked_t::no;
+                return __exp2_walked_t::yes;    // The error is told, the name is not looked up again.
 
             switch (member->this_type())
             {
@@ -3035,6 +3563,12 @@ namespace X_ROOT_NS::modules::compile {
                         if (__walk_extension_method(name, function_exp))
                             return;
 
+                        // An argument has no type because of an error that is told: the call
+                        // cannot match for that reason, and it is not an error of its own.
+                        if (__cctx.compile_context.error_count() > 0
+                            && al::any_of(atypes, [](const atype_t & a) { return a.type == nullptr; }))
+                            return;
+
                         if (methods.empty())
                             ast_log(__cctx, function_exp, __c_t::method_not_found, name, type);
                         else
@@ -3137,7 +3671,7 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             // The arguments that an implicit operator converts to the types of the params.
-            convert_arguments(arguments, function_exp->get_method());
+            convert_arguments(__cctx, __wctx, arguments, function_exp->get_method());
 
             // out var value: the type is that of the param.
             if (arguments != nullptr)
@@ -3253,6 +3787,53 @@ namespace X_ROOT_NS::modules::compile {
         cast->is_implicit = true;
         cast->parent = parent;
         return cast;
+    }
+
+    // Converts the arguments of a call to the types of the params; a tuple literal is made for the
+    // type of the param.
+    void convert_arguments(ast_context_t & cctx, ast_walk_context_t & wctx,
+                                        arguments_t * arguments, method_base_t * method)
+    {
+        if (arguments == nullptr || method == nullptr)
+            return;
+
+        for (size_t index = 0, count = std::min((size_t)arguments->size(), (size_t)method->param_count());
+                                                                                    index < count; index++)
+        {
+            argument_t * argument = arguments->at(index);
+            if (argument->atype != param_type_t::__default__
+                    || argument->expression->this_family() != expression_family_t::tuple)
+                continue;
+
+            type_t * param_type = method->param_type_at(index).type();
+            if (param_type != nullptr && !is_generic_param(param_type) && !has_generic_params(param_type))
+                retarget_tuple(cctx, wctx, argument->expression, param_type);
+        }
+
+        convert_arguments(arguments, method);
+    }
+
+    // The tuple literal is made for the type: an ITuple is made in the heap, a Tuple is a struct.
+    void retarget_tuple(ast_context_t & cctx, ast_walk_context_t & wctx,
+                                                    expression_t * expression, type_t * type)
+    {
+        __walk_expression_t(cctx, wctx).retarget(expression, type);
+    }
+
+    // The type name takes the names of the items of the tuples that the expression is, or has in its generic arguments.
+    void take_item_names(ast_context_t & cctx, ast_walk_context_t & wctx, type_name_t * type_name,
+                                                                        expression_t * expression)
+    {
+        if (type_name != nullptr)
+            type_name->take_item_names(__walk_expression_t(cctx, wctx).names_of(expression));
+    }
+
+    // The type name takes the names of the items of the element that a foreach gets from the iterator.
+    void take_element_item_names(ast_context_t & cctx, ast_walk_context_t & wctx, type_name_t * type_name,
+                                                        expression_t * iterator, type_t * element_type)
+    {
+        if (type_name != nullptr)
+            type_name->take_item_names(__walk_expression_t(cctx, wctx).element_names(iterator, element_type));
     }
 
     // Converts the arguments of a call to the types of the params.

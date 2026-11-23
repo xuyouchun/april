@@ -915,6 +915,15 @@ namespace X_ROOT_NS::modules::compile {
         // A property that holds a delegate is called: obj.Property(args).
         property_not_callable = 3217,
 
+        // The type of an item of a tuple literal is not known: (1, null).
+        tuple_item_undetermined = 3218,
+
+        // The count of the items of a tuple literal is not that of the type that it is made for.
+        tuple_item_count_mismatch = 3219,
+
+        // The name of an item of a tuple type is used twice, or is a member of the tuple.
+        tuple_item_name_invalid = 3220,
+
         // ---- AP3300 - AP3399: assemblies.
 
         // A reference of itself.
@@ -2013,6 +2022,11 @@ namespace X_ROOT_NS::modules::compile {
                 && al::equals(((sid_t)unit->name).c_str(), s);
         }
 
+        // The generic arguments of the last unit are those of the type, unless they are told by the names of the
+        // items (the type of a var, an alias).
+        virtual size_t arg_name_count() const override;
+        virtual type_name_t * arg_name_at(size_t index) const override;
+
         // Converts to a string.
         X_TO_STRING
     };
@@ -2025,6 +2039,13 @@ namespace X_ROOT_NS::modules::compile {
     public:
         type_name_t * element_type_name = nullptr;
         al::svector_t<expression_t *, 2> dimensions;
+
+        // The element is its generic argument.
+        virtual size_t arg_name_count() const override { return element_type_name != nullptr? 1 : 0; }
+        virtual type_name_t * arg_name_at(size_t index) const override
+        {
+            return index == 0? element_type_name : nullptr;
+        }
 
         // Converts to a string.
         X_TO_STRING
@@ -3078,6 +3099,10 @@ namespace X_ROOT_NS::modules::compile {
         // Appends constant value.
         void append_cvalue(ast_node_t * node);
 
+        // The colon after a name: the name and the expression that follows are an item of a tuple that
+        // has a name (Number: 1).
+        void begin_named_item();
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -3090,6 +3115,9 @@ namespace X_ROOT_NS::modules::compile {
     private:
         __es_t __es;
         expression_t * __expression = nullptr;
+        bool         __named_item   = false;        // A name that has a colon is the last element.
+        name_t       __named_name   = name_t::null;
+        token_t *    __named_token  = nullptr;
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -3502,6 +3530,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Set constant.
         void set_constant(bool constant);
+
+        // Makes the value of an item that is an item of a tuple: tuple.Item<N>.
+        void __make_tuple_item(ast_walk_context_t & context, defination_statement_item_t * var_item);
 
     private:
         // Walks default step.

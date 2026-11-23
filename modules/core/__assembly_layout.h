@@ -1068,6 +1068,7 @@ namespace X_ROOT_NS::modules::core {
         ref_t           attributes;         // Field attributes
         ref_t           init_value;         // Field default value.
         uint8_t         nullable;           // The type is annotated with ?: it can be null.
+        res_t           item_names;         // The names of the items of a tuple type: "Number,Str".
 
     __EndDefineMt(field)
 
@@ -1088,6 +1089,7 @@ namespace X_ROOT_NS::modules::core {
         ref_t           get_method;         // The get method
         ref_t           set_method;         // The set method.
         uint8_t         nullable;           // The type is annotated with ?: it can be null.
+        res_t           item_names;         // The names of the items of a tuple type: "Number,Str".
 
     __EndDefineMt(property)
 
@@ -1110,6 +1112,7 @@ namespace X_ROOT_NS::modules::core {
 
         method_trait_t  trait;              // Method trait.
         uint8_t         nullable;           // The type is annotated with ?: it can be null.
+        res_t           item_names;         // The names of the items of a tuple type: "Number,Str".
 
     __EndDefineMt(method)
 
@@ -1144,6 +1147,7 @@ namespace X_ROOT_NS::modules::core {
         ref_t           type;               // Host type
         ref_t           params;             // Params
         res_t           namespace_;         // Namespace
+        res_t           item_names;         // The names of the items of a tuple type: "Number,Str".
 
     __EndDefineMt(type_def)
 
@@ -1234,6 +1238,7 @@ namespace X_ROOT_NS::modules::core {
         param_type_t    param_type;         // Param type: ref, out, params
         ref_t           default_value;      // Default value.
         uint8_t         nullable;           // The type is annotated with ?: it can be null.
+        res_t           item_names;         // The names of the items of a tuple type: "Number,Str".
 
     __EndDefineMt(param)
 

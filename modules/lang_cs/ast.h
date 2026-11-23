@@ -274,6 +274,8 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __Ast(_defination_st_item)
 
+        __type_name__,
+
         __expression__,
 
     __EndAst(_defination_st_item)
@@ -293,6 +295,13 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // Sets name.
         void set_name(name_t name, __el_t * el);
+
+        // The value of the item is an item of the tuple that a variable holds.
+        void set_tuple_source(name_t source, int index)
+        {
+            __item.tuple_source = source;
+            __item.tuple_index  = index;
+        }
 
         // Commits this node.
         virtual void on_commit() override;

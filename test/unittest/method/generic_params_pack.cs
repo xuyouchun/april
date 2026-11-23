@@ -31,18 +31,18 @@ class Program
     {
         // Inferred.
         ITuple<int, String, bool> a = ITuple.Create(5, "x", true);
-        Console.WriteLine(a.Count);
+        Console.WriteLine(a.GetSize());
         Console.WriteLine(Maker.First("a", 1, 2.5, "s"));
         Console.WriteLine(a.Item1);
         Console.WriteLine(a.Item2);
 
         // No items.
         ITuple none = ITuple.Create();
-        Console.WriteLine(none.Count);
+        Console.WriteLine(none.GetSize());
 
         // Given.
         ITuple<int, String> two = ITuple.Create<int, String>(1, "z");
-        Console.WriteLine(two.Count);
+        Console.WriteLine(two.GetSize());
         Console.WriteLine(Maker.First<int, int>("k", 1, 2) == "k"? 2 : 0);
         Console.WriteLine(a.Item3);
 

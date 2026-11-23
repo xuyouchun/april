@@ -190,6 +190,29 @@ namespace X_ROOT_NS::modules::lang_cs {
     __SimpleBuilder(generic_arg)
 
     ////////// ////////// ////////// ////////// //////////
+    // deconstruct_st, deconstruct_assign_st
+
+    // The nodes of the statements that the deconstructions are made of.
+    typedef defination_st_ast_node_t        deconstruct_st_ast_node_t;
+    typedef statement_group_st_ast_node_t   deconstruct_assign_st_ast_node_t;
+
+    __Builder(deconstruct_st)
+
+        ast_node_t * __args = nullptr;
+        ast_node_t * __value = nullptr;
+        token_t    * __first = nullptr;
+
+    __EndBuilder
+
+    __Builder(deconstruct_assign_st)
+
+        std::vector<std::pair<name_t, token_t *>> __names;
+        ast_node_t * __value = nullptr;
+        token_t    * __first = nullptr;
+
+    __EndBuilder
+
+    ////////// ////////// ////////// ////////// //////////
     // generic_args
 
     __Builder(generic_args)
@@ -291,7 +314,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // _single_expression
 
-    __SimpleBuilder(_single_expression)
+    __Builder(_single_expression)
+
+        int __questions = 0;        // The ? that have not their colon yet.
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // _function_name_expression

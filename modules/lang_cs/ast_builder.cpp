@@ -248,6 +248,18 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __AstValue(name_unit):
                 __This->append_child(__Type::__units__, node);
                 break;
+
+            // (int Number, string Str) is System.Tuple<Int32, String>, the names are kept by the arguments.
+            case __AstValue(generic_args): {
+                auto * unit = this->template __new_ast<name_unit_ast_node_t>();
+                unit->name = this->__to_name(_T("Tuple"));
+                unit->set_child(name_unit_ast_node_t::__generic_args__, node);
+                unit->on_commit();
+
+                __This->append_child(__Type::__units__, this->__to_name_unit_ast(_T("System")));
+                __This->append_child(__Type::__units__, unit);
+                __This->set_global_type(global_type_t::global);
+            }   break;
         }
     }
 
@@ -526,6 +538,11 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __TokenValue(k_params):
                 __This->set_atype(generic_arg_type_t::params);
                 break;
+
+            // The name of the item of a tuple type.
+            case __TokenValue(name):
+                __This->name = this->__to_name(token);
+                break;
         }
     }
 
@@ -542,6 +559,153 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(generic_arg, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // deconstruct_st
+
+    // The number of the hidden variables that hold the tuples.
+    static int __deconstruct_counter = 0;
+
+    __ApplyToken(deconstruct_st, token, args)
+    {
+        if (__first == nullptr)
+            __first = token;
+    }
+
+    __ApplyAst(deconstruct_st, node, args)
+    {
+        if (node->value() == __AstValue(generic_args))
+            __args = node;
+        else if (is<expression_ast_t *>(node))
+            __value = node;
+    }
+
+    // (T1 a, T2 b) = value; is: var __tupleN = value; and the variables, of the items of the tuple.
+    __OnCompleted(deconstruct_st, args)
+    {
+        _A(__args != nullptr && __value != nullptr);
+
+        name_t tuple_name = this->__to_name(_F(_T("__tuple%1%"), ++__deconstruct_counter));
+
+        // The tuple: var __tupleN = value;
+        auto * uncertain = this->template __new_ast<uncertain_type_name_ast_node_t>();
+        uncertain->on_commit();
+
+        auto * type_name = this->template __new_ast<type_name_ast_node_t>();
+        type_name->set_child(type_name_ast_node_t::__underlying__, uncertain);
+        type_name->on_commit();
+        __This->set_child(__Type::__type_name__, type_name);
+
+        auto * tuple_item = this->template __new_ast<_defination_st_item_ast_node_t>();
+        tuple_item->set_name(tuple_name, __first);
+        tuple_item->set_child(_defination_st_item_ast_node_t::__expression__, __value);
+        tuple_item->on_commit();
+        __This->append_child(__Type::__items__, tuple_item);
+
+        // The variables.
+        int index = 0;
+        auto * arg_nodes = (generic_args_ast_node_t *)__args;
+        for (size_t k = 0, count = arg_nodes->child_count(generic_args_ast_node_t::__generic_args__);
+                                                                                    k < count; k++)
+        {
+            auto * arg = (generic_arg_ast_node_t *)arg_nodes->child_at(
+                                            generic_args_ast_node_t::__generic_args__, k);
+
+            auto * item = this->template __new_ast<_defination_st_item_ast_node_t>();
+            item->code_unit = arg->code_unit != nullptr? arg->code_unit : __args->code_unit;
+            if (arg->name != name_t::null)
+                item->set_name(arg->name, __first);
+
+            item->set_child(_defination_st_item_ast_node_t::__type_name__,
+                            arg->child_at(generic_arg_ast_node_t::__type_name__));
+            item->set_tuple_source(tuple_name, index++);
+            item->on_commit();
+
+            __This->append_child(__Type::__items__, item);
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // deconstruct_assign_st
+
+    __ApplyToken(deconstruct_assign_st, token, args)
+    {
+        if (__first == nullptr)
+            __first = token;
+
+        if (token->value == __TokenValue(name))
+            __names.push_back(std::make_pair(this->__to_name(token), token));
+    }
+
+    __ApplyAst(deconstruct_assign_st, node, args)
+    {
+        if (is<expression_ast_t *>(node))
+            __value = node;
+    }
+
+    // (a, b) = value; is { var __tupleN = value; a = __tupleN.Item1; b = __tupleN.Item2; }
+    __OnCompleted(deconstruct_assign_st, args)
+    {
+        _A(__value != nullptr);
+
+        typedef _single_expression_ast_node_t __single_t;
+
+        name_t tuple_name = this->__to_name(_F(_T("__tuple%1%"), ++__deconstruct_counter));
+
+        auto token_of = [&](cs_token_value_t value) {
+            return this->template __new_obj<token_t>((token_value_t)value,
+                                                     __first != nullptr? (const code_unit_t *)*__first : nullptr);
+        };
+
+        // The expression that has the tokens.
+        auto expression_of = [&](ast_node_t * single) {
+            auto * exp = this->template __new_ast<expression_ast_node_t>();
+            exp->append_expression(single);
+            exp->code_unit = __This->code_unit;
+            exp->on_commit();
+            return exp;
+        };
+
+        // var __tupleN = value;
+        auto * uncertain = this->template __new_ast<uncertain_type_name_ast_node_t>();
+        uncertain->on_commit();
+
+        auto * type_name = this->template __new_ast<type_name_ast_node_t>();
+        type_name->set_child(type_name_ast_node_t::__underlying__, uncertain);
+        type_name->on_commit();
+
+        auto * define = this->template __new_ast<defination_st_ast_node_t>();
+        define->set_child(defination_st_ast_node_t::__type_name__, type_name);
+
+        auto * tuple_item = this->template __new_ast<_defination_st_item_ast_node_t>();
+        tuple_item->set_name(tuple_name, __first);
+        tuple_item->set_child(_defination_st_item_ast_node_t::__expression__, __value);
+        tuple_item->on_commit();
+        define->append_child(defination_st_ast_node_t::__items__, tuple_item);
+        define->on_commit();
+
+        __This->append_child(__Type::__statements__, define);
+
+        // a = __tupleN.Item1;
+        int index = 0;
+        for (auto & target : __names)
+        {
+            auto * single = this->template __new_ast<__single_t>();
+            single->append_name(target.first, target.second);
+            single->append_token(token_of(cs_token_value_t::assign));
+            single->append_name(tuple_name, target.second);
+            single->append_token(token_of(cs_token_value_t::member_point));
+            single->append_name(this->__to_name(_F(_T("Item%1%"), ++index)), target.second);
+            single->code_unit = __This->code_unit;
+            single->on_commit();
+
+            auto * statement = this->template __new_ast<expression_st_ast_node_t>();
+            statement->set_child(expression_st_ast_node_t::__expression__, expression_of(single));
+            statement->on_commit();
+
+            __This->append_child(__Type::__statements__, statement);
+        }
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // generic_args
 
     __ApplyToken(generic_args, token, args)
@@ -550,6 +714,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __TokenValue(comma):
             case __TokenValue(right_angle):
+            case __TokenValue(right_bracket):
                 __This->append_child(__Type::__generic_args__, __last_arg);
                 __last_arg = nullptr;
                 break;
@@ -1100,6 +1265,25 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __TokenValue(name):
                 __This->append_name(this->__to_name(token), token);
+                break;
+
+            // The condition a ? b : c has a colon for each ?. A colon that is not one of them is that of the name
+            // of an item of a tuple: (Number: 1, Str: "2"); the name and the value are one element.
+            case __TokenValue(question_mark):
+                __questions++;
+                __This->append_token(token);
+                break;
+
+            case __TokenValue(question_colon):
+                if (__questions > 0)
+                {
+                    __questions--;
+                    __This->append_token(token);
+                }
+                else
+                {
+                    __This->begin_named_item();
+                }
                 break;
 
             default:

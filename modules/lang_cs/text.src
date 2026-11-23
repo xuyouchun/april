@@ -72,7 +72,7 @@ $_single_expression: ($__item:
       name | $cvalue | base | this
     | $index | $function | $new_array | $new | $type_of
     | $default_value | $checked_exp | $name_unit | $lambda
-    | \( $_expression (, $_expression)* \)
+    | \( (name `\: )? $_expression (, (name `\: )? $_expression)* \)    # a tuple, its items can have names
   ) !!? ( (. | \?.) $__item !!? )*
 #|
 #  $type_name_exp (. $__item )+
@@ -170,6 +170,7 @@ $general_type_name:
      |  void | object
      |  char | string | byte | sbyte | short | ushort | int | uint | long | ulong | bool
      |  double | float | decimal
+     |  $tuple_args
     ) \??                                      # T? is Nullable<T>
 ;
 
@@ -209,6 +210,9 @@ $generic_arg: (out | ref | params)? $type_name name?;
 
 # Generic arguments: MyClass<int, long>.
 $generic_args: < $generic_arg? (, $generic_arg?) * ...? !:> ;
+
+# The items of a tuple type: (int Number, string Str), (int, string). It is Tuple<..> of the items; the names are kept.
+$tuple_args: \( $generic_arg (, $generic_arg)+ \) ;
 
 # Param of methods.
 $param:  $attributes (out | ref | params | this)? $type_name ...? name (= $expression)? ;
@@ -394,6 +398,12 @@ $defination_st:
     const? $type_name ($__item: name (= $expression)?) (, $__item)* \;
 ;
 
+# Deconstruction that declares variables: (int Number, string Str) = tuple; . Each item has a type (var too) and a name.
+$deconstruct_st: $tuple_args = $expression \; ;
+
+# Deconstruction that assigns variables: (a, b) = (b, a); .
+$deconstruct_assign_st: !:\( name (, name)+ \) = $expression \; ;
+
 # Expression statement: a = b + c;
 $expression_st: $expression \; ;
 
@@ -430,7 +440,7 @@ $statement:
     $do_while_st | $while_st | $for_st | $for_each_st | $using_st
   | $if_st | $switch_st | $try_st | $empty_st
   | $break_st | $continue_st | $throw_st | $return_st | $goto_st | $yield_st
-  | $expression_st | $defination_st | $type_def_st
+  | $deconstruct_assign_st | $deconstruct_st | $expression_st | $defination_st | $type_def_st
   | $statement_group_st
 ;
 

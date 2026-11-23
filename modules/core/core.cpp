@@ -10304,6 +10304,64 @@ namespace X_ROOT_NS::modules::core {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // tuple_expression_t
+
+    // Returns vtype of the tuple.
+    ////////// ////////// ////////// ////////// //////////
+    // type_name_t, the names of the items of the tuples
+
+    // Returns whether it, or a generic argument of it, has the names of the items of a tuple.
+    bool type_name_t::has_item_names(int depth) const
+    {
+        if (!item_names.empty())
+            return true;
+
+        if (depth > 8)
+            return false;
+
+        for (size_t index = 0, count = arg_name_count(); index < count; index++)
+        {
+            type_name_t * arg = arg_name_at(index);
+            if (arg != nullptr && arg->has_item_names(depth + 1))
+                return true;
+        }
+
+        return false;
+    }
+
+    // Takes the names of the items from another type name (the type of a var).
+    void type_name_t::take_item_names(const type_name_t * from)
+    {
+        if (from == nullptr || !from->has_item_names())
+            return;
+
+        item_names = from->item_names;
+        arg_type_names.clear();
+
+        for (size_t index = 0, count = from->arg_name_count(); index < count; index++)
+            arg_type_names.push_back(from->arg_name_at(index));
+
+        args_known = true;
+    }
+
+    vtype_t tuple_expression_t::get_vtype() const
+    {
+        return lowered != nullptr? lowered->get_vtype() : vtype_t::__unknown__;
+    }
+
+    // Returns type of the tuple.
+    type_t * tuple_expression_t::get_type() const
+    {
+        return lowered != nullptr? lowered->get_type() : nullptr;
+    }
+
+    // Converts to a string.
+    const string_t tuple_expression_t::to_string() const
+    {
+        return __super_t::to_string();
+    }
+
+    ////////// ////////// ////////// ////////// //////////
 
     // Returns an expression type.
     type_t * get_expression_type(expression_t * expression)

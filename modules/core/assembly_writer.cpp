@@ -311,6 +311,61 @@ namespace X_ROOT_NS::modules::core {
             mt->extends = param->extends? 1 : 0;
         }
 
+        // The names of the items of a tuple type, and of those in its generic arguments:
+        //   names := "Number,,Str", names<names|names>   e.g. List<(Int32 A, Int32 B)> is "<A,B>".
+        void __append_item_names(string_t & text, type_name_t * type_name, int depth)
+        {
+            for (size_t index = 0; index < type_name->item_names.size(); index++)
+            {
+                if (index > 0)
+                    text += _T(",");
+
+                name_t name = type_name->item_names[index];
+                if (name != name_t::null)
+                    text += (string_t)(sid_t)name;
+            }
+
+            if (depth > 8)
+                return;
+
+            size_t count = type_name->arg_name_count();
+            bool any = false;
+
+            for (size_t index = 0; index < count && !any; index++)
+            {
+                type_name_t * arg = type_name->arg_name_at(index);
+                any = arg != nullptr && arg->has_item_names();
+            }
+
+            if (!any)
+                return;
+
+            text += _T("<");
+
+            for (size_t index = 0; index < count; index++)
+            {
+                if (index > 0)
+                    text += _T("|");
+
+                type_name_t * arg = type_name->arg_name_at(index);
+                if (arg != nullptr && arg->has_item_names())
+                    __append_item_names(text, arg, depth + 1);
+            }
+
+            text += _T(">");
+        }
+
+        res_t __item_names(type_name_t * type_name)
+        {
+            if (type_name == nullptr || !type_name->has_item_names())
+                return res_t::null;
+
+            string_t text;
+            __append_item_names(text, type_name, 0);
+
+            return __S(__SPool.to_sid(text));
+        }
+
         // Assigns method metadata.
         void __assign_mt(mt_method_t * mt, method_t * method)
         {
@@ -324,6 +379,7 @@ namespace X_ROOT_NS::modules::core {
 
             mt->trait = method->trait;
             mt->nullable = method->type_name != nullptr && method->type_name->nullable;
+            mt->item_names = __item_names(method->type_name);
 
             type_t * method_type = to_type(method->type_name);
 
@@ -381,6 +437,7 @@ namespace X_ROOT_NS::modules::core {
 
             mt->param_type    = param->ptype;
             mt->nullable      = param->type_name != nullptr && param->type_name->nullable;
+            mt->item_names    = __item_names(param->type_name);
             mt->default_value = __W->__commit_constant(param->default_value, param_type);
             mt->attributes    = __W->__commit_attributes(param->attributes);
         }
@@ -401,6 +458,7 @@ namespace X_ROOT_NS::modules::core {
 
             mt->attributes = __W->__commit_attributes(property->attributes);
             mt->nullable   = property->type_name != nullptr && property->type_name->nullable;
+            mt->item_names = __item_names(property->type_name);
             mt->params     = __W->__commit_params(property->params);
             mt->get_method = __W->__commit_method(property->get_method);
             mt->set_method = __W->__commit_method(property->set_method);
@@ -420,6 +478,7 @@ namespace X_ROOT_NS::modules::core {
 
             mt->type       = __W->__commit_type(field_type);
             mt->nullable   = field->type_name != nullptr && field->type_name->nullable;
+            mt->item_names = __item_names(field->type_name);
             mt->attributes = __W->__commit_attributes(field->attributes);
 
             // The value that is not a constant (new Int32[] { 1 }, F()) is made by the constructor:
@@ -463,6 +522,7 @@ namespace X_ROOT_NS::modules::core {
             mt->params = __W->__commit_type_def_params(type_def->params);
             mt->type   = __W->__commit_type(type);
             mt->name   = __S(type_def->name);
+            mt->item_names = __item_names(type_def->type_name);
 
             if (type_def->namespace_ != nullptr)
                 mt->namespace_ = __S(type_def->namespace_->full_name->sid);

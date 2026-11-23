@@ -88,6 +88,24 @@ namespace X_ROOT_NS::modules::compile {
     // The same for the arguments of a call: each one that is converted to the type of its param.
     void convert_arguments(arguments_t * arguments, method_base_t * method);
 
+    // Converts the arguments of a call to the types of the params; a tuple literal is made for the
+    // type of the param.
+    void convert_arguments(ast_context_t & cctx, ast_walk_context_t & wctx,
+                                        arguments_t * arguments, method_base_t * method);
+
+    // The tuple literal is made for the type: an ITuple is made in the heap, a Tuple is a struct.
+    void retarget_tuple(ast_context_t & cctx, ast_walk_context_t & wctx,
+                                                    expression_t * expression, type_t * type);
+
+    // The type name takes the names of the items of the tuples that the expression is, or has in its generic arguments
+    // (var t = list[0]): the names are those of the declarations.
+    void take_item_names(ast_context_t & cctx, ast_walk_context_t & wctx, type_name_t * type_name,
+                                                                        expression_t * expression);
+
+    // The type name takes the names of the items of the element that a foreach gets from the iterator.
+    void take_element_item_names(ast_context_t & cctx, ast_walk_context_t & wctx, type_name_t * type_name,
+                                                        expression_t * iterator, type_t * element_type);
+
     // Finds method.
     method_t * find_method(type_t * type, method_trait_t trait, name_t name,
                 generic_args_t * generic_args, atypes_t * atypes);

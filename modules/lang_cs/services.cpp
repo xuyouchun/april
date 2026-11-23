@@ -144,19 +144,46 @@ namespace X_ROOT_NS::modules::lang_cs {
             }
 
             case cs_token_value_t::comma: {
-                cs_expressions_t * expressions = as<cs_expressions_t *>(args.expressions[0]);
-                if (expressions != nullptr)
+                // (a, b, c) is a tuple. A tuple that is in parentheses is an item of the
+                // next one: ((a, b), c).
+                tuple_expression_t * tuple = as<tuple_expression_t *>(args.expressions[0]);
+
+                // An item that has a name is the binary expression of the name and the value, that the node of the
+                // expression makes: Number: 1.
+                auto add_item = [](tuple_expression_t * tuple, expression_t * item) {
+                    name_t name = name_t::null;
+
+                    if (item->this_family() == expression_family_t::binary)
+                    {
+                        binary_expression_t * binary = (binary_expression_t *)item;
+                        if (binary->named_item)
+                        {
+                            name = ((name_expression_t *)binary->exp1())->name;
+                            item = binary->exp2();
+                        }
+                    }
+
+                    tuple->append(item);
+                    tuple->item_names.push_back(name);
+                };
+
+                if (tuple != nullptr && !tuple->closed)
                 {
-                    expressions->append(args.expressions + 1, args.expressions + args.count);
+                    for (size_t index = 1; index < (size_t)args.count; index++)
+                        add_item(tuple, args.expressions[index]);
                 }
                 else
                 {
-                    expressions = ctx.create_expression<cs_expressions_t>(
-                        args.expressions, args.expressions + args.count
-                    );
+                    tuple = ctx.create_system_expression<tuple_expression_t>();
+                    for (size_t index = 0; index < (size_t)args.count; index++)
+                        add_item(tuple, args.expressions[index]);
                 }
 
-                return expressions;
+                tuple->code_unit = combine_all_code_units(
+                    ctx.memory, args.token, args.expressions[0], args.expressions[args.count - 1]
+                );
+
+                return tuple;
             }
 
             default:
@@ -246,6 +273,9 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(generic_constraints)
             __Case(generic_arg)
             __Case(generic_args)
+            __Case_(tuple_args, generic_args)
+            __Case(deconstruct_st)
+            __Case(deconstruct_assign_st)
 
             __Case(expressions)
             __Case(param)

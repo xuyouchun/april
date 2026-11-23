@@ -128,6 +128,14 @@ namespace X_ROOT_NS::modules::compile {
         name_t         name       = name_t::null;   // Name.
         expression_t * expression = nullptr;        // Expression.
 
+        // The type of the item, when it is not that of the statement: (Int32 a, String b) = tuple;
+        type_name_t *  type_name  = nullptr;
+
+        // The value of the item is an item of a tuple that another item of the statement holds:
+        // the tuple is the variable tuple_source, and the item is Item<tuple_index + 1>.
+        name_t         tuple_source = name_t::null;
+        int            tuple_index  = -1;
+
         local_variable_t * variable;                // Local variable.
 
         // The assignment of the field that holds the variable, when it is a field of the state

@@ -27,6 +27,12 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     X_BRANCH_ENUM(cs_branch_type_t)
 
+        tuple_args,
+
+        deconstruct_st,
+
+        deconstruct_assign_st,
+
         _decorate_complex,
         
         _attribute_group,

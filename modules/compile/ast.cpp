@@ -644,6 +644,15 @@ namespace X_ROOT_NS::modules::compile {
         // Method not match.
         X_D(method_not_match, _T("no overload of method \"%1%\" in type \"%2%\" matches the call"))
 
+        // The type of an item of a tuple literal is not known.
+        X_D(tuple_item_undetermined, _T("cannot determine the type of item %1% of the tuple"))
+
+        // The name of an item of a tuple type is used twice, or is a member of the tuple.
+        X_D(tuple_item_name_invalid, _T("\"%1%\" cannot be the name of an item of a tuple"))
+
+        // The count of the items of a tuple literal is not that of its type.
+        X_D(tuple_item_count_mismatch, _T("a tuple of %1% items cannot be made for type \"%2%\""))
+
         // Attribute constructor not match.
         X_D(attribute_constructor_not_match, _T("no constructor of attribute \"%1%\" matches (%2%)"))
 
@@ -1417,6 +1426,29 @@ namespace X_ROOT_NS::modules::compile {
         return _F(_T("%1%<%2%>"), _str(name), _str(args));
     }
 
+    // The generic arguments of the last unit are those of the type, unless they are told by the names of the
+    // items (the type of a var, an alias).
+    size_t general_type_name_t::arg_name_count() const
+    {
+        if (!args_known && !units.empty() && units[units.size() - 1] != nullptr
+                && units[units.size() - 1]->args != nullptr)
+            return units[units.size() - 1]->args->size();
+
+        return type_name_t::arg_name_count();
+    }
+
+    type_name_t * general_type_name_t::arg_name_at(size_t index) const
+    {
+        if (!args_known && !units.empty() && units[units.size() - 1] != nullptr
+                && units[units.size() - 1]->args != nullptr)
+        {
+            generic_args_t * args = units[units.size() - 1]->args;
+            return index < args->size() && (*args)[index] != nullptr? (*args)[index]->type_name : nullptr;
+        }
+
+        return type_name_t::arg_name_at(index);
+    }
+
     // Converts to string.
     X_DEFINE_TO_STRING(general_type_name_t)
     {
@@ -1498,6 +1530,42 @@ namespace X_ROOT_NS::modules::compile {
     void general_type_name_ast_node_t::on_commit()
     {
         this->transform_child_to(__units__, this->units);
+
+        // (Int32 Number, String Str): the names of the items.
+        if (!this->units.empty() && this->units[this->units.size() - 1] != nullptr && this->units[this->units.size() - 1]->args != nullptr)
+        {
+            bool named = false;
+            for (generic_arg_t * arg : *this->units[this->units.size() - 1]->args)
+                named = named || (arg != nullptr && arg->name != name_t::null);
+
+            if (named)
+            {
+                for (generic_arg_t * arg : *this->units[this->units.size() - 1]->args)
+                    this->item_names.push_back(arg == nullptr? name_t::null : arg->name);
+
+                // The names of the items are different, and are not those of the members of a tuple.
+                for (size_t index = 0; index < this->item_names.size(); index++)
+                {
+                    name_t name = this->item_names[index];
+                    if (name == name_t::null)
+                        continue;
+
+                    string_t text = (string_t)(sid_t)name;
+                    bool invalid = text == _T("GetSize") || text == _T("Get") || text == _T("Create");
+
+                    // ItemN is the name of the item N only.
+                    if (text.size() > 4 && text.compare(0, 4, _T("Item")) == 0
+                            && text.find_first_not_of(_T("0123456789"), 4) == string_t::npos)
+                        invalid = text != _F(_T("Item%1%"), index + 1);
+
+                    for (size_t k = 0; k < index && !invalid; k++)
+                        invalid = this->item_names[k] == name;
+
+                    if (invalid)
+                        this->__log(this, __c_t::tuple_item_name_invalid, name);
+                }
+            }
+        }
     }
 
     // Returns this eobject.
@@ -2995,9 +3063,40 @@ namespace X_ROOT_NS::modules::compile {
         _A(node != nullptr);
 
         expression_t * expression = _M(expression_ast_t *, node)->to_eobject();
+
+        // Number: 1: the item of a tuple that has a name.
+        if (__named_item)
+        {
+            __named_item = false;
+
+            auto * name_exp = __new_wexp<name_expression_t>(__named_name);
+            if (__named_token != nullptr)
+                name_exp->code_unit = (const code_unit_t *)*__named_token;
+
+            auto * item = __new_wexp<binary_expression_t>(operator_t::assign, name_exp, expression);
+            item->named_item = true;
+            item->code_unit = name_exp->code_unit;
+            expression = item;
+        }
+
         __es.push_back(__el_t(expression));
 
         this->append_child(__nodes__, node);
+    }
+
+    // The colon after a name: the name and the expression that follows are one item of a tuple.
+    void expression_ast_node_t::begin_named_item()
+    {
+        if (__es.empty() || __es[__es.size() - 1].type != analyze_stack_element_type_t::name)
+        {
+            // The grammar has a name before the colon.
+            return;
+        }
+
+        __named_name  = __es[__es.size() - 1].name;
+        __named_token = __es[__es.size() - 1].token;
+        __named_item  = true;
+        __es.pop_back();
     }
 
     // Appends constant value.
@@ -6530,7 +6629,16 @@ namespace X_ROOT_NS::modules::compile {
 
         for (defination_statement_item_t * var_item : this->items)
         {
-            type_name_t * type_name = __to_eobject<type_name_t *>(__type_name__);
+            // The variable of an item of a tuple has a name.
+            if (var_item->tuple_index >= 0 && var_item->name == name_t::null)
+            {
+                this->__log(this, __c_t::name_empty, _T("deconstructed variable"));
+                var_item->variable = nullptr;
+                continue;
+            }
+
+            type_name_t * type_name = var_item->type_name != nullptr?
+                    var_item->type_name : __to_eobject<type_name_t *>(__type_name__);
 
             var_item->variable = vd.define_local(
                 type_name, var_item->name, this->constant,
@@ -6570,6 +6678,32 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    // The value of the item that is an item of a tuple: variable.Item<N>.
+    void defination_st_ast_node_t::__make_tuple_item(ast_walk_context_t & context,
+                                                     defination_statement_item_t * var_item)
+    {
+        typedef system_expression_t<name_expression_t> __name_t;
+
+        auto * source = __new_obj<__name_t>(var_item->tuple_source);
+        auto * member = __new_obj<__name_t>(__to_name(_F(_T("Item%1%"), var_item->tuple_index + 1)));
+        auto * access = __new_obj<system_expression_t<binary_expression_t>>(
+            operator_t::member_point, source, member
+        );
+
+        source->code_unit = member->code_unit = access->code_unit = this->code_unit;
+
+        var_item->expression = access;
+        walk_expression(this->__context, context, access);
+
+        type_name_t * type_name = var_item->variable->type_name;
+        if (!__is_uncertain(type_name))
+        {
+            access->parent = __new_obj<system_expression_t<type_cast_expression_t>>(
+                type_name, (expression_t *)access
+            );
+        }
+    }
+
     // Walks analysis step.
     bool defination_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
@@ -6583,6 +6717,10 @@ namespace X_ROOT_NS::modules::compile {
             // The variable that is defined twice has been reported.
             if (var_item->variable == nullptr)
                 continue;
+
+            // An item of a tuple: the variable that holds it has its type now.
+            if (var_item->tuple_index >= 0 && var_item->expression == nullptr)
+                __make_tuple_item(context, var_item);
 
             if (__is_uncertain(var_item->variable->type_name))
             {
@@ -6599,6 +6737,28 @@ namespace X_ROOT_NS::modules::compile {
                     __Log(cannot_determine_local_variable_type, var_item->name);
                 else
                     var_item->variable->type_name->type = type;
+
+                // var t = (Number: 1, Str: "2"); the items of t have the names.
+                if (var_item->expression != nullptr
+                        && var_item->expression->this_family() == expression_family_t::tuple)
+                {
+                    tuple_expression_t * literal = (tuple_expression_t *)var_item->expression;
+
+                    bool named = false;
+                    for (name_t item_name : literal->item_names)
+                        named = named || item_name != name_t::null;
+
+                    if (named)
+                        var_item->variable->type_name->item_names = literal->item_names;
+                }
+                else if (var_item->expression != nullptr
+                        && !al::starts_with(_str(var_item->name).c_str(), _T("__tuple")))
+                {
+                    // var t2 = t; var item = list[0]; the names are those of the declarations. The variable that a
+                    // deconstruction makes (__tuple1) is read by Item1, Item2: it has not them.
+                    take_item_names(this->__context, context, var_item->variable->type_name,
+                                                                        var_item->expression);
+                }
 
                 // The type of var can be null, as its value.
                 var_item->variable->type_name->nullable = true;
@@ -6823,6 +6983,9 @@ namespace X_ROOT_NS::modules::compile {
             }
             else
             {
+                // A tuple literal is made for the type that is returned.
+                retarget_tuple(this->__context, context, this->expression, result_type);
+
                 type_t * return_type = this->expression->get_type();
 
                 if (return_type != nullptr && !is_type_compatible(return_type, result_type))
@@ -6883,6 +7046,13 @@ namespace X_ROOT_NS::modules::compile {
                         // The type that is made (T? of null and a number).
                         context.commit_types();
                     }
+                }
+
+                // A tuple literal is made for the type that is returned.
+                if (method_type != uncertain_type_t::instance())
+                {
+                    retarget_tuple(this->__context, context, this->expression, method_type);
+                    return_type = this->expression->get_type();
                 }
 
                 // An implicit operator of the types converts the value that is returned.
@@ -7294,6 +7464,9 @@ namespace X_ROOT_NS::modules::compile {
 
             // The type of var can be null, as its value.
             __variable->type_name->nullable = true;
+
+            // The names of the items of the tuples that the elements are.
+            take_element_item_names(this->__context, context, __variable->type_name, this->iterator, element_type);
         }
 
         auto name_of = [this](variable_t * variable) -> expression_t * {
@@ -7422,6 +7595,9 @@ namespace X_ROOT_NS::modules::compile {
 
             // The type of var can be null, as its value.
             __variable->type_name->nullable = true;
+
+            // The names of the items of the tuples that the elements are.
+            take_element_item_names(this->__context, context, __variable->type_name, this->iterator, element_type);
         }
 
         // The names are resolved like the names of the programs.
@@ -8186,7 +8362,8 @@ namespace X_ROOT_NS::modules::compile {
                     else
                     {
                         // The arguments that an implicit operator converts to the types of the params.
-                        convert_arguments(this->arguments(), this->constructor);
+                        convert_arguments(this->__context, context, this->arguments(),
+                                                                    this->constructor);
                     }
                 }
 

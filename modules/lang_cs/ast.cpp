@@ -269,8 +269,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     void _defination_st_item_ast_node_t::on_commit()
     {
         __item.expression = __to_eobject<expression_t *>(__expression__);
+        __item.type_name  = __to_eobject<type_name_t *>(__type_name__);
 
-        this->__check_name_empty(__item.name, _T("variable"));
+        // (__el_t *)this of this class is not the element: the node is.
+        if (__item.name == name_t::null)
+            this->__log((ast_node_t *)this, __c_t::name_empty, _T("variable"));
     }
 
     // Returns this eobject.

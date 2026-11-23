@@ -260,6 +260,20 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // Tuple literal: it is made by the expression that the analysis built.
+    __SystemExpressionT(tuple_expression_t)
+
+        // Execute the expression.
+        virtual cvalue_t execute() override;
+
+        // Compile the expression.
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
+
+    __EndSystemExpressionT
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Default value expression.
     __SystemExpressionT(default_value_expression_t)
 
