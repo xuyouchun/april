@@ -30,6 +30,9 @@ namespace X_ROOT_NS::modules::compile {
         // Typedef unsolved.
         type_def_unsolved,
 
+        // The alias is not accessible.
+        type_def_inaccessible,
+
     X_ENUM_END
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -11,7 +11,7 @@
 import System;
 
 using System;
-using Func = System.Delegate<int, int, int>;
+typedef Func = System.Delegate<int, int, int>;
 
 class Program
 {

@@ -1279,10 +1279,25 @@ namespace X_ROOT_NS::modules::compile {
             codepos_t pos = h.pos_of(cu->s);
 
             auto pair = cu->current_line_pos();
-            line = string_t(pair.first, pair.second + 1);
+
+            // Only the first line of the code is shown, the marks stop at the end of it (without the line break and the spaces
+            // at the end): when the code goes on to the next lines, the end of the code is not on this line.
+            const char_t * line_end = cu->s;
+            while (*line_end != _T(' ') && !al::is_lineend(*line_end))
+                line_end++;
+
+            line = string_t(pair.first, line_end);
+
+            const char_t * mark_end = line_end;
+            while (mark_end > cu->s && (mark_end[-1] == _T(' ') || mark_end[-1] == _T('	')))
+                mark_end--;
+
+            size_t mark_length = cu->s + cu->length > mark_end? (size_t)(mark_end - cu->s) : cu->length;
+            if (mark_length == 0 && cu->length != 0)
+                mark_length = 1;
 
             out_flag_msg = _F(_T("%1%%2%"), __to_prefix_space(pair.first, cu->s - pair.first),
-                cu->length == 0? _T("^") : string_t(cu->length, _T('~'))
+                cu->length == 0? _T("^") : string_t(mark_length, _T('~'))
             );
         }
 

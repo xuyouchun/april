@@ -6,7 +6,7 @@
 
 ////////// ////////// ////////// ////////// //////////
 
-public struct Nullable<T>
+public struct Nullable<T> : IStringable
 {
     // Constructor: it has a value.
     public Nullable(T value)
@@ -40,6 +40,16 @@ public struct Nullable<T>
             return __value;
 
         return defaultValue;
+    }
+
+    // The text of the value, an empty string when there is no value.
+    public String ToString()
+    {
+        if (!__hasValue)
+            return "";
+
+        Object boxed = __value;
+        return Object.ToString(boxed);
     }
 
     private Boolean __hasValue;

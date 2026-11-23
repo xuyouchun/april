@@ -25,7 +25,7 @@ import System;
 
 using System;
 using System.Reflection;
-using Handler = System.Delegate<void, Int32>;
+typedef Handler = System.Delegate<void, Int32>;
 
 class Animal
 {

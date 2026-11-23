@@ -20,8 +20,8 @@ done
 import System;
 
 using System;
-using Handler = System.Delegate<void, Int32>;
-using Multi = System.MulticastDelegate<void, Int32>;
+typedef Handler = System.Delegate<void, Int32>;
+typedef Multi = System.MulticastDelegate<void, Int32>;
 
 class Log
 {

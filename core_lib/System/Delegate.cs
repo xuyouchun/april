@@ -62,8 +62,8 @@ public sealed class MulticastDelegate<TReturn, TArgs ...>
         __delegates = delegates;
     }
 
-    public using Self = MulticastDelegate<TReturn, TArgs ...>;
-    public using Delegate = Delegate<TReturn, TArgs ...>;
+    public typedef Self = MulticastDelegate<TReturn, TArgs ...>;
+    public typedef Delegate = Delegate<TReturn, TArgs ...>;
 
     private readonly Delegate[] __delegates;
 

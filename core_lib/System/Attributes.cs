@@ -74,3 +74,13 @@ public class MaybeNullWhenAttribute : Attribute
 
     }
 }
+
+////////// ////////// ////////// ////////// //////////
+
+// An enum whose values are bit flags: the text of a value that is the or of items is the names, separated by commas
+// (Read, Write).
+[AttributeUsage]
+public class FlagsAttribute : Attribute
+{
+    // Empty.
+}

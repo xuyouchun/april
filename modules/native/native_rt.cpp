@@ -718,8 +718,9 @@ extern "C" {
                 values[count++] = (uint64_t)(uintptr_t)object;
             }
 
-            // A virtual method is the function of the class of the object.
-            if (member->offset >= 0 && !through_interface)
+            // A virtual method is the function of the class of the object (the one of a value, a number or an enum, is
+            // the function of the member: the table has a function that takes the box).
+            if (member->offset >= 0 && !through_interface && (member->flags & (1 << 15)) == 0)
             {
                 void * descriptor = *(void **)((uint8_t *)object - 8);
                 void * found = *(void **)((uint8_t *)descriptor + 32 + 8 * member->offset);

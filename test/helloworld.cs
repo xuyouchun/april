@@ -13,9 +13,13 @@ class Program
     {
         try
         {
-            int value = await __GetValueAsync();
+            typedef Dict = System.Collections.Dictionary<int, int>;
 
-            Console.WriteLine(value);
+            Dict dict = new Dict();
+            dict[1] = 111;
+            dict[2] = 222;
+
+            Console.WriteLine($"{dict[1]}, {dict[2]}");
         }
         catch (Exception ex)
         {

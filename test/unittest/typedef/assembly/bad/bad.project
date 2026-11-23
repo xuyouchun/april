@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<project>
+
+    <name>bad</name>
+    <files>
+        <file><path>bad.cs</path></file>
+    </files>
+
+</project>

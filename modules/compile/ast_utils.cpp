@@ -304,6 +304,9 @@ namespace X_ROOT_NS::modules::compile {
         // Typedef unsolved.
         X_C(type_def_unsolved,      _T("type def unsolved"))
 
+        // The alias is not accessible.
+        X_C(type_def_inaccessible,  _T("type def inaccessible"))
+
     X_ENUM_INFO_END
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -416,6 +419,28 @@ namespace X_ROOT_NS::modules::compile {
 
                 if (r.success)
                     return r.type;
+            }
+
+            // from the typedefs of the blocks (typedef Name = Type; in a method)
+            variable_region_t * region = __wctx.current_region();
+
+            if (region != nullptr && !__type_name->units.empty())
+            {
+                name_unit_t * first = __type_name->units[0];
+                type_def_t * type_def = region->find_type_def(first->name, first->generic_args_count());
+
+                if (type_def != nullptr)
+                {
+                    type_t * type = __expand_type_def(type_def, first, nullptr);
+
+                    if (__type_name->units.size() == 1)
+                        return type;
+
+                    __find_ret_t r = __find_nest_type(&__wctx.assembly, current_ns, type,
+                                                      __type_name->begin() + 1, __type_name->end());
+                    if (r.success)
+                        return r.type;
+                }
             }
 
             // from current & parent namespace
@@ -532,16 +557,35 @@ namespace X_ROOT_NS::modules::compile {
                 ns, name, generic_param_count, raw_host_type
             );
 
-            if (type_def && type_def->type_name)
-            {
-                if (!type_def->type_name->type)
-                    throw _E(ascertain_type_error_t::type_def_unsolved);
+            // The aliases of another assembly are those that are public.
+            if (type_def && assembly != &__wctx.assembly && !type_def->is_public())
+                type_def = nullptr;
 
-                type_t * type = type_def->type_name->type;
-                return __assign_type_def_param(type, unit, host_type);
-            }
+            if (type_def && type_def->type_name)
+                return __expand_type_def(type_def, unit, host_type);
 
             return nullptr;
+        }
+
+        // The type that an alias names, with the args of the name (M<String> of M<T> = List<T>).
+        type_t * __expand_type_def(type_def_t * type_def, name_unit_t * unit, type_t * host_type)
+        {
+            // An alias that is a member of a type has its access.
+            if (type_def->host_type != nullptr)
+            {
+                type_t * current_type = __wctx.current_type();
+                bool accessible = current_type != nullptr? check_access(current_type, (member_t *)type_def)
+                                                         : check_access(&__wctx.assembly, (member_t *)type_def);
+                if (!accessible)
+                    throw _E(ascertain_type_error_t::type_def_inaccessible);
+            }
+
+            // The alias may not be walked yet: its type is made now.
+            type_t * type = type_def->ensure_type(__wctx);
+            if (type == nullptr)
+                throw _E(ascertain_type_error_t::type_def_unsolved);
+
+            return __assign_type_def_param(type, unit, host_type);
         }
 
         // Finds nest type.
@@ -792,12 +836,22 @@ namespace X_ROOT_NS::modules::compile {
                     generic_type_t * generic_type = (generic_type_t *)t;
                     type_collection_t types;
 
-                    al::transform(generic_type->args, std::back_inserter(types),
-                        [this, unit, &break_away, host_type](type_t * t0) {
-                            type_t * t1 = __assign_type_def_param(t0, unit, host_type);
-                            return t0 == t1? t0 : (break_away = true, t1);
+                    for (type_t * t0 : generic_type->args)
+                    {
+                        // The pack of the alias is all the arguments that follow the ones before it.
+                        if (t0 != nullptr && t0->this_gtype() == gtype_t::type_def_param
+                                && ((type_def_param_t *)t0)->extends)
+                        {
+                            for (size_t k = ((type_def_param_t *)t0)->index; k < unit->generic_args_count(); k++)
+                                types.push_back(__transform_generic_arg((*unit)[k]));
+
+                            break_away = true;
+                            continue;
                         }
-                    );
+
+                        type_t * t1 = __assign_type_def_param(t0, unit, host_type);
+                        types.push_back(t0 == t1? t0 : (break_away = true, t1));
+                    }
 
                     if (break_away)
                     {
@@ -1829,6 +1883,10 @@ namespace X_ROOT_NS::modules::compile {
         {
             if (type == nullptr)
                 return nullptr;
+
+            // A nullable delegate (Delegate<..>? d = F;): the method or the lambda is converted to the delegate.
+            if (type_t * underlying = get_nullable_underlying(type); underlying != nullptr)
+                type = underlying;
 
             if (type->this_gtype() == gtype_t::generic)
             {

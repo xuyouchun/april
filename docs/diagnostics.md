@@ -164,6 +164,15 @@ the others are errors.
 | AP3104 | error | `member_defination_duplicated` | type "%1%" already defines a member "%2%" with the same name |
 | AP3105 | error | `member_same_as_enclosing_type` | member names cannot be the same as their enclosing type |
 | AP3106 | error | `static_init_in_generic_type` | the static field "%1%" of the generic type "%2%" cannot have an initial value, assign it in a method |
+| AP3107 | error | `type_def_circular` | the typedef "%1%" refers to itself |
+| AP3108 | error | `type_def_conflicts_with_type` | the typedef "%1%" conflicts with the type "%2%", that has the same name and number of generic params |
+| AP3109 | error | `type_def_access_invalid` | a typedef that is a member of a namespace can only be public or internal |
+| AP3110 | error | `type_def_modifier_invalid` | the modifier "%1%" is not valid for a typedef |
+| AP3111 | error | `type_def_target_is_param` | a typedef cannot be the generic param "%1%" |
+| AP3112 | error | `type_def_param_duplicate` | the typedef "%1%" has two params named "%2%" |
+| AP3113 | error | `type_def_constraint_conflict` | "%1%" of the typedef "%2%" cannot be any type: %3% |
+| AP3114 | error | `type_def_pack_not_last` | the param "%1%" of the typedef "%2%" is a pack: only the last param can be one |
+| AP3115 | error | `using_alias_of_type` | "%2%" is a type: its alias is declared with typedef (typedef %1% = %2%;) |
 | AP3200 | error | `variable_undefined` | variable "%1%" is not defined |
 | AP3201 | error | `type_undefined` | type "%1%" is not defined |
 | AP3202 | error | `type_def_unsolved` | typedef "%1%" cannot be resolved |
@@ -197,6 +206,7 @@ the others are errors.
 | AP4008 | warning | `nullable_argument` | possible null reference argument for parameter "%1%" of "%2%" |
 | AP4009 | warning | `nullable_field_uninitialized` | non-nullable field "%1%" must contain a non-null value when the constructor exits, consider declaring it as nullable |
 | AP4010 | warning | `nullable_constraint` | the nullable type "%1%" cannot be used as type parameter "%2%" of "%3%", which cannot be null |
+| AP4011 | warning | `type_def_param_unused` | the param "%1%" of the typedef "%2%" is not used by the type that it names |
 | AP5100 | error | `method_no_return` | method "%1%": not all code paths return a value |
 | AP5101 | error | `method_unexpected_return_value` | method "%1%": "return" cannot be followed by an expression in a void method |
 | AP5102 | error | `method_return_value_missing` | method "%1%": "return" must be followed by an expression in a non-void method |
@@ -207,7 +217,7 @@ the others are errors.
 | AP5200 | error | `lambda_outside_method` | a lambda can only be used in a method |
 | AP5201 | error | `lambda_type_undetermined` | the type of the lambda cannot be determined, it is not converted to a delegate |
 | AP5202 | error | `lambda_capture_not_supported` | a lambda that uses local variables is not supported: %1% |
-| AP5203 | error | `lambda_capture_modified` | local variable "%1%" is used by a lambda and cannot be modified (only the variables that cannot be shared: a ref/out param, a param of a lambda, a variable or a param of an iterator or of a method that awaits, of foreach or catch) |
+| AP5203 | error | `lambda_capture_modified` | local variable "%1%" is used by a lambda and cannot be modified |
 | AP5204 | error | `lambda_capture_member` | a lambda that uses local variables cannot use the members of the object |
 | AP5205 | error | `iterator_not_supported` | iterator "%1%" is not supported: %2% |
 | AP5206 | error | `iterator_return_type_invalid` | "%1%": a method that has yield statements must return IEnumerable<T> or IEnumerator<T> |

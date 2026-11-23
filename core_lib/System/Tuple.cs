@@ -35,7 +35,7 @@ public interface ITuple<TItems ...> : ITuple
 [Internal]
 public struct Tuple<TItems ...> : ITuple<TItems ...>
 {
-    using __SelfType = Tuple<TItems ...>;
+    typedef __SelfType = Tuple<TItems ...>;
 
     public Tuple(TItems ... items)
     {

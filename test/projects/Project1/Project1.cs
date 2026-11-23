@@ -3,7 +3,7 @@ import System;
 using System;
 using System.Diagnostics;
 
-using EventHandle = System.Delegate<void, int, int>;
+typedef EventHandle = System.Delegate<void, int, int>;
 
 class Project1
 {

@@ -1240,6 +1240,7 @@ namespace X_ROOT_NS::modules::core {
         {
             type_def_param->name        = __to_name(mt.name);
             type_def_param->attributes  = __to_attributes(mt.attributes, type_def_param);
+            type_def_param->extends     = mt.extends != 0;
         }
 
         // Builds param.

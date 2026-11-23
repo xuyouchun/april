@@ -308,6 +308,7 @@ namespace X_ROOT_NS::modules::core {
 
             mt->name = __S(param->name);
             mt->attributes = __W->__commit_attributes(param->attributes);
+            mt->extends = param->extends? 1 : 0;
         }
 
         // Assigns method metadata.

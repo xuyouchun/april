@@ -296,7 +296,8 @@ namespace X_ROOT_NS::modules::rt {
             {
                 vtype_t this_vtype = type->get_vtype(__env);
                 if (!((decorate_t)(*method)->decorate).is_static
-                        && (is_system_value_type(this_vtype) || this_vtype == vtype_t::string_))
+                        && (is_system_value_type(this_vtype) || this_vtype == vtype_t::string_
+                            || type->get_ttype(__env) == ttype_t::enum_))
                 {
                     m->flags |= reflect_flag_value_this
                             | ((int64_t)(this_vtype == vtype_t::string_? 8 : type->get_size(__env)) << 24);

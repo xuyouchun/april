@@ -119,7 +119,8 @@ $namespace:
     )
 ;
 
-# Using statement: using System; .
+# Using statement: using System; , or the alias of a namespace: using Text = System.Text; . (The alias of a type is a
+# typedef.)
 $using: using (name =)? $mname \; ;
 
 # Multipy name: System.Text.StringBuilder .
@@ -184,11 +185,11 @@ $type_name: $general_type_name | $array_type_name | $uncertain_type_name ;
 # Typedef generic param.
 $type_def_param: name ...?;
 
-# Typedef generic params: typedef MyClass<int, T> NewType<T>.
+# Typedef generic params: typedef NewType<T> = MyClass<int, T>; .
 $type_def_params: < $type_def_param (, $type_def_param)* > ;
 
-# Typedef: typedef int Integer.
-$type_def: $attributes $decorate using name $type_def_params? = $type_name \; ;
+# Typedef: typedef Integer = int; , typedef Func<TRet, TArg> = Delegate<TRet, TArg, TArg>; .
+$type_def: $attributes $decorate typedef name $type_def_params? = $type_name \; ;
 
 # Generic param.
 $generic_param:  $attributes (in | out)? name ...?;
@@ -396,7 +397,7 @@ $defination_st:
 # Expression statement: a = b + c;
 $expression_st: $expression \; ;
 
-# Typedef statement: typedef int Integer.
+# Typedef statement: typedef Integer = int; .
 $type_def_st:   $type_def ;
 
 # Break statement.

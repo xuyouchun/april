@@ -25,8 +25,8 @@ done
 import System;
 
 using System;
-using Handler = System.Delegate<void, Int32>;
-using Adder = System.Delegate<Int32, Int32>;
+typedef Handler = System.Delegate<void, Int32>;
+typedef Adder = System.Delegate<Int32, Int32>;
 
 class Button
 {

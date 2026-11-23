@@ -1218,6 +1218,7 @@ namespace X_ROOT_NS::modules::core {
 
         res_t       name;                   // Param name
         ref_t       attributes;             // Param attributes
+        uint8_t     extends;                // The param is a pack (TArgs...).
 
     __EndDefineMt(type_def_param)
 

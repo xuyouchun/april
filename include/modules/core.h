@@ -1896,12 +1896,18 @@ namespace X_ROOT_NS::modules::core {
 
     //-------- ---------- ---------- ---------- ----------
 
+    class ast_walk_context_t;
+
     // Typename eobject.
     class type_name_t : public eobject_t
     {
     public:
         type_name_t() = default;
         type_name_t(type_t * type) : type(type) { }
+
+        // Resolves the type now, with the names that the context sees (the arguments of a generic type first): a name that
+        // is resolved before the walk gets to it (the alias of a type). Does nothing for a type name that has its type.
+        virtual void resolve(ast_walk_context_t & context) { }
 
         typedef type_name_t * itype_t;
 
@@ -4281,6 +4287,10 @@ namespace X_ROOT_NS::modules::core {
         // Returns type of this member.
         virtual type_t * get_type() override { return to_type(type_name); }
 
+        // Resolves the type that it names now, in the place where it is declared: the code that uses the alias before the
+        // walk got to it needs it (the base types of a class). Returns null when it cannot be resolved (it was told).
+        virtual type_t * ensure_type(ast_walk_context_t & context) { return get_type(); }
+
         // Converts to a string.
         virtual const string_t to_string() const override { return (string_t)*this; }
 
@@ -4288,6 +4298,22 @@ namespace X_ROOT_NS::modules::core {
         size_t param_count() const
         {
             return params? params->size() : 0;
+        }
+
+        // Returns whether the last param is a pack (using Func<TRet, TArgs...> = Delegate<TRet, TArgs...>;): it takes
+        // any count of arguments, none too.
+        bool has_pack() const
+        {
+            return params != nullptr && params->size() > 0 && (*params)[params->size() - 1]->extends;
+        }
+
+        // The count of params that the alias is kept by: an alias that has a pack is apart from the ones that have as
+        // many params as it has and no pack.
+        static const size_t pack_key_offset = 0x10000;
+
+        size_t key_param_count() const
+        {
+            return has_pack()? param_count() + pack_key_offset : param_count();
         }
 
         // Find param by specified name.
@@ -4991,6 +5017,48 @@ namespace X_ROOT_NS::modules::core {
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     typedef eobject_ast_t<namespace_t *> namespace_ast_t;
+
+    ////////// ////////// ////////// ////////// //////////
+
+    // Finds the alias that a name with the count of arguments is, in a list of the aliases of a place: the alias that has as
+    // many params and no pack wins, then the one with a pack that has the most params before it.
+    template<typename _list_t>
+    type_def_t * find_type_def_in(const _list_t & type_defs, const name_t & name, size_t arg_count)
+    {
+        type_def_t * pack = nullptr;
+
+        for (type_def_t * type_def : type_defs)
+        {
+            if (type_def->name != name)
+                continue;
+
+            if (!type_def->has_pack())
+            {
+                if (type_def->param_count() == arg_count)
+                    return type_def;
+            }
+            else if (type_def->param_count() <= arg_count + 1
+                        && (pack == nullptr || pack->param_count() < type_def->param_count()))
+            {
+                pack = type_def;
+            }
+        }
+
+        return pack;
+    }
+
+    // Finds the alias of a list that the other one would be a second of (the same name and the same kind of params).
+    template<typename _list_t>
+    type_def_t * find_same_type_def_in(const _list_t & type_defs, type_def_t * other)
+    {
+        for (type_def_t * type_def : type_defs)
+        {
+            if (type_def->name == other->name && type_def->key_param_count() == other->key_param_count())
+                return type_def;
+        }
+
+        return nullptr;
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // document
@@ -5979,6 +6047,8 @@ namespace X_ROOT_NS::modules::core {
     {
         typedef local_variable_chain_node_t  __local_variable_t;
 
+        std::vector<type_def_t *> __type_defs;
+
     public:
 
         // Constructor.
@@ -5990,6 +6060,33 @@ namespace X_ROOT_NS::modules::core {
 
         // Previous variable region.
         variable_region_t * previous = nullptr;
+
+        // Adds an alias that is declared in the block (using Name = Type; in a method).
+        void add_type_def(type_def_t * type_def) { __type_defs.push_back(type_def); }
+
+        // Finds the alias that this block declares and no other one of the blocks that it is in.
+        type_def_t * find_type_def_here(const name_t & name, size_t arg_count) const
+        {
+            return find_type_def_in(__type_defs, name, arg_count);
+        }
+
+        // Finds the alias of the block that the other one would be a second of.
+        type_def_t * find_same_type_def(type_def_t * other) const
+        {
+            return find_same_type_def_in(__type_defs, other);
+        }
+
+        // Finds the alias that the block, or the blocks that it is in, declares.
+        type_def_t * find_type_def(const name_t & name, size_t arg_count)
+        {
+            for (variable_region_t * region = this; region != nullptr; region = region->previous)
+            {
+                if (type_def_t * type_def = region->find_type_def_here(name, arg_count))
+                    return type_def;
+            }
+
+            return nullptr;
+        }
 
         // Defines a local variable. The slot of a variable that is defined by an expression
         // (out int value, o is string s) is its own: the regions below the one that has it
@@ -6304,6 +6401,16 @@ namespace X_ROOT_NS::modules::core {
 
         // Goes back to the layer.
         void leave_type_level(ast_walk_context_layer_t * layer) { __current_layer = layer; }
+
+        // Goes to a layer (the place where an alias is declared), returns the layer to go back to with leave_type_level().
+        ast_walk_context_layer_t * enter_layer(ast_walk_context_layer_t * layer)
+        {
+            ast_walk_context_layer_t * saved = __current_layer;
+            if (layer != nullptr)
+                __current_layer = layer;
+
+            return saved;
+        }
 
         assembly_t & assembly;
         logger_t &   logger;

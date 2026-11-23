@@ -2935,6 +2935,10 @@ namespace X_ROOT_NS::modules::core {
         if (to == nullptr || get_lambda_method(exp) == nullptr)
             return;
 
+        // A nullable delegate (Delegate<..>? d = (x) => x;): the lambda is converted to the delegate.
+        if (type_t * underlying = get_nullable_underlying(to); underlying != nullptr)
+            to = underlying;
+
         name_expression_t * name_exp = (name_expression_t *)exp;
         method_variable_t * variable = (method_variable_t *)name_exp->variable;
         method_t * method = variable->method;
@@ -3717,6 +3721,45 @@ namespace X_ROOT_NS::modules::core {
                 return __member_compare_t::not_match;
 
             type_t * argument_type = atype.type;
+
+            // A lambda that returns a value is not a Delegate<Void>: Task.Run(() => 42) is the generic Run<T>.
+            if (atype.lambda != nullptr && param_type->this_gtype() == gtype_t::generic
+                    && ((generic_type_t *)param_type)->template_ == __XPool.get_delegate_type()
+                    && ((generic_type_t *)param_type)->type_at(0) != nullptr
+                    && ((generic_type_t *)param_type)->type_at(0)->this_vtype() == vtype_t::void_)
+            {
+                method_t * lambda = atype.lambda;
+                // An expression that cannot be a statement (a constant, a name, x + 1) has a value; a call, an assignment, ++ may not.
+                bool has_value = !lambda->lambda_no_value;
+                if (expression_t * body = lambda->lambda_expression; body != nullptr)
+                {
+                    has_value = body->this_family() == expression_family_t::cvalue
+                             || body->this_family() == expression_family_t::name;
+
+                    if (body->this_family() == expression_family_t::binary)
+                    {
+                        switch (((binary_expression_t *)body)->op())
+                        {
+                            case operator_t::assign:
+                            case operator_t::add_assign: case operator_t::sub_assign:
+                            case operator_t::mul_assign: case operator_t::div_assign:
+                            case operator_t::mod_assign:
+                            case operator_t::left_shift_assign: case operator_t::right_shift_assign:
+                            case operator_t::bit_and_assign: case operator_t::bit_or_assign:
+                            case operator_t::bit_xor_assign: case operator_t::null_coalescing_assign:
+                            case operator_t::member_point:
+                                break;
+
+                            default:
+                                has_value = true;
+                                break;
+                        }
+                    }
+                }
+
+                if (has_value)
+                    return __member_compare_t::not_match;
+            }
 
             // out var value: the type is that of the param.
             if (argument_type->this_gtype() == gtype_t::uncertain
@@ -5275,8 +5318,10 @@ namespace X_ROOT_NS::modules::core {
         if (is_empty(super_type_names))
             return nullptr;
 
+        // A type that is not defined has been told (AP3201): it is not a base.
         type_t * base_type = super_type_names[0]->type;
-        _A(base_type != nullptr);
+        if (base_type == nullptr)
+            return nullptr;
 
         if (base_type->this_ttype() == ttype_t::class_)
             return base_type;
@@ -5631,8 +5676,10 @@ namespace X_ROOT_NS::modules::core {
         {
             if (type->this_gtype() == gtype_t::generic)
             {
+                // The params of the host that has arguments: the ones of its host come next, in the loop.
                 generic_type_t * g = (generic_type_t *)type;
-                if (__find_type(g->template_, g->args, pred, f))
+                if (g->template_ != nullptr && g->template_->params != nullptr && g->args.size() > 0
+                        && __search_type(*g->template_->params, g->args, pred, f))
                     return true;
             }
 
@@ -9477,7 +9524,9 @@ namespace X_ROOT_NS::modules::core {
     // Returns delegate return type, (type at index 0).
     type_t * get_delegate_return_type(type_t * type)
     {
-        _A(type != nullptr);
+        // The type of a variable that is not defined has been reported (AP3201): it has no type.
+        if (type == nullptr)
+            return nullptr;
 
         // The call of a variable that is not a delegate is an error that the walk reports (AP3216): it has no type.
         if (type->this_gtype() != gtype_t::generic)
@@ -10878,7 +10927,7 @@ namespace X_ROOT_NS::modules::core {
     {
         _A(from_assembly != nullptr);
 
-        if (is_generic_param(host_type))
+        if (is_generic_param(host_type) || is_type_def_param(host_type))
             return true;
 
         host_type = __to_general_with_check(host_type);

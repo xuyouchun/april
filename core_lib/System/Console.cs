@@ -17,7 +17,7 @@ public static class Console
 
     public static Void WriteLine(String? value)
     {
-        Internal.Console_WriteStringLine(value);
+        Internal.Console_WriteStringLine(value == null? "" : value);
     }
 
     // The text that String.Format makes.
@@ -37,6 +37,17 @@ public static class Console
     public static Void WriteLine()
     {
         Write("\n");
+    }
+
+    // The text of the value (a struct, an enum, an object): its ToString().
+    public static Void Write(Object? value)
+    {
+        Internal.Console_WriteString(Object.ToString(value));
+    }
+
+    public static Void WriteLine(Object? value)
+    {
+        Internal.Console_WriteStringLine(Object.ToString(value));
     }
 
     public static Void Write(Char value)

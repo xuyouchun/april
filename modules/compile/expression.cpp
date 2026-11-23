@@ -30,6 +30,10 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_arguments(__cctx_t & ctx, xil_pool_t & pool, arguments_t * arguments,
                                                         param_types_t * param_types = nullptr);
 
+    // Compiles an argument.
+    static void __compile_argument(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
+        param_types_t * param_types, int index, bool expand);
+
     // Pushes the address of p.Value, p[i] of a pointer p (the pointer itself, the pointer moved by i): the argument ref of
     // Ptr.AddressOf(ref p[i]). Returns false when the variable is not one of them.
     static bool __try_push_pointer_member_address(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp,
@@ -1611,9 +1615,6 @@ namespace X_ROOT_NS::modules::compile {
             return true;
         }
 
-        if (__is_custom_struct_like(underlying))
-            __Failed("a nullable type of the struct '%1%' is not supported", underlying);
-
         // The constructor takes the value.
         atypes_t atypes = { atype_t(underlying) };
 
@@ -1623,7 +1624,11 @@ namespace X_ROOT_NS::modules::compile {
         method_t * constructor = (method_t *)to->get_member(args, true);
         __FailedWhenNull(constructor, "constructor of '%1%' not found", to);
 
-        exp->compile(ctx, pool, underlying);
+        // A struct is passed as the arguments of a call are (a copy of it).
+        if (__is_custom_struct_like(underlying))
+            __compile_argument(ctx, pool, exp, constructor, 0, false);
+        else
+            exp->compile(ctx, pool, underlying);
 
         pool.append<x_method_call_xil_t>(
             xil_call_type_t::instance, __search_method_ref(ctx, constructor)
@@ -5466,6 +5471,11 @@ namespace X_ROOT_NS::modules::compile {
             else
             {
                 exp->compile(ctx, pool, type);
+
+                // The value is converted to the underlying type of the enum ((Sign)k, an Int32 to an enum of Int64: the
+                // number is extended with its sign): __post_compile_expression converts only to a value type.
+                if (is_enum(type) && (is_value_type(exp_type) || is_enum(exp_type)))
+                    __try_append_convert_xil(pool, exp_type, to_xil_type(type));
             }
         }
 

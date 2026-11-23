@@ -249,6 +249,9 @@ namespace X_ROOT_NS::modules::compile {
             _T("the nullable type \"%1%\" cannot be used as type parameter \"%2%\" of ")
             _T("\"%3%\", which cannot be null"))
 
+        // A param of an alias is not used.
+        X_D(type_def_param_unused, _T("the param \"%1%\" of the typedef \"%2%\" is not used by the type that it names"))
+
         // ---- AP0100 - AP0199: malformed code (names, missing parts, things that are not allowed there).
 
         // Name empty.
@@ -574,6 +577,33 @@ namespace X_ROOT_NS::modules::compile {
         // Typedef defination duplicated.
         X_D(type_def_defination_duplicate, _T("typedef \"%1%\" is already defined"))
 
+        // An alias refers to itself.
+        X_D(type_def_circular, _T("the typedef \"%1%\" refers to itself"))
+
+        // An alias has the name of a type.
+        X_D(type_def_conflicts_with_type, _T("the typedef \"%1%\" conflicts with the type \"%2%\", that has the same name and number of generic params"))
+
+        // An alias of a namespace has an access that is not public or internal.
+        X_D(type_def_access_invalid, _T("a typedef that is a member of a namespace can only be public or internal"))
+
+        // An alias has a modifier that is not an access.
+        X_D(type_def_modifier_invalid, _T("the modifier \"%1%\" is not valid for a typedef"))
+
+        // An alias is a generic param.
+        X_D(type_def_target_is_param, _T("a typedef cannot be the generic param \"%1%\""))
+
+        // The params of an alias have the same name.
+        X_D(type_def_param_duplicate, _T("the typedef \"%1%\" has two params named \"%2%\""))
+
+        // using Name = Type; : the alias of a type is a typedef.
+        X_D(using_alias_of_type, _T("\"%2%\" is a type: its alias is declared with typedef (typedef %1% = %2%;)"))
+
+        // The pack of an alias is not its last param.
+        X_D(type_def_pack_not_last, _T("the param \"%1%\" of the typedef \"%2%\" is a pack: only the last param can be one"))
+
+        // The constraints of a param of an alias are in conflict.
+        X_D(type_def_constraint_conflict, _T("\"%1%\" of the typedef \"%2%\" cannot be any type: %3%"))
+
         // Member defination duplicated.
         X_D(member_defination_duplicated, _T("type \"%1%\" already defines a member \"%2%\" with the same name"))
 
@@ -688,7 +718,7 @@ namespace X_ROOT_NS::modules::compile {
         // A lambda that uses local variables is not supported here.
         X_D(lambda_capture_not_supported, _T("a lambda that uses local variables is not supported: %1%"))
 
-        // A local variable that a lambda uses is modified.
+        // A local variable that a lambda uses is modified (only the variables that cannot be shared: a ref/out param, a param of a lambda, a variable or a param of an iterator or of a method that awaits, of foreach or catch).
         X_D(lambda_capture_modified, _T("local variable \"%1%\" is used by a lambda and cannot be modified"))
 
         // A lambda that uses local variables uses a member of the object.
@@ -1534,6 +1564,28 @@ namespace X_ROOT_NS::modules::compile {
         return true;
     }
 
+    // Resolves the type now.
+    void general_type_name_ast_node_t::resolve(ast_walk_context_t & context)
+    {
+        if (this->type != nullptr)
+            return;
+
+        // The arguments of the generic types are known first.
+        for (name_unit_t * unit : this->units)
+        {
+            if (unit == nullptr || unit->args == nullptr)
+                continue;
+
+            for (generic_arg_t * arg : *unit->args)
+            {
+                if (arg != nullptr && arg->type_name != nullptr)
+                    arg->type_name->resolve(context);
+            }
+        }
+
+        this->__walk_confirm(context);
+    }
+
     class __generic_param_types_t
     {
     public:
@@ -1610,6 +1662,37 @@ namespace X_ROOT_NS::modules::compile {
                 fill_by_generic((generic_type_t *)host_type);
         }
     };
+
+    // Returns whether the type is, or is made of, a param of an alias (a type that is not known yet).
+    static bool __has_type_def_param(type_t * type)
+    {
+        for (; type != nullptr; type = type->host_type)
+        {
+            switch (type->this_gtype())
+            {
+                case gtype_t::type_def_param:
+                    return true;
+
+                case gtype_t::array:
+                    if (__has_type_def_param(((array_type_t *)type)->element_type))
+                        return true;
+                    break;
+
+                case gtype_t::generic:
+                    for (type_t * arg : ((generic_type_t *)type)->args)
+                    {
+                        if (__has_type_def_param(arg))
+                            return true;
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        return false;
+    }
 
     template<typename _entity_t, typename _code_element_t>
     class __check_generic_constraints_t
@@ -1688,12 +1771,17 @@ namespace X_ROOT_NS::modules::compile {
             name_t name = constraint->param_name;
             type_t * type = __param_types.get_type(name);
 
+            // The argument is a param of an alias: it is any type, the constraints that the alias has are those of the
+            // places where it is used (see the analysis of the alias), and they are checked where the alias is used.
+            if (__has_type_def_param(type))
+                return true;
+
             // Check type compatible.
             {
                 for (type_name_t * type_name : constraint->type_names)
                 {
                     type_t * type0 = __param_types.get_type(type_name->type);
-                    if (type0 == nullptr)
+                    if (type0 == nullptr || __has_type_def_param(type0))
                         continue;
 
                     if (is_struct(type0))
@@ -1707,10 +1795,10 @@ namespace X_ROOT_NS::modules::compile {
             // Check cttype 
             {
                 if (bit_has_flag(constraint->cttype, __f_t::class_) && !__is_ref_type(type))
-                    __LogAndRet(constraint_expect_value_type, type, name, __entity);
+                    __LogAndRet(constraint_expect_reference_type, type, name, __entity);
 
                 if (bit_has_flag(constraint->cttype, __f_t::struct_) && !__is_value_type(type))
-                    __LogAndRet(constraint_expect_reference_type, type, name, __entity);
+                    __LogAndRet(constraint_expect_value_type, type, name, __entity);
 
                 if (bit_has_flag(constraint->cttype, __f_t::new_) &&
                     !__has_public_default_constructor(type))
@@ -1792,7 +1880,8 @@ namespace X_ROOT_NS::modules::compile {
                 return false;
             }
 
-            return is_ref_type(type);
+            // A string is a reference, although it is a number of the runtime.
+            return is_ref_type(type) || type->this_vtype() == vtype_t::string_ || type == __XPool.get_string_type();
         }
 
         // Returns whether it's a value type.
@@ -1975,6 +2064,18 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // Resolves the type now.
+    void array_type_name_ast_node_t::resolve(ast_walk_context_t & context)
+    {
+        if (this->type != nullptr)
+            return;
+
+        if (this->element_type_name != nullptr)
+            this->element_type_name->resolve(context);
+
+        this->__walk_confirm(context);
+    }
+
     // Walks confirm step.
     bool array_type_name_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
@@ -2109,6 +2210,7 @@ namespace X_ROOT_NS::modules::compile {
     bool type_def_ast_node_t::__walk_default(ast_walk_context_t & context, int step, void * tag)
     {
         context.push(to_eobject());
+        this->__layer = context.current_layer();
 
         this->namespace_ = context.current_namespace();
 
@@ -2117,16 +2219,42 @@ namespace X_ROOT_NS::modules::compile {
         const mname_t * ns = ns_to_full_name(context.current_namespace());
 
         type_def_t * type_def = to_eobject();
-        if (!context.assembly.types.append_type_def(to_sid(ns), type_def))
-            this->__log(this, __c_t::type_def_defination_duplicate, type_def);
+        bool in_type = context.current_type() != nullptr, in_method = context.current_method() != nullptr;
 
-        if (context.current_type() == nullptr)   // outside types.
+        // A typedef takes the access only.
+        if (this->decorate != nullptr && !in_method)
         {
-            if (this->decorate != nullptr)
-                this->__log(this, __c_t::unexpected_type_def_decorate);
+            const decorate_t & d = *this->decorate;
+            const char_t * other = d.is_static? _T("static") : d.is_sealed? _T("sealed") : d.is_override? _T("override")
+                : d.is_virtual? _T("virtual") : d.is_abstract? _T("abstract") : d.is_new? _T("new")
+                : d.is_const? _T("const") : d.is_readonly? _T("readonly") : d.is_extern? _T("extern")
+                : d.is_partial? _T("partial") : nullptr;
+
+            if (other != nullptr)
+            {
+                this->__log(this, __c_t::type_def_modifier_invalid, other);
+            }
+            else if (!in_type && !al::in(d.access, access_value_t::public_, access_value_t::internal))
+            {
+                this->__log(this, __c_t::type_def_access_invalid);
+            }
         }
 
-        if (context.current_method() != nullptr) // in a method, typedef statement.
+        // A typedef in a method is the one of its block: it is not a member of anything.
+        variable_region_t * region = in_method? context.current_region() : nullptr;
+        if (region != nullptr)
+        {
+            if (region->find_same_type_def(type_def) != nullptr)
+                this->__log(this, __c_t::type_def_defination_duplicate, type_def);
+            else
+                region->add_type_def(type_def);
+        }
+        else if (!context.assembly.types.append_type_def(to_sid(ns), type_def))
+        {
+            this->__log(this, __c_t::type_def_defination_duplicate, type_def);
+        }
+
+        if (in_method) // in a method, typedef statement.
         {
             if (this->decorate != nullptr)
                 this->__log(this, __c_t::unexpected_type_def_decorate);
@@ -2141,10 +2269,326 @@ namespace X_ROOT_NS::modules::compile {
         return r;
     }
 
+    // Resolves the type that it names now, in the place where it is declared (the other names that it uses are
+    // those of that place): the code that needs it before the walk gets to it, the base types of a class.
+    type_t * type_def_ast_node_t::ensure_type(ast_walk_context_t & context)
+    {
+        if (this->type_name == nullptr)
+            return nullptr;
+
+        if (this->type_name->type != nullptr)
+            return this->type_name->type;
+
+        // Not walked yet: the place is not known.
+        if (this->__layer == nullptr)
+            return nullptr;
+
+        // The alias is needed to know what it is.
+        if (this->__resolving)
+        {
+            this->__log(__name_el != nullptr? (code_element_t *)__name_el : (code_element_t *)this,
+                                                __c_t::type_def_circular, this->name);
+            return nullptr;
+        }
+
+        this->__resolving = true;
+        ast_walk_context_layer_t * saved = context.enter_layer(this->__layer);
+
+        try
+        {
+            this->type_name->resolve(context);
+        }
+        catch (...)
+        {
+            context.leave_type_level(saved);
+            this->__resolving = false;
+            throw;
+        }
+
+        context.leave_type_level(saved);
+        this->__resolving = false;
+
+        return this->type_name->type;
+    }
+
+    // Returns whether the type is made of the param.
+    static bool __type_uses_param(type_t * type, type_def_param_t * param)
+    {
+        for (; type != nullptr; type = type->host_type)
+        {
+            if (type == param)
+                return true;
+
+            switch (type->this_gtype())
+            {
+                case gtype_t::array:
+                    if (__type_uses_param(((array_type_t *)type)->element_type, param))
+                        return true;
+                    break;
+
+                case gtype_t::generic:
+                    for (type_t * arg : ((generic_type_t *)type)->args)
+                    {
+                        if (__type_uses_param(arg, param))
+                            return true;
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        return false;
+    }
+
+    // What the places where a param of an alias is used ask of it: the constraints of the generic params that it is the
+    // argument of, and where they come from.
+    struct __param_requirement_t
+    {
+        uint32_t                                flags = 0;      // generic_constraint_ttype_t.
+        std::map<uint32_t, string_t>            flag_origins;
+        std::vector<std::pair<type_t *, string_t>>
+                                                bases;          // The classes and the interfaces that it derives from.
+    };
+
+    typedef std::map<type_def_param_t *, __param_requirement_t> __param_requirements_t;
+
+    // Collects the requirements of the params of an alias: for each generic type that the type is made of, the
+    // constraints of its generic params whose arguments are params of the alias.
+    static void __collect_param_requirements(type_t * type, __param_requirements_t & requirements)
+    {
+        typedef generic_constraint_ttype_t __f_t;
+
+        for (; type != nullptr; type = type->host_type)
+        {
+            if (type->this_gtype() == gtype_t::array)
+            {
+                __collect_param_requirements(((array_type_t *)type)->element_type, requirements);
+                continue;
+            }
+
+            if (type->this_gtype() != gtype_t::generic)
+                continue;
+
+            generic_type_t * generic = (generic_type_t *)type;
+            general_type_t * template_ = generic->template_;
+
+            for (type_t * arg : generic->args)
+                __collect_param_requirements(arg, requirements);
+
+            if (template_ == nullptr || template_->params == nullptr || template_->constraints == nullptr)
+                continue;
+
+            for (size_t index = 0; index < generic->args.size() && index < template_->params->size(); index++)
+            {
+                type_t * arg = generic->args[index];
+                if (arg == nullptr || arg->this_gtype() != gtype_t::type_def_param)
+                    continue;
+
+                generic_param_t * param = (*template_->params)[index];
+                string_t origin = _F(_T("%1%.%2%"), _str(template_->name), _str(param->name));
+
+                for (generic_constraint_t * constraint : *template_->constraints)
+                {
+                    if (constraint->param_name != param->name)
+                        continue;
+
+                    __param_requirement_t & r = requirements[(type_def_param_t *)arg];
+
+                    for (__f_t flag : { __f_t::class_, __f_t::struct_, __f_t::new_, __f_t::notnull_,
+                                        __f_t::nullable_, __f_t::unmanaged_ })
+                    {
+                        if (bit_has_flag(constraint->cttype, flag) && (r.flags & (uint32_t)flag) == 0)
+                        {
+                            r.flags |= (uint32_t)flag;
+                            r.flag_origins[(uint32_t)flag] = origin;
+                        }
+                    }
+
+                    // The types of the constraint, with the arguments in place of the params: where T2 : T1.
+                    for (type_name_t * type_name : constraint->type_names)
+                    {
+                        type_t * base = transform_type(type_name->type, [&](name_t name) -> type_t * {
+                            for (size_t k = 0; k < generic->args.size() && k < template_->params->size(); k++)
+                            {
+                                if ((*template_->params)[k]->name == name)
+                                    return generic->args[k];
+                            }
+
+                            return nullptr;
+                        });
+
+                        if (base != nullptr)
+                            r.bases.push_back({ base, origin });
+                    }
+                }
+            }
+        }
+    }
+
+    // Returns what makes the requirements impossible to satisfy, an empty text if some type satisfies them.
+    static string_t __requirement_conflict(const __param_requirement_t & r)
+    {
+        typedef generic_constraint_ttype_t __f_t;
+
+        auto origin_of = [&](__f_t flag) {
+            auto it = r.flag_origins.find((uint32_t)flag);
+            return it == r.flag_origins.end()? string_t() : it->second;
+        };
+
+        bool is_value = (r.flags & ((uint32_t)__f_t::struct_ | (uint32_t)__f_t::unmanaged_)) != 0;
+        bool is_ref   = (r.flags & (uint32_t)__f_t::class_) != 0;
+
+        __f_t value_flag = (r.flags & (uint32_t)__f_t::struct_) != 0? __f_t::struct_ : __f_t::unmanaged_;
+        const char_t * value_word = value_flag == __f_t::struct_? _T("struct") : _T("unmanaged");
+
+        // A value type is not a reference.
+        if (is_value && is_ref)
+        {
+            return _F(_T("it must be a value type (%1%, by %2%) and a reference type (class, by %3%)"),
+                      value_word, origin_of(value_flag), origin_of(__f_t::class_));
+        }
+
+        // The classes that it must derive from: the most derived one is the class that it is, if the others are its bases.
+        std::pair<type_t *, string_t> most(nullptr, string_t());
+
+        for (const auto & base : r.bases)
+        {
+            type_t * type = base.first;
+            if (type == nullptr || !is_class(type) || type == __XPool.get_object_type()
+                    || type == __XPool.get_enum_type())
+                continue;
+
+            if (is_value)
+            {
+                return _F(_T("it must be a value type (%1%, by %2%) and derive from the class \"%3%\" (by %4%)"),
+                          value_word, origin_of(value_flag), _str(type), base.second);
+            }
+
+            if (most.first == nullptr || is_type_compatible(type, most.first))
+            {
+                most = base;
+            }
+            else if (!is_type_compatible(most.first, type))
+            {
+                return _F(_T("no type derives from both the classes \"%1%\" (by %2%) and \"%3%\" (by %4%)"),
+                          _str(most.first), most.second, _str(type), base.second);
+            }
+        }
+
+        // A class that is sealed is the only type that can be it: what else it must be has to be true of it.
+        general_type_t * sealed = most.first != nullptr? _M(general_type_t *, to_general(most.first)) : nullptr;
+        if (sealed != nullptr && sealed->is_sealed())
+        {
+            for (const auto & base : r.bases)
+            {
+                if (base.first != nullptr && base.first != most.first
+                        && !is_type_compatible(most.first, base.first))
+                {
+                    return _F(_T("the class \"%1%\" (by %2%) is sealed and does not derive from \"%3%\" (by %4%)"),
+                              _str(most.first), most.second, _str(base.first), base.second);
+                }
+            }
+
+            if ((r.flags & (uint32_t)__f_t::new_) != 0 && !has_public_default_constructor(most.first))
+            {
+                return _F(_T("the class \"%1%\" (by %2%) is sealed and has no public parameterless constructor (by %3%)"),
+                          _str(most.first), most.second, origin_of(__f_t::new_));
+            }
+        }
+
+        return string_t();
+    }
+
     // Walks analysis step.
     bool type_def_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         this->__check_member(context.current_type(), (type_def_t *)this, __name_el);
+
+        code_element_t * name_el = __name_el != nullptr? (code_element_t *)__name_el : (code_element_t *)this;
+
+        // Only the last param is a pack.
+        if (this->params != nullptr)
+        {
+            for (size_t i = 0; i + 1 < this->params->size(); i++)
+            {
+                if ((*this->params)[i]->extends)
+                {
+                    this->__log(name_el, __c_t::type_def_pack_not_last, (*this->params)[i]->name, this->name);
+                    break;
+                }
+            }
+        }
+
+        // The params have different names.
+        if (this->params != nullptr)
+        {
+            for (size_t i = 0; i < this->params->size(); i++)
+            {
+                for (size_t j = 0; j < i; j++)
+                {
+                    if ((*this->params)[i]->name == (*this->params)[j]->name)
+                    {
+                        this->__log(name_el, __c_t::type_def_param_duplicate, this->name, (*this->params)[i]->name);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // It has the name of a type that is declared in the same place.
+        if (context.current_method() == nullptr)
+        {
+            const mname_t * ns = ns_to_full_name(context.current_namespace());
+            type_t * host = context.current_type();
+
+            if (type_t * clash = context.assembly.types.get_general_type(to_sid(ns), (sid_t)this->name,
+                                                                         this->param_count(), host))
+            {
+                this->__log(name_el, __c_t::type_def_conflicts_with_type, this->name, clash);
+            }
+        }
+
+        type_t * type = to_type(this->type_name);
+        if (type == nullptr)
+            return true;
+
+        // The alias of a param is not a type that anyone can name.
+        if (is_type_def_param(type))
+        {
+            this->__log(name_el, __c_t::type_def_target_is_param, ((type_def_param_t *)type)->name);
+            return true;
+        }
+
+        // The params that the type that it names does not use.
+        if (this->params != nullptr)
+        {
+            for (type_def_param_t * param : *this->params)
+            {
+                if (!__type_uses_param(type, param))
+                    this->__log(name_el, __c_t::type_def_param_unused, param->name, this->name);
+            }
+        }
+
+        // A param has the constraints of the places where it is used: they must not be in conflict.
+        if (this->params != nullptr && this->params->size() > 0)
+        {
+            __param_requirements_t requirements;
+            __collect_param_requirements(type, requirements);
+
+            for (type_def_param_t * param : *this->params)
+            {
+                auto it = requirements.find(param);
+                if (it == requirements.end())
+                    continue;
+
+                string_t conflict = __requirement_conflict(it->second);
+                if (!conflict.empty())
+                    this->__log(name_el, __c_t::type_def_constraint_conflict, param->name, this->name, conflict);
+            }
+        }
+
         return true;
     }
 
@@ -2761,6 +3205,13 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool using_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        // using Name = A.B; is the alias of a namespace: when A.B is a type, it is a typedef.
+        if ((walk_step_t)step == walk_step_t::pre_confirm)
+        {
+            __check_alias_is_namespace(context);
+            return true;
+        }
+
         if (!this->ns)
         {
             this->__log(this, __c_t::namespace_name_missing);
@@ -2775,10 +3226,41 @@ namespace X_ROOT_NS::modules::compile {
             else
             {
                 document->add_using(this->to_eobject());
+
+                if (!this->alias.empty())
+                    this->__delay(context, walk_step_t::pre_confirm);
             }
         }
 
         return __super_t::on_walk(context, step, tag);
+    }
+
+    // The alias of a namespace names a namespace: a type has a typedef.
+    void using_ast_node_t::__check_alias_is_namespace(ast_walk_context_t & context)
+    {
+        const mname_t * mname = to_mname(this->ns);
+        if (mname == nullptr)
+            return;
+
+        general_type_name_t type_name;
+        std::vector<name_unit_t> units;
+        units.reserve(mname->part_count());
+
+        for (size_t k = 0; k < mname->part_count(); k++)
+            units.emplace_back(name_t((*mname)[k]));
+
+        for (name_unit_t & unit : units)
+            type_name.units.push_back(&unit);
+
+        try
+        {
+            if (ascertain_type(this->__context, context, &type_name) != nullptr)
+                this->__log(this, __c_t::using_alias_of_type, this->alias, _str(this->ns));
+        }
+        catch (const logic_error_t<ascertain_type_error_t> &)
+        {
+            // It is not a type: it is a namespace.
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -6923,12 +7405,15 @@ namespace X_ROOT_NS::modules::compile {
             return true;
         }
 
-        if (iterator_type->this_gtype() != gtype_t::array || this->is_await)
+        // An Array<T> is walked as the arrays are (the code of System has not its enumerator yet).
+        bool is_array = iterator_type->this_gtype() == gtype_t::array;
+        if ((!is_array && !is_tarray(iterator_type)) || this->is_await)
             return __walk_analysis_enumerator(context, iterator_type);
 
         // An array of any dimension is one-dimensional for the loop, like for its base type
         // Array<T>: array.Length is the number of the items, array[index] is the item.
-        type_t * element_type = ((array_type_t *)iterator_type)->element_type;
+        type_t * element_type = is_array? ((array_type_t *)iterator_type)->element_type
+                                        : ((generic_type_t *)iterator_type)->type_at(0);
 
         __array->type_name->type = iterator_type;
         if (__is_uncertain(__variable->type_name))

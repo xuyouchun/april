@@ -55,7 +55,7 @@ using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-using Handler = System.Delegate<void, Int32>;
+typedef Handler = System.Delegate<void, Int32>;
 
 class Host
 {

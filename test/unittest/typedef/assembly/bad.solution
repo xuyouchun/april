@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<solution>
+
+    <name>bad</name>
+    <projects>
+
+        <project>
+            <path>lib/lib.project</path>
+        </project>
+
+        <project>
+            <path>bad/bad.project</path>
+        </project>
+
+    </projects>
+
+</solution>

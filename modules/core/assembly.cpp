@@ -118,7 +118,7 @@ namespace X_ROOT_NS::modules::core {
         _A(type_def != nullptr);
 
         __type_def_key_t key(ns, (sid_t)type_def->name,
-            type_def->param_count(), type_def->host_type
+            type_def->key_param_count(), type_def->host_type
         );
 
         if (!__append(__type_defs, key, type_def))
@@ -157,9 +157,26 @@ namespace X_ROOT_NS::modules::core {
     type_def_t * types_t::get_type_def(sid_t ns, sid_t name,
                     size_t template_param_count, type_t * host_type)
     {
-        return __get_type(__type_defs, __type_def_key_t(
+        type_def_t * type_def = __get_type(__type_defs, __type_def_key_t(
             ns, name, template_param_count, host_type
         ));
+
+        if (type_def != nullptr)
+            return type_def;
+
+        // An alias that has a pack takes the arguments of its params before the pack, and any count of the others: the one
+        // that has the most params is the closest.
+        for (size_t count = template_param_count + 1; count > 0; count--)
+        {
+            type_def = __get_type(__type_defs, __type_def_key_t(
+                ns, name, count + type_def_t::pack_key_offset, host_type
+            ));
+
+            if (type_def != nullptr)
+                return type_def;
+        }
+
+        return nullptr;
     }
 
     // Gets generic type by template, types and host type.

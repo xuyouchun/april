@@ -108,7 +108,52 @@ public class Enum : ValueType
 {
     // The text of the value: the name of its item, the number when the value has no item (a number that is
     // cast to the enum). An enum that declares a ToString keeps its own.
-    public virtual String ToString() => Internal.Enum_ToString(this);
+    public virtual String ToString()
+    {
+        String text = Internal.Enum_ToString(this);
+
+        // A value that has no item of its own, of an enum that has [Flags]: the names of the items that it is made of.
+        if (text.Length > 0 && (text[0] == '-' || (text[0] >= '0' && text[0] <= '9')))
+        {
+            String? flags = __FlagsText(Type.GetType(this), Internal.Enum_GetNumber(this));
+            if (flags != null)
+                return flags;
+        }
+
+        return text;
+    }
+
+    private static String? __FlagsText(Type type, Int64 number)
+    {
+        Boolean flagged = false;
+        foreach (Attribute attribute in type.GetAttributes())
+        {
+            if (attribute is FlagsAttribute)
+                flagged = true;
+        }
+
+        if (!flagged || number == 0)
+            return null;
+
+        String result = "";
+        Int64 rest = number;
+
+        foreach (Field field in type.GetFields())
+        {
+            if (!field.IsConst)
+                continue;
+
+            Int64 item = Internal.Enum_GetNumber(field.GetValue(null));
+            if (item == 0 || (rest & item) != item)
+                continue;
+
+            result = result.Length == 0? field.Name : result + ", " + field.Name;
+            rest = rest & ~item;
+        }
+
+        // A bit that no item has: the number.
+        return rest == 0? result : null;
+    }
 
     // Parses the text: the name of an item, a number, or the ones that are separated by commas (the flags: they are
     // or-ed). The result is the box of a value of the enum.

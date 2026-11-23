@@ -712,7 +712,7 @@ namespace X_ROOT_NS::modules::core {
 
     // Metadata: Typeref param.
     __DefineEntityIOFunctions
-        __M(name), __M(attributes), __V(1),
+        __M(name), __M(attributes), __M(extends), __V(1),
     __EndDefineEntityIOFunctions
 
     #undef __Mt

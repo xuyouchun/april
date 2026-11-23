@@ -506,6 +506,9 @@ namespace X_ROOT_NS::modules::compile {
         // The argument of a generic type can be null, the param cannot be.
         nullable_constraint = 4010,
 
+        // A param of an alias is not used by the type that the alias names.
+        type_def_param_unused = 4011,
+
         __error__           = 7000,
 
         // ---- AP0100 - AP0199: malformed code (names, missing parts, things that are not allowed there).
@@ -828,6 +831,33 @@ namespace X_ROOT_NS::modules::compile {
         // A static field of a generic type has an initial value: the static constructor of a
         // generic type is not run.
         static_init_in_generic_type = 3106,
+
+        // An alias refers to itself, through other aliases or not.
+        type_def_circular = 3107,
+
+        // An alias has the name and the count of generic params of a type that is declared.
+        type_def_conflicts_with_type = 3108,
+
+        // An alias of a namespace is declared public or internal only.
+        type_def_access_invalid = 3109,
+
+        // An alias takes no modifier but the access.
+        type_def_modifier_invalid = 3110,
+
+        // An alias is a generic param.
+        type_def_target_is_param = 3111,
+
+        // The params of an alias have the same name.
+        type_def_param_duplicate = 3112,
+
+        // A param of an alias cannot be any type: its constraints are in conflict.
+        type_def_constraint_conflict = 3113,
+
+        // The pack of an alias is not its last param.
+        type_def_pack_not_last = 3114,
+
+        // using Name = Type; : the alias of a type is a typedef.
+        using_alias_of_type = 3115,
 
         // ---- AP3200 - AP3299: names and lookup.
 
@@ -2058,6 +2088,10 @@ namespace X_ROOT_NS::modules::compile {
                     this->__log(this, __c_t::type_def_unsolved, type_name);
                     break;
 
+                case ascertain_type_error_t::type_def_inaccessible:
+                    this->__log(this, __c_t::inaccessible_protection_level, type_name);
+                    break;
+
                 default: break;
             }
         }
@@ -2104,6 +2138,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+        // Resolves the type now.
+        virtual void resolve(ast_walk_context_t & context) override;
 
     private:
         bool __nullable = false;
@@ -2185,6 +2222,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+        // Resolves the type now.
+        virtual void resolve(ast_walk_context_t & context) override;
 
     private:
 
@@ -2332,8 +2372,13 @@ namespace X_ROOT_NS::modules::compile {
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
+        // Resolves the type that it names now.
+        virtual type_t * ensure_type(ast_walk_context_t & context) override;
+
     private:
         __el_t *    __name_el = nullptr;
+        ast_walk_context_layer_t * __layer = nullptr;   // Where it is declared.
+        bool        __resolving = false;
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context, int step, void * tag);
@@ -3152,6 +3197,11 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+
+        // The alias of a namespace names a namespace: a type has a typedef.
+        void __check_alias_is_namespace(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
