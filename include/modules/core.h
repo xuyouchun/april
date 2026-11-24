@@ -7664,6 +7664,10 @@ namespace X_ROOT_NS::modules::core {
         // The expression is an await: its operand is the call that waits for the task (the checked-ness is not changed).
         bool is_await = false;
 
+        // The expression is a throw (x ?? throw e): its operand is the exception, until it is the call that throws it and
+        // returns what the expression stands for.
+        bool is_throw = false;
+
         // In a method that is a state machine: the statement that gets the awaiter and suspends the method when the task has not
         // ended (a statement_t), the state of the method after it, and the label where the method goes on.
         object_t * await_prepare = nullptr;
@@ -8331,6 +8335,10 @@ namespace X_ROOT_NS::modules::core {
         __vector_t<argument_t *>   inits;
         __vector_t<expression_t *> init_assigns;
 
+        // The expression that makes the object, when the type is a generic param (new T()): the call
+        // of System.Activator.CreateInstance<T>().
+        expression_t * lowered = nullptr;
+
         virtual expression_family_t this_family() const override
         {
             return expression_family_t::new_;
@@ -8354,7 +8362,7 @@ namespace X_ROOT_NS::modules::core {
         // Returns behaviour.
         virtual expression_behaviour_t get_behaviour() const override
         {
-            return expression_behaviour_t::new_;
+            return lowered != nullptr? lowered->get_behaviour() : expression_behaviour_t::new_;
         }
     };
 

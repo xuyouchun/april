@@ -31,6 +31,8 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         deconstruct_st,
 
+        deconstruct_var_st,
+
         deconstruct_assign_st,
 
         _decorate_complex,

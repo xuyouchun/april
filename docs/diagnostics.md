@@ -241,6 +241,10 @@ the others are errors.
 | AP5312 | error | `items_without_dots` | the items of a params generic parameter "%1%" are many arguments, they are passed with ...: "%1% ..." |
 | AP5313 | error | `object_initializer_not_supported` | the members of an object of the type "%1%" cannot be set by an object initializer, only the objects of a class can |
 | AP5314 | error | `init_only_property_assigned` | the property "%1%" has an init accessor: it is set only in an object initializer, in a constructor of its type, or by its own accessor |
+| AP5315 | error | `switch_string_expected` | the cases of the switch are strings, its value is of the type "%1%" |
+| AP5316 | error | `default_literal_untyped` | the type of "default" is not known here: write default(Type), or assign it to a variable that has a type |
+| AP5317 | error | `throw_expression_untyped` | a throw expression is the right operand of ??, or a branch of ?: whose other branch has a type |
+| AP5318 | error | `property_initializer_not_auto` | the property "%1%" has an initial value: only an auto property (get; set;) can have one |
 | AP6100 | error | `generic_parameter_not_defined` | "%1%" does not define type parameter "%2%" |
 | AP6101 | error | `constraint_no_implicit_conversion` | type "%1%" cannot be used as type parameter "%2%" in "%3%": there is no implicit reference conversion from "%1%" to "%4%" |
 | AP6102 | error | `constraint_expect_value_type` | type "%1%" must be a non-nullable value type to be used as parameter "%2%" in "%3%" |
@@ -257,3 +261,4 @@ the others are errors.
 | AP6113 | error | `constraint_circular_dependency` | circular constraint dependency involving "%1%" |
 | AP6114 | error | `constraint_unexpected_class_or_struct` | "%1%": cannot specify both a constraint class and the "class" or "struct" constraint |
 | AP6115 | error | `constraint_expect_unmanaged_type` | type "%1%" must be an unmanaged type (a number, bool, char, pointer, enum, or a struct that has only them) to be used as parameter "%2%" in "%3%" |
+| AP6116 | error | `generic_param_new_invalid` | cannot create an instance of the generic param "%1%": %2% |

@@ -1039,9 +1039,20 @@ namespace X_ROOT_NS::modules::compile {
         // an ITuple<Int32, String> is made in the heap, to a Tuple<Int32, String> is a struct.
         void retarget(expression_t * exp, type_t * type)
         {
-            if (exp != nullptr && exp->this_family() == expression_family_t::tuple
-                    && exp->walked && type != nullptr)
+            if (exp == nullptr || type == nullptr || !exp->walked)
+                return;
+
+            if (exp->this_family() == expression_family_t::tuple)
+            {
                 __lower_tuple((tuple_expression_t *)exp, type);
+            }
+            else if (exp->this_family() == expression_family_t::default_value)
+            {
+                // The default literal: default is default(Type) of the type that the context wants.
+                default_value_expression_t * literal = (default_value_expression_t *)exp;
+                if (literal->type_name == nullptr && type->this_gtype() != gtype_t::uncertain && !is_void_type(type))
+                    literal->type_name = __new_obj<type_name_t>(type);
+            }
         }
 
     private:
@@ -1135,10 +1146,150 @@ namespace X_ROOT_NS::modules::compile {
                     __walk_tuple((tuple_expression_t *)exp);
                     break;
 
+                case expression_family_t::default_value: {
+                    // The default literal has the type of the context: int a = default;
+                    default_value_expression_t * literal = (default_value_expression_t *)exp;
+                    if (literal->type_name == nullptr)
+                    {
+                        // x ?? default, c? x : default: the type of the other operand.
+                        type_t * target = nullptr;
+                        expression_t * parent = exp->parent;
+
+                        if (parent != nullptr && parent->this_family() == expression_family_t::binary
+                                && ((binary_expression_t *)parent)->op() == operator_t::null_coalescing
+                                && ((binary_expression_t *)parent)->exp2() == exp)
+                        {
+                            target = ((binary_expression_t *)parent)->exp1()->get_type();
+
+                            if (type_t * underlying = get_nullable_underlying(target))
+                                target = underlying;
+                        }
+                        else if (parent != nullptr && parent->is_condition() && parent->expression_count() == 3
+                                    && parent->expression_at(0) != exp)
+                        {
+                            expression_t * other = parent->expression_at(1) == exp? parent->expression_at(2)
+                                                                                  : parent->expression_at(1);
+                            // A throw expression has no type of its own: c? throw e : default has none.
+                            bool other_throws = other != nullptr && other->this_family() == expression_family_t::checked
+                                                    && ((checked_expression_t *)other)->is_throw;
+
+                            if (other != nullptr && !other_throws)
+                            {
+                                __walk(other);
+                                target = other->get_type();
+                            }
+                        }
+                        else if (parent != nullptr && parent->this_family() == expression_family_t::binary
+                                    && parent->expression_count() == 2
+                                    && !((binary_expression_t *)parent)->op_property->is_assign
+                                    && ((binary_expression_t *)parent)->op() != operator_t::member_point
+                                    && ((binary_expression_t *)parent)->op() != operator_t::null_coalescing)
+                        {
+                            // a == default, a + default: the type of the other operand.
+                            expression_t * other = parent->expression_at(0) == exp? parent->expression_at(1)
+                                                                                  : parent->expression_at(0);
+                            __walk(other);
+                            target = other->get_type();
+                        }
+                        else
+                        {
+                            target = pick_type_from_current_context(exp);
+                        }
+
+                        if (target != nullptr && target->this_gtype() != gtype_t::uncertain && !is_void_type(target))
+                            literal->type_name = __new_obj<type_name_t>(target);
+                    }
+
+                    __each(exp);
+                }   break;
+
+                case expression_family_t::checked:
+                    __each(exp);
+
+                    if (((checked_expression_t *)exp)->is_throw)
+                        __walk_throw((checked_expression_t *)exp);
+
+                    break;
+
                 default:
                     __each(exp);
                     break;
             }
+        }
+
+        // Walks a throw expression (x ?? throw e, c? x : throw e): it stands for a value of the type of the other operand, the
+        // call of System.ThrowHelper.Throw<T>(e) that throws the exception and returns that value is what it is lowered to.
+        void __walk_throw(checked_expression_t * exp)
+        {
+            expression_t * parent = exp->parent;
+            type_t * type = nullptr;
+
+            if (parent != nullptr && parent->this_family() == expression_family_t::binary
+                    && ((binary_expression_t *)parent)->op() == operator_t::null_coalescing
+                    && ((binary_expression_t *)parent)->exp2() == exp)
+            {
+                type = ((binary_expression_t *)parent)->exp1()->get_type();
+
+                if (type_t * underlying = get_nullable_underlying(type))
+                    type = underlying;
+            }
+            else if (parent != nullptr && parent->is_condition() && parent->expression_count() == 3)
+            {
+                expression_t * other = parent->expression_at(1) == exp? parent->expression_at(2)
+                                                                        : parent->expression_at(1);
+
+                if (other != nullptr)
+                {
+                    __walk(other);
+
+                    bool other_throws = other->this_family() == expression_family_t::checked
+                                                && ((checked_expression_t *)other)->is_throw;
+                    if (!other_throws)
+                        type = other->get_type();
+                }
+            }
+
+            if (type == nullptr || type->this_gtype() == gtype_t::uncertain || is_void_type(type))
+            {
+                ast_log(__cctx, exp, __c_t::throw_expression_untyped);
+                return;
+            }
+
+            general_type_name_t type_name;
+            name_unit_t system_unit(__to_name_of(_T("System")), nullptr);
+            name_unit_t helper_unit(__to_name_of(_T("ThrowHelper")), nullptr);
+            type_name.units.push_back(&system_unit);
+            type_name.units.push_back(&helper_unit);
+
+            type_t * helper = ::april::modules::compile::__ascertain_type(__cctx, __wctx, &type_name);
+            if (helper == nullptr)
+            {
+                ast_log(__cctx, exp, __c_t::type_undefined, _T("System.ThrowHelper"));
+                return;
+            }
+
+            arguments_t * arguments = __new_obj<arguments_t>();
+            argument_t * argument = __new_obj<argument_t>();
+            argument->expression = exp->expression();
+            arguments->push_back(argument);
+
+            auto * type_exp = __new_obj<system_expression_t<name_expression_t>>(helper);
+            auto * name_exp = __new_obj<system_expression_t<name_expression_t>>(__to_name_of(_T("Throw")));
+            auto * member = __new_obj<system_expression_t<binary_expression_t>>(
+                operator_t::member_point, type_exp, name_exp
+            );
+
+            auto * call = __new_obj<system_expression_t<function_expression_t>>();
+            call->set_namex(member);
+            call->set_arguments(arguments);
+            call->generic_args = __new_obj<generic_args_t>();
+
+            generic_arg_t * generic_arg = __new_obj<generic_arg_t>();
+            generic_arg->type_name = __new_obj<type_name_t>(type);
+            call->generic_args->push_back(generic_arg);
+
+            exp->set_expression(call);
+            __walk(call);
         }
 
         // Walks a tuple literal: its items first, then the expression that makes it, for the type
@@ -1155,6 +1306,30 @@ namespace X_ROOT_NS::modules::compile {
                 target = nullptr;
 
             __lower_tuple(exp, target);
+        }
+
+        // Returns whether the expression is an argument of a call that is passed by out.
+        bool __is_out_argument(expression_t * exp)
+        {
+            expression_t * parent = exp->parent;
+            if (parent == nullptr)
+                return false;
+
+            expression_family_t family = parent->this_family();
+            if (family != expression_family_t::function && family != expression_family_t::new_)
+                return false;
+
+            arguments_t * arguments = ((__arguments_expression_base_t *)parent)->arguments();
+            if (arguments == nullptr)
+                return false;
+
+            for (argument_t * argument : *arguments)
+            {
+                if (argument->expression == exp)
+                    return argument->atype == param_type_t::out;
+            }
+
+            return false;
         }
 
         // Returns the type System.ITuple, that has the method Create.
@@ -1325,6 +1500,16 @@ namespace X_ROOT_NS::modules::compile {
         {
             if (name_exp->expression_type != name_expression_type_t::__default__)
                 return;
+
+            // out _ : the argument is a discard, a variable of the type of the param that nothing reads.
+            if (name_exp->declare_type_name == nullptr && name_exp->name == __to_name_of(_T("_"))
+                    && __is_out_argument(name_exp))
+            {
+                static int discard_count = 0;
+
+                name_exp->declare_type_name = __new_obj<type_name_t>(uncertain_type_t::instance());
+                name_exp->name = __to_name_of(_F(_T("__discard%1%"), ++discard_count).c_str());
+            }
 
             // A name that declares a variable: out int value, o is string s.
             if (name_exp->declare_type_name != nullptr)
@@ -3802,7 +3987,8 @@ namespace X_ROOT_NS::modules::compile {
         {
             argument_t * argument = arguments->at(index);
             if (argument->atype != param_type_t::__default__
-                    || argument->expression->this_family() != expression_family_t::tuple)
+                    || (argument->expression->this_family() != expression_family_t::tuple
+                        && argument->expression->this_family() != expression_family_t::default_value))
                 continue;
 
             type_t * param_type = method->param_type_at(index).type();
@@ -3834,6 +4020,62 @@ namespace X_ROOT_NS::modules::compile {
     {
         if (type_name != nullptr)
             type_name->take_item_names(__walk_expression_t(cctx, wctx).element_names(iterator, element_type));
+    }
+
+    // new T() of a generic param: the call of System.Activator.CreateInstance<T>().
+    const char_t * lower_new_of_generic_param(ast_context_t & cctx, ast_walk_context_t & wctx,
+                                                        new_expression_t * exp, generic_param_t * param)
+    {
+        // The param can be made: it is a class that has a constructor without params, or a struct.
+        bool can_new = false;
+        for (generic_constraint_t * constraint : param->constraints)
+        {
+            if (bit_has_flag(constraint->cttype, generic_constraint_ttype_t::new_)
+                    || bit_has_flag(constraint->cttype, generic_constraint_ttype_t::struct_))
+            {
+                can_new = true;
+            }
+        }
+
+        if (!can_new)
+            return _T("it does not have the new() or struct constraint");
+
+        if (exp->arguments() != nullptr && exp->arguments()->size() > 0)
+            return _T("its constructor has no arguments");
+
+        if (!exp->inits.empty())
+            return _T("an object initializer is not supported for it");
+
+        general_type_name_t type_name;
+        name_unit_t system_unit(__to_name(_T("System")), nullptr);
+        name_unit_t activator_unit(__to_name(_T("Activator")), nullptr);
+        type_name.units.push_back(&system_unit);
+        type_name.units.push_back(&activator_unit);
+
+        type_t * activator = __ascertain_type(cctx, wctx, &type_name);
+        if (activator == nullptr)
+            return _T("the type System.Activator is not defined");
+
+        auto * type_exp = cctx.compile_context.new_obj<system_expression_t<name_expression_t>>(activator);
+        auto * name_exp = cctx.compile_context.new_obj<system_expression_t<name_expression_t>>(__to_name(_T("CreateInstance")));
+        auto * member = cctx.compile_context.new_obj<system_expression_t<binary_expression_t>>(
+            operator_t::member_point, type_exp, name_exp
+        );
+
+        auto * call = cctx.compile_context.new_obj<system_expression_t<function_expression_t>>();
+        call->set_namex(member);
+        call->set_arguments(cctx.compile_context.new_obj<arguments_t>());
+        call->generic_args = cctx.compile_context.new_obj<generic_args_t>();
+
+        generic_arg_t * generic_arg = cctx.compile_context.new_obj<generic_arg_t>();
+        generic_arg->type_name = cctx.compile_context.new_obj<type_name_t>((type_t *)param);
+        call->generic_args->push_back(generic_arg);
+
+        call->parent = exp;
+        exp->lowered = call;
+
+        walk_expression(cctx, wctx, call);
+        return nullptr;
     }
 
     // Converts the arguments of a call to the types of the params.

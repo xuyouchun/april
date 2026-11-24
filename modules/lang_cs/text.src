@@ -45,8 +45,13 @@ $lambda: ( \( $params? \) | \( name (, name)* \) | name ) => ($method_body | $ex
 # Typeof expression: typeof(T).
 $type_of: typeof \( $type_name \) ;
 
-# Default value expression: default(T).
-$default_value: default \( $type_name \) ;
+# Default value expression: default(T). The type can be left to the context: int a = default; , return default; (the default
+# literal).
+$default_value: default (\( $type_name \))? ;
+
+# Throw expression: x ?? throw new Exception(); , a? b : throw new Exception(); . It is the right operand of ??, or a branch of
+# ?: (a throw statement is not an expression).
+$throw_exp: throw $expression ;
 
 # Checked expression: checked(a + b), unchecked(a + b): the arithmetic of the expression raises
 # OverflowException when the result does not fit its type, or not.
@@ -91,6 +96,9 @@ $_expression:
           | \|   | ^   | &   | \|= | &= | ^=
           | \?\? | \?\?=
         ) $_expression                                  # binary operator
+      | \?\? $throw_exp                                 # x ?? throw e
+      | \? $throw_exp `\: $_expression                  # c ? throw e : x
+      | \? $_expression `\: $throw_exp                  # c ? x : throw e
       | as $type_name_exp                               # as type
       | is not? ( $declaration_exp | $type_name_exp | $cvalue ) # is type, is null, is T v
       | \? $_expression `\: $_expression                # xxx? xxx : xxx   ? :
@@ -300,7 +308,7 @@ $property:
     ret:$type_name ((owner:$type_name .)? name | this [ $params ])
     ({
         $_fake_method *
-    } | => $expression \; )
+    } (= init:$expression \;)? | => $expression \; )
 ;
 
 # Event member.
@@ -333,9 +341,10 @@ $for_st:
     $statement
 ;
 
-# For ... each statement. await foreach goes through an IAsyncEnumerable<T>: it waits for each item.
+# For ... each statement. await foreach goes through an IAsyncEnumerable<T>: it waits for each item. The item can be
+# deconstructed: foreach (var (a, b) in items) .
 $for_each_st:
-    await? foreach \( $type_name name in $expression \)
+    await? foreach \( ($type_name name | var \( name (, name)+ \)) in $expression \)
     $statement
 ;
 
@@ -365,8 +374,13 @@ $if_st:
 $statements: $statement * ;
 
 # Case in switch.
+# A label of a case: a constant (case 1:), a declaration of a type pattern (case String s:), and the condition that goes with
+# them (case 1 when a > b:, case String s when s.Length > 0:).
+# The labels of a case: a label that follows another one is one of them (case 1: case 2: ..), not the start of a case that
+# has no statements: its words have a weight.
 $case:
-    ((case $expression | default) \:)+
+    (case ($declaration_exp | $expression) (when when:$expression)? | default) \:
+    ((!:case ($declaration_exp | $expression) (when when:$expression)? | !:default) \:)*
         $statements
 ;
 
@@ -400,6 +414,9 @@ $defination_st:
 
 # Deconstruction that declares variables: (int Number, string Str) = tuple; . Each item has a type (var too) and a name.
 $deconstruct_st: $tuple_args = $expression \; ;
+
+# Deconstruction that declares variables that are all var: var (Number, Str) = tuple; . A name that is _ is no variable.
+$deconstruct_var_st: var \( name (, name)+ \) = $expression \; ;
 
 # Deconstruction that assigns variables: (a, b) = (b, a); .
 $deconstruct_assign_st: !:\( name (, name)+ \) = $expression \; ;
@@ -440,7 +457,7 @@ $statement:
     $do_while_st | $while_st | $for_st | $for_each_st | $using_st
   | $if_st | $switch_st | $try_st | $empty_st
   | $break_st | $continue_st | $throw_st | $return_st | $goto_st | $yield_st
-  | $deconstruct_assign_st | $deconstruct_st | $expression_st | $defination_st | $type_def_st
+  | $deconstruct_assign_st | $deconstruct_var_st | $deconstruct_st | $expression_st | $defination_st | $type_def_st
   | $statement_group_st
 ;
 

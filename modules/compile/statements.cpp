@@ -1319,10 +1319,23 @@ namespace X_ROOT_NS::modules::compile {
     // Compiles this statement.
     void switch_statement_t::compile(statement_compile_context_t & ctx)
     {
+        if (lowered != nullptr)
+        {
+            compile_statement(ctx, lowered);
+            return;
+        }
+
         if (expression == nullptr)
             __Failed("switch expression missing");
 
         int row_count = __get_rows();
+
+        // No case: nothing is compared (the value can be of a type that has no table, a string).
+        if (row_count == 0)
+        {
+            __compile_as_statement(ctx);
+            return;
+        }
 
         if (is_optimize(ctx, compile_optimize_code_t::convert_switch_to_if_statement))
         {
@@ -1604,6 +1617,9 @@ namespace X_ROOT_NS::modules::compile {
     // Returns exit type.
     __exit_type_t switch_statement_t::exit_type(__exit_type_context_t & ctx)
     {
+        if (lowered != nullptr)
+            return lowered->exit_type(ctx);
+
         __e_exit_type_t type;
 
         cvalue_t value = execute_expression(expression);

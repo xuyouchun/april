@@ -180,6 +180,7 @@ namespace X_ROOT_NS::modules::compile {
         // Checked expression.
         X_C(checked_exp,                _T("checked_exp"))
         X_C(await_exp,                  _T("await_exp"))
+        X_C(throw_exp,                  _T("throw_exp"))
 
     X_ENUM_INFO_END
 
@@ -813,6 +814,21 @@ namespace X_ROOT_NS::modules::compile {
             _T("the property \"%1%\" has an init accessor: it is set only in an object initializer, ")
             _T("in a constructor of its type, or by its own accessor"))
 
+        // A switch has cases of strings, and the value of it is not a string.
+        X_D(switch_string_expected, _T("the cases of the switch are strings, its value is of the type \"%1%\""))
+
+        // The type of a default literal is not known.
+        X_D(default_literal_untyped,
+            _T("the type of \"default\" is not known here: write default(Type), or assign it to a variable that has a type"))
+
+        // A property that has an initial value must be an auto property.
+        X_D(property_initializer_not_auto,
+            _T("the property \"%1%\" has an initial value: only an auto property (get; set;) can have one"))
+
+        // A throw expression is where the type of its value is not known.
+        X_D(throw_expression_untyped,
+            _T("a throw expression is the right operand of ??, or a branch of ?: whose other branch has a type"))
+
         // ---- AP6100 - AP6199: generics and constraints.
 
         // Class1<T>' does not define type parameter 'K'
@@ -877,6 +893,9 @@ namespace X_ROOT_NS::modules::compile {
         X_D(constraint_expect_unmanaged_type,
             _T("type \"%1%\" must be an unmanaged type (a number, bool, char, pointer, enum, or a struct ")
             _T("that has only them) to be used as parameter \"%2%\" in \"%3%\""))
+
+        // Cannot create an instance of the variable type 'T' because it does not have the new() constraint
+        X_D(generic_param_new_invalid, _T("cannot create an instance of the generic param \"%1%\": %2%"))
 
         // 'Class3': cannot specify both a constraint class and the 'class' or 'struct' constraint
         X_D(constraint_unexpected_class_or_struct,
@@ -3132,6 +3151,21 @@ namespace X_ROOT_NS::modules::compile {
         // _PP( __join_es(__es) );
 
         __expression = __parse_expression(__es);
+
+        // _ = expression; : the value is discarded, the expression is the one that is assigned.
+        if (__expression != nullptr && __expression->this_family() == expression_family_t::binary)
+        {
+            binary_expression_t * assign = (binary_expression_t *)__expression;
+            name_expression_t * target = dynamic_cast<name_expression_t *>(assign->exp1());
+
+            // The name is a name expression, or a name unit (a name that can have generic arguments).
+            if (assign->op() == operator_t::assign && target != nullptr
+                    && target->declare_type_name == nullptr && target->name == __to_name(_T("_")))
+            {
+                __expression = assign->exp2();
+                __expression->parent = nullptr;
+            }
+        }
     }
 
     // Returns this eobject.
@@ -3559,6 +3593,10 @@ namespace X_ROOT_NS::modules::compile {
 
                 expression_t * init_exp = field->init_value;
                 type_t * field_type = to_type(field->type_name);
+
+                // A default literal, or a tuple literal, is made for the type of the field.
+                if (field_type != nullptr && init_exp != nullptr)
+                    retarget_tuple(this->__context, __wctx, init_exp, field_type);
 
                 if (field_type != nullptr && __check_default_value(field_type, init_exp))
                 {
@@ -6310,6 +6348,15 @@ namespace X_ROOT_NS::modules::compile {
                 {
                     expression_t * exp = this->default_value;
 
+                    // void F(int a = default): the default literal is default(int).
+                    if (exp->this_family() == expression_family_t::default_value
+                            && ((default_value_expression_t *)exp)->type_name == nullptr
+                            && this->type_name != nullptr && this->type_name->type != nullptr)
+                    {
+                        ((default_value_expression_t *)exp)->type_name =
+                                                    __new_obj<type_name_t>(this->type_name->type);
+                    }
+
                     try
                     {
                         cvalue_t cv = this->__execute_expression(exp);
@@ -6339,6 +6386,24 @@ namespace X_ROOT_NS::modules::compile {
     void params_ast_node_t::on_commit()
     {
         this->transform_child_to(__params__, *this);
+
+        // The second _ of (Int32 _, Int32 _) is a discard: it has a name that nothing reads.
+        name_t discard = __to_name(_T("_"));
+        bool found = false;
+
+        for (param_t * param : *this)
+        {
+            if (param == nullptr || param->name != discard)
+                continue;
+
+            if (found)
+            {
+                static int discard_count = 0;
+                param->name = __to_name(_F(_T("__discard_param%1%"), ++discard_count));
+            }
+
+            found = true;
+        }
     }
 
     // Returns this eobject.
@@ -7898,9 +7963,255 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool switch_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        if ((walk_step_t)step == walk_step_t::post_analysis)
+            return __walk_analysis(context);
+
         this->__check_empty(this->expression, this, __c_t::expression_missing, _T("switch"));
 
-        return __super_t::on_walk(context, step, tag);
+        if (this->expression == nullptr || !__needs_lowering())
+            return __super_t::on_walk(context, step, tag);
+
+        // A switch that compares strings, or has patterns and conditions: the value and the index of the case are
+        // variables of the statement.
+        static int switch_count = 0;
+        int number = ++switch_count;
+
+        context.push_new_region();
+        __region = context.current_region();
+
+        variable_defination_t vd(this->__context, context, (object_t *)(ast_node_t *)this);
+
+        __value = vd.define_local(
+            __new_obj<type_name_t>(uncertain_type_t::instance()),
+            __to_name(__generated_name(_T("switch_value"), _F(_T("%1%"), number), string_t())), false, nullptr,
+            (object_t *)(ast_node_t *)this
+        );
+
+        __index = vd.define_local(
+            __new_obj<type_name_t>(__XPool.get_internal_type(vtype_t::int32_)),
+            __to_name(__generated_name(_T("switch_index"), _F(_T("%1%"), number), string_t())), false, nullptr,
+            (object_t *)(ast_node_t *)this
+        );
+
+        // The statements are made after all the expressions of the cases are analyzed: they use the variables that
+        // the labels declare, and the types of them.
+        this->__delay(context, walk_step_t::post_analysis);
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.pop();
+        return r;
+    }
+
+    // Returns whether the switch is not made by a table of the values: a label is a string, a declaration of a
+    // variable (case String s:), or has a condition (case 1 when a > b:).
+    bool switch_st_ast_node_t::__needs_lowering()
+    {
+        for (case_t * c : this->cases)
+        {
+            if (!c->guards.empty())
+                return true;
+
+            for (expression_t * exp : c->constants)
+            {
+                if (exp == nullptr)
+                    continue;
+
+                if (exp->this_family() == expression_family_t::name
+                        && ((name_expression_t *)exp)->declare_type_name != nullptr)
+                    return true;
+
+                if (exp->this_family() == expression_family_t::cvalue
+                        && execute_expression(exp).value_type == cvalue_type_t::string)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Walks the post analysis step: the statements that make a switch of strings, patterns and conditions are
+    //   { value = expression;
+    //     if (value == "a") index = 0; else if (value is String s && s.Length > 1) index = 1; else index = -1;
+    //     switch (index) { case 0: ... case 1: ... default: ... } }
+    bool switch_st_ast_node_t::__walk_analysis(ast_walk_context_t & context)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        if (__value == nullptr || __index == nullptr || this->expression == nullptr)
+            return true;
+
+        if (!this->expression->walked)
+            walk_expression(this->__context, context, this->expression);
+
+        type_t * type = this->expression->get_type();
+        if (type == nullptr)
+        {
+            // It follows the error that was told when the expression was analyzed.
+            if (this->__context.compile_context.error_count() == 0)
+                this->__log(this, __c_t::invalid_expression, this->expression);
+            return true;
+        }
+
+        // The labels that are strings need a string.
+        bool has_string = false;
+        for (case_t * c : this->cases)
+        {
+            for (expression_t * exp : c->constants)
+            {
+                if (exp != nullptr && exp->this_family() == expression_family_t::cvalue
+                        && execute_expression(exp).value_type == cvalue_type_t::string)
+                    has_string = true;
+            }
+        }
+
+        if (has_string && type->this_vtype() != vtype_t::string_)
+        {
+            this->__log(this, __c_t::switch_string_expected, type);
+            return true;
+        }
+
+        __value->type_name->type = type;
+
+        auto name_of = [this](variable_t * variable) -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable->get_name());
+        };
+
+        auto number_of = [this](int32_t value) -> expression_t * {
+            return __new_obj<system_expression_t<cvalue_expression_t>>(__new_obj<cvalue_t>(value));
+        };
+
+        // value = expression
+        expression_t * assign_value = __new_obj<__binary_t>(operator_t::assign, name_of(__value), this->expression);
+        walk_expression(this->__context, context, assign_value);
+
+        // The test and the index of each label, in the order that they are written.
+        struct __test_t { expression_t * condition; expression_t * assign; };
+        std::vector<__test_t> tests;
+        std::vector<cvalue_t> values;
+
+        int32_t index = 0;
+        for (case_t * c : this->cases)
+        {
+            for (size_t label = 0; label < c->constants.size(); label++)
+            {
+                expression_t *& exp = c->constants[label];
+                if (exp == nullptr)     // default
+                    continue;
+
+                if (!exp->walked)
+                    walk_expression(this->__context, context, exp);
+
+                bool declares = exp->this_family() == expression_family_t::name
+                                    && ((name_expression_t *)exp)->declare_type_name != nullptr;
+
+                // value is String s: the variable is assigned when the value is one.
+                // value == "a": the same value is not twice a case.
+                expression_t * condition;
+                if (declares)
+                {
+                    condition = __new_obj<__binary_t>(operator_t::is, name_of(__value), exp);
+                }
+                else
+                {
+                    // A label that has a condition can be twice (case 1 when a: case 1 when b:).
+                    bool has_guard = label < c->guards.size() && c->guards[label] != nullptr;
+
+                    cvalue_t value = execute_expression(exp);
+                    if (value != cvalue_t::nan && !has_guard)
+                    {
+                        if (al::any_of(values, [&](const cvalue_t & v) { return v == value; }))
+                        {
+                            this->__log(this, __c_t::duplicate, _T("case"),
+                                value.value_type == cvalue_type_t::string? string_t(value.string)
+                                                                          : _str(exp));
+                            return true;
+                        }
+
+                        values.push_back(value);
+                    }
+
+                    condition = __new_obj<__binary_t>(operator_t::equal, name_of(__value), exp);
+                }
+
+                // case ... when condition: the condition is tested when the label matches.
+                if (label < c->guards.size() && c->guards[label] != nullptr)
+                {
+                    expression_t * guard = c->guards[label];
+                    if (!guard->walked)
+                        walk_expression(this->__context, context, guard);
+
+                    condition = __new_obj<__binary_t>(operator_t::logic_and, condition, guard);
+                }
+
+                walk_expression(this->__context, context, condition);
+
+                if (condition->get_type() == nullptr)
+                {
+                    // It follows the error that was told when the expression was analyzed.
+                    if (this->__context.compile_context.error_count() == 0)
+                        this->__log(this, __c_t::invalid_expression,
+                                (label < c->guards.size() && c->guards[label] != nullptr)? c->guards[label] : condition);
+                    return true;
+                }
+
+                // index = 0
+                expression_t * assign = __new_obj<__binary_t>(operator_t::assign, name_of(__index), number_of(index));
+                walk_expression(this->__context, context, assign);
+
+                tests.push_back({ condition, assign });
+
+                // The switch that follows is of the indexes.
+                expression_t * number = number_of(index);
+                walk_expression(this->__context, context, number);
+
+                exp = number;
+                index++;
+            }
+        }
+
+        // index = -1: no case, the default one.
+        expression_t * assign_none = __new_obj<__binary_t>(operator_t::assign, name_of(__index), number_of(-1));
+        walk_expression(this->__context, context, assign_none);
+
+        statement_t * chain = __new_obj<expression_statement_t>(assign_none);
+        for (size_t k = tests.size(); k > 0; k--)
+        {
+            chain = __new_obj<if_statement_t>(tests[k - 1].condition,
+                __new_obj<expression_statement_t>(tests[k - 1].assign), chain);
+        }
+
+        expression_t * index_exp = name_of(__index);
+        walk_expression(this->__context, context, index_exp);
+
+        // The statements of a case that declares variables have their region.
+        switch_statement_t * indexes = __new_obj<switch_statement_t>(index_exp);
+        for (case_t * c : this->cases)
+        {
+            if (c->region != nullptr && c->statements != nullptr)
+            {
+                statement_group_t * body = __new_obj<statement_group_t>();
+                body->variable_region = c->region;
+
+                for (statement_t * statement : *c->statements)
+                    body->push_back(statement);
+
+                statements_t * statements = __new_obj<statements_t>();
+                statements->push_back(body);
+                c->statements = statements;
+            }
+
+            indexes->cases.push_back(c);
+        }
+
+        statement_group_t * lowered = __new_obj<statement_group_t>();
+        lowered->variable_region = __region;
+        lowered->push_back(__new_obj<expression_statement_t>(assign_value));
+        lowered->push_back(chain);
+        lowered->push_back(indexes);
+
+        this->lowered = lowered;
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -7914,6 +8225,21 @@ namespace X_ROOT_NS::modules::compile {
         );
 
         this->append_child(__constants__, exp_node);
+        __label_count++;
+    }
+
+    // Appends the constant, or the declaration, of a label.
+    void case_ast_node_t::append_constant(ast_node_t * node)
+    {
+        this->append_child(__constants__, node);
+        __label_count++;
+    }
+
+    // Appends the condition (when) of the last label.
+    void case_ast_node_t::append_guard(ast_node_t * node)
+    {
+        this->append_child(__guards__, node);
+        __guard_labels.push_back(__label_count - 1);
     }
 
     // Commits this node.
@@ -7921,6 +8247,19 @@ namespace X_ROOT_NS::modules::compile {
     {
         this->transform_child_to(__constants__, this->constants);
         this->statements = __to_eobject<statements_t *>(__statements__);
+
+        if (!__guard_labels.empty())
+        {
+            std::vector<expression_t *> guards;
+            this->transform_child_to(__guards__, guards);
+
+            this->guards.assign(this->constants.size(), nullptr);
+            for (size_t index = 0; index < guards.size() && index < __guard_labels.size(); index++)
+            {
+                if (__guard_labels[index] >= 0 && (size_t)__guard_labels[index] < this->guards.size())
+                    this->guards[__guard_labels[index]] = guards[index];
+            }
+        }
     }
 
     // Returns this eobject.
@@ -7934,7 +8273,34 @@ namespace X_ROOT_NS::modules::compile {
     {
         this->__check_empty(this->constants, this, __c_t::expression_missing, _T("case"));
 
-        return __super_t::on_walk(context, step, tag);
+        // The variables that the labels declare (case String s:) are those of the case: the name of one can be the
+        // name of a variable of another case.
+        bool declares = false;
+        for (expression_t * exp : this->constants)
+        {
+            if (exp != nullptr && exp->this_family() == expression_family_t::name
+                    && ((name_expression_t *)exp)->declare_type_name != nullptr)
+                declares = true;
+        }
+
+        if (!declares || (walk_step_t)step != walk_step_t::default_)
+            return __super_t::on_walk(context, step, tag);
+
+        context.push_new_region();
+        this->region = context.current_region();
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        // The variables are defined now: the conditions and the statements of the case use them.
+        for (expression_t * exp : this->constants)
+        {
+            if (exp != nullptr && exp->this_family() == expression_family_t::name
+                    && ((name_expression_t *)exp)->declare_type_name != nullptr && !exp->walked)
+                walk_expression(this->__context, context, exp);
+        }
+
+        context.pop();
+        return r;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -8154,6 +8520,30 @@ namespace X_ROOT_NS::modules::compile {
     }
 
     ////////// ////////// ////////// ////////// //////////
+    // throw_exp
+
+    // Commits this node.
+    void throw_exp_ast_node_t::on_commit()
+    {
+        this->is_throw = true;
+        this->set_expression(__to_eobject<expression_t *>(__expression__));
+    }
+
+    // Returns this eobject.
+    expression_t * throw_exp_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node.
+    bool throw_exp_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        this->__check_empty(this->expression(), (ast_node_t *)this, __c_t::expression_missing, _T("throw"));
+
+        return __super_t::on_walk(context, step, tag);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // await_exp
 
     // Commits this node: the operand is x.GetAwaiter().GetResult(), that waits for the end of x in the methods that are not
@@ -8211,17 +8601,63 @@ namespace X_ROOT_NS::modules::compile {
         this->generic_args  = __to_eobject<generic_args_t *>(__generic_args__);
 
         this->set_arguments(__to_eobject<arguments_t *>(__arguments__));
+
+        __nameof = __make_nameof();
+    }
+
+    // The name of the last member of the expression: x of x, c of a.b.c.
+    static name_t __last_name_of(expression_t * exp)
+    {
+        if (exp == nullptr)
+            return name_t::null;
+
+        if (exp->this_family() == expression_family_t::name)
+        {
+            name_expression_t * name_exp = (name_expression_t *)exp;
+            return name_exp->declare_type_name == nullptr? name_exp->name : name_t::null;
+        }
+
+        if (exp->this_family() == expression_family_t::binary
+                && ((binary_expression_t *)exp)->op() == operator_t::member_point)
+            return __last_name_of(((binary_expression_t *)exp)->exp2());
+
+        return name_t::null;
+    }
+
+    // nameof(x): the name of what x is, a string that is a constant: nameof(a.b.c) is "c". Null when it is not a nameof.
+    expression_t * function_ast_node_t::__make_nameof()
+    {
+        expression_t * namex = this->namex;
+        if (namex == nullptr || namex->this_family() != expression_family_t::name
+                || ((name_expression_t *)namex)->name != __to_name(_T("nameof"))
+                || this->generic_args != nullptr)
+            return nullptr;
+
+        arguments_t * arguments = this->arguments();
+        if (arguments == nullptr || arguments->size() != 1 || (*arguments)[0]->expression == nullptr
+                || (*arguments)[0]->atype != param_type_t::__default__)
+            return nullptr;
+
+        name_t name = __last_name_of((*arguments)[0]->expression);
+        if (name == name_t::null)
+            return nullptr;
+
+        return __new_obj<system_expression_t<cvalue_expression_t>>(__new_obj<cvalue_t>(name.c_str()));
     }
 
     // Returns this eobject.
     expression_t * function_ast_node_t::to_eobject()
     {
-        return this;
+        return __nameof != nullptr? __nameof : (expression_t *)this;
     }
 
     // Walks this node.
     bool function_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        // nameof(x) is a constant: nothing is called.
+        if (__nameof != nullptr)
+            return true;
+
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
@@ -8365,6 +8801,17 @@ namespace X_ROOT_NS::modules::compile {
                         convert_arguments(this->__context, context, this->arguments(),
                                                                     this->constructor);
                     }
+                }
+
+                // new T(): the object is made by System.Activator.CreateInstance<T>().
+                else if (type != nullptr && is_generic_param(type))
+                {
+                    const char_t * why = lower_new_of_generic_param(this->__context, context, this,
+                                                                                (generic_param_t *)type);
+                    if (why != nullptr)
+                        __log((ast_node_t *)this, __c_t::generic_param_new_invalid, type, why);
+
+                    return true;
                 }
 
                 if (type != nullptr && !this->inits.empty())
@@ -8624,14 +9071,37 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool default_value_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        this->__check_empty(this->type_name, (ast_node_t *)this, __c_t::type_name_missing,
-                                                        _T("default value"));
+        // The default literal has no type: the context tells it (int a = default;), it is told when the analysis ends.
+        if ((walk_step_t)step == walk_step_t::end)
+        {
+            if (this->type_name == nullptr)
+                this->__log((ast_node_t *)this, __c_t::default_literal_untyped);
+
+            return true;
+        }
+
+        if ((walk_step_t)step == walk_step_t::default_ && this->type_name == nullptr)
+            this->__delay(context, walk_step_t::end);
 
         return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
     // lambda
+
+    // Adds the name of a param that has no type. The second _ of (_, _) => 1 is a discard: it has a name that nothing reads.
+    void lambda_ast_node_t::add_param_name(name_t name)
+    {
+        name_t discard = __to_name(_T("_"));
+
+        if (name == discard && std::find(__param_names.begin(), __param_names.end(), discard) != __param_names.end())
+        {
+            static int discard_count = 0;
+            name = __to_name(_F(_T("__discard%1%"), ++discard_count));
+        }
+
+        __param_names.push_back(name);
+    }
 
     // Commits this node.
     void lambda_ast_node_t::on_commit()
@@ -10862,6 +11332,8 @@ namespace X_ROOT_NS::modules::compile {
         this->owner_type_name = __to_eobject<type_name_t *>(__owner_type_name__);
         this->attributes = __to_eobject_with_owner<attributes_t *>(__attributes__,
                                                             (property_t *)this);
+
+        __initializer = __to_eobject<expression_t *>(__initializer__);
     }
 
     // Returns this eobject.
@@ -11046,11 +11518,19 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         if (!__BodyIgnored(get) && !__BodyIgnored(set))
+        {
+            if (__initializer != nullptr)
+                this->__log(this, __c_t::property_initializer_not_auto, (property_t *)this);
+
             return;
+        }
 
         // Appends a field for the property.
         field_t * field = __new_obj<field_t>();
         field->type_name = this->type_name;
+
+        // int Number { get; set; } = 5; : the field has the value.
+        field->init_value = __initializer;
         field->name = __to_name(__generated_name(_T("backing"), _str(this->name),
                                     ((general_type_t *)context.current_type())->to_full_name()));
 

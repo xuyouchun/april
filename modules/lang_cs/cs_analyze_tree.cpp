@@ -75,6 +75,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         X_C(_defination_st_item,        _T("defination_st.__item"))
         X_C(tuple_args,                 _T("tuple_args"))
         X_C(deconstruct_st,             _T("deconstruct_st"))
+        X_C(deconstruct_var_st,         _T("deconstruct_var_st"))
         X_C(deconstruct_assign_st,      _T("deconstruct_assign_st"))
         X_C(_fake_method,               _T("_fake_method"))
 

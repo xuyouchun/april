@@ -188,6 +188,7 @@ namespace X_ROOT_NS::modules::compile {
 
         checked_exp,                // Checked expression. e.g. checked(a + b).
         await_exp,                  // Await expression. e.g. await task.
+        throw_exp,                  // Throw expression. e.g. x ?? throw new Exception().
 
         lambda,                     // Lambda expression. e.g. (int x) => x + 1.
 
@@ -350,6 +351,7 @@ namespace X_ROOT_NS::modules::compile {
                                                                                         \
         checked_exp         =   __X_BRANCH_ENUM_ITEM(checked_exp),                      \
         await_exp           =   __X_BRANCH_ENUM_ITEM(await_exp),                        \
+        throw_exp           =   __X_BRANCH_ENUM_ITEM(throw_exp),                        \
                                                                                         \
         lambda              =   __X_BRANCH_ENUM_ITEM(lambda),                           \
                                                                                         \
@@ -437,6 +439,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(default_value,          _T("default_value"))                                \
         X_C(checked_exp,            _T("checked_exp"))                                  \
         X_C(await_exp,              _T("await_exp"))                                    \
+        X_C(throw_exp,              _T("throw_exp"))                                    \
         X_C(lambda,                 _T("lambda"))                                       \
 
 
@@ -1035,6 +1038,18 @@ namespace X_ROOT_NS::modules::compile {
         // An init only property is set where it cannot be.
         init_only_property_assigned = 5314,
 
+        // A switch has cases of strings, and the value of it is not a string.
+        switch_string_expected = 5315,
+
+        // The type of a default literal is not known.
+        default_literal_untyped = 5316,
+
+        // A throw expression is where the type of its value is not known.
+        throw_expression_untyped = 5317,
+
+        // A property that has an initial value must be an auto property.
+        property_initializer_not_auto = 5318,
+
         // ---- AP6100 - AP6199: generics and constraints.
 
         // Class1<T>' does not define type parameter 'K'
@@ -1084,6 +1099,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // The type 'string' must be an unmanaged type in order to use it as parameter 'T' in the generic type or method 'Class1<T>'
         constraint_expect_unmanaged_type = 6115,
+
+        // Cannot create an instance of the variable type 'T' because it does not have the new() constraint
+        generic_param_new_invalid = 6116,
 
         __the_end__         = 10000,
 
@@ -4106,6 +4124,17 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        variable_region_t * __region = nullptr;     // The region of the variables (a switch of strings).
+        local_variable_t *  __value = nullptr;      // The value of the switch.
+        local_variable_t *  __index = nullptr;      // The index of the case.
+
+        // Returns whether the switch is not made by a table of the values (strings, patterns, conditions).
+        bool __needs_lowering();
+
+        // Walks the post analysis step: makes the statements of a switch that is not a table.
+        bool __walk_analysis(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4116,7 +4145,10 @@ namespace X_ROOT_NS::modules::compile {
 
         // Constants.
         __constants__,
-        
+
+        // The conditions of the labels (when).
+        __guards__,
+
         // Statements.
         __statements__,
 
@@ -4137,6 +4169,12 @@ namespace X_ROOT_NS::modules::compile {
         // Appends default expression.
         void append_default(__el_t * el);
 
+        // Appends the constant, or the declaration, of a label.
+        void append_constant(ast_node_t * node);
+
+        // Appends the condition (when) of the last label.
+        void append_guard(ast_node_t * node);
+
         // Commits this node.
         virtual void on_commit() override;
 
@@ -4145,6 +4183,10 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        int                 __label_count = 0;      // The count of the labels.
+        std::vector<int>    __guard_labels;         // The label of each condition.
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4427,6 +4469,10 @@ namespace X_ROOT_NS::modules::compile {
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
     private:
+        expression_t * __nameof = nullptr;      // The string that nameof(x) is.
+
+        // Returns the string that it is when it is nameof(x).
+        expression_t * __make_nameof();
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context);
@@ -4701,6 +4747,40 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // throw_exp
+
+    // Throw expression: throw e.
+    Ast(throw_exp, __xcvalue_t::throw_exp)
+
+        // Expression.
+        __expression__,
+
+    EndAst(throw_exp)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    // Throw ast node. Its expression is a checked_expression_t that has the flag is_throw: its operand is the exception, it
+    // is the call that throws it when the type of the value that the expression stands for is known.
+    class throw_exp_ast_node_t : public __throw_exp_ast_node_t
+                               , public expression_ast_t
+                               , public __wexp_t<checked_expression_t>
+    {
+        typedef __throw_exp_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // await_exp
 
     // Await expression: await x.
@@ -4768,7 +4848,7 @@ namespace X_ROOT_NS::modules::compile {
         using __super_t::__super_t;
 
         // Adds the name of a param that has no type.
-        void add_param_name(name_t name) { __param_names.push_back(name); }
+        void add_param_name(name_t name);
 
         // Walks the items of the lambda that were kept apart: its body is analyzed, and its return
         // type is known.
@@ -5035,7 +5115,10 @@ namespace X_ROOT_NS::modules::compile {
         
         // Params.
         __params__,
-        
+
+        // The initial value: int Number { get; set; } = 5;
+        __initializer__,
+
     EndAst(property)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -5064,6 +5147,7 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
         __el_t * __name_el = nullptr;
+        expression_t * __initializer = nullptr;     // The initial value of an auto property.
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context, int step, void * tag);

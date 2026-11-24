@@ -558,6 +558,13 @@ namespace X_ROOT_NS::modules::compile {
         __constants_t   constants;  // Constant values, A default label when nullptr.
         statements_t  * statements   = nullptr;     // Statements.
 
+        // The conditions of the labels (case 1 when a > b:), nullptr for the label that has none. It is empty when
+        // no label has one.
+        std::vector<expression_t *> guards;
+
+        // The region of the variables that the labels declare (case String s:), nullptr when they declare none.
+        variable_region_t * region = nullptr;
+
         // Returns whether it contains a default label.
         bool contains_default() const;
 
@@ -582,6 +589,9 @@ namespace X_ROOT_NS::modules::compile {
 
         expression_t *  expression = nullptr;       // Switch value.
         __cases_t       cases;                      // Cases.
+
+        // A switch of strings is made of the statements that find the index of the case, and a switch of the indexes.
+        statement_t *   lowered = nullptr;
 
         // Compile statement.
         virtual void compile(statement_compile_context_t & ctx) override;

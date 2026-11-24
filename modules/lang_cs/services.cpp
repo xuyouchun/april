@@ -254,6 +254,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(default_value)
             __Case(checked_exp)
             __Case(await_exp)
+            __Case(throw_exp)
             __Case(lambda)
             __Case(type_name_exp)
             __Case(declaration_exp)
@@ -275,6 +276,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             __Case(generic_args)
             __Case_(tuple_args, generic_args)
             __Case(deconstruct_st)
+            __Case(deconstruct_var_st)
             __Case(deconstruct_assign_st)
 
             __Case(expressions)

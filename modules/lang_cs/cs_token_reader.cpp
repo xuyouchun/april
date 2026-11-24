@@ -270,6 +270,7 @@ namespace X_ROOT_NS::modules::lang_cs {
             case _T('w'):
                 __Eqk(while);
                 __Eqks(where, __Wt(k_where), __Wt(name));
+                __Eqks(when, __Wt(k_when), __Wt(name));
                 break;
 
             case _T('y'):

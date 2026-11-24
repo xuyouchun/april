@@ -609,6 +609,13 @@ namespace X_ROOT_NS::modules::lang_cs {
             auto * arg = (generic_arg_ast_node_t *)arg_nodes->child_at(
                                             generic_args_ast_node_t::__generic_args__, k);
 
+            // _ is no variable.
+            if (arg->name == this->__to_name(_T("_")))
+            {
+                index++;
+                continue;
+            }
+
             auto * item = this->template __new_ast<_defination_st_item_ast_node_t>();
             item->code_unit = arg->code_unit != nullptr? arg->code_unit : __args->code_unit;
             if (arg->name != name_t::null)
@@ -621,6 +628,74 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             __This->append_child(__Type::__items__, item);
         }
+    }
+
+
+    // The variables of a deconstruction of the names, that are all var: var __tupleN = value; and the variable of each name
+    // that is not _, that has the item of the tuple that its index is. It is a part of the code of the builders that make
+    // them.
+    #define __VarDeconstruct(define, names, value, first_token, tuple_name)                                           \
+        do {                                                                                                    \
+            auto var_type_name = [&]() {                                                                        \
+                auto * uncertain = this->template __new_ast<uncertain_type_name_ast_node_t>();                  \
+                uncertain->on_commit();                                                                         \
+                auto * type_name = this->template __new_ast<type_name_ast_node_t>();                            \
+                type_name->set_child(type_name_ast_node_t::__underlying__, uncertain);                          \
+                type_name->on_commit();                                                                         \
+                return type_name;                                                                               \
+            };                                                                                                  \
+                                                                                                                \
+            (define)->set_child(defination_st_ast_node_t::__type_name__, var_type_name());                      \
+                                                                                                                \
+            auto * tuple_item = this->template __new_ast<_defination_st_item_ast_node_t>();                     \
+            tuple_item->set_name(tuple_name, first_token);                                                            \
+            tuple_item->set_child(_defination_st_item_ast_node_t::__expression__, value);                       \
+            tuple_item->on_commit();                                                                            \
+            (define)->append_child(defination_st_ast_node_t::__items__, tuple_item);                            \
+                                                                                                                \
+            int item_index = 0;                                                                                 \
+            for (auto & target : names)                                                                         \
+            {                                                                                                   \
+                int this_index = item_index++;                                                                  \
+                if (target.first == this->__to_name(_T("_")))                                                   \
+                    continue;                                                                                   \
+                                                                                                                \
+                auto * item = this->template __new_ast<_defination_st_item_ast_node_t>();                       \
+                item->code_unit = (define)->code_unit;                                                          \
+                item->set_name(target.first, target.second);                                                    \
+                item->set_child(_defination_st_item_ast_node_t::__type_name__, var_type_name());                \
+                item->set_tuple_source(tuple_name, this_index);                                                 \
+                item->on_commit();                                                                              \
+                                                                                                                \
+                (define)->append_child(defination_st_ast_node_t::__items__, item);                              \
+            }                                                                                                   \
+        } while (false)
+
+    ////////// ////////// ////////// ////////// //////////
+    // deconstruct_var_st
+
+    __ApplyToken(deconstruct_var_st, token, args)
+    {
+        if (__first == nullptr)
+            __first = token;
+
+        if (token->value == __TokenValue(name))
+            __names.push_back(std::make_pair(this->__to_name(token), token));
+    }
+
+    __ApplyAst(deconstruct_var_st, node, args)
+    {
+        if (is<expression_ast_t *>(node))
+            __value = node;
+    }
+
+    // var (a, b) = value; is: var __tupleN = value; and the variables, of the items of the tuple.
+    __OnCompleted(deconstruct_var_st, args)
+    {
+        _A(!__names.empty() && __value != nullptr);
+
+        name_t tuple_name = this->__to_name(_F(_T("__tuple%1%"), ++__deconstruct_counter));
+        __VarDeconstruct(&*__This, __names, __value, __first, tuple_name);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -688,6 +763,13 @@ namespace X_ROOT_NS::modules::lang_cs {
         int index = 0;
         for (auto & target : __names)
         {
+            // (a, _) = value: the item is not assigned.
+            if (target.first == this->__to_name(_T("_")))
+            {
+                ++index;
+                continue;
+            }
+
             auto * single = this->template __new_ast<__single_t>();
             single->append_name(target.first, target.second);
             single->append_token(token_of(cs_token_value_t::assign));
@@ -1145,6 +1227,13 @@ namespace X_ROOT_NS::modules::lang_cs {
                 break;
 
             case __AstValue(expression): {
+                // Type Name { get; set; } = expression; : the initial value.
+                if (al::starts_with(args.flag, _T("init")))
+                {
+                    __This->set_child(__Type::__initializer__, node);
+                    break;
+                }
+
                 // Type Name => expression; is Type Name { get => expression; }.
                 auto * body = this->template __new_ast<method_body_ast_node_t>();
                 auto * st = this->template __new_ast<return_st_ast_node_t>();
@@ -1741,6 +1830,23 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(await_exp, args) { }
 
     ////////// ////////// ////////// ////////// //////////
+    // throw_exp
+
+    __ApplyToken(throw_exp, token, args) { }
+
+    __ApplyAst(throw_exp, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+        }
+    }
+
+    __OnCompleted(throw_exp, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
     // statements
 
     __ApplyToken(statements, token, args) { }
@@ -2022,14 +2128,25 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     __ApplyToken(for_each_st, token, args)
     {
+        if (__first == nullptr && token->value == __TokenValue(name))
+            __first = token;
+
         switch (token->value)
         {
             case __TokenValue(name):
-                __This->set_variable(this->__to_name(token), token);
+                if (__deconstruct)
+                    __names.push_back(std::make_pair(this->__to_name(token), token));
+                else
+                    __This->set_variable(this->__to_name(token), token);
                 break;
 
             case __TokenValue(k_await):
                 __This->is_await = true;
+                break;
+
+            // foreach (var (a, b) in items): var is not the type of a name, it is the items.
+            case __TokenValue(k_var):
+                __deconstruct = true;
                 break;
         }
     }
@@ -2047,12 +2164,64 @@ namespace X_ROOT_NS::modules::lang_cs {
                 break;
 
             case __AstValue(statement):
-                __This->set_child(__Type::__body__, node);
+                if (__deconstruct)
+                    __body = node;
+                else
+                    __This->set_child(__Type::__body__, node);
                 break;
         }
     }
 
-    __OnCompleted(for_each_st, args) { }
+    // foreach (var (a, b) in items) body is: foreach (var __item in items) { var (a, b) = __item; body }
+    __OnCompleted(for_each_st, args)
+    {
+        if (!__deconstruct)
+            return;
+
+        _A(!__names.empty() && __body != nullptr);
+
+        typedef _single_expression_ast_node_t __single_t;
+
+        static int __foreach_counter = 0;
+        name_t item_name = this->__to_name(_F(_T("__foreach_item%1%"), ++__foreach_counter));
+        name_t tuple_name = this->__to_name(_F(_T("__tuple%1%"), ++__deconstruct_counter));
+
+        // The variable of the item: var __item.
+        auto * uncertain = this->template __new_ast<uncertain_type_name_ast_node_t>();
+        uncertain->on_commit();
+
+        auto * type_name = this->template __new_ast<type_name_ast_node_t>();
+        type_name->set_child(type_name_ast_node_t::__underlying__, uncertain);
+        type_name->on_commit();
+
+        __This->set_child(__Type::__type_name__, type_name);
+        __This->set_variable(item_name, __first);
+
+        // var (a, b) = __item;
+        auto * single = this->template __new_ast<__single_t>();
+        single->append_name(item_name, __first);
+        single->code_unit = __This->code_unit;
+        single->on_commit();
+
+        auto * value = this->template __new_ast<expression_ast_node_t>();
+        value->append_expression(single);
+        value->code_unit = __This->code_unit;
+        value->on_commit();
+
+        auto * define = this->template __new_ast<defination_st_ast_node_t>();
+        define->code_unit = __This->code_unit;
+        __VarDeconstruct(define, __names, value, __first, tuple_name);
+        define->on_commit();
+
+        // { var (a, b) = __item; body }
+        auto * group = this->template __new_ast<statement_group_st_ast_node_t>();
+        group->append_child(statement_group_st_ast_node_t::__statements__, define);
+        group->append_child(statement_group_st_ast_node_t::__statements__, __body);
+        group->code_unit = __This->code_unit;
+        group->on_commit();
+
+        __This->set_child(__Type::__body__, group);
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // using_st
@@ -2162,7 +2331,12 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->append_child(__Type::__constants__, node);
+            case __AstValue(declaration_exp):
+                if (al::starts_with(args.flag, _T("when")))     // The condition of the label.
+                    __This->append_guard(node);
+                else
+                    __This->append_constant(node);
+
                 break;
 
             case __AstValue(statements):

@@ -68,7 +68,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __K(virtual)     __K(void)    __K(volatile) __K(var)
         
         // keywords: w...
-        __K(while)      __K(where)
+        __K(while)      __K(where)      __K(when)
 
         // keywords: y...
         __K(yield)

@@ -194,11 +194,20 @@ namespace X_ROOT_NS::modules::lang_cs {
 
     // The nodes of the statements that the deconstructions are made of.
     typedef defination_st_ast_node_t        deconstruct_st_ast_node_t;
+    typedef defination_st_ast_node_t        deconstruct_var_st_ast_node_t;
     typedef statement_group_st_ast_node_t   deconstruct_assign_st_ast_node_t;
 
     __Builder(deconstruct_st)
 
         ast_node_t * __args = nullptr;
+        ast_node_t * __value = nullptr;
+        token_t    * __first = nullptr;
+
+    __EndBuilder
+
+    __Builder(deconstruct_var_st)
+
+        std::vector<std::pair<name_t, token_t *>> __names;
         ast_node_t * __value = nullptr;
         token_t    * __first = nullptr;
 
@@ -401,6 +410,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     __SimpleBuilder(await_exp)
 
     ////////// ////////// ////////// ////////// //////////
+    // throw_exp
+
+    __SimpleBuilder(throw_exp)
+
+    ////////// ////////// ////////// ////////// //////////
     // statements
 
     __SimpleBuilder(statements)
@@ -473,7 +487,15 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // for_each_st
 
-    __SimpleBuilder(for_each_st)
+    __Builder(for_each_st)
+
+        // foreach (var (a, b) in items): the names, and the body that is kept until the item is deconstructed.
+        std::vector<std::pair<name_t, token_t *>> __names;
+        bool         __deconstruct = false;
+        ast_node_t * __body = nullptr;
+        token_t    * __first = nullptr;
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // using_st

@@ -1,8 +1,9 @@
-/* EXPECT_ERROR new \?X\(\)\) is not supported */
+/* EXPECT_ERROR cannot create an instance of the generic param .*new\(\) or struct constraint */
+/* EXPECT_AT 8:30 */
 import System;
 using System;
 
-class Maker<X> where X : new()
+class Maker<X>
 {
     public X Make() { return new X(); }
 }

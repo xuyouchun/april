@@ -3768,6 +3768,10 @@ namespace X_ROOT_NS::modules::core {
                 return __member_compare_t::match;
             }
 
+            // The default literal: its type is that of the param (it is told when the method is found).
+            if (argument_type->this_gtype() == gtype_t::uncertain && ptype == param_type_t::__default__)
+                return __member_compare_t::match;
+
             __member_compare_t r;
             param_type = __to_real_type(param_type, argument_type, &r);
 
@@ -10027,18 +10031,28 @@ namespace X_ROOT_NS::modules::core {
     // Returns vtype of default value expression.
     vtype_t default_value_expression_t::get_vtype() const
     {
+        // The default literal: the context tells the type.
+        if (type_name == nullptr)
+            return vtype_t::__unknown__;
+
         return __get_vtype(to_type(type_name));
     }
 
     // Returns type of default value expression.
     type_t * default_value_expression_t::get_type() const
     {
+        if (type_name == nullptr)
+            return uncertain_type_t::instance();
+
         return to_type(type_name);
     }
 
     // Converts default value expression to a string.
     const string_t default_value_expression_t::to_string() const
     {
+        if (type_name == nullptr)
+            return _T("default");
+
         return _F(_T("default(%1%)"), _str(type_name));
     }
 

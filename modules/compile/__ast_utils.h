@@ -106,6 +106,11 @@ namespace X_ROOT_NS::modules::compile {
     void take_element_item_names(ast_context_t & cctx, ast_walk_context_t & wctx, type_name_t * type_name,
                                                         expression_t * iterator, type_t * element_type);
 
+    // new T() of a generic param: it is the call of System.Activator.CreateInstance<T>(), that the new expression is
+    // lowered to. The param must have the new() or struct constraint. Returns null, or why it cannot be lowered.
+    const char_t * lower_new_of_generic_param(ast_context_t & cctx, ast_walk_context_t & wctx,
+                                                        new_expression_t * exp, generic_param_t * param);
+
     // Finds method.
     method_t * find_method(type_t * type, method_trait_t trait, name_t name,
                 generic_args_t * generic_args, atypes_t * atypes);

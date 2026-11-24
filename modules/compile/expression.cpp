@@ -114,6 +114,10 @@ namespace X_ROOT_NS::modules::compile {
             case expression_family_t::function:
                 return true;
 
+            // new T() of a generic param: the call of Activator.CreateInstance<T>() that it is lowered to.
+            case expression_family_t::new_:
+                return ((new_expression_t *)exp)->lowered != nullptr;
+
             // A property, or an indexer: its getter is a method.
             case expression_family_t::name:
                 return __is_property_name(exp);
@@ -5838,6 +5842,13 @@ namespace X_ROOT_NS::modules::compile {
     void __sys_t<new_expression_t>::compile(__cctx_t & ctx, xil_pool_t & pool,
                                                     const __environment_t & env)
     {
+        // new T() of a generic param: the call that it is lowered to.
+        if (this->lowered != nullptr)
+        {
+            this->lowered->compile(ctx, pool, env);
+            return;
+        }
+
         type_t * type = to_type(this->type_name);
         if (type == nullptr)
             __Failed("type missing");
