@@ -326,6 +326,7 @@ namespace X_ROOT_NS::modules::core {
             __U1(op, __VT(uint64),  uint64)                                                 \
             __U1(op, __VT(float),   float)                                                  \
             __U1(op, __VT(double),  double)                                                 \
+            __U1(op, __VT(char),    char)                                                   \
 
 
         #define X_DEFINE_UNITARY_OPS                                                        \
@@ -610,6 +611,8 @@ namespace X_ROOT_NS::modules::core {
                                                                                             \
         __AlCharBinaryOps(add, __use_default_ret)                                           \
         __AlCharBinaryOps(sub, __use_default_ret)                                           \
+        __AlCharBinaryOps(add_assign, __use_vtype1)                                         \
+        __AlCharBinaryOps(sub_assign, __use_vtype1)                                         \
         __B1(sub, __VT(int32), char, char)                                                  \
                                                                                             \
         /* Bit */                                                                           \

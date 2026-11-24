@@ -3893,10 +3893,21 @@ namespace X_ROOT_NS::modules::compile {
                                                                 nullptr, arguments);
     }
 
-    // Finds default constructor.
+    // Finds default constructor: the one that is called without arguments. (Not the one that has no condition on the
+    // arguments: a type that has two constructors would conflict.)
     method_t * find_default_constructor(type_t * type)
     {
-        return find_constructor(type, nullptr);
+        atypes_t atypes;
+
+        try
+        {
+            return find_constructor(type, &atypes);
+        }
+        catch (const method_compare_error_t &)
+        {
+            // Many constructors that can be called without arguments (all their params have default values).
+            return nullptr;
+        }
     }
 
     // Returns whether the type has default constructor.

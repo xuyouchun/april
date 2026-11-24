@@ -6,7 +6,8 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-typedef MyTuple<T1, T2> = Tuple<Tuple<T1, T2>, Tuple<T1, T2>, Tuple<T1, T2>>;
+typedef MyArray<T> = T[];
+typedef MyList<T> = List<MyArray<T>>;
 
 class Program
 {
@@ -15,10 +16,10 @@ class Program
     {
         try
         {
-            var tuple = (Name: "Wangbo", Value: 2, 3);
-            var tuple2 = tuple;
+            MyList<int> list = new MyList<int>();
+            list.Add(new MyArray<int> { 1, 2, 3 });
 
-            Console.WriteLine($"{tuple2.Name}");
+            Console.WriteLine($"Hello, World! - {list[0][1]}");
         }
         catch (Exception ex)
         {

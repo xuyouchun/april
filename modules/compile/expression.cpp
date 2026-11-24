@@ -1182,6 +1182,38 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // The virtual machine has no arithmetic of Char: c + 1 and c - 'a' are made of Int32 (the Char is converted
+    // first), and the result of c + 1, a Char, is converted back (it wraps at 16 bits, as (Char)(c + 1)).
+    // Returns false when no operand is a Char.
+    static bool __compile_char_arithmetic(__cctx_t & ctx, xil_pool_t & pool, xil_al_command_t cmd,
+                                          operator_t op, expression_t * exp1, expression_t * exp2)
+    {
+        xil_type_t xtype1 = __xil_type(exp1), xtype2 = __xil_type(exp2);
+        if (xtype1 != xil_type_t::char_ && xtype2 != xil_type_t::char_)
+            return false;
+
+        vtype_t result = get_binary_vtype(op, to_vtype(xtype1), to_vtype(xtype2));
+
+        xil_type_t wide1 = xtype1 == xil_type_t::char_? xil_type_t::int32 : xtype1;
+        xil_type_t wide2 = xtype2 == xil_type_t::char_? xil_type_t::int32 : xtype2;
+
+        exp1->compile(ctx, pool);
+        __try_append_convert_xil(pool, xtype1, wide1);
+
+        exp2->compile(ctx, pool);
+        __try_append_convert_xil(pool, xtype2, wide2);
+
+        pool.append<x_al_xil_t>(__al_command(ctx, cmd, wide1, wide2), wide1, wide2);
+
+        if (result == vtype_t::char_)
+        {
+            __try_append_convert_xil(pool, get_binary_vtype(op, to_vtype(wide1), to_vtype(wide2)),
+                                                                            xil_type_t::char_);
+        }
+
+        return true;
+    }
+
     // Compiles add expression.
     static void __compile_add(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
@@ -1202,6 +1234,9 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         __check_constant_overflow(ctx, operator_t::add, exp1, exp2);
+
+        if (__compile_char_arithmetic(ctx, pool, xil_al_command_t::add, operator_t::add, exp1, exp2))
+            return;
 
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
@@ -1235,6 +1270,9 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         __check_constant_overflow(ctx, operator_t::sub, exp1, exp2);
+
+        if (__compile_char_arithmetic(ctx, pool, xil_al_command_t::sub, operator_t::sub, exp1, exp2))
+            return;
 
         exp1->compile(ctx, pool);
         exp2->compile(ctx, pool);
@@ -3139,11 +3177,39 @@ namespace X_ROOT_NS::modules::compile {
     static void __compile_as(__cctx_t & ctx, xil_pool_t & pool,
                                 expression_t * exp1, expression_t * exp2)
     {
-        exp1->compile(ctx, pool);
-
         type_t * type = __to_actual_type(exp2);
         ref_t type_ref = __ref_of(ctx, type);
         _A(type_ref != ref_t::null);
+
+        // o as String: a String in an object is boxed, the String is its value (null when the object is not a String).
+        type_t * type1 = exp1->get_type();
+        if (type->this_vtype() == vtype_t::string_ && type1 != nullptr && type1->this_vtype() != vtype_t::string_
+                && is_ref_type(type1))
+        {
+            statement_compile_context_t & sctx = ctx.statement_ctx;
+
+            local_variable_t * temp = ctx.define_temp_local(type1);
+            xil_type_t xtype1 = to_xil_type(type1);
+
+            exp1->compile(ctx, pool);
+            pool.append<x_pop_local_xil_t>(xtype1, temp->identity);
+
+            pool.append<x_push_local_xil_t>(xtype1, temp->identity);
+            pool.append<x_cast_xil_t>(xil_cast_command_t::is, type_ref);
+            jmp_xil_t * null_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::false_);
+
+            pool.append<x_push_local_xil_t>(xtype1, temp->identity);
+            pool.append<x_push_unbox_xil_t>(type_ref);
+            jmp_xil_t * end_jmp_xil = xil::append_jmp_xil(pool, xil_jmp_model_t::none);
+
+            xil::append_label_xil(sctx, pool, null_jmp_xil);
+            pool.append<x_push_null_xil_t>();
+
+            xil::append_label_xil(sctx, pool, end_jmp_xil);
+            return;
+        }
+
+        exp1->compile(ctx, pool);
 
         pool.append<x_cast_xil_t>(xil_cast_command_t::as, type_ref);
     }
@@ -3169,11 +3235,22 @@ namespace X_ROOT_NS::modules::compile {
         local_variable_t * temp = ctx.define_temp_local(type1);
         xil_type_t xtype1 = to_xil_type(type1);
 
-        exp1->compile(ctx, pool);
-        pool.append<x_pop_local_xil_t>(xtype1, temp->identity);
+        if (get_nullable_underlying(type1) != nullptr)
+        {
+            // n is int v: n has a value (a nullable is a struct, it is not an object that is of a type).
+            compile_assign(ctx, pool, temp, exp1);
 
-        pool.append<x_push_local_xil_t>(xtype1, temp->identity);
-        pool.append<x_cast_xil_t>(xil_cast_command_t::is, type_ref);
+            __push_variable_address(ctx, pool, temp);
+            __call_nullable_getter(ctx, pool, type1, _T("HasValue"));
+        }
+        else
+        {
+            exp1->compile(ctx, pool);
+            pool.append<x_pop_local_xil_t>(xtype1, temp->identity);
+
+            pool.append<x_push_local_xil_t>(xtype1, temp->identity);
+            pool.append<x_cast_xil_t>(xil_cast_command_t::is, type_ref);
+        }
 
         // false: it is the value of the expression.
         pool.append<x_push_duplicate_xil_t>();
@@ -3213,6 +3290,18 @@ namespace X_ROOT_NS::modules::compile {
             return;
         }
 
+        // n is int: n has a value.
+        if (type_t * type1 = exp1->get_type(); type1 != nullptr && get_nullable_underlying(type1) != nullptr
+                && to_actual_type(exp2) != nullptr)
+        {
+            local_variable_t * temp = ctx.define_temp_local(type1);
+            compile_assign(ctx, pool, temp, exp1);
+
+            __push_variable_address(ctx, pool, temp);
+            __call_nullable_getter(ctx, pool, type1, _T("HasValue"));
+            return;
+        }
+
         exp1->compile(ctx, pool);
 
         type_t * type = __to_actual_type(exp2);
@@ -3236,6 +3325,23 @@ namespace X_ROOT_NS::modules::compile {
         variable_t * var = __pick_var(r_exp);
         return var != nullptr && (var->this_type() == variable_type_t::property
                                || var->this_type() == variable_type_t::property_index);
+    }
+
+    // Adds 1 to (or subtracts 1 from) the value that is at the top of the stack. A Char is a number of Int32 for it.
+    static void __compile_inc_step(__cctx_t & ctx, xil_pool_t & pool, expression_t * exp, bool increment)
+    {
+        xil_type_t xtype = __xil_type(exp);
+        xil_type_t wide = xtype == xil_type_t::char_? xil_type_t::int32 : xtype;
+
+        __try_append_convert_xil(pool, xtype, wide);
+        __compile_number(ctx, pool, 1);
+
+        pool.append<x_al_xil_t>(
+            __al_command(ctx, increment? xil_al_command_t::add : xil_al_command_t::sub, wide, xil_type_t::int32),
+            wide, xil_type_t::int32
+        );
+
+        __try_append_convert_xil(pool, wide, xtype);
     }
 
     // Compiles increment expression.
@@ -3263,13 +3369,7 @@ namespace X_ROOT_NS::modules::compile {
                 exp->compile(ctx, pool);
 
             exp->compile(ctx, pool);
-            __compile_number(ctx, pool, 1);
-
-            pool.append<x_al_xil_t>(
-                __al_command(ctx, __Is(increment)? xil_al_command_t::add : xil_al_command_t::sub,
-                                                        __xil_type(exp), xil_type_t::int32),
-                __xil_type(exp), xil_type_t::int32
-            );
+            __compile_inc_step(ctx, pool, exp, __Is(increment));
 
             __compile_assign_to(ctx, pool, ca, nullptr, __assign_to_type_t::pop);
 
@@ -3279,13 +3379,7 @@ namespace X_ROOT_NS::modules::compile {
         else
         {
             exp->compile(ctx, pool);
-            __compile_number(ctx, pool, 1);
-
-            pool.append<x_al_xil_t>(
-                __al_command(ctx, __Is(increment)? xil_al_command_t::add : xil_al_command_t::sub,
-                                                        __xil_type(exp), xil_type_t::int32),
-                __xil_type(exp), xil_type_t::int32
-            );
+            __compile_inc_step(ctx, pool, exp, __Is(increment));
 
             __compile_assign_to(ctx, pool, ca, nullptr);
         }
@@ -5904,44 +5998,12 @@ namespace X_ROOT_NS::modules::compile {
         */
     }
 
-    // Creates instance of a generic param type.
+    // Creates instance of a generic param type: new T() (the constructor of the actual type is not known when the method
+    // is compiled: no virtual machine has the command that makes it yet).
     void __sys_t<new_expression_t>::__compile_generic_param(__cctx_t & ctx, xil_pool_t & pool,
                                                 generic_param_t * generic_param)
     {
-        _P("__compile_generic_param", generic_param);
-
-        /*
-        ref_t type_ref = __ref_of(ctx, type);
-
-        pool.append<x_new_xil_t>(type_ref);
-
-        bool need_call_constructor = __need_call_constructor(this);
-
-        bool is_parent_effective = is_effective(ctx, this->parent);
-        if (need_call_constructor && is_parent_effective)
-        {
-            pool.append<x_push_duplicate_xil_t>();
-        }
-
-        if (this->arguments() != nullptr)
-        {
-            if (this->constructor == nullptr)
-                __Failed("constructor of type '%1%' missing", type);
-
-            __compile_arguments(ctx, pool, this->arguments(), this->constructor);
-        }
-
-        if (need_call_constructor)
-        {
-            xil_call_type_t call_type = __get_constructor_calltype(type, this->constructor);
-            // ref_t method_ref = __search_method_ref(ctx, this->constructor);
-            // pool.append<x_method_call_xil_t>(call_type, method_ref);
-        }
-        else if (!is_parent_effective)
-        {
-            pool.append<x_pop_empty_xil_t>(xil_type_t::object);
-        }
-        */
+        __Failed("creating an object of the generic param '%1%' (new %1%()) is not supported", generic_param);
     }
 
     ////////// ////////// ////////// ////////// //////////
