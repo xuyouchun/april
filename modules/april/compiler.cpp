@@ -359,6 +359,10 @@ namespace X_ROOT_NS::modules::april {
 
         hasher.add((uint64_t)__options.optimize);
         hasher.add((uint64_t)__options.native_optimize);
+
+        // The passes over the xils that the environment asks (see xil_optimize).
+        hasher.add((uint64_t)(std::getenv("APRIL_XIL_OPT") != nullptr));
+        hasher.add((uint64_t)(std::getenv("APRIL_NO_XIL_OPT") != nullptr));
         hasher.add(string_convert<char_t, char>(__options.execute_assembly));
         hasher.add((uint64_t)__options.native_no_pie);
         hasher.add((uint64_t)__options.nullable);
@@ -1189,6 +1193,7 @@ namespace X_ROOT_NS::modules::april {
             __Case(compute_constant_values,             1)
             __Case(optimize_basic_algorighm,            2)
             __Case(remove_unnecessary_expressions,      1)
+            __Case(optimize_xils,                       1)
 
             default:
                 return optimize_level >= 1;

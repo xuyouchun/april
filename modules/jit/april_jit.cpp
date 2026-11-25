@@ -268,10 +268,9 @@ extern "C" {
         typedef int (*main_t)(int, char **);
         *exit_code = ((main_t)(uintptr_t)address)(argc, argv);
 
-        // The code of the program is not needed any more.
-        if (LLVMErrorRef e = LLVMOrcDisposeLLJIT(jit))
-            LLVMConsumeError(e);
-
+        // The code of the program is not freed: the threads of the pool that the program made may still run it (the tasks that
+        // are not waited for, the loops of the idle workers) while the process ends; freeing it made them fault. The caller
+        // ends the process.
         return 0;
     }
 

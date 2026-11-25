@@ -252,6 +252,7 @@ the others are errors.
 | AP5323 | error | `required_member_not_set` | the required member "%1%" of "%2%" must be set by the object initializer |
 | AP5324 | error | `with_not_struct` | "with" copies a struct: "%1%" is not one |
 | AP5325 | error | `ref_local_not_variable` | a ref local variable is another name of a variable (a local variable, a param or a field): ref Type name = ref variable; |
+| AP5326 | error | `array_element_type_unknown` | the type of the elements of the array cannot be known: give it, new Type[] { ... }, or make the elements of one type |
 | AP6100 | error | `generic_parameter_not_defined` | "%1%" does not define type parameter "%2%" |
 | AP6101 | error | `constraint_no_implicit_conversion` | type "%1%" cannot be used as type parameter "%2%" in "%3%": there is no implicit reference conversion from "%1%" to "%4%" |
 | AP6102 | error | `constraint_expect_value_type` | type "%1%" must be a non-nullable value type to be used as parameter "%2%" in "%3%" |

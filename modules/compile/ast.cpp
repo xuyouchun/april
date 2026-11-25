@@ -832,6 +832,10 @@ namespace X_ROOT_NS::modules::compile {
         X_D(property_initializer_not_auto,
             _T("the property \"%1%\" has an initial value: only an auto property (get; set;) can have one"))
 
+        // The type of the elements of new[] { ... } is one that all the elements are converted to.
+        X_D(array_element_type_unknown,
+            _T("the type of the elements of the array cannot be known: give it, new Type[] { ... }, or make the elements of one type"))
+
         // A ref local variable is the name of a variable.
         X_D(ref_local_not_variable,
             _T("a ref local variable is another name of a variable (a local variable, a param or a field): ref Type name = ref variable;"))
@@ -9321,8 +9325,10 @@ namespace X_ROOT_NS::modules::compile {
     {
         switch ((walk_step_t)step)
         {
-            case walk_step_t::default_:
-                __walk_default(context);
+            case walk_step_t::default_: {
+                // new[] { ... }: the type of the elements is known when the types of its elements are (the confirm step).
+                if (this->type_name != nullptr || this->initializer() == nullptr)
+                    __walk_default(context);
 
                 if (__super_t::on_walk(context, step, tag))
                 {
@@ -9335,6 +9341,7 @@ namespace X_ROOT_NS::modules::compile {
                 }
 
                 return false;
+            }
 
             case walk_step_t::confirm:
                 return __walk_confirm(context);
@@ -9345,6 +9352,70 @@ namespace X_ROOT_NS::modules::compile {
             default:
                 return true;
         }
+    }
+
+    // new[] { 1, 2, 3 }: the type of the elements is the one of the elements that all the others are converted to (new[] { 1, 2L } is
+    // an array of Int64, new[] { 1, 2.5 } of Double, new[] { "a", null } of String).
+    void new_array_ast_node_t::__infer_element_type(ast_walk_context_t & context)
+    {
+        std::vector<expression_t *> elements;
+        std::vector<type_t *> types;
+        bool failed = false;
+
+        array_initializer_t * initializer = this->initializer();
+        if (initializer != nullptr)
+        {
+            initializer->each_element([&](expression_t * exp) -> bool {
+                walk_expression(this->__context, context, exp);
+
+                type_t * type = exp->get_type();
+                if (type == nullptr)
+                    failed = true;
+
+                elements.push_back(exp);
+                types.push_back(type);
+                return true;
+            });
+        }
+
+        // A type that was not found has been told.
+        if (failed)
+        {
+            this->type_name = __XPool.to_type_name(__XPool.get_object_type());
+            return;
+        }
+
+        auto pick = [&](bool with_constants) -> type_t * {
+            for (type_t * candidate : types)
+            {
+                if (candidate == nullptr || candidate->this_gtype() == gtype_t::null)
+                    continue;
+
+                bool all = true;
+                for (size_t k = 0; k < elements.size() && all; k++)
+                {
+                    all = is_type_compatible(types[k], candidate)
+                            || (with_constants && is_constant_compatible(elements[k], candidate));
+                }
+
+                if (all)
+                    return candidate;
+            }
+
+            return nullptr;
+        };
+
+        type_t * type = pick(false);
+        if (type == nullptr)
+            type = pick(true);
+
+        if (type == nullptr)
+        {
+            this->__log((ast_node_t *)this, __c_t::array_element_type_unknown);
+            type = __XPool.get_object_type();
+        }
+
+        this->type_name = __XPool.to_type_name(type);
     }
 
     // Walks default step.
@@ -9380,6 +9451,12 @@ namespace X_ROOT_NS::modules::compile {
     // Walks confirm step.
     bool new_array_ast_node_t::__walk_confirm(ast_walk_context_t & context)
     {
+        if (this->type_name == nullptr && this->initializer() != nullptr)
+        {
+            this->__infer_element_type(context);
+            __walk_default(context);
+        }
+
         // To ensure the array type be pushed into xpool before execute xpool_t::commit_types().
         // Then used by some expressions, like (new int[10]).Length;
         // Otherwise, An error of 'type not found' will be occued.

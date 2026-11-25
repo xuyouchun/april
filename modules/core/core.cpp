@@ -1832,6 +1832,10 @@ namespace X_ROOT_NS::modules::core {
         __local_variables.write(mctx.layout, mctx.buffer);
 
         mctx.xil_pool.commit();
+
+        // The passes change the xils, before the jumps and the tables use their places.
+        xil_optimize(sctx, xw_ctx.block_manager, mctx.xil_pool, mctx.controller->optimize(xil_optimize_code));
+
         sctx.jmp_manager.commit(sctx);
 
         sctx.switch_manager.commit(sctx);
@@ -1839,6 +1843,8 @@ namespace X_ROOT_NS::modules::core {
 
         xw_ctx.block_manager.commit(sctx);
         xw_ctx.block_manager.write(sctx, mctx.buffer);
+
+        xil_debug(this, mctx.xil_pool);
 
         /* Show all variables.
         if (!__local_variables.empty())
@@ -10672,6 +10678,7 @@ namespace X_ROOT_NS::modules::core {
                     switch (sub_command_of<xil_smp_t>(xil))
                     {
                         case xil_smp_t::label:
+                            __labels.push_back({ xil, (xil_index_t)index });
                             continue;
 
                         default:
@@ -10706,6 +10713,32 @@ namespace X_ROOT_NS::modules::core {
         _A(xil != nullptr);
 
         __local_jmp_map[xil] = label;
+    }
+
+    // Returns the local label that a jmp xil jumps to.
+    bool jmp_manager_t::label_of(jmp_xil_t * xil, local_label_t * label)
+    {
+        auto it = __local_jmp_map.find(xil);
+        if (it == __local_jmp_map.end())
+            return false;
+
+        *label = it->second;
+        return true;
+    }
+
+    // Makes a jmp xil jump to another label.
+    void jmp_manager_t::set_label(jmp_xil_t * xil, local_label_t label)
+    {
+        _A(__local_jmp_map.find(xil) != __local_jmp_map.end());
+
+        __local_jmp_map[xil] = label;
+    }
+
+    // A jmp xil that was removed.
+    void jmp_manager_t::forget(jmp_xil_t * xil)
+    {
+        __local_jmp_map.erase(xil);
+        __global_jmp_map.erase(xil);
     }
 
     // Appends jmp xil with name.

@@ -1071,6 +1071,9 @@ namespace X_ROOT_NS::modules::compile {
         // A ref local variable is the name of a variable.
         ref_local_not_variable = 5325,
 
+        // The type of the elements of new[] { ... } is one that all the elements are converted to.
+        array_element_type_unknown = 5326,
+
         // An anonymous type is not supported where it is written.
         anonymous_type_not_supported = 5322,
 
@@ -4681,6 +4684,9 @@ namespace X_ROOT_NS::modules::compile {
 
     private:
         array_length_t __get_length(dimension_t dimension);
+
+        // new[] { 1, 2, 3 }: the type of the elements is that of the elements.
+        void __infer_element_type(ast_walk_context_t & context);
 
         // Walks default step.
         bool __walk_default(ast_walk_context_t & context);

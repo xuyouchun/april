@@ -117,7 +117,12 @@ namespace X_ROOT_NS::modules::compile {
         // Remove unnecessary expressions.
         remove_unnecessary_expressions,
 
+        // The passes over the xils of a method (modules/core/xil_tools.cpp). Its value is core::xil_optimize_code.
+        optimize_xils,
+
     X_ENUM_END
+
+    static_assert((int)compile_optimize_code_t::optimize_xils == 7, "core::xil_optimize_code");
 
     // Returns whether it can be optimized.
     template<typename _ctx_t> bool is_optimize(_ctx_t & ctx, compile_optimize_code_t code)

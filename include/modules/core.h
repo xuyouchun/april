@@ -3508,6 +3508,18 @@ namespace X_ROOT_NS::modules::core {
         // Write the switch-case to a buffer.
         void write(xil_buffer_t & buffer);
 
+        // Calls the function with the label of each case and each default.
+        template<typename _f_t> void each_label(_f_t f)
+        {
+            for (switch_table_t * table : __tables)
+            {
+                f(table->default_label);
+
+                for (switch_row_t * row = table->begin(); row != table->end(); row++)
+                    f(row->label);
+            }
+        }
+
         X_TO_STRING_IMPL(_T("switch_manager_t"))
 
     private:
@@ -8838,6 +8850,17 @@ namespace X_ROOT_NS::modules::core {
         // Writes to buffer.
         void write(statement_compile_context_t & ctx, xil_buffer_t & buffer);
 
+        // Calls the function with each label that a block has.
+        template<typename _f_t> void each_label(_f_t f)
+        {
+            for (const __xilx_block_t & block : __blocks)
+            {
+                f(block.begin);
+                f(block.end);
+                f(block.entry_point);
+            }
+        }
+
         X_TO_STRING_IMPL(_T("xilx_block_manager_t"))
 
     private:
@@ -9128,9 +9151,50 @@ namespace X_ROOT_NS::modules::core {
         // Returns index of a xil.
         xil_index_t index_of(xil_t * xil);
 
+        // Removes the xils that the predicate selects, after the pool was committed, and numbers the others again. The index of a
+        // xil that was removed is that of the xil that follows it: what refers to it (a label, a jmp) goes to that one.
+        template<typename _pred_t> size_t erase_if(_pred_t pred)
+        {
+            size_t removed = 0, kept = 0;
+            xil_index_t index = 0;
+
+            // The place that each old index has now: the labels are not in the pool, they have the index of the xil that follows them.
+            std::vector<xil_index_t> places(__xils.size() + 1);
+
+            for (size_t k = 0, count = __xils.size(); k < count; k++)
+            {
+                xil_t * xil = __xils[k];
+                __index_of(xil) = index;
+                places[k] = index;
+
+                if (pred(xil))
+                {
+                    removed++;
+                    continue;
+                }
+
+                __xils[kept++] = xil;
+                index++;
+            }
+
+            places[__xils.size()] = index;
+            __xils.truncate(kept);
+
+            for (auto & label : __labels)
+            {
+                label.second = places[label.second];
+                __index_of(label.first) = label.second;
+            }
+
+            return removed;
+        }
+
     private:
         xheap_t     __heap;
         __xils_t    __xils;
+
+        // The labels, that commit() took from the pool, and the index of the xil that follows each.
+        std::vector<std::pair<xil_t *, xil_index_t>> __labels;
     };
 
     //-------- ---------- ---------- ---------- ----------
@@ -9161,6 +9225,29 @@ namespace X_ROOT_NS::modules::core {
         // Commits.
         void commit(statement_compile_context_t & ctx);
 
+        // Returns the local label that a jmp xil jumps to; false when it jumps to a name.
+        bool label_of(jmp_xil_t * xil, local_label_t * label);
+
+        // Makes a jmp xil jump to another label.
+        void set_label(jmp_xil_t * xil, local_label_t label);
+
+        // A jmp xil that was removed.
+        void forget(jmp_xil_t * xil);
+
+        // Calls the function with the label of each jump (a local label).
+        template<typename _f_t> void each_jump_label(_f_t f)
+        {
+            for (auto && it : __local_jmp_map)
+                f(it.second);
+        }
+
+        // Calls the function with each xil that is a point of a name (the places that the jumps to names go to).
+        template<typename _f_t> void each_named_point(_f_t f)
+        {
+            for (auto && it : __global_point_map)
+                f(it.second);
+        }
+
         X_TO_STRING_IMPL(_T("jmp_manager_t"))
 
     private:
@@ -9170,6 +9257,22 @@ namespace X_ROOT_NS::modules::core {
         std::map<local_label_t, xil_t *> __local_point_map;
         std::map<name_t, xil_t *> __global_point_map;
     };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    // The code of the compile controller that asks whether the xils of a method are optimized (compile_optimize_code_t::optimize_xils).
+    static const int xil_optimize_code = 7;
+
+    // Optimizes the xils of a method, when the pool was committed and the jumps were not (the passes: modules/core/xil_tools.cpp).
+    // The passes run when the controller asks (requested), or when the environment has APRIL_XIL_OPT=1 (the test suites use it: the
+    // legacy optimizations of -O are not run by the compile of files, see docs/xil.md). APRIL_NO_XIL_OPT=1 stops them.
+    void xil_optimize(statement_compile_context_t & sctx, xilx_block_manager_t & blocks, xil_pool_t & pool, bool requested);
+
+    // The tools to see the xils of a method, after its jumps were committed. The environment says what they do:
+    //   APRIL_DUMP_XIL=<text>  prints the xils of the methods that have the text in their names (* is all of them),
+    //   APRIL_XIL_STATS=1      prints the count of the xils of the process when it ends, by the commands,
+    //   APRIL_VERIFY_XIL=1     checks the structure of the xils (the jumps), a mistake is an error of the compiler.
+    void xil_debug(method_t * method, xil_pool_t & pool);
 
     //-------- ---------- ---------- ---------- ----------
 

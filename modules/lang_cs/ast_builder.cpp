@@ -1713,7 +1713,7 @@ namespace X_ROOT_NS::modules::lang_cs {
     __OnCompleted(new_array, args)
     {
         // new T[n][][,]: the elements are arrays, the first rank specifier is the outermost.
-        if (!__ranks.empty())
+        if (!__ranks.empty() && __This->has_child(__Type::__type_name__))
         {
             ast_node_t * element = __This->child_at(__Type::__type_name__);
 
