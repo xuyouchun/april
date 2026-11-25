@@ -1165,7 +1165,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // method_body
 
-    __ApplyToken(method_body, token, args) { }
+    __ApplyToken(method_body, token, args)
+    {
+        if (token->value == __TokenValue(k_throw))
+            __throw = true;
+    }
 
     __ApplyAst(method_body, node, args)
     {
@@ -1176,6 +1180,17 @@ namespace X_ROOT_NS::modules::lang_cs {
                 break;
 
             case __AstValue(expression): {
+                // => throw expression; is the body of "throw expression;".
+                if (__throw)
+                {
+                    auto * st = this->template __new_ast<throw_st_ast_node_t>();
+                    st->set_child(throw_st_ast_node_t::__expression__, node);
+                    st->on_commit();
+
+                    __This->append_child(__Type::__statements__, st);
+                    break;
+                }
+
                 // => expression; is the body of "return expression;".
                 auto * st = this->template __new_ast<return_st_ast_node_t>();
                 st->is_arrow = true;
@@ -1197,6 +1212,10 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         switch (token->value)
         {
+            case __TokenValue(k_throw):
+                __throw = true;
+                break;
+
             case __TokenValue(name):
                 __This->set_name(this->__to_name(token), token);
                 break;
@@ -1236,10 +1255,23 @@ namespace X_ROOT_NS::modules::lang_cs {
 
                 // Type Name => expression; is Type Name { get => expression; }.
                 auto * body = this->template __new_ast<method_body_ast_node_t>();
-                auto * st = this->template __new_ast<return_st_ast_node_t>();
-                st->is_arrow = true;
-                st->set_child(return_st_ast_node_t::__expression__, node);
-                st->on_commit();
+                ast_node_t * st;
+                if (__throw)
+                {
+                    auto * throw_st = this->template __new_ast<throw_st_ast_node_t>();
+                    throw_st->set_child(throw_st_ast_node_t::__expression__, node);
+                    throw_st->on_commit();
+                    st = throw_st;
+                }
+                else
+                {
+                    auto * return_st = this->template __new_ast<return_st_ast_node_t>();
+                    return_st->is_arrow = true;
+                    return_st->set_child(return_st_ast_node_t::__expression__, node);
+                    return_st->on_commit();
+                    st = return_st;
+                }
+
                 body->append_child(method_body_ast_node_t::__statements__, st);
                 body->on_commit();
 
@@ -1549,6 +1581,10 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __AstValue(arguments):
                 __This->set_child(__Type::__arguments__, node);
                 break;
+
+            case __AstValue(index_range):
+                __This->set_child(__Type::__range__, node);
+                break;
         }
     }
 
@@ -1557,7 +1593,16 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // new
 
-    __ApplyToken(new, token, args) { }
+    __ApplyToken(new, token, args)
+    {
+        // new T(...), new(...): the arguments are written, even if there is none. new { A = 1 } has none.
+        if (token->value == __TokenValue(left_bracket))
+            __This->has_parentheses = true;
+
+        // s with { A = 1 }.
+        if (token->value == __TokenValue(k_with))
+            __This->is_with = true;
+    }
 
     __ApplyAst(new, node, args)
     {
@@ -1569,6 +1614,11 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case __AstValue(arguments):
                 __This->set_child(__Type::__arguments__, node);
+                break;
+
+            case __AstValue(_single_expression):
+            case __AstValue(expression):
+                __This->set_child(__Type::__source__, node);
                 break;
 
             case __AstValue(new_assign):
@@ -1587,7 +1637,12 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (token->value)
         {
             case __TokenValue(name):
+                // A name that is followed by = : Name = value. (The name of an element is part of its expression.)
                 __This->set_name(name_t(this->__to_sid(token)), token);
+                break;
+
+            case __TokenValue(left_brace):
+                __This->braced = true;
                 break;
         }
     }
@@ -1597,7 +1652,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         switch (node->value())
         {
             case __AstValue(expression):
-                __This->set_child(__Type::__expression__, node);
+                __This->append_value(node);
                 break;
         }
     }
@@ -1742,6 +1797,14 @@ namespace X_ROOT_NS::modules::lang_cs {
             case __TokenValue(name):
                 __This->add_param_name(this->__to_name(token));
                 break;
+
+            case __TokenValue(k_throw):
+                __throw = true;
+                break;
+
+            case __TokenValue(k_async):
+                __async = true;
+                break;
         }
     }
 
@@ -1758,12 +1821,69 @@ namespace X_ROOT_NS::modules::lang_cs {
                 break;
 
             case __AstValue(expression):
+                // x => throw expression : the body is the statement that throws.
+                if (__throw)
+                {
+                    auto * st = this->template __new_ast<throw_st_ast_node_t>();
+                    st->set_child(throw_st_ast_node_t::__expression__, node);
+                    st->on_commit();
+
+                    auto * body = this->template __new_ast<method_body_ast_node_t>();
+                    body->append_child(method_body_ast_node_t::__statements__, st);
+                    body->on_commit();
+
+                    __This->set_child(__Type::__body__, body);
+                    break;
+                }
+
                 __This->set_child(__Type::__expression__, node);
                 break;
         }
     }
 
-    __OnCompleted(lambda, args) { }
+    __OnCompleted(lambda, args)
+    {
+        // async x => body is x => System.Threading.Tasks.Task.Run(() => body): the awaits of the body wait in the thread of the task.
+        if (__async)
+        {
+            auto * inner = this->template __new_ast<lambda_ast_node_t>();
+            bool has_block = __This->move_body_to(inner);
+            inner->on_commit();
+
+            auto * argument = this->template __new_ast<argument_ast_node_t>();
+            argument->set_child(argument_ast_node_t::__expression__, inner);
+            argument->on_commit();
+
+            auto * arguments = this->template __new_ast<arguments_ast_node_t>();
+            arguments->append_child(arguments_ast_node_t::__arguments__, argument);
+            arguments->on_commit();
+
+            auto * call = this->template __new_ast<function_ast_node_t>();
+            call->set_child(function_ast_node_t::__arguments__, arguments);
+            __This->set_task_run_name(call, arguments);
+
+            if (!has_block)
+            {
+                __This->set_child(__Type::__expression__, call);
+            }
+            else
+            {
+                auto * st = this->template __new_ast<return_st_ast_node_t>();
+                auto * wrapper = this->template __new_ast<expression_ast_node_t>();
+                wrapper->append_expression(call);
+                wrapper->on_commit();
+
+                st->set_child(return_st_ast_node_t::__expression__, wrapper);
+                st->on_commit();
+
+                auto * body = this->template __new_ast<method_body_ast_node_t>();
+                body->append_child(method_body_ast_node_t::__statements__, st);
+                body->on_commit();
+
+                __This->set_child(__Type::__body__, body);
+            }
+        }
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // default_value
@@ -1828,6 +1948,47 @@ namespace X_ROOT_NS::modules::lang_cs {
     }
 
     __OnCompleted(await_exp, args) { }
+
+    ////////// ////////// ////////// ////////// //////////
+    // index_range
+
+    __ApplyToken(index_range, token, args)
+    {
+        switch (token->value)
+        {
+            case __TokenValue(bit_xor):
+                __hat = true;
+                break;
+
+            case __TokenValue(dot_dot):
+                __dots = true;
+                __This->dots = true;
+                break;
+        }
+    }
+
+    __ApplyAst(index_range, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                if (!__dots)
+                {
+                    __This->set_child(__Type::__from__, node);
+                    __This->from_hat = __hat;
+                }
+                else
+                {
+                    __This->set_child(__Type::__to__, node);
+                    __This->to_hat = __hat;
+                }
+
+                __hat = false;
+                break;
+        }
+    }
+
+    __OnCompleted(index_range, args) { }
 
     ////////// ////////// ////////// ////////// //////////
     // throw_exp
@@ -1906,6 +2067,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __TokenValue(k_const):
                 __This->set_constant(true);
+                break;
+
+            case __TokenValue(k_ref):
+                __This->is_ref = true;
                 break;
         }
 
@@ -1991,14 +2156,43 @@ namespace X_ROOT_NS::modules::lang_cs {
     {
         switch (token->value)
         {
+            case __TokenValue(k_goto):
+                __goto = true;
+                break;
+
+            case __TokenValue(k_case):
+                __This->is_case = true;
+                break;
+
+            case __TokenValue(k_default):
+                __This->is_default = true;
+                break;
+
             case __TokenValue(name):
                 __This->set_label(this->__to_name(token), token);
                 break;
         }
     }
 
-    __ApplyAst(goto_st, node, args) { }
-    __OnCompleted(goto_st, args) { }
+    __ApplyAst(goto_st, node, args)
+    {
+        switch (node->value())
+        {
+            case __AstValue(expression):
+                __This->set_child(__Type::__expression__, node);
+                break;
+
+            case __AstValue(statement):
+                __This->set_child(__Type::__statement__, node);
+                break;
+        }
+    }
+
+    // A labeled statement (label: statement) has no goto.
+    __OnCompleted(goto_st, args)
+    {
+        __This->is_definition = !__goto;
+    }
 
     ////////// ////////// ////////// ////////// //////////
     // return_st
@@ -2395,6 +2589,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         {
             case __AstValue(type_name):
                 __This->set_child(__Type::__type_name__, node);
+                break;
+
+            case __AstValue(expression):
+                __This->set_child(__Type::__filter__, node);
                 break;
 
             case __AstValue(statement):
@@ -2961,6 +3159,10 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case __TokenValue(k_readonly):
                 __This->set_readonly(token);
+                break;
+
+            case __TokenValue(k_required):
+                __This->set_required(token);
                 break;
 
             case __TokenValue(k_const):

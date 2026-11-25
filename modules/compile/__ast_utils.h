@@ -111,6 +111,10 @@ namespace X_ROOT_NS::modules::compile {
     const char_t * lower_new_of_generic_param(ast_context_t & cctx, ast_walk_context_t & wctx,
                                                         new_expression_t * exp, generic_param_t * param);
 
+    // A ref local variable (ref Int32 r = ref x;) is another name of the variable x: the names of r are those of x.
+    void set_ref_alias(variable_t * variable, variable_t * target);
+    variable_t * ref_alias_of(variable_t * variable);
+
     // Finds method.
     method_t * find_method(type_t * type, method_trait_t trait, name_t name,
                 generic_args_t * generic_args, atypes_t * atypes);

@@ -152,6 +152,20 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
+    // The expressions that are made one after the other, the value of the last one is the value: t = s, t.A = 1, t.
+    __SystemExpressionT(expressions_t)
+
+        // Execute the expression.
+        virtual cvalue_t execute() override;
+
+        // Compile the expression.
+        virtual void compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+                                                                                override;
+
+    __EndSystemExpressionT
+
+    ////////// ////////// ////////// ////////// //////////
+
     // Type cast expression.
     __SystemExpressionT(type_cast_expression_t)
 

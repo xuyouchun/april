@@ -181,6 +181,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(checked_exp,                _T("checked_exp"))
         X_C(await_exp,                  _T("await_exp"))
         X_C(throw_exp,                  _T("throw_exp"))
+        X_C(index_range,                _T("index_range"))
 
     X_ENUM_INFO_END
 
@@ -817,6 +818,12 @@ namespace X_ROOT_NS::modules::compile {
         // A switch has cases of strings, and the value of it is not a string.
         X_D(switch_string_expected, _T("the cases of the switch are strings, its value is of the type \"%1%\""))
 
+        // goto jumps to a label that the method does not define.
+        X_D(goto_label_undefined, _T("the label \"%1%\" is not defined in the method"))
+
+        // A label is defined twice in a method.
+        X_D(goto_label_duplicate, _T("the label \"%1%\" is defined twice in the method"))
+
         // The type of a default literal is not known.
         X_D(default_literal_untyped,
             _T("the type of \"default\" is not known here: write default(Type), or assign it to a variable that has a type"))
@@ -824,6 +831,24 @@ namespace X_ROOT_NS::modules::compile {
         // A property that has an initial value must be an auto property.
         X_D(property_initializer_not_auto,
             _T("the property \"%1%\" has an initial value: only an auto property (get; set;) can have one"))
+
+        // A ref local variable is the name of a variable.
+        X_D(ref_local_not_variable,
+            _T("a ref local variable is another name of a variable (a local variable, a param or a field): ref Type name = ref variable;"))
+
+        // A with expression copies a struct.
+        X_D(with_not_struct, _T("\"with\" copies a struct: \"%1%\" is not one"))
+
+        // A member that is required is not set by the object initializer.
+        X_D(required_member_not_set,
+            _T("the required member \"%1%\" of \"%2%\" must be set by the object initializer"))
+
+        // The type of new(...) is not known.
+        X_D(target_new_untyped,
+            _T("the type of \"new(...)\" is not known here: write new Type(...), or assign it to a variable that has a type"))
+
+        // An anonymous type is not supported where it is written.
+        X_D(anonymous_type_not_supported, _T("an anonymous type (new { Name = value }) is not supported here"))
 
         // A throw expression is where the type of its value is not known.
         X_D(throw_expression_untyped,
@@ -1031,7 +1056,9 @@ namespace X_ROOT_NS::modules::compile {
                 method_t * method = (method_t *)member;
                 bool need_body = member->is_static() && !member->is_abstract();
 
-                if (method->body != nullptr && !need_body)
+                // A static abstract method has no body; an instance method that has one is the default method: a type that
+                // does not implement it has this one.
+                if (method->body != nullptr && !need_body && member->is_static())
                 {
                     this->__log(ce, c_t::interface_members_cannot_have_defination,
                                                                     member->to_prototype());
@@ -1064,7 +1091,7 @@ namespace X_ROOT_NS::modules::compile {
                         }
                     }
                 }
-                else if (property->get_method != nullptr && property->get_method->body != nullptr)
+                else if (member->is_static() && property->get_method != nullptr && property->get_method->body != nullptr)
                 {
                     this->__log(property->get_method, c_t::interface_members_cannot_have_defination,
                         property->get_method);
@@ -1072,7 +1099,7 @@ namespace X_ROOT_NS::modules::compile {
                     return false;
                 }
 
-                if (!need_body && property->set_method != nullptr
+                if (!need_body && member->is_static() && property->set_method != nullptr
                                         && property->set_method->body != nullptr)
                 {
                     this->__log(property->set_method, c_t::interface_members_cannot_have_defination,
@@ -2910,6 +2937,12 @@ namespace X_ROOT_NS::modules::compile {
         this->__assign(__BitField(this, is_readonly), true, el, _T("readonly"), true);
     }
 
+    // Sets required.
+    void decorate_ast_node_t::set_required(__el_t * el)
+    {
+        this->__assign(__BitField(this, is_required), true, el, _T("required"), true);
+    }
+
     // Sets constant.
     void decorate_ast_node_t::set_const(__el_t * el)
     {
@@ -3118,12 +3151,37 @@ namespace X_ROOT_NS::modules::compile {
         __es.pop_back();
     }
 
+    static expression_t * __system_member(ast_context_t & context, const char_t * type_name, const char_t * member_name);
+
     // Appends constant value.
     void expression_ast_node_t::append_cvalue(ast_node_t * node)
     {
         _A(node != nullptr);
 
         cvalue_t * value = _M(cvalue_ast_t *, node)->to_eobject();
+
+        // A decimal (1.5m): the lexer gives its text, with the character 1 before it. It is the call DecimalLiteral.Of("1.5").
+        if (value->value_type == cvalue_type_t::string && value->string != nullptr && value->string[0] == (char_t)1)
+        {
+            auto * call = __new_obj<system_expression_t<function_expression_t>>();
+            call->set_namex(__system_member(this->__context, _T("DecimalLiteral"), _T("Of")));
+
+            cvalue_t * text = __new_obj<cvalue_t>(__SPool.to_sid(string_t(value->string + 1)).c_str());
+
+            argument_t * argument = __new_obj<argument_t>();
+            argument->expression = to_sys_exp(__get_memory(), __get_lang(), nullptr, text);
+
+            arguments_t * arguments = __new_obj<arguments_t>();
+            arguments->push_back(argument);
+            call->set_arguments(arguments);
+
+            if (node->code_unit != nullptr)
+                call->code_unit = node->code_unit;
+
+            __es.push_back(__el_t((expression_t *)call));
+            this->append_child(__nodes__, node);
+            return;
+        }
 
         expression_t * exp = to_sys_exp(__get_memory(), __get_lang(), nullptr, value);
 
@@ -5109,6 +5167,10 @@ namespace X_ROOT_NS::modules::compile {
                     if (method->is_static() && !method->is_abstract())
                         continue;
 
+                    // The default method of an interface (it has a body): a type that does not implement it has it.
+                    if (!method->is_static() && method->body != nullptr)
+                        continue;
+
                     if (!__is_implemented(type, method, interface_type))
                     {
                         this->__log(__name_el, __c_t::interface_member_not_implemented,
@@ -6783,6 +6845,34 @@ namespace X_ROOT_NS::modules::compile {
             if (var_item->variable == nullptr)
                 continue;
 
+            // ref Int32 r = ref x; : r is another name of the variable x, nothing is assigned.
+            if (this->is_ref)
+            {
+                expression_t * target = var_item->expression;
+                if (target != nullptr && !target->walked)
+                    walk_expression(this->__context, context, target);
+
+                name_expression_t * target_name = dynamic_cast<name_expression_t *>(target);
+                variable_t * aliased = target_name != nullptr && target_name->expression_type == name_expression_type_t::variable?
+                                                                                    target_name->variable : nullptr;
+
+                variable_type_t vt = aliased != nullptr? aliased->this_type() : variable_type_t::__default__;
+                if (aliased == nullptr || (vt != variable_type_t::local && vt != variable_type_t::param
+                                                                        && vt != variable_type_t::field))
+                {
+                    __L(ref_local_not_variable);
+                    var_item->expression = nullptr;
+                    continue;
+                }
+
+                if (__is_uncertain(var_item->variable->type_name))
+                    var_item->variable->type_name->type = aliased->get_type();
+
+                set_ref_alias(var_item->variable, aliased);
+                var_item->expression = nullptr;
+                continue;
+            }
+
             // An item of a tuple: the variable that holds it has its type now.
             if (var_item->tuple_index >= 0 && var_item->expression == nullptr)
                 __make_tuple_item(context, var_item);
@@ -6929,10 +7019,14 @@ namespace X_ROOT_NS::modules::compile {
         this->__assign_name(this->label, label, el, _T("label"));
     }
 
+    // The labels of the methods: where they are defined, and where goto jumps to.
+    static std::map<method_t *, std::set<string_t>> __method_labels;
+
     // Commits this node.
     void goto_st_ast_node_t::on_commit()
     {
-
+        this->case_expression = __to_eobject<expression_t *>(__expression__);
+        this->statement = __to_eobject<statement_t *>(__statement__);
     }
 
     // Returns this eobject.
@@ -6944,11 +7038,32 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool goto_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        // Jumping to a label is not part of the language: structured statements
-        // (loops, break, continue, return, try) do the job.
-        this->__log(this, __c_t::goto_not_supported);
+        method_t * method = context.current_method();
+        string_t name = (string_t)(sid_t)this->label;
 
-        return __super_t::on_walk(context, step, tag);
+        switch ((walk_step_t)step)
+        {
+            case walk_step_t::default_:
+                // label: statement : the label is defined once in a method.
+                if (this->is_definition && method != nullptr
+                        && !__method_labels[method].insert(name).second)
+                    this->__log(this, __c_t::goto_label_duplicate, this->label);
+
+                if (!this->is_definition && !this->is_case && !this->is_default)
+                    this->__delay(context, walk_step_t::end);
+
+                return __super_t::on_walk(context, step, tag);
+
+            // goto label; : the label is defined in the method.
+            case walk_step_t::end:
+                if (method != nullptr && __method_labels[method].find(name) == __method_labels[method].end())
+                    this->__log(this, __c_t::goto_label_undefined, this->label);
+
+                return true;
+
+            default:
+                return __super_t::on_walk(context, step, tag);
+        }
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -8089,6 +8204,7 @@ namespace X_ROOT_NS::modules::compile {
         struct __test_t { expression_t * condition; expression_t * assign; };
         std::vector<__test_t> tests;
         std::vector<cvalue_t> values;
+        std::vector<cvalue_t> index_values;     // The value of each index (goto case "a";), nan when it is a pattern.
 
         int32_t index = 0;
         for (case_t * c : this->cases)
@@ -8105,6 +8221,8 @@ namespace X_ROOT_NS::modules::compile {
                 bool declares = exp->this_family() == expression_family_t::name
                                     && ((name_expression_t *)exp)->declare_type_name != nullptr;
 
+                cvalue_t label_value = cvalue_t::nan;
+
                 // value is String s: the variable is assigned when the value is one.
                 // value == "a": the same value is not twice a case.
                 expression_t * condition;
@@ -8118,6 +8236,8 @@ namespace X_ROOT_NS::modules::compile {
                     bool has_guard = label < c->guards.size() && c->guards[label] != nullptr;
 
                     cvalue_t value = execute_expression(exp);
+                    label_value = value;
+
                     if (value != cvalue_t::nan && !has_guard)
                     {
                         if (al::any_of(values, [&](const cvalue_t & v) { return v == value; }))
@@ -8160,6 +8280,7 @@ namespace X_ROOT_NS::modules::compile {
                 walk_expression(this->__context, context, assign);
 
                 tests.push_back({ condition, assign });
+                index_values.push_back(label_value);
 
                 // The switch that follows is of the indexes.
                 expression_t * number = number_of(index);
@@ -8186,6 +8307,7 @@ namespace X_ROOT_NS::modules::compile {
 
         // The statements of a case that declares variables have their region.
         switch_statement_t * indexes = __new_obj<switch_statement_t>(index_exp);
+        indexes->lowered_values = index_values;
         for (case_t * c : this->cases)
         {
             if (c->region != nullptr && c->statements != nullptr)
@@ -8324,12 +8446,126 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool try_st_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
+        if ((walk_step_t)step == walk_step_t::post_analysis)
+            return __walk_filters(context);
+
         if (this->catches.empty() && this->finally_statement == nullptr)
         {
             this->__log(this, __c_t::catch_or_finally_missing);
         }
 
-        return __super_t::on_walk(context, step, tag);
+        if (!__has_filter())
+            return __super_t::on_walk(context, step, tag);
+
+        // The exception that is caught, and whether a catch has run, are variables of the statement.
+        static int try_count = 0;
+        int number = ++try_count;
+
+        context.push_new_region();
+        __region = context.current_region();
+
+        variable_defination_t vd(this->__context, context, (object_t *)(ast_node_t *)this);
+
+        __exception = vd.define_local(
+            __XPool.get_object_type_name(),
+            __to_name(__generated_name(_T("catch_exception"), _F(_T("%1%"), number), string_t())), false, nullptr,
+            (object_t *)(ast_node_t *)this
+        );
+
+        if (__exception != nullptr && __exception->this_type() == variable_type_t::local)
+            ((local_variable_t *)__exception)->no_hoist = true;
+
+        // The statements are made after the expressions of the filters are analyzed.
+        this->__delay(context, walk_step_t::post_analysis);
+
+        bool r = __super_t::on_walk(context, step, tag);
+
+        context.pop();
+        return r;
+    }
+
+    // Returns whether a catch has a filter.
+    bool try_st_ast_node_t::__has_filter()
+    {
+        for (catch_t * c : this->catches)
+        {
+            if (c->filter != nullptr)
+                return true;
+        }
+
+        return false;
+    }
+
+    // Walks the post analysis step: the catches of a try that has filters are one catch of the exceptions, that tries them
+    // in the order that they are written (the filter of a catch is tested when the exception is of its type):
+    //   catch (Object ex) {
+    //     v1 = ex as T1; if (v1 != null && filter1) { body1 }
+    //     else { v2 = ex as T2; if (v2 != null && filter2) { body2 } else { throw; } } }
+    bool try_st_ast_node_t::__walk_filters(ast_walk_context_t & context)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        if (__exception == nullptr || this->catches.empty())
+            return true;
+
+        auto name_of = [this](variable_t * variable) -> expression_t * {
+            return __new_obj<system_expression_t<name_expression_t>>(variable);
+        };
+
+        // The exception that no catch takes goes on.
+        statement_t * rest = __new_obj<throw_statement_t>();
+
+        for (size_t index = this->catches.size(); index > 0; index--)
+        {
+            catch_t * c = this->catches[index - 1];
+            if (c->variable == nullptr || to_type(c->type_name) == nullptr)
+                continue;
+
+            // variable = exception as Type;
+            auto * type_exp = __new_obj<system_expression_t<type_name_expression_t>>(c->type_name);
+            expression_t * cast = __new_obj<__binary_t>(operator_t::as, name_of(__exception), type_exp);
+            expression_t * assign = __new_obj<__binary_t>(operator_t::assign, name_of(c->variable), cast);
+            walk_expression(this->__context, context, assign);
+
+            // variable != null && filter
+            expression_t * condition = __new_obj<__binary_t>(operator_t::not_equal, name_of(c->variable),
+                __new_obj<system_expression_t<cvalue_expression_t>>(__new_obj<cvalue_t>(nullptr)));
+            walk_expression(this->__context, context, condition);
+
+            if (c->filter != nullptr)
+            {
+                if (!c->filter->walked)
+                    walk_expression(this->__context, context, c->filter);
+
+                condition = __new_obj<__binary_t>(operator_t::logic_and, condition, c->filter);
+                walk_expression(this->__context, context, condition);
+            }
+
+            // The body of the catch has the variables of it.
+            statement_group_t * run = __new_obj<statement_group_t>();
+            run->variable_region = c->region;
+            if (c->body != nullptr)
+                run->push_back(c->body);
+
+            statement_group_t * clause = __new_obj<statement_group_t>();
+            clause->push_back(__new_obj<expression_statement_t>(assign));
+            clause->push_back(__new_obj<if_statement_t>(condition, run, rest));
+
+            rest = clause;
+        }
+
+        statement_group_t * catch_body = __new_obj<statement_group_t>();
+        catch_body->variable_region = __region;
+        catch_body->push_back(rest);
+
+        catch_t * only = __new_obj<catch_t>(__XPool.get_object_type_name(), __exception->get_name(), catch_body);
+        only->variable = __exception;
+        only->region = __region;
+
+        this->catches.clear();
+        this->catches.push_back(only);
+
+        return true;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -8347,6 +8583,7 @@ namespace X_ROOT_NS::modules::compile {
     {
         this->type_name = __to_eobject<type_name_t *>(__type_name__);
         this->body      = __to_eobject<statement_t *>(__body__);
+        this->filter    = __to_eobject<expression_t *>(__filter__);
     }
 
     // Returns this eobject.
@@ -8365,6 +8602,7 @@ namespace X_ROOT_NS::modules::compile {
             this->name = __XPool.to_name(__generated_name(_T("catch"), string_t(), string_t()));
 
         context.push_new_region();
+        this->region = context.current_region();
 
         variable_defination_t vd(this->__context, context, __variable_el);
         this->variable = vd.define_local(this->type_name, this->name);
@@ -8517,6 +8755,74 @@ namespace X_ROOT_NS::modules::compile {
 
         context.checked_mode = saved;
         return r;
+    }
+
+    ////////// ////////// ////////// ////////// //////////
+    // index_range
+
+    // The member of a type: RangeHelper.Slice (the type is found by the name, as the types of the code are).
+    static expression_t * __system_member(ast_context_t & context, const char_t * type_name, const char_t * member_name)
+    {
+        typedef system_expression_t<binary_expression_t> __binary_t;
+
+        expression_t * type = context.compile_context.new_obj<system_expression_t<name_unit_expression_t>>(
+            name_t(__SPool.to_sid(type_name)), (generic_args_t *)nullptr
+        );
+
+        expression_t * member = context.compile_context.new_obj<system_expression_t<name_expression_t>>(
+            name_t(__SPool.to_sid(member_name))
+        );
+
+        return context.compile_context.new_obj<__binary_t>(operator_t::member_point, type, member);
+    }
+
+    // Commits this node: it is the call that makes the range (System.Range.Of(start, startFromEnd, end, endFromEnd)), or the index
+    // (System.Index.FromEnd(value)).
+    void index_range_ast_node_t::on_commit()
+    {
+        auto flag_of = [this](bool value) -> expression_t * {
+            return __new_obj<system_expression_t<cvalue_expression_t>>(__new_obj<cvalue_t>(tvalue_t(value)));
+        };
+
+        expression_t * from = __to_eobject<expression_t *>(__from__);
+        expression_t * to   = __to_eobject<expression_t *>(__to__);
+
+        arguments_t * arguments = __new_obj<arguments_t>();
+        auto add = [&](expression_t * exp) {
+            argument_t * argument = __new_obj<argument_t>();
+            argument->expression = exp;
+            arguments->push_back(argument);
+        };
+
+        if (!this->dots)
+        {
+            this->set_namex(__system_member(this->__context, _T("RangeHelper"), _T("FromEnd")));
+            add(from);
+        }
+        else
+        {
+            this->set_namex(__system_member(this->__context, _T("RangeHelper"), _T("Of")));
+
+            // A start that is not written is 0; an end that is not written is the end: ^0.
+            add(from != nullptr? from : (expression_t *)__new_obj<system_expression_t<cvalue_expression_t>>(__new_obj<cvalue_t>(0)));
+            add(flag_of(this->from_hat));
+            add(to != nullptr? to : (expression_t *)__new_obj<system_expression_t<cvalue_expression_t>>(__new_obj<cvalue_t>(0)));
+            add(flag_of(to == nullptr || this->to_hat));
+        }
+
+        this->set_arguments(arguments);
+    }
+
+    // Returns this eobject.
+    expression_t * index_range_ast_node_t::to_eobject()
+    {
+        return this;
+    }
+
+    // Walks this node.
+    bool index_range_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
+    {
+        return __super_t::on_walk(context, step, tag);
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -8722,12 +9028,34 @@ namespace X_ROOT_NS::modules::compile {
     {
         this->set_namex(__to_eobject<expression_t *>(__namex__));
         this->set_arguments(__to_eobject<arguments_t *>(__arguments__));
+
+        // a[1..3] is System.RangeHelper.Slice(a, range), a[^1] is System.RangeHelper.At(a, index).
+        expression_t * range = __to_eobject<expression_t *>(__range__);
+        if (range != nullptr)
+        {
+            index_range_ast_node_t * range_node = dynamic_cast<index_range_ast_node_t *>(range);
+            bool slice = range_node != nullptr && range_node->dots;
+
+            auto * call = __new_obj<system_expression_t<function_expression_t>>();
+            call->set_namex(__system_member(this->__context, _T("RangeHelper"), slice? _T("Slice") : _T("At")));
+
+            arguments_t * arguments = __new_obj<arguments_t>();
+            for (expression_t * exp : { this->namex(), range })
+            {
+                argument_t * argument = __new_obj<argument_t>();
+                argument->expression = exp;
+                arguments->push_back(argument);
+            }
+
+            call->set_arguments(arguments);
+            __lowered = call;
+        }
     }
 
     // Returns this eobject.
     expression_t * index_ast_node_t::to_eobject()
     {
-        return this;
+        return __lowered != nullptr? __lowered : (expression_t *)this;
     }
 
     // Walks this node.
@@ -8747,6 +9075,11 @@ namespace X_ROOT_NS::modules::compile {
         this->type_name = __to_eobject<type_name_t *>(__type_name__);
         this->set_arguments(__to_eobject<arguments_t *>(__arguments__));
 
+        // s with { Name = value }: the source is the operand of the expression.
+        this->source = __to_eobject<expression_t *>(__source__);
+        if (this->source != nullptr)
+            this->source->parent = this;
+
         // The members that are set: new T { Name = value }.
         this->each_child_node<argument_ast_t>(__inits__, [this](argument_ast_t * init) {
             this->inits.push_back(init->to_eobject());
@@ -8762,13 +9095,33 @@ namespace X_ROOT_NS::modules::compile {
     // Walks this node.
     bool new_ast_node_t::on_walk(ast_walk_context_t & context, int step, void * tag)
     {
-        this->__check_empty(this->type_name, (ast_node_t *)this, __c_t::type_name_missing,
+        // new(...): the type is that of the context, it is told by the expression that has it (retarget_type).
+        if (this->type_name == nullptr && !this->is_with && !(this->has_parentheses || !this->inits.empty()))
+        {
+            this->__check_empty(this->type_name, (ast_node_t *)this, __c_t::type_name_missing,
                                                             _T("object creation"));
+        }
+
         switch ((walk_step_t)step)
         {
             case walk_step_t::default_:
                 this->__delay(context, walk_step_t::analysis);
+
+                if (this->type_name == nullptr && !this->is_with)
+                    this->__delay(context, walk_step_t::end);
+
                 return __super_t::on_walk(context, step, tag);
+
+            case walk_step_t::end:
+                if (this->type_name == nullptr && !this->is_with)
+                {
+                    if (this->has_parentheses)
+                        this->__log((ast_node_t *)this, __c_t::target_new_untyped);
+                    else
+                        this->__log((ast_node_t *)this, __c_t::anonymous_type_not_supported);
+                }
+
+                return true;
 
             case walk_step_t::analysis: {
                 // The names of the arguments are bound before the constructor is found by the types of them: the new
@@ -8782,6 +9135,61 @@ namespace X_ROOT_NS::modules::compile {
                     }
                 }
 
+                __analysis_passed = true;
+
+                if (this->type_name != nullptr && !this->is_with && this->lowered == nullptr)
+                    this->__analyze(context);
+
+                return true;
+            }
+
+            default: return true;
+        }
+    }
+
+    // The type that the context wants: List<Int32> list = new();
+    void new_ast_node_t::retarget_type(ast_walk_context_t & context, type_t * type)
+    {
+        if (this->type_name != nullptr || type == nullptr || type->this_gtype() == gtype_t::uncertain)
+            return;
+
+        this->type_name = __new_obj<type_name_t>(type);
+
+        // The analysis of the node was before: the constructor is found now.
+        if (__analysis_passed)
+            this->__analyze(context);
+    }
+
+    // The members that are required (required Int32 Number;) must be set by the object initializer.
+    void new_ast_node_t::__check_required(type_t * type)
+    {
+        for (member_type_t member_type : { member_type_t::field, member_type_t::property })
+        {
+            analyze_members_args_t members_args(member_type, name_t::null);
+            type->get_members(members_args);
+
+            for (member_t * member : members_args.out_members)
+            {
+                if (member == nullptr || member->decorate == nullptr || !member->decorate->is_required)
+                    continue;
+
+                bool set = false;
+                for (argument_t * init : this->inits)
+                    set = set || (init->name_type == argument_name_type_t::field && init->name == member->get_name());
+
+                if (!set)
+                    this->__log((ast_node_t *)this, __c_t::required_member_not_set, member->get_name(), type);
+            }
+        }
+    }
+
+    // Walks the analysis step of a new that has its type: finds the constructor, and makes the initializers.
+    void new_ast_node_t::__analyze(ast_walk_context_t & context)
+    {
+        __analyzed = true;
+
+        {
+            {
                 type_t * type = to_type(this->type_name);
                 if (type != nullptr && !is_generic_param(type))
                 {
@@ -8811,17 +9219,15 @@ namespace X_ROOT_NS::modules::compile {
                     if (why != nullptr)
                         __log((ast_node_t *)this, __c_t::generic_param_new_invalid, type, why);
 
-                    return true;
+                    return;
                 }
+
+                if (type != nullptr && !is_generic_param(type) && this->constructor != nullptr)
+                    __check_required(type);
 
                 if (type != nullptr && !this->inits.empty())
                     __walk_inits(context, type);
-
-                return true;
-
             }
-
-            default: return true;
         }
     }
 
@@ -8841,6 +9247,41 @@ namespace X_ROOT_NS::modules::compile {
         {
             auto * target = __new_obj<system_expression_t<this_expression_t>>();
             target->set_new_target(type);
+
+            // A value of a collection initializer (new List<Int32> { 1, 2 }, { k, v }) is the argument of Add.
+            if (init->name_type == argument_name_type_t::item)
+            {
+                auto * function = __new_obj<system_expression_t<function_expression_t>>();
+                function->set_namex(__new_obj<system_expression_t<name_expression_t>>(__to_name(_T("Add"))));
+
+                arguments_t * arguments = __new_obj<arguments_t>();
+                expression_t * value = init->expression;
+
+                // { k, v }: the values are the arguments.
+                if (value != nullptr && value->this_family() == expression_family_t::tuple)
+                {
+                    for (expression_t * item : *(tuple_expression_t *)value)
+                    {
+                        argument_t * argument = __new_obj<argument_t>();
+                        argument->expression = item;
+                        arguments->push_back(argument);
+                    }
+                }
+                else
+                {
+                    argument_t * argument = __new_obj<argument_t>();
+                    argument->expression = value;
+                    arguments->push_back(argument);
+                }
+
+                function->set_arguments(arguments);
+
+                expression_t * call = __new_obj<__binary_t>(operator_t::member_point, target, function);
+                walk_expression(this->__context, context, call);
+                this->init_assigns.push_back(call);
+
+                continue;
+            }
 
             expression_t * member = __new_obj<system_expression_t<name_expression_t>>(init->name);
             expression_t * access = __new_obj<__binary_t>(operator_t::member_point, target, member);
@@ -9108,6 +9549,28 @@ namespace X_ROOT_NS::modules::compile {
     {
     }
 
+    // Gives the body of this lambda to another one.
+    bool lambda_ast_node_t::move_body_to(lambda_ast_node_t * target)
+    {
+        if (this->has_child(__body__))
+        {
+            target->set_child(__body__, this->child_at(__body__));
+            return true;
+        }
+
+        if (this->has_child(__expression__))
+            target->set_child(__expression__, this->child_at(__expression__));
+
+        return false;
+    }
+
+    // The name of the call is System.Threading.Tasks.Task.Run.
+    void lambda_ast_node_t::set_task_run_name(function_ast_node_t * call, arguments_ast_node_t * arguments)
+    {
+        call->set_namex(__system_member(this->__context, _T("AsyncLambda"), _T("Run")));
+        call->set_arguments((arguments_t *)arguments);
+    }
+
     // Returns this eobject.
     expression_t * lambda_ast_node_t::to_eobject()
     {
@@ -9174,6 +9637,10 @@ namespace X_ROOT_NS::modules::compile {
         {
             __collect_sub_expressions(expression->expression_at(index), expressions);
         }
+
+        // The name of a call is not one of its arguments: f(1) uses the variable f (a delegate).
+        if (expression->this_family() == expression_family_t::function)
+            __collect_sub_expressions(((function_expression_t *)expression)->namex, expressions);
     }
 
     // Collects the expressions of a node and its children. The expressions of the lambdas that
@@ -9389,6 +9856,29 @@ namespace X_ROOT_NS::modules::compile {
     {
         type_t * type = context.current_type();
         method_t * outer = context.current_method();
+
+        // A lambda of the value of a field (Func<Int32> f = () => 1;): it is in no method, the lambda is a static method of the type
+        // that uses no variable (a field initializer has no local variables, and no object). The method that has it is an
+        // empty one, that is made for the type.
+        if (outer == nullptr && type != nullptr && type->this_gtype() == gtype_t::general)
+        {
+            static std::map<type_t *, method_t *> field_initializers;
+
+            method_t *& initializer = field_initializers[type];
+            if (initializer == nullptr)
+            {
+                decorate_value_t dv = decorate_value_t::default_value;
+                dv.is_static = true;
+                dv.access = access_value_t::private_;
+
+                initializer = __new_obj<method_t>();
+                initializer->name = __to_name(_T("__field_initializer"));
+                initializer->host_type = type;
+                initializer->decorate = __new_obj<decorate_t>(dv);
+            }
+
+            outer = initializer;
+        }
 
         if (type == nullptr || type->this_gtype() != gtype_t::general || outer == nullptr)
         {
@@ -9932,6 +10422,51 @@ namespace X_ROOT_NS::modules::compile {
             }
         }
 
+        // The delegates that the lambda calls (f(1)): the variable of a call is the one of the name, it is the field too.
+        for (expression_t * exp : own)
+        {
+            if (exp->this_family() != expression_family_t::function)
+                continue;
+
+            function_expression_t * call = (function_expression_t *)exp;
+            if (call->get_ftype() != function_expression_type_t::variable)
+                continue;
+
+            variable_t * called = call->get_variable();
+            if (called == nullptr)
+                continue;
+
+            for (size_t index = 0; index < __captured.size(); index++)
+            {
+                local_variable_t * cell_holder = __cell_local_of(__captured[index]);
+                bool cell = cell_holder != nullptr;
+
+                field_t * field = fields[index];
+                if (field->variable == nullptr)
+                    field->variable = __new_obj<field_variable_t>(field);
+
+                if (cell && called == cell_holder)
+                {
+                    call->set_variable(field->variable);
+                    break;
+                }
+
+                if (called != __captured[index])
+                    continue;
+
+                if (!cell)
+                {
+                    call->set_variable(field->variable);
+                    break;
+                }
+
+                auto * value = __new_obj<field_variable_t>(__cell_value_of(__captured[index])->field);
+                value->hoist_base = field->variable;
+                call->set_variable(value);
+                break;
+            }
+        }
+
         // The variables of the method that makes the lambda that are cells: the method uses the field of the cell, and makes
         // the cell where the variable is defined.
         {
@@ -10158,6 +10693,11 @@ namespace X_ROOT_NS::modules::compile {
     bool field_ast_node_t::__walk_analysis(ast_walk_context_t & context)
     {
         this->__check_member(context.current_type(), (field_t *)this, __name_el);
+
+        // A lambda is converted to the delegate that the field is of: Func<Int32> f = () => 1; (its body is analyzed later).
+        if (this->init_value != nullptr)
+            bind_lambda_to_type(this->init_value, to_type(this->type_name));
+
         return true;
     }
 
@@ -11483,6 +12023,11 @@ namespace X_ROOT_NS::modules::compile {
                                                    : (code_element_t *)(ast_node_t *)this;
 
         this->__check_member(context.current_type(), (property_t *)this, el);
+
+        // A lambda is converted to the delegate that the property is of: Func<Int32> F { get; set; } = () => 1;
+        if (__initializer != nullptr)
+            bind_lambda_to_type(__initializer, to_type(this->type_name));
+
         return true;
     }
 

@@ -1,5 +1,4 @@
-// new T() of a struct, or of a number: its default value. (The programs run by the JIT and the native back end
-// that make a struct from a generic param are run with the interpreter.)
+// new T() of a struct, or of a number: its default value.
 
 /* EXPECT
 

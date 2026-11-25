@@ -35,7 +35,7 @@ public interface ITuple<TItems ...> : ITuple
 ////////// ////////// ////////// ////////// //////////
 
 [Internal]
-public struct Tuple<TItems ...> : ITuple<TItems ...>
+public struct Tuple<TItems ...> : ITuple<TItems ...>, IStringable
 {
     typedef __SelfType = Tuple<TItems ...>;
 
@@ -52,5 +52,51 @@ public struct Tuple<TItems ...> : ITuple<TItems ...>
             throw new OutOfRangeException();
 
         return Internal.Tuple_Get(typeof(__SelfType), index);
+    }
+
+    // The tuples are equal when the items are, one by one.
+    public Boolean Equals(Object? obj)
+    {
+        ITuple? other = obj as ITuple;
+        if (other == null || other.GetSize() != GetSize())
+            return false;
+
+        for (Int32 k = 0; k < GetSize(); k++)
+        {
+            if (!Object.Equals(Get(k), other.Get(k)))
+                return false;
+        }
+
+        return true;
+    }
+
+    // The hash code is made of the items.
+    public Int32 GetHashCode()
+    {
+        Int32 hash = 17;
+
+        for (Int32 k = 0; k < GetSize(); k++)
+        {
+            hash = hash * 31 + Object.HashOf(Get(k));
+        }
+
+        return hash;
+    }
+
+    // (1, x)
+    public String ToString()
+    {
+        String text = "(";
+
+        for (Int32 k = 0; k < GetSize(); k++)
+        {
+            if (k > 0)
+                text += ", ";
+
+            Object item = Get(k);
+            text += item == null? "" : Object.ToString(item);
+        }
+
+        return text + ")";
     }
 }

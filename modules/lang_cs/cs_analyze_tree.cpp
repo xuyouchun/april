@@ -69,6 +69,8 @@ namespace X_ROOT_NS::modules::lang_cs {
         X_C(_assembly_group_item,       _T("_assembly_group.__item"), _T("attribute"))
         X_C(_assembly_group_assign,     _T("_assembly_group.__assign"))
         X_C(new_assign,                 _T("new.__assign"))
+        X_C(with_exp,                   _T("with_exp"))
+        X_C(with_assign,                _T("with_exp.__assign"))
         X_C(_attribute_type_name,       _T("_attribute_type_name"))
 
         X_C(_decorate_complex,          _T("decorate.__complex"))
@@ -77,6 +79,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         X_C(deconstruct_st,             _T("deconstruct_st"))
         X_C(deconstruct_var_st,         _T("deconstruct_var_st"))
         X_C(deconstruct_assign_st,      _T("deconstruct_assign_st"))
+        X_C(label_st,                   _T("label_st"))
         X_C(_fake_method,               _T("_fake_method"))
 
         X_C(_enum_fields,               _T("_enum_fields"), _T("enum fields"))

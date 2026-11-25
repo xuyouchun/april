@@ -1285,9 +1285,23 @@ namespace X_ROOT_NS::modules::rt {
 
             if (!__build_interface(analyzer, type, vfs, index, interface_type, prototype))
             {
-                throw __RtAssemblyErrorF("cannot find member '%1%.%2%' in type '%3%'",
-                    interface_type->get_name(env), method->get_name(), type->get_name(env)
-                );
+                // The default method: the interface has the body, the type does not implement the method.
+                bool has_body = method->this_type() == rt_member_type_t::general
+                                    && (*(rt_method_t *)method)->body != res_t::null;
+
+                if (!has_body)
+                {
+                    throw __RtAssemblyErrorF("cannot find member '%1%.%2%' in type '%3%'",
+                        interface_type->get_name(env), method->get_name(), type->get_name(env)
+                    );
+                }
+
+                __rt_interface_vfunction_t item { method, (uint32_t)interface_type->get_assembly()->index, method_ref.index };
+
+                if (index == (int)vfs.size())
+                    vfs.push_back(item);
+                else
+                    vfs[index] = item;
             }
 
             rt_method_base_t * method1 = vfs[index].method;
@@ -4256,6 +4270,16 @@ namespace X_ROOT_NS::modules::rt {
 
                 return true;
             });
+        }
+
+        // The default method of the interface: the type does not implement it, the method has the body. The object is a reference
+        // (the method is called with it as the interface).
+        if (found == nullptr && (*template_)->body != res_t::null && receiver->get_ttype(env) == ttype_t::class_)
+        {
+            assembly_analyzer_t default_analyzer(env, template_->get_assembly());
+            rt_method_base_t * default_method = default_analyzer.to_generic_method(template_, owner_type);
+
+            return constrained_target_t { default_method, template_, ref_t::null, false, -1 };
         }
 
         if (found == nullptr)

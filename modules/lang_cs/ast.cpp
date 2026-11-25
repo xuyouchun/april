@@ -46,13 +46,41 @@ namespace X_ROOT_NS::modules::lang_cs {
         this->__assign_name(__argument.name, name, el, _T("member of an object initializer"));
     }
 
+    // Appends the value of an element.
+    void new_assign_ast_node_t::append_value(ast_node_t * node)
+    {
+        if (this->child_at(__expression__) == nullptr)
+            this->set_child(__expression__, node);
+        else
+            this->append_child(__more__, node);
+    }
+
     // Commits this node.
     void new_assign_ast_node_t::on_commit()
     {
         __argument.expression = __to_eobject<expression_t *>(__expression__);
-        __argument.name_type  = argument_name_type_t::field;
 
-        this->__check_name_empty(__argument.name, _T("member of an object initializer"));
+        // Name = value sets a member, a value is an item of a collection: Add(value), Add(a, b) of { a, b }.
+        if (__argument.name == name_t::null)
+        {
+            __argument.name_type = argument_name_type_t::item;
+
+            if (this->braced && this->child_count(__more__) > 0)
+            {
+                auto * values = __new_obj<system_expression_t<tuple_expression_t>>();
+                values->append(__argument.expression);
+
+                this->each_child_node<expression_ast_t>(__more__, [&](expression_ast_t * more) {
+                    values->append(more->to_eobject());
+                });
+
+                __argument.expression = values;
+            }
+
+            return;
+        }
+
+        __argument.name_type = argument_name_type_t::field;
     }
 
     // Returns this eobject.

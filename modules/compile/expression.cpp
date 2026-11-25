@@ -1189,14 +1189,15 @@ namespace X_ROOT_NS::modules::compile {
     // The virtual machine has no arithmetic of Char: c + 1 and c - 'a' are made of Int32 (the Char is converted
     // first), and the result of c + 1, a Char, is converted back (it wraps at 16 bits, as (Char)(c + 1)).
     // Returns false when no operand is a Char.
+    // The result of c += d, c -= d is a Char (to_char), whatever the type of d is.
     static bool __compile_char_arithmetic(__cctx_t & ctx, xil_pool_t & pool, xil_al_command_t cmd,
-                                          operator_t op, expression_t * exp1, expression_t * exp2)
+                                          operator_t op, expression_t * exp1, expression_t * exp2, bool to_char = false)
     {
         xil_type_t xtype1 = __xil_type(exp1), xtype2 = __xil_type(exp2);
         if (xtype1 != xil_type_t::char_ && xtype2 != xil_type_t::char_)
             return false;
 
-        vtype_t result = get_binary_vtype(op, to_vtype(xtype1), to_vtype(xtype2));
+        vtype_t result = (to_char && xtype1 == xil_type_t::char_)? vtype_t::char_ : get_binary_vtype(op, to_vtype(xtype1), to_vtype(xtype2));
 
         xil_type_t wide1 = xtype1 == xil_type_t::char_? xil_type_t::int32 : xtype1;
         xil_type_t wide2 = xtype2 == xil_type_t::char_? xil_type_t::int32 : xtype2;
@@ -1220,7 +1221,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles add expression.
     static void __compile_add(__cctx_t & ctx, xil_pool_t & pool,
-                                expression_t * exp1, expression_t * exp2)
+                                expression_t * exp1, expression_t * exp2, bool assign = false)
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
@@ -1239,7 +1240,7 @@ namespace X_ROOT_NS::modules::compile {
 
         __check_constant_overflow(ctx, operator_t::add, exp1, exp2);
 
-        if (__compile_char_arithmetic(ctx, pool, xil_al_command_t::add, operator_t::add, exp1, exp2))
+        if (__compile_char_arithmetic(ctx, pool, xil_al_command_t::add, operator_t::add, exp1, exp2, assign))
             return;
 
         exp1->compile(ctx, pool);
@@ -1253,7 +1254,7 @@ namespace X_ROOT_NS::modules::compile {
 
     // Compiles sub expression.
     static void __compile_sub(__cctx_t & ctx, xil_pool_t & pool,
-                                expression_t * exp1, expression_t * exp2)
+                                expression_t * exp1, expression_t * exp2, bool assign = false)
     {
         if (__is_optimize_basic_algorighm(ctx))
         {
@@ -1275,7 +1276,7 @@ namespace X_ROOT_NS::modules::compile {
 
         __check_constant_overflow(ctx, operator_t::sub, exp1, exp2);
 
-        if (__compile_char_arithmetic(ctx, pool, xil_al_command_t::sub, operator_t::sub, exp1, exp2))
+        if (__compile_char_arithmetic(ctx, pool, xil_al_command_t::sub, operator_t::sub, exp1, exp2, assign))
             return;
 
         exp1->compile(ctx, pool);
@@ -2947,7 +2948,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
-        __compile_add(ctx, pool, exp1, exp2);
+        __compile_add(ctx, pool, exp1, exp2, true);
         __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
@@ -2963,7 +2964,7 @@ namespace X_ROOT_NS::modules::compile {
         }
 
         __compile_assign_t ca = __pre_compile_assign_to(ctx, pool, exp1);
-        __compile_sub(ctx, pool, exp1, exp2);
+        __compile_sub(ctx, pool, exp1, exp2, true);
         __compile_assign_to(ctx, pool, ca, nullptr);
     }
 
@@ -5368,6 +5369,33 @@ namespace X_ROOT_NS::modules::compile {
     void __compile_delegate(expression_compile_context_t & ctx, xil_pool_t & pool);
 
     ////////// ////////// ////////// ////////// //////////
+    // expressions_t
+
+    // Executes the expressions.
+    cvalue_t __sys_t<expressions_t>::execute()
+    {
+        return cvalue_t::nan;
+    }
+
+    // Compiles the expressions: the value of each one but the last is not used.
+    void __sys_t<expressions_t>::compile(__cctx_t & ctx, xil_pool_t & pool, const __environment_t & env)
+    {
+        _A(this->expression_count() > 0);
+
+        for (size_t index = 0, count = this->expression_count() - 1; index < count; index++)
+        {
+            expression_t * exp = this->expression_at(index);
+            expression_t * parent = exp->parent;
+
+            exp->parent = nullptr;
+            exp->compile(ctx, pool);
+            exp->parent = parent;
+        }
+
+        this->expression_at(this->expression_count() - 1)->compile(ctx, pool, env);
+    }
+
+    ////////// ////////// ////////// ////////// //////////
     // checked_expression_t
 
     // Executes checked expression.
@@ -5496,9 +5524,18 @@ namespace X_ROOT_NS::modules::compile {
         // (T)obj, T is a generic param: the value that the object is, or the object itself when T is a reference.
         if (is_generic_param(type) && is_ref_type(exp_type) && !is_generic_param(exp_type))
         {
+            // The value is returned (return (T)o;): a struct is written at a place that is made for it, like the value that a call
+            // returns (a call that is assigned has the destination below, made by the assignment).
+            bool generic_value_return = env.is_value_mark();
+            if (generic_value_return)
+                pool.append<x_generic_stack_alloc_xil_t>(__ref_of(ctx, type));
+
             exp->compile(ctx, pool);
             pool.append<x_cast_xil_t>(xil_cast_command_t::default_, __ref_of(ctx, type));
             pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::unbox);
+
+            if (generic_value_return && env.type_mark != type_mark_t::argument)
+                pool.append<x_generic_copy_xil_t>(__ref_of(ctx, type), xil_copy_kind_t::call_ret);
 
             __post_compile_expression(ctx, pool, this, env);
             return;

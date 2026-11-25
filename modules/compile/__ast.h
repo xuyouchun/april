@@ -189,6 +189,7 @@ namespace X_ROOT_NS::modules::compile {
         checked_exp,                // Checked expression. e.g. checked(a + b).
         await_exp,                  // Await expression. e.g. await task.
         throw_exp,                  // Throw expression. e.g. x ?? throw new Exception().
+        index_range,                // Range, or index from the end. e.g. 1..3, ^1.
 
         lambda,                     // Lambda expression. e.g. (int x) => x + 1.
 
@@ -352,6 +353,7 @@ namespace X_ROOT_NS::modules::compile {
         checked_exp         =   __X_BRANCH_ENUM_ITEM(checked_exp),                      \
         await_exp           =   __X_BRANCH_ENUM_ITEM(await_exp),                        \
         throw_exp           =   __X_BRANCH_ENUM_ITEM(throw_exp),                        \
+        index_range         =   __X_BRANCH_ENUM_ITEM(index_range),                      \
                                                                                         \
         lambda              =   __X_BRANCH_ENUM_ITEM(lambda),                           \
                                                                                         \
@@ -440,6 +442,7 @@ namespace X_ROOT_NS::modules::compile {
         X_C(checked_exp,            _T("checked_exp"))                                  \
         X_C(await_exp,              _T("await_exp"))                                    \
         X_C(throw_exp,              _T("throw_exp"))                                    \
+        X_C(index_range,            _T("index_range"))                                  \
         X_C(lambda,                 _T("lambda"))                                       \
 
 
@@ -1041,6 +1044,12 @@ namespace X_ROOT_NS::modules::compile {
         // A switch has cases of strings, and the value of it is not a string.
         switch_string_expected = 5315,
 
+        // goto jumps to a label that the method does not define.
+        goto_label_undefined = 5319,
+
+        // A label is defined twice in a method.
+        goto_label_duplicate = 5320,
+
         // The type of a default literal is not known.
         default_literal_untyped = 5316,
 
@@ -1049,6 +1058,21 @@ namespace X_ROOT_NS::modules::compile {
 
         // A property that has an initial value must be an auto property.
         property_initializer_not_auto = 5318,
+
+        // The type of new(...) is not known.
+        target_new_untyped = 5321,
+
+        // A member that is required is not set by the object initializer.
+        required_member_not_set = 5323,
+
+        // A with expression copies a struct.
+        with_not_struct = 5324,
+
+        // A ref local variable is the name of a variable.
+        ref_local_not_variable = 5325,
+
+        // An anonymous type is not supported where it is written.
+        anonymous_type_not_supported = 5322,
 
         // ---- AP6100 - AP6199: generics and constraints.
 
@@ -2988,6 +3012,9 @@ namespace X_ROOT_NS::modules::compile {
         // Sets readonly decorate.
         void set_readonly(__el_t * el);
 
+        // Sets required.
+        void set_required(__el_t * el);
+
         // Sets const decorate.
         void set_const(__el_t * el);
 
@@ -3549,6 +3576,9 @@ namespace X_ROOT_NS::modules::compile {
         // Set constant.
         void set_constant(bool constant);
 
+        // A ref local variable: ref Int32 r = ref x; , the name is another name of the variable.
+        bool is_ref = false;
+
         // Makes the value of an item that is an item of a tuple: tuple.Item<N>.
         void __make_tuple_item(ast_walk_context_t & context, defination_statement_item_t * var_item);
 
@@ -3646,7 +3676,15 @@ namespace X_ROOT_NS::modules::compile {
     // goto_st
 
     // Goto statement.
-    __EmptyAst(goto_st, __xcvalue_t::goto_st)
+    Ast(goto_st, __xcvalue_t::goto_st)
+
+        // The constant of goto case.
+        __expression__,
+
+        // The statement that has the label.
+        __statement__,
+
+    EndAst(goto_st)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -4226,6 +4264,16 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walk this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        variable_region_t * __region = nullptr;         // The region of the variables that the filters need.
+        local_variable_t *  __exception = nullptr;      // The exception that is caught.
+
+        // Returns whether a catch has a filter.
+        bool __has_filter();
+
+        // Walks the post analysis step: the catches that have filters are one catch that tries them.
+        bool __walk_filters(ast_walk_context_t & context);
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4236,6 +4284,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Typename.
         __type_name__,
+
+        // The filter: when (condition).
+        __filter__,
         
         // Body.
         __body__,
@@ -4493,6 +4544,9 @@ namespace X_ROOT_NS::modules::compile {
         // Arguments.
         __arguments__,
 
+        // The range, or the index from the end: a[1..3], a[^1].
+        __range__,
+
     EndAst(index)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4515,6 +4569,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+
+    private:
+        expression_t * __lowered = nullptr;     // The call that a[1..3] and a[^1] are.
     };
 
     ////////// ////////// ////////// ////////// //////////
@@ -4531,6 +4588,9 @@ namespace X_ROOT_NS::modules::compile {
 
         // The members that are set: new T { Name = value }.
         __inits__,
+
+        // The value that a with expression copies: source with { Name = value }.
+        __source__,
 
     EndAst(new)
 
@@ -4555,7 +4615,26 @@ namespace X_ROOT_NS::modules::compile {
         // Walks this node.
         virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
 
+        // new(...) is written with parentheses; new { A = 1 } (an anonymous type) is not.
+        bool has_parentheses = false;
+
+        // source with { Name = value }: a copy of the source, whose members are set.
+        bool is_with = false;
+        expression_t * source = nullptr;
+
+        // The type that the context wants, for new(...) that has no type (List<Int32> list = new();).
+        void retarget_type(ast_walk_context_t & context, type_t * type);
+
     private:
+        bool __analyzed = false;        // The constructor is found (the type was known).
+        bool __analysis_passed = false; // The analysis step was walked (the type was not known).
+
+        // Walks the analysis step of a new that has its type.
+        void __analyze(ast_walk_context_t & context);
+
+        // The members that are required must be set by the initializer.
+        void __check_required(type_t * type);
+
         void __walk_inits(ast_walk_context_t & context, type_t * type);
     };
 
@@ -4747,6 +4826,46 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // index_range
+
+    // A range (1..3, ..2, 1.., ^3..), or an index counted from the end (^1): it is the call System.Range.Of(...) or
+    // System.Index.FromEnd(...).
+    Ast(index_range, __xcvalue_t::index_range)
+
+        // The start.
+        __from__,
+
+        // The end.
+        __to__,
+
+    EndAst(index_range)
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    class index_range_ast_node_t : public __index_range_ast_node_t
+                                 , public expression_ast_t
+                                 , public __wexp_t<function_expression_t>
+    {
+        typedef __index_range_ast_node_t __super_t;
+
+    public:
+        using __super_t::__super_t;
+
+        bool from_hat = false;      // ^3..
+        bool to_hat = false;        // ..^1
+        bool dots = false;          // It is a range (1..3), not an index (^1).
+
+        // Commits this node.
+        virtual void on_commit() override;
+
+        // Returns this eobject.
+        virtual expression_t * to_eobject() override;
+
+        // Walks this node.
+        virtual bool on_walk(ast_walk_context_t & context, int step, void * tag) override;
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // throw_exp
 
     // Throw expression: throw e.
@@ -4849,6 +4968,12 @@ namespace X_ROOT_NS::modules::compile {
 
         // Adds the name of a param that has no type.
         void add_param_name(name_t name);
+
+        // Gives the body of this lambda to another one (async x => ... : the inner lambda has it).
+        bool move_body_to(lambda_ast_node_t * target);
+
+        // The name of the call is System.Threading.Tasks.Task.Run.
+        void set_task_run_name(function_ast_node_t * call, arguments_ast_node_t * arguments);
 
         // Walks the items of the lambda that were kept apart: its body is analyzed, and its return
         // type is known.

@@ -83,9 +83,15 @@ await foreach (Int32 n in Numbers(3)) { ... }
 The files and the streams have `Async` methods (`docs/io.md`), the sockets too (`docs/net.md`). `Task.GetAwaiter()`, `Task.Yield()`, `SemaphoreSlim.WaitAsync()` / `LockAsync()` (the counts go to the waiting tasks in the order),
 `AsyncTaskBuilder`, `AsyncTaskBuilder<T>` (the compiler uses them), `TaskAwaiter`, `TaskAwaiter<T>`.
 
+## Async lambdas
+
+`async () => body`, `async x => body`, `async (a, b) => { ... }` is a lambda that makes a task: the compiler writes it as
+`(a, b) => AsyncLambda.Run(() => body)`. The body runs in a task of the thread pool, and its `await`s wait in that thread
+(like `await` in a method that does not return a task). The result type of the task is the type of the body.
+
 ## Not done yet
 
 * `ValueTask` (the awaitable protocol is duck typed, so it can be added without changing the compiler).
 * The files are made by the thread pool (`docs/io.md`), the sockets by a reactor that waits for them without a thread (`docs/net.md`).
 * Structured concurrency (a scope that waits for its tasks and cancels them), `Channel<T>`.
-* Generic async methods, async lambdas, `await` in `catch` / `finally`.
+* Generic async methods, `await` in `catch` / `finally`.

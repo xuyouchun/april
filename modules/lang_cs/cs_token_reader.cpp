@@ -50,6 +50,66 @@ namespace X_ROOT_NS::modules::lang_cs {
         } while (false)
 
 
+    // Reads a number, or a decimal (1.5m, 2m, 1e3m): the data is the text, with the character 1 before it.
+    token_data_t * cs_token_enumerator_t::__read_number_or_decimal()
+    {
+        const char_t * start = __p;
+        const char_t * q = start;
+
+        if (*q == _T('-') || *q == _T('+'))
+            q++;
+
+        // 0x1F, 0b101: not a decimal.
+        if (*q == _T('0') && (q[1] == _T('x') || q[1] == _T('X') || q[1] == _T('b') || q[1] == _T('B')))
+            return __read_number();
+
+        int digits = 0;
+        while (al::is_digit(*q) || *q == _T('_'))
+        {
+            if (*q != _T('_'))
+                digits++;
+
+            q++;
+        }
+
+        if (*q == _T('.') && al::is_digit(q[1]))
+        {
+            q++;
+            while (al::is_digit(*q) || *q == _T('_'))
+                q++;
+        }
+
+        if (*q == _T('e') || *q == _T('E'))
+        {
+            const char_t * r = q + 1;
+            if (*r == _T('+') || *r == _T('-'))
+                r++;
+
+            if (al::is_digit(*r))
+            {
+                while (al::is_digit(*r))
+                    r++;
+
+                q = r;
+            }
+        }
+
+        if (digits > 0 && (*q == _T('m') || *q == _T('M')) && !al::is_word(q[1]))
+        {
+            string_t text(1, (char_t)1);
+            for (const char_t * c = start; c < q; c++)
+            {
+                if (*c != _T('_'))
+                    text += *c;
+            }
+
+            __p += (q + 1 - start);
+            return __new_token_data(text);
+        }
+
+        return __read_number();
+    }
+
     // Returns the next token.
     token_t * cs_token_enumerator_t::next()
     {
@@ -88,6 +148,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __Eqk(as);
                 __Eqk(await);
                 __Eqks(add, __Wt(k_add), __Wt(name));
+                __Eqks(async, __Wt(k_async), __Wt(name));
 
                 // assembly is a keyword in [assembly: Attribute]: after [, and before :.
                 if (__after_square && __equals_keyword(__p, _S(assembly)))
@@ -223,6 +284,7 @@ namespace X_ROOT_NS::modules::lang_cs {
 
             case _T('r'):
                 __Eqk(readonly);
+                __Eqks(required, __Wt(k_required), __Wt(name));
                 __Eqk(ref);
                 __Eqk(return);
                 __Eqks(remove, __Wt(k_remove), __Wt(name));
@@ -271,6 +333,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                 __Eqk(while);
                 __Eqks(where, __Wt(k_where), __Wt(name));
                 __Eqks(when, __Wt(k_when), __Wt(name));
+                __Eqks(with, __Wt(k_with), __Wt(name));
                 break;
 
             case _T('y'):
@@ -301,6 +364,13 @@ namespace X_ROOT_NS::modules::lang_cs {
                 {
                     __p += 2;
                     return __Nw(three_dots);
+                }
+
+                // The range: 1..3 .
+                if (*__p == _T('.'))
+                {
+                    __p++;
+                    return __Nw(dot_dot);
                 }
 
                 return __Nw(member_point);
@@ -431,7 +501,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                             && (value = (w_t)__last_value()) != w_t::name && value != w_t::cvalue)
                         {
                             __p--;
-                            return __Nw_(cvalue, __read_number());
+                            return __Nw_(cvalue, __read_number_or_decimal());
                         }
 
                         return __Nws(__Wt(add), __Wt(positive));
@@ -454,7 +524,7 @@ namespace X_ROOT_NS::modules::lang_cs {
                             && (value = (w_t)__last_value()) != w_t::name && value != w_t::cvalue)
                         {
                             __p--;
-                            return __Nw_(cvalue, __read_number());
+                            return __Nw_(cvalue, __read_number_or_decimal());
                         }
 
                         return __Nws(__Wt(sub), __Wt(minus));
@@ -662,7 +732,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         if (is_numeric_prefix(c))
         {
             __p--;
-            return __Nw_(cvalue, __read_number());
+            return __Nw_(cvalue, __read_number_or_decimal());
         }
 
         if (is_name_prefix(c))

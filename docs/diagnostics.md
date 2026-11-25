@@ -245,6 +245,13 @@ the others are errors.
 | AP5316 | error | `default_literal_untyped` | the type of "default" is not known here: write default(Type), or assign it to a variable that has a type |
 | AP5317 | error | `throw_expression_untyped` | a throw expression is the right operand of ??, or a branch of ?: whose other branch has a type |
 | AP5318 | error | `property_initializer_not_auto` | the property "%1%" has an initial value: only an auto property (get; set;) can have one |
+| AP5319 | error | `goto_label_undefined` | the label "%1%" is not defined in the method |
+| AP5320 | error | `goto_label_duplicate` | the label "%1%" is defined twice in the method |
+| AP5321 | error | `target_new_untyped` | the type of "new(...)" is not known here: write new Type(...), or assign it to a variable that has a type |
+| AP5322 | error | `anonymous_type_not_supported` | an anonymous type (new { Name = value }) is not supported here |
+| AP5323 | error | `required_member_not_set` | the required member "%1%" of "%2%" must be set by the object initializer |
+| AP5324 | error | `with_not_struct` | "with" copies a struct: "%1%" is not one |
+| AP5325 | error | `ref_local_not_variable` | a ref local variable is another name of a variable (a local variable, a param or a field): ref Type name = ref variable; |
 | AP6100 | error | `generic_parameter_not_defined` | "%1%" does not define type parameter "%2%" |
 | AP6101 | error | `constraint_no_implicit_conversion` | type "%1%" cannot be used as type parameter "%2%" in "%3%": there is no implicit reference conversion from "%1%" to "%4%" |
 | AP6102 | error | `constraint_expect_value_type` | type "%1%" must be a non-nullable value type to be used as parameter "%2%" in "%3%" |

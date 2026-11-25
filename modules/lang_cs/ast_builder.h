@@ -308,12 +308,20 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // method_body
 
-    __SimpleBuilder(method_body)
+    __Builder(method_body)
+
+        bool __throw = false;       // => throw expression;
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // property
 
-    __SimpleBuilder(property)
+    __Builder(property)
+
+        bool __throw = false;       // Type Name => throw expression;
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // event
@@ -392,7 +400,12 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // lambda
 
-    __SimpleBuilder(lambda)
+    __Builder(lambda)
+
+        bool __throw = false;       // x => throw expression
+        bool __async = false;       // async x => ...
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // default_value
@@ -413,6 +426,16 @@ namespace X_ROOT_NS::modules::lang_cs {
     // throw_exp
 
     __SimpleBuilder(throw_exp)
+
+    ////////// ////////// ////////// ////////// //////////
+    // index_range
+
+    __Builder(index_range)
+
+        bool __hat = false;         // ^ is written before the next expression.
+        bool __dots = false;        // .. is written.
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // statements
@@ -457,7 +480,11 @@ namespace X_ROOT_NS::modules::lang_cs {
     ////////// ////////// ////////// ////////// //////////
     // goto_st
 
-    __SimpleBuilder(goto_st)
+    __Builder(goto_st)
+
+        bool __goto = false;
+
+    __EndBuilder
 
     ////////// ////////// ////////// ////////// //////////
     // return_st

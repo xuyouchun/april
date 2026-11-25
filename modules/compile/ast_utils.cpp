@@ -1046,6 +1046,13 @@ namespace X_ROOT_NS::modules::compile {
             {
                 __lower_tuple((tuple_expression_t *)exp, type);
             }
+            else if (exp->this_family() == expression_family_t::new_)
+            {
+                // new(...): it is new Type(...) of the type that the context wants.
+                new_ast_node_t * node = dynamic_cast<new_ast_node_t *>(exp);
+                if (node != nullptr && !is_void_type(type))
+                    node->retarget_type(__wctx, type);
+            }
             else if (exp->this_family() == expression_family_t::default_value)
             {
                 // The default literal: default is default(Type) of the type that the context wants.
@@ -1215,6 +1222,101 @@ namespace X_ROOT_NS::modules::compile {
                     __each(exp);
                     break;
             }
+        }
+
+        // Walks an anonymous type: new { A = 1, B = "x" } is the tuple (A: 1, B: "x"): its members are read by their names, and
+        // var keeps them.
+        void __walk_anonymous(new_ast_node_t * node)
+        {
+            auto * tuple = __new_obj<system_expression_t<tuple_expression_t>>();
+
+            for (argument_t * init : node->inits)
+            {
+                if (init->name_type != argument_name_type_t::field || init->name == name_t::null)
+                {
+                    ast_log(__cctx, (ast_node_t *)node, __c_t::anonymous_type_not_supported);
+                    return;
+                }
+
+                tuple->item_names.push_back(init->name);
+                tuple->append(init->expression);
+            }
+
+            tuple->parent = (expression_t *)node;
+            node->lowered = tuple;
+
+            __walk(tuple);
+
+            type_t * type = tuple->get_type();
+            if (type == nullptr)
+                return;
+
+            node->type_name = __new_obj<type_name_t>(type);
+            node->type_name->item_names = tuple->item_names;
+
+            // The names of the members that are anonymous types too.
+            node->type_name->args_known = true;
+            for (argument_t * init : node->inits)
+                node->type_name->arg_type_names.push_back(names_of(init->expression));
+        }
+
+        // Walks a with expression: source with { A = a, B = b } is the expressions: t = source, t.A = a, t.B = b, t. The source is
+        // a struct (it is copied to t, the copy has the new values).
+        void __walk_with(new_ast_node_t * node)
+        {
+            typedef system_expression_t<binary_expression_t> __binary_t;
+
+            expression_t * source = node->source;
+            if (source == nullptr)
+                return;
+
+            __walk(source);
+
+            type_t * type = source->get_type();
+            if (type == nullptr || type->this_gtype() == gtype_t::uncertain)
+                return;
+
+            if (type->this_ttype() != ttype_t::struct_)
+            {
+                ast_log(__cctx, (ast_node_t *)node, __c_t::with_not_struct, type);
+                return;
+            }
+
+            static int with_count = 0;
+            name_t temp_name = __to_name_of(_F(_T("__with%1%"), ++with_count).c_str());
+
+            // The copy: a variable of the type, that the copy is made in.
+            type_name_t * type_name = __new_obj<type_name_t>(type);
+            type_name->take_item_names(names_of(source));
+
+            variable_defination_t vd(__cctx, __wctx, (object_t *)(expression_t *)node);
+            vd.use_own_slot();
+
+            local_variable_t * temp = vd.define_local(type_name, temp_name, false, nullptr, (object_t *)(expression_t *)node);
+            if (temp == nullptr)
+                return;
+
+            auto name_of = [&]() -> expression_t * {
+                return __new_obj<system_expression_t<name_expression_t>>((variable_t *)temp);
+            };
+
+            auto * sequence = __new_obj<system_expression_t<expressions_t>>();
+            sequence->append(__new_obj<__binary_t>(operator_t::assign, name_of(), source));
+
+            for (argument_t * init : node->inits)
+            {
+                expression_t * member = __new_obj<system_expression_t<name_expression_t>>(init->name);
+                expression_t * access = __new_obj<__binary_t>(operator_t::member_point, name_of(), member);
+                sequence->append(__new_obj<__binary_t>(operator_t::assign, access, init->expression));
+            }
+
+            sequence->append(name_of());
+
+            node->type_name = __new_obj<type_name_t>(type);
+            node->lowered = sequence;
+            sequence->parent = (expression_t *)node;
+
+            __walk(sequence);
         }
 
         // Walks a throw expression (x ?? throw e, c? x : throw e): it stands for a value of the type of the other operand, the
@@ -1523,6 +1625,9 @@ namespace X_ROOT_NS::modules::compile {
             variable_t * variable;
             if (__region != nullptr && (variable = __region->get(name)) != nullptr)
             {
+                // ref Int32 r = ref x; : r is x.
+                variable = ref_alias_of(variable);
+
                 if (variable->this_type() == variable_type_t::method
                         && ((method_variable_t *)variable)->method->is_lambda)
                 {
@@ -2055,7 +2160,12 @@ namespace X_ROOT_NS::modules::compile {
             // take null, as a null string.)
             if (exists_null && !exists_string
                     && (op == operator_t::equal || op == operator_t::not_equal))
+            {
+                // x == null, x != null of a value of a generic param: the value is an object (a reference, or a boxed value
+                // that is not null).
+                __box_generic_null_operand(exp);
                 return;
+            }
 
             if (op_property->overload == operator_overload_model_t::no_overloaded)
             {
@@ -2171,6 +2281,10 @@ namespace X_ROOT_NS::modules::compile {
                 if (__convert_operands(exp))
                     return;
 
+                // The operators of the nullable numbers: a + 1 of an Int32? is Invoke of NullableAddOperator<Int32>.
+                if (__lift_nullable_operator(exp, op, atypes))
+                    return;
+
                 string_t s = al::join_str(atypes.begin(), atypes.end(), _T(", "));
                 ast_log(__cctx, exp, __c_t::operator_overload_not_defined, op_property->op, s);
 
@@ -2183,6 +2297,153 @@ namespace X_ROOT_NS::modules::compile {
             }
 
             exp->overload_method = methods[0];
+
+            // The operands that an implicit operator converts to the types of the params (d * 2 of a decimal d).
+            method_t * chosen = methods[0];
+            if (chosen->is_static() && chosen->param_count() == _exp_count)
+            {
+                for (size_t k = 0; k < _exp_count; k++)
+                {
+                    type_t * param_type = chosen->param_type_at(k).type();
+                    type_t * operand_type = exp->exps[k]->get_type();
+
+                    if (param_type == nullptr || operand_type == nullptr || param_type == operand_type
+                            || is_generic_param(param_type) || has_generic_params(param_type))
+                        continue;
+
+                    expression_t * converted = insert_user_conversion(exp->exps[k], param_type);
+                    if (converted != exp->exps[k])
+                    {
+                        exp->exps[k] = converted;
+                        converted->parent = exp;
+                    }
+                }
+            }
+        }
+
+        // The method of the operator, for the operands where one is a nullable (a + 1, a < b of Int32?): it is Invoke of the class
+        // of the operator, of the type of the numbers (System.NullableAddOperator<Int32>). Returns whether it is found.
+        template<size_t _exp_count>
+        bool __lift_nullable_operator(op_expression_t<_exp_count> * exp, operator_t op, atypes_t & atypes)
+        {
+            const char_t * class_name = nullptr;
+
+            switch (op)
+            {
+                case operator_t::add:               case operator_t::add_assign:        class_name = _T("NullableAddOperator"); break;
+                case operator_t::sub:               case operator_t::sub_assign:        class_name = _T("NullableSubtractOperator"); break;
+                case operator_t::mul:               case operator_t::mul_assign:        class_name = _T("NullableMultiplyOperator"); break;
+                case operator_t::div:               case operator_t::div_assign:        class_name = _T("NullableDivideOperator"); break;
+                case operator_t::mod:               case operator_t::mod_assign:        class_name = _T("NullableModulusOperator"); break;
+                case operator_t::bit_and:           case operator_t::bit_and_assign:    class_name = _T("NullableBitAndOperator"); break;
+                case operator_t::bit_or:            case operator_t::bit_or_assign:     class_name = _T("NullableBitOrOperator"); break;
+                case operator_t::bit_xor:           case operator_t::bit_xor_assign:    class_name = _T("NullableBitXorOperator"); break;
+                case operator_t::left_shift:        case operator_t::left_shift_assign: class_name = _T("NullableLeftShiftOperator"); break;
+                case operator_t::right_shift:       case operator_t::right_shift_assign: class_name = _T("NullableRightShiftOperator"); break;
+                case operator_t::less:              class_name = _T("NullableLessThanOperator"); break;
+                case operator_t::less_equal:        class_name = _T("NullableLessThanOrEqualOperator"); break;
+                case operator_t::greater:           class_name = _T("NullableGreaterThanOperator"); break;
+                case operator_t::greater_equal:     class_name = _T("NullableGreaterThanOrEqualOperator"); break;
+                case operator_t::equal:             class_name = _T("NullableEqualOperator"); break;
+                case operator_t::not_equal:         class_name = _T("NullableNotEqualOperator"); break;
+                case operator_t::minus:             class_name = _T("NullableNegateOperator"); break;
+                case operator_t::bit_not:           class_name = _T("NullableComplementOperator"); break;
+                default:                            return false;
+            }
+
+            // The type of the numbers: the operands are of it, or are nullables of it.
+            type_t * underlying = nullptr;
+            for (atype_t atype : atypes)
+            {
+                if (type_t * u = atype.type != nullptr? get_nullable_underlying(atype.type) : nullptr)
+                {
+                    if (underlying != nullptr && underlying != u)
+                        return false;
+
+                    underlying = u;
+                }
+            }
+
+            if (underlying == nullptr)
+                return false;
+
+            bool shift = op == operator_t::left_shift || op == operator_t::right_shift
+                            || op == operator_t::left_shift_assign || op == operator_t::right_shift_assign;
+
+            for (size_t index = 0; index < atypes.size(); index++)
+            {
+                type_t * type = atypes[index].type;
+                if (type == nullptr)
+                    return false;
+
+                // The count of a shift is an Int32.
+                if (shift && index == 1)
+                    continue;
+
+                if (get_nullable_underlying(type) == nullptr && !is_type_compatible(type, underlying)
+                        && type->this_gtype() != gtype_t::null)
+                    return false;
+            }
+
+            generic_args_t * generic_args = __new_obj<generic_args_t>();
+            generic_arg_t * generic_arg = __new_obj<generic_arg_t>();
+            generic_arg->type_name = __new_obj<type_name_t>(underlying);
+            generic_args->push_back(generic_arg);
+
+            general_type_name_t type_name;
+            name_unit_t system_unit(__to_name(_T("System")), nullptr);
+            name_unit_t class_unit(__to_name(class_name), generic_args);
+            type_name.units.push_back(&system_unit);
+            type_name.units.push_back(&class_unit);
+
+            type_t * operator_class = ::april::modules::compile::__ascertain_type(__cctx, __wctx, &type_name);
+            if (operator_class == nullptr)
+                return false;
+
+            __wctx.commit_types();
+
+            method_t * method = nullptr;
+
+            try
+            {
+                method = find_method(operator_class, method_trait_t::default_, __to_name(_T("Invoke")), nullptr, &atypes);
+            }
+            catch (const method_compare_error_t &)
+            {
+                return false;
+            }
+
+            if (method == nullptr)
+                return false;
+
+            exp->overload_method = method;
+            return true;
+        }
+
+        // x == null of a value of a generic param is (Object)x == null.
+        template<size_t _exp_count>
+        bool __box_generic_null_operand(op_expression_t<_exp_count> * exp)
+        {
+            if (_exp_count != 2 || (exp->op() != operator_t::equal && exp->op() != operator_t::not_equal))
+                return false;
+
+            for (size_t k = 0; k < 2; k++)
+            {
+                type_t * type = exp->exps[k]->get_type(), * other = exp->exps[1 - k]->get_type();
+                if (type == nullptr || other == nullptr || !is_generic_param(type) || other->this_gtype() != gtype_t::null)
+                    continue;
+
+                auto * cast = __XPool.new_obj<system_expression_t<type_cast_expression_t>>(
+                    __XPool.to_type_name(__XPool.get_object_type()), exp->exps[k]
+                );
+
+                cast->is_implicit = true;
+                cast->parent = exp;
+                exp->exps[k] = cast;
+                return true;
+            }
+
+            return false;
         }
 
         // Converts the operands of custom types to primitive types, by their implicit operators. It is done only
@@ -2438,6 +2699,12 @@ namespace X_ROOT_NS::modules::compile {
                     }
 
                     return __substitute_names(__declared_type_name(exp2), owner, owner_type);
+                }
+
+                // An anonymous type: it has the names of its members.
+                case expression_family_t::new_: {
+                    new_expression_t * new_exp = (new_expression_t *)exp;
+                    return new_exp->lowered != nullptr? new_exp->type_name : nullptr;
                 }
 
                 case expression_family_t::index: {
@@ -3900,11 +4167,29 @@ namespace X_ROOT_NS::modules::compile {
         // Walks method expression.
         void __walk_new(new_expression_t * exp)
         {
-            type_name_t * type_name = exp->type_name;
-            if (type_name == nullptr)
+            new_ast_node_t * with_node = dynamic_cast<new_ast_node_t *>(exp);
+            if (with_node != nullptr && with_node->is_with)
             {
-                ast_log(__cctx, exp, __c_t::type_name_missing, _T("object creation"));
+                __walk_with(with_node);
                 return;
+            }
+
+            // new { A = 1, B = "x" }: an anonymous type, it is a tuple that has the names.
+            if (with_node != nullptr && with_node->type_name == nullptr && !with_node->has_parentheses
+                    && !with_node->inits.empty())
+            {
+                __walk_anonymous(with_node);
+                return;
+            }
+
+            // new(...): the type is that of the context (List<Int32> list = new();), or it is told later.
+            if (exp->type_name == nullptr)
+            {
+                type_t * target = pick_type_from_current_context(exp);
+                new_ast_node_t * node = dynamic_cast<new_ast_node_t *>(exp);
+
+                if (node != nullptr && target != nullptr && target->this_gtype() != gtype_t::uncertain)
+                    node->retarget_type(__wctx, target);
             }
         }
 
@@ -3988,6 +4273,7 @@ namespace X_ROOT_NS::modules::compile {
             argument_t * argument = arguments->at(index);
             if (argument->atype != param_type_t::__default__
                     || (argument->expression->this_family() != expression_family_t::tuple
+                        && argument->expression->this_family() != expression_family_t::new_
                         && argument->expression->this_family() != expression_family_t::default_value))
                 continue;
 
@@ -4020,6 +4306,29 @@ namespace X_ROOT_NS::modules::compile {
     {
         if (type_name != nullptr)
             type_name->take_item_names(__walk_expression_t(cctx, wctx).element_names(iterator, element_type));
+    }
+
+    // The variables that are another name of a variable (ref locals).
+    static std::map<variable_t *, variable_t *> __ref_aliases;
+
+    void set_ref_alias(variable_t * variable, variable_t * target)
+    {
+        __ref_aliases[variable] = target;
+    }
+
+    // The variable that a ref local is, itself when it is not one.
+    variable_t * ref_alias_of(variable_t * variable)
+    {
+        for (int depth = 0; depth < 16 && variable != nullptr; depth++)
+        {
+            auto it = __ref_aliases.find(variable);
+            if (it == __ref_aliases.end())
+                return variable;
+
+            variable = it->second;
+        }
+
+        return variable;
     }
 
     // new T() of a generic param: the call of System.Activator.CreateInstance<T>().

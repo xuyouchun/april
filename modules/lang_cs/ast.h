@@ -86,6 +86,9 @@ namespace X_ROOT_NS::modules::lang_cs {
         // Expression.
         __expression__,
 
+        // The other values of { a, b } (an element that has many values: Add(a, b)).
+        __more__,
+
     __EndAst(new_assign)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -100,6 +103,12 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         // Sets name.
         void set_name(name_t name, __el_t * el);
+
+        // The element has braces: { a, b }.
+        bool braced = false;
+
+        // Appends the value of an element.
+        void append_value(ast_node_t * node);
 
         // Commit this node.
         virtual void on_commit() override;

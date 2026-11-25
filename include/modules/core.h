@@ -1560,8 +1560,9 @@ namespace X_ROOT_NS::modules::core {
         bool is_readonly        : 1;
         bool is_extern          : 1;
         bool is_partial         : 1;
+        bool is_required        : 1;        // A required member: the creation of the object sets it.
 
-        uint32_t    ____reserve : 18;
+        uint32_t    ____reserve : 17;
 
         operator uint32_t() const { return *(uint32_t *)this; }
         operator string_t() const;
@@ -2020,6 +2021,8 @@ namespace X_ROOT_NS::modules::core {
         param,      // is a param
 
         field,      // is a field, be used for attribute assign a value to field.
+
+        item,       // is an item of a collection initializer: it has no name (new List<Int32> { 1, 2 }).
 
     X_ENUM_END
 
@@ -9193,6 +9196,14 @@ namespace X_ROOT_NS::modules::core {
 
         // The awaits (checked_expression_t) whose code that waits has been made.
         std::vector<void *>     awaits_made;
+
+        // The labels that goto jumps to: the local label of each name, and the depth of the protected blocks (try) that
+        // it is in (a goto cannot jump into a block or out of one).
+        std::map<string_t, int>   goto_labels;
+        std::map<string_t, int>   goto_label_depths;
+
+        // The switch statements that are being compiled, the innermost last (goto case jumps to a label of one).
+        std::vector<object_t *> switches;
 
         jmp_manager_t           jmp_manager;            // Jmp manager.
         switch_manager_t        switch_manager;         // Switch-case manager.

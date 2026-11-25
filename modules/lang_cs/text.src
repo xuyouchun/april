@@ -11,8 +11,11 @@ $import: (from from:$mname)? import import:$mname (as name)? \; ;
 # Constant values.
 $cvalue: cvalue | true | false | null;
 
+# An index counted from the end (^1), and a range of the items (1..3, ..2, 1.., ^3..): the brackets of an index have it.
+$index_range: (\^? $expression)? \.\. (\^? $expression)? | \^ $expression ;
+
 # Array index or Property index.
-$index:  $_single_expression ( [ | \?[ ) $arguments ] ;
+$index:  $_single_expression ( [ | \?[ ) ($arguments | $index_range) ] ;
 
 # Function name, Can be a real name or any expressions.
 # A lambda in brackets is called at once: ((Int32 x) => x + 1)(2) .
@@ -25,7 +28,7 @@ $_function_name_expression: (
 $function: $_function_name_expression \( $arguments? \) ;
 
 # New object expression.
-$new: new $type_name (\( $arguments? \) | (\( $arguments? \))? { (($__assign: name = $expression) (, $__assign)* ,?)? }) ;
+$new: new $type_name? (\( $arguments? \) | (\( $arguments? \))? { (($__assign: (name !:=)? $expression | { $expression (, $expression)+ }) (, $__assign)* ,?)? }) ;
 
 # Array initializer, such as: new int[] { 1, 2, 3 } . It can be empty: new int[] { } .
 $array_initializer: { (($__item: $array_initializer | $expression) (, $__item)* ,?)? } ;
@@ -40,7 +43,7 @@ $new_array: new $type_name ( [ | \?[ ) $array_lengths? ] ( [ ,* ] )* $array_init
 # The params have types, and the lambda uses no variable of the method that has it.
 # The params of a lambda may have no types: (a, b) => a + b , x => x + 1 : the types are
 # those of the delegate that the lambda is converted to.
-$lambda: ( \( $params? \) | \( name (, name)* \) | name ) => ($method_body | $expression) ;
+$lambda: async? ( \( $params? \) | \( name (, name)* \) | name ) => ($method_body | $expression | throw $expression) ;
 
 # Typeof expression: typeof(T).
 $type_of: typeof \( $type_name \) ;
@@ -60,6 +63,9 @@ $checked_exp: (checked | unchecked) \( $expression \) ;
 # Await expression: await task . The operand is a name, a call, a member, an index... (await a.F() waits for what a.F() returns;
 # await a + b is (await a) + b). It is an operand of an expression, so that an index or a call after it belongs to its operand.
 $await_exp: await $_single_expression ;
+
+# With expression: s with { Number = 5 } is a copy of the struct s, and the members of it are set.
+$with_exp: $_single_expression with { (($__assign: (name !:=)? $expression) (, $__assign)* ,?)? } ;
 
 # Type name expression: System.Int32.
 $type_name_exp: $type_name ;
@@ -85,7 +91,7 @@ $_single_expression: ($__item:
 
 # Expression, such as a + b * c.
 $_expression: 
-    ($_single_expression | $type_cast_exp | $await_exp)
+    ($_single_expression | $type_cast_exp | $await_exp | $with_exp)
     (
         (
              \+  | -   | \*  | /   | %
@@ -140,7 +146,7 @@ $decorate:
       ($__complex: protected internal | internal protected | private protected | protected private)
       | public | private | protected | internal
       | static | sealed | abstract | readonly | const | new | abstract | override | virtual | extern
-      | partial | volatile
+      | partial | volatile | required
     )*
 ;
 
@@ -223,14 +229,14 @@ $generic_args: < $generic_arg? (, $generic_arg?) * ...? !:> ;
 $tuple_args: \( $generic_arg (, $generic_arg)+ \) ;
 
 # Param of methods.
-$param:  $attributes (out | ref | params | this)? $type_name ...? name (= $expression)? ;
+$param:  $attributes (out | ref | in | params | this)? $type_name ...? name (= $expression)? ;
 
 # Params of methods.
 $params: $param (, $param)* ;
 
 # Argument of methods calling. The items of a params generic parameter are passed as arguments
 # with ...: f(items ...) (many arguments, not one).
-$argument:  $attributes (out | ref)? (name \:)? ($declaration_exp | $expression ...?) ;
+$argument:  $attributes (out | ref | in)? (name \:)? ($declaration_exp | $expression ...?) ;
 
 # Arguments of methods calling.
 $arguments: $argument (, $argument)* ;
@@ -265,7 +271,7 @@ $attributes: ($attribute | $_attribute_group) * ;
 
 # Method body: a block, or an expression (the body is the return of its value, or the expression
 # itself when the method returns nothing): int GetValue() => 10; , get => value; .
-$method_body: { $statement* } | => $expression \; ;
+$method_body: { $statement* } | => $expression \; | => throw $expression \; ;
 
 # Operators.
 $_operator:
@@ -308,7 +314,7 @@ $property:
     ret:$type_name ((owner:$type_name .)? name | this [ $params ])
     ({
         $_fake_method *
-    } (= init:$expression \;)? | => $expression \; )
+    } (= init:$expression \;)? | => $expression \; | => throw $expression \; )
 ;
 
 # Event member.
@@ -393,8 +399,9 @@ $switch_st:
 ;
 
 # Catch in try ... catch ... finally statement.
+# A catch can have a filter: catch (Exception e) when (e.Code == 1) { ... } , it is tried when the exception is of the type.
 $catch:
-    catch ( \( $type_name name? \) )?
+    catch ( \( $type_name name? \) )? (when \( when:$expression \))?
         $statement
 ;
 
@@ -408,8 +415,9 @@ $try_st:
 ;
 
 # Variables defination statememt: int a = 10, b = 20;
+# A ref local variable is another name of a variable: ref Int32 r = ref x; .
 $defination_st:
-    const? $type_name ($__item: name (= $expression)?) (, $__item)* \;
+    (const | ref)? $type_name ($__item: name (= ref? $expression)?) (, $__item)* \;
 ;
 
 # Deconstruction that declares variables: (int Number, string Str) = tuple; . Each item has a type (var too) and a name.
@@ -439,8 +447,11 @@ $throw_st:      throw $expression? \; ;
 # Return statement.
 $return_st:     return $expression? \; ;
 
-# Goto statement.
-$goto_st:       goto name \; ;
+# Goto statement: goto label; , goto case 1; , goto default; .
+$goto_st:       goto (name | case $expression | default) \; ;
+
+# A labeled statement: again: i++; . The statement is where goto label; jumps to.
+$label_st:      name \: $statement ;
 
 # Yield statement: yield return x; , yield break; .
 $yield_st:      yield (return $expression | break) \; ;
@@ -456,7 +467,7 @@ $statement_group_st: (checked | unchecked)? { $statement * } ;
 $statement:
     $do_while_st | $while_st | $for_st | $for_each_st | $using_st
   | $if_st | $switch_st | $try_st | $empty_st
-  | $break_st | $continue_st | $throw_st | $return_st | $goto_st | $yield_st
+  | $break_st | $continue_st | $throw_st | $return_st | $goto_st | $label_st | $yield_st
   | $deconstruct_assign_st | $deconstruct_var_st | $deconstruct_st | $expression_st | $defination_st | $type_def_st
   | $statement_group_st
 ;

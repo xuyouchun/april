@@ -2589,6 +2589,11 @@ namespace X_ROOT_NS::modules::core {
         if (from == to)
             return true;
 
+        // A Char is a number of 16 bits that has no sign: it is converted to the numbers that hold all its values (UInt16,
+        // Int32, UInt32, Int64, UInt64, Single, Double).
+        if (from == vtype_t::char_)
+            return is_numberic_vtype(to) && is_vtype_compatible(vtype_t::uint16_, to);
+
         if (!is_numberic_vtype(from) || !is_numberic_vtype(to))
             return false;
 
@@ -9759,12 +9764,19 @@ namespace X_ROOT_NS::modules::core {
     // Returns vtype of a new_expression.
     vtype_t new_expression_t::get_vtype() const
     {
+        // new(...): the context tells the type.
+        if (type_name == nullptr)
+            return vtype_t::__unknown__;
+
         return __get_vtype(type_name);
     }
 
     // Returns type.
     type_t * new_expression_t::get_type() const
     {
+        if (type_name == nullptr)
+            return uncertain_type_t::instance();
+
         return to_type(type_name);
     }
 

@@ -15,7 +15,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __keyword_begin,
 
         // keywords: a...
-        k_abstract,      k_add,        k_assembly, k_await,
+        k_abstract,      k_add,        k_assembly, k_await,    k_async,
         
         // keywords: b...
         k_base,         k_bool,     k_break,    k_byte,
@@ -71,7 +71,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         k_virtual,      k_void,     k_volatile, k_var,
         
         // keywords: w...
-        k_while,        k_where,        k_when,
+        k_while,        k_where,        k_when,     k_required,     k_with,
 
         // keywords: y...
         k_yield,
@@ -129,6 +129,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         semicolon,      base_mark,              // ; :
         dollar,         ampersand,              // $ @
         three_dots,                             // ...
+        dot_dot,                                // ..
         arrow,                                  // =>
 
     X_ENUM_END

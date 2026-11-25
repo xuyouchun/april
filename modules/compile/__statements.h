@@ -255,6 +255,12 @@ namespace X_ROOT_NS::modules::compile {
 
         name_t label = name_t::null;        // Label.
 
+        bool is_definition = false;         // The statement that has the label (label: statement), not a jump.
+        bool is_case = false;               // goto case constant;
+        bool is_default = false;            // goto default;
+        expression_t * case_expression = nullptr;   // The constant of goto case.
+        statement_t * statement = nullptr;          // The statement that the label is of.
+
         // Compiles this statement.
         virtual void compile(statement_compile_context_t & ctx) override;
 
@@ -593,11 +599,21 @@ namespace X_ROOT_NS::modules::compile {
         // A switch of strings is made of the statements that find the index of the case, and a switch of the indexes.
         statement_t *   lowered = nullptr;
 
+        // The values of the labels of a switch of the indexes, in the order of the indexes (goto case "a";).
+        std::vector<cvalue_t> lowered_values;
+
+        // The labels of the cases while the switch is compiled (goto case 1; goto default;).
+        std::vector<std::pair<int32_t, local_label_t>> case_labels;
+        local_label_t   default_label = 0;
+
         // Compile statement.
         virtual void compile(statement_compile_context_t & ctx) override;
 
         // Returns exit type.
         virtual statement_exit_type_t exit_type(statement_exit_type_context_t & ctx) override;
+
+        // The label that goto case constant; (goto default;) jumps to.
+        local_label_t goto_label(statement_compile_context_t & ctx, bool is_default, expression_t * exp);
 
         X_TO_STRING
 
@@ -642,6 +658,9 @@ namespace X_ROOT_NS::modules::compile {
         statement_t *   body        =   nullptr;        // Body.
 
         variable_t  *   variable    =   nullptr;        // Variable object.
+
+        expression_t *  filter      =   nullptr;        // The condition of the catch: when (condition).
+        variable_region_t * region  =   nullptr;        // The region of the variable.
 
         X_TO_STRING
     };

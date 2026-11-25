@@ -80,6 +80,9 @@ namespace X_ROOT_NS::modules::lang_cs {
         // Reads a string that has holes ($"..{x}.."), or a raw string ("""...""").
         token_t * __read_interpolated(const char_t * p0, int dollars, bool verbatim);
 
+        // Reads a number, or a decimal: the number that ends with m (1.5m) is the text of it, the character 1 is its first one.
+        token_data_t * __read_number_or_decimal();
+
         token_t * __next_token = nullptr;
         bool      __is_pending = false;         // The last token is is.
         bool      __square_pending = false;     // The last token is [.

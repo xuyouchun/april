@@ -35,6 +35,8 @@ namespace X_ROOT_NS::modules::lang_cs {
 
         deconstruct_assign_st,
 
+        label_st,
+
         _decorate_complex,
         
         _attribute_group,
@@ -50,6 +52,10 @@ namespace X_ROOT_NS::modules::lang_cs {
         _assembly_group_assign,
 
         new_assign,
+
+        with_exp,
+
+        with_assign,
 
         _attribute_type_name,
 

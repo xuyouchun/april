@@ -12,7 +12,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(empty, _T("empty"))
 
         // keywords: a...
-        __K(abstract)    __K(as)       __K(add)      __K(assembly) __K(await)
+        __K(abstract)    __K(as)       __K(add)      __K(assembly) __K(await) __K(async)
 
         // keywords: b...
         __K(base)        __K(bool)     __K(break)     __K(byte)
@@ -68,7 +68,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __K(virtual)     __K(void)    __K(volatile) __K(var)
         
         // keywords: w...
-        __K(while)      __K(where)      __K(when)
+        __K(while)      __K(where)      __K(when)       __K(required)   __K(with)
 
         // keywords: y...
         __K(yield)
@@ -128,6 +128,7 @@ namespace X_ROOT_NS::modules::lang_cs {
         __C(dollar, _T("$"))        __C(ampersand, _T("@"))         // $ @
         __C(base_mark, _T(":"))     __C(double_colon, _T("::"))     // : ::
         __C(three_dots, _T("..."))                                  // ...
+        __C(dot_dot, _T(".."))                                      // ..
         __C(arrow, _T("=>"))                                        // =>
 
     X_ENUM_INFO_END

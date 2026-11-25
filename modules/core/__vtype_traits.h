@@ -551,6 +551,10 @@ namespace X_ROOT_NS::modules::core {
             __B1(op, __PickVType(r, char), char, int64)                                     \
             __B1(op, __PickVType(r, char), char, uint64)
 
+        // c += d, c -= d: the Char that is added or subtracted is a number.
+        #define __CharAssignOps(op, r)                                                      \
+            __B1(op, __PickVType(r, char), char, char)
+
         #define __CharOps2(op, r)                                                           \
             __B2(op, __PickVType(r, bool), char, int8)                                      \
             __B2(op, __PickVType(r, bool), char, uint8)                                     \
@@ -613,6 +617,8 @@ namespace X_ROOT_NS::modules::core {
         __AlCharBinaryOps(sub, __use_default_ret)                                           \
         __AlCharBinaryOps(add_assign, __use_vtype1)                                         \
         __AlCharBinaryOps(sub_assign, __use_vtype1)                                         \
+        __CharAssignOps(add_assign, __use_vtype1)                                           \
+        __CharAssignOps(sub_assign, __use_vtype1)                                           \
         __B1(sub, __VT(int32), char, char)                                                  \
                                                                                             \
         /* Bit */                                                                           \

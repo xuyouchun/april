@@ -55,8 +55,8 @@ namespace X_ROOT_NS::modules::lang_c {
         // The pointer types (int*, Point*, void*) where a type is the type of a variable or of a cast. (They are not an
         // alternative of the type name: the rule of the type name cannot go on with the * after a type.) Point* p; is the
         // definition of a pointer, not the product Point * p: the pointer type has a weight.
-        __patch_rule(pattern, _T("defination_st"), _T("const? $type_name"),
-                                                   _T("const? ($type_name | !:$c_pointer_type_name)"));
+        __patch_rule(pattern, _T("defination_st"), _T("(const | ref)? $type_name"),
+                                                   _T("(const | ref)? ($type_name | !:$c_pointer_type_name)"));
         __patch_rule(pattern, _T("type_cast_exp"), _T("\\( $type_name \\)"),
                                                    _T("\\( ($type_name | $c_pointer_type_name) \\)"));
 

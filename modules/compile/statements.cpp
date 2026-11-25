@@ -702,15 +702,78 @@ namespace X_ROOT_NS::modules::compile {
 
     ////////// ////////// ////////// ////////// //////////
 
-    // Compiles this statement.
-    void goto_statement_t::compile(statement_compile_context_t & ctx) 
+    // The depth of the protected blocks (try) that the statement is in: goto cannot jump into one or out of one.
+    static int __protected_depth(statement_compile_context_t & ctx)
     {
-        append_jmp(ctx, label);
+        int depth = 0;
+
+        for (statement_region_t * region = ctx.current_region(); region != nullptr; region = region->parent)
+        {
+            __e_region_property_t e_property = region->get_property();
+            if (e_property.has(__region_property_t::protected_block) || e_property.has(__region_property_t::with_finally))
+                depth++;
+        }
+
+        return depth;
+    }
+
+    // The local label of a label of the method (it is made by the first goto or the label that is compiled).
+    static local_label_t __goto_label(statement_compile_context_t & ctx, name_t name)
+    {
+        string_t key = (string_t)(sid_t)name;
+        int depth = __protected_depth(ctx);
+
+        auto it = ctx.goto_labels.find(key);
+        if (it == ctx.goto_labels.end())
+        {
+            local_label_t label = ctx.next_local_label();
+
+            ctx.goto_labels[key] = label;
+            ctx.goto_label_depths[key] = depth;
+
+            return label;
+        }
+
+        if (ctx.goto_label_depths[key] != depth)
+            __Failed("goto cannot jump into a try block, or out of one: the label '%1%'", name);
+
+        return it->second;
+    }
+
+    // Compiles this statement.
+    void goto_statement_t::compile(statement_compile_context_t & ctx)
+    {
+        // label: statement
+        if (is_definition)
+        {
+            append_local_label(ctx, __goto_label(ctx, label));
+
+            if (statement != nullptr)
+                compile_statement(ctx, statement);
+
+            return;
+        }
+
+        // goto case constant; goto default;
+        if (is_case || is_default)
+        {
+            if (ctx.switches.empty())
+                __Failed("goto case and goto default are only allowed in a switch");
+
+            switch_statement_t * target = (switch_statement_t *)ctx.switches.back();
+            append_jmp(ctx, target->goto_label(ctx, is_default, case_expression));
+            return;
+        }
+
+        append_jmp(ctx, __goto_label(ctx, label));
     }
 
     // Returns exit type.
     __exit_type_t goto_statement_t::exit_type(__exit_type_context_t & ctx)
     {
+        if (is_definition)
+            return statement != nullptr? statement->exit_type(ctx) : __exit_type_t::none;
+
         return __exit_type_t::goto_;
     }
 
@@ -1225,7 +1288,11 @@ namespace X_ROOT_NS::modules::compile {
 
             compile_statement(ctx, if_body);
 
-            append_jmp(ctx, label_end);
+            // A body that returns, throws, breaks... does not go on: no jump to the end of the statement (it can be the end of the
+            // method, that has no code to jump to).
+            if (__statement_pass(ctx, if_body))
+                append_jmp(ctx, label_end);
+
             append_local_label(ctx, label_else);
 
             ctx.end_region();
@@ -1373,10 +1440,15 @@ namespace X_ROOT_NS::modules::compile {
 
         local_label_t default_case_label = 0;
         std::set<int> case_values;
+        std::vector<local_label_t> labels;
+
+        // The labels of the cases are known before the statements are compiled: goto case jumps to one that follows.
+        case_labels.clear();
 
         for (case_t * c : cases)
         {
             local_label_t case_label = ctx.next_local_label();
+            labels.push_back(case_label);
 
             for (expression_t * exp : c->constants)
             {
@@ -1393,20 +1465,34 @@ namespace X_ROOT_NS::modules::compile {
                         __Failed("duplicate case '%1%'", execute_expression(exp));
 
                     *rows++ = switch_row_t(value, case_label);
+                    case_labels.push_back(std::make_pair(value, case_label));
                 }
             }
+        }
 
-            append_local_label(ctx, case_label);
+        // The default label is made after the cases, when the switch has none.
+        bool has_default = default_case_label != 0;
+        if (!has_default)
+            default_case_label = ctx.next_local_label();
+
+        this->default_label = has_default? default_case_label : 0;
+
+        ctx.switches.push_back(this);
+
+        size_t case_index = 0;
+        for (case_t * c : cases)
+        {
+            append_local_label(ctx, labels[case_index++]);
             compile_statements(ctx, c->statements);
         }
 
+        ctx.switches.pop_back();
+
         set_point(ctx, __exit_point_type_t::break_);
 
-        if (default_case_label == 0)
-        {
-            default_case_label = ctx.next_local_label();
+        // A switch that has no default case goes on after it.
+        if (!has_default)
             append_local_label(ctx, default_case_label);
-        }
 
         tbl->default_label = default_case_label;
 
@@ -1415,6 +1501,51 @@ namespace X_ROOT_NS::modules::compile {
         });
 
         ctx.end_region();
+    }
+
+    // The label that goto case constant; (goto default;) jumps to.
+    local_label_t switch_statement_t::goto_label(statement_compile_context_t & ctx, bool is_default,
+                                                                                    expression_t * exp)
+    {
+        if (is_default)
+        {
+            if (default_label == 0)
+                __Failed("goto default: the switch has no default case");
+
+            return default_label;
+        }
+
+        if (exp == nullptr)
+            __Failed("goto case: the constant is missing");
+
+        int32_t key;
+
+        // A switch of the indexes (strings, patterns): the index of the value.
+        if (!lowered_values.empty())
+        {
+            cvalue_t value = execute_expression(exp);
+            size_t index = 0;
+
+            while (index < lowered_values.size() && !(lowered_values[index] == value))
+                index++;
+
+            if (index == lowered_values.size())
+                __Failed("goto case: the switch has no case '%1%'", value);
+
+            key = (int32_t)index;
+        }
+        else
+        {
+            key = __read_const_int(ctx, exp);
+        }
+
+        for (auto & item : case_labels)
+        {
+            if (item.first == key)
+                return item.second;
+        }
+
+        __Failed("goto case: the switch has no such case");
     }
 
     // Reads a constant int value.
