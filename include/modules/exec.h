@@ -20,12 +20,18 @@ namespace X_ROOT_NS::modules::exec {
 
     #define __AlwaysInline X_ALWAYS_INLINE
 
+    // How the interpreter calls the commands: VIRTUAL: a virtual function of the command; MANUAL: a pointer to a function in the command;
+    // INLINE: a switch on the value of the command, the commands are inline in it (every command class is in __BeginSwitchCommands).
     #define EXEC_EXECUTE_MODEL_VIRTUAL  1
-    #define EXEC_EXECUTE_MODEL_MAUNAL   2
+    #define EXEC_EXECUTE_MODEL_MANUAL   2
+    #define EXEC_EXECUTE_MODEL_MAUNAL   EXEC_EXECUTE_MODEL_MANUAL
     #define EXEC_EXECUTE_MODEL_INLINE   3
 
     #define EXEC_TRACE         0   // 0:none, 1:trace, 2:trace details, 3:trace more details
+
+    #ifndef EXEC_EXECUTE_MODEL
     #define EXEC_EXECUTE_MODEL  EXEC_EXECUTE_MODEL_VIRTUAL
+    #endif
 
     const size_t __default_stack_size = 1024 * 1024;
 

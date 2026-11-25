@@ -169,3 +169,38 @@ their commands after the threshold. The time is not a test, a change of it must 
 
 Ideas not done: the commands of arrays (`push array_element`, `pop array_element`), of the calls (`push x ... call`), `ret` after an
 operation, the fields of other objects than this (the check of null is the part to keep).
+
+## The models of the interpreter (EXEC_EXECUTE_MODEL)
+
+`include/modules/exec.h` chooses how the interpreter calls a command (the default is VIRTUAL; a build can set `-DEXEC_EXECUTE_MODEL=3`):
+
+| Model | Call of a command | A new class of command |
+|---|---|---|
+| `VIRTUAL` (1, default) | the virtual function `execute` | nothing to do |
+| `MANUAL` (2) | a pointer to a function in the command | nothing to do. It is not kept up: not built, not tested |
+| `INLINE` (3) | a `switch` on the value of the command (`cmd_value`), the commands are inline in it | every class has a value of its own and a `__Case` in `__BeginSwitchCommands` |
+
+INLINE was not kept up and could not be built; it is complete now and passes the test suites (512 tests with the superinstructions off,
+`eager`, and `auto` with a threshold of 1). What was missing: the cases of the pointers (`ptr_content`), of the boxes, of `init`, of the
+array element addresses, of the casts to an interface (two classes had one value: the cast to an interface has its own values now), of
+the delegates (`<` missing), of the commands of the reflection and of the profile; the superinstructions have values from 20000
+(`__SuperBase`, checked by a `static_assert` at the end of `commands.cpp`) and are in the switch (`__SwitchCommands_Supers`). A terminal
+exception can go out of a command now (the commands are not `noexcept`), the loop catches it as the other models do.
+
+`APRIL_CHECK_COMMANDS=1` (INLINE only) tells at run time a class of command that is made and has no case, or whose value belongs to
+another class (a mistake that runs the wrong class without a message): it found two mistakes of the old code, a pop of the address of an
+argument that had the value of a pop of an argument, and the calls of a dynamic method that were registered with the type of the other
+methods.
+
+**Speed** (the 9 programs of `bench/`, the time without the start of the process, 9 rounds, the same compiler flags):
+
+| | VIRTUAL | INLINE | INLINE / VIRTUAL |
+|---|---|---|---|
+| commands of the xils (`APRIL_SUPER=off`) | 13051 ms | 14042 ms | 0.93x (7% slower) |
+| with superinstructions (`eager`) | 8668 ms | 8357 ms | 1.04x (4% faster) |
+
+By program: without superinstructions INLINE is slower in all of them (0.90x - 0.99x); with them it is faster in loops of numbers
+(`array_sieve` 1.19x, `fib` 1.11x) and slower in the programs of strings and structs (`string_build` 0.95x, `struct_math` 0.97x). The
+code of the loop of INLINE is one function with all the commands in it (the library `april_exec` is 12 MB, VIRTUAL has 15 MB): the
+register allocation of a function of that size is worse, and the jump of a `switch` is as dear as the call of a virtual function. It
+is not worth to change the default; the superinstructions give much more (1.4x - 2.1x) than the model.
