@@ -94,6 +94,15 @@ public sealed class Method : Member
                 throw new InvalidOperationException("A parameter that is ref, out or params is not supported.");
         }
 
+        // The constructor of Object has nothing to run: the native back ends make no function for it.
+        if (this.IsConstructor && this.DeclaringType.Equals(typeof(Object)))
+        {
+            if (target == null)
+                throw new NullReferenceException();
+
+            return null;
+        }
+
         Int32 code = Internal.Reflection_CheckInvoke(this, target, args);
 
         if (code == 1)
