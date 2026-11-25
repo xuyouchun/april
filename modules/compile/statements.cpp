@@ -985,6 +985,27 @@ namespace X_ROOT_NS::modules::compile {
 
         ctx.begin_region<__while_statement_region_t>();
 
+        // With the optimization of the xils the condition is tested at the end of the loop: the loop enters at the condition, and one jump
+        // is saved at each turn:   jmp cond;  body: ...;  cond: test;  jmp true body.
+        if (!(condition_value == true || condition == nullptr) && xil_optimize_enabled(ctx.mctx.controller))
+        {
+            local_label_t label_body = ctx.next_local_label();
+
+            append_jmp(ctx, __exit_point_type_t::continue_);
+            append_local_label(ctx, label_body);
+
+            compile_statement(ctx, body);
+
+            set_point(ctx, __exit_point_type_t::continue_);
+            append_expression(ctx, condition, true);
+            append_jmp(ctx, label_body, xil_jmp_model_t::true_);
+
+            set_point(ctx, __exit_point_type_t::break_);
+
+            ctx.end_region();
+            return;
+        }
+
         set_point(ctx, __exit_point_type_t::continue_);
 
         if (!(condition_value == true || condition == nullptr))
@@ -1069,6 +1090,29 @@ namespace X_ROOT_NS::modules::compile {
         if (condition_value == false)
         {
             // Do nothing   
+        }
+        else if (!(condition_value == true || condition == nullptr) && xil_optimize_enabled(ctx.mctx.controller))
+        {
+            // With the optimization of the xils the condition is tested at the end of the loop (see the while statement):
+            //   jmp cond;  body: ...;  continue: increase;  cond: test;  jmp true body.
+            local_label_t label_condition = ctx.next_local_label();
+            local_label_t label_body = ctx.next_local_label();
+
+            append_jmp(ctx, label_condition);
+            append_local_label(ctx, label_body);
+
+            compile_statement(ctx, body);
+
+            set_point(ctx, __exit_point_type_t::continue_);
+
+            if (increase != nullptr)
+                append_expression(ctx, increase, false);
+
+            append_local_label(ctx, label_condition);
+            append_expression(ctx, condition);
+            append_jmp(ctx, label_body, xil_jmp_model_t::true_);
+
+            set_point(ctx, __exit_point_type_t::break_);
         }
         else
         {

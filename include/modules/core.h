@@ -9241,6 +9241,16 @@ namespace X_ROOT_NS::modules::core {
                 f(it.second);
         }
 
+        // Calls the function with each xil that is a label of the method (the places that anything can go to).
+        template<typename _f_t> void each_label(_f_t f)
+        {
+            for (auto && it : __local_point_map)
+                f(it.second);
+
+            for (auto && it : __global_point_map)
+                f(it.second);
+        }
+
         // Calls the function with each xil that is a point of a name (the places that the jumps to names go to).
         template<typename _f_t> void each_named_point(_f_t f)
         {
@@ -9267,6 +9277,10 @@ namespace X_ROOT_NS::modules::core {
     // The passes run when the controller asks (requested), or when the environment has APRIL_XIL_OPT=1 (the test suites use it: the
     // legacy optimizations of -O are not run by the compile of files, see docs/xil.md). APRIL_NO_XIL_OPT=1 stops them.
     void xil_optimize(statement_compile_context_t & sctx, xilx_block_manager_t & blocks, xil_pool_t & pool, bool requested);
+
+    // Whether the optimization of the xils is on for the controller: the passes, and the shapes of the code that the statements make
+    // for them (the loops that test their condition at their end).
+    bool xil_optimize_enabled(method_compile_controller_t * controller);
 
     // The tools to see the xils of a method, after its jumps were committed. The environment says what they do:
     //   APRIL_DUMP_XIL=<text>  prints the xils of the methods that have the text in their names (* is all of them),
