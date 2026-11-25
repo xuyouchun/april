@@ -172,8 +172,8 @@ namespace X_ROOT_NS::modules::exec {
         // Initialize.
         void initialize();
 
-        // Parse this method.
-        command_t ** parse_commands();
+        // Parse this method. fast: with the superinstructions (nullptr when it has none).
+        command_t ** parse_commands(bool fast = false);
 
         // Deconstructor.
         virtual ~method_parser_t() override;
@@ -186,8 +186,8 @@ namespace X_ROOT_NS::modules::exec {
         void __parse_dynamic_info();        // Parse method info (for dynamic methods).
 
         command_t ** __parse_dynamic_commands();    // Parse dynamic commands.
-        command_t ** __parse_normal_commands();     // Parse commands.
-        command_t ** __parse_normal_commands_();    // Parse commands.
+        command_t ** __parse_normal_commands(bool fast);     // Parse commands.
+        command_t ** __parse_normal_commands_(bool fast);    // Parse commands.
 
         executor_env_t &            __env;
         assembly_analyzer_t *       __analyzer;

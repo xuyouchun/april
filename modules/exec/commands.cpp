@@ -4,6 +4,7 @@
 #include <mm.h>
 #include "utils.h"
 #include "parser.h"
+#include "fusion.h"
 #include <lib.h>
 
 namespace X_ROOT_NS::modules::exec {
@@ -6569,12 +6570,20 @@ namespace X_ROOT_NS::modules::exec {
 
         typedef xil_jmp_model_t model_t;
 
+        // The step of the command: the commands are not the xils when the method has superinstructions.
+        auto step_of = [&ctx, &xil]() -> int {
+            if (ctx.plan == nullptr)
+                return xil.step() - 1;
+
+            return (int)ctx.plan->index_map[ctx.xil_index + xil.step()] - (int)ctx.plan->index_map[ctx.xil_index] - 1;
+        };
+
         switch (xil.model())
         {
             #define __Case(_model)                                                      \
                 case xil_jmp_model_t::_model:                                           \
                     return __jmp_command_manager.template get_command<                  \
-                        __JmpCmd(_model), model_t::_model>(xil.step() - 1);
+                        __JmpCmd(_model), model_t::_model>(step_of());
 
             __Case(none)
             __Case(true_)
@@ -6596,7 +6605,7 @@ namespace X_ROOT_NS::modules::exec {
                 }
 
                 return __jmp_command_manager.template
-                    get_command<__JmpCmd(leave), model_t::leave>(xil.step() - 1);
+                    get_command<__JmpCmd(leave), model_t::leave>(step_of());
 
             default:
                 X_UNEXPECTED();
@@ -7482,6 +7491,705 @@ namespace X_ROOT_NS::modules::exec {
                 X_UNEXPECTED();
         }
     }
+
+    ////////// ////////// ////////// ////////// //////////
+    // Superinstructions (modules/exec/fusion.h): a command for several xils.
+
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+    // The variables of the commands (the macros of the other commands are not defined here).
+    #define __SkLocal(type_t, offset)       (*((type_t *)((byte_t *)ctx.stack.lp() + (offset))))
+    #define __SkArgument(type_t, offset)    (*((type_t *)((rt_stack_unit_t *)ctx.stack.lp() - (offset))))
+    #define __SkField(type_t, p, offset)    (*((type_t *)((byte_t *)(p) + (offset))))
+
+    #define __SuperCmd      __Cmd(super, 0)
+    __DefineCmdValue_(__SuperCmd)
+
+    // An operand of a superinstruction: a local variable, an argument, a constant, or the stack.
+    struct __sk_operand_t
+    {
+        fusion_operand_t    kind = fusion_operand_t::stack;
+        int32_t             offset = 0;
+        uint64_t            bits = 0;           // The constant.
+    };
+
+    // Gets the value of an operand.
+    template<typename _v_t>
+    __AlwaysInline static _v_t __sk_get(command_execute_context_t & ctx, const __sk_operand_t & operand)
+    {
+        switch (operand.kind)
+        {
+            case fusion_operand_t::local:
+                return __SkLocal(_v_t, operand.offset);
+
+            case fusion_operand_t::argument:
+                return __SkArgument(_v_t, operand.offset);
+
+            case fusion_operand_t::constant: {
+                _v_t value;
+                memcpy(&value, &operand.bits, sizeof(_v_t));
+                return value;
+            }
+
+            default:
+                return ctx.stack.pop<_v_t>();
+        }
+    }
+
+    // x OP y: the operands are locals, arguments, constants or the stack; the result is pushed (_tail 0), stored in a local variable
+    // (_tail 1), or tells a jump (_tail 2: the jump goes when the result is the value that the command was made with).
+    template<operator_t _op, xil_type_t _x1, xil_type_t _x2, int _tail>
+    class __sc_binary_t : public __command_base_t<__SuperCmd>
+    {
+        typedef __sc_binary_t           __self_t;
+        typedef __vnum_t<_x1>           __t1;
+        typedef __vnum_t<_x2>           __t2;
+
+        static constexpr vtype_t __vt1 = to_vtype(_x1);
+        static constexpr vtype_t __vt2 = to_vtype(_x2);
+
+        typedef decltype(binary_operator_t<_op, __vt1, __vt2>()(std::declval<__t1>(), std::declval<__t2>())) __r_t;
+
+    public:
+        __sc_binary_t(const __sk_operand_t & left, const __sk_operand_t & right, int32_t aux, bool when, int32_t step)
+            : __left(left), __right(right), __aux(aux), __when(when), __step(step) { }
+
+        __BeginExecute(ctx)
+
+            // The right operand is on the top of the stack, the left one is below it.
+            __t2 b = __sk_get<__t2>(ctx, __This->__right);
+            __t1 a = __sk_get<__t1>(ctx, __This->__left);
+
+            // Integer division: the divisor is not zero, and the result fits (as the command of the operation says).
+            if constexpr ((_op == operator_t::div || _op == operator_t::mod) && std::is_integral<__t1>::value && std::is_integral<__t2>::value)
+            {
+                if (b == 0)
+                    __RaiseDivideByZeroException(ctx);
+
+                if constexpr (std::is_signed<__t1>::value && std::is_signed<__t2>::value)
+                {
+                    if (b == (__t2)-1 && a == std::numeric_limits<__t1>::min())
+                        __RaiseOverflowException(ctx);
+                }
+            }
+
+            __r_t r = binary_operator_t<_op, __vt1, __vt2>()(a, b);
+
+            if constexpr (_tail == 0)
+            {
+                ctx.stack.push(r);
+            }
+            else if constexpr (_tail == 1)
+            {
+                __SkLocal(__t1, __This->__aux) = static_cast<__t1>(r);
+            }
+            else if constexpr (_tail == 2)
+            {
+                if (((bool)r) == __This->__when)
+                {
+                    // A jump that goes back is a loop: the other threads get their turn.
+                    if (__This->__step < 0)
+                        rtlib::thread_poll();
+
+                    ctx.current += __This->__step;
+                }
+            }
+            else    // stored, and a jump that always goes
+            {
+                __SkLocal(__t1, __This->__aux) = static_cast<__t1>(r);
+
+                if (__This->__step < 0)
+                    rtlib::thread_poll();
+
+                ctx.current += __This->__step;
+            }
+
+        __EndExecute()
+
+    private:
+        __sk_operand_t  __left, __right;
+        int32_t         __aux;
+        bool            __when;
+        int32_t         __step;
+    };
+
+    // push x, push y.
+    template<xil_type_t _x1, xil_type_t _x2>
+    class __sc_push2_t : public __command_base_t<__SuperCmd>
+    {
+        typedef __sc_push2_t    __self_t;
+        typedef __vnum_t<_x1>   __t1;
+        typedef __vnum_t<_x2>   __t2;
+
+    public:
+        __sc_push2_t(const __sk_operand_t & first, const __sk_operand_t & second) : __first(first), __second(second) { }
+
+        __BeginExecute(ctx)
+
+            __t1 a = __sk_get<__t1>(ctx, __This->__first);
+            __t2 b = __sk_get<__t2>(ctx, __This->__second);
+
+            ctx.stack.push(a);
+            ctx.stack.push(b);
+
+        __EndExecute()
+
+    private:
+        __sk_operand_t  __first, __second;
+    };
+
+    // push x, pop local.
+    template<xil_type_t _x>
+    class __sc_copy_t : public __command_base_t<__SuperCmd>
+    {
+        typedef __sc_copy_t     __self_t;
+        typedef __vnum_t<_x>    __t;
+
+    public:
+        __sc_copy_t(const __sk_operand_t & source, int32_t destination) : __source(source), __destination(destination) { }
+
+        __BeginExecute(ctx)
+
+            __SkLocal(__t, __This->__destination) = __sk_get<__t>(ctx, __This->__source);
+
+        __EndExecute()
+
+    private:
+        __sk_operand_t  __source;
+        int32_t         __destination;
+    };
+
+    // push x, convert.
+    template<xil_type_t _x1, xil_type_t _x2>
+    class __sc_convert_t : public __command_base_t<__SuperCmd>
+    {
+        typedef __sc_convert_t  __self_t;
+        typedef __vnum_t<_x1>   __t1;
+        typedef __vnum_t<_x2>   __t2;
+
+    public:
+        __sc_convert_t(const __sk_operand_t & source) : __source(source) { }
+
+        __BeginExecute(ctx)
+
+            __t1 a = __sk_get<__t1>(ctx, __This->__source);
+
+            // The command of a conversion between the same type does nothing.
+            if constexpr (std::is_same<__t1, __t2>::value)
+                ctx.stack.push(a);
+            else
+                ctx.stack.push(__convert_value<__t2>(a));
+
+        __EndExecute()
+
+    private:
+        __sk_operand_t  __source;
+    };
+
+    // [push x], push argument (an object), pop field: this.Field = x (x is in the stack when it is not an operand).
+    template<xil_type_t _x>
+    class __sc_store_field_t : public __command_base_t<__SuperCmd>
+    {
+        typedef __sc_store_field_t  __self_t;
+        typedef __vnum_t<_x>        __t;
+
+    public:
+        __sc_store_field_t(const __sk_operand_t & value, int32_t argument, int32_t field)
+            : __value(value), __argument(argument), __field(field) { }
+
+        __BeginExecute(ctx)
+
+            rt_ref_t obj = __SkArgument(rt_ref_t, __This->__argument);
+            __CheckNullReference(ctx, obj);
+
+            __SkField(__t, obj, __This->__field) = __sk_get<__t>(ctx, __This->__value);
+
+        __EndExecute()
+
+    private:
+        __sk_operand_t  __value;
+        int32_t         __argument, __field;
+    };
+
+    // push argument (an object), push field: the field of the object of an argument (this.Field).
+    template<xil_type_t _x>
+    class __sc_this_field_t : public __command_base_t<__SuperCmd>
+    {
+        typedef __sc_this_field_t   __self_t;
+        typedef __vnum_t<_x>        __t;
+
+    public:
+        __sc_this_field_t(int32_t argument, int32_t field) : __argument(argument), __field(field) { }
+
+        __BeginExecute(ctx)
+
+            rt_ref_t obj = __SkArgument(rt_ref_t, __This->__argument);
+            __CheckNullReference(ctx, obj);
+
+            ctx.stack.push(__SkField(__t, obj, __This->__field));
+
+        __EndExecute()
+
+    private:
+        int32_t         __argument, __field;
+    };
+
+    // The commands of a group of xils, one after the other: for a group that has a variable that the superinstruction does not know (a local
+    // variable that has not the type of the xil). It is one command, as the plan says.
+    class __sc_sequence_t : public __command_base_t<__SuperCmd>
+    {
+        typedef __sc_sequence_t __self_t;
+
+    public:
+        __sc_sequence_t(command_t ** commands, size_t count) : __commands(commands), __count(count) { }
+
+        __BeginExecute(ctx)
+
+            for (size_t k = 0; k < __This->__count; k++)
+                __This->__commands[k]->execute(ctx);
+
+        __EndExecute()
+
+    private:
+        command_t ** __commands;
+        size_t       __count;
+    };
+
+    //-------- ---------- ---------- ---------- ----------
+
+    struct __sc_args_t
+    {
+        __sk_operand_t  left, right;
+        int32_t         aux = 0;
+        bool            when = false;
+        int32_t         step = 0;
+    };
+
+    template<operator_t _op> constexpr bool __sc_is_cmp()
+    {
+        return _op == operator_t::greater || _op == operator_t::greater_equal || _op == operator_t::less
+            || _op == operator_t::less_equal || _op == operator_t::equal || _op == operator_t::not_equal;
+    }
+
+    template<operator_t _op> constexpr bool __sc_is_bit()
+    {
+        return _op == operator_t::bit_and || _op == operator_t::bit_or || _op == operator_t::bit_xor
+            || _op == operator_t::left_shift || _op == operator_t::right_shift;
+    }
+
+    constexpr bool __sc_is_float(xil_type_t type) { return type == xil_type_t::float_ || type == xil_type_t::double_; }
+
+    template<operator_t _op, xil_type_t _x1, xil_type_t _x2>
+    static command_t * __sc_make_binary(int tail, const __sc_args_t & a)
+    {
+        if constexpr (__sc_is_bit<_op>() && (__sc_is_float(_x1) || __sc_is_float(_x2)))
+        {
+            return nullptr;
+        }
+        else
+        {
+            switch (tail)
+            {
+                case 0:
+                    return __new_command<__sc_binary_t<_op, _x1, _x2, 0>>((memory_t *)&__command_heap, a.left, a.right, a.aux, a.when, a.step);
+
+                case 1:
+                    if constexpr (!__sc_is_cmp<_op>())
+                        return __new_command<__sc_binary_t<_op, _x1, _x2, 1>>((memory_t *)&__command_heap, a.left, a.right, a.aux, a.when, a.step);
+                    else
+                        return nullptr;
+
+                case 3:
+                    if constexpr (!__sc_is_cmp<_op>())
+                        return __new_command<__sc_binary_t<_op, _x1, _x2, 3>>((memory_t *)&__command_heap, a.left, a.right, a.aux, a.when, a.step);
+                    else
+                        return nullptr;
+
+                default:
+                    if constexpr (__sc_is_cmp<_op>())
+                        return __new_command<__sc_binary_t<_op, _x1, _x2, 2>>((memory_t *)&__command_heap, a.left, a.right, a.aux, a.when, a.step);
+                    else
+                        return nullptr;
+            }
+        }
+    }
+
+    template<operator_t _op>
+    static command_t * __sc_dispatch_types(xil_type_t x1, xil_type_t x2, int tail, const __sc_args_t & a)
+    {
+        #define __SC(_a, _b)                                                                    \
+            if (x1 == xil_type_t::_a && x2 == xil_type_t::_b)                                   \
+                return __sc_make_binary<_op, xil_type_t::_a, xil_type_t::_b>(tail, a);
+
+        __SC(int32, int32) __SC(uint32, uint32) __SC(int64, int64) __SC(uint64, uint64)
+        __SC(float_, float_) __SC(double_, double_) __SC(int64, int32)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    static command_t * __sc_dispatch_op(operator_t op, xil_type_t x1, xil_type_t x2, int tail, const __sc_args_t & a)
+    {
+        #define __SC(_o) case operator_t::_o: return __sc_dispatch_types<operator_t::_o>(x1, x2, tail, a);
+
+        switch (op)
+        {
+            __SC(add) __SC(sub) __SC(mul) __SC(div) __SC(mod)
+            __SC(bit_and) __SC(bit_or) __SC(bit_xor) __SC(left_shift) __SC(right_shift)
+            __SC(greater) __SC(greater_equal) __SC(less) __SC(less_equal) __SC(equal) __SC(not_equal)
+
+            default:
+                return nullptr;
+        }
+
+        #undef __SC
+    }
+
+    template<xil_type_t _x1>
+    static command_t * __sc_dispatch_push2_second(xil_type_t x2, const __sk_operand_t & first, const __sk_operand_t & second)
+    {
+        #define __SC(_b)                                                                        \
+            if (x2 == xil_type_t::_b)                                                           \
+                return __new_command<__sc_push2_t<_x1, xil_type_t::_b>>((memory_t *)&__command_heap, first, second);
+
+        __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    static command_t * __sc_dispatch_push2(xil_type_t x1, xil_type_t x2, const __sk_operand_t & first, const __sk_operand_t & second)
+    {
+        #define __SC(_a)                                                                        \
+            if (x1 == xil_type_t::_a)                                                           \
+                return __sc_dispatch_push2_second<xil_type_t::_a>(x2, first, second);
+
+        __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    static command_t * __sc_dispatch_copy(xil_type_t x, const __sk_operand_t & source, int32_t destination)
+    {
+        #define __SC(_a)                                                                        \
+            if (x == xil_type_t::_a)                                                            \
+                return __new_command<__sc_copy_t<xil_type_t::_a>>((memory_t *)&__command_heap, source, destination);
+
+        __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    template<xil_type_t _x1>
+    static command_t * __sc_dispatch_convert_to(xil_type_t x2, const __sk_operand_t & source)
+    {
+        #define __SC(_b)                                                                        \
+            if (x2 == xil_type_t::_b)                                                           \
+                return __new_command<__sc_convert_t<_x1, xil_type_t::_b>>((memory_t *)&__command_heap, source);
+
+        __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    static command_t * __sc_dispatch_convert(xil_type_t x1, xil_type_t x2, const __sk_operand_t & source)
+    {
+        #define __SC(_a)                                                                        \
+            if (x1 == xil_type_t::_a)                                                           \
+                return __sc_dispatch_convert_to<xil_type_t::_a>(x2, source);
+
+        __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    static command_t * __sc_dispatch_store_field(xil_type_t x, const __sk_operand_t & value, int32_t argument, int32_t field)
+    {
+        #define __SC(_a)                                                                        \
+            if (x == xil_type_t::_a)                                                            \
+                return __new_command<__sc_store_field_t<xil_type_t::_a>>((memory_t *)&__command_heap, value, argument, field);
+
+        __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    static command_t * __sc_dispatch_this_field(xil_type_t x, int32_t argument, int32_t field)
+    {
+        #define __SC(_a)                                                                        \
+            if (x == xil_type_t::_a)                                                            \
+                return __new_command<__sc_this_field_t<xil_type_t::_a>>((memory_t *)&__command_heap, argument, field);
+
+        __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    // Makes the operand of a push xil of a number: false when the variable has not the type of the xil.
+    static bool __sk_make_operand(__context_t & ctx, const push_xil_t & push, xil_type_t want, __sk_operand_t * out)
+    {
+        xil_type_t xt1, xt2;
+
+        switch (push.stype())
+        {
+            case xil_storage_type_t::local:
+                __analyze_xil_types(ctx, push, &xt1, &xt2, false);
+                if (xt1 != want || xt2 != want)
+                    return false;
+
+                out->kind = fusion_operand_t::local;
+                out->offset = (int32_t)ctx.locals_layout.offset_of(push.get_identity());
+                return true;
+
+            case xil_storage_type_t::argument:
+                __analyze_xil_types(ctx, push, &xt1, &xt2, false);
+                if (xt1 != want || xt2 != want)
+                    return false;
+
+                out->kind = fusion_operand_t::argument;
+                out->offset = (int32_t)(__offset_of_argument(ctx, push.get_identity()) + __stack_stub_size);
+                return true;
+
+            case xil_storage_type_t::constant:
+                if (push.dtype() != want)
+                    return false;
+
+                out->kind = fusion_operand_t::constant;
+                out->bits = 0;
+                memcpy(&out->bits, &push.get_extra<byte_t>(), size_of(want));
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    // The index of the command of an xil that is a jump, and the step that its command takes.
+    static int32_t __sc_jump_step(const fusion_plan_t & plan, size_t xil_index, const jmp_xil_t & jmp)
+    {
+        return (int32_t)plan.index_map[xil_index + jmp.step()] - (int32_t)plan.index_map[xil_index] - 1;
+    }
+
+    // Makes the superinstruction of a group, nullptr when something is not what the xils say.
+    static command_t * __sc_build(__context_t & ctx, const fusion_plan_t & plan, const xil_base_t * const * x,
+                                  const fusion_group_t & group, const fusion_shape_t & shape)
+    {
+        switch (shape.form)
+        {
+            case fusion_form_t::binary: {
+                const xil_base_t * op_xil = x[shape.op_index];
+                operator_t op;
+                xil_type_t x1, x2;
+
+                switch (command_of(op_xil))
+                {
+                    case xil_command_t::al:
+                        op = to_operator(((const al_xil_t *)op_xil)->cmd());
+                        x1 = ((const al_xil_t *)op_xil)->dtype1(), x2 = ((const al_xil_t *)op_xil)->dtype2();
+                        break;
+
+                    case xil_command_t::bit:
+                        op = to_operator(((const bit_xil_t *)op_xil)->cmd());
+                        x1 = ((const bit_xil_t *)op_xil)->dtype1(), x2 = ((const bit_xil_t *)op_xil)->dtype2();
+                        break;
+
+                    default:
+                        op = to_operator(((const cmp_xil_t *)op_xil)->cmd());
+                        x1 = ((const cmp_xil_t *)op_xil)->dtype1(), x2 = ((const cmp_xil_t *)op_xil)->dtype2();
+                        break;
+                }
+
+                __sc_args_t a;
+
+                if (shape.left != fusion_operand_t::stack
+                        && !__sk_make_operand(ctx, *(const push_xil_t *)x[shape.left_index], x1, &a.left))
+                    return nullptr;
+
+                if (shape.right != fusion_operand_t::stack
+                        && !__sk_make_operand(ctx, *(const push_xil_t *)x[shape.right_index], x2, &a.right))
+                    return nullptr;
+
+                if (shape.tail == 1 || shape.tail == 3)
+                {
+                    const pop_xil_t & pop = *(const pop_xil_t *)x[shape.tail_index];
+                    xil_type_t pt1, pt2;
+                    __analyze_xil_types(ctx, pop, &pt1, &pt2, false);
+                    if (pt1 != x1 || pt2 != x1)
+                        return nullptr;
+
+                    a.aux = (int32_t)ctx.locals_layout.offset_of(pop.get_identity());
+
+                    if (shape.tail == 3)
+                        a.step = __sc_jump_step(plan, group.start + shape.jump_index, *(const jmp_xil_t *)x[shape.jump_index]);
+                }
+                else if (shape.tail == 2)
+                {
+                    const jmp_xil_t & jmp = *(const jmp_xil_t *)x[shape.tail_index];
+                    a.when = jmp.model() == xil_jmp_model_t::true_;
+                    a.step = __sc_jump_step(plan, group.start + shape.tail_index, jmp);
+                }
+
+                return __sc_dispatch_op(op, x1, x2, shape.tail, a);
+            }
+
+            case fusion_form_t::push2: {
+                const push_xil_t & p1 = *(const push_xil_t *)x[0], & p2 = *(const push_xil_t *)x[1];
+                __sk_operand_t first, second;
+                if (!__sk_make_operand(ctx, p1, p1.dtype(), &first) || !__sk_make_operand(ctx, p2, p2.dtype(), &second))
+                    return nullptr;
+
+                return __sc_dispatch_push2(p1.dtype(), p2.dtype(), first, second);
+            }
+
+            case fusion_form_t::copy: {
+                const push_xil_t & p = *(const push_xil_t *)x[0];
+                const pop_xil_t & pop = *(const pop_xil_t *)x[1];
+
+                __sk_operand_t source;
+                if (!__sk_make_operand(ctx, p, p.dtype(), &source))
+                    return nullptr;
+
+                xil_type_t pt1, pt2;
+                __analyze_xil_types(ctx, pop, &pt1, &pt2, false);
+                if (pt1 != p.dtype() || pt2 != p.dtype())
+                    return nullptr;
+
+                return __sc_dispatch_copy(p.dtype(), source, (int32_t)ctx.locals_layout.offset_of(pop.get_identity()));
+            }
+
+            case fusion_form_t::convert: {
+                const push_xil_t & p = *(const push_xil_t *)x[shape.left_index], & conv = *(const push_xil_t *)x[shape.op_index];
+
+                __sk_operand_t source;
+                if (!__sk_make_operand(ctx, p, p.dtype(), &source))
+                    return nullptr;
+
+                return __sc_dispatch_convert(conv.dtype(), conv.dtype2(), source);
+            }
+
+            case fusion_form_t::store_field: {
+                const push_xil_t & self = *(const push_xil_t *)x[shape.right_index];
+                const pop_xil_t & pop = *(const pop_xil_t *)x[shape.op_index];
+
+                xil_type_t ft1, ft2;
+                __analyze_xil_types(ctx, pop, &ft1, &ft2, false);
+                if (ft1 != pop.dtype() || ft2 != pop.dtype())
+                    return nullptr;
+
+                __sk_operand_t value;
+                if (shape.left != fusion_operand_t::stack
+                        && !__sk_make_operand(ctx, *(const push_xil_t *)x[shape.left_index], pop.dtype(), &value))
+                    return nullptr;
+
+                return __sc_dispatch_store_field(pop.dtype(), value,
+                    (int32_t)(__offset_of_argument(ctx, self.get_identity()) + __stack_stub_size),
+                    (int32_t)__field_offset(ctx, pop.get_ref()));
+            }
+
+            case fusion_form_t::this_field: {
+                const push_xil_t & p = *(const push_xil_t *)x[0], & field = *(const push_xil_t *)x[1];
+
+                xil_type_t ft1, ft2;
+                __analyze_xil_types(ctx, field, &ft1, &ft2, false);
+                if (ft1 != field.dtype() || ft2 != field.dtype())
+                    return nullptr;
+
+                return __sc_dispatch_this_field(field.dtype(),
+                    (int32_t)(__offset_of_argument(ctx, p.get_identity()) + __stack_stub_size),
+                    (int32_t)__field_offset(ctx, field.get_ref()));
+            }
+
+            default:
+                return nullptr;
+        }
+    }
+
+    command_t * new_super_command(command_creating_context_t & ctx, const fusion_plan_t & plan,
+                                  const xil_base_t * const * xils, const fusion_group_t & group)
+    {
+        const xil_base_t * const * x = xils + group.start;
+
+        fusion_shape_t shape;
+        command_t * command = nullptr;
+
+        if (fusion_match(x, group.length, group.length, &shape) && shape.length == group.length)
+            command = __sc_build(ctx, plan, x, group, shape);
+
+        if (command != nullptr)
+            return command;
+
+        // The xils one after the other.
+        command_t ** members = (command_t **)((memory_t *)&__command_heap)->alloc(sizeof(command_t *) * group.length);
+        for (uint32_t k = 0; k < group.length; k++)
+        {
+            ctx.xil_index = group.start + k;
+            members[k] = new_command(ctx, xils[group.start + k]);
+        }
+
+        return __new_command<__sc_sequence_t>((memory_t *)&__command_heap, members, (size_t)group.length);
+    }
+
+    // The command at the beginning of a method that is not fast yet: it counts the calls, and when they are many, the method gets its
+    // superinstructions (exec_method_t::tier_up) and runs from the beginning of them.
+    #define __TierCmd       __Cmd(tier, 0)
+    __DefineCmdValue_(__TierCmd)
+
+    class __tier_command_t : public __command_base_t<__TierCmd>
+    {
+        typedef __tier_command_t __self_t;
+
+    public:
+        __tier_command_t(exec_method_t * method, int threshold) : __method(method), __count(threshold) { }
+
+        __BeginExecute(ctx)
+
+            if (--__This->__count == 0)
+            {
+                command_t ** fast = __This->__method->tier_up();
+                if (fast != nullptr)
+                    ctx.current = fast;
+            }
+
+        __EndExecute()
+
+    private:
+        exec_method_t * __method;
+        int             __count;
+    };
+
+    command_t * new_tier_command(exec_method_t * method, int threshold)
+    {
+        return __new_command<__tier_command_t>((memory_t *)&__command_heap, method, threshold);
+    }
+
+    #else
+
+    command_t * new_super_command(command_creating_context_t & ctx, const fusion_plan_t & plan,
+                                  const xil_base_t * const * xils, const fusion_group_t & group)
+    {
+        X_UNEXPECTED();
+    }
+
+    command_t * new_tier_command(exec_method_t * method, int threshold)
+    {
+        X_UNEXPECTED();
+    }
+
+    #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
 
     ////////// ////////// ////////// ////////// //////////
 

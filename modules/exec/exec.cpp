@@ -2,6 +2,7 @@
 #include "parser.h"
 #include "commands.h"
 #include "utils.h"
+#include "fusion.h"
 
 namespace X_ROOT_NS::modules::exec {
 
@@ -86,6 +87,39 @@ namespace X_ROOT_NS::modules::exec {
 
         __method_parser = new method_parser_t(this, env, method);
         __commands_uninitialized = true;
+
+        // The parser is made again when the method gets its superinstructions (it is deleted when the commands are made).
+        if (fusion_mode() == fusion_mode_t::automatic)
+        {
+            __parser_factory = [this, &env, method]() -> object_t * {
+                method_parser_t * parser = new method_parser_t(this, env, method);
+                parser->initialize();
+                return parser;
+            };
+        }
+    }
+
+    // Gets the superinstructions of a method.
+    command_t ** exec_method_t::tier_up()
+    {
+        if (!__parser_factory || __tiered.exchange(true))
+            return nullptr;
+
+        try
+        {
+            method_parser_t * parser = (method_parser_t *)__parser_factory();
+            command_t ** commands = parser->parse_commands(true);
+            delete parser;
+
+            if (commands != nullptr)
+                __commands = commands;
+
+            return commands;
+        }
+        catch (...)
+        {
+            return nullptr;
+        }
     }
 
     // Initialize this executable method.

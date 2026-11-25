@@ -2,6 +2,7 @@
 #include "commands.h"
 #include "utils.h"
 #include "exec_profile.h"
+#include "fusion.h"
 #include <lib.h>
 #include <chrono>
 
@@ -129,16 +130,16 @@ namespace X_ROOT_NS::modules::exec {
     }
 
     // Parse this method.
-    command_t ** method_parser_t::parse_commands()
+    command_t ** method_parser_t::parse_commands(bool fast)
     {
         if (__raw_method->this_type() == rt_member_type_t::dynamic)
-            return __parse_dynamic_commands();
+            return fast? nullptr : __parse_dynamic_commands();
 
-        return __parse_normal_commands();
+        return __parse_normal_commands(fast);
     }
 
     // Parse normal method.
-    command_t ** method_parser_t::__parse_normal_commands()
+    command_t ** method_parser_t::__parse_normal_commands(bool fast)
     {
         #if EXEC_TRACE
         // _PF(_T("parse_commands: %1%.%2%"), host_type->get_name(env), analyzer.get_name(method));
@@ -148,7 +149,7 @@ namespace X_ROOT_NS::modules::exec {
 
         #endif  // EXEC_TRACE
 
-        command_t ** commands = this->__parse_normal_commands_();
+        command_t ** commands = this->__parse_normal_commands_(fast);
 
         #if EXEC_TRACE
 
@@ -209,8 +210,9 @@ namespace X_ROOT_NS::modules::exec {
         locals_layout.value_region(&__exec_method->gc_value_begin, &__exec_method->gc_value_end);
     }
 
-    // Parse method commands.
-    command_t ** method_parser_t::__parse_normal_commands_()
+    // Parse method commands. fast: the method gets its superinstructions now (it was parsed without them: exec_method_t::tier_up),
+    // nullptr when it has none.
+    command_t ** method_parser_t::__parse_normal_commands_(bool fast)
     {
         // Read xil blocks.
         al::svector_t<method_xil_block_t, 10> block_array;
@@ -219,33 +221,123 @@ namespace X_ROOT_NS::modules::exec {
         });
 
         // Read xils
-        al::svector_t<command_t *, 256> commands;
-
-        // The profile of the commands (APRIL_EXEC_PROFILE): the xils are kept, and the time of the parse is taken.
-        const bool profile = exec_profile_enabled();
-        std::vector<const xil_base_t *> profile_xils;
-        auto parse_begin = std::chrono::steady_clock::now();
-
-        const xil_base_t * xil;
-        __method_reader->each_xil([this, &commands, &profile_xils, profile](const xil_base_t * xil) {
-            command_t * command = new_command(*__creating_ctx, xil);
-            _A(command != nullptr);
-            commands.push_back(command);
-
-            if (profile)
-                profile_xils.push_back(xil);
-
-            #if EXEC_TRACE
-
-            _PFC(dark_gray, _T("%1%  %2%"), __LogPrefix, to_command_string(command));
-
-            #endif  // EXEC_TRACE
+        std::vector<const xil_base_t *> xils;
+        __method_reader->each_xil([&xils](const xil_base_t * xil) {
+            xils.push_back(xil);
         });
 
-        // Copies to a array.
-        command_t ** command_arr = __env.new_commands(commands.size());
+        // The profile of the commands (APRIL_EXEC_PROFILE) wants a command for each xil: no superinstructions then.
+        const bool profile = exec_profile_enabled();
+        auto parse_begin = std::chrono::steady_clock::now();
 
-        std::copy(commands.begin(), commands.end(), command_arr);
+        // The superinstructions: a plan that tells the xils that are one command. A method that has a loop gets them at once (a call
+        // of it can run for long), a method that has none after it was called many times (the first command counts the calls), when it
+        // has no protected block (the blocks and the commands that were run are not those of the new commands).
+        const fusion_mode_t mode = profile? fusion_mode_t::off : fusion_mode();
+        const fusion_plan_t * plan = nullptr;
+        bool fused = false, tiered = false;
+
+        if (mode != fusion_mode_t::off || fast)
+        {
+            bool has_loop = false;
+            plan = fusion_plan_of(xils, __creating_ctx->switch_manager, block_array, &has_loop);
+
+            if (!plan->groups.empty())
+            {
+                if (fast || mode == fusion_mode_t::eager || plan->has_loop)
+                    fused = true;
+                else if (block_array.empty() && __exec_method != nullptr)
+                    tiered = true;
+            }
+        }
+
+        if (fast && !fused)
+            return nullptr;
+
+        if (fast && !block_array.empty())
+            return nullptr;
+
+        al::svector_t<command_t *, 256> commands;
+
+        if (fused)
+        {
+            // The switch tables go to commands.
+            std::set<exec_switch_table_t *> remapped;
+            for (size_t i = 0; i < xils.size(); i++)
+            {
+                if (command_of(xils[i]) != xil_command_t::jmp || ((const jmp_xil_t *)xils[i])->model() != xil_jmp_model_t::switch_)
+                    continue;
+
+                exec_switch_table_t * table = __creating_ctx->switch_manager.get_table(((const jmp_xil_t *)xils[i])->tbl());
+                if (table == nullptr || !remapped.insert(table).second)
+                    continue;
+
+                auto remap = [&](int32_t step) -> int32_t {
+                    return (int32_t)plan->index_map[i + step] - (int32_t)plan->index_map[i];
+                };
+
+                for (int k = 0; k < table->row_count; k++)
+                    table->rows[k].step = remap(table->rows[k].step);
+
+                table->default_step = remap(table->default_step);
+            }
+
+            __creating_ctx->plan = plan;
+
+            size_t group_index = 0;
+            for (size_t i = 0; i < xils.size();)
+            {
+                __creating_ctx->xil_index = (uint32_t)i;
+
+                command_t * command;
+                if (group_index < plan->groups.size() && plan->groups[group_index].start == i)
+                {
+                    const fusion_group_t & group = plan->groups[group_index++];
+                    command = new_super_command(*__creating_ctx, *plan, xils.data(), group);
+                    i += group.length;
+                }
+                else
+                {
+                    command = new_command(*__creating_ctx, xils[i]);
+                    i++;
+                }
+
+                _A(command != nullptr);
+                commands.push_back(command);
+            }
+
+            _A(commands.size() == plan->command_count());
+        }
+        else
+        {
+            for (const xil_base_t * xil : xils)
+            {
+                command_t * command = new_command(*__creating_ctx, xil);
+                _A(command != nullptr);
+                commands.push_back(command);
+
+                #if EXEC_TRACE
+
+                _PFC(dark_gray, _T("%1%  %2%"), __LogPrefix, to_command_string(command));
+
+                #endif  // EXEC_TRACE
+            }
+        }
+
+        // Copies to a array: the command that counts the calls is the first of a method that gets its superinstructions later.
+        const size_t base = tiered? 1 : 0;
+        command_t ** command_arr = __env.new_commands(commands.size() + base);
+
+        if (tiered)
+            command_arr[0] = new_tier_command(__exec_method, fusion_threshold());
+
+        std::copy(commands.begin(), commands.end(), command_arr + base);
+        command_arr += base;
+
+        // The index of a command of an xil.
+        auto command_index = [&](uint32_t xil_index) -> size_t {
+            return fused? plan->index_map[xil_index] : xil_index;
+        };
 
         // Converts xil blocks.
         exec_method_block_manager_t * block_manager = nullptr;
@@ -260,7 +352,7 @@ namespace X_ROOT_NS::modules::exec {
             for (method_xil_block_t & block : block_array)
             {
                 #define __CommandAt(_index) (                                           \
-                    _index < commands.size()? command_arr + _index :                    \
+                    _index < xils.size()? command_arr + command_index(_index) :         \
                         (throw _ED(__e_t::xil_block_index_out_of_range), nullptr)       \
                     )
 
@@ -305,7 +397,8 @@ namespace X_ROOT_NS::modules::exec {
             }
         }
 
-        __exec_method->block_manager = block_manager;
+        if (!fast)
+            __exec_method->block_manager = block_manager;
 
         if (profile)
         {
@@ -313,24 +406,26 @@ namespace X_ROOT_NS::modules::exec {
 
             bool has_loop = false;
             auto cut_begin = std::chrono::steady_clock::now();
-            std::vector<uint8_t> cuts = exec_cut_points(profile_xils, __creating_ctx->switch_manager, block_array, &has_loop);
+            std::vector<uint8_t> cuts = exec_cut_points(xils, __creating_ctx->switch_manager, block_array, &has_loop);
             auto cut_end = std::chrono::steady_clock::now();
 
             std::vector<string_t> shapes;
-            for (const xil_base_t * profile_xil : profile_xils)
+            for (const xil_base_t * profile_xil : xils)
                 shapes.push_back(exec_xil_shape(profile_xil));
 
             uint64_t * counters = exec_profile_register(
                 __exec_method->get_name(), std::move(shapes), std::move(cuts), has_loop,
                 (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(parse_end - parse_begin).count(),
-                (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(cut_end - cut_begin).count()
+                (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(cut_end - cut_begin).count(),
+                std::vector<const xil_base_t *>(xils)
             );
 
             for (size_t k = 0; k < commands.size(); k++)
                 command_arr[k] = new_profile_command(command_arr[k], counters + k);
         }
 
-        return command_arr;
+        // The array that is given is that of the commands, the command that counts the calls is before it.
+        return tiered? command_arr - 1 : command_arr;
     }
 
     // Parse method info.

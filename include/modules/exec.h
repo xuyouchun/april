@@ -7,6 +7,8 @@
 #include <core.h>
 #include <rt.h>
 #include <thread_manager.h>
+#include <functional>
+#include <atomic>
 
 namespace X_ROOT_NS::modules::exec {
 
@@ -902,6 +904,10 @@ namespace X_ROOT_NS::modules::exec {
         // Returns commands.
         command_t ** get_commands();
 
+        // Gets the superinstructions of a method that was made without them (the first command of it counts the calls). Returns the
+        // new commands, nullptr when the method has them already or cannot have them.
+        command_t ** tier_up();
+
         // Finds block contains the specified point.
         template<method_xil_block_type_t _type, typename _f_t>
         __AlwaysInline void find_block(command_t ** point, _f_t f) _NE
@@ -942,6 +948,10 @@ namespace X_ROOT_NS::modules::exec {
 
         // Returns method parser.
         object_t * __get_method_parser();
+
+        // Makes a parser of this method again (a method that gets its superinstructions later).
+        std::function<object_t * ()> __parser_factory;
+        std::atomic<bool>            __tiered { false };
     };
 
     ////////// ////////// ////////// ////////// //////////

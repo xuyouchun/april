@@ -1,5 +1,6 @@
 
 #include "exec_profile.h"
+#include "fusion.h"
 #include <lib.h>
 
 #include <algorithm>
@@ -124,6 +125,7 @@ namespace X_ROOT_NS::modules::exec {
             std::vector<string_t>   shapes;
             std::vector<uint8_t>    cuts;
             std::vector<uint64_t>   counts;
+            std::vector<uint8_t>    group_length;       // The length of the superinstruction at each xil (1: none).
             bool                    has_loop = false;
         };
 
@@ -462,7 +464,7 @@ namespace X_ROOT_NS::modules::exec {
             out << L"\n-- sequences of xils (2 - 4, they overlap: read the simulation below for the total) by the dispatches that a command for "
                    L"each would save: saved, times, length, xils\n";
             {
-                const size_t max_length = 4;
+                const size_t max_length = fusion_max_length;
                 std::map<string_t, std::pair<uint64_t, size_t>> windows;
                 uint64_t blocked[max_length + 1] = { 0 }, allowed[max_length + 1] = { 0 };
 
@@ -569,6 +571,76 @@ namespace X_ROOT_NS::modules::exec {
                 out << L"  if the places of jumps and blocks did not cut: saved " << __percent((double)saved_without, (double)executed) << L"\n";
             }
 
+            // What the superinstructions that are made (fusion.h) do: the commands that are left, by kind, and the pairs of them that follow
+            // each other (the next superinstructions).
+            out << L"\n-- with the superinstructions that the matcher makes (fusion_match): commands, share, kind\n";
+            {
+                std::map<string_t, uint64_t> kinds, pairs;
+                uint64_t commands = 0;
+
+                for (__method_t * method : __methods)
+                {
+                    size_t size = method->shapes.size();
+                    string_t previous;
+                    bool previous_open = false;
+
+                    for (size_t k = 0; k < size;)
+                    {
+                        size_t length = method->group_length[k];
+                        string_t kind;
+
+                        if (length >= 2)
+                        {
+                            kind = L"SUPER ";
+                            for (size_t j = 0; j < length; j++)
+                                kind += (j > 0? L" ; " : L"") + method->shapes[k + j];
+                        }
+                        else
+                        {
+                            kind = method->shapes[k];
+                        }
+
+                        uint64_t weight = method->counts[k];
+                        if (weight > 0)
+                        {
+                            commands += weight;
+                            kinds[kind] += weight;
+
+                            // The command follows the one before it when nothing goes to it.
+                            if (previous_open && !method->cuts[k] && !__changes_flow(previous))
+                                pairs[previous + L"  ;  " + kind] += weight;
+                        }
+
+                        previous = kind;
+                        previous_open = weight > 0;
+                        k += length;
+                    }
+                }
+
+                std::vector<std::pair<uint64_t, string_t>> sorted;
+                for (auto && it : kinds)
+                    sorted.push_back({ it.second, it.first });
+
+                std::sort(sorted.begin(), sorted.end(), [](auto & a, auto & b) { return a.first > b.first; });
+
+                out << L"  commands executed with them: " << commands << L" (" << __percent((double)commands, (double)executed) << L" of " << executed
+                    << L")\n";
+
+                for (size_t k = 0; k < sorted.size() && k < 40; k++)
+                    out << L"  " << sorted[k].first << L"\t" << __percent((double)sorted[k].first, (double)commands) << L"\t" << sorted[k].second << L"\n";
+
+                out << L"\n-- the pairs of those commands that follow each other\n";
+
+                sorted.clear();
+                for (auto && it : pairs)
+                    sorted.push_back({ it.second, it.first });
+
+                std::sort(sorted.begin(), sorted.end(), [](auto & a, auto & b) { return a.first > b.first; });
+
+                for (size_t k = 0; k < sorted.size() && k < 40; k++)
+                    out << L"  " << sorted[k].first << L"\t" << sorted[k].second << L"\n";
+            }
+
             out.flush();
         }
 
@@ -576,7 +648,8 @@ namespace X_ROOT_NS::modules::exec {
 
     // Registers a method that was parsed.
     uint64_t * exec_profile_register(const string_t & name, std::vector<string_t> && shapes,
-                std::vector<uint8_t> && cuts, bool has_loop, uint64_t parse_ns, uint64_t cut_ns)
+                std::vector<uint8_t> && cuts, bool has_loop, uint64_t parse_ns, uint64_t cut_ns,
+                std::vector<const xil_base_t *> && xils)
     {
         std::lock_guard<std::mutex> guard(__lock);
 
@@ -591,6 +664,33 @@ namespace X_ROOT_NS::modules::exec {
         method->shapes = std::move(shapes);
         method->cuts = std::move(cuts);
         method->counts.assign(method->shapes.size() + 1, 0);
+
+        // The groups that the matcher makes (the xils are not kept: they can be gone when the report is written).
+        {
+            size_t size = method->shapes.size();
+            method->group_length.assign(size, 1);
+
+            for (size_t k = 0; k < size;)
+            {
+                size_t max_length = fusion_max_length;
+                for (size_t j = 1; j < max_length && k + j <= size; j++)
+                {
+                    if (method->cuts[k + j])
+                    {
+                        max_length = j;
+                        break;
+                    }
+                }
+
+                fusion_shape_t shape;
+                size_t length = 1;
+                if (max_length >= 2 && fusion_match(xils.data() + k, size - k, max_length, &shape))
+                    length = shape.length;
+
+                method->group_length[k] = (uint8_t)length;
+                k += length;
+            }
+        }
         method->has_loop = has_loop;
 
         __methods.push_back(method);

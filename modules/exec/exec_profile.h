@@ -28,7 +28,8 @@ namespace X_ROOT_NS::modules::exec {
 
     // Registers a method that was parsed. Returns the counters of its commands (one for each), that the profile commands add to.
     uint64_t * exec_profile_register(const string_t & name, std::vector<string_t> && shapes,
-                std::vector<uint8_t> && cuts, bool has_loop, uint64_t parse_ns, uint64_t cut_ns);
+                std::vector<uint8_t> && cuts, bool has_loop, uint64_t parse_ns, uint64_t cut_ns,
+                std::vector<const core::xil_base_t *> && xils);
 
 }   // namespace X_ROOT_NS::modules::exec
 

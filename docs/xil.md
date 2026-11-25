@@ -117,3 +117,55 @@ What it showed (the 9 programs of `bench/`, and the 357 test programs):
 * the methods that have a loop are 9.5% of the methods and execute 84% of the commands; 63% of all the commands are in methods that
   have a loop and were entered less than 20 times: a count of calls alone would not find them, the rule "has a loop, or was called N
   times" covers all of the commands with 16% - 33% of the methods (N = 100 .. 10).
+
+## Superinstructions (modules/exec/fusion.h)
+
+A superinstruction is **not an xil**: the compiler, the assembly, the JIT and the native back end do not know it. It is a command of the
+interpreter that does the work of several xils that follow each other, and it is made when the commands of a method are made
+(`method_parser_t::__parse_normal_commands_`).
+
+**The array of the commands is shorter than the array of the xils.** A plan (`fusion_plan_t`) tells the groups of xils and the index of
+the command of each xil; the jumps (their steps), the switch tables and the blocks (try, catch, finally) are numbered again with it. A
+command cannot have a place in it that a jump, a switch or a block goes to, except at its first xil (`exec_cut_points`: the profile
+showed that this costs nothing, below 0.1% of the saving). The plan depends on the xils only, so it is made once for a method and the
+instances of a generic method share it (a cache keyed by the xils).
+
+**What is joined** (the xils of numbers: Int32, UInt32, Int64, UInt64, Single, Double, and an Int64 with an Int32):
+
+| Form | xils |
+|---|---|
+| binary | `[x] [y] OP \| CMP` and a tail: nothing (the result is pushed), `pop local`, `pop local` + `jmp`, or (a compare) `jmp true/false`. The operands x and y are a local, an argument or a constant; one or both can be the stack. OP: add, sub, mul, div, mod, and, or, xor, shifts. |
+| push2 | `push x, push y` |
+| copy | `push x, pop local` |
+| convert | `push x, convert` |
+| this_field | `push argument (object), push field` |
+| store_field | `[push x] push argument (object), pop field` |
+
+The division raises the exceptions of the command of the operation (DivideByZero, Overflow) and an exception of a command is told with
+the index of that command, so the blocks find it. A jump that goes back gives the other threads their turn, as the jump command does.
+A group that has a variable that is not of the type of its xil (it is not known when the plan is made) is a command that runs the
+commands of its xils one after the other (`__sc_sequence_t`): the plan does not change.
+
+**When the commands are made** (`APRIL_SUPER=off|auto|eager`, `auto` is the default; `APRIL_SUPER_THRESHOLD`, 50):
+
+* `eager`: every method that has a group gets its superinstructions when its commands are made (the test suites run with it);
+* `auto`: a method that has a loop gets them at once (a call of it can run for long, and the profile found 84% of the commands there),
+  a method that has none and no try block starts with a command that counts its calls and gets them at the threshold
+  (`exec_method_t::tier_up`: the parser is made again, the commands are made with the plan and the method uses them from the next call;
+  the frames that run the old commands go on with them, they have the same locals); a method that has a try block and no loop keeps
+  its commands;
+* `off`: the commands of the xils, one for each.
+
+With `APRIL_EXEC_PROFILE` on there are no superinstructions (the profile counts the commands of the xils).
+
+**What it gives** (`tools/bench.py`, the programs of `bench/`, the time of a run, about 250 ms of it is the start of the process): 1.2x to
+2.2x with `auto` against `off`; `loop_arith` 2.1x, `array_sieve` 1.8x, `fib` 1.4x, `field_access` 1.5x, `virtual_calls` 1.5x,
+`generic_list` 1.3x, `struct_math` 1.3x, `string_build` and `lambda_loop` 1.2x (the calls and the strings are not joined).
+
+**How it was tested**: the test suites with `APRIL_SUPER=eager`, with `auto` and `APRIL_SUPER_THRESHOLD=1` (every method gets them at its
+first call, while the other threads call it), and with the passes of the xils on; `test/unittest/basic/superinstructions.cs` has every
+form, the types, the jumps into a loop, the division and its exceptions, a loop in a try block, the threads, and the methods that get
+their commands after the threshold. The time is not a test, a change of it must be seen with `tools/bench.py`.
+
+Ideas not done: the commands of arrays (`push array_element`, `pop array_element`), of the calls (`push x ... call`), `ret` after an
+operation, the fields of other objects than this (the check of null is the part to keep).

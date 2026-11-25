@@ -13,6 +13,9 @@ namespace X_ROOT_NS::modules::exec {
 
     ////////// ////////// ////////// ////////// //////////
 
+    struct fusion_plan_t;
+    struct fusion_group_t;
+
     // Context for creating command.
     class command_creating_context_t : public assembly_analyzer_t
                                      , public no_copy_ctor_t
@@ -33,6 +36,11 @@ namespace X_ROOT_NS::modules::exec {
         params_layout_t             params_layout;      // Params layout.
         exec_switch_manager_t       switch_manager;     // Switch...case method.
         executor_env_t &            env;                // Executor environment.
+
+        // The plan of the superinstructions of the method (the commands are not the xils then), and the index of the xil that a command
+        // is made for.
+        const fusion_plan_t *       plan = nullptr;
+        uint32_t                    xil_index = 0;
 
         msize_t ret_unit_size();                        // Returns unit size.
 
@@ -63,6 +71,13 @@ namespace X_ROOT_NS::modules::exec {
 
     // Returns a command that counts the executions of another one, and then runs it (the profile of the commands, exec_profile.h).
     command_t * new_profile_command(command_t * target, uint64_t * counter);
+
+    // Creates the command of a group of xils (a superinstruction).
+    command_t * new_super_command(command_creating_context_t & ctx, const fusion_plan_t & plan,
+                                  const core::xil_base_t * const * xils, const fusion_group_t & group);
+
+    // Creates the command at the beginning of a method that counts the calls (the method gets its superinstructions at the threshold).
+    command_t * new_tier_command(exec_method_t * method, int threshold);
 
     // Creates the command that pushes a reference.
     command_t * new_push_ref_command(void * ref);
