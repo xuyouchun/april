@@ -1,7 +1,9 @@
 #include "parser.h"
 #include "commands.h"
 #include "utils.h"
+#include "exec_profile.h"
 #include <lib.h>
+#include <chrono>
 
 namespace X_ROOT_NS::modules::exec {
 
@@ -219,11 +221,19 @@ namespace X_ROOT_NS::modules::exec {
         // Read xils
         al::svector_t<command_t *, 256> commands;
 
+        // The profile of the commands (APRIL_EXEC_PROFILE): the xils are kept, and the time of the parse is taken.
+        const bool profile = exec_profile_enabled();
+        std::vector<const xil_base_t *> profile_xils;
+        auto parse_begin = std::chrono::steady_clock::now();
+
         const xil_base_t * xil;
-        __method_reader->each_xil([this, &commands](const xil_base_t * xil) {
+        __method_reader->each_xil([this, &commands, &profile_xils, profile](const xil_base_t * xil) {
             command_t * command = new_command(*__creating_ctx, xil);
             _A(command != nullptr);
             commands.push_back(command);
+
+            if (profile)
+                profile_xils.push_back(xil);
 
             #if EXEC_TRACE
 
@@ -296,6 +306,30 @@ namespace X_ROOT_NS::modules::exec {
         }
 
         __exec_method->block_manager = block_manager;
+
+        if (profile)
+        {
+            auto parse_end = std::chrono::steady_clock::now();
+
+            bool has_loop = false;
+            auto cut_begin = std::chrono::steady_clock::now();
+            std::vector<uint8_t> cuts = exec_cut_points(profile_xils, __creating_ctx->switch_manager, block_array, &has_loop);
+            auto cut_end = std::chrono::steady_clock::now();
+
+            std::vector<string_t> shapes;
+            for (const xil_base_t * profile_xil : profile_xils)
+                shapes.push_back(exec_xil_shape(profile_xil));
+
+            uint64_t * counters = exec_profile_register(
+                __exec_method->get_name(), std::move(shapes), std::move(cuts), has_loop,
+                (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(parse_end - parse_begin).count(),
+                (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(cut_end - cut_begin).count()
+            );
+
+            for (size_t k = 0; k < commands.size(); k++)
+                command_arr[k] = new_profile_command(command_arr[k], counters + k);
+        }
+
         return command_arr;
     }
 

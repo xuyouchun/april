@@ -87,3 +87,33 @@ Superinstructions in the interpreter (the pairs of `APRIL_XIL_STATS=2` show the 
 compare and jump); inlining of the small methods (getters, indexers, `Nullable.HasValue`); the temporaries that the lowering makes
 (`switch`, `with`, exception filters) could share places; dataflow over the locals (copy propagation, dead stores); escape analysis of
 the cells of lambdas and of boxed values. Each one needs the tools above first: measure with `bench/`, then check with the suites.
+
+## Profile of the commands (APRIL_EXEC_PROFILE=1)
+
+The interpreter runs one command for each xil (`modules/exec/parser.cpp` makes them when a method is called the first time; the commands
+are called through a virtual function, `EXEC_EXECUTE_MODEL_VIRTUAL`). To choose the superinstructions (several xils that are one command)
+the commands can be counted: with `APRIL_EXEC_PROFILE=1` every command is wrapped by one that counts its executions, and when the
+process ends a report is written to stderr (the programs run slower; do not time them). `python tools/exec_profile.py bench|tests` runs
+the programs and sums the reports.
+
+The report tells:
+
+* the methods by the number of calls (`>= N`) and the share of the commands that they execute, the methods that have a loop, and the
+  share of the rule "a method that has a loop, or that was called N times";
+* the time that the parse of the commands takes, and of that the time to find the places that a command must begin at (the targets of
+  the jumps and the switch tables, the limits of the try blocks): `exec_cut_points`;
+* the xils that are executed the most, and the sequences of 2 to 4 xils by the dispatches that one command for each would save;
+* a simulation: the superinstructions that were thought of, joined greedily (the longest first) by a matcher, and the dispatches that
+  they save, with the cut places and without them.
+
+What it showed (the 9 programs of `bench/`, and the 357 test programs):
+
+* the dispatches saved by the simulated set: 17% - 53% for the programs of `bench/` (loops of numbers 50%, calls 17%), 42% for the
+  test programs; the sequences are those of `local op const`, `local op const -> local`, the compare of a local with a constant and
+  its jump, `this.field`;
+* the cut places hardly change that (below 0.1% in total): a compact array of commands, where a command cannot have such a place in it,
+  loses almost nothing;
+* parse of the commands: 12 us for a method, the cut places 0.12 us of it (1%): finding the plan is not what costs;
+* the methods that have a loop are 9.5% of the methods and execute 84% of the commands; 63% of all the commands are in methods that
+  have a loop and were entered less than 20 times: a count of calls alone would not find them, the rule "has a loop, or was called N
+  times" covers all of the commands with 16% - 33% of the methods (N = 100 .. 10).

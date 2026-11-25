@@ -139,6 +139,9 @@ namespace X_ROOT_NS::modules::compile {
         // Returns two units are not equals.
         bool operator != (std::nullptr_t) const { return node != nullptr; }
 
+        // Returns whether this unit is before another: by the index of the nodes, the same in every run (the addresses are not).
+        bool operator < (const analyze_node_unit_t & other) const;
+
         // Assign to nullptr.
         analyze_node_unit_t & operator = (std::nullptr_t)
         {
@@ -164,6 +167,12 @@ namespace X_ROOT_NS::modules::compile {
     };
 
     typedef analyze_node_unit_t __node_unit_t;
+
+    // Orders nodes by their index (the order in which they were made): the same in every run, the addresses of the nodes are not.
+    struct __node_index_less_t
+    {
+        bool operator () (const analyze_node_t * node1, const analyze_node_t * node2) const;
+    };
 
     //-------- ---------- ---------- ---------- ----------
 
@@ -1494,7 +1503,7 @@ namespace X_ROOT_NS::modules::compile {
         // Information for building node.
         struct __build_node_info_t
         {
-            std::set<analyze_node_t *> nodes;
+            std::set<analyze_node_t *, __node_index_less_t> nodes;
             std::vector<void **> stacks;
 
             // Appends stack.
@@ -1691,6 +1700,12 @@ namespace X_ROOT_NS::modules::compile {
         template<typename t> using __w_t = al::respool_wrapper_t<t>;
         __w_t<__stack_node_t> __stack_node_factory;
         uint32_t __node_serial = 0;             // The serial of the last stack node.
+
+        // The identities of the stacks: two stack nodes that have the same path node, the same node and the same parent are the same
+        // identity (they are merged). The numbers are given in the order that the identities are asked for, so they are the same in
+        // every run (the addresses are not).
+        std::map<std::tuple<const void *, const void *, uint64_t>, uint64_t> __identities;
+        void __set_merge_identity(__stack_node_t * s);
 
         // Checks whether two leaves, one is removed, are two ways to match the elements.
         void __check_ambiguity(__stack_node_t * kept, __stack_node_t * removed);

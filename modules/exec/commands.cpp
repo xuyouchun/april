@@ -8051,6 +8051,47 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+    // A command that counts the executions of another one (APRIL_EXEC_PROFILE).
+    #define __ProfileCmd    __Cmd(profile, 0)
+    __DefineCmdValue_(__ProfileCmd)
+
+    class __profile_command_t : public __command_base_t<__ProfileCmd>
+    {
+        typedef __profile_command_t __self_t;
+
+    public:
+        __profile_command_t(command_t * target, uint64_t * counter) : __target(target), __counter(counter) { }
+
+        __BeginExecute(ctx)
+
+            ++*__This->__counter;
+            __This->__target->execute(ctx);
+
+        __EndExecute()
+
+    private:
+        command_t * __target;
+        uint64_t *  __counter;
+    };
+
+    command_t * new_profile_command(command_t * target, uint64_t * counter)
+    {
+        return __new_command<__profile_command_t>(&__command_heap, target, counter);
+    }
+
+    #else
+
+    command_t * new_profile_command(command_t * target, uint64_t * counter)
+    {
+        return target;      // The profile is made for the virtual model of the commands.
+    }
+
+    #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+    //-------- ---------- ---------- ---------- ----------
+
     // Pushes a reference: the argument of the method that a new thread runs.
     #define __PushRefCmd    __Cmd(push, ref_value)
     __DefineCmdValue_(__PushRefCmd)

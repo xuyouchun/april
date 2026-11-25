@@ -61,6 +61,9 @@ namespace X_ROOT_NS::modules::exec {
     // Creates end command.
     command_t * new_end_command();
 
+    // Returns a command that counts the executions of another one, and then runs it (the profile of the commands, exec_profile.h).
+    command_t * new_profile_command(command_t * target, uint64_t * counter);
+
     // Creates the command that pushes a reference.
     command_t * new_push_ref_command(void * ref);
 

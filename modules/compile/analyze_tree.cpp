@@ -153,17 +153,19 @@ namespace X_ROOT_NS::modules::compile {
         return __owner_branch(unit)->key.value;
     }
 
-    // Sets merge identity.
-    __AlwaysInline void __set_merge_identity(__stack_node_t * s)
+    // Sets merge identity: a number that two stack nodes have when they are the same state (the same path node, node and parent). It
+    // was a hash of the addresses: it was not the same in every run, and the stacks that were deeper than ten were all the same.
+    void analyze_context_t::__set_merge_identity(__stack_node_t * s)
     {
-        __merge_identity_t id = ((__merge_identity_t)(*s)->current << 3)
-                                ^ (__merge_identity_t)(*s)->node;
-
         __stack_node_t * p = s->parent;
-        if (p != nullptr)
-            id ^= (((*p)->merge_identity) << 7);
+        uint64_t parent_identity = p != nullptr? (uint64_t)(*p)->merge_identity : 0;
 
-        (*s)->merge_identity = id;
+        auto key = std::make_tuple((const void *)(*s)->current, (const void *)(*s)->node, parent_identity);
+        auto it = __identities.find(key);
+        if (it == __identities.end())
+            it = __identities.emplace(key, (uint64_t)__identities.size() + 1).first;
+
+        (*s)->merge_identity = (__merge_identity_t)it->second;
     }
 
     ////////// ////////// ////////// ////////// //////////
@@ -352,7 +354,22 @@ namespace X_ROOT_NS::modules::compile {
         if (type1 != type2)
             return type1 < type2;
 
-        return (void *)this < (void *)&node;
+        return index < node.index;
+    }
+
+    // Returns whether this unit is before another.
+    bool analyze_node_unit_t::operator < (const analyze_node_unit_t & other) const
+    {
+        uint64_t index1 = node != nullptr? (uint64_t)node->index + 1 : 0;
+        uint64_t index2 = other.node != nullptr? (uint64_t)other.node->index + 1 : 0;
+
+        return index1 < index2;
+    }
+
+    // Orders nodes by their index.
+    bool __node_index_less_t::operator () (const analyze_node_t * node1, const analyze_node_t * node2) const
+    {
+        return node1->index < node2->index;
     }
 
     // Converts to string.
@@ -1326,9 +1343,17 @@ namespace X_ROOT_NS::modules::compile {
         // Exchange empty.
         void __exchange_empty()
         {
+            std::vector<__empty_node_data_t *> datas;
             for (auto & it : __empty_node_map)
+                datas.push_back(&it.second);
+
+            std::sort(datas.begin(), datas.end(), [](__empty_node_data_t * d1, __empty_node_data_t * d2) {
+                return d1->node->index < d2->node->index;
+            });
+
+            for (__empty_node_data_t * p_data : datas)
             {
-                __empty_node_data_t & data = it.second;
+                __empty_node_data_t & data = *p_data;
                 if (data.prenodes.size() <= 1)
                 {
                     analyze_normal_node_t * prenode = data.prenodes[0];
@@ -1592,9 +1617,9 @@ namespace X_ROOT_NS::modules::compile {
                 : branch(branch) { }
 
             analyze_branch_node_t * branch;
-            std::map<analyze_node_t *, sp_t<__analyze_node_vector_t>> relation_map;
+            std::map<analyze_node_t *, sp_t<__analyze_node_vector_t>, __node_index_less_t> relation_map;
             std::set<analyze_node_t *> walk_set;
-            std::map<analyze_node_t *, analyze_node_t *> exchange_map;
+            std::map<analyze_node_t *, analyze_node_t *, __node_index_less_t> exchange_map;
 
             // Records a node.
             bool record(analyze_node_t * node)
@@ -1680,18 +1705,36 @@ namespace X_ROOT_NS::modules::compile {
 
             std::vector<item_t> items;
             al::transform(args.relation_map, std::back_inserter(items), [](auto it) {
-                return al::sort(*it.second), item_t { it.first, it.second.get() };
+                std::sort(it.second->begin(), it.second->end(), __node_index_less_t());
+                return item_t { it.first, it.second.get() };
             });
 
-            typedef al::multikey_t<std::vector<analyze_node_t *>> key_t;
-            al::sort(items, [](auto it1, auto it2) {
+            // The nodes that are merged are those that have the same froms: the froms are compared by their indexes (the same in every
+            // run), not by their addresses.
+            typedef al::multikey_t<std::vector<uint64_t>> key_t;
+            auto indexes_of = [](const __analyze_node_vector_t & nodes) {
+                std::vector<uint64_t> indexes;
+                for (analyze_node_t * node : nodes)
+                    indexes.push_back(node->index);
+
+                return indexes;
+            };
+
+            std::stable_sort(items.begin(), items.end(), [&indexes_of](const item_t & it1, const item_t & it2) {
                 int r = __cmp(it1.to, it2.to);
-                return r != 0? r < 0 : key_t(*it1.froms) < key_t(*it2.froms);
+                if (r != 0)
+                    return r < 0;
+
+                std::vector<uint64_t> k1 = indexes_of(*it1.froms), k2 = indexes_of(*it2.froms);
+                if (k1 != k2)
+                    return k1 < k2;
+
+                return it1.to->index < it2.to->index;
             });
 
             typedef __node_equals_wrapper_t wrapper_t;
             al::split_array(items,
-                [](const item_t & it) { return std::make_tuple(__wrap(it.to), key_t(*it.froms)); },
+                [&indexes_of](const item_t & it) { return std::make_tuple(__wrap(it.to), key_t(indexes_of(*it.froms))); },
                 [this, &args](auto & key, auto begin, auto end) { __merge(args, begin, end); }
             );
 
@@ -1757,11 +1800,11 @@ namespace X_ROOT_NS::modules::compile {
         struct __build_relation_exchange_args_t
         {
             __build_relation_exchange_args_t(
-                std::map<analyze_node_t *, analyze_node_t *> & exchange_map)
+                std::map<analyze_node_t *, analyze_node_t *, __node_index_less_t> & exchange_map)
                 : exchange_map(exchange_map) { }
 
             std::set<analyze_node_t *> walk_set;
-            std::map<analyze_node_t *, analyze_node_t *> & exchange_map;
+            std::map<analyze_node_t *, analyze_node_t *, __node_index_less_t> & exchange_map;
 
             bool record(analyze_node_t * node)
             {
@@ -2294,8 +2337,16 @@ namespace X_ROOT_NS::modules::compile {
     {
         _A(stacks.size() > 0);
 
-        al::sort(stacks, [](void ** n1, void ** n2) {
-            return al::cmp(n1[0], n2[0], n1[1], n2[1]) > 0;
+        // The first of a stack is a node. The second is a node too, or a small number (a stack that switched branch).
+        auto order_of = [](void * item) -> uint64_t {
+            if ((arch_uint_t)item < __StackBufferMaxStep)
+                return (uint64_t)(arch_uint_t)item;
+
+            return (uint64_t)((analyze_node_t *)item)->index + __StackBufferMaxStep;
+        };
+
+        al::sort(stacks, [&order_of](void ** n1, void ** n2) {
+            return al::cmp(order_of(n1[0]), order_of(n2[0]), order_of(n1[1]), order_of(n2[1])) > 0;
         });
 
         __path_node_stacks_t * node_stacks = __build_context->new_obj<__path_node_stacks_t>(src);
@@ -2469,10 +2520,10 @@ namespace X_ROOT_NS::modules::compile {
         {
             __node_key_t key = it.first;
             __build_node_info_t & info = it.second;
-            std::set<analyze_node_t *> & node_set = info.nodes;
+            auto & node_set = info.nodes;
 
+            // The set is ordered by the index of the nodes already.
             __nodes_t nodes(node_set.begin(), node_set.end());
-            std::sort(nodes.begin(), nodes.end());
             analyze_path_node_t * subnode = __build_context->get_node_from_cache(nodes);
 
             if (subnode == nullptr)
@@ -3584,6 +3635,25 @@ namespace X_ROOT_NS::modules::compile {
         }
     }
 
+    // TEMP: the trace of the merges of the leaves (APRIL_PARSE_TRACE), to see whether the parse is the same in every run.
+    static uint64_t __trace_hash = 1469598103934665603ULL, __trace_merges = 0, __trace_leaves = 0;
+    static void __trace_report()
+    {
+        std::wcerr << L"parse trace: " << __trace_merges << L" merges, hash " << __trace_hash << L", leaves " << __trace_leaves << std::endl;
+    }
+    static void __trace_merge(uint32_t kept, uint32_t removed)
+    {
+        static bool registered = (std::getenv("APRIL_PARSE_TRACE") != nullptr)? (std::atexit(__trace_report), true) : false;
+        if (!registered)
+            return;
+
+        __trace_merges++;
+        uint64_t x = (((uint64_t)kept << 32) | removed) + 0x9E3779B97F4A7C15ULL;
+        x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
+        x = (x ^ (x >> 27)) * 0x94D049BB133111EBULL;
+        __trace_hash += x ^ (x >> 31);
+    }
+
     // Merges leaves.
     __AlwaysInline void analyze_context_t::__merge_leaves()
     {
@@ -3603,6 +3673,7 @@ namespace X_ROOT_NS::modules::compile {
         __leaves.walk([&last, &kept, this](__stack_node_t * n) {
             if (__I(n) == last)
             {
+                __trace_merge((*kept)->serial, (*n)->serial);
                 __check_ambiguity(kept, n);
                 __remove_leaf(n);
                 return false;
