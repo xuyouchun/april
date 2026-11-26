@@ -259,7 +259,7 @@ int main()
             size_t c = heap->collect();
             CHECK(c == 32);                                  // victim reclaimed
             CHECK(get_object_type(holder) == &tNone);
-            CHECK(heap->skipped_bytes() >= 16);
+            CHECK(heap->scanned_bytes() == 0);               // atomic: marked, never scanned
             heap->remove_root_source(&roots);
         }
 
@@ -313,7 +313,6 @@ int main()
             size_t c = heap->collect();
             CHECK(c == 32);
             CHECK(get_array_length(arr) == 20000);
-            CHECK(heap->skipped_bytes() >= 80000);
             CHECK(heap->scanned_bytes() == 0);
             heap->remove_root_source(&roots);
         }
@@ -423,6 +422,136 @@ int main()
             roots.stack[0] = nullptr;
             heap->remove_root_source(&roots);
         }
+    }
+
+    // ---- 12. The space: empty arrays, arrays of 12 bytes structs, atomic spaces, weak references, finalizers, memory.
+    {
+        rt_type_t tLeaf(16), tFin(16), tS12(12);
+        rt_array_type_t at(1, &t4), at12(1, &tS12);
+
+        gc_params_t ps;
+        ps.scan_native_stack = false;
+        ps.initial_threshold = SIZE_MAX;
+        gc_heap_t * heap = (gc_heap_t *)create_gc_heap(nullptr, ps);
+        heap->set_gc_type_resolver([&](rt_type_t * t, gc_scan_info_t & info) {
+            if (t == &tFin) { info.kind = gc_scan_info_t::kind_t::none; info.finalizable = true; return true; }
+            return false;
+        });
+
+        fake_root_source_t roots;
+        heap->add_root_source(&roots);
+
+        // An empty array: the address of its object is the end of its header, it is still inside its cell.
+        array_length_t zero = 0;
+        rt_ref_t empty = heap->new_array(&at, &zero);
+        roots.stack[0] = (void *)empty;
+        for (int i = 0; i < 200; i++)
+            heap->new_obj(&tLeaf);
+
+        heap->collect();
+        for (int i = 0; i < 200; i++)
+            heap->new_obj(&tLeaf);
+
+        CHECK(get_object_type(empty) == &at);
+        CHECK(get_array_length(empty) == 0);
+
+        // The elements of an array of structs of 12 bytes: the reference of the second one is at the offset 12.
+        array_length_t three = 3;
+        rt_ref_t arr12 = heap->new_array(&at12, &three);
+        rt_ref_t victim = heap->new_obj(&tLeaf);
+        *(void **)((byte_t *)(void *)arr12 + 12) = (void *)victim;
+        roots.stack[1] = (void *)arr12;
+        roots.stack[0] = nullptr;
+        heap->collect();                                    // the empty array goes
+        CHECK(get_object_type(victim) == &tLeaf);
+        size_t c = heap->collect();
+        CHECK(c == 0);
+
+        // An atomic space: a pointer into the middle keeps it, it is zeroed, and it goes when nothing points to it.
+        byte_t * str = (byte_t *)heap->new_atomic(40);
+        CHECK(str != nullptr);
+        for (int i = 0; i < 40; i++)
+            CHECK(str[i] == 0);
+
+        std::memset(str, 0x7F, 40);
+        roots.stack[2] = str + 17;
+        c = heap->collect();
+        CHECK(c == 0);
+        CHECK(str[39] == 0x7F);
+        roots.stack[2] = nullptr;
+        CHECK(heap->collect() >= 48);
+
+        // A weak reference does not keep the object alive.
+        rt_ref_t a = heap->new_obj(&tLeaf), b = heap->new_obj(&tLeaf);
+        roots.stack[3] = (void *)b;
+        uint64_t wa = heap->weak_new((void *)a), wb = heap->weak_new((void *)b);
+        CHECK(wa != 0 && wb != 0 && wa != wb);
+        heap->collect();
+        CHECK(heap->weak_get(wa) == nullptr);
+        CHECK(heap->weak_get(wb) == (void *)b);
+        heap->weak_free(wa);
+        heap->weak_free(wb);
+        roots.stack[3] = nullptr;
+
+        // A finalizer: the object is queued when nothing reaches it, and it is alive until it is taken.
+        rt_ref_t f1 = heap->new_obj(&tFin), f2 = heap->new_obj(&tFin), f3 = heap->new_obj(&tFin);
+        heap->suppress_finalize((void *)f2, true);
+        roots.stack[4] = (void *)f3;
+        heap->collect();
+        void * taken = heap->take_finalizable();
+        CHECK(taken == (void *)f1);
+        CHECK(get_object_type(taken) == &tFin);
+        CHECK(heap->take_finalizable() == nullptr);          // f2 was suppressed, f3 is reachable
+        c = heap->collect();
+        CHECK(c >= 32);                                      // f1 and f2 are freed, f3 stays
+        CHECK(get_object_type(f3) == &tFin);
+        roots.stack[4] = nullptr;
+
+        // The memory is given back: a large array is committed when it is allocated and freed when it dies.
+        size_t before = heap->total_memory();
+        array_length_t big = 2000000;
+        rt_ref_t large = heap->new_array(&at, &big);
+        roots.stack[5] = (void *)large;
+        CHECK(heap->total_memory() >= before + 8000000);
+        ((int *)(void *)large)[1999999] = 5;
+        heap->collect();
+        CHECK(((int *)(void *)large)[1999999] == 5);
+        roots.stack[5] = nullptr;
+        heap->collect();
+        CHECK(heap->total_memory() < before + 1000000);
+
+        // The cells of one granule (16 bytes): each one lives or dies by itself.
+        std::vector<byte_t *> cells;
+        for (int i = 0; i < 100; i++)
+        {
+            byte_t * cell = (byte_t *)heap->new_atomic(8);
+            *(int *)cell = 1000 + i;
+            cells.push_back(cell);
+        }
+
+        for (int i = 0; i < 50; i++)
+            roots.stack[6 + i] = cells[i * 2];                // the even ones live
+
+        c = heap->collect();
+        CHECK(c == 50 * 16);
+
+        for (int i = 0; i < 50; i++)
+            CHECK(*(int *)cells[i * 2] == 1000 + i * 2);
+
+        for (int i = 0; i < 50; i++)
+            roots.stack[6 + i] = nullptr;
+
+        CHECK(heap->collect() == 50 * 16);
+
+        // The space grows again after the memory was given back.
+        for (int i = 0; i < 10; i++)
+        {
+            rt_ref_t again = heap->new_array(&at, &big);
+            CHECK(((int *)(void *)again)[1999999] == 0);
+            heap->collect();
+        }
+
+        heap->remove_root_source(&roots);
     }
 
     std::printf("%d checks, %d failures\n", checks, failures);

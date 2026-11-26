@@ -240,6 +240,10 @@ namespace X_ROOT_NS::modules::rtlib {
     // runs stops there when the collector asks it.
     void thread_safepoint();
 
+    // A function that the thread that runs calls at the safepoint when the flag of the yield is set (the back end sets it when it
+    // has something to do between two commands: the interpreter runs the destructors of the objects that the collector found).
+    void set_safepoint_hook(void (* hook)());
+
     // A call of the runtime (see thread_manager_t::runtime_enter).
     struct runtime_guard_t
     {

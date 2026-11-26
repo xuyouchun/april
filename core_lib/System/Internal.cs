@@ -776,6 +776,29 @@ internal static class Internal
 
     [Internal]
     public static extern Int64 Interlocked_CompareExchange64(ref Int64 location, Int64 value, Int64 comparand);
+
+    // The garbage collector: see System.GC and WeakReference.
+    [Internal]
+    public static extern Void GC_Collect();
+
+    [Internal]
+    public static extern Int32 GC_CollectionCount();
+
+    [Internal]
+    public static extern Int64 GC_TotalMemory();
+
+    // A handle of a weak reference to the object (0 for null).
+    [Internal]
+    public static extern Int64 GC_WeakNew(Object? target);
+
+    // The object of the handle, null when it was collected.
+    [Internal]
+    public static extern Object? GC_WeakGet(Int64 handle);
+
+    [Internal]
+    public static extern Void GC_WeakFree(Int64 handle);
+
+    // The finalizer of the object is not made (suppress), or is made again.
+    [Internal]
+    public static extern Void GC_SuppressFinalize(Object obj, Boolean suppress);
 }
-
-

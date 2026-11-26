@@ -69,7 +69,14 @@ namespace X_ROOT_NS::modules::exec {
                     info.kind = __kind_t::conservative; // All elements are references.
                     return true;
 
-                default:                                // Mixture structs, unknown ...
+                case storage_type_t::mixture:
+                    // Structs that have references: the elements are as large as the struct, a reference of the
+                    // second one may not be aligned to 8 bytes.
+                    info.kind = __kind_t::conservative;
+                    info.unaligned = true;
+                    return true;
+
+                default:                                // Unknown ...
                     return false;
             }
         }
@@ -79,6 +86,7 @@ namespace X_ROOT_NS::modules::exec {
         bool __resolve_class(analyzer_env_t & env, rt_type_t * type, gc_scan_info_t & info)
         {
             std::vector<std::pair<msize_t, msize_t>> refs;      // (offset, size)
+            bool finalizable = false;                           // The class or a base class has a destructor.
 
             for (rt_type_t * t = type; t != nullptr; t = t->get_base_type(env))
             {
@@ -90,6 +98,14 @@ namespace X_ROOT_NS::modules::exec {
 
                 assembly_analyzer_t analyzer(env, t->get_assembly());
                 bool ok = true;
+
+                t->each_method(env, [&](ref_t, rt_method_base_t * method_base) {
+                    rt_method_t * method = dynamic_cast<rt_method_t *>(method_base);
+                    if (method != nullptr && (*method)->trait == method_trait_t::destructor)
+                        finalizable = true;
+
+                    return true;
+                });
 
                 t->each_field(env, [&](ref_t, rt_field_base_t * field) {
 
@@ -137,6 +153,7 @@ namespace X_ROOT_NS::modules::exec {
             if (info.ranges.empty())
                 info.kind = __kind_t::none;
 
+            info.finalizable = finalizable;
             return true;
         }
     }

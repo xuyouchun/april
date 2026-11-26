@@ -492,7 +492,12 @@ namespace X_ROOT_NS::modules::rt {
 
         if (vtype != vtype_t::mobject_)
         {
-            al::assign_value(out_storage_type, storage_type_t::value);
+            // A string is a pointer to its characters, which the garbage collector frees: a place of a string
+            // is scanned like the one of a reference (it is not a value that holds no references).
+            al::assign_value(out_storage_type,
+                vtype == vtype_t::string_? storage_type_t::ref : storage_type_t::value
+            );
+
             return get_vtype_size(vtype);
         }
 

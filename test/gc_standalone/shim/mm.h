@@ -10,6 +10,7 @@
 #include <vector>
 #include <utility>
 #include <cstdio>
+#include <gc_space.h>
 
 #define X_ROOT_NS           april
 #define X_ALWAYS_INLINE     inline
@@ -72,11 +73,15 @@ namespace april {
             void * ptr = nullptr;
         };
 
+        enum class rt_type_kind_t { general, array };
+
         class rt_type_t
         {
         public:
             rt_type_t(size_t size) : __size(size) { }
+            virtual ~rt_type_t() { }
             size_t get_size() { return __size; }
+            virtual rt_type_kind_t get_kind() { return rt_type_kind_t::general; }
         private:
             size_t __size;
         };
@@ -86,6 +91,7 @@ namespace april {
         public:
             rt_array_type_t(dimension_t dim, rt_type_t * element)
                 : rt_type_t(sizeof(void *)), dimension(dim), element_type(element) { }
+            virtual rt_type_kind_t get_kind() override { return rt_type_kind_t::array; }
             dimension_t dimension;
             rt_type_t * element_type;
         };
@@ -95,6 +101,8 @@ namespace april {
             enum class kind_t : uint8_t { conservative, none, ranges };
             kind_t kind = kind_t::conservative;
             std::vector<std::pair<uint32_t, uint32_t>> ranges;
+            bool unaligned = false;
+            bool finalizable = false;
         };
 
         typedef std::function<bool (rt_type_t * type, gc_scan_info_t & info)>
@@ -118,6 +126,15 @@ namespace april {
             virtual void remove_root_source(gc_root_source_t *) { }
             virtual void set_gc_type_resolver(const gc_type_resolver_t &) { }
             virtual size_t collect() { return 0; }
+            virtual void * new_atomic(size_t size) { return nullptr; }
+            virtual size_t total_memory() { return 0; }
+            virtual size_t collection_count() { return 0; }
+            virtual uint64_t weak_new(void * object) { return 0; }
+            virtual void * weak_get(uint64_t handle) { return nullptr; }
+            virtual void weak_free(uint64_t handle) { }
+            virtual void * take_finalizable() { return nullptr; }
+            virtual void suppress_finalize(void * object, bool suppress) { }
+            virtual void set_finalizer_notify(const std::function<void ()> & notify) { }
         };
     }
 
@@ -128,14 +145,10 @@ namespace april {
 
         enum class memory_error_code_t { array_dimension_error };
 
-        struct gc_params_t
+        struct gc_params_t : april_gc::space_params_t
         {
-            size_t  initial_threshold   = 16 * 1024 * 1024;
-            double  growth_factor       = 2.0;
-            bool    stress              = false;
             bool    scan_native_stack   = true;
             bool    verify              = false;
-            bool    trace               = false;
         };
 
         rt_heap_t * create_gc_heap(memory_t * memory,

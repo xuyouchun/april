@@ -60,6 +60,8 @@ namespace X_ROOT_NS::modules::native {
         // Runtime library functions that need the metadata of the program (an assembly
         // analyzer), which native programs do not have yet.
         const char * const __metadata_libfuncs[] = {
+            // The destructors do not run in a native program.
+            "GC_SuppressFinalize",
         };
 
         // Converts to a narrow string.
@@ -1149,7 +1151,7 @@ namespace X_ROOT_NS::modules::native {
                 if (name == unsupported)
                 {
                     throw _ED(__e_t::unsupported_libfunc, string_convert<char, char_t>(name),
-                              _T("needs program metadata, not available to native programs yet"));
+                              _T("is not available to native programs yet"));
                 }
             }
 

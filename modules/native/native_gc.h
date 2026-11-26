@@ -4,6 +4,7 @@
 // The garbage collector of native programs (see native_gc.cpp). Standard library only.
 
 #include <cstddef>
+#include <cstdint>
 
 namespace april_native_gc {
 
@@ -40,6 +41,15 @@ namespace april_native_gc {
 
     // Registers a global that holds an address: it is scanned at every collection.
     void add_root(void ** slot);
+
+    // System.GC and WeakReference: a collection now, the bytes in use, the number of collections; a weak reference (the
+    // handle is not 0, the object is nullptr when it was freed).
+    size_t   collect();
+    size_t   total_memory();
+    size_t   collection_count();
+    uint64_t weak_new(void * object);
+    void *   weak_get(uint64_t handle);
+    void     weak_free(uint64_t handle);
 
     // Allocates a zeroed block of `size` bytes, which lives while an address inside it
     // can be found from the roots. `has_refs` is false for blocks that hold no addresses.

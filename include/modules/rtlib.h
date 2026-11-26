@@ -203,6 +203,22 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(memory_fill);
     __DefineFunc(string_address_of);
 
+    // What the runtime library asks of the garbage collector of the back end (the interpreter, a native program). The
+    // functions are called with the lock of the threads.
+    struct gc_services_t
+    {
+        size_t      (* collect)() = nullptr;                    // Returns the bytes that were freed.
+        size_t      (* total_memory)() = nullptr;
+        size_t      (* collection_count)() = nullptr;
+        uint64_t    (* weak_new)(void * object) = nullptr;
+        void *      (* weak_get)(uint64_t handle) = nullptr;
+        void        (* weak_free)(uint64_t handle) = nullptr;
+        void        (* suppress_finalize)(void * object, bool suppress) = nullptr;
+    };
+
+    // Sets the services (nullptr: none, the functions do nothing).
+    void set_gc_services(const gc_services_t * services);
+
     // The allocator of the memory of the strings that programs make (e.g. concatenation).
     // Without one, the memory is never freed.
     typedef void * (* string_allocator_t)(uint64_t bytes);
@@ -286,6 +302,15 @@ namespace X_ROOT_NS::modules::rtlib {
     __DefineFunc(thread_start);
     __DefineFunc(thread_join);
     __DefineFunc(thread_sleep);
+
+    // The garbage collector (System.GC, WeakReference): see gc.cpp.
+    __DefineFunc(gc_collect);
+    __DefineFunc(gc_collection_count);
+    __DefineFunc(gc_total_memory);
+    __DefineFunc(gc_weak_new);
+    __DefineFunc(gc_weak_get);
+    __DefineFunc(gc_weak_free);
+    __DefineFunc(gc_suppress_finalize);
     __DefineFunc(thread_yield);
     __DefineFunc(thread_current_id);
     __DefineFunc(thread_get_current);

@@ -188,6 +188,13 @@ namespace X_ROOT_NS::modules::rtlib {
             __append_libfunc(_T("Thread_Start"),            thread_start);
             __append_libfunc(_T("Thread_Join"),             thread_join);
             __append_libfunc(_T("Thread_Sleep"),            thread_sleep);
+            __append_libfunc(_T("GC_Collect"),              gc_collect);
+            __append_libfunc(_T("GC_CollectionCount"),      gc_collection_count);
+            __append_libfunc(_T("GC_TotalMemory"),          gc_total_memory);
+            __append_libfunc(_T("GC_WeakNew"),              gc_weak_new);
+            __append_libfunc(_T("GC_WeakGet"),              gc_weak_get);
+            __append_libfunc(_T("GC_WeakFree"),             gc_weak_free);
+            __append_libfunc(_T("GC_SuppressFinalize"),     gc_suppress_finalize);
             __append_libfunc(_T("Thread_Yield"),            thread_yield);
             __append_libfunc(_T("Thread_CurrentId"),        thread_current_id);
             __append_libfunc(_T("Thread_GetCurrent"),       thread_get_current);

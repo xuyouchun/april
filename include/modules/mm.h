@@ -4,6 +4,7 @@
 
 #include <core.h>
 #include <rt.h>
+#include <gc_space.h>
 
 namespace X_ROOT_NS::modules::mm {
 
@@ -52,21 +53,10 @@ namespace X_ROOT_NS::modules::mm {
 
     //-------- ---------- ---------- ---------- ----------
 
-    // Garbage collection parameters.
-    struct gc_params_t
+    // Garbage collection parameters: those of the space (initial_threshold, growth_factor, stress, trace, poison, stats:
+    // see april_gc::space_params_t, and the environment variables APRIL_GC_*) and:
+    struct gc_params_t : april_gc::space_params_t
     {
-        // Bytes allocated before the first collection; also the floor
-        // of the dynamic threshold.
-        size_t  initial_threshold   = 16 * 1024 * 1024;
-
-        // Next threshold = live_bytes * growth_factor (but at least
-        // initial_threshold).
-        double  growth_factor       = 2.0;
-
-        // Collects on every allocation; for debugging, also enabled by
-        // the environment variable APRIL_GC_STRESS=1.
-        bool    stress              = false;
-
         // Conservatively scans the native thread stack: required for
         // correctness while command implementations hold references in
         // C++ locals across allocations; only tests may turn it off.
@@ -77,11 +67,10 @@ namespace X_ROOT_NS::modules::mm {
         // point to gc objects are reported to stderr: a hint that a scan info
         // is wrong. Slow, for debugging only.
         bool    verify              = false;
-
-        // Prints one line of statistics per collection to stderr
-        // (also APRIL_GC_TRACE=1).
-        bool    trace               = false;
     };
+
+    // The environment variables APRIL_GC_THRESHOLD (bytes allocated before a collection, K and M suffixes are
+    // accepted) and APRIL_GC_GROWTH (the factor of the live bytes, e.g. 1.5) change the parameters of the heap.
 
     // Creates a garbage collected heap: new_obj / new_array allocations are
     // reclaimed by a stop-the-world mark-sweep collector; alloc / free keep

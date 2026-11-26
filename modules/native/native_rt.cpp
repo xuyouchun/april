@@ -102,6 +102,21 @@ namespace X_ROOT_NS::modules::native {
         }
     }
 
+    // System.GC and WeakReference: the services that the runtime library asks of the collector (the destructors do not run
+    // in a native program: GC.SuppressFinalize is not supported, a program that uses it is run by the interpreter).
+    void __install_gc_services()
+    {
+        static rtlib::gc_services_t services;
+        services.collect            = []() -> size_t { return april_native_gc::collect(); };
+        services.total_memory       = []() -> size_t { return april_native_gc::total_memory(); };
+        services.collection_count   = []() -> size_t { return april_native_gc::collection_count(); };
+        services.weak_new           = [](void * object) -> uint64_t { return april_native_gc::weak_new(object); };
+        services.weak_get           = [](uint64_t handle) -> void * { return april_native_gc::weak_get(handle); };
+        services.weak_free          = [](uint64_t handle) { april_native_gc::weak_free(handle); };
+
+        rtlib::set_gc_services(&services);
+    }
+
 }   // namespace X_ROOT_NS::modules::native
 
 extern "C" {
@@ -142,6 +157,9 @@ extern "C" {
         X_ROOT_NS::modules::rtlib::set_string_allocator([](uint64_t bytes) -> void * {
             return april_native_gc::alloc(bytes, false);
         });
+
+        // System.GC and WeakReference.
+        X_ROOT_NS::modules::native::__install_gc_services();
     }
 
     void * april_native_exception_slot()

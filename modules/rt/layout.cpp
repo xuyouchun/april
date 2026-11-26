@@ -491,6 +491,16 @@ namespace X_ROOT_NS::modules::rt {
         rt_type_t * type = __get_type(def.type);
         msize_t size = __ctx.variable_size_of(type, &storage_type);
 
+        // A string is arranged with the values (the places that variables share are made by the order of the
+        // definations, per group, and the strings were always in that group), but it is a reference for the gc:
+        // the region of the values that the gc does not scan leaves it out (__commit_value_region).
+        bool holds_ref = false;
+        if (storage_type == storage_type_t::ref && type->get_vtype(__ctx.env) == vtype_t::string_)
+        {
+            storage_type = storage_type_t::value;
+            holds_ref = true;
+        }
+
         // A temporary variable of the compiler has a place of its own: the places that the other variables share are
         // by the order of the definations (a block that ends gives its places to the next one), and it is defined
         // after all of them.
@@ -501,6 +511,7 @@ namespace X_ROOT_NS::modules::rt {
             );
 
             temp->is_temp = true;
+            temp->holds_ref = holds_ref;
             __groups[(size_t)storage_type].temps.push_back(temp);
 
             return;
@@ -521,6 +532,7 @@ namespace X_ROOT_NS::modules::rt {
             def.index, __current_identity(), size, storage_type, type
         );
 
+        item->holds_ref = holds_ref;
         __groups[(size_t)storage_type].append(item);
     }
 
@@ -608,7 +620,7 @@ namespace X_ROOT_NS::modules::rt {
         for (size_t k = 0, count = __items.size(); k < count; k++)
         {
             __item_t & it = __items[k];
-            if (it.storage_type != storage_type_t::value || it.size == 0)
+            if (it.storage_type != storage_type_t::value || it.holds_ref || it.size == 0)
                 continue;
 
             begin = al::min(begin, it.offset);
@@ -621,7 +633,7 @@ namespace X_ROOT_NS::modules::rt {
         for (size_t k = 0, count = __items.size(); k < count; k++)
         {
             __item_t & it = __items[k];
-            if (it.storage_type == storage_type_t::value)
+            if (it.storage_type == storage_type_t::value && !it.holds_ref)
                 continue;
 
             if (it.offset < end && (msize_t)(it.offset + it.size) > begin)
@@ -757,7 +769,7 @@ namespace X_ROOT_NS::modules::rt {
             msize_t offset0 = unit_align(offset, it->size) + it->size;
             if (offset0 <= offset_aligned)
             {
-                it->offset = offset;
+                it->offset = offset0 - it->size;        // Aligned: the collector reads the words of a frame by 8 bytes.
                 offset = offset0;
                 //_PF(_T("* %1%: size %2% offset %3%"), it->identity, it->size, it->offset);
                 it_end--;
@@ -770,9 +782,13 @@ namespace X_ROOT_NS::modules::rt {
         for (__item_iterator_t it = it_begin; it < it_end; it++)
         {
             msize_t size = (*it)->size;
+
+            // The variable is aligned to its size, as the places that follow it are: a reference at an offset that is
+            // not a multiple of 8 is not seen by the collector, which reads the words of a frame by 8 bytes.
+            offset = unit_align(offset, size);
             (*it)->offset = offset;
 
-            offset = unit_align(offset, size) + size;
+            offset += size;
             //_PF(_T("# %1%: size %2% offset %3%"), (*it)->identity, size, (*it)->offset);
         }
 

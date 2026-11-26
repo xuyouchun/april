@@ -3,6 +3,7 @@
 #include "commands.h"
 #include "utils.h"
 #include "fusion.h"
+#include <rtlib.h>
 
 namespace X_ROOT_NS::modules::exec {
 
@@ -386,6 +387,112 @@ namespace X_ROOT_NS::modules::exec {
 
     namespace
     {
+        // What the runtime library asks of the garbage collector while the program runs:
+        //  * the strings that programs make (concatenation, Substring ...) are allocated in the heap as atomic spaces: the
+        //    collector frees them when nothing points to them (a pointer to the characters, that are in the middle of the
+        //    space, keeps it). Without this they were never freed;
+        //  * System.GC and WeakReference;
+        //  * the destructors: an object that has one is not freed when nothing reaches it, the collector queues it and asks
+        //    (the flag of the yield) the thread that runs to run the destructor at its next safepoint (a call, a jump back).
+        class __gc_services_scope_t
+        {
+        public:
+            __gc_services_scope_t(rt_heap_t * heap, executor_env_t & env)
+            {
+                __heap = heap;
+                __env = &env;
+
+                rtlib::set_string_allocator([](uint64_t bytes) -> void * {
+                    return __heap->new_atomic((size_t)bytes);
+                });
+
+                rtlib::gc_services_t services;
+                services.collect            = []() -> size_t { return __heap->collect(); };
+                services.total_memory       = []() -> size_t { return __heap->total_memory(); };
+                services.collection_count   = []() -> size_t { return __heap->collection_count(); };
+                services.weak_new           = [](void * object) -> uint64_t { return __heap->weak_new(object); };
+                services.weak_get           = [](uint64_t handle) -> void * { return __heap->weak_get(handle); };
+                services.weak_free          = [](uint64_t handle) { __heap->weak_free(handle); };
+                services.suppress_finalize  = [](void * object, bool suppress) { __heap->suppress_finalize(object, suppress); };
+                rtlib::set_gc_services(&services);
+
+                heap->set_finalizer_notify([]() {
+                    rtlib::thread_yield_requested.store(true, std::memory_order_relaxed);
+                });
+
+                rtlib::set_safepoint_hook([]() { __run_finalizers(); });
+            }
+
+            ~__gc_services_scope_t()
+            {
+                rtlib::set_safepoint_hook(nullptr);
+                __heap->set_finalizer_notify(nullptr);
+                rtlib::set_gc_services(nullptr);
+                rtlib::set_string_allocator(nullptr);
+
+                __heap = nullptr;
+                __env = nullptr;
+            }
+
+        private:
+            static inline rt_heap_t *       __heap = nullptr;
+            static inline executor_env_t *  __env = nullptr;
+
+            // Runs the destructors of the objects that the collector queued: the destructor of the class, then the ones of its
+            // base classes. A destructor runs in a context of its own (a thread host does the same); what it throws is lost.
+            static void __run_finalizers()
+            {
+                static thread_local bool running = false;
+                if (running || __heap == nullptr)
+                    return;
+
+                running = true;
+                struct __reset_t { ~__reset_t() { running = false; } } reset;
+
+                while (void * obj = __heap->take_finalizable())
+                {
+                    try
+                    {
+                        for (rt_type_t * t = *((rt_type_t **)obj - 1); t != nullptr; t = t->get_base_type(*__env))
+                        {
+                            ref_t method_ref = ref_t::null;
+                            rt_method_base_t * destructor = nullptr;
+
+                            t->each_method(*__env, [&](ref_t ref, rt_method_base_t * method_base) {
+                                rt_method_t * method = dynamic_cast<rt_method_t *>(method_base);
+                                if (method != nullptr && (*method)->trait == method_trait_t::destructor)
+                                {
+                                    method_ref = ref;
+                                    destructor = method_base;
+                                    return false;
+                                }
+
+                                return true;
+                            });
+
+                            if (destructor == nullptr)
+                                continue;
+
+                            command_creating_context_t creating_ctx(*__env, t->get_assembly(), t, destructor);
+
+                            command_t * commands[] = {
+                                new_push_ref_command(obj),
+                                new_static_call_command(creating_ctx, method_ref),
+                                new_end_command(),
+                            };
+
+                            command_execute_context_t exec_ctx(__heap, *__env);
+                            execute_commands(exec_ctx, commands);
+                        }
+                    }
+                    catch (...)
+                    {
+                        // A finalizer that fails does not stop the program.
+                    }
+                }
+            }
+        };
+
         // Runs the threads of the program: the method System.Threading.Thread.__Entry(thread) in a new context.
         class __thread_host_t : public rtlib::thread_host_t
         {
@@ -479,6 +586,9 @@ namespace X_ROOT_NS::modules::exec {
 
         // Lets the gc tell which parts of objects hold references.
         gc_type_resolver_scope_t gc_resolver_scope(__ctx.heap, env);
+
+        // The runtime library asks the collector: strings, System.GC, WeakReference, destructors.
+        __gc_services_scope_t gc_services_scope(__ctx.heap, env);
 
         env.static_heap = __ctx.heap;
         env.static_data_getter = [this](rt_type_t * type) { return env.static_data_of(type); };

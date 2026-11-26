@@ -7,8 +7,8 @@ cd "$(dirname "$0")"
 SAN="-fsanitize=address,undefined -fno-omit-frame-pointer"
 OUT="${TMPDIR:-/tmp}"
 
-g++ -std=c++20 -g -O0 $SAN -I shim -o "$OUT/april_gc_test" \
-    ../../modules/mm/gc_heap.cpp gc_test.cpp
+g++ -std=c++20 -g -O0 $SAN -I shim -I ../../include/modules -o "$OUT/april_gc_test" \
+    ../../modules/mm/gc_space.cpp ../../modules/mm/gc_heap.cpp gc_test.cpp
 g++ -std=c++20 -g -O0 $SAN -o "$OUT/april_gc_stack_test" gc_stack_test.cpp
 
 # detect_leaks=0: the tests leak the heap instances on purpose.

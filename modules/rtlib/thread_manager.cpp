@@ -800,6 +800,17 @@ namespace X_ROOT_NS::modules::rtlib {
 
     ////////// ////////// ////////// ////////// //////////
 
+    namespace
+    {
+        void (* __safepoint_hook)() = nullptr;
+    }
+
+    // A function that the thread that runs calls at the safepoint.
+    void set_safepoint_hook(void (* hook)())
+    {
+        __safepoint_hook = hook;
+    }
+
     // The slow part of the safepoint.
     void thread_safepoint()
     {
@@ -810,6 +821,14 @@ namespace X_ROOT_NS::modules::rtlib {
         {
             thread_yield_requested.store(false, std::memory_order_relaxed);
             return;
+        }
+
+        // The work of the back end between two commands. The flag was not asked by a thread that waits: it is cleared (a thread
+        // that waits asks again after its time slice).
+        if (__safepoint_hook != nullptr)
+        {
+            thread_yield_requested.store(false, std::memory_order_relaxed);
+            __safepoint_hook();
         }
 
         // The threads run in parallel: a collection asks the thread that runs to stop (the flag may be old).

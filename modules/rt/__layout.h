@@ -367,6 +367,7 @@ namespace X_ROOT_NS::modules::rt {
             rt_type_t *     type;           // Xil type.
             bool region_flag = false;       // Region flag.
             bool is_temp = false;           // A temporary variable of the compiler: it has a place of its own.
+            bool holds_ref = false;         // A string: arranged with the values, but it is a reference to the gc.
 
             msize_t offset;                 // Offset
             msize_t new_index;              // The new index.

@@ -364,6 +364,14 @@ namespace X_ROOT_NS::modules::rt {
 
         kind_t kind = kind_t::conservative;
 
+        // The words that hold references can be at any multiple of 4 bytes, not only of 8: the elements of an array
+        // of structs are as large as the struct (12 bytes for a reference and an Int32), so the reference of the
+        // second element is not aligned. The collector reads the payload by steps of 4 then.
+        bool unaligned = false;
+
+        // The objects of the type have a destructor (a finalizer): when one is not reachable, it is queued before it is freed.
+        bool finalizable = false;
+
         // Byte ranges (offset from the object start, size), kind == ranges.
         std::vector<std::pair<uint32_t, uint32_t>> ranges;
     };
@@ -390,6 +398,18 @@ namespace X_ROOT_NS::modules::rt {
         // free a memory space.
         virtual void free(void * ptr) = 0;
 
+        // Allocates a space that holds no references (the characters of a string ...): it is zeroed, a garbage
+        // collector never scans it and frees it when nothing points to it (a pointer into the space keeps it too).
+        // The space is the whole object: there is no type before it. The default is manual memory (never freed).
+        virtual void * new_atomic(size_t size)
+        {
+            void * p = alloc(size);
+            if (p != nullptr)
+                std::memset(p, 0, size);
+
+            return p;
+        }
+
         // Registers a gc root source, do nothing by default.
         virtual void add_root_source(gc_root_source_t * source) { }
 
@@ -403,6 +423,24 @@ namespace X_ROOT_NS::modules::rt {
         // Executes a garbage collection, do nothing by default.
         // Returns bytes collected.
         virtual size_t collect() { return 0; }
+
+        // The bytes of the objects that are in use (the garbage that is not collected yet included), the number of
+        // collections that were made.
+        virtual size_t total_memory() { return 0; }
+        virtual size_t collection_count() { return 0; }
+
+        // A weak reference: the handle does not keep the object alive, the object of a handle that was freed is nullptr. A
+        // handle is not 0; weak_free gives it back.
+        virtual uint64_t weak_new(void * object) { return 0; }
+        virtual void *   weak_get(uint64_t handle) { return nullptr; }
+        virtual void     weak_free(uint64_t handle) { }
+
+        // Finalizers: an object that has a destructor is queued when nothing reaches it (take_finalizable gives it, nullptr
+        // when there is none); the notify function is called, from the collector, when something is queued. The finalizer of
+        // an object is not made when it is suppressed.
+        virtual void *   take_finalizable() { return nullptr; }
+        virtual void     suppress_finalize(void * object, bool suppress) { }
+        virtual void     set_finalizer_notify(const std::function<void ()> & notify) { }
     };
 
     //-------- ---------- ---------- ---------- ----------
