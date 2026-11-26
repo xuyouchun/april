@@ -882,6 +882,47 @@ namespace X_ROOT_NS::modules::exec {
     };
 
     ////////// ////////// ////////// ////////// //////////
+    // The replacing of the commands of a method that runs (a virtual or interface call that is hot, modules/exec/parser.cpp)
+    //
+    // The first commands of a method that has a loop and virtual or interface calls (version 0) count what each call goes to. When a call has
+    // been executed many times, the commands are made again (version 1): a call that went to the same method, nearly always, has the body of
+    // that method in the commands, after a check of the object (when it is another one, the call is made). The frame of the method has
+    // the same size in both versions (the first one has a free place for the bodies), so the next call is executed in the second version at
+    // once, and the frames that run the first one pass to it when they get to a call.
+
+    class exec_method_t;
+
+    struct exec_osr_t;
+
+    // What a call that can be replaced went to.
+    struct exec_call_profile_t
+    {
+        exec_method_t *     owner = nullptr;            // The method that has the call (version 0).
+        exec_osr_t *        osr = nullptr;
+        int32_t             orig_index = -1;            // The index of the xil of the call in the method.
+        command_t *         command = nullptr;          // The command of the call (version 0).
+        rt_type_t *         type = nullptr;             // The type of the object of the first call.
+        exec_method_t *     target = nullptr;           // The method that the first call went to.
+        msize_t             this_offset = 0;            // Where the object is, from the top of the stack.
+        bool                is_delegate = false;        // The call is a call of Invoke of a delegate: the profile has the method of the delegate.
+        bool                delegate_static = false;    // The method of the delegate is a static one.
+        rt_method_base_t *  delegate_method = nullptr;  // The method that the delegate had at the first call.
+        uint32_t            hits = 0;                   // The calls of an object of the type.
+        uint32_t            misses = 0;                 // The calls of other objects.
+    };
+
+    // The data of the replacing of a method.
+    struct exec_osr_t
+    {
+        std::vector<exec_call_profile_t *>  profiles;       // For each xil of the method: the profile of its call (nullptr: it has none).
+        uint32_t                            frame_units = 0;        // The size of the frame, the same in both versions.
+        std::atomic<int>                    state { 0 };    // 0: not made, 1: it is made, 2: made, 3: it cannot be made.
+        command_t **                        commands = nullptr;     // The commands of version 1.
+        std::vector<int32_t>                command_of_xil;         // The index of the command of each xil of the method in version 1.
+        exec_method_block_manager_t *       blocks = nullptr;       // The blocks of version 1.
+    };
+
+    ////////// ////////// ////////// ////////// //////////
     // exec_method_t
 
     // Executing method.
@@ -918,14 +959,21 @@ namespace X_ROOT_NS::modules::exec {
         // that inlines it uses it (parser.cpp). The caller deletes it. nullptr for a method that has no body (dynamic).
         object_t * new_inline_parser();
 
-        // Finds block contains the specified point.
+        // Makes the second version of the commands of a method that has calls that were counted (see exec_osr_t). Returns whether it was made.
+        bool osr_upgrade();
+
+        // The data of the replacing of the commands, nullptr if the method has none.
+        exec_osr_t * osr = nullptr;
+
+        // Finds block contains the specified point (the commands of the two versions are in different arrays: the point is in one of them).
         template<method_xil_block_type_t _type, typename _f_t>
         __AlwaysInline void find_block(command_t ** point, _f_t f) _NE
         {
-            if (block_manager == nullptr)
-                return;
+            if (block_manager != nullptr)
+                block_manager->find_block<_type>(point, f);
 
-            block_manager->find_block<_type>(point, f);
+            if (osr != nullptr && osr->blocks != nullptr)
+                osr->blocks->find_block<_type>(point, f);
         }
 
         // Converts to string.

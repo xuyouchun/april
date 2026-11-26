@@ -43,6 +43,9 @@ namespace X_ROOT_NS::modules::exec {
         const fusion_plan_t *       plan = nullptr;
         uint32_t                    xil_index = 0;
 
+        // The command of a virtual or interface call that is made now is its own (not shared with the other calls): it counts the calls.
+        bool                        osr_candidate = false;
+
         msize_t ret_unit_size();                        // Returns unit size.
 
         // Converts template to a generic type. (with cache)
@@ -80,6 +83,29 @@ namespace X_ROOT_NS::modules::exec {
     // Creates the command at the beginning of a method that counts the calls (the method gets its superinstructions at the threshold).
     command_t * new_tier_command(exec_method_t * method, int threshold);
 
+    // The replacing of the commands of a method that runs (exec_osr_t): only the model that has virtual commands does it.
+    bool exec_osr_enabled();
+    int  exec_osr_threshold();
+
+    // Whether a call xil is a virtual or interface call that can be counted.
+    bool exec_osr_is_candidate(command_creating_context_t & ctx, const core::call_xil_t & xil);
+
+    // Gives the profile to the command of a call (false: the command is not a call that counts).
+    bool exec_osr_attach(command_t * command, exec_call_profile_t * profile);
+
+    // Whether a call went to the same method nearly always.
+    bool exec_osr_qualifies(const exec_call_profile_t & profile);
+
+    // The call does not count any more (the second version was not made: the calls go to many methods).
+    void exec_osr_detach(exec_call_profile_t * profile);
+
+    // The check of the object of a call: when the object is of the type that the profile saw (a delegate: has the method that it saw), the
+    // next command goes on, else the commands go step over (the call). The stack does not change.
+    command_t * new_osr_guard_command(exec_call_profile_t * profile, int step);
+
+    // Whether the body of a method is the one of Invoke of a delegate that has no struct result.
+    bool exec_osr_is_delegate_invoke(command_creating_context_t & callee_ctx, const std::vector<const core::xil_base_t *> & body);
+
     // The inlining of a call (parser.cpp makes the plan of a method, this file knows the xils and the commands): the body of the callee
     // is put in the xils of the caller, its params and variables have a place in the frame of the caller.
     struct inline_site_t
@@ -97,6 +123,7 @@ namespace X_ROOT_NS::modules::exec {
         const core::xil_base_t *        forward_xil[8] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
         bool                            is_static = false;
         bool                            check_this = false;     // The object of the call is checked for null (a class).
+        int                             delegate_mode = 0;      // A call of a delegate: 1 the method has this (the object of the delegate), 2 it is static.
         rt_type_t *                     static_type = nullptr;  // The type of a static method: it is initialized by the call.
     };
 

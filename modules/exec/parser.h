@@ -185,6 +185,9 @@ namespace X_ROOT_NS::modules::exec {
         // Parse this method. fast: with the superinstructions (nullptr when it has none).
         command_t ** parse_commands(bool fast = false);
 
+        // Makes the second version of the commands (see exec_osr_t), nullptr when nothing is changed.
+        command_t ** parse_osr(exec_osr_t * osr);
+
         // Deconstructor.
         virtual ~method_parser_t() override;
 
@@ -197,11 +200,11 @@ namespace X_ROOT_NS::modules::exec {
 
         command_t ** __parse_dynamic_commands();    // Parse dynamic commands.
         command_t ** __parse_normal_commands(bool fast);     // Parse commands.
-        command_t ** __parse_normal_commands_(bool fast);    // Parse commands.
+        command_t ** __parse_normal_commands_(bool fast, exec_osr_t * osr = nullptr);    // Parse commands.
 
         // Puts the body of the callees of the calls in the xils (the inlining): the xils, the blocks and the switch tables are changed.
         void __expand_calls(std::vector<const core::xil_base_t *> & xils, al::svector_t<core::method_xil_block_t, 10> & blocks,
-                            inline_state_t & state);
+                            inline_state_t & state, exec_osr_t * osr);
 
         executor_env_t &            __env;
         assembly_analyzer_t *       __analyzer;

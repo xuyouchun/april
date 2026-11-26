@@ -141,6 +141,9 @@ namespace X_ROOT_NS::modules::exec {
     ////////// ////////// ////////// ////////// //////////
     // The inlining of calls
 
+    // The units that the frame of a method that counts its calls has for the bodies of the second version.
+    static const msize_t __osr_spare_units = 40;
+
     // What the commands of a method need when the body of the callees is in its xils: the context of each xil, the first command of each
     // body, the places where a command must begin, and what must stay alive until the commands are made.
     struct inline_state_t
@@ -151,6 +154,20 @@ namespace X_ROOT_NS::modules::exec {
         std::deque<inline_site_t>                   sites;
         std::vector<method_parser_t *>              parsers;        // The parsers of the callees (their contexts).
         std::deque<std::vector<byte_t>>             storage;        // The xils that are made again.
+
+        // The replacing of the commands (exec_osr_t): a call that is made if the object is not the one that the profile saw.
+        struct guard_t
+        {
+            exec_call_profile_t *   profile;
+            exec_method_t *         expected;
+        };
+
+        std::deque<guard_t>                         guard_data;
+        std::vector<const guard_t *>                guards;         // For each xil: the guard that it is the command of.
+        std::vector<int32_t>                        origs;          // For each xil: the xil of the method that it is the first one of (-1: none).
+        std::vector<int32_t>                        map;            // For each xil of the method: its first xil now.
+        exec_osr_t *                                made_osr = nullptr;     // Version 0: the data that the method keeps.
+        msize_t                                     guard_units = 0;        // Version 1: the free places that the bodies have.
 
         ~inline_state_t()
         {
@@ -184,7 +201,7 @@ namespace X_ROOT_NS::modules::exec {
     }
 
     void method_parser_t::__expand_calls(std::vector<const xil_base_t *> & xils, al::svector_t<method_xil_block_t, 10> & blocks,
-                                         inline_state_t & state)
+                                         inline_state_t & state, exec_osr_t * osr_in)
     {
         const size_t count = xils.size();
 
@@ -238,8 +255,89 @@ namespace X_ROOT_NS::modules::exec {
             if (block.entry_point <= count) targets[block.entry_point] = 1;
         }
 
+        // The virtual and interface calls of a method that has a loop count what they go to (exec_osr_t): version 0 has the data, version 1
+        // is made when one of them was called many times.
+        std::vector<exec_call_profile_t *> candidates;
+
+        if (osr_in == nullptr && !__readonly && exec_osr_enabled())
+        {
+            bool has_loop = false;
+            for (size_t i = 0; i < count && !has_loop; i++)
+            {
+                if (command_of(xils[i]) != xil_command_t::jmp)
+                    continue;
+
+                const jmp_xil_t * jmp = (const jmp_xil_t *)xils[i];
+                if (jmp->model() == xil_jmp_model_t::switch_)
+                {
+                    exec_switch_table_t * table = __creating_ctx->switch_manager.get_table(jmp->tbl());
+                    for (int k = 0; table != nullptr && k < table->row_count; k++)
+                        has_loop = has_loop || table->rows[k].step < 0;
+                }
+                else
+                {
+                    has_loop = jmp->step() < 0;
+                }
+            }
+
+            if (has_loop)
+            {
+                for (size_t i = 0; i < count; i++)
+                {
+                    if (command_of(xils[i]) != xil_command_t::call)
+                        continue;
+
+                    const call_xil_t & call = *(const call_xil_t *)xils[i];
+                    msize_t delegate_this_offset = 0;
+                    bool is_delegate = false;
+
+                    if (!exec_osr_is_candidate(*__creating_ctx, call))
+                    {
+                        // A call of Invoke of a delegate (an instance call of the method that only calls the delegate).
+                        bool is_static = false;
+                        exec_method_t * invoke = inline_call_target(*__creating_ctx, call, &is_static);
+                        if (invoke == nullptr || is_static || invoke == __exec_method)
+                            continue;
+
+                        method_parser_t * parser = (method_parser_t *)invoke->new_inline_parser();
+                        if (parser == nullptr)
+                            continue;
+
+                        std::vector<const xil_base_t *> body;
+                        bool has_blocks = false;
+                        parser->read_body(&body, &has_blocks);
+
+                        is_delegate = !has_blocks && exec_osr_is_delegate_invoke(*parser->creating_context(), body);
+                        delete parser;
+
+                        if (!is_delegate)
+                            continue;
+
+                        delegate_this_offset = invoke->this_offset;
+                    }
+
+                    if (candidates.empty())
+                    {
+                        candidates.assign(count, nullptr);
+                        state.made_osr = new exec_osr_t();
+                        state.made_osr->profiles.assign(count, nullptr);
+                    }
+
+                    exec_call_profile_t * profile = new exec_call_profile_t();
+                    profile->owner = __exec_method;
+                    profile->osr = state.made_osr;
+                    profile->orig_index = (int32_t)i;
+                    profile->is_delegate = is_delegate;
+                    profile->this_offset = delegate_this_offset;
+                    candidates[i] = profile;
+                    state.made_osr->profiles[i] = profile;
+                }
+            }
+        }
+
         // The calls that are inlined: the site and the xils of the body (without the ret).
         std::vector<inline_site_t *> sites(count, nullptr);
+        std::vector<const inline_state_t::guard_t *> guarded(count, nullptr);
         std::vector<std::vector<const xil_base_t *>> bodies(count);
         std::vector<uint8_t> dropped(count, 0);
         size_t budget = 400;
@@ -248,6 +346,73 @@ namespace X_ROOT_NS::modules::exec {
         {
             if (command_of(xils[i]) != xil_command_t::call)
                 continue;
+
+            // Version 1: a call that went to the same method nearly always has the body of it, after a check of the object.
+            if (osr_in != nullptr && osr_in->profiles[i] != nullptr && exec_osr_qualifies(*osr_in->profiles[i]))
+            {
+                exec_call_profile_t * profile = osr_in->profiles[i];
+                exec_method_t * target = profile->target;
+
+                if (std::getenv("APRIL_OSR_TRACE") != nullptr)
+                    std::wcerr << L"osr: " << __exec_method->get_name() << L": call " << i << L" went to " << (target? target->get_name() : L"?")
+                               << L" " << profile->hits << L"/" << profile->misses << std::endl;
+
+                if (target == nullptr || target == __exec_method || profile->command == nullptr)
+                    continue;
+
+                method_parser_t * parser = (method_parser_t *)target->new_inline_parser();
+                if (parser == nullptr)
+                    continue;
+
+                std::vector<const xil_base_t *> body;
+                bool has_blocks = false;
+                parser->read_body(&body, &has_blocks);
+
+                command_creating_context_t * ctx = parser->creating_context();
+                const int arg_count = ctx->params_layout.count();
+                const msize_t locals_units = ctx->locals_layout.unit_size();
+                const msize_t room = __osr_spare_units - state.guard_units;     // The free places of version 0, not the ones of the other calls.
+
+                // The args that the call has: the object (the delegate) and the args of the method; a static method of a delegate does not have
+                // the object of the delegate among its params.
+                const int call_units = profile->is_delegate? arg_count + (profile->delegate_static? 1 : 0) : arg_count;
+
+                if (has_blocks || !inline_check_body(*ctx, body, __inline_max_xils()) || body.size() > budget
+                        || call_units != (int)(profile->is_delegate? profile->this_offset : target->this_offset)
+                        || locals_units + arg_count > room)
+                {
+                    delete parser;
+                    continue;
+                }
+
+                budget -= body.size();
+                state.parsers.push_back(parser);
+
+                inline_site_t & site = state.sites.emplace_back();
+                site.callee = target;
+                site.ctx = ctx;
+                site.arg_count = arg_count;
+                site.stack_args = arg_count;            // The args are pushed: the call is made when the check fails.
+                site.delegate_mode = profile->is_delegate? (profile->delegate_static? 2 : 1) : 0;
+
+                // The places are the last ones of the frame (the free ones of version 0), after the ones of the calls that are in version 0.
+                msize_t base = (osr_in->frame_units - __osr_spare_units + state.guard_units) * sizeof(rt_stack_unit_t);
+                state.guard_units += locals_units + arg_count;
+                ctx->locals_layout.set_shift(base);
+
+                for (int k = 0; k < arg_count; k++)
+                {
+                    site.arg_offsets[k] = (int32_t)(base + (locals_units + k) * sizeof(rt_stack_unit_t));
+                    site.arg_identities[k] = ctx->locals_layout.add_extra(site.arg_offsets[k], ctx->params_layout.type_at(k));
+                }
+
+                state.guard_data.push_back({ profile, target });
+                guarded[i] = &state.guard_data.back();
+                sites[i] = &site;
+                body.pop_back();                // The ret.
+                bodies[i] = std::move(body);
+                continue;
+            }
 
             bool is_static = false;
             exec_method_t * target = inline_call_target(*__creating_ctx, *(const call_xil_t *)xils[i], &is_static);
@@ -388,15 +553,48 @@ namespace X_ROOT_NS::modules::exec {
             bodies[i] = std::move(body);
         }
 
+        // Version 0 of a method that counts its calls: the frame has places for the bodies that version 1 puts in (the size is the same in
+        // both versions: a frame that runs the first one goes on in the other).
+        if (state.made_osr != nullptr)
+        {
+            if (std::getenv("APRIL_OSR_TRACE") != nullptr)
+                std::wcerr << L"osr: " << __exec_method->get_name() << L": the calls are counted" << std::endl;
+
+            __creating_ctx->locals_layout.reserve(__osr_spare_units);
+            state.made_osr->frame_units = __creating_ctx->locals_layout.unit_size();
+        }
+
         if (state.sites.empty())
+        {
+            if (!__readonly)
+                __exec_method->stack_unit_size = __creating_ctx->locals_layout.unit_size();
+
             return;
+        }
 
         // The new xils: the first command of a body (it moves the args), then the xils of it.
         std::vector<const xil_base_t *> expanded;
         std::vector<int32_t> map(count + 1, 0);
+        std::vector<size_t> extra_cuts;
 
         state.contexts.clear();
         state.enters.clear();
+        state.guards.clear();
+        state.origs.clear();
+
+        auto push_item = [&](const xil_base_t * xil, command_creating_context_t * ctx, const inline_site_t * enter,
+                             const inline_state_t::guard_t * guard, int32_t orig) {
+            expanded.push_back(xil);
+            state.contexts.push_back(ctx);
+            state.enters.push_back(enter);
+            state.guards.push_back(guard);
+            state.origs.push_back(orig);
+        };
+
+        auto push_jmp = [&](xil_jmp_model_t model, int32_t step) {
+            state.storage.emplace_back(sizeof(jmp_xil_t) + 4, 0);
+            push_item(new (state.storage.back().data()) jmp_xil_t(model, step), nullptr, nullptr, nullptr, -1);
+        };
 
         for (size_t i = 0; i < count; i++)
         {
@@ -408,29 +606,41 @@ namespace X_ROOT_NS::modules::exec {
 
             if (sites[i] == nullptr)
             {
-                expanded.push_back(xils[i]);
-                state.contexts.push_back(nullptr);
-                state.enters.push_back(nullptr);
+                push_item(xils[i], nullptr, nullptr, nullptr, (int32_t)i);
                 continue;
             }
 
             const inline_site_t & site = *sites[i];
-
-            if (site.stack_args > 0 || site.check_this || site.static_type != nullptr)
-            {
-                expanded.push_back(&__inline_enter_xil);
-                state.contexts.push_back(nullptr);
-                state.enters.push_back(sites[i]);
-            }
-
             const size_t body_size = bodies[i].size() + 1;       // With the last ret.
 
-            for (size_t k = 0; k < bodies[i].size(); k++)
+            if (guarded[i] != nullptr)
             {
-                expanded.push_back(inline_rewrite_xil(site, bodies[i][k], state.storage, k, body_size));
-                state.contexts.push_back(site.ctx);
-                state.enters.push_back(nullptr);
+                // The check (it goes to the call when the object is not of the type), the body, (a jump over the call), the call.
+                extra_cuts.push_back(expanded.size());
+                state.storage.emplace_back(sizeof(jmp_xil_t) + 4, 0);
+                push_item(new (state.storage.back().data()) jmp_xil_t(xil_jmp_model_t::false_, (int32_t)(bodies[i].size() + 3)),
+                          nullptr, nullptr, guarded[i], (int32_t)i);
+
+                push_item(&__inline_enter_xil, nullptr, &site, nullptr, -1);
+
+                for (size_t k = 0; k < bodies[i].size(); k++)
+                    push_item(inline_rewrite_xil(site, bodies[i][k], state.storage, k, body_size), site.ctx, nullptr, nullptr, -1);
+
+                extra_cuts.push_back(expanded.size());
+                push_jmp(xil_jmp_model_t::none, 2);
+
+                extra_cuts.push_back(expanded.size());
+                push_item(xils[i], nullptr, nullptr, nullptr, -1);
+
+                extra_cuts.push_back(expanded.size());
+                continue;
             }
+
+            if (site.stack_args > 0 || site.check_this || site.static_type != nullptr)
+                push_item(&__inline_enter_xil, nullptr, &site, nullptr, -1);
+
+            for (size_t k = 0; k < bodies[i].size(); k++)
+                push_item(inline_rewrite_xil(site, bodies[i][k], state.storage, k, body_size), site.ctx, nullptr, nullptr, -1);
         }
 
         map[count] = (int32_t)expanded.size();
@@ -445,6 +655,9 @@ namespace X_ROOT_NS::modules::exec {
                 state.cuts[map[i + 1]] = 1;
             }
         }
+
+        for (size_t position : extra_cuts)
+            state.cuts[position] = 1;
 
         // The jumps, the switch tables and the blocks go to the new places.
         std::set<exec_switch_table_t *> remapped;
@@ -488,6 +701,11 @@ namespace X_ROOT_NS::modules::exec {
         }
 
         xils = std::move(expanded);
+        state.map = std::move(map);
+
+        // Version 1 has the frame of version 0.
+        if (osr_in != nullptr && __creating_ctx->locals_layout.unit_size() < osr_in->frame_units)
+            __creating_ctx->locals_layout.reserve(osr_in->frame_units - __creating_ctx->locals_layout.unit_size());
 
         // The frame is bigger: the commands of the returns and the exceptions use its size (a parser that only reads gives the same size).
         if (!__readonly)
@@ -581,7 +799,12 @@ namespace X_ROOT_NS::modules::exec {
 
     // Parse method commands. fast: the method gets its superinstructions now (it was parsed without them: exec_method_t::tier_up),
     // nullptr when it has none.
-    command_t ** method_parser_t::__parse_normal_commands_(bool fast)
+    command_t ** method_parser_t::parse_osr(exec_osr_t * osr)
+    {
+        return __parse_normal_commands_(false, osr);
+    }
+
+    command_t ** method_parser_t::__parse_normal_commands_(bool fast, exec_osr_t * osr_in)
     {
         // Read xil blocks.
         al::svector_t<method_xil_block_t, 10> block_array;
@@ -598,7 +821,10 @@ namespace X_ROOT_NS::modules::exec {
         // The profile of the commands (APRIL_EXEC_PROFILE) wants a command for each xil: no superinstructions then.
         const bool profile = exec_profile_enabled();
 
-        if (exec_call_stats_on && !fast && __exec_method != nullptr)
+        // The xils of the method (the index of a xil in the method is the one that the profile of a call has).
+        const size_t orig_count = xils.size();
+
+        if (exec_call_stats_on && !fast && !osr_in && __exec_method != nullptr)
         {
             bool has_switch = false;
             for (const xil_base_t * xil : xils)
@@ -611,7 +837,7 @@ namespace X_ROOT_NS::modules::exec {
         }
 
         // The accessor of a property (it reads or writes a field of this): a call of it needs no frame.
-        if (!fast && !profile && __exec_method != nullptr)
+        if (!fast && !osr_in && !profile && __exec_method != nullptr)
         {
             analyze_trivial_method(*__creating_ctx, __exec_method, !((decorate_value_t)(*__method)->decorate).is_static,
                                    xils.data(), xils.size());
@@ -620,9 +846,48 @@ namespace X_ROOT_NS::modules::exec {
         // The calls of small methods are put in the xils (the callees are read with their own contexts: the library is the same).
         inline_state_t inline_state;
         if (!profile && __exec_method != nullptr && __inline_enabled())
-            __expand_calls(xils, block_array, inline_state);
+            __expand_calls(xils, block_array, inline_state, osr_in);
 
         const bool inlined = !inline_state.sites.empty();
+
+        // Version 1 is made when a call has the body of its method: if there is none, the first one stays.
+        if (osr_in != nullptr && inline_state.guard_data.empty())
+            return nullptr;
+
+        // The index in the method of the xil that a command begins with.
+        auto orig_of = [&](size_t i) -> int32_t {
+            return inlined? inline_state.origs[i] : (int32_t)i;
+        };
+
+        // A command of a xil of the method: a call that counts what it goes to has a command of its own.
+        auto make_command = [&](size_t i, command_creating_context_t & ctx) -> command_t * {
+            if (inlined && inline_state.enters[i] != nullptr)
+                return new_inline_enter_command(*inline_state.enters[i]);
+
+            if (inlined && inline_state.guards[i] != nullptr)
+            {
+                // The check is a jump: it goes to the call when the object is not the one that the profile saw.
+                const jmp_xil_t & jump = *(const jmp_xil_t *)xils[i];
+                int step = ctx.plan == nullptr? jump.step() - 1
+                    : (int)ctx.plan->index_map[ctx.xil_index + jump.step()] - (int)ctx.plan->index_map[ctx.xil_index] - 1;
+
+                return new_osr_guard_command(inline_state.guards[i]->profile, step);
+            }
+
+            int32_t orig = orig_of(i);
+            exec_call_profile_t * counted = (osr_in == nullptr && inline_state.made_osr != nullptr && orig >= 0)?
+                inline_state.made_osr->profiles[orig] : nullptr;
+
+            if (counted == nullptr)
+                return new_command(ctx, xils[i]);
+
+            ctx.osr_candidate = true;
+            command_t * command = new_command(ctx, xils[i]);
+            ctx.osr_candidate = false;
+
+            exec_osr_attach(command, counted);
+            return command;
+        };
 
         auto context_of = [&](size_t i) -> command_creating_context_t & {
             return inlined && inline_state.contexts[i] != nullptr? *inline_state.contexts[i] : *__creating_ctx;
@@ -647,7 +912,7 @@ namespace X_ROOT_NS::modules::exec {
             {
                 if (fast || mode == fusion_mode_t::eager || plan->has_loop)
                     fused = true;
-                else if (block_array.empty() && __exec_method != nullptr)
+                else if (block_array.empty() && __exec_method != nullptr && !osr_in)
                     tiered = true;
             }
         }
@@ -700,14 +965,9 @@ namespace X_ROOT_NS::modules::exec {
                     command = new_super_command(ctx, *plan, xils.data(), group);
                     i += group.length;
                 }
-                else if (inlined && inline_state.enters[i] != nullptr)
-                {
-                    command = new_inline_enter_command(*inline_state.enters[i]);
-                    i++;
-                }
                 else
                 {
-                    command = new_command(ctx, xils[i]);
+                    command = make_command(i, ctx);
                     i++;
                 }
 
@@ -721,8 +981,7 @@ namespace X_ROOT_NS::modules::exec {
         {
             for (size_t i = 0; i < xils.size(); i++)
             {
-                command_t * command = inlined && inline_state.enters[i] != nullptr?
-                    new_inline_enter_command(*inline_state.enters[i]) : new_command(context_of(i), xils[i]);
+                command_t * command = make_command(i, context_of(i));
 
                 _A(command != nullptr);
                 commands.push_back(command);
@@ -808,8 +1067,23 @@ namespace X_ROOT_NS::modules::exec {
             }
         }
 
-        if (!fast)
+        if (osr_in != nullptr)
+        {
+            // Version 1: the blocks are for its commands, the commands of version 1 begin at the xils that the profiles have.
+            osr_in->blocks = block_manager;
+            osr_in->command_of_xil.assign(orig_count + 1, -1);
+
+            for (size_t j = 0; j <= orig_count; j++)
+                osr_in->command_of_xil[j] = (int32_t)command_index((uint32_t)inline_state.map[j]);
+        }
+        else if (!fast)
+        {
             __exec_method->block_manager = block_manager;
+        }
+
+        // Version 0 that counts calls: the data is the method's now.
+        if (osr_in == nullptr && inline_state.made_osr != nullptr)
+            __exec_method->osr = inline_state.made_osr;
 
         if (profile)
         {

@@ -4119,8 +4119,93 @@ namespace X_ROOT_NS::modules::exec {
         _m(int8) _m(uint8) _m(int16) _m(uint16) _m(int32) _m(uint32) _m(int64) _m(uint64)   \
         _m(float_) _m(double_) _m(char_) _m(bool_) _m(object) _m(string)
 
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+    // A virtual or interface call that counts what it goes to (exec_call_profile_t).
+    class __osr_call_t
+    {
+    public:
+        exec_call_profile_t * profile = nullptr;
+
+        // Where the object of the call is, from the top of the stack.
+        virtual msize_t receiver_offset() = 0;
+    };
+
+    // Counts a call. When the call has been made many times, the second version of the commands of the method is made, and the execution
+    // goes on in it from the call (true: the call is not made, the commands are the new ones).
+    static bool __osr_record(command_execute_context_t & ctx, exec_call_profile_t * p, exec_method_t * method)
+    {
+        // The type of the object: the method is the one of the type, and the check of the second version is the type.
+        rt_type_t * type = __RtTypeOf(*(rt_ref_t *)(ctx.stack.top() - p->this_offset));
+
+        if (p->type == type)
+            p->hits++;
+        else if (p->type == nullptr)
+            p->type = type, p->target = method, p->hits = 1;
+        else
+            p->misses++;
+
+        exec_osr_t * osr = p->osr;
+        int state = osr->state.load(std::memory_order_relaxed);
+
+        if (state == 0 && p->hits + p->misses >= (uint32_t)exec_osr_threshold())
+        {
+            if (!p->owner->osr_upgrade())
+                return false;
+
+            state = 2;
+        }
+
+        if (state != 2)
+            return false;
+
+        ctx.current = osr->commands + osr->command_of_xil[p->orig_index];
+        return true;
+    }
+
+    // The call of Invoke of a delegate that counts the method that the delegate has (the same as the record of the other calls): true
+    // when the execution goes on in the second version of the commands.
+    static bool __osr_record_delegate(command_execute_context_t & ctx, exec_call_profile_t * p, rt_method_base_t * method,
+                                      exec_method_t * target, bool is_static)
+    {
+        if (p->delegate_method == method)
+            p->hits++;
+        else if (p->delegate_method == nullptr)
+            p->delegate_method = method, p->target = target, p->delegate_static = is_static, p->hits = 1;
+        else
+            p->misses++;
+
+        exec_osr_t * osr = p->osr;
+        int state = osr->state.load(std::memory_order_relaxed);
+
+        if (state == 0 && p->hits + p->misses >= (uint32_t)exec_osr_threshold())
+        {
+            if (!p->owner->osr_upgrade())
+                return false;
+
+            state = 2;
+        }
+
+        if (state != 2)
+            return false;
+
+        ctx.current = osr->commands + osr->command_of_xil[p->orig_index];
+        return true;
+    }
+
+    #define __OsrBase           , public __osr_call_t
+
+    #else
+
+    #define __OsrBase
+
+    #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
     // The call of Invoke of a delegate (kind 4): it goes to the method that the delegate has, without the frame of Invoke.
     static void __delegate_invoke_direct(command_execute_context_t & ctx, exec_method_t * invoke);
+
+    // Counts the call of a delegate (the second version of the commands may be made, and the execution goes on in it: true).
+    static bool __delegate_osr(command_execute_context_t & ctx, exec_method_t * invoke, exec_call_profile_t * profile);
 
     static void __trivial_call(command_execute_context_t & ctx, exec_method_t * method)
     {
@@ -4380,13 +4465,20 @@ namespace X_ROOT_NS::modules::exec {
     //-------- ---------- ---------- ---------- ----------
 
     template<command_value_t _cv, typename _rt_method_t>
-    class __instance_call_command_t : public __call_command_base_t<_cv, _rt_method_t>
+    class __instance_call_command_t : public __call_command_base_t<_cv, _rt_method_t> __OsrBase
     {
         typedef __instance_call_command_t                   __self_t;
         typedef __call_command_base_t<_cv, _rt_method_t>    __super_t;
 
     public:
         using __super_t::__super_t;
+
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+        // The profile of a call of a delegate has the place of the object already.
+        virtual msize_t receiver_offset() override { return 0; }
+
+        #endif
 
         __BeginExecute(ctx)
 
@@ -4408,6 +4500,12 @@ namespace X_ROOT_NS::modules::exec {
             // An accessor of a property (the method was parsed already by a call before this one).
             if (method->trivial_kind.load(std::memory_order_acquire) != 0)
             {
+                #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+                if (__This->profile != nullptr && method->trivial_kind.load(std::memory_order_relaxed) == 4
+                        && __delegate_osr(ctx, method, __This->profile))
+                    return;
+                #endif
+
                 if (exec_call_stats_on) exec_call_count(method, 5);
                 __trivial_call(ctx, method);
                 return;
@@ -4467,6 +4565,13 @@ namespace X_ROOT_NS::modules::exec {
 
                 rt_generic_method_t * rt_generic_method = (rt_generic_method_t *)method;
 
+                // A call that counts what the delegate has a command of its own.
+                if (ctx.osr_candidate)
+                {
+                    return __instance_call_command_template_t<rt_generic_method_t>::template
+                        new_command<__CallCmd_(instance, generic)>((memory_t *)&__command_heap, rt_generic_method, ctx);
+                }
+
                 return __instance_generic_call_command_manager.template
                     get_command<__CallCmd_(instance, generic)>(rt_generic_method, ctx);
 
@@ -4486,6 +4591,12 @@ namespace X_ROOT_NS::modules::exec {
                     );
 
                     return __new_instance_call_command(ctx, rt_generic_method);
+                }
+
+                if (ctx.osr_candidate)
+                {
+                    return __instance_call_command_template_t<rt_method_t>::template
+                        new_command<__CallCmd_(instance, general)>((memory_t *)&__command_heap, rt_method, ctx);
                 }
 
                 return __instance_call_command_manager.template
@@ -4593,10 +4704,11 @@ namespace X_ROOT_NS::modules::exec {
         exec_method_t * methods[max_count];
     };
 
+    // changed: the receiver that is a value was put in the stack in the place of the object.
     template<typename _fetch_t>
     __AlwaysInline exec_method_t * __get_virtual_exec_method(command_execute_context_t & ctx,
                     msize_t this_offset, rt_generic_method_t * call_site, _fetch_t fetch_func,
-                    std::atomic<__call_site_cache_t *> * cache = nullptr)
+                    std::atomic<__call_site_cache_t *> * cache = nullptr, bool * changed = nullptr)
     {
         rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - this_offset);
         if (obj == nullptr)
@@ -4666,6 +4778,9 @@ namespace X_ROOT_NS::modules::exec {
         if ((is_system_value_type(rt_vtype) || rt_vtype == vtype_t::string_)
                 && exec_method->method != nullptr && exec_method->method->get_host_type() == rt_type)
         {
+            if (changed != nullptr)
+                *changed = true;
+
             rt_stack_unit_t * slot = ctx.stack.top() - this_offset;
             rt_stack_unit_t unit = 0;
 
@@ -4690,8 +4805,9 @@ namespace X_ROOT_NS::modules::exec {
         return exec_method;
     }
 
+
     // Normal virtual call command.
-    class __virtual_call_command_t : public __command_base_t<__CallCmd(virtual_)>
+    class __virtual_call_command_t : public __command_base_t<__CallCmd(virtual_)> __OsrBase
     {
         typedef __virtual_call_command_t                __self_t;
         typedef __command_base_t<__CallCmd(virtual_)>   __super_t;
@@ -4702,16 +4818,30 @@ namespace X_ROOT_NS::modules::exec {
             : __virtual_offset(virtual_offset), __this_offset(this_offset)
             , __call_site(call_site) { }
 
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+        virtual msize_t receiver_offset() override { return __this_offset; }
+
+        #endif
+
         __BeginExecute(ctx)
 
+            bool changed = false;
             exec_method_t * method = __get_virtual_exec_method(ctx, __This->__this_offset,
                 __This->__call_site,
                 [offset=__This->__virtual_offset](rt_vtable_t * vtbl) {
                     return vtbl->functions[offset];
-                }
+                },
+                nullptr, &changed
             );
 
             __CheckNullReference(ctx, method);
+
+            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+            if (__This->profile != nullptr && !changed && __osr_record(ctx, __This->profile, method))
+                return;
+            #endif
+
             if (exec_call_stats_on) exec_call_count(method, 2);
             ctx.push_calling(method);
 
@@ -4743,7 +4873,7 @@ namespace X_ROOT_NS::modules::exec {
     };
 
     // Interface virtual call command.
-    class __interface_call_command_t : public __command_base_t<__CallCmd(interface_)>
+    class __interface_call_command_t : public __command_base_t<__CallCmd(interface_)> __OsrBase
     {
         typedef __interface_call_command_t                __self_t;
         typedef __command_base_t<__CallCmd(interface_)>   __super_t;
@@ -4755,18 +4885,31 @@ namespace X_ROOT_NS::modules::exec {
                                                 __this_offset(this_offset), __call_site(call_site)
         { }
 
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+        virtual msize_t receiver_offset() override { return __this_offset; }
+
+        #endif
+
         __BeginExecute(ctx)
 
+            bool changed = false;
             exec_method_t * method = __get_virtual_exec_method(ctx, __This->__this_offset,
                 __This->__call_site,
                 [o=__This->__virtual_offset, t=__This->__interface_type, &env=ctx.env]
                                                                         (rt_vtable_t * vtbl) {
                     return vtbl->search_vtable_interface_function(env, t, o);
                 },
-                &__This->__cache
+                &__This->__cache, &changed
             );
 
             __CheckNullReference(ctx, method);
+
+            #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+            if (__This->profile != nullptr && !changed && __osr_record(ctx, __This->profile, method))
+                return;
+            #endif
+
             if (exec_call_stats_on) exec_call_count(method, 3);
             ctx.push_calling(method);
 
@@ -4837,6 +4980,14 @@ namespace X_ROOT_NS::modules::exec {
 
             msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref, host_type);
 
+            // A call that counts what it goes to has a command of its own.
+            if (ctx.osr_candidate)
+            {
+                return __new_command<__interface_call_command_t>(
+                    (memory_t *)&__command_heap, host_type, virtual_offset, this_offset, call_site
+                );
+            }
+
             return __interface_call_command_manager.template
                 get_command<__CallCmd(interface_)>(host_type, virtual_offset, call_site,
                                                                          this_offset, ctx);
@@ -4848,6 +4999,13 @@ namespace X_ROOT_NS::modules::exec {
             >::with_args_t<msize_t, msize_t, rt_generic_method_t *> __virtual_call_command_manager;
 
             msize_t virtual_offset = ctx.get_virtual_method_offset(method_ref, host_type);
+
+            if (ctx.osr_candidate)
+            {
+                return __new_command<__virtual_call_command_t>(
+                    (memory_t *)&__command_heap, virtual_offset, this_offset, call_site
+                );
+            }
 
             return __virtual_call_command_manager.template
                 get_command<__CallCmd(virtual_)>(virtual_offset, this_offset, call_site, ctx);
@@ -5100,6 +5258,22 @@ namespace X_ROOT_NS::modules::exec {
 
         if (exec_call_stats_on) exec_call_count(target, 4);
         ctx.push_calling(target);
+    }
+
+    static bool __delegate_osr(command_execute_context_t & ctx, exec_method_t * invoke, exec_call_profile_t * profile)
+    {
+        #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+        rt_object_t * self = *(rt_object_t **)(ctx.stack.top() - invoke->this_offset);
+        rt_method_base_t * method = al::incorp_p(__Field(rt_method_base_t *, self, __delegate_method_field_offset));
+
+        return __osr_record_delegate(ctx, profile, method, ctx.env.exec_method_of(method), __is_static_method(method));
+
+        #else
+
+        return false;
+
+        #endif
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -7790,6 +7964,7 @@ namespace X_ROOT_NS::modules::exec {
     constexpr command_value_t __TierCmd          = __SuperBase + 1301;
     constexpr command_value_t __ProfileCmd       = __SuperBase + 1302;
     constexpr command_value_t __InlineEnterCmd   = __SuperBase + 1303;
+    constexpr command_value_t __OsrGuardCmd      = __SuperBase + 1304;
 
     // Runs one command (the commands of a sequence, and the one that a profile command counts).
     static void __execute_one(command_execute_context_t & ctx, command_t * command);
@@ -8737,7 +8912,7 @@ namespace X_ROOT_NS::modules::exec {
 
     public:
         __inline_enter_command_t(const inline_site_t & site)
-            : __count(site.stack_args), __check_this(site.check_this), __static_type(site.static_type)
+            : __count(site.stack_args), __check_this(site.check_this), __static_type(site.static_type), __delegate_mode(site.delegate_mode)
         {
             for (int k = 0; k < site.arg_count; k++)
                 __offsets[k] = site.arg_offsets[k];
@@ -8748,11 +8923,17 @@ namespace X_ROOT_NS::modules::exec {
             if (__This->__static_type != nullptr)
                 __This->__static_type->pre_static_call(ctx.env);
 
-            rt_stack_unit_t * args = ctx.stack.pop((size_t)__This->__count);
+            // A call of a delegate: the delegate is the first unit. The method has the object of the delegate for this, or it is static (it has
+            // no this: the delegate is dropped).
+            const int skip = __This->__delegate_mode == 2? 1 : 0;
+            rt_stack_unit_t * args = ctx.stack.pop((size_t)(__This->__count + skip));
             byte_t * frame = (byte_t *)ctx.stack.lp();
 
+            if (__This->__delegate_mode == 1)
+                args[0] = (rt_stack_unit_t)(uintptr_t)__Field(rt_object_t *, *(rt_object_t **)&args[0], __delegate_instance_field_offset);
+
             for (int k = 0; k < __This->__count; k++)
-                *(rt_stack_unit_t *)(frame + __This->__offsets[k]) = args[k];
+                *(rt_stack_unit_t *)(frame + __This->__offsets[k]) = args[k + skip];
 
             if (__This->__check_this)
             {
@@ -8766,6 +8947,7 @@ namespace X_ROOT_NS::modules::exec {
         int         __count;
         bool        __check_this;
         rt_type_t * __static_type;
+        int         __delegate_mode;
         int32_t     __offsets[8];
     };
 
@@ -8875,6 +9057,10 @@ namespace X_ROOT_NS::modules::exec {
                     if (jmp->model() == xil_jmp_model_t::switch_)
                         return false;
 
+                    // A loop is not inlined: the loop is the cost, the call is not (and its own calls are counted when it is a method).
+                    if (jmp->step() <= 0)
+                        return false;
+
                     int64_t target = (int64_t)k + jmp->step();
                     if (target < 0 || target > (int64_t)xils.size() - 1)
                         return false;
@@ -8897,6 +9083,34 @@ namespace X_ROOT_NS::modules::exec {
                     xil_new_type_t type = ((const new_xil_t *)xil)->new_type();
                     if (type != xil_new_type_t::default_ && type != xil_new_type_t::array)
                         return false;
+                }   break;
+
+                case xil_command_t::copy: {
+                    // The copies of the memory take the addresses from the stack. A generic param that is a custom struct is
+                    // returned through the address that is below the args (the frame of the callee): not here.
+                    const copy_xil_t * copy = (const copy_xil_t *)xil;
+
+                    if (copy->copy_type() == xil_copy_type_t::generic_copy)
+                    {
+                        switch (copy->copy_kind())
+                        {
+                            case xil_copy_kind_t::ret:
+                            case xil_copy_kind_t::receiver:
+                            case xil_copy_kind_t::call_ret:
+                            case xil_copy_kind_t::store:
+                                if (is_custom_struct(callee_ctx.env, callee_ctx.get_type(copy->type_ref())))
+                                    return false;
+
+                                break;
+
+                            default:
+                                return false;
+                        }
+                    }
+                    else if (copy->copy_type() != xil_copy_type_t::object_copy)
+                    {
+                        return false;
+                    }
                 }   break;
 
                 default:
@@ -8998,6 +9212,160 @@ namespace X_ROOT_NS::modules::exec {
 
         return xil;
     }
+
+    //-------- ---------- ---------- ---------- ----------
+    // The replacing of the commands of a method (exec_osr_t).
+
+    #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
+
+    bool exec_osr_enabled()
+    {
+        static const bool enabled = []() {
+            const char * value = std::getenv("APRIL_OSR");
+            return value == nullptr || std::string(value) != "0";
+        }();
+
+        return enabled;
+    }
+
+    int exec_osr_threshold()
+    {
+        static const int threshold = []() {
+            const char * value = std::getenv("APRIL_OSR_THRESHOLD");
+            int n = value != nullptr? std::atoi(value) : 0;
+            return n > 0? n : 2000;
+        }();
+
+        return threshold;
+    }
+
+    bool exec_osr_is_candidate(command_creating_context_t & ctx, const call_xil_t & xil)
+    {
+        if (xil.call_type() != xil_call_type_t::virtual_)
+            return false;
+
+        rt_method_base_t * method = ctx.get_method((ref_t)xil.method);
+        return method != nullptr && method->this_type() != rt_member_type_t::dynamic;
+    }
+
+    bool exec_osr_attach(command_t * command, exec_call_profile_t * profile)
+    {
+        __osr_call_t * call = dynamic_cast<__osr_call_t *>(command);
+        if (call == nullptr)
+            return false;
+
+        call->profile = profile;
+        profile->command = command;
+
+        if (!profile->is_delegate)
+            profile->this_offset = call->receiver_offset();
+
+        return true;
+    }
+
+    void exec_osr_detach(exec_call_profile_t * profile)
+    {
+        if (profile->command != nullptr)
+        {
+            if (__osr_call_t * call = dynamic_cast<__osr_call_t *>(profile->command))
+                call->profile = nullptr;
+        }
+    }
+
+    bool exec_osr_qualifies(const exec_call_profile_t & p)
+    {
+        // The same method for at least 95% of the calls, and almost all of the calls that were counted.
+        return p.target != nullptr && (p.type != nullptr || p.delegate_method != nullptr)
+            && p.hits >= (uint32_t)exec_osr_threshold() * 9 / 10 && p.misses * 20 <= p.hits;
+    }
+
+    // The check of the object of a call that was replaced by a body: of the type that the profile saw, the body goes on; of another one
+    // (or null), the commands go to the call.
+    class __osr_guard_command_t : public __command_base_t<__OsrGuardCmd>
+    {
+        typedef __osr_guard_command_t   __self_t;
+
+    public:
+        __osr_guard_command_t(rt_type_t * type, msize_t this_offset, int step) : __type(type), __this_offset(this_offset), __step(step) { }
+
+        __BeginExecute(ctx)
+
+            rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - __This->__this_offset);
+
+            if (obj == nullptr || __RtTypeOf(obj) != __This->__type)
+                ctx.current += __This->__step;
+
+        __EndExecute()
+
+    private:
+        rt_type_t * __type;
+        msize_t     __this_offset;
+        int         __step;
+    };
+
+    // The check of the delegate of a call of Invoke: it has the method that the profile saw.
+    class __osr_delegate_guard_command_t : public __command_base_t<__OsrGuardCmd>
+    {
+        typedef __osr_delegate_guard_command_t   __self_t;
+
+    public:
+        __osr_delegate_guard_command_t(rt_method_base_t * method, msize_t this_offset, int step)
+            : __method(method), __this_offset(this_offset), __step(step) { }
+
+        __BeginExecute(ctx)
+
+            rt_object_t * self = *(rt_object_t **)(ctx.stack.top() - __This->__this_offset);
+
+            if (self == nullptr
+                    || al::incorp_p(__Field(rt_method_base_t *, self, __delegate_method_field_offset)) != __This->__method)
+                ctx.current += __This->__step;
+
+        __EndExecute()
+
+    private:
+        rt_method_base_t *  __method;
+        msize_t             __this_offset;
+        int                 __step;
+    };
+
+    command_t * new_osr_guard_command(exec_call_profile_t * profile, int step)
+    {
+        if (profile->is_delegate)
+        {
+            return __new_command<__osr_delegate_guard_command_t>(
+                (memory_t *)&__command_heap, profile->delegate_method, profile->this_offset, step
+            );
+        }
+
+        return __new_command<__osr_guard_command_t>((memory_t *)&__command_heap, profile->type, profile->this_offset, step);
+    }
+
+    bool exec_osr_is_delegate_invoke(command_creating_context_t & callee_ctx, const std::vector<const xil_base_t *> & body)
+    {
+        if (body.size() != 2)
+            return false;
+
+        const xil_base_t * call = body[0], * ret = body[1];
+
+        return command_of(call) == xil_command_t::call
+            && ((const call_xil_t *)call)->call_type() == xil_call_type_t::command
+            && ((const call_xil_t *)call)->command == xil_call_command_t::delegate_invoke
+            && command_of(ret) == xil_command_t::smp && ((const smp_xil_t *)ret)->smp() == xil_smp_t::ret
+            && callee_ctx.ret_unit_size() <= 1 && !is_custom_struct(callee_ctx.env, callee_ctx.method->get_return_type(callee_ctx.env));
+    }
+
+    #else
+
+    bool exec_osr_enabled() { return false; }
+    int  exec_osr_threshold() { return 0; }
+    bool exec_osr_is_candidate(command_creating_context_t &, const call_xil_t &) { return false; }
+    bool exec_osr_attach(command_t *, exec_call_profile_t *) { return false; }
+    bool exec_osr_qualifies(const exec_call_profile_t &) { return false; }
+    void exec_osr_detach(exec_call_profile_t *) { }
+    command_t * new_osr_guard_command(exec_call_profile_t *, int) { X_UNEXPECTED(); }
+    bool exec_osr_is_delegate_invoke(command_creating_context_t &, const std::vector<const xil_base_t *> &) { return false; }
+
+    #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
 
     // The statistics of the calls (APRIL_CALL_STATS=1): for the choice of what the interpreter inlines.
     namespace

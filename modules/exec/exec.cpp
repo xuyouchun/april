@@ -132,6 +132,57 @@ namespace X_ROOT_NS::modules::exec {
         }
     }
 
+    // Makes the second version of the commands.
+    bool exec_method_t::osr_upgrade()
+    {
+        if (osr == nullptr || !__inline_parser_factory)
+            return false;
+
+        int expected = 0;
+        if (!osr->state.compare_exchange_strong(expected, 1))
+            return osr->state.load() == 2;
+
+        static const bool trace = std::getenv("APRIL_OSR_TRACE") != nullptr;
+
+        try
+        {
+            method_parser_t * parser = (method_parser_t *)__inline_parser_factory();
+            command_t ** commands = parser->parse_osr(osr);
+            delete parser;
+
+            if (commands != nullptr)
+            {
+                osr->commands = commands;
+                __commands = commands;          // The next calls begin in the new commands.
+                osr->state = 2;
+
+                if (trace)
+                    std::wcerr << L"osr: " << get_name() << L": the second version is made" << std::endl;
+
+                return true;
+            }
+
+            if (trace)
+                std::wcerr << L"osr: " << get_name() << L": nothing to replace" << std::endl;
+        }
+        catch (...)
+        {
+            if (trace)
+                std::wcerr << L"osr: " << get_name() << L": the parse failed" << std::endl;
+        }
+
+        // The calls go to many methods: they do not count any more.
+        osr->state = 3;
+
+        for (exec_call_profile_t * profile : osr->profiles)
+        {
+            if (profile != nullptr)
+                exec_osr_detach(profile);
+        }
+
+        return false;
+    }
+
     // Makes a parser that only reads.
     object_t * exec_method_t::new_inline_parser()
     {

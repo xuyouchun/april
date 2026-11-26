@@ -212,8 +212,7 @@ inlining of LLVM.
 **What is inlined** (`inline_check_body`): a static method or a non virtual instance method (of a class, a struct, a generic one) that
 has at most 24 xils (`APRIL_INLINE_SIZE`), no protected block, no switch, a `ret` as the last xil (others may be in the middle), params of
 one unit each (no `ref`, `out`, `params`), no struct result, and only the xils that need no frame of their own (the calls of internal
-functions, `copy`, `init`, `pick`, the stack allocations are not here: a method that returns a generic value through `copy` is not
-inlined, `List<T>` indexer is one). The jumps, loops, `if`, `throw` are in. The accessors and the empty methods are not inlined (they have their own fast call).
+functions, `copy`, `init`, `pick`, the stack allocations are not here: a `copy` of a generic non struct value is allowed). The forward jumps, `if`, `throw` are in; a loop (a backward jump) is not. The accessors and the empty methods are not inlined (they have their own fast call).
 A method that calls itself is not inlined; the calls in a body stay calls.
 
 **How**: the variables of the callee get a place in the frame of the caller, after its own variables (`locals_layout_t::reserve`,
@@ -252,25 +251,51 @@ variables, the calls inside it, an exception that it raises (the caller catches 
 callers with loops, a switch, try blocks and many calls.
 
 A method with an `if` (`Max`, `Abs`, `Clamp`, a loop) is inlined: `test/unittest/basic/inline_branches.cs`. The benchmarks do not have many
-(the result is inside the noise: `fib` is recursive, `List<T>.get_Item` returns through `copy`).
+(the result is inside the noise: `fib` is recursive; `List<T>.get_Item` is inlined now, `generic_list` 1.08x).
 
-## Virtual calls, interface calls and delegates
+## Virtual calls, interface calls and delegates (OSR: replacing the commands of a method that runs)
 
-Not inlined: the method that a virtual or interface call goes to, or a delegate calls, depends on the object, a body that is put in the
-xils must be the right one (it needs a guard on the type and a call that is made when the guard fails), and the type that is seen must come
-from a profile (the commands of a call count what they saw; the method is made again when it is hot). The first parse of a method that
-has a loop is the only one (there is no replacing of the commands of a loop that runs: `fib`, `virtual_calls` have their loop in
-`Main`, that is called once), so the profile cannot reach the loops that matter most. Two cheaper things are done:
+The method that a virtual or interface call goes to, or a delegate calls, depends on the object. A body can be put in the xils only after
+a check of the type of the object, with the call kept for the objects of other types, and the type must come from a profile. The first parse
+of a method is the only one that was made before, so the profile could not reach a loop in a method that is called once (`Main`). It is
+done now by the replacing of the commands of a method while it runs (on-stack replacement, VIRTUAL model only; the INLINE model has stubs).
+
+**The profile**: when a method has a loop and a virtual call, an interface call or a call of a delegate (`Invoke`) in it, those commands are
+made as their own copies (`command_creating_context_t::osr_candidate`: the commands are shared by key, the profile must not be) and count
+what they saw (`exec_call_profile_t`: the type of the first object, its method, hits, misses). The frame of the method has 40 spare units
+(`__osr_spare_units`), the first version of the commands does not use them.
+
+**The replacing**: a call that went 2000 times (`APRIL_OSR_THRESHOLD`) to one type, with at most 5% of other ones (`exec_osr_qualifies`)
+makes the method parse again (`exec_method_t::osr_upgrade`, `method_parser_t::parse_osr`). The second version is made by the same
+`__expand_calls`: the call is replaced by *check of the type, the body of the method, a jump over the call, the call* (the check is
+`__osr_guard_command_t`: a jump that goes to the call when the object is null or of another type; for a delegate
+`__osr_delegate_guard_command_t` checks the method that the delegate has). The commands of both versions have the same frame (the
+variables of the bodies use the spare units), the xil indexes of the first version map to the second (`exec_osr_t::command_of_xil`), and
+the loop switches to the new commands at the next backward jump (`exec_osr_t` keeps the blocks of both versions, `find_block` looks in
+both). The upgrade is done once: when it fails or finds nothing, the profiles are detached (`exec_osr_detach`) and the calls do not count
+any more (a call site with many types, as `virtual_calls`, has no cost after that).
+
+**Not done**: a method without a loop (it is made again when it is called the next time with a better profile: not done), a receiver that
+is a value type or a string, more than one upgrade, the INLINE and MANUAL models. A delegate is a struct, so there is no null delegate to
+guard.
+
+**Others**:
 
 * **The cache of an interface call**: the call looked for the function of the interface in the table of the type of the object each
   time. The command has a cache now of up to four types and the methods that they have (`__call_site_cache_t`, a cache is made again
   when a type is added, it is never changed: other threads read it; value types and strings keep the search, they need the fix of the
-  receiver). `virtual_calls` (a site that has two types): 1.4x. A virtual call has no cache (its table is a vector: two reads).
-* **Invoke of a delegate**: a call of `Invoke` (`call command delegate_invoke; ret`) is recognized as the third kind of method that
+  receiver). `virtual_calls` (a site that has two types): 1.4x.
+* **Invoke of a delegate**: a call of `Invoke` (`call command delegate_invoke; ret`) is recognized as the fourth kind of method that
   `analyze_trivial_method` finds (kind 4): the call goes to the method that the delegate has, without the frame of Invoke
-  (`__delegate_invoke_direct`: the object of the lambda takes the place of the delegate in the stack, a static method gets the args one
-  unit lower). A delegate that returns a struct keeps the frame. `lambda_loop` 1.05x; `test/unittest/basic/delegate_direct.cs`.
+  (`__delegate_invoke_direct`). `test/unittest/basic/delegate_direct.cs`.
+* **A method that returns through a generic `copy`** (`List<T>.get_Item`) is inlined (a `copy` of a non struct type and `object_copy` are
+  allowed xils). A body with a loop is not inlined (a loop in a callee hid the sites of the OSR in the loop of the caller).
 
+**What it gives**: a loop with a monomorphic interface or virtual call (`bench/monomorphic.cs`) 1.33x - 1.46x, a loop that calls a delegate
+(`bench/delegate_loop.cs`) 1.25x, `lambda_loop` 1.08x, `generic_list` 1.08x (the inlined `get_Item`), `virtual_calls` (two types: the
+upgrade is not done) 1.0x. Tests: `test/unittest/basic/osr_calls.cs` and `osr_delegates.cs` (the output is the same with `APRIL_OSR=0`);
+run the suites also with `APRIL_OSR_THRESHOLD=3` to make the replacing happen in many tests (done: eager, auto+1 and default pass).
+`APRIL_OSR=0` turns it off, `APRIL_OSR_TRACE=1` tells each upgrade.
 
 ## The models of the interpreter (EXEC_EXECUTE_MODEL)
 
