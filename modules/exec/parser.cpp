@@ -228,6 +228,13 @@ namespace X_ROOT_NS::modules::exec {
 
         // The profile of the commands (APRIL_EXEC_PROFILE) wants a command for each xil: no superinstructions then.
         const bool profile = exec_profile_enabled();
+
+        // The accessor of a property (it reads or writes a field of this): a call of it needs no frame.
+        if (!fast && !profile && __exec_method != nullptr)
+        {
+            analyze_trivial_method(*__creating_ctx, __exec_method, !((decorate_value_t)(*__method)->decorate).is_static,
+                                   xils.data(), xils.size());
+        }
         auto parse_begin = std::chrono::steady_clock::now();
 
         // The superinstructions: a plan that tells the xils that are one command. A method that has a loop gets them at once (a call

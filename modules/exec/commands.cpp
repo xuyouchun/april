@@ -4113,6 +4113,58 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // The methods that only read or write a field of this (the accessors of the properties): the call does it without a frame.
+    // kind 1: push this, push field, ret. kind 2: push value, push this, pop field, ret. See analyze_trivial_method.
+    #define __TRIVIAL_TYPES(_m)                                                             \
+        _m(int8) _m(uint8) _m(int16) _m(uint16) _m(int32) _m(uint32) _m(int64) _m(uint64)   \
+        _m(float_) _m(double_) _m(char_) _m(bool_) _m(object) _m(string)
+
+    static void __trivial_call(command_execute_context_t & ctx, exec_method_t * method)
+    {
+        byte_t * self = (byte_t *)*(rt_ref_t *)(ctx.stack.top() - method->this_offset);
+        const int32_t offset = method->trivial_offset;
+        const xil_type_t type = (xil_type_t)method->trivial_type;
+
+        if (method->trivial_kind.load(std::memory_order_relaxed) == 1)
+        {
+            // The value replaces this.
+            switch (type)
+            {
+                #define __Get(_a)                                                               \
+                    case xil_type_t::_a:                                                        \
+                        ctx.stack.replace<__vnum_t<xil_type_t::_a>>(*(__vnum_t<xil_type_t::_a> *)(self + offset)); \
+                        break;
+
+                __TRIVIAL_TYPES(__Get)
+
+                #undef __Get
+
+                default:
+                    X_UNEXPECTED();
+            }
+        }
+        else
+        {
+            // The value is at the top, this is below it.
+            switch (type)
+            {
+                #define __Set(_a)                                                               \
+                    case xil_type_t::_a: {                                                      \
+                        __vnum_t<xil_type_t::_a> value = ctx.stack.pop<__vnum_t<xil_type_t::_a>>(); \
+                        ctx.stack.pop<rt_ref_t>();                                              \
+                        *(__vnum_t<xil_type_t::_a> *)(self + offset) = value;                   \
+                    }   break;
+
+                __TRIVIAL_TYPES(__Set)
+
+                #undef __Set
+
+                default:
+                    X_UNEXPECTED();
+            }
+        }
+    }
+
     class __call_command_base_t_
     {
     public:
@@ -4332,6 +4384,13 @@ namespace X_ROOT_NS::modules::exec {
             {
                 rt_ref_t self = *(rt_ref_t *)(ctx.stack.top() - method->this_offset);
                 __CheckNullReference(ctx, self);
+            }
+
+            // An accessor of a property (the method was parsed already by a call before this one).
+            if (method->trivial_kind.load(std::memory_order_acquire) != 0)
+            {
+                __trivial_call(ctx, method);
+                return;
             }
 
             ctx.push_calling(method);
@@ -7522,7 +7581,7 @@ namespace X_ROOT_NS::modules::exec {
 
     // The values of the commands of the superinstructions: from a number that the other commands do not reach (it is checked at the end of
     // the file), by the form, the operator and the types. The switch of the INLINE model needs a value for each class.
-    constexpr command_value_t __SuperBase = 20000;
+    constexpr command_value_t __SuperBase = 7800;
 
     constexpr int __sc_type_index(xil_type_t x)
     {
@@ -7547,26 +7606,39 @@ namespace X_ROOT_NS::modules::exec {
 
     constexpr command_value_t __sc_value_binary(operator_t op, xil_type_t x1, xil_type_t x2, int tail)
     {
-        return (command_value_t)(__SuperBase + (__sc_op_index(op) * 8 + __sc_pair_index(x1, x2)) * 4 + tail);
+        return (command_value_t)(__SuperBase + (__sc_op_index(op) * 8 + __sc_pair_index(x1, x2)) * 8 + tail);
     }
 
     constexpr command_value_t __sc_value_push2(xil_type_t x1, xil_type_t x2)
     {
-        return (command_value_t)(__SuperBase + 600 + __sc_type_index(x1) * 6 + __sc_type_index(x2));
+        return (command_value_t)(__SuperBase + 1024 + __sc_type_index(x1) * 6 + __sc_type_index(x2));
     }
 
-    constexpr command_value_t __sc_value_copy(xil_type_t x)         { return (command_value_t)(__SuperBase + 700 + __sc_type_index(x)); }
-    constexpr command_value_t __sc_value_store_field(xil_type_t x)  { return (command_value_t)(__SuperBase + 900 + __sc_type_index(x)); }
-    constexpr command_value_t __sc_value_this_field(xil_type_t x)   { return (command_value_t)(__SuperBase + 950 + __sc_type_index(x)); }
+    constexpr command_value_t __sc_value_copy(xil_type_t x)         { return (command_value_t)(__SuperBase + 1100 + __sc_type_index(x)); }
+    constexpr command_value_t __sc_value_store_field(xil_type_t x)  { return (command_value_t)(__SuperBase + 1110 + __sc_type_index(x)); }
+    constexpr command_value_t __sc_value_this_field(xil_type_t x)   { return (command_value_t)(__SuperBase + 1120 + __sc_type_index(x)); }
 
     constexpr command_value_t __sc_value_convert(xil_type_t x1, xil_type_t x2)
     {
-        return (command_value_t)(__SuperBase + 800 + __sc_type_index(x1) * 6 + __sc_type_index(x2));
+        return (command_value_t)(__SuperBase + 1130 + __sc_type_index(x1) * 6 + __sc_type_index(x2));
     }
 
-    constexpr command_value_t __SuperSequenceCmd = __SuperBase + 1000;
-    constexpr command_value_t __TierCmd          = __SuperBase + 1001;
-    constexpr command_value_t __ProfileCmd       = __SuperBase + 1002;
+    // The types of the elements of the arrays that a command has.
+    constexpr int __sc_atype_index(xil_type_t x)
+    {
+        return x == xil_type_t::int8? 0 : x == xil_type_t::uint8? 1 : x == xil_type_t::int16? 2 : x == xil_type_t::uint16? 3
+             : x == xil_type_t::int32? 4 : x == xil_type_t::uint32? 5 : x == xil_type_t::int64? 6 : x == xil_type_t::uint64? 7
+             : x == xil_type_t::float_? 8 : x == xil_type_t::double_? 9 : x == xil_type_t::char_? 10 : x == xil_type_t::bool_? 11
+             : x == xil_type_t::object? 12 : 13;
+    }
+
+    constexpr command_value_t __sc_value_array_load(xil_type_t x)            { return (command_value_t)(__SuperBase + 1170 + __sc_atype_index(x)); }
+    constexpr command_value_t __sc_value_array_store(xil_type_t x, int tail) { return (command_value_t)(__SuperBase + 1190 + __sc_atype_index(x) * 2 + tail); }
+    constexpr command_value_t __sc_value_push_ret(xil_type_t x)              { return (command_value_t)(__SuperBase + 1230 + __sc_atype_index(x)); }
+
+    constexpr command_value_t __SuperSequenceCmd = __SuperBase + 1300;
+    constexpr command_value_t __TierCmd          = __SuperBase + 1301;
+    constexpr command_value_t __ProfileCmd       = __SuperBase + 1302;
 
     // Runs one command (the commands of a sequence, and the one that a profile command counts).
     static void __execute_one(command_execute_context_t & ctx, command_t * command);
@@ -7600,6 +7672,16 @@ namespace X_ROOT_NS::modules::exec {
             default:
                 return ctx.stack.pop<_v_t>();
         }
+    }
+
+    // The return of a method that returns one unit (the value is at the top of the stack): the commands of the xil ret do it.
+    __AlwaysInline static void __sc_return(command_execute_context_t & ctx, int total_unit_size)
+    {
+        __calling_stub_t * stub = ctx.stub();
+        rt_stack_unit_t * p = ctx.stack.pop(total_unit_size);
+        ctx.pop_calling(stub);
+
+        copy_array<1>(p + (total_unit_size - 1), p - 1);
     }
 
     // x OP y: the operands are locals, arguments, constants or the stack; the result is pushed (_tail 0), stored in a local variable
@@ -7660,7 +7742,7 @@ namespace X_ROOT_NS::modules::exec {
                     ctx.current += __This->__step;
                 }
             }
-            else    // stored, and a jump that always goes
+            else if constexpr (_tail == 3)    // stored, and a jump that always goes
             {
                 __SkLocal(__t1, __This->__aux) = static_cast<__t1>(r);
 
@@ -7668,6 +7750,11 @@ namespace X_ROOT_NS::modules::exec {
                     rtlib::thread_poll();
 
                 ctx.current += __This->__step;
+            }
+            else    // returned (aux is the size of the frame)
+            {
+                ctx.stack.push(r);
+                __sc_return(ctx, __This->__aux);
             }
 
         __EndExecute()
@@ -7800,6 +7887,93 @@ namespace X_ROOT_NS::modules::exec {
         int32_t         __argument, __field;
     };
 
+    // push x, ret: the value is returned.
+    template<xil_type_t _x>
+    class __sc_push_ret_t : public __command_base_t<__sc_value_push_ret(_x)>
+    {
+        typedef __sc_push_ret_t     __self_t;
+        typedef __vnum_t<_x>        __t;
+
+    public:
+        __sc_push_ret_t(const __sk_operand_t & value, int32_t total_unit_size) : __value(value), __total(total_unit_size) { }
+
+        __BeginExecute(ctx)
+
+            ctx.stack.push<__t>(__sk_get<__t>(ctx, __This->__value));
+            __sc_return(ctx, __This->__total);
+
+        __EndExecute()
+
+    private:
+        __sk_operand_t  __value;
+        int32_t         __total;
+    };
+
+    // [push index] [push array] push array_element: the element of an array of one dimension (the index and the array may be in the stack).
+    template<xil_type_t _x>
+    class __sc_array_load_t : public __command_base_t<__sc_value_array_load(_x)>
+    {
+        typedef __sc_array_load_t   __self_t;
+        typedef __vnum_t<_x>        __t;
+
+    public:
+        __sc_array_load_t(const __sk_operand_t & index, const __sk_operand_t & array) : __index(index), __array(array) { }
+
+        __BeginExecute(ctx)
+
+            // The array is on the top of the stack, the index is below it.
+            rt_ref_t array_ref = __sk_get<rt_ref_t>(ctx, __This->__array);
+            __CheckNullReference(ctx, array_ref);
+            array_length_t index = __sk_get<array_length_t>(ctx, __This->__index);
+
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
+
+            ctx.stack.push<__t>(mm::get_array_element<__t>(array_ref, index));
+
+        __EndExecute()
+
+    private:
+        __sk_operand_t  __index, __array;
+    };
+
+    // [push x] [push index] [push array] pop array_element [jmp]: _tail 1 is a jump that always goes, after the store.
+    template<xil_type_t _x, int _tail>
+    class __sc_array_store_t : public __command_base_t<__sc_value_array_store(_x, _tail)>
+    {
+        typedef __sc_array_store_t  __self_t;
+        typedef __vnum_t<_x>        __t;
+
+    public:
+        __sc_array_store_t(const __sk_operand_t & value, const __sk_operand_t & index, const __sk_operand_t & array, int32_t step)
+            : __value(value), __index(index), __array(array), __step(step) { }
+
+        __BeginExecute(ctx)
+
+            rt_ref_t array_ref = __sk_get<rt_ref_t>(ctx, __This->__array);
+            __CheckNullReference(ctx, array_ref);
+            array_length_t index = __sk_get<array_length_t>(ctx, __This->__index);
+
+            if ((uint32_t)index >= (uint32_t)mm::get_array_length(array_ref))
+                __RaiseOutOfRangeException(ctx);
+
+            mm::set_array_element<__t>(array_ref, index, __sk_get<__t>(ctx, __This->__value));
+
+            if constexpr (_tail == 1)
+            {
+                if (__This->__step < 0)
+                    rtlib::thread_poll();
+
+                ctx.current += __This->__step;
+            }
+
+        __EndExecute()
+
+    private:
+        __sk_operand_t  __value, __index, __array;
+        int32_t         __step;
+    };
+
     // The commands of a group of xils, one after the other: for a group that has a variable that the superinstruction does not know (a local
     // variable that has not the type of the xil). It is one command, as the plan says.
     class __sc_sequence_t : public __command_base_t<__SuperSequenceCmd>
@@ -7870,6 +8044,9 @@ namespace X_ROOT_NS::modules::exec {
                         return __new_command<__sc_binary_t<_op, _x1, _x2, 3>>((memory_t *)&__command_heap, a.left, a.right, a.aux, a.when, a.step);
                     else
                         return nullptr;
+
+                case 4:
+                    return __new_command<__sc_binary_t<_op, _x1, _x2, 4>>((memory_t *)&__command_heap, a.left, a.right, a.aux, a.when, a.step);
 
                 default:
                     if constexpr (__sc_is_cmp<_op>())
@@ -8005,6 +8182,65 @@ namespace X_ROOT_NS::modules::exec {
         return nullptr;
     }
 
+    #define __SC_ATYPES(_m)                                                                 \
+        _m(int8) _m(uint8) _m(int16) _m(uint16) _m(int32) _m(uint32) _m(int64) _m(uint64)   \
+        _m(float_) _m(double_) _m(char_) _m(bool_) _m(object) _m(string)
+
+    static command_t * __sc_dispatch_push_ret(xil_type_t x, const __sk_operand_t & value, int32_t total)
+    {
+        #define __SC(_a)                                                                        \
+            if (x == xil_type_t::_a)                                                            \
+                return __new_command<__sc_push_ret_t<xil_type_t::_a>>((memory_t *)&__command_heap, value, total);
+
+        __SC_ATYPES(__SC)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    // The size of the frame of the method that returns one unit, false when it does not (a struct, nothing).
+    static bool __sc_return_frame(__context_t & ctx, int32_t * total)
+    {
+        if (is_custom_struct(ctx.env, ctx.method->get_return_type(ctx.env)) || ctx.ret_unit_size() != 1)
+            return false;
+
+        *total = (int32_t)(ctx.params_layout.unit_size() + __stack_stub_size + ctx.locals_layout.unit_size());
+        return true;
+    }
+
+    static command_t * __sc_dispatch_array_load(xil_type_t x, const __sk_operand_t & index, const __sk_operand_t & array)
+    {
+        #define __SC(_a)                                                                        \
+            if (x == xil_type_t::_a)                                                            \
+                return __new_command<__sc_array_load_t<xil_type_t::_a>>((memory_t *)&__command_heap, index, array);
+
+        __SC_ATYPES(__SC)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
+    static command_t * __sc_dispatch_array_store(xil_type_t x, int tail, const __sk_operand_t & value, const __sk_operand_t & index,
+                                                 const __sk_operand_t & array, int32_t step)
+    {
+        #define __SC(_a)                                                                        \
+            if (x == xil_type_t::_a)                                                            \
+            {                                                                                   \
+                if (tail == 0)                                                                  \
+                    return __new_command<__sc_array_store_t<xil_type_t::_a, 0>>((memory_t *)&__command_heap, value, index, array, step); \
+                                                                                                \
+                return __new_command<__sc_array_store_t<xil_type_t::_a, 1>>((memory_t *)&__command_heap, value, index, array, step);     \
+            }
+
+        __SC_ATYPES(__SC)
+
+        #undef __SC
+
+        return nullptr;
+    }
+
     // Makes the operand of a push xil of a number: false when the variable has not the type of the xil.
     static bool __sk_make_operand(__context_t & ctx, const push_xil_t & push, xil_type_t want, __sk_operand_t * out)
     {
@@ -8108,6 +8344,11 @@ namespace X_ROOT_NS::modules::exec {
                     a.when = jmp.model() == xil_jmp_model_t::true_;
                     a.step = __sc_jump_step(plan, group.start + shape.tail_index, jmp);
                 }
+                else if (shape.tail == 4)
+                {
+                    if (!__sc_return_frame(ctx, &a.aux))
+                        return nullptr;
+                }
 
                 return __sc_dispatch_op(op, x1, x2, shape.tail, a);
             }
@@ -8179,6 +8420,79 @@ namespace X_ROOT_NS::modules::exec {
                     (int32_t)__field_offset(ctx, field.get_ref()));
             }
 
+            case fusion_form_t::ret_push: {
+                const push_xil_t & p = *(const push_xil_t *)x[0];
+
+                int32_t total;
+                if (!__sc_return_frame(ctx, &total))
+                    return nullptr;
+
+                // The type of the variable (the type of the return value is the one of the xil).
+                xil_type_t t1, t2;
+                if (p.stype() != xil_storage_type_t::constant)
+                {
+                    __analyze_xil_types(ctx, p, &t1, &t2, false);
+                    if (t1 != t2)
+                        return nullptr;
+                }
+
+                __sk_operand_t value;
+                if (!__sk_make_operand(ctx, p, p.dtype(), &value))
+                    return nullptr;
+
+                return __sc_dispatch_push_ret(p.dtype(), value, total);
+            }
+
+            case fusion_form_t::array_load:
+            case fusion_form_t::array_store: {
+                bool is_store = shape.form == fusion_form_t::array_store;
+
+                // The array has one dimension only (the commands of the others take an index for each one).
+                const xil_base_t * op = x[shape.op_index];
+                const push_xil_t & array_push = *(const push_xil_t *)x[shape.array_index];
+
+                xil_type_t et1, et2;
+                if (is_store)
+                {
+                    const pop_xil_t & pop = *(const pop_xil_t *)op;
+                    __analyze_xil_types(ctx, pop, &et1, &et2, false);
+                    if (__array_dimension(ctx, pop.get_ref()) != 1)
+                        return nullptr;
+                }
+                else
+                {
+                    const push_xil_t & push = *(const push_xil_t *)op;
+                    __analyze_xil_types(ctx, push, &et1, &et2, false);
+                    if (__array_dimension(ctx, push.get_ref()) != 1)
+                        return nullptr;
+                }
+
+                // The types of the element and of the value in the stack are the same (the command of the xil makes the others).
+                if (et1 != et2)
+                    return nullptr;
+
+                __sk_operand_t array, index, value;
+                if (!__sk_make_operand(ctx, array_push, xil_type_t::object, &array))
+                    return nullptr;
+
+                if (shape.index != fusion_operand_t::stack
+                        && !__sk_make_operand(ctx, *(const push_xil_t *)x[shape.index_index], xil_type_t::int32, &index))
+                    return nullptr;
+
+                if (!is_store)
+                    return __sc_dispatch_array_load(et1, index, array);
+
+                if (shape.left != fusion_operand_t::stack
+                        && !__sk_make_operand(ctx, *(const push_xil_t *)x[shape.left_index], et1, &value))
+                    return nullptr;
+
+                int32_t step = 0;
+                if (shape.tail == 1)
+                    step = __sc_jump_step(plan, group.start + shape.jump_index, *(const jmp_xil_t *)x[shape.jump_index]);
+
+                return __sc_dispatch_array_store(et1, shape.tail, value, index, array, step);
+            }
+
             default:
                 return nullptr;
         }
@@ -8207,6 +8521,103 @@ namespace X_ROOT_NS::modules::exec {
         }
 
         return __new_command<__sc_sequence_t>((memory_t *)&__command_heap, members, (size_t)group.length);
+    }
+
+    void analyze_trivial_method(command_creating_context_t & ctx, exec_method_t * method, bool is_instance,
+                                const xil_base_t * const * xils, size_t count)
+    {
+        static const bool enabled = []() {
+            const char * value = std::getenv("APRIL_INLINE_ACCESSORS");
+            return value == nullptr || std::string(value) != "0";
+        }();
+
+        if (!enabled || !is_instance || (count != 3 && count != 4))
+            return;
+
+        auto is_ret = [](const xil_base_t * xil) {
+            return command_of(xil) == xil_command_t::smp && ((const smp_xil_t *)xil)->smp() == xil_smp_t::ret;
+        };
+
+        // push argument <identity>: the type of the xil, the argument is not the bottom of the calling.
+        auto argument = [](const xil_base_t * xil, int identity, xil_type_t * type) -> bool {
+            if (command_of(xil) != xil_command_t::push)
+                return false;
+
+            const push_xil_t * push = (const push_xil_t *)xil;
+            if (push->stype() != xil_storage_type_t::argument || push->get_identity() != identity)
+                return false;
+
+            *type = push->dtype();
+            return true;
+        };
+
+        auto is_field_type = [](xil_type_t type) {
+            switch (type)
+            {
+                case xil_type_t::int8: case xil_type_t::uint8: case xil_type_t::int16: case xil_type_t::uint16:
+                case xil_type_t::int32: case xil_type_t::uint32: case xil_type_t::int64: case xil_type_t::uint64:
+                case xil_type_t::float_: case xil_type_t::double_: case xil_type_t::char_: case xil_type_t::bool_:
+                case xil_type_t::object: case xil_type_t::string:
+                    return true;
+
+                default:
+                    return false;
+            }
+        };
+
+        xil_type_t type, field_type1, field_type2;
+        uint8_t kind = 0;
+        int32_t offset = 0;
+
+        if (count == 3 && is_ret(xils[2]) && argument(xils[0], 0, &type) && type == xil_type_t::object
+                && command_of(xils[1]) == xil_command_t::push
+                && ((const push_xil_t *)xils[1])->stype() == xil_storage_type_t::field)
+        {
+            // The getter: this has the only argument, the value is returned.
+            const push_xil_t & field = *(const push_xil_t *)xils[1];
+            __analyze_xil_types(ctx, field, &field_type1, &field_type2, false);
+
+            if (field_type1 == field_type2 && field_type1 == field.dtype() && is_field_type(field_type1)
+                    && ctx.params_layout.unit_size() == 1 && ctx.ret_unit_size() == 1
+                    && !is_custom_struct(ctx.env, ctx.method->get_return_type(ctx.env)))
+            {
+                kind = 1;
+                type = field_type1;
+                offset = (int32_t)__field_offset(ctx, field.get_ref());
+            }
+        }
+        else if (count == 4 && is_ret(xils[3]) && argument(xils[0], 1, &type) && is_field_type(type)
+                && argument(xils[1], 0, &field_type1) && field_type1 == xil_type_t::object
+                && command_of(xils[2]) == xil_command_t::pop
+                && ((const pop_xil_t *)xils[2])->stype() == xil_storage_type_t::field)
+        {
+            // The setter: the value is the second argument, nothing is returned.
+            const pop_xil_t & field = *(const pop_xil_t *)xils[2];
+            __analyze_xil_types(ctx, field, &field_type1, &field_type2, false);
+
+            if (field_type1 == field_type2 && field_type1 == field.dtype() && field_type1 == type
+                    && ctx.params_layout.unit_size() == 2 && ctx.ret_unit_size() == 0)
+            {
+                kind = 2;
+                offset = (int32_t)__field_offset(ctx, field.get_ref());
+            }
+        }
+
+        if (kind == 0)
+            return;
+
+        // The type of the argument (a generic one) is the type of the field.
+        if (kind == 2)
+        {
+            xil_type_t a1, a2;
+            __analyze_xil_types(ctx, *(const push_xil_t *)xils[0], &a1, &a2, false);
+            if (a1 != type || a2 != type)
+                return;
+        }
+
+        method->trivial_type = (uint8_t)type;
+        method->trivial_offset = offset;
+        method->trivial_kind.store(kind, std::memory_order_release);
     }
 
     // The command at the beginning of a method that is not fast yet: it counts the calls, and when they are many, the method gets its
@@ -8250,6 +8661,12 @@ namespace X_ROOT_NS::modules::exec {
     command_t * new_tier_command(exec_method_t * method, int threshold)
     {
         X_UNEXPECTED();
+    }
+
+    void analyze_trivial_method(command_creating_context_t & ctx, exec_method_t * method, bool is_instance,
+                                const xil_base_t * const * xils, size_t count)
+    {
+        // Empty.
     }
 
     #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
@@ -9199,9 +9616,9 @@ namespace X_ROOT_NS::modules::exec {
             xil_storage_type_t::convert, xil_type_t::_a, xil_type_t::_b> )
 
     #define __SC_BOX(_size, _bt)                                                        \
-        __Case( __push_box_command_t<__PushBoxCmd(_size, _bt), _size, xil_box_type_t::_bt> )
+        __CaseC( __push_box_command_t<__PushBoxCmd(_size, _bt), _size, xil_box_type_t::_bt> )
     #define __SC_UNBOX(_size, _bt)                                                      \
-        __Case( __push_unbox_command_t<__PushUnboxCmd(_size, _bt), _size, xil_box_type_t::_bt> )
+        __CaseC( __push_unbox_command_t<__PushUnboxCmd(_size, _bt), _size, xil_box_type_t::_bt> )
     #define __SC_BOXES(_size)       __SC_BOX(_size, pop) __SC_BOX(_size, pick)
     #define __SC_UNBOXES(_size)     __SC_UNBOX(_size, pop) __SC_UNBOX(_size, pick)
 
@@ -9231,8 +9648,8 @@ namespace X_ROOT_NS::modules::exec {
 
     // The superinstructions: the commands of each form, operator and types that the factory can make.
     #define __SC_B(_op, _a, _b, _t)     __Case( __sc_binary_t<operator_t::_op, xil_type_t::_a, xil_type_t::_b, _t> )
-    #define __SC_ARITH(_op, _a, _b)     __SC_B(_op, _a, _b, 0) __SC_B(_op, _a, _b, 1) __SC_B(_op, _a, _b, 3)
-    #define __SC_CMP(_op, _a, _b)       __SC_B(_op, _a, _b, 0) __SC_B(_op, _a, _b, 2)
+    #define __SC_ARITH(_op, _a, _b)     __SC_B(_op, _a, _b, 0) __SC_B(_op, _a, _b, 1) __SC_B(_op, _a, _b, 3) __SC_B(_op, _a, _b, 4)
+    #define __SC_CMP(_op, _a, _b)       __SC_B(_op, _a, _b, 0) __SC_B(_op, _a, _b, 2) __SC_B(_op, _a, _b, 4)
 
     #define __SC_ALL_PAIRS(_m, _op)                                                     \
         _m(_op, int32, int32) _m(_op, uint32, uint32) _m(_op, int64, int64)             \
@@ -9256,6 +9673,9 @@ namespace X_ROOT_NS::modules::exec {
     #define __SC_STORE_FIELD(_a)    __Case( __sc_store_field_t<xil_type_t::_a> )
     #define __SC_THIS_FIELD(_a)     __Case( __sc_this_field_t<xil_type_t::_a> )
     #define __SC_X0(_m)             _m(int32) _m(uint32) _m(int64) _m(uint64) _m(float_) _m(double_)
+    #define __SC_PUSH_RET(_a)       __Case( __sc_push_ret_t<xil_type_t::_a> )
+    #define __SC_ARRAY_LOAD(_a)     __Case( __sc_array_load_t<xil_type_t::_a> )
+    #define __SC_ARRAY_STORE(_a)    __Case( __sc_array_store_t<xil_type_t::_a, 0> ) __Case( __sc_array_store_t<xil_type_t::_a, 1> )
 
     #define __SwitchCommands_Supers                                                     \
         __SC_ALL_PAIRS(__SC_ARITH, add)                                                 \
@@ -9279,9 +9699,16 @@ namespace X_ROOT_NS::modules::exec {
         __SC_X0(__SC_COPY)                                                              \
         __SC_X0(__SC_STORE_FIELD)                                                       \
         __SC_X0(__SC_THIS_FIELD)                                                        \
-        __Case( __sc_sequence_t )                                                       \
-        __Case( __tier_command_t )                                                      \
-        __Case( __profile_command_t )
+        __SC_ATYPES(__SC_PUSH_RET)                                                      \
+        __SC_ATYPES(__SC_ARRAY_LOAD)                                                    \
+        __SC_ATYPES(__SC_ARRAY_STORE)                                                   \
+        __CaseC( __sc_sequence_t )                                                       \
+        __CaseC( __tier_command_t )                                                      \
+        __CaseC( __profile_command_t )
+
+    // A command that is rare or big: the loop of the INLINE model calls it (noinline), it does not grow the loop.
+    // Everywhere else it is a plain case.
+    #define __CaseC(_t, _ts...)     __Case(_t, ##_ts)
 
     #define __BeginSwitchCommands(_cmd_value)                                           \
         switch (_cmd_value)                                                             \
@@ -9339,17 +9766,17 @@ namespace X_ROOT_NS::modules::exec {
             __SwitchCommands_CaseArrays(pick, 8)                                        \
                                                                                         \
             /* call */                                                                  \
-            __Case( __internal_call_command_t )                                         \
-            __Case( __static_call_command_t<__CallCmd_(static_, generic), rt_generic_method_t> ) \
-            __Case( __static_call_command_t<__CallCmd_(static_, general), rt_method_t> ) \
-            __Case( __instance_call_command_t<__CallCmd_(instance, generic), rt_generic_method_t> ) \
-            __Case( __instance_call_command_t<__CallCmd_(instance, general), rt_method_t> ) \
-            __Case( __instance_call_command_t<__CallCmd_(instance, dynamic), rt_dynamic_method_t> ) \
-            __Case( __virtual_call_command_t )                                          \
-            __Case( __interface_call_command_t )                                        \
-            __Case( __delegate_call_command_t<__CallCmd(delegate_init)> )               \
-            __Case( __delegate_call_command_t<__CallCmd(delegate_init_with_call_type)> ) \
-            __Case( __delegate_call_command_t<__CallCmd(delegate_invoke)> )             \
+            __CaseC( __internal_call_command_t )                                         \
+            __CaseC( __static_call_command_t<__CallCmd_(static_, generic), rt_generic_method_t> ) \
+            __CaseC( __static_call_command_t<__CallCmd_(static_, general), rt_method_t> ) \
+            __CaseC( __instance_call_command_t<__CallCmd_(instance, generic), rt_generic_method_t> ) \
+            __CaseC( __instance_call_command_t<__CallCmd_(instance, general), rt_method_t> ) \
+            __CaseC( __instance_call_command_t<__CallCmd_(instance, dynamic), rt_dynamic_method_t> ) \
+            __CaseC( __virtual_call_command_t )                                          \
+            __CaseC( __interface_call_command_t )                                        \
+            __CaseC( __delegate_call_command_t<__CallCmd(delegate_init)> )               \
+            __CaseC( __delegate_call_command_t<__CallCmd(delegate_init_with_call_type)> ) \
+            __CaseC( __delegate_call_command_t<__CallCmd(delegate_invoke)> )             \
                                                                                         \
             /* al */                                                                    \
             __SwitchCommands_CaseBinaries(al, add)                                      \
@@ -9410,12 +9837,12 @@ namespace X_ROOT_NS::modules::exec {
             __SwitchCommands_CaseBinary(cmp, not_equal, ptr, ptr)                       \
                                                                                         \
             /* cast */                                                                  \
-            __Case( __cast_command_t<__CastDefaultCmd, xil_cast_command_t::default_, false> ) \
-            __Case( __cast_command_t<__CastInterfaceCmd(default_), xil_cast_command_t::default_, true> ) \
-            __Case( __cast_command_t<__CastAsCmd, xil_cast_command_t::as, false> )      \
-            __Case( __cast_command_t<__CastInterfaceCmd(as), xil_cast_command_t::as, true> ) \
-            __Case( __cast_command_t<__CastIsCmd, xil_cast_command_t::is, false> )      \
-            __Case( __cast_command_t<__CastInterfaceCmd(is), xil_cast_command_t::is, true> ) \
+            __CaseC( __cast_command_t<__CastDefaultCmd, xil_cast_command_t::default_, false> ) \
+            __CaseC( __cast_command_t<__CastInterfaceCmd(default_), xil_cast_command_t::default_, true> ) \
+            __CaseC( __cast_command_t<__CastAsCmd, xil_cast_command_t::as, false> )      \
+            __CaseC( __cast_command_t<__CastInterfaceCmd(as), xil_cast_command_t::as, true> ) \
+            __CaseC( __cast_command_t<__CastIsCmd, xil_cast_command_t::is, false> )      \
+            __CaseC( __cast_command_t<__CastInterfaceCmd(is), xil_cast_command_t::is, true> ) \
                                                                                         \
             /* ret */                                                                   \
             __SwitchCommands_CaseRet(0)                                                 \
@@ -9426,43 +9853,43 @@ namespace X_ROOT_NS::modules::exec {
             __Case( __label_command_t )                                                 \
                                                                                         \
             /* throw */                                                                 \
-            __Case( __throw_command_t )                                                 \
-            __Case( __rethrow_command_t )                                               \
-            __Case( __end_finally_command_t )                                           \
+            __CaseC( __throw_command_t )                                                 \
+            __CaseC( __rethrow_command_t )                                               \
+            __CaseC( __end_finally_command_t )                                           \
                                                                                         \
             /* jmp */                                                                   \
             __SwitchCommands_CaseJmp(none)                                              \
             __SwitchCommands_CaseJmp(true_)                                             \
             __SwitchCommands_CaseJmp(false_)                                            \
             __SwitchCommands_CaseJmp(leave)                                             \
-            __Case( __leave_ret_command_t )                                             \
+            __CaseC( __leave_ret_command_t )                                             \
             __Case( __switch_jmp_command_t )                                            \
                                                                                         \
             /* new */                                                                   \
-            __Case( __new_command_t<xil_new_type_t::default_> )                         \
-            __Case( __new_command_t<xil_new_type_t::array> )                            \
-            __Case( __new_command_t<xil_new_type_t::stack_alloc> )                      \
+            __CaseC( __new_command_t<xil_new_type_t::default_> )                         \
+            __CaseC( __new_command_t<xil_new_type_t::array> )                            \
+            __CaseC( __new_command_t<xil_new_type_t::stack_alloc> )                      \
                                                                                         \
             /* copy */                                                                  \
             __SwitchCommands_CaseCopies(default_)                                       \
             __SwitchCommands_CaseCopies(reverse)                                        \
             __SwitchCommands_CaseCopies(zero)                                           \
-            __Case( __memory_copy_command_ex_t )                                        \
+            __CaseC( __memory_copy_command_ex_t )                                        \
                                                                                         \
             /* the commands that were not in the switch */                              \
             __SwitchCommands_Others                                                     \
             __Case( __push_object_command_t )                                           \
-            __Case( __push_thread_static_command_t )                                    \
-            __Case( __push_params_address_command_t )                                   \
-            __Case( __push_params_values_command_t )                                    \
-            __Case( __push_tuple_values_command_t )                                     \
+            __CaseC( __push_thread_static_command_t )                                    \
+            __CaseC( __push_params_address_command_t )                                   \
+            __CaseC( __push_params_values_command_t )                                    \
+            __CaseC( __push_tuple_values_command_t )                                     \
             __Case( __push_ref_command_t )                                              \
             __Case( __pop_struct_element_command_t )                                    \
-            __Case( __generic_box_command_t )                                           \
-            __Case( __generic_unbox_command_t )                                         \
-            __Case( __invoke_call_command_t )                                           \
-            __Case( __invoke_finish_command_t )                                         \
-            __Case( __reflection_invoke_command_t )                                     \
+            __CaseC( __generic_box_command_t )                                           \
+            __CaseC( __generic_unbox_command_t )                                         \
+            __CaseC( __invoke_call_command_t )                                           \
+            __CaseC( __invoke_finish_command_t )                                         \
+            __CaseC( __reflection_invoke_command_t )                                     \
                                                                                         \
             /* the superinstructions, the command that counts the calls, the profile */    \
             __SwitchCommands_Supers                                                     \
@@ -9563,6 +9990,16 @@ namespace X_ROOT_NS::modules::exec {
 
     #if EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_INLINE
 
+    // The rare and big commands are not inline in the loop.
+    template<typename _command_t>
+    #if defined __clang__ || defined __GNUC__
+    __attribute__((noinline))
+    #endif
+    static void __execute_cold(_command_t * command, command_execute_context_t & ctx)
+    {
+        command->execute(ctx);
+    }
+
     static void __execute_one(command_execute_context_t & ctx, command_t * command)
     {
         #define __Case(_t, _ts...)                                                      \
@@ -9622,6 +10059,12 @@ namespace X_ROOT_NS::modules::exec {
                     ((_t, ##_ts *)command)->execute(ctx);                                   \
                     goto __begin__;
 
+            #undef __CaseC
+            #define __CaseC(_t, _ts...)                                                     \
+                case _t, ##_ts::cmd_value:                                                  \
+                    __execute_cold((_t, ##_ts *)command, ctx);                              \
+                    goto __begin__;
+
             __BeginSwitchCommands(command->cmd_value)
 
                 case __EndCmd:
@@ -9633,6 +10076,8 @@ namespace X_ROOT_NS::modules::exec {
             __EndSwitchCommands()
 
             #undef __Case
+            #undef __CaseC
+            #define __CaseC(_t, _ts...)     __Case(_t, ##_ts)
 
             __EndExecuteCommand()
         }
@@ -9726,6 +10171,6 @@ namespace X_ROOT_NS::modules::exec {
     #undef __PrintCurrent
 
     // The values of the superinstructions are above those that the other commands got.
-    static_assert(__COUNTER__ < 20000, "the values of the commands reach those of the superinstructions (__SuperBase)");
+    static_assert(__COUNTER__ < __SuperBase, "the values of the commands reach those of the superinstructions (__SuperBase)");
 
 }   // namespace X_ROOT_NS::modules::exec

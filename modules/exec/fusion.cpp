@@ -48,7 +48,7 @@ namespace X_ROOT_NS::modules::exec {
     {
         enum class __cls_t : uint8_t
         {
-            other, push_local, push_argument, push_const, op, cmp, pop_local, jump_cond, jump, push_this, push_field, convert, pop_field,
+            other, push_local, push_argument, push_const, op, cmp, pop_local, jump_cond, jump, push_this, push_field, convert, pop_field, ret,
         };
 
         struct __item_t
@@ -194,11 +194,149 @@ namespace X_ROOT_NS::modules::exec {
                         item.cls = __cls_t::jump;
                 }   break;
 
+                case xil_command_t::smp:
+                    if (((const smp_xil_t *)xil)->smp() == xil_smp_t::ret)
+                        item.cls = __cls_t::ret;
+                    break;
+
                 default:
                     break;
             }
 
             return item;
+        }
+
+        // The types of the elements of the arrays that a command has.
+        bool __is_element_type(xil_type_t type)
+        {
+            switch (type)
+            {
+                case xil_type_t::int8: case xil_type_t::uint8: case xil_type_t::int16: case xil_type_t::uint16:
+                case xil_type_t::int32: case xil_type_t::uint32: case xil_type_t::int64: case xil_type_t::uint64:
+                case xil_type_t::float_: case xil_type_t::double_: case xil_type_t::char_: case xil_type_t::bool_:
+                case xil_type_t::object: case xil_type_t::string:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        // A push of a local variable, an argument, or (when it is a number or a boolean) a constant: the operand of a command of an array.
+        // The type of the xil is returned; whether the variable has it is checked when the command is made.
+        bool __array_operand(const xil_base_t * xil, bool allow_constant, fusion_operand_t * kind, xil_type_t * type)
+        {
+            if (command_of(xil) != xil_command_t::push)
+                return false;
+
+            const push_xil_t * push = (const push_xil_t *)xil;
+            switch (push->stype())
+            {
+                case xil_storage_type_t::local:
+                    *kind = fusion_operand_t::local;
+                    break;
+
+                case xil_storage_type_t::argument:
+                    if (push->get_identity() == XIL_CALLING_BOTTOM_IDENTITY)
+                        return false;
+
+                    *kind = fusion_operand_t::argument;
+                    break;
+
+                case xil_storage_type_t::constant:
+                    if (!allow_constant || push->dtype() == xil_type_t::object || push->dtype() == xil_type_t::string)
+                        return false;
+
+                    *kind = fusion_operand_t::constant;
+                    break;
+
+                default:
+                    return false;
+            }
+
+            *type = push->dtype();
+            return __is_element_type(*type);
+        }
+
+        // [value] [index] [array] push|pop array_element [jmp]: the operands that are next to the command are in it, the others are in the stack.
+        // The value (of a store) needs the index, and the index needs the array: the order of the stack.
+        bool __match_array(const xil_base_t * const * xils, size_t limit, fusion_shape_t * shape)
+        {
+            for (size_t p = 3; p >= 1; p--)
+            {
+                if (p + 1 > limit || (command_of(xils[p]) != xil_command_t::push && command_of(xils[p]) != xil_command_t::pop))
+                    continue;
+
+                bool is_store = command_of(xils[p]) == xil_command_t::pop;
+                xil_type_t element;
+
+                if (is_store)
+                {
+                    const pop_xil_t * pop = (const pop_xil_t *)xils[p];
+                    if (pop->stype() != xil_storage_type_t::array_element)
+                        continue;
+
+                    element = pop->dtype();
+                }
+                else
+                {
+                    const push_xil_t * push = (const push_xil_t *)xils[p];
+                    if (push->stype() != xil_storage_type_t::array_element || p == 3)
+                        continue;
+
+                    element = push->dtype();
+                }
+
+                if (!__is_element_type(element))
+                    continue;
+
+                fusion_operand_t kind;
+                xil_type_t type;
+
+                // The array: a local variable or an argument.
+                if (!__array_operand(xils[p - 1], false, &kind, &type) || type != xil_type_t::object)
+                    continue;
+
+                fusion_shape_t found;
+                found.array = kind;
+                found.array_index = (int8_t)(p - 1);
+
+                if (p >= 2)
+                {
+                    if (!__array_operand(xils[p - 2], true, &kind, &type) || type != xil_type_t::int32)
+                        continue;
+
+                    found.index = kind;
+                    found.index_index = (int8_t)(p - 2);
+                }
+
+                if (p == 3)
+                {
+                    if (!__array_operand(xils[p - 3], true, &kind, &type) || type != element)
+                        continue;
+
+                    found.left = kind;
+                    found.left_index = (int8_t)(p - 3);
+                }
+
+                found.form = is_store? fusion_form_t::array_store : fusion_form_t::array_load;
+                found.op_index = (int8_t)p;
+                found.length = (uint8_t)(p + 1);
+
+                // A jump that always goes, after a store (the end of a loop).
+                if (is_store && p + 2 <= limit && command_of(xils[p + 1]) == xil_command_t::jmp
+                        && ((const jmp_xil_t *)xils[p + 1])->model() == xil_jmp_model_t::none)
+                {
+                    found.jump_index = (int8_t)(p + 1);
+                    found.tail = 1;
+                    found.length = (uint8_t)(p + 2);
+                }
+
+                *shape = found;
+                return true;
+            }
+
+            return false;
         }
 
         bool __is_operand(__cls_t cls)
@@ -224,6 +362,9 @@ namespace X_ROOT_NS::modules::exec {
         size_t count = std::min<size_t>(limit, fusion_max_length);
         for (size_t k = 0; k < count; k++)
             items[k] = __classify(xils[k]);
+
+        if (__match_array(xils, limit, shape))
+            return true;
 
         auto is_op = [&](size_t k) { return k < count && (items[k].cls == __cls_t::op || items[k].cls == __cls_t::cmp); };
         auto operand = [&](size_t k) { return k < count && __is_operand(items[k].cls); };
@@ -264,6 +405,12 @@ namespace X_ROOT_NS::modules::exec {
                 if (op.cls != __cls_t::cmp || items[k].cls != __cls_t::jump_cond)
                     return false;
             }
+            else if (tail == 4)
+            {
+                // The result is returned.
+                if (items[k].cls != __cls_t::ret)
+                    return false;
+            }
 
             shape->form = fusion_form_t::binary;
             shape->length = (uint8_t)total;
@@ -286,13 +433,14 @@ namespace X_ROOT_NS::modules::exec {
 
         if (limit >= 4)
         {
-            if (binary(true, true, 4, 1) || binary(true, true, 4, 2) || binary(false, true, 4, 3))
+            if (binary(true, true, 4, 1) || binary(true, true, 4, 2) || binary(false, true, 4, 3) || binary(true, true, 4, 4))
                 return true;
         }
 
         if (limit >= 3)
         {
-            if (binary(true, true, 3, 0) || binary(false, true, 3, 1) || binary(false, true, 3, 2) || binary(false, false, 3, 3))
+            if (binary(true, true, 3, 0) || binary(false, true, 3, 1) || binary(false, true, 3, 2) || binary(false, false, 3, 3)
+                    || binary(false, true, 3, 4))
                 return true;
 
             // push x, push this, pop field: this.Field = x
@@ -310,8 +458,22 @@ namespace X_ROOT_NS::modules::exec {
 
         if (limit >= 2)
         {
-            if (binary(false, false, 2, 1) || binary(false, false, 2, 2) || binary(false, true, 2, 0))
+            if (binary(false, false, 2, 1) || binary(false, false, 2, 2) || binary(false, true, 2, 0) || binary(false, false, 2, 4))
                 return true;
+
+            // push x, ret: the value is returned
+            {
+                fusion_operand_t kind;
+                xil_type_t type;
+                if (__array_operand(xils[0], true, &kind, &type) && items[1].cls == __cls_t::ret)
+                {
+                    shape->form = fusion_form_t::ret_push;
+                    shape->length = 2;
+                    shape->left = kind;
+                    shape->left_index = 0;
+                    return true;
+                }
+            }
 
             // push x, push y
             if (operand(0) && operand(1))

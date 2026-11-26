@@ -79,6 +79,10 @@ namespace X_ROOT_NS::modules::exec {
     // Creates the command at the beginning of a method that counts the calls (the method gets its superinstructions at the threshold).
     command_t * new_tier_command(exec_method_t * method, int threshold);
 
+    // Finds out whether a method only reads or writes a field of this (the accessor of a property), the call of it needs no frame then.
+    void analyze_trivial_method(command_creating_context_t & ctx, exec_method_t * method, bool is_instance,
+                                const core::xil_base_t * const * xils, size_t count);
+
     // Creates the command that pushes a reference.
     command_t * new_push_ref_command(void * ref);
 

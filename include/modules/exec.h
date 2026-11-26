@@ -939,6 +939,12 @@ namespace X_ROOT_NS::modules::exec {
         msize_t     gc_value_begin = 0;
         msize_t     gc_value_end   = 0;
 
+        // A method that only reads (1) or writes (2) a field of this, the accessor of a property: the call of it is done without a frame
+        // (commands.cpp, analyze_trivial_method). It is set when the commands of the method are made; 0 before that.
+        std::atomic<uint8_t> trivial_kind { 0 };
+        uint8_t              trivial_type = 0;      // The xil type of the field.
+        int32_t              trivial_offset = 0;    // The offset of the field.
+
     private:
         // Commands.
         union

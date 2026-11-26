@@ -33,6 +33,9 @@ namespace X_ROOT_NS::modules::exec {
         this_field,     // push argument this, push field
         convert,        // push x, convert
         store_field,    // [push x] push argument this, pop field
+        array_load,     // [push index] [push array] push array_element
+        array_store,    // [push x] [push index] [push array] pop array_element [jmp]
+        ret_push,       // push x, ret
     };
 
     // What a matcher found at a place of the xils.
@@ -44,7 +47,12 @@ namespace X_ROOT_NS::modules::exec {
         // Binary: where the operands are (an index in the group, -1 when it is the stack), the xil of the operation, the tail.
         fusion_operand_t    left = fusion_operand_t::stack, right = fusion_operand_t::stack;
         int8_t              left_index = -1, right_index = -1, op_index = -1, tail_index = -1, jump_index = -1;
-        uint8_t             tail = 0;           // 0: the result is pushed, 1: it is stored in a local, 2: a jump, 3: stored, and a jump.
+        uint8_t             tail = 0;           // 0: the result is pushed, 1: it is stored in a local, 2: a jump, 3: stored, and a jump, 4: returned.
+
+        // Arrays: the operands of the index and of the array (left is the value that a store writes), and where their xils are.
+        // A xil that is the operand of an array command may have any type (a boolean, a character, an object), as the matcher says.
+        fusion_operand_t    index = fusion_operand_t::stack, array = fusion_operand_t::stack;
+        int8_t              index_index = -1, array_index = -1;
     };
 
     // Finds the longest superinstruction at the beginning of the xils: at most max_length of them.

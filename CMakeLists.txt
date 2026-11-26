@@ -254,6 +254,16 @@ set(APRIL_MODULE_LIBS
 # of symbols of templates, it exports only execute), the native back end (native).
 target_compile_definitions(exec_objects PRIVATE APRIL_EXEC_BUILD)
 
+# Profile guided optimization of the interpreter (the loop of the commands is one big function; docs/xil.md):
+#   -DAPRIL_EXEC_PGO=gen              a library that writes a profile when the process ends (LLVM_PROFILE_FILE=<file>.profraw)
+#   -DAPRIL_EXEC_PGO=<file>.profdata  a library that is built with the merged profile (llvm-profdata merge -o <file>.profdata *.profraw)
+set(APRIL_EXEC_PGO "" CACHE STRING "PGO of the interpreter: gen, or the path of a .profdata file")
+if(APRIL_EXEC_PGO STREQUAL "gen")
+    target_compile_options(exec_objects PRIVATE -fprofile-instr-generate)
+elseif(NOT APRIL_EXEC_PGO STREQUAL "")
+    target_compile_options(exec_objects PRIVATE -fprofile-instr-use=${APRIL_EXEC_PGO} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date)
+endif()
+
 if(APRIL_SHARED_MODULES)
     function(april_add_shared NAME)
         set(__objects "")
@@ -279,6 +289,9 @@ if(APRIL_SHARED_MODULES)
     april_add_shared(april_runtime  rt rtlib)
 
     april_add_shared(april_exec     exec)
+    if(APRIL_EXEC_PGO STREQUAL "gen")
+        target_link_options(april_exec PRIVATE -fprofile-instr-generate)
+    endif()
     april_add_shared(april_native   native)
 
     target_link_libraries(april_compiler PUBLIC april_base)

@@ -85,7 +85,9 @@ and the xil count of `tools/xil_corpus.py` goes down.
 
 Superinstructions in the interpreter (the pairs of `APRIL_XIL_STATS=2` show the sequences: `push local; push constant; add; pop local`,
 compare and jump); inlining of the small methods (getters, indexers, `Nullable.HasValue`); the temporaries that the lowering makes
-(`switch`, `with`, exception filters) could share places; dataflow over the locals (copy propagation, dead stores); escape analysis of
+(`switch`, `with`, exception filters) could share places; dataflow over the locals (copy propagation, dead stores: measured on the xils
+of 120 programs (29438 xils, 1170 methods), a `pop local x` followed by a `push local x` is 1.5% of them, a local that is written and never
+read 0.2%, a local that is written once and read once 1% of the locals: not worth a pass); escape analysis of
 the cells of lambdas and of boxed values. Each one needs the tools above first: measure with `bench/`, then check with the suites.
 
 ## Profile of the commands (APRIL_EXEC_PROFILE=1)
@@ -140,6 +142,13 @@ instances of a generic method share it (a cache keyed by the xils).
 | convert | `push x, convert` |
 | this_field | `push argument (object), push field` |
 | store_field | `[push x] push argument (object), pop field` |
+| array_load | `[push index] [push array] push array_element`: one dimension, any type of element (numbers, boolean, char, objects, strings). The index is a local, an argument or a constant, the array a local or an argument; one or both can be the stack |
+| array_store | `[push x] [push index] [push array] pop array_element [jmp]`: as above, the value x can be a constant too; the jump is the one that ends a loop |
+| ret_push | `push x, ret` (a method that returns one unit) |
+
+The binary form has one more tail: the result is returned (`[x] [y] OP ret`), with the same operations and compares as above. The array
+commands raise the null reference and the out of range exceptions as the commands of the xils do (the same index of command, the same
+blocks). The size of the frame of `ret` is in the command, a method that returns a struct or nothing keeps its commands.
 
 The division raises the exceptions of the command of the operation (DivideByZero, Overflow) and an exception of a command is told with
 the index of that command, so the blocks find it. A jump that goes back gives the other threads their turn, as the jump command does.
@@ -167,8 +176,28 @@ first call, while the other threads call it), and with the passes of the xils on
 form, the types, the jumps into a loop, the division and its exceptions, a loop in a try block, the threads, and the methods that get
 their commands after the threshold. The time is not a test, a change of it must be seen with `tools/bench.py`.
 
-Ideas not done: the commands of arrays (`push array_element`, `pop array_element`), of the calls (`push x ... call`), `ret` after an
-operation, the fields of other objects than this (the check of null is the part to keep).
+**Measured when the arrays and `ret` were added** (`eager`, 5 rounds): `array_sieve` 1.25x, `field_access` and `string_build` 1.1x (noise
+or arrays of characters), `fib` and `virtual_calls` 1.05x from `ret`; the others are inside the noise of the measure (about 4%).
+
+Ideas not done: the commands of the calls (`push x ... call`): the call and the return are most of the cost of a call, and joining the
+pushes saves one dispatch of about four; the fields of other objects than this (the check of null is the part to keep).
+
+## The accessors of the properties (`analyze_trivial_method`)
+
+A method that only reads a field of this (`push argument this, push field, ret`) or writes one (`push argument value, push argument
+this, pop field, ret`) is a getter or a setter: the command of a call of it (`call instance`, a non virtual call, of a class or a struct,
+generic or not) does the access itself and makes no frame (`__trivial_call` in `commands.cpp`; the frame, the safepoint of the call and
+the return are not needed). The parser finds out what a method is when it makes its commands (`exec_method_t::trivial_kind`, the type
+and the offset of the field), so the first call of a method is a real call and the next ones are not; the null object of a class is
+still checked by the command of the call. A property that does more than the access, a virtual or an interface method, a method that
+returns a struct are real calls. `APRIL_INLINE_ACCESSORS=0` turns it off. `bench/accessors.cs` (properties in a loop of 20 million
+rounds): 1.6x without the superinstructions and 1.3x with them; the other benchmarks do not use accessors much (inside the noise).
+`test/unittest/basic/inline_accessors.cs` has every type of field, a struct, a generic class, a property that does more, an override,
+the null object, and the calls that come before and after the method is parsed.
+
+Not done: the inlining of the other small methods (a general one needs the callee's xils in the frame of the caller: the refs of
+another assembly, new locals, the blocks); a pattern of the method, as the accessors, is cheap, a general one is not.
+
 
 ## The models of the interpreter (EXEC_EXECUTE_MODEL)
 
@@ -183,7 +212,7 @@ operation, the fields of other objects than this (the check of null is the part 
 INLINE was not kept up and could not be built; it is complete now and passes the test suites (512 tests with the superinstructions off,
 `eager`, and `auto` with a threshold of 1). What was missing: the cases of the pointers (`ptr_content`), of the boxes, of `init`, of the
 array element addresses, of the casts to an interface (two classes had one value: the cast to an interface has its own values now), of
-the delegates (`<` missing), of the commands of the reflection and of the profile; the superinstructions have values from 20000
+the delegates (`<` missing), of the commands of the reflection and of the profile; the superinstructions have values from 7800
 (`__SuperBase`, checked by a `static_assert` at the end of `commands.cpp`) and are in the switch (`__SwitchCommands_Supers`). A terminal
 exception can go out of a command now (the commands are not `noexcept`), the loop catches it as the other models do.
 
@@ -204,3 +233,27 @@ By program: without superinstructions INLINE is slower in all of them (0.90x - 0
 code of the loop of INLINE is one function with all the commands in it (the library `april_exec` is 12 MB, VIRTUAL has 15 MB): the
 register allocation of a function of that size is worse, and the jump of a `switch` is as dear as the call of a virtual function. It
 is not worth to change the default; the superinstructions give much more (1.4x - 2.1x) than the model.
+
+**Speeding up INLINE** (the disassembly of `__execute_commands` with `llvm-objdump`, then the same programs; the noise of the
+measure is about 4%):
+
+* *The values of the commands in order*: they are in order already (`__COUNTER__`: 0 - 7790, 99.9% used). The gap was the
+  superinstructions at 20000: the table of the `switch` had 21003 entries (84 KB), 8138 used. `__SuperBase` is 7800 now (the
+  `static_assert` at the end keeps it above the other values). No change in the time (+2% / -4%, the noise); the library is smaller.
+* *The rare and big commands out of the loop* (done): the calls, casts, throw, new, boxes, reflection, `tier`/`profile`/sequence
+  cases are `__CaseC` in the lists; the loop calls them through `__execute_cold` (noinline), the other models take them as a plain
+  `__Case`. The spills of the loop went away: the references to the slots of the stack of the function fell from about 7000 to 16 and
+  the pointers to the stack of the execution, the table of the switch, are in registers. 5% faster without superinstructions, 3% with
+  them. Now INLINE / VIRTUAL is about 1.0x without them and 1.04x - 1.08x with them (three programs, `field_access`, `struct_math`, are
+  still slower than VIRTUAL).
+* *A threaded loop* (tried, not kept): each case ends with its own `goto *table[cmd_value]` (the table of the addresses of the
+  labels is filled by a first call of the function). The result was inside the noise (3% faster without superinstructions, 2%
+  slower with them) and the code had labels made with `__COUNTER__`: it was taken back.
+* *PGO* (the library built with the profile of the benchmarks and of a third of the tests; `-DAPRIL_EXEC_PGO=gen` makes a library
+  that writes `LLVM_PROFILE_FILE`, `llvm-profdata merge`, then `-DAPRIL_EXEC_PGO=<file>.profdata`): VIRTUAL, the 9+1 programs of `bench/`: 1.12x
+  without the superinstructions (`virtual_calls` 1.44x, `array_sieve` 1.21x), 0.98x with them (`auto`, the default mode): not worth a
+  build step. INLINE (one big function) may profit more; it was not tried.
+* *Not done*: the pointer of the current command and the top of the stack in local variables. The commands that raise a managed
+  exception change `ctx.current` (the handler of the catch) and return, so the local one must be read again after each command
+  that can raise: the check costs about what it saves. PGO, and the commands of arrays/calls/`ret` as superinstructions, are the
+  other ideas.
