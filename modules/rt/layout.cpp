@@ -782,15 +782,31 @@ namespace X_ROOT_NS::modules::rt {
     // Returns offset of local variable identity.
     msize_t locals_layout_t::offset_of(int identity)
     {
+        if (identity >= extra_base)
+        {
+            if (identity - extra_base >= (int)__extras.size())
+                throw __RtAssemblyError(_T("local identity out of range"));
+
+            return __extras[identity - extra_base].first;
+        }
+
         if (identity >= __items.size())
             throw __RtAssemblyError(_T("local identity out of range"));
 
-        return __items[identity].offset;
+        return __items[identity].offset + __shift;
     }
 
     // Returns type of local variable identity.
     rt_type_t * locals_layout_t::type_at(int identity)
     {
+        if (identity >= extra_base)
+        {
+            if (identity - extra_base >= (int)__extras.size())
+                throw __RtAssemblyError(_T("local identity out of range"));
+
+            return __extras[identity - extra_base].second;
+        }
+
         if (identity >= __items.size())
             throw __RtAssemblyError(_T("local identity out of range"));
 

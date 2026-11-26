@@ -4119,8 +4119,24 @@ namespace X_ROOT_NS::modules::exec {
         _m(int8) _m(uint8) _m(int16) _m(uint16) _m(int32) _m(uint32) _m(int64) _m(uint64)   \
         _m(float_) _m(double_) _m(char_) _m(bool_) _m(object) _m(string)
 
+    // The call of Invoke of a delegate (kind 4): it goes to the method that the delegate has, without the frame of Invoke.
+    static void __delegate_invoke_direct(command_execute_context_t & ctx, exec_method_t * invoke);
+
     static void __trivial_call(command_execute_context_t & ctx, exec_method_t * method)
     {
+        if (method->trivial_kind.load(std::memory_order_relaxed) == 4)
+        {
+            __delegate_invoke_direct(ctx, method);
+            return;
+        }
+
+        // A method that does nothing (the constructor of Object, and those that only call one): this is popped.
+        if (method->trivial_kind.load(std::memory_order_relaxed) == 3)
+        {
+            ctx.stack.pop<rt_ref_t>();
+            return;
+        }
+
         byte_t * self = (byte_t *)*(rt_ref_t *)(ctx.stack.top() - method->this_offset);
         const int32_t offset = method->trivial_offset;
         const xil_type_t type = (xil_type_t)method->trivial_type;
@@ -4164,6 +4180,8 @@ namespace X_ROOT_NS::modules::exec {
             }
         }
     }
+
+    bool exec_call_stats_on = std::getenv("APRIL_CALL_STATS") != nullptr;
 
     class __call_command_base_t_
     {
@@ -4244,6 +4262,7 @@ namespace X_ROOT_NS::modules::exec {
             __pre_static_call(ctx, __This->get_type());
 
             exec_method_t * method = __This->__get_method(ctx);
+            if (exec_call_stats_on) exec_call_count(method, 0);
             ctx.push_calling(method);
 
         __EndExecute()
@@ -4389,10 +4408,12 @@ namespace X_ROOT_NS::modules::exec {
             // An accessor of a property (the method was parsed already by a call before this one).
             if (method->trivial_kind.load(std::memory_order_acquire) != 0)
             {
+                if (exec_call_stats_on) exec_call_count(method, 5);
                 __trivial_call(ctx, method);
                 return;
             }
 
+            if (exec_call_stats_on) exec_call_count(method, 1);
             ctx.push_calling(method);
 
         __EndExecute()
@@ -4498,6 +4519,52 @@ namespace X_ROOT_NS::modules::exec {
         return __new_instance_call_command(ctx, method);
     }
 
+    // The method that a call of a static method goes to (nullptr for the ones that the call command resolves by itself).
+    static exec_method_t * __static_call_target(__context_t & ctx, const call_xil_t & xil)
+    {
+        ref_t method_ref = (ref_t)xil.method;
+
+        // A generic method of a generic param (constrained) is resolved to the method of the type that it is: not inlined.
+        if ((mt_member_extra_t)method_ref.extra != mt_member_extra_t::import
+                && (mt_member_extra_t)method_ref.extra != mt_member_extra_t::internal)
+            return nullptr;
+
+        rt_method_t * rt_method = _M(rt_method_t *, ctx.get_method(method_ref));
+        if (rt_method == nullptr)
+            return nullptr;
+
+        if (__is_current_template(ctx, rt_method->host_type))
+            return ctx.env.exec_method_of(ctx.to_generic_method(rt_method, ctx.type));
+
+        return ctx.env.exec_method_of(rt_method);
+    }
+
+    // The method that a call of an instance method goes to (the one that __new_instance_call_command makes the command for).
+    static exec_method_t * __instance_call_target(__context_t & ctx, const call_xil_t & xil)
+    {
+        rt_method_base_t * method = ctx.get_method((ref_t)xil.method);
+        if (method == nullptr)
+            return nullptr;
+
+        switch (method->this_type())
+        {
+            case rt_member_type_t::generic:
+                return ctx.env.exec_method_of((rt_generic_method_t *)method);
+
+            case rt_member_type_t::general: {
+                rt_method_t * rt_method = (rt_method_t *)method;
+
+                if (__is_current_template(ctx, rt_method->host_type))
+                    return ctx.env.exec_method_of(ctx.to_generic_method(rt_method, ctx.type));
+
+                return ctx.env.exec_method_of(rt_method);
+            }
+
+            default:
+                return nullptr;
+        }
+    }
+
     //-------- ---------- ---------- ---------- ----------
 
     assembly_analyzer_t __assembly_analyzer(command_execute_context_t & ctx,
@@ -4514,15 +4581,43 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    // The cache of a call site (an interface call: the search of the function of the interface in the table of the type is made each time):
+    // the types of the objects that were seen (up to four) and the method that each one has. A cache never changes once it is seen by
+    // other threads: a new type makes a new cache (the old one is left, it is read by the threads that have it), at most four times.
+    struct __call_site_cache_t
+    {
+        static const int max_count = 4;
+
+        int             count = 0;
+        rt_type_t *     types[max_count];
+        exec_method_t * methods[max_count];
+    };
+
     template<typename _fetch_t>
     __AlwaysInline exec_method_t * __get_virtual_exec_method(command_execute_context_t & ctx,
-                    msize_t this_offset, rt_generic_method_t * call_site, _fetch_t fetch_func)
+                    msize_t this_offset, rt_generic_method_t * call_site, _fetch_t fetch_func,
+                    std::atomic<__call_site_cache_t *> * cache = nullptr)
     {
         rt_ref_t obj = *(rt_ref_t *)(ctx.stack.top() - this_offset);
         if (obj == nullptr)
             return nullptr;
 
         rt_type_t * rt_type = __RtTypeOf(obj);
+
+        // A reference type that was seen at this site: the method is the same (the value types have a fix of the receiver below).
+        __call_site_cache_t * cached = nullptr;
+        if (cache != nullptr)
+        {
+            cached = cache->load(std::memory_order_acquire);
+            if (cached != nullptr)
+            {
+                for (int k = 0; k < cached->count; k++)
+                {
+                    if (cached->types[k] == rt_type)
+                        return cached->methods[k];
+                }
+            }
+        }
 
         rt_vtable_t * vtbl = get_vtable(rt_type);
         rt_vfunction_t func = fetch_func(vtbl);
@@ -4578,6 +4673,19 @@ namespace X_ROOT_NS::modules::exec {
                                                                    : get_vtype_size(rt_vtype));
             *(rt_stack_unit_t *)slot = unit;
         }
+        else if (cache != nullptr && (cached == nullptr || cached->count < __call_site_cache_t::max_count))
+        {
+            // A type of a site that is a reference type: the next calls with it do not search.
+            __call_site_cache_t * next = new __call_site_cache_t();
+            if (cached != nullptr)
+                *next = *cached;
+
+            next->types[next->count] = rt_type;
+            next->methods[next->count] = exec_method;
+            next->count++;
+
+            cache->store(next, std::memory_order_release);
+        }
 
         return exec_method;
     }
@@ -4604,6 +4712,7 @@ namespace X_ROOT_NS::modules::exec {
             );
 
             __CheckNullReference(ctx, method);
+            if (exec_call_stats_on) exec_call_count(method, 2);
             ctx.push_calling(method);
 
         __EndExecute()
@@ -4653,10 +4762,12 @@ namespace X_ROOT_NS::modules::exec {
                 [o=__This->__virtual_offset, t=__This->__interface_type, &env=ctx.env]
                                                                         (rt_vtable_t * vtbl) {
                     return vtbl->search_vtable_interface_function(env, t, o);
-                }
+                },
+                &__This->__cache
             );
 
             __CheckNullReference(ctx, method);
+            if (exec_call_stats_on) exec_call_count(method, 3);
             ctx.push_calling(method);
 
         __EndExecute()
@@ -4673,6 +4784,7 @@ namespace X_ROOT_NS::modules::exec {
         rt_type_t * __interface_type;
         msize_t __virtual_offset, __this_offset;
         rt_generic_method_t * __call_site;      // The method of the call, if it has generic params.
+        std::atomic<__call_site_cache_t *> __cache { nullptr };
     };
 
     struct __interface_call_command_template_t
@@ -4931,6 +5043,7 @@ namespace X_ROOT_NS::modules::exec {
                     for (size_t k = 0; k < count; k++)
                         ctx.stack.push(args[k]);
 
+                    if (exec_call_stats_on) exec_call_count(exec_method, 4);
                     ctx.push_calling(exec_method);
                     return;
                 }
@@ -4958,6 +5071,36 @@ namespace X_ROOT_NS::modules::exec {
 
 
 
+
+    // The call of Invoke of a delegate: the args are in the stack with the delegate at the bottom of them (the this of Invoke). The method that the
+    // delegate has gets them as they are: its object (the one of the lambda) takes the place of the delegate, a static method has no this: the args
+    // go down by one unit.
+    static void __delegate_invoke_direct(command_execute_context_t & ctx, exec_method_t * invoke)
+    {
+        rt_stack_unit_t * slot = ctx.stack.top() - invoke->this_offset;
+
+        rt_object_t * self = *(rt_object_t **)slot;
+        rt_object_t * object = __Field(rt_object_t *, self, __delegate_instance_field_offset);
+        rt_method_base_t * method = __Field(rt_method_base_t *, self, __delegate_method_field_offset);
+
+        method = al::incorp_p(method);
+        exec_method_t * target = ctx.env.exec_method_of(method);
+
+        if (__is_static_method(method))
+        {
+            for (msize_t k = 1; k < invoke->this_offset; k++)
+                slot[k - 1] = slot[k];
+
+            ctx.stack.set_top(ctx.stack.top() - 1);
+        }
+        else
+        {
+            *(rt_object_t **)slot = object;
+        }
+
+        if (exec_call_stats_on) exec_call_count(target, 4);
+        ctx.push_calling(target);
+    }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -7615,8 +7758,15 @@ namespace X_ROOT_NS::modules::exec {
     }
 
     constexpr command_value_t __sc_value_copy(xil_type_t x)         { return (command_value_t)(__SuperBase + 1100 + __sc_type_index(x)); }
-    constexpr command_value_t __sc_value_store_field(xil_type_t x)  { return (command_value_t)(__SuperBase + 1110 + __sc_type_index(x)); }
-    constexpr command_value_t __sc_value_this_field(xil_type_t x)   { return (command_value_t)(__SuperBase + 1120 + __sc_type_index(x)); }
+    constexpr command_value_t __sc_value_store_field(xil_type_t x, bool local)
+    {
+        return (command_value_t)(__SuperBase + (local? 1260 : 1110) + __sc_type_index(x));
+    }
+
+    constexpr command_value_t __sc_value_this_field(xil_type_t x, bool local)
+    {
+        return (command_value_t)(__SuperBase + (local? 1250 : 1120) + __sc_type_index(x));
+    }
 
     constexpr command_value_t __sc_value_convert(xil_type_t x1, xil_type_t x2)
     {
@@ -7639,6 +7789,7 @@ namespace X_ROOT_NS::modules::exec {
     constexpr command_value_t __SuperSequenceCmd = __SuperBase + 1300;
     constexpr command_value_t __TierCmd          = __SuperBase + 1301;
     constexpr command_value_t __ProfileCmd       = __SuperBase + 1302;
+    constexpr command_value_t __InlineEnterCmd   = __SuperBase + 1303;
 
     // Runs one command (the commands of a sequence, and the one that a profile command counts).
     static void __execute_one(command_execute_context_t & ctx, command_t * command);
@@ -7839,9 +7990,10 @@ namespace X_ROOT_NS::modules::exec {
         __sk_operand_t  __source;
     };
 
-    // [push x], push argument (an object), pop field: this.Field = x (x is in the stack when it is not an operand).
-    template<xil_type_t _x>
-    class __sc_store_field_t : public __command_base_t<__sc_value_store_field(_x)>
+    // [push x], push argument (an object) or a local variable that is an object, pop field: this.Field = x (x is in the stack when it is
+    // not an operand).
+    template<xil_type_t _x, bool _local>
+    class __sc_store_field_t : public __command_base_t<__sc_value_store_field(_x, _local)>
     {
         typedef __sc_store_field_t  __self_t;
         typedef __vnum_t<_x>        __t;
@@ -7852,7 +8004,12 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            rt_ref_t obj = __SkArgument(rt_ref_t, __This->__argument);
+            rt_ref_t obj;
+            if constexpr (_local)
+                obj = __SkLocal(rt_ref_t, __This->__argument);
+            else
+                obj = __SkArgument(rt_ref_t, __This->__argument);
+
             __CheckNullReference(ctx, obj);
 
             __SkField(__t, obj, __This->__field) = __sk_get<__t>(ctx, __This->__value);
@@ -7864,9 +8021,9 @@ namespace X_ROOT_NS::modules::exec {
         int32_t         __argument, __field;
     };
 
-    // push argument (an object), push field: the field of the object of an argument (this.Field).
-    template<xil_type_t _x>
-    class __sc_this_field_t : public __command_base_t<__sc_value_this_field(_x)>
+    // push argument (an object) or a local variable that is an object, push field: the field of the object (this.Field).
+    template<xil_type_t _x, bool _local>
+    class __sc_this_field_t : public __command_base_t<__sc_value_this_field(_x, _local)>
     {
         typedef __sc_this_field_t   __self_t;
         typedef __vnum_t<_x>        __t;
@@ -7876,7 +8033,12 @@ namespace X_ROOT_NS::modules::exec {
 
         __BeginExecute(ctx)
 
-            rt_ref_t obj = __SkArgument(rt_ref_t, __This->__argument);
+            rt_ref_t obj;
+            if constexpr (_local)
+                obj = __SkLocal(rt_ref_t, __This->__argument);
+            else
+                obj = __SkArgument(rt_ref_t, __This->__argument);
+
             __CheckNullReference(ctx, obj);
 
             ctx.stack.push(__SkField(__t, obj, __This->__field));
@@ -8156,11 +8318,16 @@ namespace X_ROOT_NS::modules::exec {
         return nullptr;
     }
 
-    static command_t * __sc_dispatch_store_field(xil_type_t x, const __sk_operand_t & value, int32_t argument, int32_t field)
+    static command_t * __sc_dispatch_store_field(xil_type_t x, bool local, const __sk_operand_t & value, int32_t argument, int32_t field)
     {
         #define __SC(_a)                                                                        \
             if (x == xil_type_t::_a)                                                            \
-                return __new_command<__sc_store_field_t<xil_type_t::_a>>((memory_t *)&__command_heap, value, argument, field);
+            {                                                                                   \
+                if (local)                                                                      \
+                    return __new_command<__sc_store_field_t<xil_type_t::_a, true>>((memory_t *)&__command_heap, value, argument, field);  \
+                                                                                                \
+                return __new_command<__sc_store_field_t<xil_type_t::_a, false>>((memory_t *)&__command_heap, value, argument, field);     \
+            }
 
         __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
 
@@ -8169,11 +8336,16 @@ namespace X_ROOT_NS::modules::exec {
         return nullptr;
     }
 
-    static command_t * __sc_dispatch_this_field(xil_type_t x, int32_t argument, int32_t field)
+    static command_t * __sc_dispatch_this_field(xil_type_t x, bool local, int32_t argument, int32_t field)
     {
         #define __SC(_a)                                                                        \
             if (x == xil_type_t::_a)                                                            \
-                return __new_command<__sc_this_field_t<xil_type_t::_a>>((memory_t *)&__command_heap, argument, field);
+            {                                                                                   \
+                if (local)                                                                      \
+                    return __new_command<__sc_this_field_t<xil_type_t::_a, true>>((memory_t *)&__command_heap, argument, field);  \
+                                                                                                \
+                return __new_command<__sc_this_field_t<xil_type_t::_a, false>>((memory_t *)&__command_heap, argument, field);     \
+            }
 
         __SC(int32) __SC(uint32) __SC(int64) __SC(uint64) __SC(float_) __SC(double_)
 
@@ -8280,11 +8452,33 @@ namespace X_ROOT_NS::modules::exec {
         }
     }
 
+    // The operand of the push of an object that has a field read or written: an argument (its type is not checked, it is the this of a class
+    // or a struct), or a local variable that is an object. The kind is the stack when the variable has not the type.
+    static __sk_operand_t __sk_object_operand(__context_t & ctx, const push_xil_t & push)
+    {
+        __sk_operand_t operand;
+
+        if (push.stype() == xil_storage_type_t::local)
+        {
+            if (!__sk_make_operand(ctx, push, xil_type_t::object, &operand))
+                operand.kind = fusion_operand_t::stack;
+
+            return operand;
+        }
+
+        operand.kind = fusion_operand_t::argument;
+        operand.offset = (int32_t)(__offset_of_argument(ctx, push.get_identity()) + __stack_stub_size);
+        return operand;
+    }
+
     // The index of the command of an xil that is a jump, and the step that its command takes.
     static int32_t __sc_jump_step(const fusion_plan_t & plan, size_t xil_index, const jmp_xil_t & jmp)
     {
         return (int32_t)plan.index_map[xil_index + jmp.step()] - (int32_t)plan.index_map[xil_index] - 1;
     }
+
+    // The groups that became a sequence of commands (the statistics of the calls tell it).
+    static std::atomic<uint64_t> __sequences_made { 0 };
 
     // Makes the superinstruction of a group, nullptr when something is not what the xils say.
     static command_t * __sc_build(__context_t & ctx, const fusion_plan_t & plan, const xil_base_t * const * x,
@@ -8402,8 +8596,12 @@ namespace X_ROOT_NS::modules::exec {
                         && !__sk_make_operand(ctx, *(const push_xil_t *)x[shape.left_index], pop.dtype(), &value))
                     return nullptr;
 
-                return __sc_dispatch_store_field(pop.dtype(), value,
-                    (int32_t)(__offset_of_argument(ctx, self.get_identity()) + __stack_stub_size),
+                // The object: an argument, or a local variable that is an object.
+                __sk_operand_t object = __sk_object_operand(ctx, self);
+                if (object.kind == fusion_operand_t::stack)
+                    return nullptr;
+
+                return __sc_dispatch_store_field(pop.dtype(), object.kind == fusion_operand_t::local, value, object.offset,
                     (int32_t)__field_offset(ctx, pop.get_ref()));
             }
 
@@ -8415,8 +8613,11 @@ namespace X_ROOT_NS::modules::exec {
                 if (ft1 != field.dtype() || ft2 != field.dtype())
                     return nullptr;
 
-                return __sc_dispatch_this_field(field.dtype(),
-                    (int32_t)(__offset_of_argument(ctx, p.get_identity()) + __stack_stub_size),
+                __sk_operand_t object = __sk_object_operand(ctx, p);
+                if (object.kind == fusion_operand_t::stack)
+                    return nullptr;
+
+                return __sc_dispatch_this_field(field.dtype(), object.kind == fusion_operand_t::local, object.offset,
                     (int32_t)__field_offset(ctx, field.get_ref()));
             }
 
@@ -8513,6 +8714,7 @@ namespace X_ROOT_NS::modules::exec {
             return command;
 
         // The xils one after the other.
+        __sequences_made++;
         command_t ** members = (command_t **)((memory_t *)&__command_heap)->alloc(sizeof(command_t *) * group.length);
         for (uint32_t k = 0; k < group.length; k++)
         {
@@ -8523,6 +8725,403 @@ namespace X_ROOT_NS::modules::exec {
         return __new_command<__sc_sequence_t>((memory_t *)&__command_heap, members, (size_t)group.length);
     }
 
+    //-------- ---------- ---------- ---------- ----------
+    // The inlining of a call.
+
+    // The first command of the body of an inlined call: the args that the caller pushed are moved from the stack to their places in the
+    // frame of the caller (the body reads them as local variables), the type of a static method is initialized, the object of a call
+    // of a class is checked for null: what the command of the call did before the frame was made.
+    class __inline_enter_command_t : public __command_base_t<__InlineEnterCmd>
+    {
+        typedef __inline_enter_command_t    __self_t;
+
+    public:
+        __inline_enter_command_t(const inline_site_t & site)
+            : __count(site.stack_args), __check_this(site.check_this), __static_type(site.static_type)
+        {
+            for (int k = 0; k < site.arg_count; k++)
+                __offsets[k] = site.arg_offsets[k];
+        }
+
+        __BeginExecute(ctx)
+
+            if (__This->__static_type != nullptr)
+                __This->__static_type->pre_static_call(ctx.env);
+
+            rt_stack_unit_t * args = ctx.stack.pop((size_t)__This->__count);
+            byte_t * frame = (byte_t *)ctx.stack.lp();
+
+            for (int k = 0; k < __This->__count; k++)
+                *(rt_stack_unit_t *)(frame + __This->__offsets[k]) = args[k];
+
+            if (__This->__check_this)
+            {
+                rt_ref_t self = *(rt_ref_t *)(frame + __This->__offsets[0]);
+                __CheckNullReference(ctx, self);
+            }
+
+        __EndExecute()
+
+    private:
+        int         __count;
+        bool        __check_this;
+        rt_type_t * __static_type;
+        int32_t     __offsets[8];
+    };
+
+    command_t * new_inline_enter_command(const inline_site_t & site)
+    {
+        return __new_command<__inline_enter_command_t>((memory_t *)&__command_heap, site);
+    }
+
+    // The method of a call that can be inlined.
+    exec_method_t * inline_call_target(command_creating_context_t & ctx, const call_xil_t & xil, bool * is_static)
+    {
+        switch (xil.call_type())
+        {
+            case xil_call_type_t::static_:
+                *is_static = true;
+                return __static_call_target(ctx, xil);
+
+            case xil_call_type_t::instance:
+                *is_static = false;
+                return __instance_call_target(ctx, xil);
+
+            default:
+                return nullptr;
+        }
+    }
+
+    // Whether the body of a callee can be put in the frame of the caller.
+    bool inline_check_body(command_creating_context_t & callee_ctx, const std::vector<const xil_base_t *> & xils, size_t max_xils)
+    {
+        if (xils.size() < 1 || xils.size() > max_xils)
+            return false;
+
+        // The params are values of one unit each, the result is nothing or one unit (not a struct).
+        if (!callee_ctx.params_layout.is_simple() || callee_ctx.params_layout.count() > 8)
+            return false;
+
+        if (is_custom_struct(callee_ctx.env, callee_ctx.method->get_return_type(callee_ctx.env)) || callee_ctx.ret_unit_size() > 1)
+            return false;
+
+        // The last xil is a ret, the jumps stay in the body, no protected block (the caller checks that), no switch, nothing that needs a
+        // frame of its own. A ret that is not the last one becomes a jump to the end of the body.
+        const xil_base_t * last = xils.back();
+        if (command_of(last) != xil_command_t::smp || ((const smp_xil_t *)last)->smp() != xil_smp_t::ret)
+            return false;
+
+        for (size_t k = 0; k + 1 < xils.size(); k++)
+        {
+            const xil_base_t * xil = xils[k];
+
+            switch (command_of(xil))
+            {
+                case xil_command_t::push: {
+                    const push_xil_t * push = (const push_xil_t *)xil;
+                    switch (push->stype())
+                    {
+                        case xil_storage_type_t::local:
+                        case xil_storage_type_t::local_addr:
+                        case xil_storage_type_t::constant:
+                        case xil_storage_type_t::field:
+                        case xil_storage_type_t::field_addr:
+                        case xil_storage_type_t::array_element:
+                        case xil_storage_type_t::array_element_addr:
+                        case xil_storage_type_t::convert:
+                        case xil_storage_type_t::checked_convert:
+                        case xil_storage_type_t::duplicate:
+                        case xil_storage_type_t::object:
+                            break;
+
+                        case xil_storage_type_t::argument:
+                        case xil_storage_type_t::argument_addr:
+                            if (push->get_identity() == XIL_CALLING_BOTTOM_IDENTITY)
+                                return false;
+
+                            break;
+
+                        default:
+                            return false;
+                    }
+                }   break;
+
+                case xil_command_t::pop: {
+                    const pop_xil_t * pop = (const pop_xil_t *)xil;
+                    switch (pop->stype())
+                    {
+                        case xil_storage_type_t::local:
+                        case xil_storage_type_t::argument:
+                        case xil_storage_type_t::field:
+                        case xil_storage_type_t::array_element:
+                        case xil_storage_type_t::empty:
+                            break;
+
+                        default:
+                            return false;
+                    }
+                }   break;
+
+                case xil_command_t::al:
+                case xil_command_t::bit:
+                case xil_command_t::logic:
+                case xil_command_t::cmp:
+                case xil_command_t::cast:
+                    break;
+
+                case xil_command_t::jmp: {
+                    // A jump to a place of the body (the end of it is the place of the last ret).
+                    const jmp_xil_t * jmp = (const jmp_xil_t *)xil;
+                    if (jmp->model() == xil_jmp_model_t::switch_)
+                        return false;
+
+                    int64_t target = (int64_t)k + jmp->step();
+                    if (target < 0 || target > (int64_t)xils.size() - 1)
+                        return false;
+                }   break;
+
+                case xil_command_t::smp: {
+                    xil_smp_t smp = ((const smp_xil_t *)xil)->smp();
+                    if (smp != xil_smp_t::ret && smp != xil_smp_t::throw_)
+                        return false;
+                }   break;
+
+                case xil_command_t::call: {
+                    // The calls that use the frame of the callee (the arguments of the internal functions) are not here.
+                    xil_call_type_t type = ((const call_xil_t *)xil)->call_type();
+                    if (type != xil_call_type_t::static_ && type != xil_call_type_t::instance && type != xil_call_type_t::virtual_)
+                        return false;
+                }   break;
+
+                case xil_command_t::new_: {
+                    xil_new_type_t type = ((const new_xil_t *)xil)->new_type();
+                    if (type != xil_new_type_t::default_ && type != xil_new_type_t::array)
+                        return false;
+                }   break;
+
+                default:
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Whether the body is the one of an accessor.
+    bool inline_is_accessor_shape(const std::vector<const xil_base_t *> & xils)
+    {
+        auto is_ret = [](const xil_base_t * xil) {
+            return command_of(xil) == xil_command_t::smp && ((const smp_xil_t *)xil)->smp() == xil_smp_t::ret;
+        };
+
+        auto is_push = [](const xil_base_t * xil, xil_storage_type_t stype) {
+            return command_of(xil) == xil_command_t::push && ((const push_xil_t *)xil)->stype() == stype;
+        };
+
+        switch (xils.size())
+        {
+            case 1:
+                return is_ret(xils[0]);
+
+            case 3:
+                return is_ret(xils[2]) && is_push(xils[0], xil_storage_type_t::argument)
+                    && (is_push(xils[1], xil_storage_type_t::field) || command_of(xils[1]) == xil_command_t::call);
+
+            case 4:
+                return is_ret(xils[3]) && is_push(xils[0], xil_storage_type_t::argument) && is_push(xils[1], xil_storage_type_t::argument)
+                    && command_of(xils[2]) == xil_command_t::pop && ((const pop_xil_t *)xils[2])->stype() == xil_storage_type_t::field;
+
+            default:
+                return false;
+        }
+    }
+
+    // The xil of the body of a callee for the caller: the args are local variables.
+    const xil_base_t * inline_rewrite_xil(const inline_site_t & site, const xil_base_t * xil, std::deque<std::vector<byte_t>> & storage,
+                                          size_t index, size_t size)
+    {
+        // A ret in the middle of the body: the value is at the top of the stack, the jump goes to the end (the last ret is not copied).
+        if (command_of(xil) == xil_command_t::smp && ((const smp_xil_t *)xil)->smp() == xil_smp_t::ret)
+        {
+            storage.emplace_back(sizeof(jmp_xil_t) + 4, 0);
+            return new (storage.back().data()) jmp_xil_t(xil_jmp_model_t::none, (xil_jmp_step_t)(size - 1 - index));
+        }
+
+        if (command_of(xil) == xil_command_t::push)
+        {
+            const push_xil_t * push = (const push_xil_t *)xil;
+            xil_storage_type_t stype = push->stype();
+
+            // An arg that the caller did not push: the variable (the constant) that it was made of.
+            if (stype == xil_storage_type_t::argument && site.forward_kind[push->get_identity()] != 0)
+            {
+                int k = push->get_identity();
+
+                if (site.forward_kind[k] == 3)
+                    return site.forward_xil[k];
+
+                storage.emplace_back(sizeof(push_xil_t) + 4, 0);
+
+                push_xil_t * clone = new (storage.back().data()) push_xil_t(
+                    site.forward_kind[k] == 1? xil_storage_type_t::local : xil_storage_type_t::local_addr, push->dtype()
+                );
+
+                clone->set_identity((uint16_t)site.arg_identities[k]);
+                return clone;
+            }
+
+            if (stype == xil_storage_type_t::argument || stype == xil_storage_type_t::argument_addr)
+            {
+                storage.emplace_back(sizeof(push_xil_t) + 4, 0);
+
+                push_xil_t * clone = new (storage.back().data()) push_xil_t(
+                    stype == xil_storage_type_t::argument? xil_storage_type_t::local : xil_storage_type_t::local_addr, push->dtype()
+                );
+
+                clone->set_identity((uint16_t)site.arg_identities[push->get_identity()]);
+                return clone;
+            }
+        }
+        else if (command_of(xil) == xil_command_t::pop)
+        {
+            const pop_xil_t * pop = (const pop_xil_t *)xil;
+
+            if (pop->stype() == xil_storage_type_t::argument)
+            {
+                storage.emplace_back(sizeof(pop_xil_t) + 4, 0);
+
+                pop_xil_t * clone = new (storage.back().data()) pop_xil_t(xil_storage_type_t::local, pop->dtype());
+                clone->set_identity((uint16_t)site.arg_identities[pop->get_identity()]);
+                return clone;
+            }
+        }
+
+        return xil;
+    }
+
+    // The statistics of the calls (APRIL_CALL_STATS=1): for the choice of what the interpreter inlines.
+    namespace
+    {
+        struct __call_stat_t
+        {
+            string_t    name;
+            uint32_t    xils = 0;
+            uint8_t     reason = 0;         // 0: a call could be inlined, 1: blocks, 2: switch, 3: params, 4: return, 5: size
+            uint64_t    calls[6] = { 0, 0, 0, 0, 0, 0 };     // static, instance, virtual, interface, delegate, accessor
+        };
+
+        std::mutex                      __call_stats_lock;
+        std::vector<__call_stat_t *>    __call_stats;
+
+        void __call_stats_report()
+        {
+            static const wchar_t * names[] = { L"static", L"instance", L"virtual", L"interface", L"delegate", L"accessor" };
+            uint64_t kinds[6] = { 0, 0, 0, 0, 0, 0 };
+
+            // The direct calls (static and instance) by the number of xils of the method that is called, for the methods that could be
+            // inlined (no blocks, no switch, the params and the result of one unit each).
+            const uint32_t limits[] = { 2, 4, 6, 8, 12, 16, 24, 32, 64, 1000000 };
+            uint64_t by_size[10] = { 0 };
+            uint64_t by_reason[6] = { 0 };
+
+            for (__call_stat_t * s : __call_stats)
+            {
+                for (int k = 0; k < 6; k++)
+                    kinds[k] += s->calls[k];
+
+                uint64_t direct = s->calls[0] + s->calls[1];
+                by_reason[s->reason == 5? 0 : s->reason] += direct;
+
+                if (s->reason == 0 || s->reason == 5)
+                {
+                    for (int b = 0; b < 10; b++)
+                    {
+                        if (s->xils <= limits[b])
+                        {
+                            by_size[b] += direct;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            uint64_t all = kinds[0] + kinds[1] + kinds[2] + kinds[3] + kinds[4] + kinds[5];
+            std::wostream & out = std::wcerr;
+            out << L"\n== call stats\nsuperinstructions that are a sequence of commands: " << __sequences_made.load() << L"\ncalls: " << all << L"  (";
+            for (int k = 0; k < 6; k++)
+                out << names[k] << L" " << kinds[k] << (k < 5? L", " : L"");
+            out << L")\n";
+            out << L"direct calls that cannot be inlined, by the reason: blocks " << by_reason[1] << L", switch " << by_reason[2]
+                << L", params " << by_reason[3] << L", return " << by_reason[4] << L"\n";
+            out << L"direct calls of the other methods, by the number of xils of the method:\n";
+
+            uint64_t sum = 0;
+            for (int b = 0; b < 10; b++)
+            {
+                sum += by_size[b];
+                if (limits[b] < 1000000)
+                    out << L"  <= " << limits[b] << L"\t" << by_size[b] << L"\t(sum " << sum << L")\n";
+                else
+                    out << L"  more\t" << by_size[b] << L"\n";
+            }
+
+            // The methods that are called most (direct calls).
+            std::vector<__call_stat_t *> sorted(__call_stats.begin(), __call_stats.end());
+            std::sort(sorted.begin(), sorted.end(), [](__call_stat_t * a, __call_stat_t * b) {
+                return a->calls[0] + a->calls[1] > b->calls[0] + b->calls[1];
+            });
+
+            out << L"the methods that are called most (direct): calls, xils, reason, name\n";
+            for (size_t k = 0; k < sorted.size() && k < 12 && sorted[k]->calls[0] + sorted[k]->calls[1] > 0; k++)
+            {
+                out << L"  " << (sorted[k]->calls[0] + sorted[k]->calls[1]) << L"\t" << sorted[k]->xils << L"\t" << (int)sorted[k]->reason
+                    << L"\t" << sorted[k]->name << L"\n";
+            }
+
+            out.flush();
+        }
+    }
+
+    void exec_call_count(exec_method_t * method, int kind)
+    {
+        __call_stat_t * entry = (__call_stat_t *)method->stat_entry;
+        if (entry != nullptr)
+            entry->calls[kind]++;
+    }
+
+    void exec_call_stats_register(command_creating_context_t & ctx, exec_method_t * method, size_t xils, bool has_blocks, bool has_switch)
+    {
+        uint8_t reason = 0;
+
+        if (has_blocks)
+            reason = 1;
+        else if (has_switch)
+            reason = 2;
+        else if (ctx.params_layout.unit_size() > 6)
+            reason = 3;
+        else if (is_custom_struct(ctx.env, ctx.method->get_return_type(ctx.env)) || ctx.ret_unit_size() > 1)
+            reason = 4;
+        else if (xils > 16)
+            reason = 5;
+
+        __call_stat_t * entry = new __call_stat_t();
+        entry->name = method->get_name();
+        entry->xils = (uint32_t)xils;
+        entry->reason = reason;
+
+        std::lock_guard<std::mutex> guard(__call_stats_lock);
+
+        static bool registered = false;
+        if (!registered)
+        {
+            registered = true;
+            std::atexit(__call_stats_report);
+        }
+
+        __call_stats.push_back(entry);
+        method->stat_entry = entry;
+    }
+
     void analyze_trivial_method(command_creating_context_t & ctx, exec_method_t * method, bool is_instance,
                                 const xil_base_t * const * xils, size_t count)
     {
@@ -8531,8 +9130,16 @@ namespace X_ROOT_NS::modules::exec {
             return value == nullptr || std::string(value) != "0";
         }();
 
-        if (!enabled || !is_instance || (count != 3 && count != 4))
+        if (!enabled || !is_instance || (count != 1 && count != 2 && count != 3 && count != 4))
             return;
+
+        // The methods that are being analyzed (the one that is called is analyzed first: a method that calls itself is not empty).
+        static thread_local std::vector<exec_method_t *> analyzing;
+        struct __scope_t
+        {
+            __scope_t(exec_method_t * m) { analyzing.push_back(m); }
+            ~__scope_t() { analyzing.pop_back(); }
+        } scope(method);
 
         auto is_ret = [](const xil_base_t * xil) {
             return command_of(xil) == xil_command_t::smp && ((const smp_xil_t *)xil)->smp() == xil_smp_t::ret;
@@ -8565,11 +9172,44 @@ namespace X_ROOT_NS::modules::exec {
             }
         };
 
-        xil_type_t type, field_type1, field_type2;
+        xil_type_t type = xil_type_t::empty, field_type1, field_type2;
         uint8_t kind = 0;
         int32_t offset = 0;
 
-        if (count == 3 && is_ret(xils[2]) && argument(xils[0], 0, &type) && type == xil_type_t::object
+        if (count == 2 && is_ret(xils[1]) && command_of(xils[0]) == xil_command_t::call
+                && ((const call_xil_t *)xils[0])->call_type() == xil_call_type_t::command
+                && ((const call_xil_t *)xils[0])->command == xil_call_command_t::delegate_invoke)
+        {
+            // Invoke of a delegate: the result is nothing or one unit (a struct result has an address under the args: not here).
+            if (ctx.params_layout.unit_size() >= 1 && ctx.ret_unit_size() <= 1
+                    && !is_custom_struct(ctx.env, ctx.method->get_return_type(ctx.env)))
+                kind = 4;
+        }
+        else if (count == 1 && is_ret(xils[0]))
+        {
+            // Nothing but the return: the constructor of Object.
+            if (ctx.params_layout.unit_size() == 1 && ctx.ret_unit_size() == 0)
+                kind = 3;
+        }
+        else if (count == 3 && is_ret(xils[2]) && argument(xils[0], 0, &type) && type == xil_type_t::object
+                && command_of(xils[1]) == xil_command_t::call
+                && ((const call_xil_t *)xils[1])->call_type() == xil_call_type_t::instance)
+        {
+            // push this, call a method, ret: the constructor that only calls the one of the base. It does nothing when that does nothing.
+            if (ctx.params_layout.unit_size() == 1 && ctx.ret_unit_size() == 0)
+            {
+                exec_method_t * target = __instance_call_target(ctx, *(const call_xil_t *)xils[1]);
+
+                if (target != nullptr && std::find(analyzing.begin(), analyzing.end(), target) == analyzing.end())
+                {
+                    target->get_commands();     // It is analyzed when its commands are made.
+
+                    if (target->trivial_kind.load(std::memory_order_acquire) == 3)
+                        kind = 3;
+                }
+            }
+        }
+        else if (count == 3 && is_ret(xils[2]) && argument(xils[0], 0, &type) && type == xil_type_t::object
                 && command_of(xils[1]) == xil_command_t::push
                 && ((const push_xil_t *)xils[1])->stype() == xil_storage_type_t::field)
         {
@@ -8668,6 +9308,14 @@ namespace X_ROOT_NS::modules::exec {
     {
         // Empty.
     }
+
+    exec_method_t * inline_call_target(command_creating_context_t &, const call_xil_t &, bool *) { return nullptr; }
+
+    bool inline_check_body(command_creating_context_t &, const std::vector<const xil_base_t *> &, size_t) { return false; }
+
+    const xil_base_t * inline_rewrite_xil(const inline_site_t &, const xil_base_t * xil, std::deque<std::vector<byte_t>> &, size_t, size_t) { return xil; }
+
+    command_t * new_inline_enter_command(const inline_site_t &) { X_UNEXPECTED(); }
 
     #endif  // EXEC_EXECUTE_MODEL == EXEC_EXECUTE_MODEL_VIRTUAL
 
@@ -9670,8 +10318,8 @@ namespace X_ROOT_NS::modules::exec {
         __SC_X2(_m, float_) __SC_X2(_m, double_)
 
     #define __SC_COPY(_a)           __Case( __sc_copy_t<xil_type_t::_a> )
-    #define __SC_STORE_FIELD(_a)    __Case( __sc_store_field_t<xil_type_t::_a> )
-    #define __SC_THIS_FIELD(_a)     __Case( __sc_this_field_t<xil_type_t::_a> )
+    #define __SC_STORE_FIELD(_a)    __Case( __sc_store_field_t<xil_type_t::_a, false> ) __Case( __sc_store_field_t<xil_type_t::_a, true> )
+    #define __SC_THIS_FIELD(_a)     __Case( __sc_this_field_t<xil_type_t::_a, false> ) __Case( __sc_this_field_t<xil_type_t::_a, true> )
     #define __SC_X0(_m)             _m(int32) _m(uint32) _m(int64) _m(uint64) _m(float_) _m(double_)
     #define __SC_PUSH_RET(_a)       __Case( __sc_push_ret_t<xil_type_t::_a> )
     #define __SC_ARRAY_LOAD(_a)     __Case( __sc_array_load_t<xil_type_t::_a> )
@@ -9702,6 +10350,7 @@ namespace X_ROOT_NS::modules::exec {
         __SC_ATYPES(__SC_PUSH_RET)                                                      \
         __SC_ATYPES(__SC_ARRAY_LOAD)                                                    \
         __SC_ATYPES(__SC_ARRAY_STORE)                                                   \
+        __Case( __inline_enter_command_t )                                              \
         __CaseC( __sc_sequence_t )                                                       \
         __CaseC( __tier_command_t )                                                      \
         __CaseC( __profile_command_t )

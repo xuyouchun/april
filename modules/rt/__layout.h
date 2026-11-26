@@ -308,6 +308,27 @@ namespace X_ROOT_NS::modules::rt {
         // Returns unit size of variables.
         msize_t unit_size() { return __local_unit_size; }
 
+        // The inlining of a call (modules/exec/parser.cpp): the frame of the caller gets a region for the variables of the callee. The
+        // layout of the callee is shifted to the region (set_shift), its params become variables of it (add_extra: an offset in bytes and
+        // a type; the identity that is returned is given to the xils that were the pushes and pops of the argument).
+        static const int extra_base = 0x4000;
+
+        // Makes the frame bigger (after commit) by units: returns the offset in bytes of the new units.
+        msize_t reserve(msize_t units)
+        {
+            msize_t offset = __local_unit_size * sizeof(rt_stack_unit_t);
+            __local_unit_size += units;
+            return offset;
+        }
+
+        void set_shift(msize_t shift) { __shift = shift; }
+
+        int add_extra(msize_t offset, rt_type_t * type)
+        {
+            __extras.push_back(std::make_pair(offset, type));
+            return extra_base + (int)__extras.size() - 1;
+        }
+
         // Returns the units region [begin, end) that holds nothing but value-typed
         // variables, which never hold references; empty (0, 0) if there is none.
         // Valid after commit(), used by gc to skip the region.
@@ -324,6 +345,9 @@ namespace X_ROOT_NS::modules::rt {
 
         msize_t __value_begin_unit = 0;     // Value region begin, in units.
         msize_t __value_end_unit   = 0;     // Value region end, in units.
+
+        msize_t __shift = 0;                // The offset of the region of a callee that is inlined.
+        std::vector<std::pair<msize_t, rt_type_t *>> __extras;
 
         // A local variable item.
         struct __item_t
@@ -488,6 +512,24 @@ namespace X_ROOT_NS::modules::rt {
 
         // Returns unit size.
         msize_t unit_size() const { return __current_offset; }
+
+        // Returns the count of the params.
+        int count() const { return (int)__items.size(); }
+
+        // Returns whether every param is a value of one unit (not ref, out, or params): the callee that has such params can be inlined.
+        bool is_simple() const
+        {
+            for (size_t k = 0; k < __items.size(); k++)
+            {
+                const __item_t & item = __items[k];
+                msize_t next = k + 1 < __items.size()? __items[k + 1].offset : __current_offset;
+
+                if (item.param_type != param_type_t::default_ || next - item.offset != 1)
+                    return false;
+            }
+
+            return true;
+        }
 
     private:
 

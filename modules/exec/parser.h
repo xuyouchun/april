@@ -158,16 +158,26 @@ namespace X_ROOT_NS::modules::exec {
 
     //-------- ---------- ---------- ---------- ----------
 
+    struct inline_state_t;
+
     // Method parser.
     class method_parser_t : public object_t
     {
     public:
         // Constructors.
-        method_parser_t(exec_method_t * exec_method, executor_env_t & env, rt_method_t * method);
+        // readonly: the parser reads the method and makes its layouts, it does not set the values of the exec method (the callers
+        // that inline the method use such a parser).
+        method_parser_t(exec_method_t * exec_method, executor_env_t & env, rt_method_t * method, bool readonly = false);
         method_parser_t(exec_method_t * exec_method, executor_env_t & env,
-                                                            rt_generic_method_t * generic_method);
+                                                            rt_generic_method_t * generic_method, bool readonly = false);
         method_parser_t(exec_method_t * exec_method, executor_env_t & env,
-                                                            rt_dynamic_method_t * dynamic_method);
+                                                            rt_dynamic_method_t * dynamic_method, bool readonly = false);
+
+        // The context of the commands of the method, valid until the parser is deleted.
+        command_creating_context_t * creating_context() { return __creating_ctx; }
+
+        // Reads the xils of the body (once: after initialize). has_blocks is true when the method has protected blocks.
+        void read_body(std::vector<const core::xil_base_t *> * xils, bool * has_blocks);
 
         // Initialize.
         void initialize();
@@ -188,6 +198,10 @@ namespace X_ROOT_NS::modules::exec {
         command_t ** __parse_dynamic_commands();    // Parse dynamic commands.
         command_t ** __parse_normal_commands(bool fast);     // Parse commands.
         command_t ** __parse_normal_commands_(bool fast);    // Parse commands.
+
+        // Puts the body of the callees of the calls in the xils (the inlining): the xils, the blocks and the switch tables are changed.
+        void __expand_calls(std::vector<const core::xil_base_t *> & xils, al::svector_t<core::method_xil_block_t, 10> & blocks,
+                            inline_state_t & state);
 
         executor_env_t &            __env;
         assembly_analyzer_t *       __analyzer;
@@ -216,6 +230,7 @@ namespace X_ROOT_NS::modules::exec {
 
         exec_method_t *             __exec_method;
         pool_t                      __pool;
+        bool                        __readonly = false;
     };
 
     ////////// ////////// ////////// ////////// //////////

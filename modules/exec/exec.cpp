@@ -88,11 +88,21 @@ namespace X_ROOT_NS::modules::exec {
         __method_parser = new method_parser_t(this, env, method);
         __commands_uninitialized = true;
 
+        // The parser that reads the body, for the callers that inline this method.
+        if constexpr (!std::is_same<_rt_method_t, rt_dynamic_method_t>::value)
+        {
+            __inline_parser_factory = [this, &env, method]() -> object_t * {
+                method_parser_t * parser = new method_parser_t(this, env, method, true);
+                parser->initialize();
+                return parser;
+            };
+        }
+
         // The parser is made again when the method gets its superinstructions (it is deleted when the commands are made).
         if (fusion_mode() == fusion_mode_t::automatic)
         {
             __parser_factory = [this, &env, method]() -> object_t * {
-                method_parser_t * parser = new method_parser_t(this, env, method);
+                method_parser_t * parser = new method_parser_t(this, env, method, true);
                 parser->initialize();
                 return parser;
             };
@@ -120,6 +130,12 @@ namespace X_ROOT_NS::modules::exec {
         {
             return nullptr;
         }
+    }
+
+    // Makes a parser that only reads.
+    object_t * exec_method_t::new_inline_parser()
+    {
+        return __inline_parser_factory? __inline_parser_factory() : nullptr;
     }
 
     // Initialize this executable method.

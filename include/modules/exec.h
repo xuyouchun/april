@@ -914,6 +914,10 @@ namespace X_ROOT_NS::modules::exec {
         // new commands, nullptr when the method has them already or cannot have them.
         command_t ** tier_up();
 
+        // Makes a parser that only reads the body and the layouts of the method (it does not change the method): the caller of the method
+        // that inlines it uses it (parser.cpp). The caller deletes it. nullptr for a method that has no body (dynamic).
+        object_t * new_inline_parser();
+
         // Finds block contains the specified point.
         template<method_xil_block_type_t _type, typename _f_t>
         __AlwaysInline void find_block(command_t ** point, _f_t f) _NE
@@ -941,6 +945,8 @@ namespace X_ROOT_NS::modules::exec {
 
         // A method that only reads (1) or writes (2) a field of this, the accessor of a property: the call of it is done without a frame
         // (commands.cpp, analyze_trivial_method). It is set when the commands of the method are made; 0 before that.
+        // The statistics of the calls (APRIL_CALL_STATS=1, commands.cpp).
+        void *               stat_entry = nullptr;
         std::atomic<uint8_t> trivial_kind { 0 };
         uint8_t              trivial_type = 0;      // The xil type of the field.
         int32_t              trivial_offset = 0;    // The offset of the field.
@@ -963,6 +969,7 @@ namespace X_ROOT_NS::modules::exec {
 
         // Makes a parser of this method again (a method that gets its superinstructions later).
         std::function<object_t * ()> __parser_factory;
+        std::function<object_t * ()> __inline_parser_factory;
         std::atomic<bool>            __tiered { false };
     };
 
@@ -1034,13 +1041,16 @@ namespace X_ROOT_NS::modules::exec {
             // A call is a safepoint: the other threads get their turn (the arguments are in the stack).
             rtlib::thread_poll();
 
+            // The commands of a method are made first: the size of its frame is known then (a method that has calls inlined has a bigger one).
+            command_t ** commands = method->get_commands();
+
             // Like the runtimes of other languages, a stack overflow ends the process:
             // it cannot be handled.
             if (!stack.fits(method->stack_unit_size + 16)) [[unlikely]]
                 __stack_overflow();
 
             stack.push(__calling_stub_t { stack.lp(), this->current, method });
-            this->current = method->get_commands();
+            this->current = commands;
             stack.set_lp(stack.top());
 
             stack.increase_top(method->stack_unit_size);
@@ -1074,6 +1084,8 @@ namespace X_ROOT_NS::modules::exec {
         // Switch to specified method.
         __AlwaysInline void switch_to(exec_method_t * method) _NE
         {
+            command_t ** commands = method->get_commands();
+
             __calling_stub_t * stub = this->stub();
 
             exec_method_t * old_method = stub->method;
@@ -1081,7 +1093,7 @@ namespace X_ROOT_NS::modules::exec {
 
             stack.increase_top(method->stack_unit_size - old_method->stack_unit_size);
 
-            this->current = method->get_commands();
+            this->current = commands;
         }
 
         // Returns whether stack is on head.

@@ -79,8 +79,11 @@ namespace X_ROOT_NS::modules::exec {
 
     // Makes the plan of the xils of a method (or finds the one that was made), nullptr when no group can be made.
     // The jumps, the switch tables and the blocks are used to find the places that a command must begin at.
+    // extra_cuts: more places that a command begins at (the places where the body of an inlined call begins and ends: the xils of
+    // different callees do not make one command); the plan is not kept then.
     const fusion_plan_t * fusion_plan_of(const std::vector<const core::xil_base_t *> & xils, exec_switch_manager_t & switches,
-                const al::svector_t<core::method_xil_block_t, 10> & blocks, bool * has_loop);
+                const al::svector_t<core::method_xil_block_t, 10> & blocks, bool * has_loop,
+                const std::vector<uint8_t> * extra_cuts = nullptr);
 
     // The mode of the superinstructions: APRIL_SUPER=off|auto|eager (auto is the default).
     enum class fusion_mode_t { off, automatic, eager };

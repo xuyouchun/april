@@ -195,8 +195,81 @@ rounds): 1.6x without the superinstructions and 1.3x with them; the other benchm
 `test/unittest/basic/inline_accessors.cs` has every type of field, a struct, a generic class, a property that does more, an override,
 the null object, and the calls that come before and after the method is parsed.
 
-Not done: the inlining of the other small methods (a general one needs the callee's xils in the frame of the caller: the refs of
-another assembly, new locals, the blocks); a pattern of the method, as the accessors, is cheap, a general one is not.
+A method that does nothing (`ret` only: the constructor of Object) is the third kind: the call pops this and goes on, and the constructor
+that only calls the one of the base class (`push this, call, ret`) is the same when the one that it calls does nothing (it is found when
+its commands are made, the called method is made first). The chain of constructors of a class that has no constructor of its own costs
+no call then (`new C()` with C : B : A : Object was four calls). `test/unittest/basic/empty_constructors.cs`. `struct_math` and
+`string_build` 1.1x.
+
+## The inlining of calls (`__expand_calls` in `modules/exec/parser.cpp`)
+
+The body of a small method is put in the xils of its caller when the commands of the caller are made. It works in the interpreter, for
+every assembly: the callee is read with its own parser and its own context (`exec_method_t::new_inline_parser`, a parser that does not
+change the method), and the commands of its xils are made with that context, so its refs (types, methods, fields, strings of the
+library) are those of its assembly: there is nothing to translate between assemblies. The JIT and the native back end have the
+inlining of LLVM.
+
+**What is inlined** (`inline_check_body`): a static method or a non virtual instance method (of a class, a struct, a generic one) that
+has at most 24 xils (`APRIL_INLINE_SIZE`), no protected block, no switch, a `ret` as the last xil (others may be in the middle), params of
+one unit each (no `ref`, `out`, `params`), no struct result, and only the xils that need no frame of their own (the calls of internal
+functions, `copy`, `init`, `pick`, the stack allocations are not here: a method that returns a generic value through `copy` is not
+inlined, `List<T>` indexer is one). The jumps, loops, `if`, `throw` are in. The accessors and the empty methods are not inlined (they have their own fast call).
+A method that calls itself is not inlined; the calls in a body stay calls.
+
+**How**: the variables of the callee get a place in the frame of the caller, after its own variables (`locals_layout_t::reserve`,
+`set_shift`: the layout of the callee is the same, shifted), and its params get places too (`add_extra`: a variable of the layout that is
+the place of a param). The xils that push or pop an argument are made again as the ones of a local variable (`inline_rewrite_xil`), and
+the last `ret` is not copied (the value is at the top of the stack as the call leaves it), a `ret` in the middle of the body is a jump to
+the end of it (`inline_rewrite_xil`; the other jumps of the body keep their steps: the xils of a body are one after the other). The first command of a body
+(`__inline_enter_command_t`) moves the args of the stack to their places, initializes the type of a static method and checks the
+object of a call of a class for null, as the command of the call did. The jumps, the switch tables and the blocks of the caller go to
+the new places (a map of the xils; the steps of the jumps that were changed are made again). The frame is bigger: the first call of a
+method makes its commands before its frame (`push_calling` asks for the commands first), and its `stack_unit_size` is the new size.
+
+**The args that are not pushed**: the last args that the caller pushed just before the call (a local variable that has no address
+taken, the address of a local variable, a number or a boolean) are not pushed, the body reads the variable itself: `Add(i, 1)` is
+`push i, push 1, add` as if it was written there, and the fusion joins it. A string or an object constant is not forwarded (its ref is
+the one of the caller, the body is made with the context of the callee: the result was a wrong string). The object of a call of a class
+is never forwarded (it must be checked), nor an arg that the body changes. Nothing that is a place that a jump goes to is dropped but
+the first of the pushes.
+
+The commands of the different bodies are not joined (the plan has a cut at the begin and at the end of each one), and the plan is
+not shared by the instances of a generic method. `APRIL_INLINE_CALLS=0` turns the inlining off, `APRIL_INLINE_LIMIT=n` inlines the first
+n calls only (to find the one that is wrong: the result changes at the n that is the first bad one), `APRIL_INLINE_TRACE=1` tells
+each one. `APRIL_CALL_STATS=1` tells at the end of the process how many calls there were, by kind, and by the size of the callee.
+
+**What it gives**: the loop of two calls of small static methods (`call_cost`, 30 million rounds): 1.2x (the same code written inline
+is 1.33x). In the benchmarks, 1.0x - 1.07x (`field_access` 1.07x, `struct_math` 1.04x, the others inside the noise): the calls that
+they have are to accessors (a fast call already), to methods that have a jump (the check of the index of `List`), to the virtual and
+the interface methods, to the invoke of delegates, and recursive ones, which are not inlined. A method with an `if` is the next step
+(its jumps must be made again, the `ret` in the middle becomes a jump).
+
+**What was wrong, and is in the tests**: the inlining made `field_access` 14% slower first: the inlined `this` is a local variable,
+and the superinstructions of `this.Field` (the read and the write of a field of this) were for an argument only. They take a local
+variable that is an object now, which makes the reads and writes of the fields of any object in a local variable faster too.
+`test/unittest/basic/inline_calls.cs` has static and instance methods, a struct, a generic method, args that the callee changes, its
+variables, the calls inside it, an exception that it raises (the caller catches it), the null object, a static constructor, and
+callers with loops, a switch, try blocks and many calls.
+
+A method with an `if` (`Max`, `Abs`, `Clamp`, a loop) is inlined: `test/unittest/basic/inline_branches.cs`. The benchmarks do not have many
+(the result is inside the noise: `fib` is recursive, `List<T>.get_Item` returns through `copy`).
+
+## Virtual calls, interface calls and delegates
+
+Not inlined: the method that a virtual or interface call goes to, or a delegate calls, depends on the object, a body that is put in the
+xils must be the right one (it needs a guard on the type and a call that is made when the guard fails), and the type that is seen must come
+from a profile (the commands of a call count what they saw; the method is made again when it is hot). The first parse of a method that
+has a loop is the only one (there is no replacing of the commands of a loop that runs: `fib`, `virtual_calls` have their loop in
+`Main`, that is called once), so the profile cannot reach the loops that matter most. Two cheaper things are done:
+
+* **The cache of an interface call**: the call looked for the function of the interface in the table of the type of the object each
+  time. The command has a cache now of up to four types and the methods that they have (`__call_site_cache_t`, a cache is made again
+  when a type is added, it is never changed: other threads read it; value types and strings keep the search, they need the fix of the
+  receiver). `virtual_calls` (a site that has two types): 1.4x. A virtual call has no cache (its table is a vector: two reads).
+* **Invoke of a delegate**: a call of `Invoke` (`call command delegate_invoke; ret`) is recognized as the third kind of method that
+  `analyze_trivial_method` finds (kind 4): the call goes to the method that the delegate has, without the frame of Invoke
+  (`__delegate_invoke_direct`: the object of the lambda takes the place of the delegate in the stack, a static method gets the args one
+  unit lower). A delegate that returns a struct keeps the frame. `lambda_loop` 1.05x; `test/unittest/basic/delegate_direct.cs`.
 
 
 ## The models of the interpreter (EXEC_EXECUTE_MODEL)

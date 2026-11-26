@@ -95,6 +95,8 @@ namespace X_ROOT_NS::modules::exec {
                         case xil_storage_type_t::local:
                             if (__is_num(push->dtype()))
                                 item.cls = __cls_t::push_local, item.d1 = item.d2 = push->dtype();
+                            else if (push->dtype() == xil_type_t::object)
+                                item.cls = __cls_t::push_this, item.d1 = item.d2 = push->dtype();
                             break;
 
                         case xil_storage_type_t::argument:
@@ -339,6 +341,12 @@ namespace X_ROOT_NS::modules::exec {
             return false;
         }
 
+        // The kind of the push of an object: a local variable or an argument.
+        fusion_operand_t __object_kind(const xil_base_t * xil)
+        {
+            return ((const push_xil_t *)xil)->stype() == xil_storage_type_t::local? fusion_operand_t::local : fusion_operand_t::argument;
+        }
+
         bool __is_operand(__cls_t cls)
         {
             return cls == __cls_t::push_local || cls == __cls_t::push_argument || cls == __cls_t::push_const;
@@ -443,7 +451,7 @@ namespace X_ROOT_NS::modules::exec {
                     || binary(false, true, 3, 4))
                 return true;
 
-            // push x, push this, pop field: this.Field = x
+            // push x, push this (an argument, or a local variable that is an object), pop field: this.Field = x
             if (operand(0) && items[1].cls == __cls_t::push_this && items[2].cls == __cls_t::pop_field && items[0].d1 == items[2].d1)
             {
                 shape->form = fusion_form_t::store_field;
@@ -452,6 +460,7 @@ namespace X_ROOT_NS::modules::exec {
                 shape->left_index = 0;
                 shape->right_index = 1;
                 shape->op_index = 2;
+                shape->array = __object_kind(xils[1]);
                 return true;
             }
         }
@@ -507,6 +516,7 @@ namespace X_ROOT_NS::modules::exec {
             {
                 shape->form = fusion_form_t::this_field;
                 shape->length = 2;
+                shape->array = __object_kind(xils[0]);
                 return true;
             }
 
@@ -519,6 +529,7 @@ namespace X_ROOT_NS::modules::exec {
                 shape->left_index = -1;
                 shape->right_index = 0;
                 shape->op_index = 1;
+                shape->array = __object_kind(xils[0]);
                 return true;
             }
         }
@@ -553,10 +564,11 @@ namespace X_ROOT_NS::modules::exec {
 
     // Makes the plan of the xils of a method.
     const fusion_plan_t * fusion_plan_of(const std::vector<const xil_base_t *> & xils, exec_switch_manager_t & switches,
-                const al::svector_t<method_xil_block_t, 10> & blocks, bool * has_loop)
+                const al::svector_t<method_xil_block_t, 10> & blocks, bool * has_loop, const std::vector<uint8_t> * extra_cuts)
     {
         __key_t key { xils.empty()? nullptr : (const void *)xils[0], (size_t)xils.size() };
 
+        if (extra_cuts == nullptr)
         {
             std::lock_guard<std::mutex> guard(__lock);
             auto it = __plans.find(key);
@@ -570,6 +582,12 @@ namespace X_ROOT_NS::modules::exec {
         fusion_plan_t * plan = new fusion_plan_t();
         std::vector<uint8_t> cuts = exec_cut_points(xils, switches, blocks, &plan->has_loop);
         plan->has_blocks = blocks.size() > 0;
+
+        if (extra_cuts != nullptr)
+        {
+            for (size_t k = 0; k < cuts.size() && k < extra_cuts->size(); k++)
+                cuts[k] |= (*extra_cuts)[k];
+        }
 
         size_t count = xils.size();
         plan->index_map.assign(count + 1, 0);
@@ -609,6 +627,8 @@ namespace X_ROOT_NS::modules::exec {
 
         plan->index_map[count] = command_index;
 
+        // The plan of the xils that the inlining made is not shared: the xils are made again each time.
+        if (extra_cuts == nullptr)
         {
             std::lock_guard<std::mutex> guard(__lock);
             auto it = __plans.find(key);
